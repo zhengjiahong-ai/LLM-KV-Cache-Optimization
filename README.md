@@ -6,7 +6,19 @@ This course project will reproduce KV-cache management baselines and investigate
 
 ## Current Status
 
-**Phase 0: repository initialization and architecture validation.** No experimental conclusions should be drawn from the simulator.
+**Phase 0 — Backend & Architecture Validation: COMPLETE.**
+
+The project has validated a real GPU backend using **vLLM 0.27.1** with Automatic Prefix Caching (APC): real inference, direct prefix-cache hits, controlled cache pressure, and cached-block eviction have all been observed. The validated real eviction path is:
+
+```text
+BlockPool.get_new_blocks()
+→ FreeKVCacheBlockQueue.popleft_n()
+→ BlockPool._maybe_evict_cached_block()
+```
+
+The project is now entering **Phase 1 — Baseline Reproduction**. Phase 0 is infrastructure/architecture validation and must not be described as reproduction of the strong baseline.
+
+See [`docs/vllm-smoke-test.md`](docs/vllm-smoke-test.md) for the Phase 0 evidence and [`docs/backend-selection.md`](docs/backend-selection.md) for the pinned backend decision.
 
 ## Architecture
 
@@ -20,6 +32,8 @@ flowchart TD
     D --> G[Optimized Policy]
 ```
 
+The local simulator remains useful for deterministic interface and policy tests, but formal serving-performance claims must use the real vLLM backend.
+
 ## Modules
 
 - `scheduler`: request lifecycle and execution selection.
@@ -28,7 +42,7 @@ flowchart TD
 - `workload`: dataset-agnostic request sources.
 - `metrics`: runtime events for evaluation extensions.
 - `runtime`: deterministic functional simulator only.
-- `benchmarks`, `configs`, `docs`, `tests`: future experiment support and project documentation.
+- `benchmarks`, `configs`, `docs`, `tests`: experiment support and project documentation.
 
 ## Setup
 
@@ -38,6 +52,8 @@ pip install -e ".[dev]"
 pytest
 python scripts/run_demo.py
 ```
+
+The real vLLM backend is run separately in the pinned Docker environment; it is not installed into the host Python environment by the simulator setup above.
 
 ## Team Responsibilities
 
@@ -53,4 +69,6 @@ See [`docs/team-responsibilities.md`](docs/team-responsibilities.md) for detaile
 
 ## Development Status
 
-`DummyEvictionPolicy` is **not** a baseline and **not** the proposed method. It exists only for smoke testing.
+`DummyEvictionPolicy` is **not** a baseline and **not** the proposed method. It exists only for simulator smoke testing.
+
+The next implementation milestone is the common real-backend policy integration path followed by baseline reproduction; the proposed cost-aware policy should not be implemented before the baseline path is stable.
