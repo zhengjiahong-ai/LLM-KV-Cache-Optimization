@@ -1,0 +1,6 @@
+cache:
+  total_blocks: 128
+  block_size_tokens: 16
+
+scheduler:
+  type: fifo
