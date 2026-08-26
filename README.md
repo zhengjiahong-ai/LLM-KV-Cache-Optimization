@@ -49,6 +49,8 @@ Member 5 — Dataset, workload and benchmark framework
 Member 6 — Evaluation, visualization, profiling and analysis  
 Member 7 — Slides and presentation
 
+See [`docs/team-responsibilities.md`](docs/team-responsibilities.md) for detailed ownership, deliverables, boundaries, Q&A responsibilities, and phase-by-phase collaboration.
+
 ## Development Status
 
 `DummyEvictionPolicy` is **not** a baseline and **not** the proposed method. It exists only for smoke testing.
