@@ -52,34 +52,58 @@ The final workload matrix should remain small enough to run reproducibly within 
 
 ## Baselines
 
-### Baseline 1 — vLLM-style LRU
+### Baseline 1 — vLLM 0.27.1 native APC LRU
 
-LRU is retained as a production-oriented baseline because current LLM serving systems still use recency-based eviction in KV-cache/prefix-cache management.
+Baseline 1 is the native GPU Automatic Prefix Caching (APC) eviction behavior in **vLLM 0.27.1**.
+
+The Phase 0 backend validation confirmed the real allocation/eviction path:
+
+```text
+BlockPool.get_new_blocks()
+    -> FreeKVCacheBlockQueue.popleft_n()
+    -> BlockPool._maybe_evict_cached_block()
+```
+
+The free-block queue maintains cached free blocks in block-level LRU order. A cached free block selected from the queue head can be physically reassigned, after which `_maybe_evict_cached_block()` removes its cached hash metadata.
 
 This baseline answers:
 
 > How much is gained by using signals beyond recency?
 
-The baseline should use deterministic tie-breaking and run through the same cache-manager/runtime path as the proposed method.
+Important terminology boundary:
+
+- **vLLM APC LRU** is the project's production/weak baseline and refers to vLLM's block-level free-cache ordering;
+- **SGLang Leaf-LRU** is a different implementation over a radix/prefix-tree cache and should not be treated as the same concrete policy implementation, even though both belong to the recency-based eviction family.
+
+All experimental policies must use the same vLLM backend and the same underlying allocation/bookkeeping path wherever practical.
 
 ### Baseline 2 — Continuum-style TTL / retention policy
 
-A recent strong baseline inspired by Continuum will represent retention-aware KV-cache management.
+Continuum remains the current recent strong-baseline target.
 
-The exact implementation scope is not yet frozen. Before implementation, the team must document:
+**The exact reproduction scope is not yet frozen.** Literature notes may identify candidate components such as TTL calculation, pin/unpin behavior, scheduling priority, and pressure handling, but those notes are not the implementation specification.
+
+Before Member 3 implements this baseline, Member 1 must freeze the adaptation scope in `docs/baseline-freeze.md` after considering both:
+
+- the mechanism described by the Continuum paper;
+- what can be represented faithfully on the pinned vLLM 0.27.1 GPU APC path.
+
+The freeze must document:
 
 - which Continuum decision mechanism is reproduced;
+- which candidate components are included or excluded;
 - what runtime assumptions differ from the original system;
-- which components are omitted;
+- what unit of retention/eviction is used in the vLLM adaptation;
+- how the adapted policy interacts with the common policy/runtime path;
 - why the resulting baseline remains a fair and meaningful comparison.
 
-The baseline should not silently collapse into ordinary LRU.
+The baseline must not silently collapse into ordinary LRU, and the adaptation must not be described as a faithful full-system reproduction if major Continuum system components are omitted.
 
-### Optional baseline — KVFlow-style reuse-aware policy
+### Optional baseline — reuse/workflow-aware policy
 
-KVFlow-style workflow/future-reuse-aware eviction may be added only if time and runtime support permit.
+Additional policies such as ARC, RLT, SAGA/WA-LRU, or another reuse/workflow-aware method may be added only if time and runtime support permit.
 
-It is **not required** for the minimum project scope because a faithful implementation may require workflow structure or future-execution information that is not available in ordinary serving traces.
+They are **not required** for the minimum project scope. Their primary role at this stage is related-work and mechanism comparison unless explicitly promoted through a later project freeze.
 
 ---
 
@@ -144,35 +168,78 @@ These are examples, not frozen experiment settings.
 
 ## Runtime / Backend
 
-TBD.
+### Frozen backend
 
-The repository currently contains a deterministic logical simulator for interface validation only. It must not be used as evidence for real LLM inference performance.
+The real inference backend is frozen to:
 
-The final backend should satisfy the following requirements:
+```text
+vLLM 0.27.1
+```
 
-- support real LLM inference on available GPU hardware;
-- expose or permit modification of KV-cache management decisions;
-- allow LRU, strong baseline, and proposed policy to use the same execution path;
-- expose enough measurements for latency, throughput, cache behavior, and policy overhead;
-- remain feasible to build and reproduce within course-project time constraints.
+Primary research target:
 
-A vLLM-based implementation is a leading candidate, but the backend is not frozen yet.
+```text
+GPU Automatic Prefix Caching (APC) eviction
+```
+
+This project does **not** use the CPU KV-offload cache-policy subsystem as its primary experimental path.
+
+### Phase 0 validation status
+
+Phase 0 — Backend & Architecture Validation is complete.
+
+Validated on the available single-GPU environment:
+
+- real GPU inference: PASS;
+- APC initialization and real prefix-cache hit: PASS;
+- controlled GPU KV-cache pressure: PASS;
+- real cached-block selection and eviction: PASS;
+- block-level LRU semantics: PASS;
+- kernel changes required: NO.
+
+A cache-pressure smoke configuration used `gpu_memory_utilization=0.30`, yielding approximately `0.32 GiB` of GPU KV cache and `28,368` cache tokens. Under repeated distinct-prefix requests, real cached blocks were observed flowing through:
+
+```text
+cached free block
+    -> FreeKVCacheBlockQueue.popleft_n()
+    -> BlockPool._maybe_evict_cached_block()
+    -> cached hash metadata removal
+```
+
+The temporary instrumentation used for this validation changed observability only and did not change policy behavior.
+
+Detailed evidence is recorded in `docs/vllm-smoke-test.md` and backend architecture decisions in `docs/backend-selection.md`.
+
+### Common policy integration requirement
+
+The project should introduce the smallest practical policy adapter around the real victim-selection boundary while preserving common vLLM allocation and cache bookkeeping.
+
+Conceptually:
+
+```text
+vLLM runtime state
+      -> project policy adapter
+      -> candidate metadata/context
+      -> {native LRU, Continuum-style baseline, Cost-Aware}
+      -> ordered victim block set
+      -> common BlockPool allocation/eviction bookkeeping
+```
+
+Member 3 and Member 4 must not implement baselines and the proposed method through unrelated backend paths, because that would make performance comparisons difficult to interpret.
+
+The deterministic repository simulator remains useful for interface/unit testing only and must not be used for real serving-performance claims.
 
 ---
 
 ## Models
 
-TBD.
+Current Phase 0 smoke model:
 
-Model selection should consider:
+```text
+Qwen/Qwen2.5-0.5B-Instruct
+```
 
-- available GPU memory;
-- ability to create meaningful KV-cache pressure;
-- runtime/backend compatibility;
-- reproducibility;
-- experiment duration.
-
-The final comparison must use the same model and model configuration for all policies.
+This model is validated as feasible for backend smoke tests on the available GPU, but the **formal experiment model selection remains to be frozen**. The final comparison must use the same model and model configuration for all policies.
 
 ---
 
@@ -277,9 +344,9 @@ Every reported metric must have a clear definition and collection method before 
 At minimum, formal experiments should compare:
 
 ```text
-vLLM-style LRU
+vLLM 0.27.1 native APC LRU
 vs.
-Continuum-style recent strong baseline
+Continuum-style recent strong baseline (scope frozen separately)
 vs.
 Proposed dynamic cost-aware policy
 ```
@@ -289,12 +356,12 @@ All methods must use:
 - the same model;
 - the same request trace;
 - the same cache/memory budget;
-- the same runtime/backend version;
+- the same vLLM/backend version;
 - the same hardware;
-- the same relevant batching/scheduling settings;
+- the same relevant batching/scheduling settings unless a baseline intrinsically requires a documented policy-specific scheduling mechanism;
 - the same random seed where randomness exists.
 
-Only policy-specific settings may differ.
+Only policy-specific settings may differ, and those differences must be documented.
 
 ---
 
@@ -323,9 +390,9 @@ This is a hypothesis to test, not a conclusion.
 
 ## Hardware
 
-TBD.
+Current validated development environment includes a single NVIDIA GeForce RTX 4060 Laptop GPU with 8 GiB-class VRAM under Docker Desktop / WSL2 GPU passthrough.
 
-Record at minimum:
+Formal experiment hardware details must still be frozen and recorded exactly before final runs, including:
 
 - GPU model and VRAM;
 - CPU model if policy overhead is material;
@@ -363,10 +430,42 @@ The minimum project scope does **not** require:
 - redesigning attention kernels;
 - speculative decoding;
 - distributed KV-cache transfer;
-- a full reproduction of every component in Continuum or KVFlow;
+- CPU KV offloading as the primary mechanism;
+- a full reproduction of every component in Continuum or another related system;
 - training or fine-tuning an LLM.
 
-The research contribution should remain focused on **KV-cache eviction / retention decisions during LLM serving**.
+The research contribution should remain focused on **GPU APC KV-cache eviction / retention decisions during LLM serving**.
+
+---
+
+## Ownership and Freeze Process
+
+### Member 1 — architecture / backend / project-level freeze
+
+Member 1 owns:
+
+- authoritative backend/runtime facts;
+- the common policy-integration boundary;
+- final baseline-set approval;
+- the Continuum adaptation/reproduction-scope freeze;
+- cross-policy runtime fairness constraints.
+
+### Member 2 — literature evidence
+
+Member 2 owns:
+
+- background and related-work research;
+- mechanism summaries;
+- evidence for why candidate baselines are relevant;
+- identifying adjacent/competing approaches and novelty risks.
+
+Member 2's notes may recommend candidate reproduction components, but they do not freeze implementation scope.
+
+### Member 3 — baseline implementation
+
+Member 3 owns implementation and validation of the baselines after the scope is frozen.
+
+If the frozen scope proves infeasible on vLLM 0.27.1, Member 3 should report the concrete blocker; Member 1 then updates the freeze rather than allowing silent implementation drift.
 
 ---
 
@@ -376,19 +475,22 @@ The research contribution should remain focused on **KV-cache eviction / retenti
 
 - Overall topic: KV Cache Management Optimization for LLM Inference
 - Research focus: Cost-Aware KV Cache Eviction for LLM Serving
-- Weak/production baseline family: vLLM-style LRU
+- Real backend: vLLM 0.27.1
+- Primary subsystem: GPU Automatic Prefix Caching eviction
+- Native production/weak baseline: vLLM 0.27.1 APC block-level LRU
 - Recent strong baseline target: Continuum-style retention policy
+- Phase 0 backend/architecture validation: COMPLETE
 - Core evaluation questions: RQ1, RQ2, RQ3 above
 
 ### Not frozen yet
 
-- exact real inference backend / version;
-- exact Continuum reproduction scope;
+- exact Continuum reproduction/adaptation scope;
+- exact common policy-adapter API;
 - exact proposed scoring function;
-- model(s);
+- formal experiment model(s);
 - dataset(s);
 - final workload matrix;
-- hardware;
+- formal-run hardware/configuration;
 - final hyperparameters.
 
-These items should remain TBD until the relevant owner provides evidence for the choice.
+These items should remain explicitly unfrozen until the relevant owner provides evidence and the project records the decision.
