@@ -2,15 +2,26 @@
 
 ## Goal
 
-This course project studies **cost-aware KV-cache management for LLM serving** on a real vLLM backend.
+This course project studies **cost-aware KV-cache eviction for LLM serving** on a real vLLM backend.
 
-The current research scope includes three interacting decisions:
+The broader system context includes retention/protection and scheduling coordination, but the research contribution remains centered on one primary decision:
 
-- **retention / protection** — how long reusable KV state should remain protected;
-- **eviction / victim selection** — which cached blocks should be reclaimed under memory pressure;
-- **scheduling coordination** — whether request/program admission order should use cache state to reduce expensive recomputation.
+> **When GPU KV-cache capacity is insufficient, which cached blocks/prefixes should be evicted to minimize future recomputation cost?**
 
-The project compares native vLLM behavior, a Continuum-style retention+scheduling baseline, and a proposed cost-aware design.
+The project therefore uses the following hierarchy:
+
+```text
+Primary research core
+    Cost-Aware Eviction / Victim Selection
+
+Supporting cache mechanism
+    Retention / Protection
+
+System coordination
+    Scheduling
+```
+
+Retention and scheduling are included where needed to reproduce strong system baselines and to evaluate later coordination extensions. They do not replace eviction as the main research problem.
 
 ## Current Status
 
@@ -23,6 +34,32 @@ Phase 1B  Continuum baseline implementation          NEXT
 ```
 
 The real backend is frozen to **vLLM 0.27.1** with GPU Automatic Prefix Caching (APC).
+
+## Research Structure
+
+### Core contribution path
+
+```text
+vLLM native APC LRU
+        vs.
+Cost-Aware Eviction
+```
+
+This comparison is the primary algorithmic contribution and must remain independently evaluable with native scheduling fixed.
+
+### Supporting / system-level path
+
+```text
+Eviction
+  + Retention
+  + Scheduling coordination
+```
+
+These layers are used for:
+
+- reproducing Continuum-style system behavior;
+- testing whether retention further strengthens eviction decisions;
+- testing whether scheduling coordination further improves end-to-end performance.
 
 ## Current Architecture
 
@@ -40,6 +77,8 @@ flowchart TD
     H --> J[Metrics / Profiling]
 ```
 
+The **Eviction Policy Adapter is the primary research decision boundary**. Retention and scheduling provide context or coordination around it.
+
 The validated Phase 1A eviction path is:
 
 ```text
@@ -49,8 +88,6 @@ vLLM cached free blocks
     -> selected block IDs
     -> native BlockPool allocation / eviction bookkeeping
 ```
-
-Phase 1B extends this lower-level path with session identity, dynamic TTL retention, soft protection, and a narrow scheduler adapter. Native vLLM queue/ref-count/hash bookkeeping remains authoritative.
 
 ## Baselines
 
@@ -63,41 +100,50 @@ Phase 1B extends this lower-level path with session identity, dynamic TTL retent
 
 ### Baseline 2 — Continuum-style adapted system
 
-Frozen Phase 1B scope:
+Continuum is reproduced as a strong **system-level baseline**, including the retention and scheduling mechanisms required by the frozen Phase 1B scope:
 
-- explicit `program_id/session_id` from workload/orchestrator;
+- explicit `program_id/session_id`;
 - online tool-gap / reuse history;
 - dynamic TTL estimation;
-- soft retention protection without modifying native `ref_cnt` semantics;
-- lazy TTL expiry and deterministic pressure release;
-- narrow program-level admission-order scheduling adapter;
-- existing Phase 1A eviction adapter and native BlockPool cleanup retained.
+- soft retention protection;
+- lazy expiry and deterministic pressure release;
+- narrow program-level admission-order scheduling adaptation;
+- existing Phase 1A eviction path and native BlockPool cleanup.
 
-This is an adaptation to vLLM 0.27.1, not an exact source-level reproduction of Continuum.
+This does **not** mean the proposed method becomes scheduler-centric. Continuum's full-system mechanisms are reproduced because they are intrinsic to that baseline.
 
 ## Proposed Method
 
-The proposed method will investigate **cost-aware coordination** across retention, eviction, and scheduling. The exact cost model and scheduling rule are not yet frozen.
+The proposed method starts from **Cost-Aware Eviction / Victim Selection**.
 
-The intended distinction is to reason explicitly about the runtime consequence of losing KV state, rather than relying only on recency or a predicted retention horizon.
+Conceptually:
 
-## Repository Modules
+```text
+EvictionLoss = f(
+    recomputation_cost,
+    reuse_signal,
+    memory_footprint,
+    cache_pressure
+)
+```
 
-- `runtime/vllm`: real vLLM integration, adapters, observers, and bridges.
-- `scheduler`: project scheduling abstractions and future scheduling-policy integration.
-- `kv_cache`: simulator/cache-policy contracts used for deterministic testing.
-- `policies`: baseline and proposed policy implementations.
-- `workload`: datasets, traces, controlled multi-turn workloads, and session events.
-- `metrics`: runtime events, evaluation metrics, and profiling support.
-- `benchmarks`, `configs`, `docs`, `tests`: experiment, reproducibility, and project documentation.
+The exact function is not yet frozen.
 
-The deterministic simulator remains useful for unit/interface testing only and must not be used for real serving-performance claims.
+After the eviction-only method is validated, optional extensions may add:
+
+```text
+Ours-Evict
+Ours-Evict+Retention
+Ours-Full = Eviction + Retention + Scheduling
+```
+
+`Ours-Evict` must remain an independently meaningful method and experiment.
 
 ## Key Documents
 
-- [`docs/experiment-plan.md`](docs/experiment-plan.md) — authoritative research questions, experiment structure, and scope.
+- [`docs/experiment-plan.md`](docs/experiment-plan.md) — research questions and experimental hierarchy.
 - [`docs/baseline-freeze.md`](docs/baseline-freeze.md) — frozen Phase 1B Continuum adaptation scope.
-- [`docs/continuum-vllm-mapping.md`](docs/continuum-vllm-mapping.md) — feasibility mapping from Continuum mechanisms to vLLM 0.27.1.
+- [`docs/continuum-vllm-mapping.md`](docs/continuum-vllm-mapping.md) — feasibility mapping from Continuum to vLLM 0.27.1.
 - [`docs/policy-adapter-design.md`](docs/policy-adapter-design.md) — validated Phase 1A block-level eviction adapter.
 - [`docs/team-responsibilities.md`](docs/team-responsibilities.md) — ownership and phase responsibilities.
 
@@ -106,17 +152,18 @@ The deterministic simulator remains useful for unit/interface testing only and m
 Member 1 — Architecture, scheduler/cache interfaces, integration, project management  
 Member 2 — Background, related work, motivation  
 Member 3 — Baseline system implementation and validation  
-Member 4 — Cost-aware optimization design and implementation  
+Member 4 — **Cost-Aware eviction** design and implementation, then optional coordination extensions  
 Member 5 — Dataset, workload and benchmark framework  
-Member 6 — Evaluation, visualization, profiling and analysis  
+Member 6 — Evaluation, visualization, profiling and attribution analysis  
 Member 7 — Slides and presentation
 
 ## Development Rules
 
 - Do not develop directly on `main`; use task branches and PRs.
 - Preserve the common vLLM backend path across policies wherever practical.
-- Do not silently change a frozen baseline mechanism to simplify implementation.
-- Separate component-level attribution experiments from full-system comparisons.
+- Do not silently change a frozen baseline mechanism.
+- Keep eviction-only/component experiments separate from full-system comparisons.
+- Do not attribute full-system gains to eviction without component evidence.
 - Do not commit model weights, Hugging Face caches, Docker data, or large raw traces.
 
 ## Development Status Note
