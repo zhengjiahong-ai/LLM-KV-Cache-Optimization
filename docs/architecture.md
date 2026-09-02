@@ -1,41 +1,37 @@
 # Architecture
 
-The project now studies **KV-cache management as a coordinated serving-system problem**, not eviction in isolation.
+The project studies KV-cache management on **vLLM 0.27.1 GPU APC**, with a clear hierarchy of concerns.
 
-The research boundary includes:
+## Research hierarchy
 
 ```text
-retention / protection
-+
-eviction / victim selection
-+
-scheduling coordination
+Primary research core
+    Eviction / Victim Selection
+
+Supporting cache mechanism
+    Retention / Protection
+
+System coordination
+    Scheduling
 ```
 
-The real inference backend is frozen to **vLLM 0.27.1** with GPU Automatic Prefix Caching (APC).
+The broader architecture includes all three because strong baselines such as Continuum couple retention with scheduling. However, the proposed research contribution remains centered on improving **which cached KV blocks/prefixes are evicted under memory pressure**.
 
 ## System Layers
 
 ```text
 Workload / Orchestrator
     - request arrivals
-    - explicit program/session identity
+    - optional program/session identity
     - controlled tool-gap events
             |
             v
 Request / Session Observation Layer
-    - request -> program/session association
-    - prefix/block observation
-    - completion, reuse, preemption, tool-gap events
             |
             v
 Retention State Manager
-    - online history
-    - dynamic TTL / retention deadline
-    - soft protection state
-    - program/session <-> prefix <-> block associations
        |                                |
-       | scheduler state                | eviction eligibility
+       | scheduler context              | eviction eligibility
        v                                v
 SchedulingPolicyAdapter          EvictionPolicyAdapter
        |                                |
@@ -50,39 +46,9 @@ SchedulingPolicyAdapter          EvictionPolicyAdapter
                  GPU APC KV Cache
 ```
 
-## vLLM Backend Boundary
+## Primary decision boundary — EvictionPolicyAdapter
 
-Phase 0 validated the native GPU APC path:
-
-```text
-KVCacheManager.allocate_slots()
-    -> BlockPool.get_new_blocks()
-    -> FreeKVCacheBlockQueue.popleft_n()
-    -> BlockPool._maybe_evict_cached_block()
-```
-
-Native vLLM remains authoritative for:
-
-- request status transitions;
-- queue mutation and scheduler bookkeeping;
-- KV block reference counts;
-- free-queue ownership;
-- APC hash metadata;
-- actual block allocation and metadata cleanup.
-
-Project policies should make decisions through narrow adapters and should not duplicate or bypass these semantics.
-
-## Phase 1A — Eviction Policy Adapter
-
-**Status: CLOSED / VALIDATED**
-
-The existing real-backend adapter lives under:
-
-```text
-src/kvopt/runtime/vllm/
-```
-
-The validated decision path is:
+Phase 1A validated the real backend victim-selection path:
 
 ```text
 native free cached blocks
@@ -93,126 +59,61 @@ native free cached blocks
     -> native BlockPool eviction bookkeeping
 ```
 
-The adapter operates at block level. It must remain reusable for:
+This is the **main experimental decision boundary** for the proposed algorithm.
 
-- native LRU equivalence;
-- Continuum retention eligibility + fallback eviction;
-- the later Cost-Aware victim-selection component.
+It must support at minimum:
 
-The older simulator `EvictionPolicy` interface is a separate logical testing contract and must not be confused with the real vLLM adapter.
+- native block-level LRU equivalence;
+- Continuum retention-aware eligibility/fallback behavior;
+- future Cost-Aware victim selection.
 
-## Request / Session Observation Layer
+The project must preserve native vLLM ownership of:
 
-vLLM has `request_id` but no native `program_id/session_id` suitable for multi-turn Continuum-style workflows.
+- block reference counts;
+- free-queue links;
+- APC hashes;
+- actual allocation;
+- metadata cleanup.
 
-Therefore the project introduces explicit program/session identity from the workload/orchestrator.
+## Retention layer
 
-The observation layer records runtime associations while native information is still available:
+Retention is a supporting mechanism around eviction.
 
-```text
-request_id
-program_id/session_id
-prefix identity
-current block IDs
-request admission/completion
-reuse/resume
-preemption
-tool-gap start/end
-```
+It may determine whether a cached prefix/block should currently be protected from ordinary victim selection, but it does not replace the eviction policy itself.
 
-The persistent request/session-to-block association is **observation-derived**. APC hashes cannot be used to recover logical ownership after request completion.
-
-This metadata must never become part of vLLM inference correctness.
-
-## Retention State Manager
-
-Retention state is maintained outside native vLLM objects.
-
-Conceptually:
+For the Continuum baseline, retention state is maintained independently of native vLLM block semantics:
 
 ```text
 program/session
     -> prefix identity
-        -> TTL / retention deadline
+        -> TTL / deadline
         -> protected state
-        -> observed block IDs
-
-block ID
-    -> associated prefix identities
+        -> observed blocks
 ```
 
-This design is required because:
+Protected blocks remain native free cached blocks and are filtered before ordinary victim selection.
 
-- ordinary completed `Request` objects disappear;
-- APC hashes represent content, not workflow identity;
-- block IDs are ephemeral and can be reassigned.
+## Scheduling layer
 
-### Soft protection
+Scheduling coordination is included because Continuum's defining system behavior requires program-level scheduling adaptation and because later full-system experiments may study coordination benefits.
 
-Protected free cached blocks remain in the native free queue with normal vLLM reference-count and hash semantics.
-
-Protection is implemented as an eligibility rule before victim selection:
-
-```text
-native free cached blocks
-    -> retention eligibility filter
-    -> EvictionPolicyAdapter
-```
-
-Do not simulate pinning by changing `ref_cnt` or moving blocks into a second hidden pool.
-
-### Expiry and pressure
-
-TTL expiry is lazy and deterministic.
-
-When memory pressure requires reclamation:
-
-```text
-expire overdue entries
-    -> use unprotected blocks first
-    -> if still insufficient, release protected entries
-    -> existing eviction adapter
-    -> native BlockPool cleanup
-```
-
-The first frozen pressure fallback is:
-
-```text
-earliest retention deadline
-    -> native LRU rank tie-break
-```
-
-This fallback is a project adaptation for bounded-memory progress, not a claimed native Continuum rule.
-
-## SchedulingPolicyAdapter
-
-The broader project includes scheduling/cache coordination.
-
-The first scheduler boundary is intentionally narrow:
+The frozen first boundary is narrow:
 
 ```text
 read-only scheduler snapshot
     -> SchedulingCandidate[]
     -> SchedulingPolicyAdapter.order(...)
-    -> ordered request IDs for the current scheduling step
-    -> minimal vLLM hook performs native queue operations
+    -> ordered waiting request IDs
+    -> native vLLM scheduling bookkeeping
 ```
 
-The policy may influence waiting/admission order but must not directly mutate:
+The first implementation does not modify running-request preemption order.
 
-- `Request` objects;
-- waiting/running queue internals;
-- request status;
-- KV blocks/ref counts;
-- scheduler bookkeeping sets.
+Scheduling is therefore a **system coordination layer**, not the primary algorithmic contribution.
 
-The first Continuum implementation does **not** require changing running-request preemption order. Any such expansion requires a new project-level freeze.
+## Baseline architecture
 
-Native scheduling must remain selectable for component-level experiments and shadow validation.
-
-## Baseline Architecture
-
-### Baseline 1 — vLLM native
+### Native vLLM
 
 ```text
 native scheduler
@@ -220,49 +121,70 @@ native scheduler
 native APC block-level LRU
 ```
 
-### Baseline 2 — Continuum-style adapted system
+### Continuum-style adapted system
 
 ```text
 explicit program/session identity
-    -> tool-gap / reuse history
+    -> tool-gap history
     -> dynamic TTL
-    -> soft retention protection
-    -> program-level admission-order scheduling adaptation
-    -> native vLLM APC / BlockPool backend
+    -> soft retention
+    -> program-level admission-order scheduling
+    -> native APC / BlockPool backend
 ```
 
-Because vLLM lacks several Continuum-native primitives, this is an explicit system adaptation rather than an exact source-level reproduction.
+Continuum is intentionally reproduced as a system-level baseline even though the proposed research core is eviction.
 
-## Proposed Cost-Aware System
+## Proposed architecture
 
-The future proposed method will reuse the same architectural layers and investigate explicit runtime cost when making retention, eviction, and scheduling decisions.
+The proposed method should be developed in stages:
 
-The exact score/function is not frozen.
+```text
+Ours-Evict
+    = Cost-Aware victim selection
+    + native scheduler
+    + no proposed retention/scheduling extension required
 
-The key architectural fairness rule is:
+Ours-Evict+Retention
+    = Ours-Evict
+    + proposed retention support
 
-> Baselines and the proposed method should share the same native vLLM backend, observation infrastructure, and downstream cache bookkeeping wherever practical; only policy-specific decisions should differ.
+Ours-Full
+    = Ours-Evict+Retention
+    + proposed scheduling coordination
+```
+
+`Ours-Evict` is mandatory as an independently evaluable method. Retention and scheduling extensions must not become prerequisites for demonstrating the core contribution.
+
+## Experiment boundaries
+
+### Primary algorithm experiment
+
+Hold scheduling fixed and compare victim selection:
+
+```text
+vLLM native LRU
+vs.
+Cost-Aware Eviction
+```
+
+### Supporting component experiments
+
+Evaluate whether retention further improves the eviction-centered method.
+
+### Full-system experiment
+
+Compare intrinsic system combinations such as:
+
+```text
+vLLM native
+vs.
+Continuum-style adapted system
+vs.
+Ours-Full
+```
+
+A full-system gain must not be attributed to eviction alone without the eviction-only/component results.
 
 ## Simulator
 
-The deterministic simulator remains useful for:
-
-- interface tests;
-- deterministic policy tests;
-- small synthetic edge cases.
-
-It does not execute real GPU KV cache and must not support real serving-performance claims.
-
-## Experiment Boundaries
-
-Two experiment levels must remain distinct.
-
-### Component attribution
-
-Hold native scheduling fixed and isolate cache-management effects.
-
-### Full-system comparison
-
-Allow intrinsic retention/scheduling coordination and compare end-to-end system behavior.
-
-A full-system gain must not automatically be attributed to eviction alone.
+The deterministic simulator remains useful for interface/unit tests only. Real serving-performance claims must come from the validated vLLM backend.
