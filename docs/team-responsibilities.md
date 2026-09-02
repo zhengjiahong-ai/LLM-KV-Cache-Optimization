@@ -1,18 +1,32 @@
 # Team Responsibilities
 
-This document defines ownership, deliverables, boundaries, dependencies, and acceptance criteria for the seven project members.
+This document defines ownership and phase responsibilities for the seven project members.
 
-The current project scope is **KV Cache Management Optimization for LLM Inference**, covering retention/protection, eviction/victim selection, and scheduling coordination on vLLM 0.27.1.
+## Project hierarchy
+
+The overall topic is KV Cache Management Optimization, but the research contribution has a clear priority:
+
+```text
+Primary research core
+    Cost-Aware Eviction / Victim Selection
+
+Supporting mechanism
+    Retention / Protection
+
+System coordination
+    Scheduling
+```
+
+Retention and scheduling remain in scope because they are required by the Continuum system baseline and may later be evaluated as extensions. They must not displace eviction as the primary proposed algorithm.
 
 ## Shared rules
 
-1. `main` must remain runnable. All changes go through task branches and pull requests.
-2. Frozen decisions in `docs/experiment-plan.md` and `docs/baseline-freeze.md` are authoritative.
-3. Do not silently simplify a frozen baseline or expand a scheduler/runtime boundary without updating the freeze.
-4. Every technical task must include code or documentation, tests/validation, assumptions/limitations, and a PR.
-5. Real serving-performance claims must come from the real vLLM backend, not the deterministic simulator.
-6. Component attribution experiments and full-system comparisons must be reported separately.
-7. Q&A ownership follows module ownership, but every member should understand how their component fits the end-to-end system.
+1. `main` must remain runnable; all changes go through task branches and PRs.
+2. `docs/experiment-plan.md` and `docs/baseline-freeze.md` are authoritative for frozen decisions.
+3. Do not silently simplify a frozen baseline or expand scheduler/runtime scope.
+4. Real performance claims must use the real vLLM backend, not the deterministic simulator.
+5. Primary eviction experiments and full-system experiments must be reported separately.
+6. Full-system gains must not be attributed to eviction without component evidence.
 
 ---
 
@@ -20,43 +34,24 @@ The current project scope is **KV Cache Management Optimization for LLM Inferenc
 
 ### Primary goal
 
-Own the overall system architecture and keep retention, eviction, scheduling, workloads, metrics, and the real vLLM backend connected through controlled interfaces.
+Own the end-to-end architecture while keeping the **eviction decision boundary central** and integrating supporting retention/scheduling mechanisms without conflating their effects.
 
-### Main responsibilities
+### Responsibilities
 
-- Maintain the project-level research scope and architecture.
-- Own the real vLLM integration boundary.
-- Own the common Phase 1A block-level eviction adapter.
-- Own the scheduler/cache-management interface and the narrow `SchedulingPolicyAdapter` boundary.
-- Freeze baseline adaptation scope and approve later scope changes.
-- Preserve common native vLLM allocation, ref-count, hash, and scheduler bookkeeping across policies wherever practical.
-- Integrate PRs from Members 3, 4, 5, and 6.
-- Resolve cross-module design conflicts and attribution/fairness issues.
-- Keep authoritative architecture/backend/status documents synchronized.
-
-### Primary files / directories
-
-- `src/kvopt/runtime/vllm/`
-- integration-facing scheduler/cache abstractions
-- `configs/`
-- `docs/architecture.md`
-- `docs/experiment-plan.md`
-- `docs/baseline-freeze.md`
-- `docs/continuum-vllm-mapping.md`
-
-### Expected deliverables
-
-- Stable real-backend integration path.
-- Stable eviction and scheduling policy boundaries.
-- Project-level freezes for baseline and proposed-system interfaces.
-- End-to-end runnable main branch after each phase.
+- Own vLLM 0.27.1 backend integration.
+- Maintain the validated Phase 1A `EvictionPolicyAdapter` as the primary policy execution boundary.
+- Own scheduler/retention integration interfaces required by strong baselines and later extensions.
+- Freeze baseline scope and approve any scope changes.
+- Preserve native vLLM allocation/ref-count/hash/scheduler bookkeeping wherever practical.
+- Maintain authoritative architecture, status, and fairness documents.
+- Integrate Member 3/4/5/6 PRs.
 
 ### Q&A ownership
 
 - Overall architecture and project scope.
-- Why retention, eviction, and scheduling are separated/connected as they are.
-- vLLM integration decisions.
-- Fair-comparison boundaries and system limitations.
+- Why eviction is the research core.
+- Why retention/scheduling are included but treated as supporting/system layers.
+- vLLM integration and fairness boundaries.
 
 ---
 
@@ -64,27 +59,20 @@ Own the overall system architecture and keep retention, eviction, scheduling, wo
 
 ### Primary goal
 
-Provide the literature basis for the project and explain how eviction-oriented, retention-oriented, and workflow/scheduling-aware KV-cache systems differ.
+Provide the literature basis for eviction-oriented, retention-oriented, and workflow/scheduling-aware KV-cache systems while keeping the project's novelty claim grounded in eviction/victim selection.
 
-### Main responsibilities
+### Responsibilities
 
-- Study KV cache in LLM inference and serving systems.
-- Maintain related-work summaries for eviction, retention, recomputation, preemption, scheduling coordination, and workflow-aware cache management.
-- Verify mechanisms and terminology for Continuum and other relevant systems.
-- Identify novelty risks and adjacent methods.
-- Support Member 1 when distinguishing original-paper behavior from project adaptations.
-- Provide slide-ready background/motivation material to Member 7.
+- Study and summarize eviction methods such as LRU/Leaf-LRU, ARC, RLT and related work.
+- Study retention/workflow systems such as Continuum and SAGA.
+- Verify Continuum mechanisms and terminology.
+- Identify novelty risks for Cost-Aware eviction.
+- Distinguish original-paper behavior from project adaptation.
+- Provide slide-ready background and motivation.
 
-### Important boundary
+### Boundary
 
-Member 2 provides literature evidence and mechanism interpretation but does **not** freeze implementation scope.
-
-### Q&A ownership
-
-- KV-cache background.
-- Existing systems and prior work.
-- Why Continuum and native vLLM are used as comparison points.
-- Original mechanism vs. adaptation distinctions.
+Member 2 provides evidence and interpretation but does not freeze implementation scope.
 
 ---
 
@@ -92,85 +80,89 @@ Member 2 provides literature evidence and mechanism interpretation but does **no
 
 ### Primary goal
 
-Implement and validate the frozen baselines through the common vLLM backend path.
+Implement and validate frozen baselines. The current Phase 1B task is the Continuum-style adapted system baseline.
 
-### Current Phase 1B responsibility
+### Current Phase 1B baseline
 
-Implement the frozen **Continuum-style retention + program-level scheduling baseline** defined in `docs/baseline-freeze.md`.
+Implement:
 
-The baseline includes:
-
-- explicit external `program_id/session_id`;
+- explicit `program_id/session_id`;
 - request/session lifecycle observation;
 - request/session ↔ prefix/block observation;
 - online tool-gap/reuse history;
-- dynamic TTL estimation with documented input sources/approximations;
-- independent retention state;
-- soft protection without changing native `ref_cnt` semantics;
+- dynamic TTL estimation with documented approximations;
+- independent soft retention state;
 - lazy TTL expiry;
 - deterministic pressure release;
 - narrow admission-order `SchedulingPolicyAdapter`;
-- reuse of the Phase 1A eviction adapter and native BlockPool cleanup path.
+- reuse of the Phase 1A eviction adapter and native BlockPool cleanup.
 
-### Main responsibilities
+### Important research boundary
 
-- Implement the frozen baseline without silently changing its semantics.
-- Add deterministic unit tests for identity, TTL, retention, pressure fallback, mapping cleanup, and scheduler ordering.
-- Validate native/shadow/controlled scheduler modes where applicable.
-- Run a small real-GPU vLLM 0.27.1 validation after deterministic tests pass.
-- Document all approximations and unresolved reproduction gaps.
-- Report blockers to Member 1 rather than replacing dynamic TTL with fixed TTL or dropping scheduling silently.
-
-### Primary files / directories
-
-- baseline-specific code under `src/kvopt/`
-- real-backend integration only through agreed `runtime/vllm` extension points
-- baseline tests under `tests/`
-- `docs/continuum-baseline-implementation.md`
+Continuum includes retention+scheduling because those mechanisms are intrinsic to the **baseline**. M3 must not reinterpret this as a signal that the proposed method should become scheduler-centric.
 
 ### Acceptance criteria
 
-- Dynamic TTL is genuinely history/runtime dependent.
-- Multiple request IDs can belong to one explicit program/session.
-- Soft protection changes eviction eligibility without corrupting native queue/ref-count/hash bookkeeping.
+- Dynamic TTL is history/runtime dependent.
+- Session continuity works across multiple request IDs.
+- Soft protection preserves native vLLM queue/ref-count/hash semantics.
 - Pressure cannot deadlock allocation.
-- Controlled scheduler mode changes admission order while native downstream bookkeeping remains correct.
-- Real vLLM GPU inference, APC reuse, and eviction still function.
-- Existing Phase 1A tests do not regress.
-
-### Q&A ownership
-
-- Baseline algorithm and adaptation details.
-- Continuum mechanism → vLLM mapping in the implementation.
-- Dynamic TTL inputs and approximations.
-- Retention/scheduler edge cases and validation evidence.
+- Controlled scheduling can alter admission order without corrupting native bookkeeping.
+- Real GPU vLLM inference/APC/eviction still work.
+- Phase 1A tests do not regress.
 
 ---
 
-## Member 4 — Cost-Aware Optimization Design and Implementation
+## Member 4 — Cost-Aware Eviction Design and Implementation
 
 ### Primary goal
 
-Own the project's proposed technical contribution: a cost-aware KV-cache management system spanning the subset of retention, eviction, and scheduling decisions justified by evidence.
+Own the project's **main technical contribution: Cost-Aware KV-cache eviction / victim selection**.
 
-### Main responsibilities
+### Mandatory first deliverable — Ours-Evict
 
-- Analyze native and Continuum baseline behavior with Members 1, 3, and 6.
-- Define the cost model and optimization objective only after baseline/profile evidence is available.
-- Implement the proposed method through the same shared runtime boundaries where practical.
-- Keep major components configurable for ablation.
-- Separate cost-aware retention, eviction, and scheduler contributions where possible.
-- Document algorithm inputs, complexity, overhead, assumptions, and failure cases.
+Design and implement an independently evaluable eviction method:
 
-### Important boundary
+```text
+vLLM free cached blocks
+    -> Cost-Aware ranking
+    -> victim block set
+    -> native BlockPool cleanup
+```
 
-Do not implement Cost-Aware during Phase 1B. The exact cost model and scheduling rule remain unfrozen until the strong baseline is functioning and profiled.
+The method should reason about explicit eviction loss/cost using signals such as:
 
-### Q&A ownership
+- recomputation/prefill cost;
+- reuse signal;
+- memory footprint;
+- cache pressure;
+- other justified online state.
 
-- Proposed method and novelty.
-- Cost model and decision logic.
-- Complexity, overhead, ablation, and trade-offs.
+### Required boundary
+
+`Ours-Evict` must work with **native scheduling fixed** and must be able to stand alone as the primary contribution.
+
+Do not start by building a monolithic retention+scheduling system.
+
+### Later extensions
+
+Only after `Ours-Evict` is implemented and evaluated may M4 add:
+
+```text
+Ours-Evict+Retention
+Ours-Full = Ours-Evict + Retention + Scheduling
+```
+
+These extensions must be ablated separately.
+
+### Acceptance criteria
+
+- More than renamed/tuned LRU.
+- No unavailable future knowledge.
+- Runs through the shared Phase 1A eviction boundary.
+- Decision overhead is measurable.
+- Major score components are configurable for ablation.
+- Eviction-only benefits can be measured independently of retention/scheduling.
 
 ---
 
@@ -178,24 +170,26 @@ Do not implement Cost-Aware during Phase 1B. The exact cost model and scheduling
 
 ### Primary goal
 
-Build reproducible workloads that expose both cache-pressure behavior and multi-turn/session retention+scheduling behavior.
+Build reproducible workloads for both the **core eviction experiments** and the system-level Continuum/full-system experiments.
 
-### Main responsibilities
+### Responsibilities
 
-- Select public traces/datasets where useful.
-- Build controlled synthetic workloads for mechanism validation.
-- Support explicit `program_id/session_id`, turn order, tool-gap start/end, arrival timing, and prefix reuse.
-- Provide controlled multi-turn/session traces required by Phase 1B.
-- Create workload categories such as short/long/mixed requests, low/high pressure, low/high reuse, controlled tool gaps, and bursty arrivals where useful.
-- Ensure the same frozen trace/config can be replayed across policies.
-- Document preprocessing, seeds, distributions, and whether reuse is natural or synthetic.
+For eviction-focused experiments, support:
 
-### Q&A ownership
+- short/long/mixed request lengths;
+- heterogeneous recomputation cost;
+- low/high cache pressure;
+- low/high prefix reuse;
+- controlled arrival patterns.
 
-- Dataset/trace choice.
-- Session/workflow construction.
-- Tool-gap and reuse generation.
-- Workload fairness and reproducibility.
+For Continuum/system experiments, additionally support:
+
+- explicit `program_id/session_id`;
+- turn order;
+- tool-gap start/end;
+- controlled multi-turn reuse.
+
+The same frozen trace/config must be replayable across compared policies.
 
 ---
 
@@ -203,40 +197,50 @@ Build reproducible workloads that expose both cache-pressure behavior and multi-
 
 ### Primary goal
 
-Own formal evaluation and determine both whether the system improves and which component caused the change.
+Determine both whether the proposed method improves performance and **which component caused the improvement**.
 
-### Main responsibilities
+### Mandatory evaluation hierarchy
 
-- Define metrics for serving, cache retention/eviction, scheduling, and policy overhead.
-- Run reproducible baseline and proposed-system experiments.
-- Maintain separate protocols for:
-  - component attribution with native scheduling fixed;
-  - full-system comparison with intrinsic scheduling/cache coordination.
-- Profile recomputation, prefix hits, evictions, protected KV volume, waiting time, scheduling decisions, and policy overhead.
-- Generate plots/tables from stored raw results.
-- Report regressions and failure cases.
+#### A. Primary eviction attribution
 
-### Target metrics
+```text
+Native LRU
+vs.
+Ours-Evict
+```
 
+Native scheduling must remain fixed.
+
+#### B. Retention extension
+
+```text
+Ours-Evict
+vs.
+Ours-Evict+Retention
+```
+
+#### C. Full-system comparison
+
+```text
+vLLM native
+vs.
+Continuum-style adapted system
+vs.
+Ours-Full
+```
+
+### Core metrics
+
+- eviction count and evicted blocks/tokens;
+- recomputed tokens / prefill work;
+- APC hit/reuse rate;
+- victim-selection overhead;
 - throughput;
 - TTFT;
 - TPOT;
-- end-to-end request latency;
-- session/program completion time;
-- queueing/waiting time;
-- APC hit/reuse rate;
-- eviction count and evicted blocks/tokens;
-- recomputed tokens / preemption/reload events where applicable;
-- protected KV volume / retention lifetime;
-- scheduling-decision and cache-policy overhead;
-- GPU memory/utilization where meaningful.
+- end-to-end latency.
 
-### Q&A ownership
-
-- Experimental setup and fairness.
-- Metric definitions.
-- Component attribution vs. full-system claims.
-- Profiling and bottleneck interpretation.
+For system extensions, additionally measure retention and scheduling metrics such as protected KV volume, waiting time, admission order and session completion time.
 
 ---
 
@@ -244,105 +248,71 @@ Own formal evaluation and determine both whether the system improves and which c
 
 ### Primary goal
 
-Turn the technical work into one coherent presentation and serve as primary presenter.
+Present one coherent story with the correct research hierarchy.
 
-### Main responsibilities
+### Required narrative
 
-- Own the final slide deck and talk structure.
-- Keep terminology consistent with authoritative project documents.
-- Present the system as KV-cache management rather than eviction-only.
-- Clearly separate native baseline, Continuum-style adapted system, and the proposed Cost-Aware system.
-- Distinguish component attribution experiments from full-system comparisons.
-- Collect verified figures/results from Members 1-6.
-- Lead rehearsal and route detailed Q&A to module owners.
-
----
-
-## Cross-member collaboration map
+The presentation should make this distinction explicit:
 
 ```text
-Member 2: related work / mechanism evidence
-             |
-             v
-Member 1: architecture / freezes / integration
-     |              |               |
-     v              v               v
-Member 3         Member 4         Member 5
-Continuum        Cost-Aware       workload/session traces
-baseline         method
-     \              |               /
-      \             |              /
-       +----------> Member 6
-              evaluation / profiling
-                     |
-                     v
-                 Member 7
-              slides / presentation
+Problem:
+    expensive wrong KV eviction under pressure
+
+Core method:
+    Cost-Aware Eviction / Victim Selection
+
+Strong baseline:
+    Continuum-style retention + scheduling system
+
+Extensions:
+    retention and scheduling coordination around the core eviction method
 ```
+
+Do not present the proposed contribution as a generic scheduling system unless later experimental evidence and a formal scope change justify that claim.
 
 ---
 
 ## Current Development Phases
 
-### Phase 0 — Backend & Architecture Validation
+### Phase 0 — Backend & architecture validation
 
-**Status: CLOSED**
+**CLOSED**
 
-- vLLM 0.27.1 real GPU backend validated.
-- APC prefix hit and real cache pressure validated.
-- native block-level eviction path established.
+### Phase 1A — Common block-level eviction adapter
 
-### Phase 1A — Common Eviction Policy Adapter
+**CLOSED**
 
-**Status: CLOSED**
+### Phase 1B — Continuum baseline
 
-- block-level `EvictionPolicyAdapter` validated against native LRU ordering;
-- real controlled eviction and native metadata cleanup validated.
+- feasibility mapping: **CLOSED**
+- implementation scope: **FROZEN**
+- implementation/validation: **NEXT**
 
-### Phase 1B — Continuum Baseline
+### Phase 2 — Cost-Aware eviction
 
-**Status: IMPLEMENTATION SCOPE FROZEN; IMPLEMENTATION NEXT**
-
-- feasibility mapping complete;
-- retention+scheduling adaptation scope frozen;
-- Member 3 implements and validates the baseline;
-- Member 5 can prepare controlled multi-turn/session traces in parallel;
-- Member 6 can prepare required metrics in parallel.
+Member 4 implements `Ours-Evict` through the validated common eviction boundary.
 
 Exit condition:
 
-- Continuum-style adapted baseline runs on real vLLM 0.27.1;
-- dynamic TTL, retention, pressure behavior, and scheduler ordering are validated;
-- limitations/approximations are documented.
+> Cost-Aware victim selection can be compared against native LRU with native scheduling fixed.
 
-### Phase 2 — Baseline Profiling and Cost-Aware Design Freeze
+### Phase 3 — Optional retention/scheduling extensions
 
-- Member 6 profiles native and Continuum baselines.
-- Member 4 finalizes the Cost-Aware method using observed evidence.
-- Member 1 freezes any required runtime/interface extensions.
+Only after the eviction core is validated.
 
-### Phase 3 — Cost-Aware Implementation and Formal Evaluation
+### Phase 4 — Formal evaluation and presentation
 
-- implement Ours and required ablations;
-- freeze datasets/workloads/configs;
-- execute component and full-system comparisons;
-- produce final figures/tables and limitations.
-
-### Phase 4 — Presentation
-
-- Members 1-6 provide verified slide-ready material;
-- Member 7 assembles and rehearses the final presentation;
-- each member owns Q&A for their subsystem.
+Member 6 freezes/runs the experiment matrix; Member 7 integrates verified results into the final presentation.
 
 ---
 
-## Definition of Done
+## Definition of done
 
-A technical task is complete only when it includes:
+A technical task requires:
 
-1. implementation or finalized decision document;
-2. deterministic tests or reproducible validation commands;
-3. relevant configuration/workload metadata;
-4. assumptions, approximations, and limitations;
-5. a PR explaining integration impact;
-6. real-backend validation when the task makes serving-system claims.
+1. implementation or authoritative documentation;
+2. tests/validation;
+3. assumptions and limitations;
+4. reproducible configuration where relevant;
+5. a PR explaining the change;
+6. no silent drift from the frozen research hierarchy or baseline scope.
