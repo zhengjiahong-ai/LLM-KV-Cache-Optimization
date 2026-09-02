@@ -2,61 +2,90 @@
 
 ## Project Theme
 
-**Cost-Aware KV Cache Eviction for LLM Serving**
+**Cost-Aware KV Cache Management for LLM Serving**
 
-The project studies the following decision problem:
+The project studies how KV-cache retention, eviction, and scheduling coordination can reduce unnecessary recomputation and improve LLM serving performance under constrained GPU memory.
 
-> When GPU KV-cache capacity is insufficient, which cached request/prefix should be evicted so that future recomputation or reload cost is reduced without unnecessarily increasing queueing delay or policy overhead?
-
-The project focuses on **online eviction decisions under cache pressure**, rather than redesigning the entire LLM inference runtime.
+The project no longer treats eviction-time victim selection as the entire research boundary. Instead, victim selection is one validated cache-management subproblem inside a broader system design that may also control retention/protection state and cache-aware scheduling decisions.
 
 ---
 
 ## Research Questions
 
-### RQ1 — Cost-aware eviction vs. recency-based eviction
+### RQ1 — Cache-management policy benefit
 
-Can a dynamic cost-aware eviction policy improve LLM serving performance over a recency-based KV-cache eviction policy such as LRU?
-
-Primary comparison:
-
-- vLLM-style LRU eviction
-- proposed cost-aware eviction policy
-
-### RQ2 — Cost-aware eviction vs. a recent strong baseline
-
-How does the proposed online cost-aware eviction policy compare with a recent retention-based KV-cache management approach?
+Can cost-aware KV-cache management improve serving performance over the native vLLM APC behavior?
 
 Primary comparison:
 
-- Continuum-style TTL / retention baseline
-- proposed cost-aware eviction policy
+- vLLM 0.27.1 native APC + native scheduling;
+- proposed cost-aware cache-management design.
 
-The implementation should reproduce the relevant decision logic as faithfully as practical for the selected runtime and clearly document any simplifications.
+### RQ2 — Comparison with a recent strong system baseline
 
-### RQ3 — Workload sensitivity
+How does the proposed design compare with a recent retention-and-scheduling-aware KV-cache management system?
 
-Under which workload conditions does cost-aware eviction help the most?
+Primary comparison target:
 
-Candidate workload dimensions include:
+- Continuum-style retention + scheduling behavior;
+- proposed cost-aware cache management.
 
-- short-request dominated vs. long-request dominated;
+The comparison must clearly separate full-system performance from component-level attribution.
+
+### RQ3 — Where do the gains come from?
+
+How much benefit comes from each layer of the proposed design?
+
+Planned ablation structure:
+
+```text
+Ours-Evict
+    = cost-aware victim selection only
+
+Ours-Retention
+    = retention + eviction, native scheduler fixed
+
+Ours-Full
+    = retention + eviction + cache-aware scheduling
+```
+
+The exact mechanisms and names may change after profiling, but the final evaluation must include enough ablation to distinguish cache-policy gains from scheduler gains.
+
+### RQ4 — Workload sensitivity
+
+Under which workload conditions does broader cost-aware KV-cache management help the most?
+
+Candidate dimensions include:
+
+- short vs. long requests;
 - mixed request lengths;
 - low vs. high cache pressure;
 - low vs. high prefix reuse;
-- steady vs. bursty arrivals, if supported by the final benchmark setup.
-
-The final workload matrix should remain small enough to run reproducibly within course-project resource limits.
+- short vs. long inter-turn/tool gaps;
+- steady vs. bursty arrivals;
+- single-turn vs. multi-turn/agent-like request structures where feasible.
 
 ---
 
 ## Baselines
 
-### Baseline 1 — vLLM 0.27.1 native APC LRU
+### Baseline 1 — vLLM 0.27.1 native APC + native scheduler
 
-Baseline 1 is the native GPU Automatic Prefix Caching (APC) eviction behavior in **vLLM 0.27.1**.
+**Status: FROZEN**
 
-The Phase 0 backend validation confirmed the real allocation/eviction path:
+Backend:
+
+```text
+vLLM 0.27.1
+```
+
+Subsystem:
+
+```text
+GPU Automatic Prefix Caching (APC)
+```
+
+Validated native eviction path:
 
 ```text
 BlockPool.get_new_blocks()
@@ -64,105 +93,119 @@ BlockPool.get_new_blocks()
     -> BlockPool._maybe_evict_cached_block()
 ```
 
-The free-block queue maintains cached free blocks in block-level LRU order. A cached free block selected from the queue head can be physically reassigned, after which `_maybe_evict_cached_block()` removes its cached hash metadata.
+Phase 1A additionally validated a block-level policy adapter against native LRU ordering in real GPU inference. This adapter remains the execution substrate for cache-policy experiments, but it is not the full research boundary.
 
-This baseline answers:
+### Baseline 2 — Continuum-style retention + scheduling
 
-> How much is gained by using signals beyond recency?
+**Status: STRONG BASELINE TARGET; FULL ADAPTATION SCOPE TO BE FROZEN**
 
-Important terminology boundary:
+Continuum is relevant because it treats KV-cache retention and scheduling as coupled system decisions for multi-turn/agent workloads.
 
-- **vLLM APC LRU** is the project's production/weak baseline and refers to vLLM's block-level free-cache ordering;
-- **SGLang Leaf-LRU** is a different implementation over a radix/prefix-tree cache and should not be treated as the same concrete policy implementation, even though both belong to the recency-based eviction family.
+The project should not reduce Continuum to a retention-only baseline and then describe it as a full reproduction. Before Member 3 implements it, `docs/baseline-freeze.md` must freeze:
 
-All experimental policies must use the same vLLM backend and the same underlying allocation/bookkeeping path wherever practical.
+- dynamic TTL / retention logic;
+- pin/unpin or equivalent protection semantics;
+- memory-pressure behavior;
+- scheduling behavior required to represent the baseline;
+- request/session-to-vLLM-cache mapping;
+- which original components cannot be reproduced faithfully;
+- which results are full-system comparisons and which are component-level comparisons.
 
-### Baseline 2 — Continuum-style TTL / retention policy
+If an implementation omits major Continuum scheduling behavior, it must be labeled `Continuum-style retention` rather than `Continuum reproduction`.
 
-Continuum remains the current recent strong-baseline target.
+### Optional component baselines
 
-**The exact reproduction scope is not yet frozen.** Literature notes may identify candidate components such as TTL calculation, pin/unpin behavior, scheduling priority, and pressure handling, but those notes are not the implementation specification.
-
-Before Member 3 implements this baseline, Member 1 must freeze the adaptation scope in `docs/baseline-freeze.md` after considering both:
-
-- the mechanism described by the Continuum paper;
-- what can be represented faithfully on the pinned vLLM 0.27.1 GPU APC path.
-
-The freeze must document:
-
-- which Continuum decision mechanism is reproduced;
-- which candidate components are included or excluded;
-- what runtime assumptions differ from the original system;
-- what unit of retention/eviction is used in the vLLM adaptation;
-- how the adapted policy interacts with the common policy/runtime path;
-- why the resulting baseline remains a fair and meaningful comparison.
-
-The baseline must not silently collapse into ordinary LRU, and the adaptation must not be described as a faithful full-system reproduction if major Continuum system components are omitted.
-
-### Optional baseline — reuse/workflow-aware policy
-
-Additional policies such as ARC, RLT, SAGA/WA-LRU, or another reuse/workflow-aware method may be added only if time and runtime support permit.
-
-They are **not required** for the minimum project scope. Their primary role at this stage is related-work and mechanism comparison unless explicitly promoted through a later project freeze.
+ARC, RLT, SAGA/WA-LRU, or other reuse-aware eviction policies may still be used as component-level references if they materially improve attribution. They are not currently required as full-system baselines.
 
 ---
 
 ## Proposed Method
 
-### Dynamic Cost-Aware Eviction
+### Cost-Aware KV Cache Management
 
-When cache capacity is insufficient and one or more cached entries must be removed, the proposed policy will rank eviction candidates according to an online estimate of eviction loss.
+The proposed design may operate at three coordinated layers:
 
-The conceptual decision function is:
+#### Layer 1 — Eviction / victim selection
+
+When memory must be reclaimed, rank candidate cached blocks or prefixes according to estimated eviction loss rather than recency alone.
+
+Conceptually:
 
 ```text
-EvictionCost(request) = f(
+EvictionLoss = f(
     recomputation_cost,
     reuse_signal,
     memory_footprint,
-    waiting_or_admission_impact
+    cache_pressure
 )
 ```
 
-The exact scoring function is **not yet frozen** and must be finalized after the baseline implementation and profiling phase.
+#### Layer 2 — Retention / protection
 
-Candidate signals include:
+High-value reusable KV state may receive temporary protection or a dynamically chosen retention horizon when the expected cost of losing it is high.
 
-- cached token count;
-- occupied KV blocks;
-- estimated prefill/recomputation cost;
-- recent reuse history or another online reuse signal;
-- request age / waiting time;
-- current cache pressure;
-- expected memory released by eviction.
+Potential signals include:
 
-The method should select the lowest-loss victim set that frees enough capacity.
+- observed reuse history;
+- predicted/estimated idle gap;
+- cached token or block volume;
+- recomputation cost;
+- current memory pressure.
 
-### Required distinction from baselines
+The exact retention rule is not frozen.
+
+#### Layer 3 — Cache-aware scheduling coordination
+
+The scheduler may use cache state or recomputation cost when deciding which request/session to resume or prioritize, when doing so can avoid expensive KV loss or recomputation.
+
+The exact scheduler modification is not frozen and should be kept minimal enough for attribution and implementation feasibility.
+
+### Required distinction from related systems
 
 The proposed method must not be merely:
 
-- a renamed LRU policy;
-- a fixed TTL;
-- manual parameter tuning of Continuum;
-- an offline policy that assumes unavailable future knowledge.
+- renamed LRU;
+- fixed TTL;
+- manual tuning of Continuum;
+- a scheduler-only heuristic with no cache-management contribution;
+- an offline policy assuming unavailable future information.
 
-Its intended distinction is:
+The intended contribution is a **cost-aware coordination framework** in which retention, eviction, and possibly scheduling decisions are driven by explicit runtime estimates of the consequences of losing KV state.
 
-> make an online victim-selection decision at eviction time using explicit cost signals, instead of relying only on recency or a fixed retention horizon.
+---
 
-### Ablation requirement
+## Architecture
 
-The final implementation should make major score components configurable so that Member 6 can evaluate which signals actually contribute to performance.
+The project now treats the system as two interacting decision layers:
 
-Example ablations may include:
+```text
+Request arrivals / active sessions
+        |
+        v
+Scheduling Coordination Layer
+        |
+        v
+KV Cache Management Layer
+  - retention / protection
+  - eviction / victim selection
+        |
+        v
+vLLM BlockPool / GPU APC
+```
 
-- recomputation cost only;
-- recomputation cost + memory footprint;
-- reuse signal only;
-- full cost model.
+Phase 1A already validated the lower eviction boundary:
 
-These are examples, not frozen experiment settings.
+```text
+vLLM free cached blocks
+    -> VLLMEvictionBridge
+    -> EvictionPolicyAdapter
+    -> selected block IDs
+    -> native BlockPool eviction bookkeeping
+```
+
+This remains valid and should be reused rather than replaced.
+
+A scheduler/retention interface should be added above it only after the required runtime state and ownership are understood. The project should avoid a large vLLM scheduler rewrite unless evidence shows it is necessary.
 
 ---
 
@@ -170,137 +213,76 @@ These are examples, not frozen experiment settings.
 
 ### Frozen backend
 
-The real inference backend is frozen to:
-
 ```text
 vLLM 0.27.1
 ```
 
-Primary research target:
+Primary cache subsystem:
 
 ```text
-GPU Automatic Prefix Caching (APC) eviction
+GPU Automatic Prefix Caching (APC)
 ```
 
-This project does **not** use the CPU KV-offload cache-policy subsystem as its primary experimental path.
+CPU KV offloading is not the primary mechanism.
 
-### Phase 0 validation status
+### Phase 0 — Backend & Architecture Validation
 
-Phase 0 — Backend & Architecture Validation is complete.
+**COMPLETE**
 
-Validated on the available single-GPU environment:
+Validated:
 
-- real GPU inference: PASS;
-- APC initialization and real prefix-cache hit: PASS;
-- controlled GPU KV-cache pressure: PASS;
-- real cached-block selection and eviction: PASS;
-- block-level LRU semantics: PASS;
-- kernel changes required: NO.
+- real GPU inference;
+- APC initialization;
+- real prefix-cache hit;
+- controlled GPU KV-cache pressure;
+- real cached-block eviction;
+- native block-level LRU semantics.
 
-A cache-pressure smoke configuration used `gpu_memory_utilization=0.30`, yielding approximately `0.32 GiB` of GPU KV cache and `28,368` cache tokens. Under repeated distinct-prefix requests, real cached blocks were observed flowing through:
+### Phase 1A — Common Eviction Policy Adapter
 
-```text
-cached free block
-    -> FreeKVCacheBlockQueue.popleft_n()
-    -> BlockPool._maybe_evict_cached_block()
-    -> cached hash metadata removal
-```
+**COMPLETE**
 
-The temporary instrumentation used for this validation changed observability only and did not change policy behavior.
+Validated in real vLLM 0.27.1:
 
-Detailed evidence is recorded in `docs/vllm-smoke-test.md` and backend architecture decisions in `docs/backend-selection.md`.
+- 85 shadow-policy events;
+- 0 native/adapter mismatches;
+- 85 adapter-controlled events;
+- real GPU inference under adapter control;
+- 2,741 observed cached-block evictions;
+- native downstream metadata cleanup retained;
+- request-level P1/P2/P3-to-block mapping remains not established.
 
-### Common policy integration requirement
-
-The project should introduce the smallest practical policy adapter around the real victim-selection boundary while preserving common vLLM allocation and cache bookkeeping.
-
-Conceptually:
-
-```text
-vLLM runtime state
-      -> project policy adapter
-      -> candidate metadata/context
-      -> {native LRU, Continuum-style baseline, Cost-Aware}
-      -> ordered victim block set
-      -> common BlockPool allocation/eviction bookkeeping
-```
-
-Member 3 and Member 4 must not implement baselines and the proposed method through unrelated backend paths, because that would make performance comparisons difficult to interpret.
-
-The deterministic repository simulator remains useful for interface/unit testing only and must not be used for real serving-performance claims.
+Phase 1A is a validated infrastructure component, not a reason to restrict the whole project to eviction-only research.
 
 ---
 
 ## Models
 
-Current Phase 0 smoke model:
+Current validated smoke model:
 
 ```text
 Qwen/Qwen2.5-0.5B-Instruct
 ```
 
-This model is validated as feasible for backend smoke tests on the available GPU, but the **formal experiment model selection remains to be frozen**. The final comparison must use the same model and model configuration for all policies.
+Formal experiment model selection remains to be frozen. All compared policies must use the same model/configuration within each controlled experiment.
 
 ---
 
-## Dataset
+## Dataset / Workload Requirements
 
-TBD.
+Member 5 should support both cache-pressure experiments and, if the broader design is retained, multi-turn/session-style workloads that expose retention and scheduling behavior.
 
-Member 5 should select dataset(s) or request traces that can support meaningful KV-cache reuse and cache-pressure experiments.
+The final workload set should include a compact subset of:
 
-Dataset selection must document:
+- short-request workload;
+- long-request workload;
+- mixed-length workload;
+- high cache-pressure workload;
+- repeated-prefix workload;
+- multi-turn/session workload with controlled idle gaps;
+- bursty arrival workload where scheduling effects are observable.
 
-- public source;
-- license / availability if relevant;
-- preprocessing procedure;
-- sampling rules;
-- random seed;
-- prompt-length distribution;
-- requested/generated output-length handling;
-- whether prefix reuse is naturally present or synthetically constructed.
-
-Synthetic workloads may be used for controlled analysis, but they must be clearly separated from real-data experiments.
-
----
-
-## Workloads
-
-The final benchmark should include a compact set of controlled workloads rather than a large number of arbitrary scenarios.
-
-Candidate categories:
-
-### W1 — Short-request workload
-
-Primarily short prompts / contexts.
-
-Purpose: test whether sophisticated eviction offers little benefit when recomputation costs are small.
-
-### W2 — Long-request workload
-
-Primarily long prompts / contexts.
-
-Purpose: amplify differences in recomputation cost.
-
-### W3 — Mixed-length workload
-
-Mix short and long requests.
-
-Purpose: test whether cost-aware victim selection can distinguish expensive from cheap evictions.
-
-### W4 — High cache-pressure workload
-
-Configure concurrency / memory budget so that eviction is frequent.
-
-Purpose: expose policy differences.
-
-### W5 — Reuse-sensitive workload
-
-Requests contain repeated/reusable prefixes when supported by the selected runtime.
-
-Purpose: test the reuse component of the policy.
-
-Not every candidate workload must remain in the final experiment matrix. The final set should be frozen before formal evaluation.
+Synthetic workloads may be used for controlled mechanism analysis, but must be clearly distinguished from real-data or trace-driven evaluation.
 
 ---
 
@@ -308,189 +290,184 @@ Not every candidate workload must remain in the final experiment matrix. The fin
 
 ### Serving performance
 
-- Throughput
-- TTFT (Time To First Token)
-- TPOT (Time Per Output Token)
-- End-to-end request latency / completion time
+- throughput;
+- TTFT;
+- TPOT;
+- end-to-end request latency;
+- job/session completion time for multi-turn workloads.
 
 ### KV-cache behavior
 
-- KV-cache utilization
-- Cache hit / reuse rate, where meaningful
-- Eviction count
-- Evicted blocks / tokens
-- Recomputed tokens or equivalent recomputation volume
-- Preemption/reload events, where applicable
+- cache utilization;
+- hit/reuse rate;
+- eviction count;
+- evicted blocks/tokens;
+- recomputed tokens or equivalent recomputation volume;
+- retention lifetime / protected KV volume;
+- preemption/reload events where applicable.
 
-### Optimization overhead
+### Scheduling behavior
 
-- Policy decision latency
-- CPU overhead of victim selection
-- Additional metadata / memory overhead
+If scheduling is modified, record at minimum:
 
-### System metrics
+- queueing/waiting time;
+- resume order / scheduling decisions;
+- preemption count;
+- starvation/fairness indicators where relevant.
 
-Where supported by the final backend:
+### Overhead
 
-- GPU memory usage
-- GPU utilization
-
-Every reported metric must have a clear definition and collection method before formal runs begin.
+- eviction-policy decision latency;
+- retention-policy overhead;
+- scheduling-decision overhead;
+- additional CPU and metadata memory overhead.
 
 ---
 
-## Experimental Comparisons
+## Experimental Comparison Structure
 
-At minimum, formal experiments should compare:
+The evaluation should contain two complementary levels.
+
+### A. Controlled component comparison
+
+Hold the scheduler fixed where possible:
 
 ```text
-vLLM 0.27.1 native APC LRU
+Native LRU
 vs.
-Continuum-style recent strong baseline (scope frozen separately)
+Ours-Evict
 vs.
-Proposed dynamic cost-aware policy
+Ours-Retention
 ```
 
-All methods must use:
+Purpose: attribute gains to cache-management components.
 
-- the same model;
-- the same request trace;
-- the same cache/memory budget;
-- the same vLLM/backend version;
-- the same hardware;
-- the same relevant batching/scheduling settings unless a baseline intrinsically requires a documented policy-specific scheduling mechanism;
-- the same random seed where randomness exists.
+### B. Full-system comparison
 
-Only policy-specific settings may differ, and those differences must be documented.
-
----
-
-## Analysis Plan
-
-The project should answer not only whether the proposed method is faster, but also **why**.
-
-For each major result, Member 6 should try to connect performance changes to cache behavior, for example:
+Allow each system's intrinsic scheduling/cache coordination:
 
 ```text
-fewer costly evictions
-    -> fewer recomputed tokens
-    -> lower prefill/recovery work
-    -> lower latency and/or higher throughput
+vLLM native system
+vs.
+Continuum-style/full adapted baseline
+vs.
+Ours-Full
 ```
 
-The evaluation must also include cases where the proposed method provides limited benefit or regresses.
+Purpose: answer the broader system-performance question.
 
-Candidate expected limitation:
-
-> When requests have similar cache sizes and recomputation costs, cost-aware ranking may converge toward simpler policies while still paying additional decision overhead.
-
-This is a hypothesis to test, not a conclusion.
+The report must not mix conclusions from A and B. A component-level result supports mechanism attribution; a full-system result supports end-to-end system comparison.
 
 ---
 
-## Hardware
+## Fairness Principles
 
-Current validated development environment includes a single NVIDIA GeForce RTX 4060 Laptop GPU with 8 GiB-class VRAM under Docker Desktop / WSL2 GPU passthrough.
+For controlled comparisons, keep constant wherever applicable:
 
-Formal experiment hardware details must still be frozen and recorded exactly before final runs, including:
+- model and revision;
+- vLLM version;
+- hardware;
+- workload/trace;
+- cache budget;
+- batching configuration;
+- random seeds;
+- metric definitions.
 
-- GPU model and VRAM;
-- CPU model if policy overhead is material;
-- host memory;
-- CUDA version;
-- framework/runtime version;
-- operating system / container image where relevant.
-
----
-
-## Reproducibility
-
-Formal runs must use:
-
-- fixed random seed;
-- frozen request traces;
-- same model and model revision;
-- same memory/cache budget;
-- same runtime version;
-- frozen experiment configuration;
-- repeated runs where runtime variance is non-negligible;
-- raw result files stored before plotting;
-- plots generated from scripts rather than manually edited data.
-
-Large datasets, model weights, and profiling traces should not be committed to Git. Store only scripts, manifests, configuration, and lightweight reproducibility metadata.
+For full-system comparisons, policy-specific scheduling/retention behavior may differ when intrinsic to the method, but these differences must be documented and analyzed through ablation.
 
 ---
 
 ## Scope Boundaries
 
-The minimum project scope does **not** require:
+The project may modify:
+
+- KV-cache retention/protection decisions;
+- eviction/victim-selection logic;
+- request/session scheduling priority where needed for cache-aware coordination.
+
+The minimum project still does **not** require:
 
 - multi-GPU inference;
 - custom CUDA kernels;
-- redesigning attention kernels;
+- attention-kernel redesign;
 - speculative decoding;
-- distributed KV-cache transfer;
+- distributed KV transfer;
 - CPU KV offloading as the primary mechanism;
-- a full reproduction of every component in Continuum or another related system;
-- training or fine-tuning an LLM.
+- model training/fine-tuning.
 
-The research contribution should remain focused on **GPU APC KV-cache eviction / retention decisions during LLM serving**.
+The project should remain a single-GPU serving-system study rather than expanding into distributed serving.
 
 ---
 
-## Ownership and Freeze Process
+## Ownership
 
-### Member 1 — architecture / backend / project-level freeze
+### Member 1
 
-Member 1 owns:
+Owns:
 
-- authoritative backend/runtime facts;
-- the common policy-integration boundary;
-- final baseline-set approval;
-- the Continuum adaptation/reproduction-scope freeze;
-- cross-policy runtime fairness constraints.
+- backend/runtime architecture;
+- cache-policy adapter;
+- scheduler/cache-management interface boundary;
+- baseline scope freeze;
+- integration and cross-policy fairness rules.
 
-### Member 2 — literature evidence
+### Member 2
 
-Member 2 owns:
+Owns:
 
-- background and related-work research;
+- background and related work;
 - mechanism summaries;
-- evidence for why candidate baselines are relevant;
-- identifying adjacent/competing approaches and novelty risks.
+- evidence for baseline relevance;
+- novelty-risk identification.
 
-Member 2's notes may recommend candidate reproduction components, but they do not freeze implementation scope.
+### Member 3
 
-### Member 3 — baseline implementation
+Owns:
 
-Member 3 owns implementation and validation of the baselines after the scope is frozen.
+- baseline implementation after the baseline scope is frozen;
+- reporting concrete reproduction blockers.
 
-If the frozen scope proves infeasible on vLLM 0.27.1, Member 3 should report the concrete blocker; Member 1 then updates the freeze rather than allowing silent implementation drift.
+### Member 4
+
+Owns:
+
+- proposed cost-aware mechanism implementation, including cache-policy components and any scheduler component assigned after architecture freeze.
+
+### Member 5
+
+Owns:
+
+- datasets/traces/workloads/benchmark harness.
+
+### Member 6
+
+Owns:
+
+- formal experiments, metrics, profiling, ablation, and attribution analysis.
 
 ---
 
-## Current Status and Freeze Points
+## Current Status
 
-### Frozen now
+### Frozen
 
 - Overall topic: KV Cache Management Optimization for LLM Inference
-- Research focus: Cost-Aware KV Cache Eviction for LLM Serving
-- Real backend: vLLM 0.27.1
-- Primary subsystem: GPU Automatic Prefix Caching eviction
-- Native production/weak baseline: vLLM 0.27.1 APC block-level LRU
-- Recent strong baseline target: Continuum-style retention policy
-- Phase 0 backend/architecture validation: COMPLETE
-- Core evaluation questions: RQ1, RQ2, RQ3 above
+- Broader research scope: retention + eviction + scheduling coordination
+- Backend: vLLM 0.27.1
+- Cache subsystem: GPU APC
+- Native baseline: vLLM APC + native scheduler
+- Phase 0: COMPLETE
+- Phase 1A common eviction adapter: COMPLETE
+- Continuum: strong system-baseline target
 
-### Not frozen yet
+### Not frozen
 
-- exact Continuum reproduction/adaptation scope;
-- exact common policy-adapter API;
-- exact proposed scoring function;
-- formal experiment model(s);
-- dataset(s);
-- final workload matrix;
-- formal-run hardware/configuration;
-- final hyperparameters.
+- exact Continuum full-system adaptation scope;
+- scheduler interface / minimal modification point;
+- retention-state representation;
+- proposed cost model;
+- proposed scheduling rule;
+- formal models/datasets/workloads;
+- final experiment matrix and hyperparameters.
 
-These items should remain explicitly unfrozen until the relevant owner provides evidence and the project records the decision.
+The next architecture task is to map Continuum's retention and scheduling mechanisms onto vLLM 0.27.1 and identify the minimum scheduler/retention hooks required for a faithful-enough strong baseline and for the proposed system.
