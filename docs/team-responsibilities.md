@@ -1,74 +1,62 @@
 # Team Responsibilities
 
-This document defines the ownership, deliverables, boundaries, dependencies, and acceptance criteria for the seven project members.
+This document defines ownership, deliverables, boundaries, dependencies, and acceptance criteria for the seven project members.
 
-The goal is not to isolate everyone into independent silos. Each member owns one primary area, but all code must integrate through the public interfaces under `src/kvopt`, and all experimental claims must be reproducible by the team.
+The current project scope is **KV Cache Management Optimization for LLM Inference**, covering retention/protection, eviction/victim selection, and scheduling coordination on vLLM 0.27.1.
 
 ## Shared rules
 
-1. `main` must remain runnable. All code changes go through feature branches and pull requests.
-2. Every technical task must have a concrete deliverable: code, documentation, dataset/workload artifact, benchmark script, figure, or presentation material.
-3. Do not modify another member's module internals without discussion. Prefer public interfaces and small integration PRs.
-4. Each owner is responsible for tests for their own module.
-5. Before final evaluation, all members should understand the overall pipeline well enough to answer questions about how their own component interacts with the rest of the system.
-6. Q&A ownership follows module ownership: questions about a component should be answered first by the corresponding owner.
+1. `main` must remain runnable. All changes go through task branches and pull requests.
+2. Frozen decisions in `docs/experiment-plan.md` and `docs/baseline-freeze.md` are authoritative.
+3. Do not silently simplify a frozen baseline or expand a scheduler/runtime boundary without updating the freeze.
+4. Every technical task must include code or documentation, tests/validation, assumptions/limitations, and a PR.
+5. Real serving-performance claims must come from the real vLLM backend, not the deterministic simulator.
+6. Component attribution experiments and full-system comparisons must be reported separately.
+7. Q&A ownership follows module ownership, but every member should understand how their component fits the end-to-end system.
 
 ---
 
-## Member 1 — Architecture, Scheduler, Integration, Project Management
+## Member 1 — Architecture, Scheduler/Cache Interfaces, Integration, Project Management
 
 ### Primary goal
 
-Own the overall system skeleton and keep all modules compatible as the repository evolves from the current deterministic simulator toward a real LLM inference backend.
+Own the overall system architecture and keep retention, eviction, scheduling, workloads, metrics, and the real vLLM backend connected through controlled interfaces.
 
 ### Main responsibilities
 
-- Maintain the overall architecture and public interfaces.
-- Own the scheduler-side request lifecycle and scheduler/KV-cache interaction.
-- Define and maintain interfaces between:
-  - scheduler;
-  - KV-cache manager;
-  - eviction policies;
-  - workload/benchmark code;
-  - metrics/evaluation code;
-  - future real inference backend.
+- Maintain the project-level research scope and architecture.
+- Own the real vLLM integration boundary.
+- Own the common Phase 1A block-level eviction adapter.
+- Own the scheduler/cache-management interface and the narrow `SchedulingPolicyAdapter` boundary.
+- Freeze baseline adaptation scope and approve later scope changes.
+- Preserve common native vLLM allocation, ref-count, hash, and scheduler bookkeeping across policies wherever practical.
 - Integrate PRs from Members 3, 4, 5, and 6.
-- Resolve cross-module design conflicts.
-- Maintain project-level configuration conventions and repository structure.
-- Track project milestones and make sure the project scope remains feasible.
-- Lead the transition from simulator-only validation to the selected real inference framework once that framework is decided.
+- Resolve cross-module design conflicts and attribution/fairness issues.
+- Keep authoritative architecture/backend/status documents synchronized.
 
 ### Primary files / directories
 
-- `src/kvopt/scheduler/`
-- integration-facing parts of `src/kvopt/kv_cache/`
-- integration-facing parts of `src/kvopt/runtime/`
+- `src/kvopt/runtime/vllm/`
+- integration-facing scheduler/cache abstractions
 - `configs/`
 - `docs/architecture.md`
-- `docs/development.md`
+- `docs/experiment-plan.md`
+- `docs/baseline-freeze.md`
+- `docs/continuum-vllm-mapping.md`
 
 ### Expected deliverables
 
-- Stable scheduler and request lifecycle API.
-- Stable policy/manager/backend integration interfaces.
-- End-to-end runnable pipeline after each major phase.
-- Architecture updates when the project moves to a real backend.
-- Integration PRs and release-ready main branch.
-
-### Acceptance criteria
-
-- Baseline and optimized policies can be switched without modifying scheduler internals.
-- Benchmark and evaluation code can drive the same runtime through stable interfaces.
-- The repository remains runnable after merged changes.
-- Cross-module assumptions are documented instead of hidden in implementation details.
+- Stable real-backend integration path.
+- Stable eviction and scheduling policy boundaries.
+- Project-level freezes for baseline and proposed-system interfaces.
+- End-to-end runnable main branch after each phase.
 
 ### Q&A ownership
 
-- Overall architecture.
-- Project scope.
-- Scheduler design.
-- Why modules are separated as they are.
-- Integration decisions and system limitations.
+- Overall architecture and project scope.
+- Why retention, eviction, and scheduling are separated/connected as they are.
+- vLLM integration decisions.
+- Fair-comparison boundaries and system limitations.
 
 ---
 
@@ -76,138 +64,113 @@ Own the overall system skeleton and keep all modules compatible as the repositor
 
 ### Primary goal
 
-Build the technical rationale for the project: what KV-cache management problem is being studied, how existing systems address it, and why the chosen optimization is worth evaluating.
+Provide the literature basis for the project and explain how eviction-oriented, retention-oriented, and workflow/scheduling-aware KV-cache systems differ.
 
 ### Main responsibilities
 
-- Study KV cache in LLM inference, including prefill/decode behavior and memory growth.
-- Study PagedAttention / paged KV-cache management and relevant baseline policies.
-- Identify prior work related to:
-  - KV-cache allocation;
-  - eviction;
-  - preemption;
-  - recomputation;
-  - workload-aware cache management;
-  - relevant serving-system design.
-- Summarize the limitations of selected baselines.
-- Maintain the project's motivation and related-work notes.
-- Provide concise background material to Member 7 for slides.
-- Verify that terminology used in slides and reports is technically correct.
+- Study KV cache in LLM inference and serving systems.
+- Maintain related-work summaries for eviction, retention, recomputation, preemption, scheduling coordination, and workflow-aware cache management.
+- Verify mechanisms and terminology for Continuum and other relevant systems.
+- Identify novelty risks and adjacent methods.
+- Support Member 1 when distinguishing original-paper behavior from project adaptations.
+- Provide slide-ready background/motivation material to Member 7.
 
-### Primary files / directories
+### Important boundary
 
-- documentation under `docs/`
-- future `docs/related-work.md` or equivalent notes
-
-### Expected deliverables
-
-- A structured related-work summary.
-- A clear project motivation: problem -> limitation -> optimization opportunity.
-- Definitions of important terms used consistently by the team.
-- References and comparison notes for the final presentation/report.
-
-### Acceptance criteria
-
-- The team can explain why KV-cache management matters for LLM inference.
-- The selected baselines are justified by prior systems or common practice.
-- The proposed optimization is motivated by an identifiable limitation rather than arbitrary parameter tuning.
+Member 2 provides literature evidence and mechanism interpretation but does **not** freeze implementation scope.
 
 ### Q&A ownership
 
 - KV-cache background.
 - Existing systems and prior work.
-- Why particular baselines were chosen.
-- Motivation for the research question.
+- Why Continuum and native vLLM are used as comparison points.
+- Original mechanism vs. adaptation distinctions.
 
 ---
 
-## Member 3 — Baseline KV-Cache Policy Implementation
+## Member 3 — Baseline System Implementation and Validation
 
 ### Primary goal
 
-Implement and validate the baseline KV-cache management policies used as the experimental comparison point.
+Implement and validate the frozen baselines through the common vLLM backend path.
+
+### Current Phase 1B responsibility
+
+Implement the frozen **Continuum-style retention + program-level scheduling baseline** defined in `docs/baseline-freeze.md`.
+
+The baseline includes:
+
+- explicit external `program_id/session_id`;
+- request/session lifecycle observation;
+- request/session ↔ prefix/block observation;
+- online tool-gap/reuse history;
+- dynamic TTL estimation with documented input sources/approximations;
+- independent retention state;
+- soft protection without changing native `ref_cnt` semantics;
+- lazy TTL expiry;
+- deterministic pressure release;
+- narrow admission-order `SchedulingPolicyAdapter`;
+- reuse of the Phase 1A eviction adapter and native BlockPool cleanup path.
 
 ### Main responsibilities
 
-- Implement the agreed baseline policies through the shared `EvictionPolicy` interface.
-- Likely candidates include FIFO, LRU, or another simple policy selected after literature review.
-- Keep baseline behavior deterministic where possible.
-- Add unit tests for policy behavior and edge cases.
-- Document baseline semantics precisely.
-- Work with Member 1 on integration with the cache manager/runtime.
-- Work with Member 6 to ensure baseline metrics are observable.
+- Implement the frozen baseline without silently changing its semantics.
+- Add deterministic unit tests for identity, TTL, retention, pressure fallback, mapping cleanup, and scheduler ordering.
+- Validate native/shadow/controlled scheduler modes where applicable.
+- Run a small real-GPU vLLM 0.27.1 validation after deterministic tests pass.
+- Document all approximations and unresolved reproduction gaps.
+- Report blockers to Member 1 rather than replacing dynamic TTL with fixed TTL or dropping scheduling silently.
 
 ### Primary files / directories
 
-- `src/kvopt/policies/`
-- baseline-specific tests under `tests/`
-
-### Expected deliverables
-
-- Tested baseline policy implementation(s).
-- Documentation of policy rules and tie-breaking behavior.
-- Reproducible baseline runs through the common benchmark interface.
+- baseline-specific code under `src/kvopt/`
+- real-backend integration only through agreed `runtime/vllm` extension points
+- baseline tests under `tests/`
+- `docs/continuum-baseline-implementation.md`
 
 ### Acceptance criteria
 
-- Baseline policies conform to the public policy interface.
-- Tests cover eviction order and capacity edge cases.
-- Baseline code does not contain optimization-specific logic.
-- Baseline and optimized policies can be compared under identical workloads and memory budgets.
+- Dynamic TTL is genuinely history/runtime dependent.
+- Multiple request IDs can belong to one explicit program/session.
+- Soft protection changes eviction eligibility without corrupting native queue/ref-count/hash bookkeeping.
+- Pressure cannot deadlock allocation.
+- Controlled scheduler mode changes admission order while native downstream bookkeeping remains correct.
+- Real vLLM GPU inference, APC reuse, and eviction still function.
+- Existing Phase 1A tests do not regress.
 
 ### Q&A ownership
 
-- Baseline algorithm details.
-- Baseline implementation choices.
-- Correctness and edge cases of baseline behavior.
+- Baseline algorithm and adaptation details.
+- Continuum mechanism → vLLM mapping in the implementation.
+- Dynamic TTL inputs and approximations.
+- Retention/scheduler edge cases and validation evidence.
 
 ---
 
-## Member 4 — Optimization Design and Implementation
+## Member 4 — Cost-Aware Optimization Design and Implementation
 
 ### Primary goal
 
-Own the project's main technical contribution: identify a concrete weakness in the baseline and implement an optimization that can be experimentally tested.
+Own the project's proposed technical contribution: a cost-aware KV-cache management system spanning the subset of retention, eviction, and scheduling decisions justified by evidence.
 
 ### Main responsibilities
 
-- Analyze baseline behavior together with Members 1, 3, and 6.
-- Define the optimization objective and design rationale.
-- Propose the optimized KV-cache management policy.
-- Implement the method through the same policy/runtime interfaces used by baselines.
-- Keep the method configurable so ablation is possible.
-- Add correctness tests and deterministic decision tests.
-- Document algorithm inputs, scoring logic, complexity, and expected trade-offs.
-- Avoid changing unrelated runtime components solely to favor the optimized method.
+- Analyze native and Continuum baseline behavior with Members 1, 3, and 6.
+- Define the cost model and optimization objective only after baseline/profile evidence is available.
+- Implement the proposed method through the same shared runtime boundaries where practical.
+- Keep major components configurable for ablation.
+- Separate cost-aware retention, eviction, and scheduler contributions where possible.
+- Document algorithm inputs, complexity, overhead, assumptions, and failure cases.
 
-### Primary files / directories
+### Important boundary
 
-- `src/kvopt/policies/`
-- optimization-specific tests under `tests/`
-- method-related configuration under `configs/`
-- method design notes under `docs/`
-
-### Expected deliverables
-
-- A clearly specified optimization algorithm.
-- Working implementation.
-- Tests and configuration knobs required for ablation.
-- A concise explanation of why the method should improve the target metric.
-
-### Acceptance criteria
-
-- The method is more than parameter tuning of the baseline.
-- It runs under the same runtime and workload interface as the baselines.
-- Its additional policy-decision overhead can be measured.
-- Important parameters can be disabled or varied for ablation.
+Do not implement Cost-Aware during Phase 1B. The exact cost model and scheduling rule remain unfrozen until the strong baseline is functioning and profiled.
 
 ### Q&A ownership
 
-- What the proposed method is.
-- Why it should work.
-- Algorithm and implementation details.
-- Complexity and trade-offs.
-- Failure cases of the proposed method.
+- Proposed method and novelty.
+- Cost model and decision logic.
+- Complexity, overhead, ablation, and trade-offs.
 
 ---
 
@@ -215,52 +178,24 @@ Own the project's main technical contribution: identify a concrete weakness in t
 
 ### Primary goal
 
-Create reproducible input traces and benchmark tooling so that all policies are evaluated on the same requests under controlled conditions.
+Build reproducible workloads that expose both cache-pressure behavior and multi-turn/session retention+scheduling behavior.
 
 ### Main responsibilities
 
-- Research and select suitable public datasets or request traces after the experimental setting is fixed.
-- Define dataset preprocessing and sampling rules.
-- Convert dataset records into the common `Request`/workload representation.
-- Build synthetic workloads when needed for controlled experiments.
-- Construct workload categories such as:
-  - short-request dominated;
-  - long-request dominated;
-  - mixed-length;
-  - different arrival rates / burstiness if relevant.
-- Maintain benchmark scripts and workload configuration.
-- Ensure the exact same workload trace can be replayed across different policies.
-- Record dataset source, preprocessing, sampling seed, and trace statistics.
-- Do not commit large raw datasets or model weights into Git.
-
-### Primary files / directories
-
-- `src/kvopt/workload/`
-- `benchmarks/`
-- workload-related `configs/`
-- future lightweight metadata/manifests under `data/` if needed, while raw datasets remain ignored
-
-### Expected deliverables
-
-- Dataset selection rationale.
-- Reproducible preprocessing scripts.
-- Workload generator / trace loader.
-- Benchmark entry point.
-- Workload statistics such as request count and prompt/output-length distributions.
-
-### Acceptance criteria
-
-- A workload can be reproduced from configuration and seed.
-- All compared policies receive the same request sequence.
-- Dataset transformation is documented.
-- Synthetic and real workloads are clearly distinguished.
+- Select public traces/datasets where useful.
+- Build controlled synthetic workloads for mechanism validation.
+- Support explicit `program_id/session_id`, turn order, tool-gap start/end, arrival timing, and prefix reuse.
+- Provide controlled multi-turn/session traces required by Phase 1B.
+- Create workload categories such as short/long/mixed requests, low/high pressure, low/high reuse, controlled tool gaps, and bursty arrivals where useful.
+- Ensure the same frozen trace/config can be replayed across policies.
+- Document preprocessing, seeds, distributions, and whether reuse is natural or synthetic.
 
 ### Q&A ownership
 
-- Dataset choice.
-- Workload construction.
-- Request-length distributions.
-- Benchmark trace fairness and reproducibility.
+- Dataset/trace choice.
+- Session/workflow construction.
+- Tool-gap and reuse generation.
+- Workload fairness and reproducibility.
 
 ---
 
@@ -268,66 +203,39 @@ Create reproducible input traces and benchmark tooling so that all policies are 
 
 ### Primary goal
 
-Own the complete experimental evaluation and determine whether the proposed optimization actually improves the intended behavior under fair conditions.
+Own formal evaluation and determine both whether the system improves and which component caused the change.
 
 ### Main responsibilities
 
-- Define the final evaluation protocol with Members 1, 4, and 5.
-- Run baseline and optimized methods under identical configurations.
-- Collect and validate metrics.
-- Perform repeated runs where needed.
-- Create final figures and tables.
-- Profile the system to identify where time and memory are spent.
-- Analyze why the method improves, regresses, or has no effect under different workloads.
-- Measure optimization overhead.
-- Maintain experiment result organization and reproducibility notes.
-- Report negative results and failure cases instead of hiding them.
+- Define metrics for serving, cache retention/eviction, scheduling, and policy overhead.
+- Run reproducible baseline and proposed-system experiments.
+- Maintain separate protocols for:
+  - component attribution with native scheduling fixed;
+  - full-system comparison with intrinsic scheduling/cache coordination.
+- Profile recomputation, prefix hits, evictions, protected KV volume, waiting time, scheduling decisions, and policy overhead.
+- Generate plots/tables from stored raw results.
+- Report regressions and failure cases.
 
 ### Target metrics
-
-Depending on the final backend, likely metrics include:
 
 - throughput;
 - TTFT;
 - TPOT;
-- end-to-end latency;
-- KV-cache utilization;
-- number of evictions;
-- recomputation / preemption overhead;
-- policy-decision overhead;
-- GPU memory usage;
-- GPU utilization where meaningful.
-
-### Primary files / directories
-
-- `src/kvopt/metrics/`
-- evaluation-related code under `benchmarks/`
-- `results/`
-- profiling scripts/artifacts outside Git when large
-- `docs/experiment-plan.md`
-
-### Expected deliverables
-
-- Final experimental matrix.
-- Reproducible result files.
-- Publication/presentation-ready plots and tables.
-- Profiling evidence explaining the observed behavior.
-- Written conclusions and limitations for each major experiment.
-
-### Acceptance criteria
-
-- Baseline and proposed method use the same model, workload trace, memory budget, and relevant runtime configuration.
-- Plots are generated from stored result data, not manually edited values.
-- Performance claims can be traced back to reproducible runs.
-- Both improvement and overhead are reported.
+- end-to-end request latency;
+- session/program completion time;
+- queueing/waiting time;
+- APC hit/reuse rate;
+- eviction count and evicted blocks/tokens;
+- recomputed tokens / preemption/reload events where applicable;
+- protected KV volume / retention lifetime;
+- scheduling-decision and cache-policy overhead;
+- GPU memory/utilization where meaningful.
 
 ### Q&A ownership
 
-- Experimental setup.
+- Experimental setup and fairness.
 - Metric definitions.
-- Fairness of comparisons.
-- Why a result changed.
-- Statistical/repeatability questions.
+- Component attribution vs. full-system claims.
 - Profiling and bottleneck interpretation.
 
 ---
@@ -336,132 +244,105 @@ Depending on the final backend, likely metrics include:
 
 ### Primary goal
 
-Turn the technical work of Members 1-6 into one coherent presentation and serve as the primary presenter.
+Turn the technical work into one coherent presentation and serve as primary presenter.
 
 ### Main responsibilities
 
-- Own the final slide deck and presentation structure.
-- Collect technical material, figures, and conclusions from Members 1-6.
-- Turn raw technical material into a coherent story:
-  1. problem;
-  2. background;
-  3. baseline;
-  4. observed limitation;
-  5. proposed method;
-  6. implementation;
-  7. evaluation;
-  8. analysis and limitations;
-  9. conclusion.
-- Keep terminology and figures consistent across slides.
-- Prepare speaker notes and rehearse the complete talk.
-- Control presentation timing.
-- Organize at least one internal rehearsal before the final presentation.
-- Maintain a list of likely questions and route technical questions to the corresponding module owner during Q&A.
-
-### Important boundary
-
-Member 7 is responsible for presentation quality, not for inventing technical content or experimental conclusions. Members 1-6 must provide accurate, slide-ready material for the sections they own.
-
-### Expected deliverables
-
-- Final slide deck.
-- Presentation script / speaker notes.
-- Rehearsal-ready version before the deadline.
-- Q&A question list organized by module owner.
-
-### Acceptance criteria
-
-- The full presentation fits within the required time.
-- Every major performance claim shown on slides is backed by Member 6's results.
-- Every method claim is verified by Member 4.
-- Background statements are checked with Member 2.
-- The presenter can explain the end-to-end system at a high level even when detailed technical questions are answered by the corresponding owner.
-
-### Q&A ownership
-
-- Presentation-level summary questions.
-- Overall story and conclusions.
-- Technical questions are handed to the relevant owner.
+- Own the final slide deck and talk structure.
+- Keep terminology consistent with authoritative project documents.
+- Present the system as KV-cache management rather than eviction-only.
+- Clearly separate native baseline, Continuum-style adapted system, and the proposed Cost-Aware system.
+- Distinguish component attribution experiments from full-system comparisons.
+- Collect verified figures/results from Members 1-6.
+- Lead rehearsal and route detailed Q&A to module owners.
 
 ---
 
 ## Cross-member collaboration map
 
 ```text
-Member 2: background / motivation
+Member 2: related work / mechanism evidence
              |
              v
-Member 1: architecture / integration
-   |          |          |
-   v          v          v
-Member 3   Member 4   Member 5
-baseline   optimized  dataset/workload/benchmark
-   \          |          /
-    \         |         /
-     +------> Member 6
-              evaluation / profiling / analysis
+Member 1: architecture / freezes / integration
+     |              |               |
+     v              v               v
+Member 3         Member 4         Member 5
+Continuum        Cost-Aware       workload/session traces
+baseline         method
+     \              |               /
+      \             |              /
+       +----------> Member 6
+              evaluation / profiling
                      |
                      v
                  Member 7
               slides / presentation
 ```
 
-This diagram represents information flow, not a strict sequential schedule. Members should work in parallel whenever interfaces are stable enough.
-
 ---
 
-## Suggested development phases
+## Current Development Phases
 
-### Phase 0 — Repository and interface validation
+### Phase 0 — Backend & Architecture Validation
 
-- Member 1: architecture, scheduler, integration interfaces.
-- Member 2: background reading begins.
-- Member 5: survey candidate datasets/workloads.
-- Members 3/4/6: review interfaces and evaluation needs.
+**Status: CLOSED**
 
-### Phase 1 — Baseline
+- vLLM 0.27.1 real GPU backend validated.
+- APC prefix hit and real cache pressure validated.
+- native block-level eviction path established.
 
-- Member 3: implement agreed baseline policies.
-- Member 5: produce first reproducible workloads.
-- Member 6: define baseline metrics and run protocol.
-- Member 1: integrate baseline path.
+### Phase 1A — Common Eviction Policy Adapter
 
-Exit condition: baseline can run end-to-end on a fixed workload and produce reproducible metrics.
+**Status: CLOSED**
 
-### Phase 2 — Bottleneck identification and optimization
+- block-level `EvictionPolicyAdapter` validated against native LRU ordering;
+- real controlled eviction and native metadata cleanup validated.
 
-- Member 6: profile baseline and report bottlenecks.
-- Member 4: finalize optimization based on an observed problem.
-- Member 1: support runtime/interface changes only where justified.
-- Member 3: keep baseline frozen for fair comparison.
+### Phase 1B — Continuum Baseline
 
-Exit condition: optimized method is implemented through the same evaluation path as the baseline.
+**Status: IMPLEMENTATION SCOPE FROZEN; IMPLEMENTATION NEXT**
 
-### Phase 3 — Formal evaluation
+- feasibility mapping complete;
+- retention+scheduling adaptation scope frozen;
+- Member 3 implements and validates the baseline;
+- Member 5 can prepare controlled multi-turn/session traces in parallel;
+- Member 6 can prepare required metrics in parallel.
 
-- Member 5: freeze datasets/workloads/traces.
-- Member 6: execute the final experiment matrix and generate plots.
-- Member 4: provide ablation configurations.
-- Member 1: freeze runtime/configuration versions.
+Exit condition:
 
-Exit condition: every major claim is supported by a reproducible experiment.
+- Continuum-style adapted baseline runs on real vLLM 0.27.1;
+- dynamic TTL, retention, pressure behavior, and scheduler ordering are validated;
+- limitations/approximations are documented.
+
+### Phase 2 — Baseline Profiling and Cost-Aware Design Freeze
+
+- Member 6 profiles native and Continuum baselines.
+- Member 4 finalizes the Cost-Aware method using observed evidence.
+- Member 1 freezes any required runtime/interface extensions.
+
+### Phase 3 — Cost-Aware Implementation and Formal Evaluation
+
+- implement Ours and required ablations;
+- freeze datasets/workloads/configs;
+- execute component and full-system comparisons;
+- produce final figures/tables and limitations.
 
 ### Phase 4 — Presentation
 
-- Members 1-6: provide slide-ready content and verify their sections.
-- Member 7: assemble the deck, write the presentation script, and lead rehearsal.
-- Q&A: each owner answers questions about their own component.
+- Members 1-6 provide verified slide-ready material;
+- Member 7 assembles and rehearses the final presentation;
+- each member owns Q&A for their subsystem.
 
 ---
 
-## Definition of done for individual work
+## Definition of Done
 
-A task is not considered complete merely because code exists. For technical work, the owner should provide:
+A technical task is complete only when it includes:
 
-1. implementation;
-2. tests or a reproducible validation command;
-3. relevant configuration;
-4. a short description of assumptions and limitations;
-5. a PR that explains the change and its impact on other modules.
-
-For experimental work, the owner should additionally provide the exact workload/configuration and machine/runtime information required to reproduce the result.
+1. implementation or finalized decision document;
+2. deterministic tests or reproducible validation commands;
+3. relevant configuration/workload metadata;
+4. assumptions, approximations, and limitations;
+5. a PR explaining integration impact;
+6. real-backend validation when the task makes serving-system claims.
