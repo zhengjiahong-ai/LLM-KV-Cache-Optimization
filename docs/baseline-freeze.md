@@ -2,21 +2,19 @@
 
 ## Purpose
 
-This document is the project-level decision record for baseline selection and adaptation scope.
+This document records project-level decisions about baseline selection and adaptation scope.
 
-It separates three responsibilities:
+The project studies **KV Cache Management Optimization** broadly enough to include:
 
-- literature evidence and mechanism summaries;
-- project-level baseline selection and runtime adaptation decisions;
-- baseline implementation.
+- retention / protection;
+- eviction / victim selection;
+- scheduling coordination when it directly interacts with cache lifetime and recomputation.
 
-Related-work notes may recommend mechanisms, but they do not by themselves freeze the implementation scope.
+Phase 1A validated a real block-level eviction-policy integration path, but that implementation boundary is a subsystem boundary, not the final research boundary.
 
 ---
 
-## Baseline Set
-
-### Baseline 1 — vLLM 0.27.1 native APC LRU
+## Baseline 1 — vLLM 0.27.1 native APC + native scheduler
 
 **Status: FROZEN**
 
@@ -26,13 +24,7 @@ Backend:
 vLLM 0.27.1
 ```
 
-Subsystem:
-
-```text
-GPU Automatic Prefix Caching (APC)
-```
-
-Validated eviction path:
+Validated APC eviction path:
 
 ```text
 BlockPool.get_new_blocks()
@@ -40,166 +32,205 @@ BlockPool.get_new_blocks()
     -> BlockPool._maybe_evict_cached_block()
 ```
 
-The baseline is the native block-level recency ordering represented by vLLM's free-block queue.
+Phase 1A also validated that the project adapter can reproduce native block-level LRU ordering under real GPU inference while preserving native downstream eviction bookkeeping.
 
-Important terminology:
-
-- this is **vLLM APC block-level LRU**;
-- it is not the same concrete implementation as SGLang's radix-cache Leaf-LRU;
-- related work may compare both as recency-based policies, but implementation claims must keep them separate.
-
-No additional baseline-specific victim-ranking logic should be added to this policy.
+This baseline represents the unmodified production serving behavior against which broader system improvements are measured.
 
 ---
 
-### Baseline 2 — Continuum-style dynamic TTL retention core
+## Baseline 2 — Continuum-style retention + scheduling system
 
-**Status: FROZEN FOR IMPLEMENTATION**
+**Status: STRONG BASELINE TARGET; EXACT vLLM ADAPTATION SCOPE NOT YET FROZEN**
 
-The project will reproduce the **retention core** of Continuum rather than the complete Continuum scheduling system.
+The previous decision to freeze a retention-only Continuum baseline is **withdrawn**.
 
-The defining mechanism to preserve is:
+Reason:
 
 ```text
-observed multi-turn / tool-call gap statistics
-    -> dynamic TTL estimate using Continuum's cost-benefit logic
-    -> retain (pin/protect) reusable KV state until TTL expires
-    -> unpin/release when TTL expires or cache pressure requires reclamation
+Continuum's defining system behavior spans
+retention / pin-unpin
++
+scheduling coordination
 ```
 
-This baseline is therefore a **Continuum-style dynamic TTL retention baseline**, not ordinary LRU with an arbitrary fixed TTL.
+Reducing it to a retention-only mechanism is still useful for component ablation, but it should not serve as the project's only representation of Continuum in the broader system comparison.
 
-### Included mechanisms
+### What must be mapped before implementation
 
-The following components are frozen as required:
+Member 1 must freeze the following after paper/runtime mapping:
 
-1. **Dynamic TTL calculation**
-   - TTL must be computed from online/historical reuse-gap information using the paper's retention cost-benefit principle.
-   - A single manually chosen fixed TTL is not an acceptable substitute.
+1. **Retention state**
+   - how dynamic TTL is represented;
+   - how pin/unpin or equivalent protection maps to vLLM APC state;
+   - what runtime events update retention metadata.
 
-2. **Retention eligibility / pin-unpin state**
-   - Cached state within its active TTL is treated as protected from ordinary LRU eviction.
-   - TTL expiry makes the state eligible for normal eviction again.
+2. **Memory-pressure behavior**
+   - what happens when retained/protected KV prevents required allocation;
+   - which behavior comes from Continuum and which is a project adaptation.
 
-3. **Pressure-triggered release**
-   - Protected entries must not cause allocation failure or deadlock.
-   - When required capacity cannot be satisfied from unprotected candidates, the implementation may release protected entries deterministically according to the frozen pressure rule below.
+3. **Scheduling behavior**
+   - what scheduling priority/order rule is essential to represent Continuum's cache-aware scheduling contribution;
+   - what minimal vLLM scheduler hook is required;
+   - whether batching/admission semantics need to change.
 
-4. **Online state update**
-   - Reuse-gap statistics used by TTL calculation must be updated from observed workload events available at runtime.
+4. **Granularity / identity mapping**
+   - session/request/prefix identity;
+   - mapping from that logical object to vLLM cached blocks;
+   - handling of multi-turn idle gaps and resumed requests.
 
-### Excluded mechanisms
-
-The following Continuum system components are explicitly **out of scope for the primary baseline**:
-
-- program-level FCFS scheduling;
-- TTL-aware scheduling priority changes;
-- changes to vLLM batching or admission order;
-- Continuum's full agent/workflow scheduler;
-- distributed/multi-GPU mechanisms not required for the retention decision.
-
-Reason: the project studies KV-cache retention/eviction policy. Changing the scheduler at the same time would introduce a second source of performance differences and make RQ2 harder to interpret. All primary policies therefore keep the same vLLM scheduler and differ only in cache-policy behavior.
-
-The report must describe this implementation as a **Continuum-style retention-core adaptation**, not a full-system reproduction of Continuum.
+5. **Excluded original-system components**
+   - any distributed, multi-GPU, workflow-framework, or unavailable mechanism that cannot be reproduced faithfully;
+   - explicit wording for those omissions.
 
 ---
 
-## Continuum-to-vLLM Mapping
+## Two Evaluation Levels
 
-### Original decision level
+The project must separate component attribution from full-system comparison.
 
-Continuum reasons about reusable KV state across multi-turn / tool-call gaps and assigns a dynamic time-to-live to decide how long that state should remain retained.
+### Level A — Controlled component comparison
 
-### vLLM target level
-
-The validated backend manages reusable APC state at the cached-block level through the free-block queue and `BlockPool` bookkeeping.
-
-The project adaptation therefore separates:
+Hold the native scheduler fixed and compare cache-management components:
 
 ```text
-retention metadata / eligibility
-        -> candidate filtering
-        -> common block-level victim selection
-        -> native vLLM downstream eviction bookkeeping
+vLLM native LRU
+vs.
+Continuum-style retention-only adaptation
+vs.
+Ours-Evict / Ours-Retention
 ```
 
-The existing `EvictionPolicyAdapter` remains the common block-level victim-selection interface. Continuum-specific TTL state should be implemented as a separate retention layer or candidate-eligibility filter rather than expanding the adapter into a scheduler interface.
+Purpose:
 
-### Granularity rule
+> determine whether gains come from eviction/retention logic itself.
 
-If a retained logical prefix spans multiple cached blocks, all blocks associated with the retained prefix/request state should share the same retention eligibility for that TTL interval wherever the mapping is available.
+A retention-only Continuum adaptation is valid here, but must be labeled accordingly and must not be called full Continuum reproduction.
 
-If reliable request/session-to-block mapping is unavailable for a workload, the implementation must not invent one silently. The affected experiment must either:
+### Level B — Full-system comparison
 
-- use a controlled workload that provides the required association explicitly; or
-- document a block-level approximation and report it as such.
-
-The current Phase 1A validation established block-level LRU equivalence but did **not** establish general request-level P1/P2/P3-to-block mapping.
-
----
-
-## Frozen Memory-Pressure Rule
-
-Continuum-style protection is soft, not absolute.
-
-Victim selection under pressure uses this order:
+Allow method-intrinsic cache/scheduler coordination:
 
 ```text
-1. expired / unprotected cached blocks
-2. if still insufficient: protected blocks with the earliest TTL expiry
-3. native LRU order as deterministic tie-breaker
+vLLM native system
+vs.
+Continuum-style/full adapted system
+vs.
+Ours-Full
 ```
 
-This rule guarantees progress while preserving the intended retention behavior as long as capacity permits.
+Purpose:
 
-Any later change to this rule must update this decision record before formal evaluation.
+> compare end-to-end serving-system performance when each approach uses its intended cache-management and scheduling coordination.
+
+A full-system result cannot by itself attribute gains specifically to eviction or scheduling; that attribution must come from Level A and ablation experiments.
 
 ---
 
-## Fair-Comparison Constraints
+## Phase 1A Reuse
 
-For the primary LRU vs. Continuum-style vs. Cost-Aware comparison, keep constant:
+The existing real-vLLM adapter remains authoritative for block-level eviction execution:
 
-- vLLM `0.27.1`;
-- GPU APC backend;
-- model and model revision;
+```text
+vLLM cached free blocks
+    -> snapshot / candidate metadata
+    -> EvictionPolicyAdapter
+    -> selected blocks
+    -> native BlockPool bookkeeping
+```
+
+This work is retained unchanged.
+
+New retention/scheduler work should be layered above or beside this boundary rather than replacing it.
+
+Important unresolved issue:
+
+> General request/session-to-block mapping has not yet been established.
+
+That mapping is now a required architecture task for retention and scheduling experiments.
+
+---
+
+## Proposed-System Scope
+
+The proposed research direction is broadened from eviction-only to **cost-aware KV-cache management**.
+
+Potential coordinated decisions are:
+
+```text
+Retention:
+How long should reusable KV remain protected?
+
+Eviction:
+If memory must be reclaimed, which KV should be sacrificed?
+
+Scheduling:
+Which request/session should run or resume when cache state and recomputation cost matter?
+```
+
+The intended unifying principle is explicit runtime cost/value estimation rather than recency alone.
+
+The exact proposed formulas and scheduler rules are **not frozen**.
+
+---
+
+## Required Ablations
+
+The final system should, if technically feasible, expose at least these configurations:
+
+```text
+Ours-Evict
+    -> cost-aware victim selection only
+
+Ours-Retention
+    -> cost-aware retention + eviction
+    -> native scheduler
+
+Ours-Full
+    -> cost-aware retention + eviction + scheduling coordination
+```
+
+Equivalent naming is acceptable, but the experiment must allow Member 6 to separate:
+
+- victim-selection contribution;
+- retention contribution;
+- scheduling contribution;
+- policy overhead.
+
+---
+
+## Fairness Rules
+
+### Controlled comparisons
+
+Keep constant:
+
+- vLLM version;
+- model/revision;
 - hardware;
-- request trace / workload;
+- request trace;
 - cache-memory budget;
-- batching and scheduler configuration;
+- scheduler/batching configuration;
 - generation parameters;
 - metric definitions;
-- common downstream `BlockPool` allocation/eviction bookkeeping.
+- random seeds where applicable.
 
-The primary Continuum-style baseline must **not** receive a scheduler-priority advantage unavailable to LRU and Cost-Aware.
+### Full-system comparisons
 
-Any optional experiment that later adds Continuum's scheduling component must be reported separately as a system-level extension, not mixed into the primary policy comparison.
+Scheduling and retention behavior may differ when intrinsic to each method.
 
----
+Keep constant wherever possible:
 
-## Minimum Reproduction Validation
+- backend/runtime version;
+- model;
+- hardware;
+- workload;
+- total GPU-memory/cache budget;
+- generation settings;
+- measurement methodology.
 
-Member 3 must complete all items below before the baseline is considered reproduced sufficiently for this course project:
+Every policy-specific scheduler or retention difference must be documented.
 
-1. **Mechanism test**
-   - show that different observed reuse-gap histories can produce different TTL values;
-   - show that unexpired entries are protected and expired entries become evictable.
-
-2. **Pressure test**
-   - create cache pressure;
-   - show that unprotected entries are selected before protected ones;
-   - when protected release is necessary, confirm earliest-expiry-first with native LRU tie-breaking.
-
-3. **Real-backend test**
-   - run on real vLLM `0.27.1` GPU inference;
-   - reuse the common adapter / native downstream eviction path validated in Phase 1A;
-   - confirm successful inference and real cached-block metadata removal.
-
-4. **Trend-level reproduction**
-   - use a multi-turn or controlled reuse-gap workload where retention matters;
-   - verify at least the qualitative trend that dynamic retention can preserve reusable KV state across useful gaps compared with pure recency eviction under pressure.
-
-The project does not require reproducing every numerical result from the original Continuum paper because the runtime, model, hardware, and workload differ.
+Full-system superiority must not be presented as proof that one eviction rule alone is superior.
 
 ---
 
@@ -209,46 +240,79 @@ The project does not require reproducing every numerical result from the origina
 
 Owns:
 
-- this frozen adaptation scope;
-- common vLLM policy boundary;
-- fairness constraints;
-- approval of any scope change caused by implementation blockers.
+- overall runtime architecture;
+- cache-policy adapter;
+- scheduler/cache-management integration boundary;
+- final Continuum adaptation freeze;
+- fairness rules and integration.
 
 ### Member 2
 
 Provides:
 
-- paper-mechanism evidence;
-- clarification of Continuum's original TTL and scheduling behavior;
-- wording support for related work and limitations.
+- evidence for Continuum retention and scheduling mechanisms;
+- related-work comparison;
+- identification of omitted or approximated mechanisms;
+- novelty-risk checking.
 
 ### Member 3
 
-Implements the frozen Continuum-style retention-core baseline on `feature/baseline`.
+Implements the baseline only after the revised full-system adaptation scope is frozen.
 
-Member 3 must not silently add scheduling changes or replace dynamic TTL with a fixed heuristic. If the paper's exact TTL inputs cannot be reconstructed from available runtime information, the approximation and its rationale must be documented before formal experiments.
+Member 3 should **not begin from the withdrawn retention-only freeze** as though it were final.
+
+### Member 4
+
+Implements the proposed cost-aware mechanism after interfaces are frozen.
+
+### Member 5
+
+Provides workloads capable of exposing both cache-pressure behavior and multi-turn/session scheduling effects.
 
 ### Member 6
 
-Checks that the comparison uses the frozen common scheduler/backend settings and that retention-specific metrics are collected consistently.
+Runs component and full-system experiments separately and performs ablation/attribution analysis.
 
 ---
 
 ## Current Decision State
 
 ```text
-vLLM native APC LRU
-    -> FROZEN
-    -> REAL ADAPTER EQUIVALENCE VALIDATED
+Overall research scope
+    -> KV CACHE MANAGEMENT
+    -> RETENTION + EVICTION + SCHEDULING COORDINATION
 
-Continuum-style dynamic TTL retention core
-    -> FROZEN FOR IMPLEMENTATION
-    -> DYNAMIC TTL + RETENTION ELIGIBILITY + PRESSURE RELEASE INCLUDED
-    -> SCHEDULER PRIORITY EXCLUDED FROM PRIMARY BASELINE
+vLLM native APC + native scheduler
+    -> FROZEN BASELINE
 
-Cost-Aware policy
-    -> RESEARCH DIRECTION FROZEN
-    -> SCORING FUNCTION NOT FROZEN
+Phase 1A block-level eviction adapter
+    -> COMPLETE
+    -> RETAINED AS CACHE SUBSYSTEM INFRASTRUCTURE
+
+Continuum
+    -> STRONG SYSTEM BASELINE TARGET
+    -> RETENTION-ONLY FREEZE WITHDRAWN
+    -> FULL vLLM ADAPTATION SCOPE NOT YET FROZEN
+
+Cost-Aware
+    -> BROADER SYSTEM DIRECTION FROZEN
+    -> EXACT RETENTION / EVICTION / SCHEDULING RULES NOT FROZEN
 ```
 
-The next phase is **Phase 1B — Continuum-style Baseline Reproduction**, owned by Member 3 using the validated common vLLM policy path.
+---
+
+## Next Architecture Task
+
+Before Member 3 starts Phase 1B implementation, Member 1 must perform a **Continuum-to-vLLM system mapping** covering:
+
+```text
+paper mechanism
+    -> retention state
+    -> request/session identity
+    -> block association
+    -> scheduler decision point
+    -> memory-pressure path
+    -> observable metrics
+```
+
+The output should freeze the smallest faithful-enough Continuum-style system that can run on vLLM 0.27.1 while preserving the distinction between controlled component experiments and full-system comparison.
