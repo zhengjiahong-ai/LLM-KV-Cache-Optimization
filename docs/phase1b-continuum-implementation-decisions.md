@@ -144,6 +144,18 @@ This follows the paper-level three-stage structure.
 
 `T_default` is a **paper-derived cold-start mechanism with a project-level concretization**.
 
+Normative status:
+
+```text
+PROJECT ADAPTATION / CONCRETIZATION
+```
+
+The paper-derived part is the cold-start optimization under
+`ToolCallDuration ~ Exp(mean = 1 second)`, `eta = 1`, and `T = 0`. Choosing one
+fixed `RepresentativePrefillReload` for each pinned vLLM
+model/hardware/profile configuration is the project's implementation
+concretization; it is not a paper-specified profiling rule.
+
 For the pinned model/hardware configuration, compute one deterministic startup `T_default` from the same TTL objective under:
 
 ```text
@@ -422,32 +434,52 @@ The first controlled validation workload must not depend on partial-prefix seman
 
 ## 5. Retention-aware free-queue SelectionPlan — final merge contract
 
-Keep `EvictionPolicyAdapter` and `VLLMEvictionBridge` basic Phase 1A semantics unchanged.
-
-Add a retention-aware coordinator around that path. Responsibilities are split
-as follows:
+Keep the basic Phase 1A semantics of `EvictionCandidate`,
+`VLLMEvictionBridge`, and `NativeLRUAdapter` unchanged. In particular:
 
 ```text
+EvictionCandidate.lru_rank
+= position in the complete original native free-queue snapshot
+```
+
+Rank 0 remains the native queue head. It must never be regenerated from a
+retention-filtered or Tier-reordered block sequence.
+
+Add a Phase 1B retention-aware coordinator and an explicit retention-aware
+adapter around that path. Responsibilities are split as follows:
+
+```text
+VLLMEvictionBridge
+-> receive the complete native free queue in original order
+-> build immutable candidates with native lru_rank
+-> perform the existing Phase 1A output validation
+
 RetentionAwareSelectionCoordinator
 -> ordinary-expiry planning
 -> protection aggregation
 -> protected-entry release planning
--> ordered eligible block snapshot
+-> explicit eligibility tier for each block ID
 
-VLLMEvictionBridge + EvictionPolicyAdapter
--> final victim-ID selection from that snapshot
--> existing Phase 1A output validation
+RetentionAwareLRUAdapter (new Phase 1B adapter)
+-> receive the complete native-ranked candidate snapshot
+-> exclude blocks still marked protected
+-> select by the explicit key (eligibility_tier, native_lru_rank)
+-> remain the final victim-ID selection boundary
 
 SelectionPlan
--> records the coordinator decisions
--> records the adapter's actual validated victim IDs
+-> record the coordinator decisions and eligibility metadata
+-> record the adapter's actual validated victim IDs
 ```
 
 The coordinator must not independently choose a final victim list and then ask
-the adapter to choose a second time. For the Continuum baseline, the ordered
-eligible snapshot is passed through `NativeLRUAdapter`, so the adapter preserves
-the coordinator's Tier 1 then Tier 2 ordering while remaining the final
-victim-selection boundary.
+the adapter to choose a second time. It produces an immutable eligibility and
+release plan, not replacement `lru_rank` values.
+
+`NativeLRUAdapter` remains the unchanged Phase 1A reference adapter and keeps
+sorting only by native `lru_rank`. Phase 1B must not simulate tier priority by
+passing a reordered block iterable to `VLLMEvictionBridge.build_candidates()`.
+The new retention-aware adapter makes the virtual order explicit and separate
+from native LRU rank.
 
 For one native free-queue snapshot:
 
@@ -456,7 +488,9 @@ For one native free-queue snapshot:
 3. build Tier 1 by skipping still-protected cached blocks;
 4. plan protected-entry releases only if Tier 1 cannot satisfy `required_blocks`;
 5. build Tier 2 from blocks made newly eligible by those releases;
-6. pass the ordered eligible snapshot to the bridge/adapter for final selection.
+6. pass the complete original native queue to the bridge, preserving native
+   `lru_rank`, and pass the immutable eligibility plan to the retention-aware
+   adapter for final selection.
 
 ### Final queue-merge rule
 
@@ -482,13 +516,22 @@ If Tier 1 is insufficient, release protected logical entries using the frozen
 pressure order. Physical cached blocks that become newly eligible form Tier 2
 in native LRU order. A release with zero marginally eligible physical blocks
 does not count toward the target, and release planning continues until the
-ordered eligible snapshot can satisfy `required_blocks`.
+planned eligible tiers can satisfy `required_blocks`.
 
-The bridge/adapter receives:
+The Phase 1B adapter applies this explicit virtual selection order:
 
 ```text
-ordered eligible snapshot = Tier 1 + Tier 2
+selection key = (eligibility_tier, native_lru_rank)
+
+eligibility_tier:
+    Tier 1 = 0
+    Tier 2 = 1
+    still protected = ineligible
 ```
+
+This virtual order may be logged as `Tier 1 + Tier 2`, but that projection must
+not be fed back through `build_candidates()` and must not overwrite or
+reinterpret any candidate's native `lru_rank`.
 
 The adapter's validated output defines the final selected block IDs. Unselected
 blocks remain in the native free queue with their relative order unchanged.
@@ -504,19 +547,33 @@ required_blocks = 1
 ```
 
 When no block is protected, Tier 1 is the complete native free queue in native
-order, preserving Phase 1A native-LRU equivalence.
+order. The retention-aware adapter then sorts by the unchanged native
+`lru_rank`, preserving Phase 1A native-LRU equivalence.
 
 The `SelectionPlan` must log at least:
 
 - `required_blocks`;
 - original physical free-queue order;
+- each candidate's unchanged native `lru_rank`;
 - ordinary expired entries;
 - protected entries released for pressure;
 - newly eligible physical blocks per released entry;
-- Tier 1 and Tier 2 block order;
+- explicit eligibility tier for each block ID;
+- derived Tier 1 and Tier 2 virtual order;
 - adapter identity;
 - adapter's actual validated selected block IDs;
 - still-protected block IDs.
+
+Required contract tests:
+
+1. `VLLMEvictionBridge.build_candidates()` receives the complete native queue
+   and assigns exactly the same `lru_rank` values as Phase 1A.
+2. A retention tier decision changes eligibility/order without changing any
+   candidate's native `lru_rank`.
+3. `[protected cached P, later unhashed free E]` selects `E` while preserving
+   the original native ranks of both candidates.
+4. With no protected block, the retention-aware adapter returns exactly the
+   same victim IDs as the unchanged `NativeLRUAdapter`.
 
 ### Native, shadow, and controlled state transitions
 
