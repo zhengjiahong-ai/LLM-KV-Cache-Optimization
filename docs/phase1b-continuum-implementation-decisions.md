@@ -2,35 +2,52 @@
 
 ## Purpose
 
-This document supplements `docs/baseline-freeze.md` with implementation-level decisions required to complete the frozen Phase 1B Continuum-style baseline on vLLM 0.27.1.
+This document supplements `docs/baseline-freeze.md` with implementation-level decisions for the frozen Phase 1B Continuum-style baseline on vLLM 0.27.1.
 
-The baseline scope itself is unchanged: explicit program/session identity, dynamic TTL retention, soft protection, deterministic pressure release, program-level waiting/admission scheduling, and native vLLM BlockPool bookkeeping.
+If this document and `docs/baseline-freeze.md` conflict, `docs/baseline-freeze.md` remains authoritative unless that freeze is explicitly updated.
 
-If this document and `docs/baseline-freeze.md` appear to conflict, `docs/baseline-freeze.md` remains authoritative unless that freeze is explicitly updated.
-
-This record resolves implementation details that were previously open. It does **not** change the project research hierarchy: the primary proposed contribution remains Cost-Aware KV-cache eviction / victim selection; Continuum retention and scheduling are implemented because they are intrinsic to the strong baseline.
+The project research hierarchy is unchanged: the primary proposed contribution remains **Cost-Aware KV-cache eviction / victim selection**. Continuum retention and scheduling are implemented because they are intrinsic to the strong baseline.
 
 ---
 
-## 1. Dynamic TTL estimator
+## 1. Dynamic TTL — final Phase 1B semantics
 
-### Decision
+### 1.1 Paper objective
 
-Use the Continuum-style dynamic TTL mechanism rather than the older simplified Related-Work description.
-
-The implementation must preserve the following structure:
+Phase 1B accepts Continuum v6 Equation (2) as the primary TTL objective:
 
 ```text
-observed gap-duration distribution
-+ queueing-delay benefit
-+ program memoryfulness / continuity signal
-+ estimated prefill-reload cost
--> choose a TTL that maximizes expected net benefit
+tau* = argmax_tau P(tau, f) * (T * eta + PrefillReload(r)) - tau
 ```
 
-A fixed TTL, arbitrary timeout, or mean/std-only heuristic is not an acceptable primary estimator.
+where all time-valued quantities are represented internally in **seconds**.
 
-### 1.1 Gap-history source
+The empirical CDF is:
+
+```text
+P(tau, f)
+= (1 / |S[f]|) * sum_{t in S[f]} I[t <= tau]
+```
+
+When a global history is used, `S[f]` is replaced by the global duration sample set.
+
+For empirical-history modes, enumerate:
+
+```text
+{0} union unique(observed durations)
+```
+
+as TTL candidates and choose the candidate with maximum objective value.
+
+Tie-break:
+
+```text
+equal objective -> smaller tau
+```
+
+Do not replace this objective with a mean/std heuristic or a fixed TTL in the steady-state estimator.
+
+### 1.2 Duration-history source
 
 Maintain separate histories for:
 
@@ -45,261 +62,381 @@ The primary Continuum baseline uses:
 
 ```text
 server_inter_request_gap
-= previous turn server finish
-  -> next turn request arrival
+= next-turn server arrival
+  - previous-turn server finish
 ```
 
-External tool duration remains observable metadata for analysis and possible later ablation.
+as the duration samples used by the TTL estimator.
 
-Tool-specific history is preferred. If no tool-specific samples exist, fall back to global history.
+External tool duration remains separately recorded metadata for diagnostics/ablation only.
 
-If neither tool-specific nor global duration history exists, use:
+### 1.3 Cold-start hierarchy and K=100
+
+Correct the previous decision: `K=100` is **not** the queue-delay window length.
+
+Use:
 
 ```text
-TTL = 0
+duration_history_threshold = 100
 ```
 
-This cold-start fallback is deterministic and conservative; do not insert an arbitrary constant timeout.
-
-### 1.2 Queueing-delay term T
-
-Use the rolling mean of the most recent admitted requests:
+for the Continuum history-reliability hierarchy:
 
 ```text
-K = 100
-waiting_delay = admission_time - request_arrival_time
-T = mean(last up to K waiting_delay samples)
+if |global duration history| <= 100:
+    use T_default
+else if |tool-specific duration history| <= 100:
+    use global empirical CDF
+else:
+    use tool-specific empirical CDF
 ```
 
-Cold start:
+This follows the paper-level three-stage structure.
+
+`T` is initialized to zero at serving cold start.
+
+#### T_default
+
+`T_default` is a **paper-derived cold-start mechanism with a project-level concretization**.
+
+For the pinned model/hardware configuration, compute one deterministic startup `T_default` from the same TTL objective under:
 
 ```text
-no waiting-delay history -> T = 0
+ToolCallDuration ~ Exp(mean = 1 second)
+eta = 1
+T = 0
 ```
 
-Input source classification: `OBSERVED`.
+using a frozen representative `PrefillReload` value obtained from the Phase 1B prefill profile for the controlled baseline configuration.
 
-### 1.3 Memoryfulness eta
+The representative context/prefix size used to obtain that value must be written into `docs/continuum-baseline-implementation.md` and kept fixed for all compared Phase 1B baseline runs using the same model/hardware configuration.
 
-Estimate the program-level memoryfulness/continuity signal from completed-program history.
+Classification: `APPROXIMATED` because vLLM 0.27.1 does not expose Continuum's original complete deployment context and the project must choose a representative profiled context size.
 
-If online completed-program samples are not yet sufficient, a workload warm-up estimate may be used, provided that:
+Do not use the previous `TTL=0 when no history` rule as the formal baseline cold-start behavior.
 
-- the warm-up trace and sample rule are frozen before formal evaluation;
-- the implementation logs that the value is warm-up-derived;
-- the value is not silently replaced by an arbitrary constant.
+### 1.4 Queueing-delay term T
 
-Input source classification: `OBSERVED` when online-derived, otherwise `APPROXIMATED`.
+Accept the paper semantics:
 
-### 1.4 PrefillReload
+```text
+T = sliding-window mean queueing delay
+    for historical requests whose reusable GPU KV state was evicted
+```
 
-Use an offline profile on the target model/hardware to estimate prefill recomputation latency as a function of reusable/prefix token count.
+A Phase 1B sample is eligible only when the project can establish, from its observation/eviction records, that the returning/follow-up request lost the relevant reusable GPU-resident KV state before admission.
 
-The first implementation may use a lightweight lookup/interpolation model. It does not need a complex learned predictor.
+For an eligible sample:
 
-Input source classification: `APPROXIMATED`.
+```text
+queueing_delay = admission_time - request_arrival_time
+```
 
-### 1.5 Candidate TTLs and tie-breaking
+Use:
 
-Use a discrete candidate set derived from observed duration history, including zero. Do not introduce a separate continuous optimizer in Phase 1B.
+```text
+queue_delay_window_size = 100
+```
 
-For equal objective values, use a deterministic tie-break and document it in the implementation file. Prefer the smaller TTL unless a paper-faithfulness check later requires a different exact tie-break.
+as a **PROJECT ADAPTATION** because Continuum v6 specifies a sliding window but does not publish its length.
+
+This constant must remain separately named from:
+
+```text
+duration_history_threshold = 100
+```
+
+so the two concepts cannot be confused in code, logs, or slides.
+
+If there are no eligible queue-delay samples:
+
+```text
+T = 0
+```
+
+Classification: `OBSERVED`.
+
+The queue-delay history is maintained per running baseline instance/model configuration, not pooled across unrelated model/hardware runs.
+
+### 1.5 Memoryfulness eta
+
+Use the paper definition without clipping:
+
+```text
+eta = -PearsonCorr(k, N-k)
+```
+
+Negative eta values are valid and must be preserved.
+
+Executable Phase 1B sample construction:
+
+- only **completed programs with known final turn count N** contribute;
+- for each completed program, emit one pair for every non-terminal served turn:
+
+```text
+(k, N-k), for k = 1 .. N-1
+```
+
+- compute Pearson correlation across the accumulated turn-level pairs from completed programs;
+- update eta when a program completes;
+- keep the complete Phase 1B run history in the first implementation rather than applying an additional eta window.
+
+If Pearson correlation is undefined because there are fewer than two usable pairs or either axis has zero variance:
+
+```text
+eta = 1
+source = APPROXIMATED_COLD_START
+```
+
+This fallback matches the fully-memoryful assumption used by Continuum's cold-start model; it must be logged explicitly.
+
+Otherwise:
+
+```text
+source = OBSERVED
+```
+
+Do not clamp eta to `[0,1]`.
+
+### 1.6 PrefillReload
+
+Use offline profiling on each model/hardware pair.
+
+At minimum profile:
+
+```text
+prefix/context token count -> prefill recomputation latency
+```
+
+and use deterministic interpolation/fitted prediction for online lookup.
+
+CPU-offload-specific reload profiling is not required because CPU offload is outside the Phase 1B primary configuration.
+
+Classification: `APPROXIMATED`.
 
 ---
 
-## 2. Lifecycle semantics
+## 2. Lifecycle / expiry — final semantics
 
-### 2.1 Follow-up already waiting when TTL expires
+### 2.1 Waiting-follow-up exception
 
-If a retention deadline has passed but a follow-up request for the same program is already in the waiting queue, do not immediately drop that program's protection.
-
-Protection may remain until the follow-up is admitted or the program is explicitly terminated/completed.
-
-This prevents expiration at exactly the point where reuse is imminent.
-
-### 2.2 Program completion
-
-The workload/orchestrator must support an explicit lifecycle indication such as:
+Ordinary lazy expiry is:
 
 ```text
-program_completed
-or
-is_last_turn
+expire entry if deadline reached
+AND no follow-up of the same program is currently waiting
 ```
 
-After the final turn completes, release that program's retention/protection state immediately rather than waiting for the TTL to expire naturally.
+If the deadline is reached but a same-program follow-up is already waiting, the entry stays protected during ordinary expiry.
+
+### 2.2 Interaction with memory pressure
+
+The waiting-follow-up exception does **not** make protection absolute.
+
+Under actual allocation pressure:
+
+```text
+1. expire ordinary expired entries
+2. reclaim ordinary eligible/unprotected cached blocks
+3. if still insufficient, waiting-follow-up entries remain protected candidates
+   but may be released by the frozen protected-fallback planner
+```
+
+Thus the exception protects against premature lazy expiry but cannot deadlock allocation.
+
+### 2.3 Admission, cancellation, new turn, terminal cleanup
+
+Use the following transitions:
+
+```text
+follow-up admitted
+-> consume/end the prior idle-retention interval for that program
+
+waiting follow-up cancelled/removed
+-> immediately re-evaluate expiry against current time
+
+new non-terminal turn finishes
+-> incorporate the newly observed inter-request history when available
+-> create the next retention deadline using the current TTL estimator
+
+program terminal / last turn finishes
+-> immediately release all retention/protection state owned only by that program
+```
+
+Shared blocks remain protected if another live protected entry still references them.
 
 ---
 
-## 3. Memory-pressure release
+## 3. Memory-pressure release — project adaptation remains frozen
 
-Keep the existing frozen project adaptation.
+Do **not** switch to Continuum's latest-program-arrival victim rule in Phase 1B.
 
-When pressure requires reclamation:
+The project adaptation remains:
 
 ```text
-1. expire entries whose deadlines have been reached
-2. use eligible/unprotected cached blocks first
-3. if insufficient, release protected retention entries
-4. release protected entries by:
+1. ordinary expiry
+2. eligible/unprotected cached blocks first
+3. if insufficient, release protected logical entries by:
       earliest retention deadline
-      -> native LRU rank tie-break
-5. actual eviction/removal still uses the existing Phase 1A/native BlockPool path
+      -> entry native-LRU key
+      -> deterministic entry identity
+4. physical eviction still flows through Phase 1A/native BlockPool bookkeeping
 ```
 
-This rule is a **PROJECT ADAPTATION**, not a claim about Continuum's native pressure rule.
+This must be labeled **PROJECT ADAPTATION** in implementation docs and results.
 
-Do not switch Phase 1B to a different pressure rule without updating `docs/baseline-freeze.md` first.
-
----
-
-## 4. Shared-block protection
-
-### 4.1 Protection aggregation
-
-Use `any-protected` semantics.
-
-If one physical block is associated with multiple logical `(program_id, prefix_id)` retention entries:
-
-```text
-if any associated live entry is protected
--> the physical block is protected
-```
-
-Releasing one program/prefix entry must not make a block eligible if another live protected entry still depends on it.
-
-### 4.2 Release and eligibility units
+### 3.1 Entry native-LRU key
 
 Logical release unit:
 
 ```text
-(program_id, prefix_id) retention entry
+(program_id, prefix_id) entry
 ```
 
-Physical eviction-eligibility unit:
+Physical eligibility unit:
 
 ```text
 block
 ```
 
-Therefore the retention manager aggregates logical entry state into block eligibility before victim selection.
-
-### 4.3 Partial-prefix behavior
-
-Partial-prefix semantics remain intentionally OPEN pending a real vLLM 0.27.1 observation spike.
-
-Do not assume that suffix blocks remain useful after an earlier prefix block is lost, and do not assume the entire suffix is automatically useless without evidence.
-
-The first controlled Phase 1B validation workloads should avoid depending on partial-prefix retention behavior.
-
-A later freeze update is required if formal experiments need explicit partial-prefix policy semantics.
-
----
-
-## 5. Retention-aware free-queue coordination
-
-Introduce a retention-aware coordinator around the existing Phase 1A decision path rather than rewriting the adapter.
-
-Conceptual structure:
+For two protected entries with equal retention deadline, define the entry native-LRU key as:
 
 ```text
-native free-queue snapshot
-        -> RetentionAwareSelectionCoordinator
-        -> expiry / protection aggregation / pressure release
-        -> existing VLLMEvictionBridge
-        -> EvictionPolicyAdapter
-        -> selected block IDs
-        -> native BlockPool bookkeeping
+minimum native lru_rank among physical cached blocks
+that would become newly eligible if this entry were released now
 ```
 
-The existing `EvictionPolicyAdapter` and `VLLMEvictionBridge` basic contracts remain unchanged.
+If releasing the entry alone would make no physical block newly eligible because every associated block remains protected by another entry:
 
-### 5.1 Meaning of `unprotected first`
+```text
+entry_lru_key = +infinity
+```
 
-For retention-sensitive **cached blocks**, actual controlled selection must consume eligible/unprotected cached blocks before pressure-released protected cached blocks.
+Final deterministic tie-break after deadline and entry LRU key:
 
-This is stronger than merely changing a metadata flag before one global selection pass.
+```text
+(program_id, prefix_id) lexical/stable ordering
+```
 
-### 5.2 Unhashed free blocks
-
-Free blocks without cache hash metadata:
-
-- are not retention-protected;
-- keep their native free-queue relative ordering;
-- must not be artificially moved to the front or back merely because the retention coordinator exists.
-
-### 5.3 Selection plan
-
-Before enabling controlled retention-aware queue behavior, define and test a deterministic `SelectionPlan` (or equivalent contract) that explains:
-
-- how many physical blocks are required;
-- which native free blocks remain untouched;
-- which cached blocks are eligible;
-- which protected entries, if any, were released;
-- the final block order passed to the existing native/Phase 1A path.
-
-Do not silently change Phase 1A victim-selection semantics to implement retention.
+The planner must continue releasing subsequent protected entries until the number of **newly reclaimable physical blocks** is sufficient. Releasing a logical entry that produces zero newly eligible physical blocks does not count toward the required physical-block target.
 
 ---
 
-## 6. Scheduler ordering
+## 4. Shared-block protection
 
-The first controlled scheduler implementation changes only waiting/admission order.
+Use `any-protected` semantics:
+
+```text
+if any associated live retention entry is protected
+-> physical block is protected
+```
+
+Releasing one program/prefix entry must not expose a shared block that is still protected by another entry.
+
+Logical release and physical block eligibility remain separate layers.
+
+### Partial prefix
+
+Partial-prefix behavior remains the only intentionally OPEN cache-semantic question in the first Phase 1B implementation.
+
+M3 must perform a real vLLM 0.27.1 observation spike before defining suffix usefulness after an earlier prefix block is evicted.
+
+The first controlled validation workload must not depend on partial-prefix semantics.
+
+---
+
+## 5. Retention-aware free-queue SelectionPlan — final merge contract
+
+Keep `EvictionPolicyAdapter` and `VLLMEvictionBridge` basic Phase 1A semantics unchanged.
+
+Add a retention-aware coordinator / `SelectionPlan` around that path.
+
+For one native free-queue snapshot:
+
+1. classify cached blocks by retention state;
+2. perform ordinary expiry;
+3. release protected entries only if required by pressure;
+4. reconstruct the controlled physical selection order using the following rule.
+
+### Final queue-merge rule
+
+Only reorder the **retention-sensitive cached-block subsequence**.
+
+Unhashed/free blocks:
+
+- are never retention-protected;
+- stay in their original queue slots;
+- keep their native relative order.
+
+For the cached-block subsequence, use:
+
+```text
+eligible/unprotected cached blocks
+-> pressure-released protected cached blocks
+```
+
+Within each cached group, preserve native LRU order.
+
+Then place that reordered cached subsequence back into the original cached-block slots, leaving unhashed-block positions unchanged.
+
+The first `required_blocks` of the resulting physical order define the controlled selection plan.
+
+This contract makes `unprotected first` a real selection guarantee for cached blocks without arbitrarily moving unhashed free blocks.
+
+The `SelectionPlan` must log at least:
+
+- `required_blocks`;
+- original physical free-queue order;
+- ordinary expired entries;
+- protected entries released for pressure;
+- newly eligible physical blocks per released entry;
+- final physical selection order.
+
+---
+
+## 6. Scheduler ordering — unchanged and frozen
+
+First implementation changes waiting/admission order only.
 
 Do not change running-request preemption victim selection.
 
-### 6.1 Waiting priority
-
-Use the following deterministic priority classes:
+Priority classes:
 
 ```text
-1. request that was preempted and is now back in waiting
-2. follow-up request belonging to a still-protected / within-TTL program
-3. all other waiting requests ordered by program-level FCFS
+1. preempted request already returned to waiting
+2. follow-up belonging to a currently protected/within-TTL program
+3. all other requests
 ```
 
-The first class applies only to requests already returned to waiting. It does not authorize changing which running request is preempted.
-
-### 6.2 Program FCFS key
-
-Define:
+Within category:
 
 ```text
 program_arrival_time
-= server arrival time of the program's first request/turn
-```
-
-All later turns of the same program keep this stable key.
-
-### 6.3 Deterministic tie-break
-
-Use:
-
-```text
-priority class
--> program_arrival_time
 -> request arrival_time
 -> request_id
 ```
 
-### 6.4 Integration sequence
+where:
+
+```text
+program_arrival_time
+= server arrival time of the program's first request
+```
 
 Implementation sequence:
 
 ```text
-observation-only integration
--> shadow ordering
+observation
+-> shadow
 -> native-equivalence validation
 -> controlled waiting/admission ordering
 ```
-
-The scheduler policy continues to return ordered request IDs; native vLLM remains responsible for queue mutation, status changes, allocation, and bookkeeping.
 
 ---
 
 ## 7. Input-source classification
 
-Every dynamic-TTL input must be logged/classified as one of:
+Every TTL input must be logged as one of:
 
 ```text
 NATIVE
@@ -309,78 +446,97 @@ APPROXIMATED
 UNAVAILABLE
 ```
 
-At minimum, the implementation documentation must identify the source for:
+Required classifications include:
 
-- server inter-request gap history;
-- external tool duration if recorded;
-- rolling queueing-delay estimate;
-- memoryfulness estimate;
-- prefill-reload estimate;
-- program/session identity;
-- prefix/block observation.
+- program/session identity: `EXTERNAL`;
+- server inter-request gap: `OBSERVED`;
+- external tool duration when provided: `EXTERNAL`;
+- empirical duration history/CDF: `OBSERVED`;
+- queue-delay T: `OBSERVED`;
+- eta: `OBSERVED` or explicit `APPROXIMATED_COLD_START`;
+- PrefillReload: `APPROXIMATED` from offline profile;
+- T_default: `APPROXIMATED` project concretization of the paper cold-start model;
+- prefix/block mapping: `OBSERVED`.
 
-No unavailable input may be silently replaced by an arbitrary constant and then described as faithful reproduction.
+Unavailable values may not be silently replaced by arbitrary constants.
 
 ---
 
-## 8. Work that is now unblocked
+## 8. M1 vs M3 decision boundary
 
-Member 3 may now implement:
+The following semantics are now frozen at project level:
 
-- runtime-neutral identity/lifecycle types;
-- `InputSource` classification;
-- lifecycle event handling;
-- program/prefix/block many-to-many indexes;
+- TTL objective/CDF/cold-start hierarchy;
+- duration-history threshold;
+- queue-delay sample population and window size;
+- eta sample construction/fallback/no clipping;
+- waiting-follow-up vs pressure behavior;
+- entry-level protected-release ordering;
+- full free-queue merge contract;
+- scheduler priority semantics.
+
+M3 owns the internal implementation design that satisfies those invariants, including:
+
+- `prefix_id` encoding/tuple/hash representation;
+- reverse-index container choices;
+- stale-association cleanup mechanism;
+- helper/class decomposition;
+- generation/version tracking if useful;
+- exact internal APIs and test organization.
+
+For `prefix_id`, the project-level correctness invariants are only:
+
+```text
+1. stable identity for the same reusable prefix across request lifetimes
+2. never use request_id as prefix identity
+3. prefer native vLLM content/block-hash identity over prompt-text inference
+4. respect every native cache namespace/isolation dimension relevant to APC reuse
+5. block_id is ephemeral physical identity, not logical prefix identity
+6. real eviction/reassignment must invalidate stale reverse associations
+7. observation metadata must never affect inference correctness
+```
+
+If vLLM 0.27.1 model/cache_salt/LoRA or other hash-namespace behavior prevents these invariants from being implemented without changing a frozen runtime boundary, M3 must report a blocker. Otherwise the concrete `prefix_id` construction is M3's implementation decision and must be documented in `docs/continuum-baseline-implementation.md`.
+
+---
+
+## 9. Work now unblocked
+
+M3 may proceed with the formal Phase 1B implementation, including:
+
+- identity/lifecycle types;
+- `InputSource`;
+- program/request observation;
+- prefix/block many-to-many index;
 - stale mapping cleanup;
 - injectable monotonic clock;
-- formal dynamic TTL estimator;
-- prefill-reload profiler interface;
-- `RetentionStateManager`;
-- lazy expiry;
+- formal Continuum TTL estimator;
+- cold-start hierarchy;
+- eta provider;
+- prefill profile interface;
+- retention manager;
 - `any-protected` aggregation;
-- retention-aware pressure planning / `SelectionPlan`;
-- retention-aware coordinator around Phase 1A;
+- `SelectionPlan` and pressure coordinator;
 - scheduler native/shadow/controlled modes;
-- controlled multi-turn validation.
+- controlled multi-turn validation;
+- real vLLM 0.27.1 GPU validation.
 
-Partial-prefix policy semantics remain open but do not block the first Phase 1B implementation.
-
----
-
-## 9. Documentation boundary
-
-Older Related-Work notes may still contain historical simplifications, including descriptions of Continuum as retention-only or simplified TTL summaries.
-
-Those files are literature notes, not implementation specifications.
-
-Member 3 should implement according to:
-
-```text
-docs/baseline-freeze.md
-+ docs/phase1b-continuum-implementation-decisions.md
-```
-
-Member 3 should not edit Member 2's literature notes as part of the baseline implementation unless explicitly assigned.
+Only explicit partial-prefix policy semantics remain open, and they do not block the first Phase 1B implementation.
 
 ---
 
-## 10. Research-scope reminder
+## 10. Documentation boundary
 
-Phase 1B implements a strong Continuum-style system baseline.
-
-Its retention and scheduling components are baseline mechanisms, not the project's primary claimed contribution.
-
-The project research hierarchy remains:
+Implementation authority:
 
 ```text
-Primary contribution:
-    Cost-Aware KV Cache Eviction / Victim Selection
-
-Supporting mechanism:
-    Retention / Protection
-
-System coordination:
-    Scheduling
+1. docs/baseline-freeze.md
+2. docs/phase1b-continuum-implementation-decisions.md
+3. docs/experiment-plan.md
+4. docs/architecture.md
+5. docs/continuum-vllm-mapping.md
 ```
 
-Do not add Cost-Aware-only signals or scoring logic to the Continuum implementation.
+Older Related-Work notes are not implementation specifications.
+
+Do not add Cost-Aware-only scoring/signals to this baseline.
