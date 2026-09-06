@@ -6,6 +6,16 @@ This document freezes the project-level baseline scope and the minimum faithful-
 
 It is based on the completed feasibility spike in `docs/continuum-vllm-mapping.md`.
 
+Implementation-level decisions that refine this frozen scope are recorded in:
+
+```text
+docs/phase1b-continuum-implementation-decisions.md
+```
+
+That decision record supplements this document for concrete Phase 1B implementation semantics such as dynamic-TTL inputs, lifecycle edge cases, shared-block protection, free-queue coordination, and deterministic scheduler ordering. It does not change the baseline scope frozen here.
+
+If the two documents ever appear to conflict, this `baseline-freeze.md` remains authoritative unless this freeze is explicitly updated.
+
 ---
 
 ## Baseline 1 — vLLM 0.27.1 native APC + native scheduling
@@ -400,7 +410,7 @@ Supports:
 
 ### Member 3
 
-Implements Phase 1B according to this freeze.
+Implements Phase 1B according to this freeze and the linked implementation decision record.
 
 Member 3 must not silently:
 
@@ -427,6 +437,7 @@ Phase 1A block-level eviction adapter
 
 Continuum-style vLLM system baseline
     -> PHASE 1B SCOPE FROZEN
+    -> implementation-level decision record linked
     -> explicit program/session identity
     -> dynamic TTL with documented approximations
     -> soft retention protection
@@ -436,6 +447,7 @@ Continuum-style vLLM system baseline
 
 Cost-Aware system
     -> BROAD RESEARCH DIRECTION FROZEN
+    -> primary contribution remains eviction / victim selection
     -> exact retention / eviction / scheduler algorithms NOT YET FROZEN
 ```
 
