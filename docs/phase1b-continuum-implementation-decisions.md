@@ -70,7 +70,52 @@ as the duration samples used by the TTL estimator.
 
 External tool duration remains separately recorded metadata for diagnostics/ablation only.
 
-### 1.3 Cold-start hierarchy and K=100
+### 1.3 Upcoming tool identity at TTL-decision time
+
+The TTL decision for a completed non-terminal turn must use the identity of the
+tool that the turn is about to invoke. The completion observation must therefore
+carry, when available:
+
+```text
+next_tool_type
+is_terminal
+finish_timestamp
+```
+
+The required ordering is:
+
+```text
+TURN_FINISHED(next_tool_type = f, is_terminal = false)
+-> calculate TTL using the currently available history for f
+-> create the retention deadline
+-> begin pending server_inter_request_gap observation from finish_timestamp
+```
+
+Do not wait for an external tool-gap event before beginning retention, because
+that would leave an unprotected interval after request completion.
+
+If `next_tool_type` is unavailable, do not select an arbitrary tool-specific
+history. Follow the cold-start hierarchy with tool-specific selection disabled:
+
+```text
+|global duration history| > duration_history_threshold
+    -> use global empirical CDF
+otherwise
+    -> use T_default
+```
+
+The fallback and its reason must be logged. A terminal turn does not create a
+new TTL or tool-gap interval and instead follows terminal cleanup.
+
+`TOOL_GAP_STARTED` and `TOOL_GAP_ENDED` are explicit lifecycle events supplied
+independently by the workload/orchestrator. They carry `program_id`,
+`tool_type`, and a timestamp, and update `external_tool_duration` only. The
+runtime must not synthesize `TOOL_GAP_STARTED` from `TURN_FINISHED`, or use the
+pending server-side gap as an external tool duration. The external duration
+remains separate from `server_inter_request_gap` and does not become the primary
+TTL history.
+
+### 1.4 Cold-start hierarchy and K=100
 
 Correct the previous decision: `K=100` is **not** the queue-delay window length.
 
@@ -99,6 +144,18 @@ This follows the paper-level three-stage structure.
 
 `T_default` is a **paper-derived cold-start mechanism with a project-level concretization**.
 
+Normative status:
+
+```text
+PROJECT ADAPTATION / CONCRETIZATION
+```
+
+The paper-derived part is the cold-start optimization under
+`ToolCallDuration ~ Exp(mean = 1 second)`, `eta = 1`, and `T = 0`. Choosing one
+fixed `RepresentativePrefillReload` for each pinned vLLM
+model/hardware/profile configuration is the project's implementation
+concretization; it is not a paper-specified profiling rule.
+
 For the pinned model/hardware configuration, compute one deterministic startup `T_default` from the same TTL objective under:
 
 ```text
@@ -109,13 +166,33 @@ T = 0
 
 using a frozen representative `PrefillReload` value obtained from the Phase 1B prefill profile for the controlled baseline configuration.
 
+There is exactly one startup `T_default` for each frozen
+model/hardware/profile configuration. It is computed from
+`RepresentativePrefillReload`, not from the current request's
+`PrefillReload(r)`, and therefore must not vary across requests in that
+configuration.
+
+With `mu = 1 second`, the fixed startup value is:
+
+```text
+T_default
+= max(0, mu * ln(RepresentativePrefillReload / mu))
+```
+
+The ratio inside `ln` is dimensionless. A non-positive or non-finite profile
+value is invalid configuration input rather than a request-time fallback.
+
 The representative context/prefix size used to obtain that value must be written into `docs/continuum-baseline-implementation.md` and kept fixed for all compared Phase 1B baseline runs using the same model/hardware configuration.
 
 Classification: `APPROXIMATED` because vLLM 0.27.1 does not expose Continuum's original complete deployment context and the project must choose a representative profiled context size.
 
 Do not use the previous `TTL=0 when no history` rule as the formal baseline cold-start behavior.
 
-### 1.4 Queueing-delay term T
+After the estimator enters a global or tool-specific empirical-CDF mode, the
+objective uses the current request's `PrefillReload(r)` as specified by
+Equation (2).
+
+### 1.5 Queueing-delay term T
 
 Accept the paper semantics:
 
@@ -158,7 +235,7 @@ Classification: `OBSERVED`.
 
 The queue-delay history is maintained per running baseline instance/model configuration, not pooled across unrelated model/hardware runs.
 
-### 1.5 Memoryfulness eta
+### 1.6 Memoryfulness eta
 
 Use the paper definition without clipping:
 
@@ -185,7 +262,8 @@ If Pearson correlation is undefined because there are fewer than two usable pair
 
 ```text
 eta = 1
-source = APPROXIMATED_COLD_START
+source = APPROXIMATED
+reason = FULLY_MEMORYFUL_COLD_START
 ```
 
 This fallback matches the fully-memoryful assumption used by Continuum's cold-start model; it must be logged explicitly.
@@ -198,7 +276,7 @@ source = OBSERVED
 
 Do not clamp eta to `[0,1]`.
 
-### 1.6 PrefillReload
+### 1.7 PrefillReload
 
 Use offline profiling on each model/hardware pair.
 
@@ -256,14 +334,23 @@ waiting follow-up cancelled/removed
 -> immediately re-evaluate expiry against current time
 
 new non-terminal turn finishes
--> incorporate the newly observed inter-request history when available
--> create the next retention deadline using the current TTL estimator
+-> obtain next_tool_type from the completion observation when available
+-> create the next retention deadline using history available at completion
+-> begin retention immediately
+-> begin pending server_inter_request_gap observation at finish_timestamp
+-> do not wait for or synthesize an external TOOL_GAP_STARTED event
 
 program terminal / last turn finishes
 -> immediately release all retention/protection state owned only by that program
 ```
 
 Shared blocks remain protected if another live protected entry still references them.
+
+When the next request for the same program arrives, the observation layer
+records both the follow-up arrival and the newly completed
+`server_inter_request_gap`. Explicit `TOOL_GAP_STARTED` / `TOOL_GAP_ENDED`
+events independently record `external_tool_duration`; the two histories must
+not be mixed.
 
 ---
 
@@ -347,50 +434,175 @@ The first controlled validation workload must not depend on partial-prefix seman
 
 ## 5. Retention-aware free-queue SelectionPlan — final merge contract
 
-Keep `EvictionPolicyAdapter` and `VLLMEvictionBridge` basic Phase 1A semantics unchanged.
+Keep the basic Phase 1A semantics of `EvictionCandidate`,
+`VLLMEvictionBridge`, and `NativeLRUAdapter` unchanged. In particular:
 
-Add a retention-aware coordinator / `SelectionPlan` around that path.
+```text
+EvictionCandidate.lru_rank
+= position in the complete original native free-queue snapshot
+```
+
+Rank 0 remains the native queue head. It must never be regenerated from a
+retention-filtered or Tier-reordered block sequence.
+
+Add a Phase 1B retention-aware coordinator and an explicit retention-aware
+adapter around that path. Responsibilities are split as follows:
+
+```text
+VLLMEvictionBridge
+-> receive the complete native free queue in original order
+-> build immutable candidates with native lru_rank
+-> perform the existing Phase 1A output validation
+
+RetentionAwareSelectionCoordinator
+-> ordinary-expiry planning
+-> protection aggregation
+-> protected-entry release planning
+-> explicit eligibility tier for each block ID
+
+RetentionAwareLRUAdapter (new Phase 1B adapter)
+-> receive the complete native-ranked candidate snapshot
+-> exclude blocks still marked protected
+-> select by the explicit key (eligibility_tier, native_lru_rank)
+-> remain the final victim-ID selection boundary
+
+SelectionPlan
+-> record the coordinator decisions and eligibility metadata
+-> record the adapter's actual validated victim IDs
+```
+
+The coordinator must not independently choose a final victim list and then ask
+the adapter to choose a second time. It produces an immutable eligibility and
+release plan, not replacement `lru_rank` values.
+
+`NativeLRUAdapter` remains the unchanged Phase 1A reference adapter and keeps
+sorting only by native `lru_rank`. Phase 1B must not simulate tier priority by
+passing a reordered block iterable to `VLLMEvictionBridge.build_candidates()`.
+The new retention-aware adapter makes the virtual order explicit and separate
+from native LRU rank.
 
 For one native free-queue snapshot:
 
-1. classify cached blocks by retention state;
-2. perform ordinary expiry;
-3. release protected entries only if required by pressure;
-4. reconstruct the controlled physical selection order using the following rule.
+1. classify free blocks by hash and retention state;
+2. plan ordinary expiry;
+3. build Tier 1 by skipping still-protected cached blocks;
+4. plan protected-entry releases only if Tier 1 cannot satisfy `required_blocks`;
+5. build Tier 2 from blocks made newly eligible by those releases;
+6. pass the complete original native queue to the bridge, preserving native
+   `lru_rank`, and pass the immutable eligibility plan to the retention-aware
+   adapter for final selection.
 
 ### Final queue-merge rule
-
-Only reorder the **retention-sensitive cached-block subsequence**.
 
 Unhashed/free blocks:
 
 - are never retention-protected;
-- stay in their original queue slots;
-- keep their native relative order.
+- may be selected even when an earlier cached block is still protected;
+- keep their native relative order with every other Tier 1 block.
 
-For the cached-block subsequence, use:
+Tier 1 contains every ordinarily eligible block in its original native
+free-queue relative order:
 
 ```text
-eligible/unprotected cached blocks
--> pressure-released protected cached blocks
+unhashed free blocks
++ eligible/unprotected cached blocks
++ cached blocks made eligible by ordinary expiry
 ```
 
-Within each cached group, preserve native LRU order.
+Still-protected cached blocks are omitted from Tier 1 rather than left in an
+absolute queue slot that could block a later eligible block.
 
-Then place that reordered cached subsequence back into the original cached-block slots, leaving unhashed-block positions unchanged.
+If Tier 1 is insufficient, release protected logical entries using the frozen
+pressure order. Physical cached blocks that become newly eligible form Tier 2
+in native LRU order. A release with zero marginally eligible physical blocks
+does not count toward the target, and release planning continues until the
+planned eligible tiers can satisfy `required_blocks`.
 
-The first `required_blocks` of the resulting physical order define the controlled selection plan.
+The Phase 1B adapter applies this explicit virtual selection order:
 
-This contract makes `unprotected first` a real selection guarantee for cached blocks without arbitrarily moving unhashed free blocks.
+```text
+selection key = (eligibility_tier, native_lru_rank)
+
+eligibility_tier:
+    Tier 1 = 0
+    Tier 2 = 1
+    still protected = ineligible
+```
+
+This virtual order may be logged as `Tier 1 + Tier 2`, but that projection must
+not be fed back through `build_candidates()` and must not overwrite or
+reinterpret any candidate's native `lru_rank`.
+
+The adapter's validated output defines the final selected block IDs. Unselected
+blocks remain in the native free queue with their relative order unchanged.
+
+Required edge case:
+
+```text
+native queue = [protected cached P, unhashed free E]
+required_blocks = 1
+-> Tier 1 = [E]
+-> selected = [E]
+-> P remains protected
+```
+
+When no block is protected, Tier 1 is the complete native free queue in native
+order. The retention-aware adapter then sorts by the unchanged native
+`lru_rank`, preserving Phase 1A native-LRU equivalence.
 
 The `SelectionPlan` must log at least:
 
 - `required_blocks`;
 - original physical free-queue order;
+- each candidate's unchanged native `lru_rank`;
 - ordinary expired entries;
 - protected entries released for pressure;
 - newly eligible physical blocks per released entry;
-- final physical selection order.
+- explicit eligibility tier for each block ID;
+- derived Tier 1 and Tier 2 virtual order;
+- adapter identity;
+- adapter's actual validated selected block IDs;
+- still-protected block IDs.
+
+Required contract tests:
+
+1. `VLLMEvictionBridge.build_candidates()` receives the complete native queue
+   and assigns exactly the same `lru_rank` values as Phase 1A.
+2. A retention tier decision changes eligibility/order without changing any
+   candidate's native `lru_rank`.
+3. `[protected cached P, later unhashed free E]` selects `E` while preserving
+   the original native ranks of both candidates.
+4. With no protected block, the retention-aware adapter returns exactly the
+   same victim IDs as the unchanged `NativeLRUAdapter`.
+
+### Native, shadow, and controlled state transitions
+
+Selection preparation is a pure computation over immutable queue and retention
+snapshots. It must not mutate the native queue or the live retention manager.
+
+```text
+native
+-> use the native selection path
+-> do not apply a retention selection plan
+
+shadow
+-> compute and log a hypothetical selection/release plan
+-> do not commit protected-entry releases
+-> do not mutate live retention state
+-> do not mutate the native free queue or APC metadata
+
+controlled
+-> prepare the eligibility/release plan
+-> obtain and validate final victim IDs through the bridge/adapter
+-> only then commit the planned logical release transitions
+-> remove the validated selected blocks through the existing integration hook
+-> retain native BlockPool ownership of eviction and metadata cleanup
+```
+
+Ordinary lifecycle observations may continue in shadow mode, but hypothetical
+pressure releases must operate on a snapshot or an isolated shadow state and
+must not contaminate live/controlled retention state. Shadow-mode tests must
+therefore assert both native-queue and live-retention-state non-mutation.
 
 ---
 
@@ -453,7 +665,8 @@ Required classifications include:
 - external tool duration when provided: `EXTERNAL`;
 - empirical duration history/CDF: `OBSERVED`;
 - queue-delay T: `OBSERVED`;
-- eta: `OBSERVED` or explicit `APPROXIMATED_COLD_START`;
+- eta: `OBSERVED`, or `APPROXIMATED` with reason
+  `FULLY_MEMORYFUL_COLD_START`;
 - PrefillReload: `APPROXIMATED` from offline profile;
 - T_default: `APPROXIMATED` project concretization of the paper cold-start model;
 - prefix/block mapping: `OBSERVED`.
