@@ -18,6 +18,14 @@ from .events import (
     ToolGapStarted,
     TurnFinished,
 )
+from .logging import (
+    FrozenJsonObject,
+    InMemoryEventSink,
+    NullEventSink,
+    StructuredEventSink,
+    StructuredLogEvent,
+    StructuredLogRecord,
+)
 from .selection import (
     BlockEligibilitySnapshot,
     EligibilityPreparation,
@@ -60,10 +68,13 @@ __all__ = [
     "FakeClock",
     "FollowupCancelled",
     "FollowupWaiting",
+    "FrozenJsonObject",
+    "InMemoryEventSink",
     "InputProvenance",
     "InputSource",
     "LifecycleEvent",
     "LifecycleEventType",
+    "NullEventSink",
     "PrefixAssociationSnapshot",
     "PrefixIdentity",
     "PressureReleaseEffect",
@@ -81,6 +92,9 @@ __all__ = [
     "SchedulingCandidate",
     "SelectionPlan",
     "ServerInterRequestGapRecord",
+    "StructuredEventSink",
+    "StructuredLogEvent",
+    "StructuredLogRecord",
     "SystemMonotonicClock",
     "TTLDecision",
     "TTLHistoryMode",
