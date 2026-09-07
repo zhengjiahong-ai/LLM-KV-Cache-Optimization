@@ -1,5 +1,21 @@
 """Runtime-neutral contracts for the Continuum-style baseline."""
 
+from .events import (
+    BlockEvicted,
+    BlocksObserved,
+    FollowupCancelled,
+    FollowupWaiting,
+    LifecycleEvent,
+    LifecycleEventType,
+    ProgramCompleted,
+    ProgramStarted,
+    RequestAdmitted,
+    RequestArrived,
+    RequestPreempted,
+    ToolGapEnded,
+    ToolGapStarted,
+    TurnFinished,
+)
 from .types import (
     BlockIdentity,
     ExternalToolDurationRecord,
@@ -12,12 +28,26 @@ from .types import (
 )
 
 __all__ = [
+    "BlockEvicted",
     "BlockIdentity",
+    "BlocksObserved",
     "ExternalToolDurationRecord",
+    "FollowupCancelled",
+    "FollowupWaiting",
     "InputProvenance",
     "InputSource",
+    "LifecycleEvent",
+    "LifecycleEventType",
     "PrefixIdentity",
+    "ProgramCompleted",
     "ProgramIdentity",
+    "ProgramStarted",
+    "RequestAdmitted",
+    "RequestArrived",
     "RequestIdentity",
+    "RequestPreempted",
     "ServerInterRequestGapRecord",
+    "ToolGapEnded",
+    "ToolGapStarted",
+    "TurnFinished",
 ]
