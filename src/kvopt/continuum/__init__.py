@@ -1,5 +1,7 @@
 """Runtime-neutral contracts for the Continuum-style baseline."""
 
+from .clock import Clock, FakeClock, SystemMonotonicClock
+from .config import ContinuumConfig, RetentionMode, SchedulerMode
 from .events import (
     BlockEvicted,
     BlocksObserved,
@@ -31,7 +33,10 @@ __all__ = [
     "BlockEvicted",
     "BlockIdentity",
     "BlocksObserved",
+    "Clock",
+    "ContinuumConfig",
     "ExternalToolDurationRecord",
+    "FakeClock",
     "FollowupCancelled",
     "FollowupWaiting",
     "InputProvenance",
@@ -46,7 +51,10 @@ __all__ = [
     "RequestArrived",
     "RequestIdentity",
     "RequestPreempted",
+    "RetentionMode",
+    "SchedulerMode",
     "ServerInterRequestGapRecord",
+    "SystemMonotonicClock",
     "ToolGapEnded",
     "ToolGapStarted",
     "TurnFinished",
