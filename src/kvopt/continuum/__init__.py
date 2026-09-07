@@ -18,6 +18,14 @@ from .events import (
     ToolGapStarted,
     TurnFinished,
 )
+from .selection import (
+    BlockEligibilitySnapshot,
+    EligibilityPreparation,
+    EligibilityTier,
+    PressureReleaseEffect,
+    RetentionEntryKey,
+    SelectionPlan,
+)
 from .snapshots import (
     EvictedRequestQueueDelayRecord,
     PrefixAssociationSnapshot,
@@ -39,11 +47,14 @@ from .types import (
 )
 
 __all__ = [
+    "BlockEligibilitySnapshot",
     "BlockEvicted",
     "BlockIdentity",
     "BlocksObserved",
     "Clock",
     "ContinuumConfig",
+    "EligibilityPreparation",
+    "EligibilityTier",
     "EvictedRequestQueueDelayRecord",
     "ExternalToolDurationRecord",
     "FakeClock",
@@ -55,6 +66,7 @@ __all__ = [
     "LifecycleEventType",
     "PrefixAssociationSnapshot",
     "PrefixIdentity",
+    "PressureReleaseEffect",
     "ProgramCompleted",
     "ProgramIdentity",
     "ProgramStarted",
@@ -62,10 +74,12 @@ __all__ = [
     "RequestArrived",
     "RequestIdentity",
     "RequestPreempted",
+    "RetentionEntryKey",
     "RetentionEntrySnapshot",
     "RetentionMode",
     "SchedulerMode",
     "SchedulingCandidate",
+    "SelectionPlan",
     "ServerInterRequestGapRecord",
     "SystemMonotonicClock",
     "TTLDecision",
