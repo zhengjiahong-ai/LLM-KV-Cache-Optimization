@@ -264,4 +264,6 @@ class SelectionPlan:
         )
         if len(selected) < required_target:
             raise ValueError("adapter selected too few eligible block IDs")
+        if len(selected) > required_target:
+            raise ValueError("adapter selected too many eligible block IDs")
         object.__setattr__(self, "selected_block_ids", selected)

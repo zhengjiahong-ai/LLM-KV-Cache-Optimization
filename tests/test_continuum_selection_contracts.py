@@ -282,6 +282,17 @@ def test_selection_plan_rejects_too_few_victims() -> None:
         SelectionPlan(preparation, "adapter", [BlockIdentity(10)])
 
 
+def test_selection_plan_rejects_too_many_victims() -> None:
+    preparation = _preparation(required_blocks=1)
+
+    with pytest.raises(ValueError, match="too many"):
+        SelectionPlan(
+            preparation,
+            "adapter",
+            [BlockIdentity(10), BlockIdentity(11)],
+        )
+
+
 @pytest.mark.parametrize("invalid", [-1, True, 1.0])
 def test_preparation_rejects_invalid_required_blocks(invalid) -> None:
     with pytest.raises((TypeError, ValueError)):

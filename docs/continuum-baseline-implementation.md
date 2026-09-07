@@ -349,6 +349,8 @@ The current contracts enforce:
 - one indivisible logical entry may expose more blocks than the remaining
   requirement;
 - selected block IDs follow the explicit virtual eligible order;
+- selected block count must equal
+  `min(required_blocks, supplied original-free-queue size)`;
 - `SelectionPlan` stores the declared adapter identity and selected block IDs,
   and validates those IDs against the virtual order and required target;
   production of those IDs by the real Phase 1B adapter remains pending.
