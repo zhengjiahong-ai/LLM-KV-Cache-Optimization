@@ -10,7 +10,16 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
 
-from kvopt.continuum import ProgramIdentity, RequestIdentity
+from kvopt.continuum import (
+    BlockIdentity,
+    PrefixAssociationSnapshot,
+    PrefixIdentity,
+    ProgramIdentity,
+    RequestIdentity,
+)
+
+PREFIX_IDENTITY_SCHEMA = "continuum.prefix.native_hash.v1"
+_APPROVED_BLOCK_SIZE = 16
 
 
 class ObservationAvailability(str, Enum):
@@ -77,7 +86,7 @@ def encode_native_hash(value: object) -> str:
 
     In vLLM 0.27.1 this value may be ``BlockHashWithGroupId`` and therefore
     already contain a packed cache-group ID. It is not interpreted here as a
-    pure content hash or used to construct ``PrefixIdentity``.
+    pure content hash or decomposed before identity construction.
     """
 
     if type(value) is not bytes:
@@ -89,8 +98,8 @@ def encode_native_hash(value: object) -> str:
 class NativeBlockSnapshot:
     """Immutable copy of one native KV-cache block observation.
 
-    ``native_hash_hex`` is the exact encoded native ``block_hash`` value; its
-    content/namespace components remain an evidence question for Commit 4.
+    ``native_hash_hex`` is the exact encoded native ``block_hash`` value. The
+    approved profile's identity adapter preserves it without decomposition.
     """
 
     block_id: int
@@ -118,6 +127,78 @@ class NativeBlockSnapshot:
             raise ValueError("hash_num_tokens requires native_hash_hex")
         if type(self.is_null) is not bool:
             raise TypeError("is_null must be bool")
+
+
+def prefix_identity_from_block(
+    block: NativeBlockSnapshot,
+) -> PrefixIdentity | None:
+    """Construct the approved vLLM native-hash identity when admissible.
+
+    The adapter is intentionally limited to the approved single-cache-group,
+    block-size-16 profile. ``None`` means that this observation is not an
+    admissible complete-block identity; no fallback identity is synthesized.
+    """
+
+    if not isinstance(block, NativeBlockSnapshot):
+        raise TypeError("block must be NativeBlockSnapshot")
+    if block.is_null or block.native_hash_hex is None:
+        return None
+    if block.cache_group_id != 0:
+        return None
+    if (
+        block.hash_num_tokens is None
+        or block.hash_num_tokens <= 0
+        or block.hash_num_tokens % _APPROVED_BLOCK_SIZE != 0
+    ):
+        return None
+    return PrefixIdentity(
+        f"{PREFIX_IDENTITY_SCHEMA}:{block.native_hash_hex}"
+    )
+
+
+class ObservationSession:
+    """Ephemeral observed associations with evidence-backed eviction cleanup."""
+
+    __slots__ = ("_associations",)
+
+    def __init__(self) -> None:
+        self._associations: dict[
+            tuple[ProgramIdentity, PrefixIdentity], PrefixAssociationSnapshot
+        ] = {}
+
+    def observe_association(self, association: PrefixAssociationSnapshot) -> None:
+        """Record the latest observed association for one program and prefix."""
+
+        if not isinstance(association, PrefixAssociationSnapshot):
+            raise TypeError("association must be PrefixAssociationSnapshot")
+        key = (association.program_id, association.prefix_id)
+        self._associations[key] = association
+
+    def observe_native_eviction(self, block_id: BlockIdentity) -> None:
+        """Remove session associations containing an observed evicted block."""
+
+        if not isinstance(block_id, BlockIdentity):
+            raise TypeError("block_id must be BlockIdentity")
+        stale_keys = [
+            key
+            for key, association in self._associations.items()
+            if block_id in association.block_ids
+        ]
+        for key in stale_keys:
+            del self._associations[key]
+
+    def associations(self) -> tuple[PrefixAssociationSnapshot, ...]:
+        """Return deterministic copies of the current session associations."""
+
+        return tuple(
+            sorted(
+                self._associations.values(),
+                key=lambda association: (
+                    association.program_id.value,
+                    association.prefix_id.canonical_value,
+                ),
+            )
+        )
 
 
 @dataclass(frozen=True, slots=True)

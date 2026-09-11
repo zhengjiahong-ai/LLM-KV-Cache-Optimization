@@ -64,7 +64,7 @@ retention system or a completed Continuum baseline.
 | Dynamic TTL computation | Pending | Input/output contracts only |
 | Eta and prefill-profile providers | Pending | No provider or profile loader yet |
 | Live retention state manager | Pending | Snapshot contract only |
-| Prefix/block observation index | Pending | Observation event and snapshot contracts only |
+| Prefix/block observation index | Pending production integration | PR 3 provides only session-local observation associations and eviction cleanup; no retention reverse index |
 | Pressure coordinator and retention-aware adapter | Pending | Immutable plan contracts only |
 | Continuum scheduler adapter | Pending | Candidate snapshot contract only |
 | Phase 1B vLLM hooks | Pending | No Continuum-specific hook yet |
@@ -148,10 +148,30 @@ real eviction or reassignment must invalidate stale reverse associations
 observation metadata must not affect inference correctness
 ```
 
-The current `PrefixIdentity` stores an opaque canonical string. The concrete
-vLLM 0.27.1 construction, including relevant model, cache-salt, LoRA, and native
-hash namespace facts, is not yet frozen by implementation. It must be supported
-by the PR 3 observation spike.
+The current `PrefixIdentity` stores an opaque canonical string. For the
+evidence-approved PR 3 profile, its construction is:
+
+```text
+schema: continuum.prefix.native_hash.v1
+canonical value: "continuum.prefix.native_hash.v1:" + native_hash_hex
+included field: native_hash_hex only
+```
+
+`native_hash_hex` is the lowercase-hex encoding of the complete native
+`KVCacheBlock.block_hash` bytes, including any encoded group material. The
+adapter constructs it only for a non-null group-0 block with a positive,
+block-size-16-aligned `hash_num_tokens`; that value is an admissibility guard,
+not an identity field. The approved profile is vLLM 0.27.1 on MLX/Metal with
+`prefix_caching_hash_algo=sha256`, one live in-process EngineCore, one cache
+group, and block size 16. It accepts ordinary token-ID text input only and
+excludes LoRA, multimodal, and prompt-embedding inputs. It does not claim
+cross-process or restart persistence. See
+`docs/continuum-vllm-observation-evidence.md` for the committed runtime
+evidence and scope.
+
+The observation adapter also removes a session-local prefix association when a
+corresponding native block eviction is observed. This is not a production
+retention reverse index and does not infer physical block reassignment.
 
 Partial-prefix semantics remain OPEN. The first controlled workload must not
 depend on suffix usefulness after an earlier prefix block is evicted.
@@ -503,16 +523,27 @@ The current Core package:
 The eventual Phase 1B integration must preserve native ownership of allocation,
 eviction, APC metadata cleanup, request status, and scheduler bookkeeping.
 
-## 16. Validation checkpoint
+## 16. Validation checkpoints
 
-Checkpoint:
+Historical Core checkpoint:
 
 ```text
-Commit 5: adeabf2
+Commit: adeabf2
 Continuum logging tests: 34 passed
 Full test suite: 315 passed
 Changed-file Ruff: passed
 Python compilation: passed
+```
+
+PR 3 Commit 5 pre-commit verification:
+
+```text
+Focused observation tests: 46 passed
+Full test suite: 410 passed
+Changed-file Ruff: passed
+AST parse: passed
+In-memory compile: passed
+Filesystem py_compile: not used because the existing __pycache__ is protected
 ```
 
 The full-repository Ruff cleanup is not claimed here. Pre-existing import-order
@@ -523,7 +554,9 @@ findings outside this Core work are deferred under the team workflow.
 At this checkpoint:
 
 - partial-prefix semantics remain OPEN;
-- native namespace-aware prefix identity construction is not yet evidenced;
+- LoRA, multimodal, and prompt-embedding namespaces remain outside the
+  evidence-approved text-only profile;
+- cross-process and restart-persistent prefix identity remain unsupported;
 - runtime history stores do not exist;
 - the Equation (2) estimator and its providers do not exist;
 - the live retention manager and reverse indexes do not exist;
@@ -532,7 +565,8 @@ At this checkpoint:
 - no Continuum-specific observation or mutation hook is installed;
 - no Phase 1B controlled multi-turn workload has been validated;
 - no Continuum-managed retained-prefix APC reuse has been demonstrated;
-- no Phase 1B GPU validation or formal experiment result is claimed.
+- no Phase 1B production GPU integration is claimed; PR 3 runtime evidence is
+  recorded separately in `docs/continuum-vllm-observation-evidence.md`.
 
 These limitations do not remove or supersede the completed Phase 1A integration
 and validation.

@@ -9,13 +9,21 @@ from dataclasses import FrozenInstanceError, dataclass
 
 import pytest
 
-from kvopt.continuum import ProgramIdentity, RequestIdentity
+from kvopt.continuum import (
+    BlockIdentity,
+    PrefixAssociationSnapshot,
+    PrefixIdentity,
+    ProgramIdentity,
+    RequestIdentity,
+)
 from kvopt.runtime.vllm.continuum_observation import (
     FreeQueueSnapshot,
     NativeBlockSnapshot,
     ObservationAvailability,
+    ObservationSession,
     RequestBlockSnapshot,
     encode_native_hash,
+    prefix_identity_from_block,
     snapshot_block,
     snapshot_free_queue,
     snapshot_request_blocks,
@@ -113,6 +121,154 @@ def test_snapshot_block_preserves_observed_absent_hash() -> None:
     assert snapshot.hash_num_tokens is None
     assert snapshot.cache_group_id is None
     assert snapshot.is_null is True
+
+
+def _complete_identity_block(
+    *,
+    native_hash_hex: str = "ab" * 32 + "00000000",
+    block_id: int = 7,
+    hash_num_tokens: int | None = 16,
+    cache_group_id: int | None = 0,
+    is_null: bool = False,
+) -> NativeBlockSnapshot:
+    return NativeBlockSnapshot(
+        block_id=block_id,
+        ref_count=1,
+        native_hash_hex=native_hash_hex,
+        hash_num_tokens=hash_num_tokens,
+        cache_group_id=cache_group_id,
+        is_null=is_null,
+    )
+
+
+def test_prefix_identity_uses_exact_versioned_native_hash() -> None:
+    identity = prefix_identity_from_block(_complete_identity_block())
+
+    assert identity is not None
+    assert (
+        identity.canonical_value
+        == "continuum.prefix.native_hash.v1:" + "ab" * 32 + "00000000"
+    )
+
+
+def test_prefix_identity_uses_only_native_hash_for_identity() -> None:
+    first = prefix_identity_from_block(
+        _complete_identity_block(block_id=7, hash_num_tokens=16)
+    )
+    second = prefix_identity_from_block(
+        _complete_identity_block(block_id=99, hash_num_tokens=32)
+    )
+
+    assert first is not None
+    assert second is not None
+    assert first == second
+
+
+def test_prefix_identity_changes_when_native_hash_changes() -> None:
+    first = prefix_identity_from_block(
+        _complete_identity_block(native_hash_hex="ab" * 32 + "00000000")
+    )
+    second = prefix_identity_from_block(
+        _complete_identity_block(native_hash_hex="cd" * 32 + "00000000")
+    )
+
+    assert first is not None
+    assert second is not None
+    assert first != second
+
+
+@pytest.mark.parametrize(
+    ("native_hash_hex", "hash_num_tokens", "cache_group_id", "is_null"),
+    [
+        (None, None, 0, True),
+        ("ab" * 32 + "00000000", None, 0, False),
+        ("ab" * 32 + "00000000", 0, 0, False),
+        ("ab" * 32 + "00000000", 15, 0, False),
+        ("ab" * 32 + "00000000", 17, 0, False),
+        ("ab" * 32 + "00000000", 16, None, False),
+        ("ab" * 32 + "00000001", 16, 1, False),
+    ],
+)
+def test_prefix_identity_fails_closed_outside_approved_profile(
+    native_hash_hex: str | None,
+    hash_num_tokens: int | None,
+    cache_group_id: int | None,
+    is_null: bool,
+) -> None:
+    block = _complete_identity_block(
+        native_hash_hex=native_hash_hex,  # type: ignore[arg-type]
+        hash_num_tokens=hash_num_tokens,
+        cache_group_id=cache_group_id,
+        is_null=is_null,
+    )
+
+    assert prefix_identity_from_block(block) is None
+
+
+def test_observation_session_removes_association_on_observed_eviction() -> None:
+    session = ObservationSession()
+    association = PrefixAssociationSnapshot(
+        ProgramIdentity("program-1"),
+        PrefixIdentity("continuum.prefix.native_hash.v1:ab"),
+        (BlockIdentity(7),),
+        1.0,
+    )
+    session.observe_association(association)
+
+    session.observe_native_eviction(BlockIdentity(7))
+
+    assert session.associations() == ()
+
+
+def test_observation_session_keeps_unrelated_associations() -> None:
+    session = ObservationSession()
+    evicted = PrefixAssociationSnapshot(
+        ProgramIdentity("program-1"),
+        PrefixIdentity("continuum.prefix.native_hash.v1:ab"),
+        (BlockIdentity(7),),
+        1.0,
+    )
+    retained = PrefixAssociationSnapshot(
+        ProgramIdentity("program-1"),
+        PrefixIdentity("continuum.prefix.native_hash.v1:cd"),
+        (BlockIdentity(8),),
+        2.0,
+    )
+    session.observe_association(evicted)
+    session.observe_association(retained)
+
+    session.observe_native_eviction(BlockIdentity(7))
+
+    assert session.associations() == (retained,)
+
+
+def test_observation_session_eviction_invalidates_all_shared_block_associations() -> None:
+    session = ObservationSession()
+    shared_a = PrefixAssociationSnapshot(
+        ProgramIdentity("program-a"),
+        PrefixIdentity("continuum.prefix.native_hash.v1:aa"),
+        (BlockIdentity(7), BlockIdentity(9)),
+        1.0,
+    )
+    shared_b = PrefixAssociationSnapshot(
+        ProgramIdentity("program-b"),
+        PrefixIdentity("continuum.prefix.native_hash.v1:bb"),
+        (BlockIdentity(7), BlockIdentity(10)),
+        2.0,
+    )
+    unrelated = PrefixAssociationSnapshot(
+        ProgramIdentity("program-c"),
+        PrefixIdentity("continuum.prefix.native_hash.v1:cc"),
+        (BlockIdentity(8),),
+        3.0,
+    )
+    session.observe_association(shared_a)
+    session.observe_association(shared_b)
+    session.observe_association(unrelated)
+
+    session.observe_native_eviction(BlockIdentity(7))
+
+    assert session.associations() == (unrelated,)
 
 
 @pytest.mark.parametrize("native_hash_hex", ["AF", "0xz1", "abc", ""])
