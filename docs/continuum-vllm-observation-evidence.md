@@ -134,12 +134,13 @@ automatic_prefix_caching_enabled: true
 native_control_plane_hooks_reached: true
 ```
 
-Until then:
+After the accepted qualification runs:
 
 ```yaml
 candidate_pair_source_identity: SOURCE-VERIFIED
-project_runtime_profile: PENDING
-metal_as_runtime_verified_source: PENDING
+project_runtime_profile: RUNTIME-VERIFIED
+metal_as_runtime_verified_source: RUNTIME-VERIFIED
+qualification_status: PASS
 ```
 
 If qualification shows that this pinned profile does not expose the required
@@ -254,10 +255,10 @@ can.
 
 `native_hash_hex` denotes an exact byte-preserving encoding of an available
 native `KVCacheBlock.block_hash`. It must not be described as a bare content
-hash or have presumed namespace bytes removed before the runtime/source
-evidence is evaluated. Whether the value is stable and sufficient remains a
-runtime decision. It is an observed identity input, not an approved
-`PrefixIdentity` by itself.
+hash or have presumed namespace bytes removed. Within the approved scoped
+profile below, it is the canonical identity material for a reusable complete
+block boundary. This approval does not claim cross-process or restart-persistent
+stability.
 
 ## Required runtime record
 
@@ -394,6 +395,80 @@ actual process stderr. The runner creates only `environment.json`,
 from native inference but increments `observer_error_count` and makes the
 summary status `INVALID`, never `SUCCESS`.
 
+## Formal run synthesis
+
+The formal matrix was executed against the clean Commit 3 implementation
+`2e4fd4ca7b93ea050592e5ca66e1e9929cabf73c` and the clean Metal source checkout
+`a8b7e75c412aedcefe26ac3ab98d2a76e3e166fb`. All accepted runs used the same
+text-only model and tokenizer revisions, CPython 3.12.14 arm64, vLLM release
+`0.27.1` (raw distribution version `0.27.1+cpu`), vLLM-Metal `0.3.0`, MLX
+`0.32.0`, block size 16, APC enabled, paged KV enabled, and the in-process
+observation topology (`VLLM_ENABLE_V1_MULTIPROCESSING=0`).
+
+The common runtime identity was:
+
+```yaml
+host_operating_system: Darwin
+host_version: 15.6
+host_architecture: arm64
+apple_chip: Apple M4
+python_version: 3.12.14
+vllm_metal_source_commit: a8b7e75c412aedcefe26ac3ab98d2a76e3e166fb
+vllm_metal_source_worktree_clean: true
+model: Qwen/Qwen2.5-0.5B-Instruct
+model_revision: 7ae557604adf67be50417f59c2c2f167def9a775
+tokenizer: Qwen/Qwen2.5-0.5B-Instruct
+tokenizer_revision: 7ae557604adf67be50417f59c2c2f167def9a775
+```
+
+The formal raw run directories referenced by this synthesis are ignored and
+remain outside Git:
+
+```yaml
+environment_smoke:
+  - metal-smoke-off-2e4fd4c
+  - metal-smoke-on-2e4fd4c
+request_lifecycle_cleanup:
+  - metal-lifecycle-on-2e4fd4c
+same_prefix_cross_request_reuse:
+  - metal-reuse-off-2e4fd4c
+  - metal-reuse-on-2e4fd4c
+namespace_isolation:
+  - metal-namespace-on-2e4fd4c
+block_eviction_and_reassignment:
+  - metal-eviction-off-2e4fd4c
+  - metal-eviction-on-2e4fd4c
+  - metal-eviction2-off-2e4fd4c
+  - metal-eviction2-on-2e4fd4c
+partial_prefix:
+  - metal-partial-prefix-on-2e4fd4c
+```
+
+The shared model inputs were:
+
+```yaml
+model: Qwen/Qwen2.5-0.5B-Instruct
+model_revision: 7ae557604adf67be50417f59c2c2f167def9a775
+tokenizer: Qwen/Qwen2.5-0.5B-Instruct
+tokenizer_revision: 7ae557604adf67be50417f59c2c2f167def9a775
+```
+
+The first eviction attempt is retained as an executed but insufficient
+attempt: with `32` requests and `256` prompt tokens it produced no cached
+eviction (`NOT_OBSERVED` + `OPEN`). The approved bounded second attempt used
+`128` requests, `512` prompt tokens, `max_tokens=8`, and
+`gpu_memory_utilization=0.30`. Its paired native observations showed cached
+eviction and metadata cleanup: 160 allocation calls contained eviction and
+27,816 pre-call non-null cached hashes became null on the returned allocated
+blocks. Physical block reassignment was not explicitly observed.
+
+The reuse run showed 12 complete prefix blocks (16 through 192 tokens) with
+the same native hashes and block IDs on the second request, while only one new
+partial block was allocated. The namespace run held the token prefix fixed and
+changed only `cache_salt`; all non-null native hashes differed between the two
+requests. The partial-prefix run showed sharing of the complete blocks for
+both aligned and unaligned pairs, while the final partial block had no hash.
+
 ## Result table
 
 The following table is populated only by a formal run that first passes the
@@ -402,38 +477,106 @@ inspection, or third-party runtime reports alone.
 
 | Question | Scenario outcome | EvidenceLevel | Result / reason |
 | --- | --- | --- | --- |
-| Exact vLLM 0.27.1 real-GPU/APC profile accepted | `NOT_TESTED` | `PENDING` | Awaiting local Metal qualification |
-| Live request-to-block association visible | `NOT_TESTED` | `PENDING` | Awaiting lifecycle scenario |
-| Association disappears at cleanup | `NOT_TESTED` | `PENDING` | Awaiting lifecycle scenario |
-| Same-prefix cross-request APC hit/reuse demonstrated | `NOT_TESTED` | `PENDING` | Awaiting reuse scenario |
-| Native hash encoding stable and usable | `NOT_TESTED` | `PENDING` | Awaiting runtime observation |
-| Namespace isolation behavior known | `NOT_TESTED` | `PENDING` | Awaiting namespace scenario |
-| Native cached eviction and metadata cleanup visible | `NOT_TESTED` | `PENDING` | Awaiting pressure scenario |
-| Physical block reassignment visible | `NOT_TESTED` | `PENDING` | Best-effort runtime observation |
-| Partial-prefix behavior known | `NOT_TESTED` | `PENDING` | Awaiting aligned/unaligned scenarios |
-| Observer OFF/ON externally visible deterministic results equivalent | `NOT_TESTED` | `PENDING` | Awaiting comparison runs |
+| Exact vLLM 0.27.1 real-GPU/APC profile accepted | `OBSERVED` | `RUNTIME-VERIFIED` | Apple Silicon Metal profile completed real inference with MLX GPU, paged KV, APC, and the expected native control-plane hooks |
+| Live request-to-block association visible | `OBSERVED` | `RUNTIME-VERIFIED` | Lifecycle ON observations linked the live request to native blocks before cleanup |
+| Association disappears at cleanup | `OBSERVED` | `RUNTIME-VERIFIED` | Post-cleanup snapshots no longer contained the request association or its blocks |
+| Same-prefix cross-request APC hit/reuse demonstrated | `OBSERVED` | `RUNTIME-VERIFIED` | Second request reused the 12 complete native prefix blocks and allocated only its final partial block |
+| Native hash encoding stable and usable | `OBSERVED` | `RUNTIME-VERIFIED` | Exact native `block_hash` bytes were preserved as lowercase hex and matched across the reuse and partial-prefix observations; approved canonical identity material within the scoped profile, not a profile-independent identity |
+| `cache_salt` namespace isolation behavior known | `OBSERVED` | `RUNTIME-VERIFIED` | `cache_salt` alone changed all non-null native hashes for the fixed text prefix; no LoRA, multimodal, or prompt-embedding namespace was exercised |
+| Native cached eviction and metadata cleanup visible | `OBSERVED` | `RUNTIME-VERIFIED` | Eviction attempt 2 (`128 x 512`) observed cached eviction and the associated hash/metadata cleanup; attempt 1 remains recorded as insufficient |
+| Physical block reassignment visible | `NOT_OBSERVED` | `OPEN` | No explicit reassignment event was present in the approved read-only observations; no generation mechanism is inferred |
+| Partial-prefix behavior known | `NOT_OBSERVED` | `OPEN` | Complete 16- and 32-token blocks were shared for aligned and unaligned pairs; final partial-block suffix semantics were not established |
+| Observer OFF/ON externally visible deterministic results equivalent | `OBSERVED` | `RUNTIME-VERIFIED` | Smoke, reuse, and eviction OFF/ON pairs completed successfully with matching externally visible output token IDs and completion status |
+
+Partial-prefix sub-conclusions are recorded separately:
+
+| Partial-prefix fact | Scenario outcome | EvidenceLevel | Result / reason |
+| --- | --- | --- | --- |
+| Complete aligned/shared blocks | `OBSERVED` | `RUNTIME-VERIFIED` | The first two complete blocks (16 and 32 tokens) were shared for both aligned and unaligned pairs |
+| Final partial-block suffix semantics | `NOT_OBSERVED` | `OPEN` | The final partial block had no native hash; suffix usefulness is not inferred |
 
 ## PrefixIdentity construction decision
 
-Before the formal run, no candidate field is approved:
+The formal run approves a narrowly scoped `PrefixIdentity` construction. The
+exact native hash is retained without stripping its encoded group material.
+`cache_salt` was shown to affect that native material. Only ordinary token-ID
+text input with single-cache-group Metal behavior was exercised; LoRA,
+multimodal, and prompt-embedding namespaces remain outside the supported
+evidence profile.
 
 | Candidate field | Scenario outcome | EvidenceLevel | Include in v1 identity | Reason |
 | --- | --- | --- | --- | --- |
-| exact native hash encoding | `NOT_TESTED` | `PENDING` | no | Awaiting runtime observation |
-| cache group representation | `NOT_TESTED` | `PENDING` | no | Awaiting source/runtime evidence |
-| cache salt behavior | `NOT_TESTED` | `PENDING` | no | Awaiting an available scenario |
-| LoRA namespace | `NOT_TESTED` | `PENDING` | no | Awaiting an available fixture |
-| multimodal namespace | `NOT_TESTED` | `PENDING` | no | Outside the initial text-only run |
+| exact native hash encoding | `OBSERVED` | `RUNTIME-VERIFIED` | yes | Exact byte-preserving lowercase-hex encoding of the complete native `KVCacheBlock.block_hash`; the source hash chain and same-prefix reuse evidence establish it for the approved scoped profile |
+| cache group representation | `OBSERVED` | `RUNTIME-VERIFIED` | no | Runtime observed `cache_group_id=0`; source evidence shows the group ID is retained in native hash material. Independent multi-group behavior was not exercised |
+| cache salt behavior | `OBSERVED` | `RUNTIME-VERIFIED` | no | Changing only `cache_salt` changed every non-null native hash for the fixed prefix; no separate field is approved |
+| LoRA namespace | `NOT_TESTED` | `PENDING` | no | Outside the approved text-only profile |
+| multimodal namespace | `NOT_TESTED` | `PENDING` | no | Outside the approved text-only profile |
+| prompt-embedding namespace | `NOT_TESTED` | `PENDING` | no | Outside the approved ordinary token-ID text profile |
 
-Machine-readable pre-run decision:
+Machine-readable decision:
 
 ```yaml
-decision_status: PENDING
-schema_version: null
-supported_runtime_profile: null
-included_fields: []
-eviction_cleanup_supported: false
+decision_status: APPROVED
+schema_version: continuum.prefix.native_hash.v1
+supported_runtime_profile:
+  host: macOS Apple Silicon arm64
+  backend: MLX / Metal
+  vllm_release: 0.27.1
+  text_only: true
+  prefix_caching_hash_algo: sha256
+  process_scope: one_live_EngineCore_process
+  engine_core_observation_topology: in_process
+  vllm_enable_v1_multiprocessing: false
+  cache_groups: exactly_one
+  cache_group_id: 0
+  block_size: 16
+  cache_salt: represented_in_native_hash_material
+  lora: excluded_not_tested
+  multimodal: excluded_not_tested
+  prompt_embeds: excluded_not_tested
+  model: Qwen/Qwen2.5-0.5B-Instruct
+  model_revision: 7ae557604adf67be50417f59c2c2f167def9a775
+  tokenizer: Qwen/Qwen2.5-0.5B-Instruct
+  tokenizer_revision: 7ae557604adf67be50417f59c2c2f167def9a775
+  cross_process_identity: unsupported
+  restart_persistent_identity: unsupported
+candidate_identity_material:
+  - native_hash_hex
+included_fields:
+  - native_hash_hex
+canonical_encoding:
+  native_hash_hex:
+    source: KVCacheBlock.block_hash
+    native_type: BlockHashWithGroupId
+    encoding: lowercase_hex_of_exact_native_bytes
+    preserve_group_id_suffix: true
+boundary_guard:
+  native_hash_hex_required: true
+  hash_num_tokens_required: true
+  complete_block_only: true
+  hash_num_tokens_must_be_positive: true
+  hash_num_tokens_mod_block_size_must_equal: 0
+namespace_rules:
+  cache_group: represented_in_native_hash_material
+  cache_salt: represented_in_native_hash_chain
+  lora: outside_supported_profile
+  multimodal: outside_supported_profile
+  prompt_embeds: outside_supported_profile
+identity_rules:
+  - preserve native_hash_hex exactly
+  - never strip or reconstruct native hash material
+  - hash_num_tokens gates construction but is not an identity field
+  - never use request_id
+  - never use block_id as logical identity
+  - never reconstruct from prompt text
+  - never use repr(), str(), or Python hash()
+eviction_cleanup_supported: true
 reassignment_tracking_supported: false
+process_lifetime_limitation: >-
+  vLLM 0.27.1 may initialize NONE_HASH from os.urandom(32) when
+  PYTHONHASHSEED is not fixed; this decision therefore covers cross-request
+  reuse within one live EngineCore process only, not cross-process or restart
+  persistence.
 ```
 
 Commit 4 may set `decision_status: APPROVED` only when all of the following
@@ -464,17 +607,19 @@ evidence-supported stale cleanup and must leave reassignment tracking open.
 
 ## Open and blocked questions
 
-The formal run must resolve or preserve explicitly:
+The formal run resolved the Metal real-GPU/APC qualification, live association
+and cleanup boundary, same-prefix reuse, `cache_salt` isolation, cached
+eviction cleanup, and the scoped native-hash `PrefixIdentity` decision. The
+following remain explicitly open or unsupported:
 
-- whether the candidate profile satisfies the frozen real-GPU/APC requirement;
-- which native hash representation is stable and sufficient;
-- which available namespace dimensions affect the sharing domain;
-- whether `cache_salt`, LoRA, or multimodal state can be exercised in the
-  approved runtime profile;
-- when request ownership becomes unreadable during native cleanup;
-- whether physical block reassignment is observable through the approved
-  read-only hooks; and
-- what aligned and unaligned partial prefixes do under real GPU APC.
+- LoRA, multimodal, and prompt-embedding namespace behavior
+  (`NOT_TESTED` + `PENDING`), which are outside the approved profile;
+- physical block reassignment (`NOT_OBSERVED` + `OPEN`);
+- final partial-block suffix semantics (`NOT_OBSERVED` + `OPEN`); and
+- cross-process or restart-persistent identity, which is unsupported by this
+  profile; and
+- any behavior outside the recorded macOS Apple Silicon MLX/Metal,
+  ordinary token-ID text-only, single-cache-group profile.
 
 No unresolved item may be hidden by an inferred identity field or synthetic
 lifecycle mechanism.
