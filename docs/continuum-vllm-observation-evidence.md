@@ -121,7 +121,10 @@ qualification run proves all of the following together:
 
 ```yaml
 vllm_release_gate: PASS
-vllm_metal_identity_gate: PASS
+vllm_metal_source_checkout_resolved: true
+vllm_metal_source_head_matches_frozen_commit: true
+vllm_metal_source_worktree_clean: true
+imported_vllm_metal_module_inside_source_checkout: true
 metal_platform_plugin_active: true
 mlx_metal_available: true
 mlx_configured_device: gpu
@@ -149,6 +152,12 @@ The runner must record the complete installed vLLM distribution version and
 compare its parsed PEP 440 release tuple with `(0, 27, 1)`. It must not use
 prefix string matching. Thus `0.27.1+cpu` is acceptable for the release gate,
 while `0.27.10` is not.
+
+The vLLM-Metal distribution version is recorded verbatim but is not its source
+identity. The formal source profile requires the resolved local checkout to be
+at commit `a8b7e75c412aedcefe26ac3ab98d2a76e3e166fb`, to have a clean Git working
+tree, and to contain the resolved path of the imported `vllm_metal` module.
+Path containment is checked using resolved paths, not string prefixes.
 
 The pinned Metal platform deliberately may report a PyTorch-compatible
 `device_type` or `device_name` of `cpu`. Neither a literal
@@ -267,10 +276,10 @@ python_version: REQUIRED
 vllm_distribution_version_raw: REQUIRED
 vllm_release_version: 0.27.1
 vllm_metal_distribution_version_raw: REQUIRED
-vllm_metal_install_source: REQUIRED
-vllm_metal_artifact_sha256_or_source_commit: REQUIRED
-vllm_metal_tag: v0.3.0.dev20260816085229
-vllm_metal_commit: a8b7e75c412aedcefe26ac3ab98d2a76e3e166fb
+vllm_metal_source_checkout_realpath: REQUIRED
+vllm_metal_source_commit: a8b7e75c412aedcefe26ac3ab98d2a76e3e166fb
+vllm_metal_source_worktree_clean: true
+vllm_metal_imported_module_realpath: REQUIRED_INSIDE_SOURCE_CHECKOUT
 pytorch_version: REQUIRED
 mlx_version: REQUIRED
 mlx_lm_version_or_revision: REQUIRED
@@ -378,6 +387,13 @@ Raw evidence, environment artifacts, model weights, model caches, private
 prompts, credentials, and large logs are not committed. Only concise
 conclusions and the final identity decision enter Git.
 
+The launcher owns the run directory, `commands.txt`, and `stderr.log` so the
+recorded command includes the complete environment-prefixed invocation and the
+actual process stderr. The runner creates only `environment.json`,
+`observations.jsonl`, and `summary.json`. Any observer exception is isolated
+from native inference but increments `observer_error_count` and makes the
+summary status `INVALID`, never `SUCCESS`.
+
 ## Result table
 
 The following table is populated only by a formal run that first passes the
@@ -429,7 +445,8 @@ hold:
   decision;
 - the included representation is sufficient to identify the observed reusable
   prefix within the explicitly supported runtime profile; and
-- every correctness-relevant namespace dimension is verified and represented,
+- every correctness-relevant namespace dimension known from source or runtime
+  evidence for the supported profile is verified and represented,
   is already encoded by verified native identity material, or causes the
   decision to be narrowed to the verified profile or marked `BLOCKED`.
 
