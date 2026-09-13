@@ -115,6 +115,36 @@ class InputProvenance:
 
 
 @dataclass(frozen=True, slots=True)
+class PrefillContextTokenCountRecord:
+    """Provenance-bearing token count for a reusable prefill context."""
+
+    program_id: ProgramIdentity
+    request_id: RequestIdentity
+    prefix_id: PrefixIdentity
+    token_count: int
+    provenance: InputProvenance
+
+    def __post_init__(self) -> None:
+        _require_identity(self.program_id, ProgramIdentity, "program_id")
+        _require_identity(self.request_id, RequestIdentity, "request_id")
+        _require_identity(self.prefix_id, PrefixIdentity, "prefix_id")
+        if isinstance(self.token_count, bool) or not isinstance(self.token_count, int):
+            raise TypeError("token_count must be int")
+        if self.token_count <= 0:
+            raise ValueError("token_count must be positive")
+        if not isinstance(self.provenance, InputProvenance):
+            raise TypeError("provenance must be InputProvenance")
+        if self.provenance.source not in {
+            InputSource.NATIVE,
+            InputSource.OBSERVED,
+            InputSource.EXTERNAL,
+        }:
+            raise ValueError(
+                "provenance.source must be one of: EXTERNAL, NATIVE, OBSERVED"
+            )
+
+
+@dataclass(frozen=True, slots=True)
 class ServerInterRequestGapRecord:
     """Observed server gap between one turn finishing and the next request arriving."""
 
