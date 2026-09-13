@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from kvopt.continuum import BlockIdentity, RetentionMode
+from kvopt.continuum import BlockIdentity, FakeClock, RetentionMode
 from kvopt.runtime.vllm.observer import install_retention_hook
 
 
@@ -178,7 +178,9 @@ def test_native_mode_leaves_original_popleft_unhooked(
     original_popleft, _ = hook_environment
     integration = _FakeIntegration()
 
-    install_retention_hook(mode=RetentionMode.NATIVE, integration=integration)
+    install_retention_hook(
+        mode=RetentionMode.NATIVE, integration=integration, clock=FakeClock()
+    )
 
     assert _FakeFreeKVCacheBlockQueue.popleft_n is original_popleft
     assert integration.calls == []
@@ -192,7 +194,9 @@ def test_shadow_snapshots_complete_queue_then_delegates_original_popleft(
     protected, eligible, cached = _blocks(7, 8, 9)
     queue = _FakeFreeKVCacheBlockQueue([protected, eligible, cached])
 
-    install_retention_hook(mode=RetentionMode.SHADOW, integration=integration)
+    install_retention_hook(
+        mode=RetentionMode.SHADOW, integration=integration, clock=FakeClock()
+    )
     result = queue.popleft_n(2)
 
     assert len(integration.calls) == 1
@@ -208,11 +212,15 @@ def test_hook_installation_is_idempotent_without_double_wrapping(
 ) -> None:
     integration = _FakeIntegration(_HookResult((8,)))
 
-    install_retention_hook(mode=RetentionMode.SHADOW, integration=integration)
+    install_retention_hook(
+        mode=RetentionMode.SHADOW, integration=integration, clock=FakeClock()
+    )
     wrapped_popleft = _FakeFreeKVCacheBlockQueue.popleft_n
     wrapped_evict = _FakeBlockPool._maybe_evict_cached_block
 
-    install_retention_hook(mode=RetentionMode.SHADOW, integration=integration)
+    install_retention_hook(
+        mode=RetentionMode.SHADOW, integration=integration, clock=FakeClock()
+    )
 
     assert _FakeFreeKVCacheBlockQueue.popleft_n is wrapped_popleft
     assert _FakeBlockPool._maybe_evict_cached_block is wrapped_evict
@@ -234,7 +242,9 @@ def test_controlled_removes_only_final_validated_block_objects(
     protected, eligible, unselected = _blocks(7, 8, 9)
     queue = _FakeFreeKVCacheBlockQueue([protected, eligible, unselected])
 
-    install_retention_hook(mode=RetentionMode.CONTROLLED, integration=integration)
+    install_retention_hook(
+        mode=RetentionMode.CONTROLLED, integration=integration, clock=FakeClock()
+    )
     result = queue.popleft_n(2)
 
     assert result == [eligible, protected]
@@ -251,7 +261,9 @@ def test_controlled_does_not_call_original_popleft(
     protected, eligible = _blocks(7, 8)
     queue = _FakeFreeKVCacheBlockQueue([protected, eligible])
 
-    install_retention_hook(mode=RetentionMode.CONTROLLED, integration=integration)
+    install_retention_hook(
+        mode=RetentionMode.CONTROLLED, integration=integration, clock=FakeClock()
+    )
     queue.popleft_n(2)
 
     assert queue.popleft_calls == 0
@@ -265,7 +277,9 @@ def test_controlled_protected_head_does_not_block_later_eligible_block(
     protected, eligible = _blocks(7, 8)
     queue = _FakeFreeKVCacheBlockQueue([protected, eligible])
 
-    install_retention_hook(mode=RetentionMode.CONTROLLED, integration=integration)
+    install_retention_hook(
+        mode=RetentionMode.CONTROLLED, integration=integration, clock=FakeClock()
+    )
     result = queue.popleft_n(1)
 
     assert result == [eligible]
@@ -282,7 +296,9 @@ def test_pre_removal_failure_leaves_queue_and_retention_unchanged(
     queue = _FakeFreeKVCacheBlockQueue([protected, eligible])
     before = _queue_state(queue)
 
-    install_retention_hook(mode=RetentionMode.CONTROLLED, integration=integration)
+    install_retention_hook(
+        mode=RetentionMode.CONTROLLED, integration=integration, clock=FakeClock()
+    )
     with pytest.raises(RuntimeError) as raised:
         queue.popleft_n(1)
 
@@ -301,7 +317,9 @@ def test_final_id_mapping_failure_is_atomic_before_queue_remove(
     queue = _FakeFreeKVCacheBlockQueue([protected, eligible])
     before = _queue_state(queue)
 
-    install_retention_hook(mode=RetentionMode.CONTROLLED, integration=integration)
+    install_retention_hook(
+        mode=RetentionMode.CONTROLLED, integration=integration, clock=FakeClock()
+    )
     with pytest.raises(ValueError, match="block ID"):
         queue.popleft_n(2)
 
@@ -327,7 +345,9 @@ def test_post_removal_partial_failure_does_not_rollback_or_observe_eviction(
         original_remove(block)
 
     queue.remove = remove_with_failure  # type: ignore[method-assign]
-    install_retention_hook(mode=RetentionMode.CONTROLLED, integration=integration)
+    install_retention_hook(
+        mode=RetentionMode.CONTROLLED, integration=integration, clock=FakeClock()
+    )
 
     with pytest.raises(RuntimeError) as raised:
         queue.popleft_n(2)
@@ -360,7 +380,9 @@ def test_actual_native_cached_eviction_triggers_stale_cleanup_after_native(
         original_observe(block_id)
 
     integration.observe_native_eviction = observe  # type: ignore[method-assign]
-    install_retention_hook(mode=RetentionMode.SHADOW, integration=integration)
+    install_retention_hook(
+        mode=RetentionMode.SHADOW, integration=integration, clock=FakeClock()
+    )
 
     result = _FakeBlockPool()._maybe_evict_cached_block(block)
 
@@ -374,7 +396,9 @@ def test_non_eviction_does_not_clear_stale_association(hook_environment) -> None
     _FakeBlockPool.behavior = "not_evicted"
     block = _FakeBlock(7)
 
-    install_retention_hook(mode=RetentionMode.SHADOW, integration=integration)
+    install_retention_hook(
+        mode=RetentionMode.SHADOW, integration=integration, clock=FakeClock()
+    )
     result = _FakeBlockPool()._maybe_evict_cached_block(block)
 
     assert result is False
@@ -390,7 +414,9 @@ def test_native_eviction_exception_does_not_fabricate_observation(
     _FakeBlockPool.failure = failure
     block = _FakeBlock(7)
 
-    install_retention_hook(mode=RetentionMode.SHADOW, integration=integration)
+    install_retention_hook(
+        mode=RetentionMode.SHADOW, integration=integration, clock=FakeClock()
+    )
     with pytest.raises(_NativeEvictionFailure) as raised:
         _FakeBlockPool()._maybe_evict_cached_block(block)
 
@@ -407,7 +433,9 @@ def test_hook_does_not_mutate_ref_count_or_hash(hook_environment) -> None:
     eligible.block_hash = b"eligible"
     queue = _FakeFreeKVCacheBlockQueue([protected, eligible])
 
-    install_retention_hook(mode=RetentionMode.CONTROLLED, integration=integration)
+    install_retention_hook(
+        mode=RetentionMode.CONTROLLED, integration=integration, clock=FakeClock()
+    )
     queue.popleft_n(1)
 
     assert protected.ref_cnt == 3
@@ -425,7 +453,9 @@ def test_controlled_removal_preserves_unselected_native_queue_order(
         [first, selected_first, middle, selected_second]
     )
 
-    install_retention_hook(mode=RetentionMode.CONTROLLED, integration=integration)
+    install_retention_hook(
+        mode=RetentionMode.CONTROLLED, integration=integration, clock=FakeClock()
+    )
     queue.popleft_n(2)
 
     assert queue._blocks == [first, middle]

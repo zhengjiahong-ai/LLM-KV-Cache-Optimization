@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import json
+import math
 import os
-import time
 from typing import Any
 
-from kvopt.continuum import BlockIdentity, RetentionMode
+from kvopt.continuum import BlockIdentity, Clock, RetentionMode
 
 from .adapter import NativeLRUAdapter
 from .bridge import VLLMEvictionBridge
@@ -24,6 +24,20 @@ def _queue_blocks(queue: Any) -> list[Any]:
         blocks.append(current)
         current = current.next_free_block
     return blocks
+
+
+def _read_clock_timestamp(clock: Clock) -> float:
+    """Read and validate one timestamp at the hook consumer boundary."""
+    value = clock.now()
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise TypeError("clock.now() must return a real number")
+    try:
+        timestamp = float(value)
+    except OverflowError as error:
+        raise ValueError("clock.now() must return a finite timestamp") from error
+    if not math.isfinite(timestamp) or timestamp < 0.0:
+        raise ValueError("clock.now() must return a finite non-negative timestamp")
+    return timestamp
 
 
 def install_policy_observer(mode: str) -> None:
@@ -67,7 +81,9 @@ def install_policy_observer(mode: str) -> None:
     FreeKVCacheBlockQueue._kvopt_policy_installed = True
 
 
-def install_retention_hook(*, mode: RetentionMode, integration: Any) -> None:
+def install_retention_hook(
+    *, mode: RetentionMode, integration: Any, clock: Clock
+) -> None:
     """Install the narrow retention integration hook for one vLLM process.
 
     Native mode deliberately leaves the vLLM methods untouched.  Shadow mode
@@ -79,6 +95,8 @@ def install_retention_hook(*, mode: RetentionMode, integration: Any) -> None:
         raise TypeError("mode must be RetentionMode")
     if mode is RetentionMode.NATIVE:
         return
+    if not isinstance(clock, Clock):
+        raise TypeError("clock must implement Clock")
     if not callable(getattr(integration, "apply_pressure", None)):
         raise TypeError("integration must provide apply_pressure")
     if not callable(getattr(integration, "observe_native_eviction", None)):
@@ -117,7 +135,7 @@ def install_retention_hook(*, mode: RetentionMode, integration: Any) -> None:
             mode=mode,
             blocks=snapshot,
             required_blocks=required_blocks,
-            timestamp=time.monotonic(),
+            timestamp=_read_clock_timestamp(clock),
             remove_selected=callback,
         )
         if mode is RetentionMode.SHADOW:
