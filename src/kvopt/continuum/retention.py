@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import replace
 
 from .clock import Clock
@@ -56,6 +57,13 @@ class RetentionManager:
         _require_identity(key, RetentionEntryKey, "key")
         return self._entries.get(key)
 
+    def planning_snapshots(self) -> tuple[RetentionEntrySnapshot, ...]:
+        """Return an immutable snapshot of all entries for read-only planning."""
+        return tuple(
+            self._entries[key]
+            for key in sorted(self._entries, key=lambda item: item.sort_key)
+        )
+
     def entries_for_block(self, block_id: BlockIdentity) -> tuple[RetentionEntryKey, ...]:
         _require_identity(block_id, BlockIdentity, "block_id")
         return tuple(sorted(self._reverse.get(block_id, ()), key=lambda key: key.sort_key))
@@ -107,6 +115,25 @@ class RetentionManager:
         for key in keys:
             self._remove_edges(key, self._entries.pop(key))
         self._waiting_programs.discard(program_id)
+
+    def commit_pressure_releases(
+        self, keys: Sequence[RetentionEntryKey]
+    ) -> None:
+        """End logical protection for validated pressure or expiry releases."""
+        if isinstance(keys, (str, bytes)) or not isinstance(keys, Sequence):
+            raise TypeError("keys must be an ordered sequence")
+        normalized = tuple(keys)
+        for key in normalized:
+            _require_identity(key, RetentionEntryKey, "keys item")
+        if len(normalized) != len(set(normalized)):
+            raise ValueError("keys must not contain duplicates")
+        for key in normalized:
+            if key not in self._entries:
+                raise KeyError(key)
+        for key in normalized:
+            entry = self._entries[key]
+            if entry.protected:
+                self._entries[key] = replace(entry, protected=False)
 
     def observe_eviction(self, block_id: BlockIdentity) -> None:
         """Remove every edge for an explicitly observed native eviction."""
