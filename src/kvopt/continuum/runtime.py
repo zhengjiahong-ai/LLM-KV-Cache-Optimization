@@ -26,6 +26,7 @@ from .snapshots import (
     EvictedRequestQueueDelayRecord,
     PrefixAssociationSnapshot,
     RetentionEntrySnapshot,
+    SchedulingCandidate,
     TTLInput,
 )
 from .ttl import PrefillReloadProvider, estimate_ttl
@@ -57,6 +58,7 @@ class RuntimeCoordinator:
             raise TypeError("clock must implement Clock")
         if not callable(getattr(prefill_reload_provider, "estimate", None)):
             raise TypeError("prefill_reload_provider must provide estimate")
+        self._clock = clock
         self.retention = RetentionManager(clock)
         self.server_gap_history = ServerGapHistory()
         self.external_tool_duration_history = ExternalToolDurationHistory()
@@ -77,6 +79,59 @@ class RuntimeCoordinator:
         ] = {}
         self._pending_tool_gaps: dict[ProgramIdentity, tuple[str, float]] = {}
         self._served_turn_counts: dict[ProgramIdentity, int] = {}
+        self._request_arrivals: dict[
+            RequestIdentity, tuple[ProgramIdentity, float]
+        ] = {}
+        self._program_first_arrivals: dict[
+            ProgramIdentity, tuple[RequestIdentity, float]
+        ] = {}
+
+    def scheduler_candidates(
+        self, request_ids: tuple[RequestIdentity, ...]
+    ) -> tuple[SchedulingCandidate, ...]:
+        """Return an immutable scheduler snapshot for the requested IDs.
+
+        Expiry is intentionally performed before protection is read so the
+        scheduler consumes the same lazy-expiry state as the retention layer.
+        """
+        if not isinstance(request_ids, tuple):
+            raise TypeError("request_ids must be a tuple")
+        for request_id in request_ids:
+            if not isinstance(request_id, RequestIdentity):
+                raise TypeError("request_ids items must be RequestIdentity")
+
+        self.retention.expire_due()
+        snapshot_timestamp = self._clock.now()
+        entries = self.retention.planning_snapshots()
+        candidates: list[SchedulingCandidate] = []
+        for request_id in request_ids:
+            try:
+                program_id, request_arrival = self._request_arrivals[request_id]
+            except KeyError as error:
+                raise KeyError(request_id) from error
+            try:
+                first_request_id, program_arrival = self._program_first_arrivals[program_id]
+            except KeyError as error:
+                raise KeyError(program_id) from error
+            program_entries = tuple(
+                entry for entry in entries if entry.program_id == program_id
+            )
+            protected_entries = tuple(entry for entry in program_entries if entry.protected)
+            candidates.append(
+                SchedulingCandidate(
+                    program_id=program_id,
+                    request_id=request_id,
+                    program_arrival_timestamp=program_arrival,
+                    request_arrival_timestamp=request_arrival,
+                    snapshot_timestamp=snapshot_timestamp,
+                    turn_index=self._served_turn_counts.get(program_id, 0),
+                    is_preempted_waiting=False,
+                    is_followup=request_id != first_request_id,
+                    program_is_protected=bool(protected_entries),
+                    retention_deadline_timestamp=None,
+                )
+            )
+        return tuple(candidates)
 
     def record_prefill_context_token_count(
         self, fact: PrefillContextTokenCountRecord
@@ -124,6 +179,17 @@ class RuntimeCoordinator:
         raise TypeError("unsupported runtime event")
 
     def _handle_request_arrived(self, event: RequestArrived) -> None:
+        previous = self._request_arrivals.get(event.request_id)
+        if previous is not None and previous[0] != event.program_id:
+            raise ValueError("request identity belongs to another program")
+        self._request_arrivals[event.request_id] = (
+            event.program_id,
+            event.arrival_timestamp,
+        )
+        self._program_first_arrivals.setdefault(
+            event.program_id,
+            (event.request_id, event.arrival_timestamp),
+        )
         pending = self._pending_server_gaps.pop(event.program_id, None)
         if pending is None:
             return
@@ -249,6 +315,12 @@ class RuntimeCoordinator:
         for key in tuple(self._prefill_facts):
             if key[0] == event.program_id:
                 del self._prefill_facts[key]
+        self._program_first_arrivals.pop(event.program_id, None)
+        for request_id, (program_id, _arrival_timestamp) in tuple(
+            self._request_arrivals.items()
+        ):
+            if program_id == event.program_id:
+                del self._request_arrivals[request_id]
 
 
 def build_runtime(

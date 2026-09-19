@@ -5,9 +5,17 @@ from __future__ import annotations
 import json
 import math
 import os
+from collections import deque
+from dataclasses import replace
 from typing import Any
 
-from kvopt.continuum import BlockIdentity, Clock, RetentionMode
+from kvopt.continuum import (
+    BlockIdentity,
+    Clock,
+    RequestIdentity,
+    RetentionMode,
+    SchedulerMode,
+)
 
 from .adapter import NativeLRUAdapter
 from .bridge import VLLMEvictionBridge
@@ -153,6 +161,69 @@ def install_retention_hook(
     FreeKVCacheBlockQueue.popleft_n = retained_popleft
     BlockPool._maybe_evict_cached_block = retained_evict
     FreeKVCacheBlockQueue._kvopt_policy_installed = True
+
+
+def install_scheduler_hook(*, mode: SchedulerMode, runtime: Any, policy: Any) -> None:
+    """Install the narrow scheduler ordering hook for one vLLM process."""
+    if not isinstance(mode, SchedulerMode):
+        raise TypeError("mode must be SchedulerMode")
+    if mode is SchedulerMode.NATIVE:
+        return
+    if not callable(getattr(runtime, "scheduler_candidates", None)):
+        raise TypeError("runtime must provide scheduler_candidates")
+    if not callable(getattr(policy, "order", None)):
+        raise TypeError("policy must provide order")
+
+    from vllm.v1.core.sched.scheduler import Scheduler
+    from vllm.v1.request import RequestStatus
+
+    if getattr(Scheduler, "_kvopt_scheduler_installed", False):
+        return
+    original_schedule = Scheduler.schedule
+
+    def retained_schedule(scheduler: Any, *args: Any, **kwargs: Any) -> Any:
+        if mode is SchedulerMode.CONTROLLED:
+            if not isinstance(scheduler.waiting, deque):
+                raise TypeError("controlled scheduler hook requires an FCFS deque")
+            skipped_waiting = getattr(scheduler, "skipped_waiting", ())
+            if tuple(skipped_waiting):
+                raise ValueError(
+                    "controlled scheduler hook requires an empty skipped_waiting queue"
+                )
+        waiting = tuple(scheduler.waiting)
+        native_request_ids = tuple(request.request_id for request in waiting)
+        runtime_request_ids = tuple(RequestIdentity(request_id) for request_id in native_request_ids)
+        candidates = tuple(runtime.scheduler_candidates(runtime_request_ids))
+        by_id = {candidate.request_id.value: candidate for candidate in candidates}
+        mapped_candidates = tuple(
+            replace(
+                by_id[request.request_id],
+                is_preempted_waiting=request.status is RequestStatus.PREEMPTED,
+            )
+            for request in waiting
+        )
+        ordered_ids = tuple(policy.order(mapped_candidates))
+        if len(ordered_ids) != len(waiting) or len(set(ordered_ids)) != len(ordered_ids):
+            raise ValueError("scheduler policy must return each waiting request exactly once")
+        if not all(isinstance(request_id, RequestIdentity) for request_id in ordered_ids):
+            raise TypeError("scheduler policy must return RequestIdentity values")
+        expected_ids = set(native_request_ids)
+        actual_ids = {request_id.value for request_id in ordered_ids}
+        if actual_ids != expected_ids:
+            raise ValueError("scheduler policy returned unknown request IDs")
+
+        if mode is SchedulerMode.CONTROLLED:
+            by_native_id = {request.request_id: request for request in waiting}
+            reordered = [
+                by_native_id[request_id.value]
+                for request_id in ordered_ids
+            ]
+            scheduler.waiting.clear()
+            scheduler.waiting.extend(reordered)
+        return original_schedule(scheduler, *args, **kwargs)
+
+    Scheduler.schedule = retained_schedule
+    Scheduler._kvopt_scheduler_installed = True
 
 
 def install_from_environment() -> None:
