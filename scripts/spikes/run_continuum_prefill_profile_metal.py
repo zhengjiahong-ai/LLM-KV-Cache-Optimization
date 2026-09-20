@@ -71,7 +71,7 @@ class _MetalPrefillAdapter:
         self._next_request_number += 1
         internal_id = self._engine.add_request(
             external_id,
-            self._tokens_input_factory(tuple(token_ids)),
+            self._tokens_input_factory(list(token_ids)),
             self._sampling_params_factory(
                 max_tokens=max_tokens,
                 temperature=temperature,

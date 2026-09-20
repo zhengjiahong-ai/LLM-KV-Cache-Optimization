@@ -164,12 +164,19 @@ def _load_adapter_module() -> Any:
 
 def _build_adapter(engine: _FakeEngine, native: _ReadOnlyNativeSurface) -> Any:
     module = _load_adapter_module()
+
+    def tokens_input_factory(token_ids: Any) -> _TokensPrompt:
+        # The pinned vLLM Request constructor copies prompt_token_ids.  Keep
+        # the adapter's internal token representation immutable, but require
+        # this boundary input to provide the mutable-list copy contract.
+        return _TokensPrompt(tuple(token_ids.copy()))
+
     return module.build_adapter(
         engine=engine,
         native=native,
         vocabulary_size=VOCAB_SIZE,
         observation_reader=native.observation_for_internal,
-        tokens_input_factory=lambda token_ids: _TokensPrompt(tuple(token_ids)),
+        tokens_input_factory=tokens_input_factory,
         sampling_params_factory=lambda **kwargs: _SamplingParams(**kwargs),
     )
 
