@@ -292,6 +292,34 @@ CPU-offload-specific reload profiling is not required because CPU offload is out
 
 Classification: `APPROXIMATED`.
 
+#### PR6 PrefillReload closure
+
+The explicit high-level composition API is:
+
+```text
+build_runtime_from_config(config, clock)
+```
+
+It loads the complete profile named by `ContinuumConfig.prefill_profile_path`,
+requires the existing profile version `v1`, derives the startup default TTL,
+and delegates low-level construction to `build_runtime(...)`. It does not
+inspect the current backend or regenerate a profile at runtime.
+
+The canonical default reference is `r = 256`, selected as an explicit in-range
+formal profile point rather than as a claim about workload representativeness.
+The measured value is:
+
+```text
+PrefillReload(256) = 0.0887301250040764 seconds
+T_default = 0.0 seconds
+```
+
+The latter is the result of the existing `compute_default_ttl_seconds` formula.
+Per-request estimates continue to use each request's actual `token_count`.
+The complete raw profile remains an external explicit artifact supplied through
+`prefill_profile_path`; runtime profiling and automatic artifact selection are
+not performed.
+
 ---
 
 ## 2. Lifecycle / expiry — final semantics

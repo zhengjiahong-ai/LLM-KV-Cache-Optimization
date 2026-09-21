@@ -62,7 +62,7 @@ retention system or a completed Continuum baseline.
 | Deterministic structured logging | Implemented contract | `src/kvopt/continuum/logging.py` |
 | Runtime history stores | Pending | No store implementation yet |
 | Dynamic TTL computation | Pending | Input/output contracts only |
-| Eta and prefill-profile providers | Pending | No provider or profile loader yet |
+| Eta and prefill-profile providers | Implemented | `src/kvopt/continuum/prefill_profile.py` and explicit composition API |
 | Live retention state manager | Pending | Snapshot contract only |
 | Prefix/block observation index | Pending production integration | PR 3 provides only session-local observation associations and eviction cleanup; no retention reverse index |
 | Pressure coordinator and retention-aware adapter | Pending | Immutable plan contracts only |
@@ -301,8 +301,9 @@ cannot request shadow or controlled retention/scheduler modes. Configuration
 construction does not read an environment variable or file and does not install
 a runtime hook.
 
-`prefill_profile_path` and `prefill_profile_version` are validated
-configuration fields only. The profile loader is pending.
+`prefill_profile_path` and `prefill_profile_version` remain explicit
+configuration fields. The profile loader is implemented, and the external
+profile is composed through `build_runtime_from_config(config, clock)`.
 
 ## 10. Retention-state contract
 
@@ -481,14 +482,16 @@ configuration is the project's concretization.
 Current implementation record:
 
 ```text
-RepresentativePrefillReload value: PENDING
-Representative context/prefix size: PENDING
-Prefill profile loader: PENDING
+RepresentativePrefillReload value: 0.0887301250040764 seconds at r=256
+Representative context/prefix size: 256 tokens
+Prefill profile loader: IMPLEMENTED (external explicit complete artifact)
+Composition API: build_runtime_from_config(config, clock)
 ```
 
-No numeric value is assumed by the current Core. PR 4 must record the measured
-representative value, context/prefix size, model, hardware, and profile version
-before formal Phase 1B evaluation.
+The representative value is a PR6 closure decision for the pinned formal
+profile, not a workload-representativeness claim. The complete raw artifact is
+supplied explicitly through `prefill_profile_path` and is not regenerated at
+runtime.
 
 ### 14.3 Pressure-release order
 
