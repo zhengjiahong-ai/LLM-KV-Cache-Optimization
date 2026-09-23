@@ -80,7 +80,7 @@ Member 2 provides evidence and interpretation but does not freeze implementation
 
 ### Primary goal
 
-Implement and validate frozen baselines. The current Phase 1B task is the Continuum-style adapted system baseline.
+Implement and validate frozen baselines. The Continuum-style Phase 1B baseline implementation and real-runtime validation are complete; Member 3 now keeps the baseline frozen for fair comparison and only fixes validation-backed defects.
 
 ### Current Phase 1B baseline
 
@@ -286,15 +286,23 @@ Do not present the proposed contribution as a generic scheduling system unless l
 
 - feasibility mapping: **CLOSED**
 - implementation scope: **FROZEN**
-- implementation/validation: **NEXT**
+- implementation: **COMPLETE**
+- real-runtime validation: **COMPLETE**
+- final integration to `main`: **READY FOR MERGE**
 
-### Phase 2 — Cost-Aware eviction
+### Phase 2 — Bottleneck identification and Cost-Aware eviction
 
-Member 4 implements `Ours-Evict` through the validated common eviction boundary.
+Work begins in parallel:
+
+- Member 5 builds reproducible controlled workloads and benchmark entry points;
+- Member 6 profiles the frozen baselines and reports the eviction/recomputation bottleneck;
+- Member 2 refreshes the novelty boundary relevant to Cost-Aware eviction;
+- Member 4 studies available online signals, then freezes and implements `Ours-Evict` based on the observed problem;
+- Member 1 maintains the common runtime/policy interface and integration boundary.
 
 Exit condition:
 
-> Cost-Aware victim selection can be compared against native LRU with native scheduling fixed.
+> Cost-Aware victim selection can be compared against native LRU with native scheduling fixed, and the method is motivated by measured baseline behavior rather than an assumed bottleneck.
 
 ### Phase 3 — Optional retention/scheduling extensions
 

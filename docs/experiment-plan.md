@@ -111,7 +111,7 @@ This is the primary weak/native baseline for RQ1.
 
 ### Baseline 2 — Continuum-style adapted system
 
-**Status: PHASE 1B SCOPE FROZEN**
+**Status: IMPLEMENTED AND REAL-RUNTIME VALIDATED**
 
 Continuum is the strong system-level baseline and includes the mechanisms frozen in `docs/baseline-freeze.md`:
 
@@ -371,6 +371,7 @@ Owns evaluation and must separate eviction attribution from retention/scheduling
 - Phase 0: CLOSED
 - Phase 1A: CLOSED
 - Phase 1B Continuum adaptation scope: FROZEN
+- Phase 1B implementation and real-runtime validation: COMPLETE
 
 ### Not frozen
 
@@ -380,4 +381,14 @@ Owns evaluation and must separate eviction attribution from retention/scheduling
 - formal model/dataset/workload matrix;
 - final hyperparameters.
 
-The next immediate implementation task remains Phase 1B Continuum baseline implementation. After that, Member 4 should start from `Ours-Evict`, not from a monolithic full-system method.
+The next project stage is **Phase 2 — bottleneck identification and Cost-Aware eviction**.
+
+Before the exact `Ours-Evict` score is frozen:
+
+1. Member 5 prepares reproducible cache-pressure/reuse workloads;
+2. Member 6 profiles the frozen baselines and identifies costly eviction behavior;
+3. Member 2 refreshes the novelty boundary against current related work;
+4. Member 4 finalizes the Cost-Aware objective and score from the observed bottleneck;
+5. Member 1 keeps the runtime/policy interface and fairness boundary stable.
+
+The method must still start from `Ours-Evict`, not from a monolithic retention+scheduling system.

@@ -8,10 +8,10 @@ Phase 1B Continuum vLLM observation spike.
 Authority remains, in order:
 
 1. `docs/baseline-freeze.md`
-2. `docs/phase1b-continuum-implementation-decisions.md`
+2. `docs/archive/phase1b-continuum/phase1b-continuum-implementation-decisions.md`
 3. `docs/experiment-plan.md`
 4. `docs/architecture.md`
-5. `docs/continuum-vllm-mapping.md`
+5. `docs/archive/phase1b-continuum/continuum-vllm-mapping.md`
 
 The higher-priority documents freeze the following real-backend requirement:
 
@@ -22,7 +22,7 @@ vLLM 0.27.1
 ```
 
 They do not freeze NVIDIA, CUDA, Docker, a container image, or any GPU vendor.
-The Docker image recorded in `docs/continuum-vllm-mapping.md` is the source
+The Docker image recorded in `docs/archive/phase1b-continuum/continuum-vllm-mapping.md` is the source
 inspection environment used by that lower-priority spike, not a project-wide
 runtime requirement.
 

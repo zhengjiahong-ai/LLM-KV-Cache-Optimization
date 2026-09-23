@@ -188,11 +188,9 @@ changing production behavior.
 
 - Explicit program identity survives changing native request IDs.
 - The first nonterminal request establishes retained/protected cache state.
-- A waiting follow-up preserves protection through the pressure phase.
-- The ordinary competitor is admitted before pressure.
-- Follow-up admission is deferred until pressure completes.
-- CONTROLLED scheduler evidence demonstrates policy ordering on the real
-  native `Request` objects.
+- The controlled scenario preserves the logical waiting-follow-up retention state through the staged pressure phase.
+- CONTROLLED scheduler evidence demonstrates policy ordering on real native `Request` objects.
+- The scenario does not claim that native request completion itself remained blocked until the staged logical admission event; the evidence boundary is scheduler-policy ordering plus logical retention/pressure coordination.
 - Terminal lifecycle cleanup succeeds.
 - NATIVE and SHADOW remain non-mutating at their respective boundaries.
 

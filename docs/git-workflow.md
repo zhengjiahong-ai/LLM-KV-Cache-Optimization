@@ -638,38 +638,27 @@ Performance claims should only be added after formal evaluation.
 
 ## 24. Current Project Phase
 
-The project has completed:
+Current project state:
 
 ```text
-Phase 0 — Backend & Architecture Validation
-COMPLETE
+Phase 0  Backend & architecture validation          CLOSED
+Phase 1A Common block-level eviction adapter        CLOSED
+Phase 1B Continuum-style baseline                   IMPLEMENTED + VALIDATED
+Phase 2  Bottleneck identification / Cost-Aware     ACTIVE
 ```
 
-The real backend is pinned to:
+New work should start from the latest integrated project branch or `main` after the
+Phase 1B final integration PR lands.
 
-```text
-vLLM 0.27.1
-```
+Phase 2 development should preserve the validated common runtime path. In particular:
 
-Validated items include:
+- Member 3 keeps the baselines frozen except for validation-backed fixes;
+- Member 5 owns reproducible workload/benchmark construction;
+- Member 6 owns profiling, metrics and bottleneck evidence;
+- Member 4 owns the Cost-Aware eviction design and implementation after profiling evidence;
+- Member 1 owns interface changes and integration.
 
-```text
-GPU inference
-APC cache hit
-controlled cache pressure
-cached-block eviction
-BlockPool integration point
-```
-
-The project is now entering:
-
-```text
-Phase 1 — Baseline Reproduction
-```
-
-New work should therefore start from the latest `main`, not from stale long-lived branches created before Phase 0 was completed.
-
----
+Do not create a new runtime path solely for the proposed method.
 
 ## Final Three Rules
 
