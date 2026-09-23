@@ -1,0 +1,1558 @@
+{
+  "actual_token_counts": [
+    {
+      "program_id": "program-validation",
+      "request_id": "0-9efec06a",
+      "token_count": 256
+    }
+  ],
+  "claims": {
+    "mode_boundaries": {
+      "evidence": {
+        "modes": [
+          "NATIVE",
+          "SHADOW",
+          "CONTROLLED"
+        ]
+      },
+      "status": "PASS"
+    },
+    "native_cleanup": {
+      "evidence": {
+        "actual_pressure_requests": 32,
+        "batches": [
+          {
+            "batch": 1,
+            "completed_native_request_ids": [
+              "3-a9972ee6",
+              "4-8c867aa1",
+              "5-a6f7f79c",
+              "6-a6779cdb",
+              "7-a07ddad0",
+              "8-81c35218",
+              "9-915c89d2",
+              "10-9575ef11",
+              "11-ac0e7dc0",
+              "12-9c4c4c29",
+              "13-81df391e",
+              "14-9fc486c3",
+              "15-93e639b3",
+              "16-a6873fda",
+              "17-aa008f32",
+              "18-b4720abe",
+              "19-a6c4f1d3",
+              "20-8dabff7f",
+              "21-8ac885f2",
+              "22-9ec08bde",
+              "23-8de04964",
+              "24-8b674fdb",
+              "25-b16a4084",
+              "26-bab13a6a",
+              "27-b98c0b23",
+              "28-935873ca",
+              "29-ba85ec14",
+              "30-8fa8eea2",
+              "31-99edceca",
+              "32-92b959f6",
+              "33-b0aacd3e",
+              "34-ad4bdf24"
+            ],
+            "completed_request_count": 32
+          }
+        ],
+        "pressure_requests": 32
+      },
+      "status": "PASS"
+    },
+    "nonterminal_retention": {
+      "evidence": {
+        "observed_nonterminal_turns": 1
+      },
+      "status": "PASS"
+    },
+    "program_continuity": {
+      "evidence": {
+        "distinct_request_ids": [
+          "0-9efec06a",
+          "35-9b478c2f"
+        ]
+      },
+      "status": "PASS"
+    },
+    "scheduler_coordination": {
+      "evidence": {
+        "completed_external_request_ids": [
+          "1",
+          "2"
+        ],
+        "completed_native_request_ids": [
+          "1-a2b2677a",
+          "2-8190604d"
+        ],
+        "completion_ordering": "ordinary_before_followup",
+        "continuum_invoked": true,
+        "controlled_runtime_id": "6048114704",
+        "evicted_block_id": 18,
+        "external_request_ids": [
+          "0",
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8",
+          "9",
+          "10",
+          "11",
+          "12",
+          "13",
+          "14",
+          "15",
+          "16",
+          "17",
+          "18",
+          "19",
+          "20",
+          "21",
+          "22",
+          "23",
+          "24",
+          "25",
+          "26",
+          "27",
+          "28",
+          "29",
+          "30",
+          "31",
+          "32",
+          "33",
+          "34",
+          "35"
+        ],
+        "followup_request_id": "2-8190604d",
+        "git_sha": "09f8f9539afa30adec785992377ce449e2799bb8",
+        "hook_boundary": "vllm.scheduler.schedule",
+        "hook_exercised": true,
+        "hook_installed": true,
+        "hypothetical_plan_available": true,
+        "lifecycle_request_evidence": [
+          {
+            "admission_timestamp": 210465.731866,
+            "arrival_timestamp": 210465.624010041,
+            "block_ids": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16
+            ],
+            "external_request_id": "0",
+            "finish_timestamp": 210465.731866,
+            "native_request_id": "0-9efec06a",
+            "next_tool_type": "search",
+            "prefix_id": "continuum.prefix.native_hash.v1:9e78a003e41f5938e1720d6381cf4ea4e23cef4eac787c486eeaf0c2a0dece9b00000000",
+            "program_id": "program-validation",
+            "request_id": "0-9efec06a",
+            "terminal": false,
+            "token_count": 256
+          },
+          {
+            "admission_timestamp": 210470.692037083,
+            "arrival_timestamp": 210465.733259458,
+            "block_ids": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16
+            ],
+            "external_request_id": "2",
+            "finish_timestamp": 210470.692037083,
+            "native_request_id": "2-8190604d",
+            "next_tool_type": "search",
+            "prefix_id": "continuum.prefix.native_hash.v1:9e78a003e41f5938e1720d6381cf4ea4e23cef4eac787c486eeaf0c2a0dece9b00000000",
+            "program_id": "program-validation",
+            "request_id": "2-8190604d",
+            "terminal": false,
+            "token_count": 256
+          },
+          {
+            "admission_timestamp": 210465.756293916,
+            "arrival_timestamp": 210465.732975833,
+            "block_ids": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16
+            ],
+            "external_request_id": "1",
+            "finish_timestamp": 210465.756293916,
+            "native_request_id": "1-a2b2677a",
+            "next_tool_type": "search",
+            "prefix_id": "continuum.prefix.native_hash.v1:9e78a003e41f5938e1720d6381cf4ea4e23cef4eac787c486eeaf0c2a0dece9b00000000",
+            "program_id": "ordinary-program",
+            "request_id": "1-a2b2677a",
+            "terminal": false,
+            "token_count": 256
+          },
+          {
+            "admission_timestamp": 210470.711156291,
+            "arrival_timestamp": 210470.692238625,
+            "block_ids": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16
+            ],
+            "external_request_id": "35",
+            "finish_timestamp": 210470.711156291,
+            "native_request_id": "35-9b478c2f",
+            "next_tool_type": null,
+            "prefix_id": "continuum.prefix.native_hash.v1:9e78a003e41f5938e1720d6381cf4ea4e23cef4eac787c486eeaf0c2a0dece9b00000000",
+            "program_id": "program-validation",
+            "request_id": "35-9b478c2f",
+            "terminal": true,
+            "token_count": 256
+          }
+        ],
+        "mode": "CONTROLLED",
+        "native_eviction_callback_observed": true,
+        "native_path_succeeded": true,
+        "ordered_ids": [
+          "2-8190604d",
+          "1-a2b2677a"
+        ],
+        "ordered_request_ids": [
+          "2-8190604d",
+          "1-a2b2677a"
+        ],
+        "ordering_outcome": "followup_before_ordinary",
+        "ordinary_request_id": "1-a2b2677a",
+        "plan_validated": true,
+        "pressure_batches": [
+          {
+            "batch": 1,
+            "completed_external_request_ids": [
+              "3",
+              "4",
+              "5",
+              "6",
+              "7",
+              "8",
+              "9",
+              "10",
+              "11",
+              "12",
+              "13",
+              "14",
+              "15",
+              "16",
+              "17",
+              "18",
+              "19",
+              "20",
+              "21",
+              "22",
+              "23",
+              "24",
+              "25",
+              "26",
+              "27",
+              "28",
+              "29",
+              "30",
+              "31",
+              "32",
+              "33",
+              "34"
+            ],
+            "completed_native_request_ids": [
+              "3-a9972ee6",
+              "4-8c867aa1",
+              "5-a6f7f79c",
+              "6-a6779cdb",
+              "7-a07ddad0",
+              "8-81c35218",
+              "9-915c89d2",
+              "10-9575ef11",
+              "11-ac0e7dc0",
+              "12-9c4c4c29",
+              "13-81df391e",
+              "14-9fc486c3",
+              "15-93e639b3",
+              "16-a6873fda",
+              "17-aa008f32",
+              "18-b4720abe",
+              "19-a6c4f1d3",
+              "20-8dabff7f",
+              "21-8ac885f2",
+              "22-9ec08bde",
+              "23-8de04964",
+              "24-8b674fdb",
+              "25-b16a4084",
+              "26-bab13a6a",
+              "27-b98c0b23",
+              "28-935873ca",
+              "29-ba85ec14",
+              "30-8fa8eea2",
+              "31-99edceca",
+              "32-92b959f6",
+              "33-b0aacd3e",
+              "34-ad4bdf24"
+            ],
+            "controlled_runtime_id": "6048114704"
+          }
+        ],
+        "pressure_observations": [
+          {
+            "batch": 1,
+            "controlled_runtime_id": "6048114704",
+            "evicted_block_id": 32,
+            "native_eviction_callback_observed": true,
+            "plan_validated": true,
+            "release_effects": [
+              {
+                "newly_eligible_block_ids": [
+                  16,
+                  15,
+                  14,
+                  13,
+                  12,
+                  11,
+                  10,
+                  9,
+                  8,
+                  7,
+                  6,
+                  5,
+                  4,
+                  3,
+                  2,
+                  1
+                ],
+                "prefix_id": "continuum.prefix.native_hash.v1:9e78a003e41f5938e1720d6381cf4ea4e23cef4eac787c486eeaf0c2a0dece9b00000000",
+                "program_id": "program-validation"
+              }
+            ],
+            "released_entry_keys": [
+              [
+                "program-validation",
+                "continuum.prefix.native_hash.v1:9e78a003e41f5938e1720d6381cf4ea4e23cef4eac787c486eeaf0c2a0dece9b00000000"
+              ]
+            ],
+            "retention_release_observed": true,
+            "target_present": false
+          }
+        ],
+        "queue_mutated": true,
+        "real_runtime_observed": true,
+        "retention_release_observed": true,
+        "runtime_preflight": {
+          "engine_core_observation_topology": "in_process",
+          "metal_paged_kv_enabled": true,
+          "mlx_configured_device": "gpu",
+          "mlx_metal_available": true,
+          "platform_plugin_class": "vllm_metal.platform.MetalPlatform",
+          "platform_plugin_identity": "vllm-metal",
+          "qualification_status": "PENDING_REVIEW",
+          "vllm_distribution_version_raw": "0.27.1+cpu",
+          "vllm_enable_v1_multiprocessing": false,
+          "vllm_metal_distribution_version_raw": "0.3.0",
+          "vllm_metal_imported_module_realpath": "/Users/vintrovis/.local/src/vllm-metal-a8b7e75c/vllm_metal/__init__.py",
+          "vllm_metal_source_checkout_realpath": "/Users/vintrovis/.local/src/vllm-metal-a8b7e75c",
+          "vllm_metal_source_commit": "a8b7e75c412aedcefe26ac3ab98d2a76e3e166fb",
+          "vllm_metal_source_worktree_clean": true,
+          "vllm_module_version_raw": "0.27.1",
+          "vllm_release_version": "0.27.1"
+        },
+        "status": "PASS",
+        "submitted_native_request_ids": [
+          "0-9efec06a",
+          "1-a2b2677a",
+          "2-8190604d",
+          "3-a9972ee6",
+          "4-8c867aa1",
+          "5-a6f7f79c",
+          "6-a6779cdb",
+          "7-a07ddad0",
+          "8-81c35218",
+          "9-915c89d2",
+          "10-9575ef11",
+          "11-ac0e7dc0",
+          "12-9c4c4c29",
+          "13-81df391e",
+          "14-9fc486c3",
+          "15-93e639b3",
+          "16-a6873fda",
+          "17-aa008f32",
+          "18-b4720abe",
+          "19-a6c4f1d3",
+          "20-8dabff7f",
+          "21-8ac885f2",
+          "22-9ec08bde",
+          "23-8de04964",
+          "24-8b674fdb",
+          "25-b16a4084",
+          "26-bab13a6a",
+          "27-b98c0b23",
+          "28-935873ca",
+          "29-ba85ec14",
+          "30-8fa8eea2",
+          "31-99edceca",
+          "32-92b959f6",
+          "33-b0aacd3e",
+          "34-ad4bdf24",
+          "35-9b478c2f"
+        ],
+        "target_present": false,
+        "waiting_request_ids": [
+          "1-a2b2677a",
+          "2-8190604d"
+        ]
+      },
+      "status": "PASS"
+    },
+    "terminal_cleanup": {
+      "evidence": {
+        "program_id": "program-validation"
+      },
+      "status": "PASS"
+    }
+  },
+  "completed_at": "2026-09-22T15:56:40.433173+00:00",
+  "failure_reason": null,
+  "git_sha": "09f8f9539afa30adec785992377ce449e2799bb8",
+  "lifecycle_transitions": [
+    {
+      "events": [
+        "REQUEST_ARRIVED",
+        "REQUEST_ADMITTED",
+        "BLOCKS_OBSERVED",
+        "TURN_FINISHED_NON_TERMINAL"
+      ],
+      "request_id": "0-9efec06a"
+    },
+    {
+      "events": [
+        "REQUEST_ARRIVED",
+        "FOLLOWUP_WAITING"
+      ],
+      "request_id": "2-8190604d"
+    },
+    {
+      "events": [
+        "REQUEST_ARRIVED"
+      ],
+      "request_id": "1-a2b2677a"
+    },
+    {
+      "events": [
+        "REQUEST_ARRIVED",
+        "REQUEST_ADMITTED",
+        "TURN_FINISHED_TERMINAL"
+      ],
+      "request_id": "35-9b478c2f"
+    }
+  ],
+  "limitations": [],
+  "mode_boundaries": {
+    "CONTROLLED": {
+      "completed_external_request_ids": [
+        "1",
+        "2"
+      ],
+      "completed_native_request_ids": [
+        "1-a2b2677a",
+        "2-8190604d"
+      ],
+      "completion_ordering": "ordinary_before_followup",
+      "continuum_invoked": true,
+      "controlled_runtime_id": "6048114704",
+      "evicted_block_id": 18,
+      "external_request_ids": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "11",
+        "12",
+        "13",
+        "14",
+        "15",
+        "16",
+        "17",
+        "18",
+        "19",
+        "20",
+        "21",
+        "22",
+        "23",
+        "24",
+        "25",
+        "26",
+        "27",
+        "28",
+        "29",
+        "30",
+        "31",
+        "32",
+        "33",
+        "34",
+        "35"
+      ],
+      "followup_request_id": "2-8190604d",
+      "git_sha": "09f8f9539afa30adec785992377ce449e2799bb8",
+      "hook_exercised": true,
+      "hook_installed": true,
+      "hypothetical_plan_available": true,
+      "lifecycle_request_evidence": [
+        {
+          "admission_timestamp": 210465.731866,
+          "arrival_timestamp": 210465.624010041,
+          "block_ids": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "external_request_id": "0",
+          "finish_timestamp": 210465.731866,
+          "native_request_id": "0-9efec06a",
+          "next_tool_type": "search",
+          "prefix_id": "continuum.prefix.native_hash.v1:9e78a003e41f5938e1720d6381cf4ea4e23cef4eac787c486eeaf0c2a0dece9b00000000",
+          "program_id": "program-validation",
+          "request_id": "0-9efec06a",
+          "terminal": false,
+          "token_count": 256
+        },
+        {
+          "admission_timestamp": 210470.692037083,
+          "arrival_timestamp": 210465.733259458,
+          "block_ids": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "external_request_id": "2",
+          "finish_timestamp": 210470.692037083,
+          "native_request_id": "2-8190604d",
+          "next_tool_type": "search",
+          "prefix_id": "continuum.prefix.native_hash.v1:9e78a003e41f5938e1720d6381cf4ea4e23cef4eac787c486eeaf0c2a0dece9b00000000",
+          "program_id": "program-validation",
+          "request_id": "2-8190604d",
+          "terminal": false,
+          "token_count": 256
+        },
+        {
+          "admission_timestamp": 210465.756293916,
+          "arrival_timestamp": 210465.732975833,
+          "block_ids": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "external_request_id": "1",
+          "finish_timestamp": 210465.756293916,
+          "native_request_id": "1-a2b2677a",
+          "next_tool_type": "search",
+          "prefix_id": "continuum.prefix.native_hash.v1:9e78a003e41f5938e1720d6381cf4ea4e23cef4eac787c486eeaf0c2a0dece9b00000000",
+          "program_id": "ordinary-program",
+          "request_id": "1-a2b2677a",
+          "terminal": false,
+          "token_count": 256
+        },
+        {
+          "admission_timestamp": 210470.711156291,
+          "arrival_timestamp": 210470.692238625,
+          "block_ids": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "external_request_id": "35",
+          "finish_timestamp": 210470.711156291,
+          "native_request_id": "35-9b478c2f",
+          "next_tool_type": null,
+          "prefix_id": "continuum.prefix.native_hash.v1:9e78a003e41f5938e1720d6381cf4ea4e23cef4eac787c486eeaf0c2a0dece9b00000000",
+          "program_id": "program-validation",
+          "request_id": "35-9b478c2f",
+          "terminal": true,
+          "token_count": 256
+        }
+      ],
+      "native_eviction_callback_observed": true,
+      "native_path_succeeded": true,
+      "ordered_request_ids": [
+        "2-8190604d",
+        "1-a2b2677a"
+      ],
+      "ordering_outcome": "followup_before_ordinary",
+      "ordinary_request_id": "1-a2b2677a",
+      "plan_validated": true,
+      "pressure_batches": [
+        {
+          "batch": 1,
+          "completed_external_request_ids": [
+            "3",
+            "4",
+            "5",
+            "6",
+            "7",
+            "8",
+            "9",
+            "10",
+            "11",
+            "12",
+            "13",
+            "14",
+            "15",
+            "16",
+            "17",
+            "18",
+            "19",
+            "20",
+            "21",
+            "22",
+            "23",
+            "24",
+            "25",
+            "26",
+            "27",
+            "28",
+            "29",
+            "30",
+            "31",
+            "32",
+            "33",
+            "34"
+          ],
+          "completed_native_request_ids": [
+            "3-a9972ee6",
+            "4-8c867aa1",
+            "5-a6f7f79c",
+            "6-a6779cdb",
+            "7-a07ddad0",
+            "8-81c35218",
+            "9-915c89d2",
+            "10-9575ef11",
+            "11-ac0e7dc0",
+            "12-9c4c4c29",
+            "13-81df391e",
+            "14-9fc486c3",
+            "15-93e639b3",
+            "16-a6873fda",
+            "17-aa008f32",
+            "18-b4720abe",
+            "19-a6c4f1d3",
+            "20-8dabff7f",
+            "21-8ac885f2",
+            "22-9ec08bde",
+            "23-8de04964",
+            "24-8b674fdb",
+            "25-b16a4084",
+            "26-bab13a6a",
+            "27-b98c0b23",
+            "28-935873ca",
+            "29-ba85ec14",
+            "30-8fa8eea2",
+            "31-99edceca",
+            "32-92b959f6",
+            "33-b0aacd3e",
+            "34-ad4bdf24"
+          ],
+          "controlled_runtime_id": "6048114704"
+        }
+      ],
+      "pressure_observations": [
+        {
+          "batch": 1,
+          "controlled_runtime_id": "6048114704",
+          "evicted_block_id": 32,
+          "native_eviction_callback_observed": true,
+          "plan_validated": true,
+          "release_effects": [
+            {
+              "newly_eligible_block_ids": [
+                16,
+                15,
+                14,
+                13,
+                12,
+                11,
+                10,
+                9,
+                8,
+                7,
+                6,
+                5,
+                4,
+                3,
+                2,
+                1
+              ],
+              "prefix_id": "continuum.prefix.native_hash.v1:9e78a003e41f5938e1720d6381cf4ea4e23cef4eac787c486eeaf0c2a0dece9b00000000",
+              "program_id": "program-validation"
+            }
+          ],
+          "released_entry_keys": [
+            [
+              "program-validation",
+              "continuum.prefix.native_hash.v1:9e78a003e41f5938e1720d6381cf4ea4e23cef4eac787c486eeaf0c2a0dece9b00000000"
+            ]
+          ],
+          "retention_release_observed": true,
+          "target_present": false
+        }
+      ],
+      "queue_mutated": true,
+      "real_runtime_observed": true,
+      "retention_release_observed": true,
+      "runtime_preflight": {
+        "engine_core_observation_topology": "in_process",
+        "metal_paged_kv_enabled": true,
+        "mlx_configured_device": "gpu",
+        "mlx_metal_available": true,
+        "platform_plugin_class": "vllm_metal.platform.MetalPlatform",
+        "platform_plugin_identity": "vllm-metal",
+        "qualification_status": "PENDING_REVIEW",
+        "vllm_distribution_version_raw": "0.27.1+cpu",
+        "vllm_enable_v1_multiprocessing": false,
+        "vllm_metal_distribution_version_raw": "0.3.0",
+        "vllm_metal_imported_module_realpath": "/Users/vintrovis/.local/src/vllm-metal-a8b7e75c/vllm_metal/__init__.py",
+        "vllm_metal_source_checkout_realpath": "/Users/vintrovis/.local/src/vllm-metal-a8b7e75c",
+        "vllm_metal_source_commit": "a8b7e75c412aedcefe26ac3ab98d2a76e3e166fb",
+        "vllm_metal_source_worktree_clean": true,
+        "vllm_module_version_raw": "0.27.1",
+        "vllm_release_version": "0.27.1"
+      },
+      "status": "PASS",
+      "submitted_native_request_ids": [
+        "0-9efec06a",
+        "1-a2b2677a",
+        "2-8190604d",
+        "3-a9972ee6",
+        "4-8c867aa1",
+        "5-a6f7f79c",
+        "6-a6779cdb",
+        "7-a07ddad0",
+        "8-81c35218",
+        "9-915c89d2",
+        "10-9575ef11",
+        "11-ac0e7dc0",
+        "12-9c4c4c29",
+        "13-81df391e",
+        "14-9fc486c3",
+        "15-93e639b3",
+        "16-a6873fda",
+        "17-aa008f32",
+        "18-b4720abe",
+        "19-a6c4f1d3",
+        "20-8dabff7f",
+        "21-8ac885f2",
+        "22-9ec08bde",
+        "23-8de04964",
+        "24-8b674fdb",
+        "25-b16a4084",
+        "26-bab13a6a",
+        "27-b98c0b23",
+        "28-935873ca",
+        "29-ba85ec14",
+        "30-8fa8eea2",
+        "31-99edceca",
+        "32-92b959f6",
+        "33-b0aacd3e",
+        "34-ad4bdf24",
+        "35-9b478c2f"
+      ],
+      "target_present": false,
+      "waiting_request_ids": [
+        "1-a2b2677a",
+        "2-8190604d"
+      ]
+    },
+    "NATIVE": {
+      "completed_external_request_ids": [
+        "0"
+      ],
+      "completed_native_request_ids": [
+        "0-985ee49f"
+      ],
+      "completion_ordering": null,
+      "continuum_invoked": false,
+      "controlled_runtime_id": null,
+      "evicted_block_id": null,
+      "external_request_ids": [
+        "0"
+      ],
+      "followup_request_id": null,
+      "git_sha": "09f8f9539afa30adec785992377ce449e2799bb8",
+      "hook_exercised": false,
+      "hook_installed": false,
+      "hypothetical_plan_available": false,
+      "lifecycle_request_evidence": [],
+      "native_eviction_callback_observed": false,
+      "native_path_succeeded": true,
+      "ordered_request_ids": [],
+      "ordering_outcome": null,
+      "ordinary_request_id": null,
+      "plan_validated": false,
+      "pressure_batches": [],
+      "pressure_observations": [],
+      "queue_mutated": false,
+      "real_runtime_observed": true,
+      "retention_release_observed": false,
+      "runtime_preflight": {
+        "engine_core_observation_topology": "in_process",
+        "metal_paged_kv_enabled": true,
+        "mlx_configured_device": "gpu",
+        "mlx_metal_available": true,
+        "platform_plugin_class": "vllm_metal.platform.MetalPlatform",
+        "platform_plugin_identity": "vllm-metal",
+        "qualification_status": "PENDING_REVIEW",
+        "vllm_distribution_version_raw": "0.27.1+cpu",
+        "vllm_enable_v1_multiprocessing": false,
+        "vllm_metal_distribution_version_raw": "0.3.0",
+        "vllm_metal_imported_module_realpath": "/Users/vintrovis/.local/src/vllm-metal-a8b7e75c/vllm_metal/__init__.py",
+        "vllm_metal_source_checkout_realpath": "/Users/vintrovis/.local/src/vllm-metal-a8b7e75c",
+        "vllm_metal_source_commit": "a8b7e75c412aedcefe26ac3ab98d2a76e3e166fb",
+        "vllm_metal_source_worktree_clean": true,
+        "vllm_module_version_raw": "0.27.1",
+        "vllm_release_version": "0.27.1"
+      },
+      "status": "PASS",
+      "submitted_native_request_ids": [
+        "0-985ee49f"
+      ],
+      "target_present": null,
+      "waiting_request_ids": []
+    },
+    "SHADOW": {
+      "completed_external_request_ids": [
+        "0"
+      ],
+      "completed_native_request_ids": [
+        "0-8a4b2d80"
+      ],
+      "completion_ordering": null,
+      "continuum_invoked": true,
+      "controlled_runtime_id": null,
+      "evicted_block_id": null,
+      "external_request_ids": [
+        "0"
+      ],
+      "followup_request_id": null,
+      "git_sha": "09f8f9539afa30adec785992377ce449e2799bb8",
+      "hook_exercised": true,
+      "hook_installed": true,
+      "hypothetical_plan_available": true,
+      "lifecycle_request_evidence": [],
+      "native_eviction_callback_observed": false,
+      "native_path_succeeded": true,
+      "ordered_request_ids": [],
+      "ordering_outcome": null,
+      "ordinary_request_id": null,
+      "plan_validated": false,
+      "pressure_batches": [],
+      "pressure_observations": [],
+      "queue_mutated": false,
+      "real_runtime_observed": true,
+      "retention_release_observed": false,
+      "runtime_preflight": {
+        "engine_core_observation_topology": "in_process",
+        "metal_paged_kv_enabled": true,
+        "mlx_configured_device": "gpu",
+        "mlx_metal_available": true,
+        "platform_plugin_class": "vllm_metal.platform.MetalPlatform",
+        "platform_plugin_identity": "vllm-metal",
+        "qualification_status": "PENDING_REVIEW",
+        "vllm_distribution_version_raw": "0.27.1+cpu",
+        "vllm_enable_v1_multiprocessing": false,
+        "vllm_metal_distribution_version_raw": "0.3.0",
+        "vllm_metal_imported_module_realpath": "/Users/vintrovis/.local/src/vllm-metal-a8b7e75c/vllm_metal/__init__.py",
+        "vllm_metal_source_checkout_realpath": "/Users/vintrovis/.local/src/vllm-metal-a8b7e75c",
+        "vllm_metal_source_commit": "a8b7e75c412aedcefe26ac3ab98d2a76e3e166fb",
+        "vllm_metal_source_worktree_clean": true,
+        "vllm_module_version_raw": "0.27.1",
+        "vllm_release_version": "0.27.1"
+      },
+      "status": "PASS",
+      "submitted_native_request_ids": [
+        "0-8a4b2d80"
+      ],
+      "target_present": null,
+      "waiting_request_ids": []
+    }
+  },
+  "native_cleanup_observations": [
+    {
+      "block_id": 32,
+      "evicted": true
+    }
+  ],
+  "prefix_observations": [
+    {
+      "block_ids": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16
+      ],
+      "prefix_id": "continuum.prefix.native_hash.v1:9e78a003e41f5938e1720d6381cf4ea4e23cef4eac787c486eeaf0c2a0dece9b00000000",
+      "program_id": "program-validation",
+      "request_id": "0-9efec06a"
+    }
+  ],
+  "pressure_observations": [
+    {
+      "actual_pressure_requests": 32,
+      "batch": 1,
+      "controlled_runtime_id": "6048114704",
+      "evicted_block_id": 32,
+      "native_eviction_callback_observed": true,
+      "plan_validated": true,
+      "release_effects": [
+        {
+          "newly_eligible_block_ids": [
+            16,
+            15,
+            14,
+            13,
+            12,
+            11,
+            10,
+            9,
+            8,
+            7,
+            6,
+            5,
+            4,
+            3,
+            2,
+            1
+          ],
+          "prefix_id": "continuum.prefix.native_hash.v1:9e78a003e41f5938e1720d6381cf4ea4e23cef4eac787c486eeaf0c2a0dece9b00000000",
+          "program_id": "program-validation"
+        }
+      ],
+      "released_entry_keys": [
+        [
+          "program-validation",
+          "continuum.prefix.native_hash.v1:9e78a003e41f5938e1720d6381cf4ea4e23cef4eac787c486eeaf0c2a0dece9b00000000"
+        ]
+      ],
+      "retention_release_observed": true,
+      "target_present": false
+    }
+  ],
+  "provenance": {
+    "architecture": "arm64",
+    "execution_factory": "scripts.spikes.run_continuum_phase1b_validation_metal:build_pinned_metal_validation_boundary",
+    "platform": "macOS-15.6-arm64-arm-64bit",
+    "prefill_profile_path": "results/continuum-prefill/formal-20260920T045859Z-6183d106/prefill-reload-profile.json",
+    "python_executable": "/Users/vintrovis/.venvs/vllm-metal-a8b7e75c-py3.12/bin/python",
+    "python_version": "3.12.14"
+  },
+  "requests": [
+    {
+      "external_request_id": "0",
+      "native_request_id": "0-9efec06a",
+      "program_id": "program-validation",
+      "request_id": "0-9efec06a"
+    },
+    {
+      "external_request_id": "2",
+      "native_request_id": "2-8190604d",
+      "program_id": "program-validation",
+      "request_id": "2-8190604d"
+    },
+    {
+      "external_request_id": "1",
+      "native_request_id": "1-a2b2677a",
+      "program_id": "ordinary-program",
+      "request_id": "1-a2b2677a"
+    },
+    {
+      "external_request_id": "35",
+      "native_request_id": "35-9b478c2f",
+      "program_id": "program-validation",
+      "request_id": "35-9b478c2f"
+    }
+  ],
+  "retention_transitions": [
+    {
+      "deadline_timestamp": 210465.731866,
+      "observed": true,
+      "program_id": "program-validation",
+      "protected": true,
+      "request_id": "0-9efec06a"
+    }
+  ],
+  "run_id": "pr7-host-metal-20260922-blockidentity-evidence-fix",
+  "scenarios": {
+    "controlled_multiturn": {
+      "evidence": {
+        "request_ids": [
+          "0-9efec06a",
+          "35-9b478c2f"
+        ],
+        "staged_followup_request_id": "2-8190604d",
+        "staged_ordinary_request_id": "1-a2b2677a",
+        "terminal_cleanup_observed": true
+      },
+      "status": "PASS"
+    },
+    "pressure_native_cleanup": {
+      "evidence": {
+        "actual_pressure_requests": 32,
+        "batches": [
+          {
+            "batch": 1,
+            "completed_native_request_ids": [
+              "3-a9972ee6",
+              "4-8c867aa1",
+              "5-a6f7f79c",
+              "6-a6779cdb",
+              "7-a07ddad0",
+              "8-81c35218",
+              "9-915c89d2",
+              "10-9575ef11",
+              "11-ac0e7dc0",
+              "12-9c4c4c29",
+              "13-81df391e",
+              "14-9fc486c3",
+              "15-93e639b3",
+              "16-a6873fda",
+              "17-aa008f32",
+              "18-b4720abe",
+              "19-a6c4f1d3",
+              "20-8dabff7f",
+              "21-8ac885f2",
+              "22-9ec08bde",
+              "23-8de04964",
+              "24-8b674fdb",
+              "25-b16a4084",
+              "26-bab13a6a",
+              "27-b98c0b23",
+              "28-935873ca",
+              "29-ba85ec14",
+              "30-8fa8eea2",
+              "31-99edceca",
+              "32-92b959f6",
+              "33-b0aacd3e",
+              "34-ad4bdf24"
+            ],
+            "completed_request_count": 32
+          }
+        ]
+      },
+      "status": "PASS"
+    }
+  },
+  "scheduler_orders": [
+    {
+      "completed_external_request_ids": [
+        "1",
+        "2"
+      ],
+      "completed_native_request_ids": [
+        "1-a2b2677a",
+        "2-8190604d"
+      ],
+      "completion_ordering": "ordinary_before_followup",
+      "continuum_invoked": true,
+      "controlled_runtime_id": "6048114704",
+      "evicted_block_id": 18,
+      "external_request_ids": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "11",
+        "12",
+        "13",
+        "14",
+        "15",
+        "16",
+        "17",
+        "18",
+        "19",
+        "20",
+        "21",
+        "22",
+        "23",
+        "24",
+        "25",
+        "26",
+        "27",
+        "28",
+        "29",
+        "30",
+        "31",
+        "32",
+        "33",
+        "34",
+        "35"
+      ],
+      "followup_request_id": "2-8190604d",
+      "git_sha": "09f8f9539afa30adec785992377ce449e2799bb8",
+      "hook_boundary": "vllm.scheduler.schedule",
+      "hook_exercised": true,
+      "hook_installed": true,
+      "hypothetical_plan_available": true,
+      "lifecycle_request_evidence": [
+        {
+          "admission_timestamp": 210465.731866,
+          "arrival_timestamp": 210465.624010041,
+          "block_ids": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "external_request_id": "0",
+          "finish_timestamp": 210465.731866,
+          "native_request_id": "0-9efec06a",
+          "next_tool_type": "search",
+          "prefix_id": "continuum.prefix.native_hash.v1:9e78a003e41f5938e1720d6381cf4ea4e23cef4eac787c486eeaf0c2a0dece9b00000000",
+          "program_id": "program-validation",
+          "request_id": "0-9efec06a",
+          "terminal": false,
+          "token_count": 256
+        },
+        {
+          "admission_timestamp": 210470.692037083,
+          "arrival_timestamp": 210465.733259458,
+          "block_ids": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "external_request_id": "2",
+          "finish_timestamp": 210470.692037083,
+          "native_request_id": "2-8190604d",
+          "next_tool_type": "search",
+          "prefix_id": "continuum.prefix.native_hash.v1:9e78a003e41f5938e1720d6381cf4ea4e23cef4eac787c486eeaf0c2a0dece9b00000000",
+          "program_id": "program-validation",
+          "request_id": "2-8190604d",
+          "terminal": false,
+          "token_count": 256
+        },
+        {
+          "admission_timestamp": 210465.756293916,
+          "arrival_timestamp": 210465.732975833,
+          "block_ids": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "external_request_id": "1",
+          "finish_timestamp": 210465.756293916,
+          "native_request_id": "1-a2b2677a",
+          "next_tool_type": "search",
+          "prefix_id": "continuum.prefix.native_hash.v1:9e78a003e41f5938e1720d6381cf4ea4e23cef4eac787c486eeaf0c2a0dece9b00000000",
+          "program_id": "ordinary-program",
+          "request_id": "1-a2b2677a",
+          "terminal": false,
+          "token_count": 256
+        },
+        {
+          "admission_timestamp": 210470.711156291,
+          "arrival_timestamp": 210470.692238625,
+          "block_ids": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "external_request_id": "35",
+          "finish_timestamp": 210470.711156291,
+          "native_request_id": "35-9b478c2f",
+          "next_tool_type": null,
+          "prefix_id": "continuum.prefix.native_hash.v1:9e78a003e41f5938e1720d6381cf4ea4e23cef4eac787c486eeaf0c2a0dece9b00000000",
+          "program_id": "program-validation",
+          "request_id": "35-9b478c2f",
+          "terminal": true,
+          "token_count": 256
+        }
+      ],
+      "mode": "CONTROLLED",
+      "native_eviction_callback_observed": true,
+      "native_path_succeeded": true,
+      "observed": true,
+      "ordered_request_ids": [
+        "2-8190604d",
+        "1-a2b2677a"
+      ],
+      "ordering_outcome": "followup_before_ordinary",
+      "ordinary_request_id": "1-a2b2677a",
+      "plan_validated": true,
+      "pressure_batches": [
+        {
+          "batch": 1,
+          "completed_external_request_ids": [
+            "3",
+            "4",
+            "5",
+            "6",
+            "7",
+            "8",
+            "9",
+            "10",
+            "11",
+            "12",
+            "13",
+            "14",
+            "15",
+            "16",
+            "17",
+            "18",
+            "19",
+            "20",
+            "21",
+            "22",
+            "23",
+            "24",
+            "25",
+            "26",
+            "27",
+            "28",
+            "29",
+            "30",
+            "31",
+            "32",
+            "33",
+            "34"
+          ],
+          "completed_native_request_ids": [
+            "3-a9972ee6",
+            "4-8c867aa1",
+            "5-a6f7f79c",
+            "6-a6779cdb",
+            "7-a07ddad0",
+            "8-81c35218",
+            "9-915c89d2",
+            "10-9575ef11",
+            "11-ac0e7dc0",
+            "12-9c4c4c29",
+            "13-81df391e",
+            "14-9fc486c3",
+            "15-93e639b3",
+            "16-a6873fda",
+            "17-aa008f32",
+            "18-b4720abe",
+            "19-a6c4f1d3",
+            "20-8dabff7f",
+            "21-8ac885f2",
+            "22-9ec08bde",
+            "23-8de04964",
+            "24-8b674fdb",
+            "25-b16a4084",
+            "26-bab13a6a",
+            "27-b98c0b23",
+            "28-935873ca",
+            "29-ba85ec14",
+            "30-8fa8eea2",
+            "31-99edceca",
+            "32-92b959f6",
+            "33-b0aacd3e",
+            "34-ad4bdf24"
+          ],
+          "controlled_runtime_id": "6048114704"
+        }
+      ],
+      "pressure_observations": [
+        {
+          "batch": 1,
+          "controlled_runtime_id": "6048114704",
+          "evicted_block_id": 32,
+          "native_eviction_callback_observed": true,
+          "plan_validated": true,
+          "release_effects": [
+            {
+              "newly_eligible_block_ids": [
+                16,
+                15,
+                14,
+                13,
+                12,
+                11,
+                10,
+                9,
+                8,
+                7,
+                6,
+                5,
+                4,
+                3,
+                2,
+                1
+              ],
+              "prefix_id": "continuum.prefix.native_hash.v1:9e78a003e41f5938e1720d6381cf4ea4e23cef4eac787c486eeaf0c2a0dece9b00000000",
+              "program_id": "program-validation"
+            }
+          ],
+          "released_entry_keys": [
+            [
+              "program-validation",
+              "continuum.prefix.native_hash.v1:9e78a003e41f5938e1720d6381cf4ea4e23cef4eac787c486eeaf0c2a0dece9b00000000"
+            ]
+          ],
+          "retention_release_observed": true,
+          "target_present": false
+        }
+      ],
+      "queue_mutated": true,
+      "real_runtime_observed": true,
+      "retention_release_observed": true,
+      "runtime_preflight": {
+        "engine_core_observation_topology": "in_process",
+        "metal_paged_kv_enabled": true,
+        "mlx_configured_device": "gpu",
+        "mlx_metal_available": true,
+        "platform_plugin_class": "vllm_metal.platform.MetalPlatform",
+        "platform_plugin_identity": "vllm-metal",
+        "qualification_status": "PENDING_REVIEW",
+        "vllm_distribution_version_raw": "0.27.1+cpu",
+        "vllm_enable_v1_multiprocessing": false,
+        "vllm_metal_distribution_version_raw": "0.3.0",
+        "vllm_metal_imported_module_realpath": "/Users/vintrovis/.local/src/vllm-metal-a8b7e75c/vllm_metal/__init__.py",
+        "vllm_metal_source_checkout_realpath": "/Users/vintrovis/.local/src/vllm-metal-a8b7e75c",
+        "vllm_metal_source_commit": "a8b7e75c412aedcefe26ac3ab98d2a76e3e166fb",
+        "vllm_metal_source_worktree_clean": true,
+        "vllm_module_version_raw": "0.27.1",
+        "vllm_release_version": "0.27.1"
+      },
+      "status": "PASS",
+      "submitted_native_request_ids": [
+        "0-9efec06a",
+        "1-a2b2677a",
+        "2-8190604d",
+        "3-a9972ee6",
+        "4-8c867aa1",
+        "5-a6f7f79c",
+        "6-a6779cdb",
+        "7-a07ddad0",
+        "8-81c35218",
+        "9-915c89d2",
+        "10-9575ef11",
+        "11-ac0e7dc0",
+        "12-9c4c4c29",
+        "13-81df391e",
+        "14-9fc486c3",
+        "15-93e639b3",
+        "16-a6873fda",
+        "17-aa008f32",
+        "18-b4720abe",
+        "19-a6c4f1d3",
+        "20-8dabff7f",
+        "21-8ac885f2",
+        "22-9ec08bde",
+        "23-8de04964",
+        "24-8b674fdb",
+        "25-b16a4084",
+        "26-bab13a6a",
+        "27-b98c0b23",
+        "28-935873ca",
+        "29-ba85ec14",
+        "30-8fa8eea2",
+        "31-99edceca",
+        "32-92b959f6",
+        "33-b0aacd3e",
+        "34-ad4bdf24",
+        "35-9b478c2f"
+      ],
+      "target_present": false,
+      "waiting_request_ids": [
+        "1-a2b2677a",
+        "2-8190604d"
+      ]
+    }
+  ],
+  "schema": "continuum.phase1b.validation.v1",
+  "started_at": "2026-09-22T15:55:20.665201+00:00",
+  "status": "complete",
+  "ttl_decisions": [
+    {
+      "prefill_reload_provenance": "APPROXIMATED",
+      "prefill_reload_seconds": 0.0887301250040764,
+      "program_id": "program-validation",
+      "request_id": "0-9efec06a",
+      "token_count": 256
+    }
+  ]
+}
