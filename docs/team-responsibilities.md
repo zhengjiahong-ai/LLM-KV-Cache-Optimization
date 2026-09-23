@@ -284,17 +284,22 @@ Do not present the proposed contribution as a generic scheduling system unless l
 
 ### Phase 1B — Continuum baseline
 
-- feasibility mapping: **CLOSED**
-- implementation scope: **FROZEN**
-- implementation/validation: **NEXT**
+**CLOSED / VALIDATED**
 
-### Phase 2 — Cost-Aware eviction
+Member 3's baseline implementation and validation work is complete unless a later regression exposes a correctness defect.
 
-Member 4 implements `Ours-Evict` through the validated common eviction boundary.
+### Phase 2 — Baseline profiling and Cost-Aware eviction
+
+Current work proceeds in two steps:
+
+1. Member 5 prepares reproducible controlled workloads/benchmark traces and Member 6 profiles the frozen baselines to identify measurable eviction/recomputation bottlenecks.
+2. Member 4 freezes and implements `Ours-Evict` through the validated common eviction boundary using only justified online signals.
+
+Member 1 owns any shared interface changes required to connect these components fairly.
 
 Exit condition:
 
-> Cost-Aware victim selection can be compared against native LRU with native scheduling fixed.
+> Cost-Aware victim selection can be compared against native LRU with native scheduling fixed and its design is motivated by observed baseline behavior.
 
 ### Phase 3 — Optional retention/scheduling extensions
 
