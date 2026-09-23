@@ -288,7 +288,8 @@ Do not present the proposed contribution as a generic scheduling system unless l
 - implementation scope: **FROZEN**
 - implementation: **COMPLETE**
 - real-runtime validation: **COMPLETE**
-- final integration to `main`: **READY FOR MERGE**
+- final integration to `main`: **COMPLETE**
+- Phase 1B status: **CLOSED**
 
 ### Phase 2 — Bottleneck identification and Cost-Aware eviction
 
