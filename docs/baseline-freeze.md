@@ -4,7 +4,7 @@
 
 This document freezes the project-level baseline scope and the minimum faithful-enough Continuum adaptation for vLLM 0.27.1.
 
-It is based on the completed feasibility spike in `docs/continuum-vllm-mapping.md`.
+It is based on the completed feasibility spike now archived at `docs/archive/phase1b-continuum/continuum-vllm-mapping.md`.
 
 Implementation-level decisions that refine this frozen scope are recorded in:
 
