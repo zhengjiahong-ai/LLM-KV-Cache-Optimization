@@ -111,7 +111,7 @@ This is the primary weak/native baseline for RQ1.
 
 ### Baseline 2 — Continuum-style adapted system
 
-**Status: PHASE 1B SCOPE FROZEN**
+**Status: CLOSED / VALIDATED**
 
 Continuum is the strong system-level baseline and includes the mechanisms frozen in `docs/baseline-freeze.md`:
 
@@ -370,7 +370,7 @@ Owns evaluation and must separate eviction attribution from retention/scheduling
 - Strong system baseline: Continuum-style adapted system
 - Phase 0: CLOSED
 - Phase 1A: CLOSED
-- Phase 1B Continuum adaptation scope: FROZEN
+- Phase 1B Continuum-style baseline: CLOSED / VALIDATED
 
 ### Not frozen
 
@@ -380,4 +380,4 @@ Owns evaluation and must separate eviction attribution from retention/scheduling
 - formal model/dataset/workload matrix;
 - final hyperparameters.
 
-The next immediate implementation task remains Phase 1B Continuum baseline implementation. After that, Member 4 should start from `Ours-Evict`, not from a monolithic full-system method.
+The current task is Phase 2: baseline profiling and bottleneck identification, followed by `Ours-Evict` design. Member 4 should freeze the optimization only after the relevant baseline behavior is profiled; the method must remain eviction-centered rather than becoming a monolithic full-system redesign.

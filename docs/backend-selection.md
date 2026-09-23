@@ -284,14 +284,14 @@ Collaborators:
 - Member 5 — repeated-prefix/cache-pressure workload construction;
 - Member 6 — metrics, profiling, and formal evaluation.
 
-## Next checkpoint
+## Current checkpoint
 
-Member 1 should now produce and validate a minimal vLLM-0.27.1 smoke experiment that answers:
+Stages A-E are complete for the current project baseline:
 
-1. Can APC hits be reproduced on the available hardware?
-2. Can GPU cache pressure be forced reliably without OOM?
-3. Can actual eviction events/order be observed with lightweight instrumentation?
-4. Can the queue/victim-selection point be patched without touching kernels?
-5. Which small model gives enough KV pressure while keeping experiments fast?
+- simulator/interface validation: complete;
+- vanilla vLLM 0.27.1 APC path: validated;
+- GPU APC observation/instrumentation: validated;
+- common eviction-policy adapter: validated and closed as Phase 1A;
+- Continuum-style strong baseline: implemented and validated as Phase 1B.
 
-Only after this smoke experiment should Members 3 and 4 begin modifying the real vLLM eviction policy.
+The current backend task is no longer baseline feasibility. Phase 2 should reuse the validated adapter/runtime path for baseline profiling and Cost-Aware victim-selection design. Any later canonical evaluation backend must preserve the same policy semantics and be qualified before formal cross-policy runs.

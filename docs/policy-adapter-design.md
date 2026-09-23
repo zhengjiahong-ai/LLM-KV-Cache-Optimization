@@ -151,4 +151,4 @@ Do not silently replace one with the other. The simulator is for interface valid
 - [x] real vLLM shadow-mode victim sequence matches native LRU.
 - [x] adapter-controlled LRU completes real GPU inference through the native downstream eviction machinery.
 
-**Phase 1A is closed. The next implementation phase is strong-baseline reproduction after the Continuum adaptation scope is frozen.**
+**Phase 1A is closed. Phase 1B strong-baseline reproduction is also complete; this adapter is now the frozen victim-selection boundary reused by Phase 2 profiling and Cost-Aware eviction work.**

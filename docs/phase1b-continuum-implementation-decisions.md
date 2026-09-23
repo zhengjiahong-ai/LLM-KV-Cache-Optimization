@@ -775,7 +775,7 @@ Implementation authority:
 2. docs/phase1b-continuum-implementation-decisions.md
 3. docs/experiment-plan.md
 4. docs/architecture.md
-5. docs/continuum-vllm-mapping.md
+5. docs/archive/phase1b-continuum/continuum-vllm-mapping.md
 ```
 
 Older Related-Work notes are not implementation specifications.

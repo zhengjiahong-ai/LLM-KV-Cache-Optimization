@@ -4,7 +4,7 @@
 
 This document freezes the project-level baseline scope and the minimum faithful-enough Continuum adaptation for vLLM 0.27.1.
 
-It is based on the completed feasibility spike in `docs/continuum-vllm-mapping.md`.
+It is based on the completed feasibility spike now archived at `docs/archive/phase1b-continuum/continuum-vllm-mapping.md`.
 
 Implementation-level decisions that refine this frozen scope are recorded in:
 
@@ -436,7 +436,7 @@ Phase 1A block-level eviction adapter
     -> CLOSED / VALIDATED
 
 Continuum-style vLLM system baseline
-    -> PHASE 1B SCOPE FROZEN
+    -> PHASE 1B CLOSED / VALIDATED
     -> implementation-level decision record linked
     -> explicit program/session identity
     -> dynamic TTL with documented approximations
@@ -444,6 +444,7 @@ Continuum-style vLLM system baseline
     -> lazy expiry + deterministic pressure release
     -> narrow program-level admission-order scheduler adapter
     -> native BlockPool bookkeeping preserved
+    -> final runtime evidence recorded under docs/experiments/phase1b-continuum/
 
 Cost-Aware system
     -> BROAD RESEARCH DIRECTION FROZEN
@@ -451,4 +452,4 @@ Cost-Aware system
     -> exact retention / eviction / scheduler algorithms NOT YET FROZEN
 ```
 
-The next implementation phase is **Phase 1B — Continuum Baseline Implementation and Validation**.
+Phase 1B is closed. The next project phase is **Phase 2 — baseline profiling, bottleneck identification, and Cost-Aware eviction design**. The frozen Phase 1B requirements remain authoritative for any later regression check.
