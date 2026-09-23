@@ -284,14 +284,24 @@ Collaborators:
 - Member 5 — repeated-prefix/cache-pressure workload construction;
 - Member 6 — metrics, profiling, and formal evaluation.
 
-## Next checkpoint
+## Current backend state
 
-Member 1 should now produce and validate a minimal vLLM-0.27.1 smoke experiment that answers:
+The original backend smoke checkpoint is complete.
 
-1. Can APC hits be reproduced on the available hardware?
-2. Can GPU cache pressure be forced reliably without OOM?
-3. Can actual eviction events/order be observed with lightweight instrumentation?
-4. Can the queue/victim-selection point be patched without touching kernels?
-5. Which small model gives enough KV pressure while keeping experiments fast?
+Validated project state:
 
-Only after this smoke experiment should Members 3 and 4 begin modifying the real vLLM eviction policy.
+```text
+Phase 0  vLLM 0.27.1 backend / GPU APC path         CLOSED
+Phase 1A common eviction-policy adapter              CLOSED
+Phase 1B Continuum-style baseline                    IMPLEMENTED + VALIDATED
+```
+
+Phase 1B correctness/integration was qualified on the pinned Metal profile recorded in
+`docs/experiments/phase1b-continuum/final-report.md`. This does not require final
+comparative evaluation to use Metal. A later evaluation backend may be qualified through
+the same project interfaces, with backend/model-specific profiling such as PrefillReload,
+without rewriting baseline semantics.
+
+The next backend-facing work is limited to instrumentation or adapter changes justified by
+Phase 2 profiling and the Cost-Aware policy. Do not reopen the native ownership boundary or
+replace the common Phase 1A victim-selection path without a project-level decision.

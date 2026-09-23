@@ -28,9 +28,10 @@ Retention and scheduling are included where needed to reproduce strong system ba
 ```text
 Phase 0   Backend & architecture validation          CLOSED
 Phase 1A  Common block-level eviction adapter        CLOSED
-Phase 1B  Continuum → vLLM feasibility mapping       CLOSED
-Phase 1B  Continuum implementation scope             FROZEN
-Phase 1B  Continuum baseline implementation          NEXT
+Phase 1B  Continuum baseline implementation          COMPLETE
+Phase 1B  Real-runtime validation                    COMPLETE
+Phase 1B  Final integration to main                  READY FOR MERGE
+Phase 2   Baseline profiling / Cost-Aware design     NEXT
 ```
 
 The real backend is frozen to **vLLM 0.27.1** with GPU Automatic Prefix Caching (APC).
@@ -143,8 +144,10 @@ Ours-Full = Eviction + Retention + Scheduling
 
 - [`docs/experiment-plan.md`](docs/experiment-plan.md) — research questions and experimental hierarchy.
 - [`docs/baseline-freeze.md`](docs/baseline-freeze.md) — frozen Phase 1B Continuum adaptation scope.
-- [`docs/continuum-vllm-mapping.md`](docs/continuum-vllm-mapping.md) — feasibility mapping from Continuum to vLLM 0.27.1.
+- [`docs/continuum-baseline-implementation.md`](docs/continuum-baseline-implementation.md) — current Phase 1B implementation and validation index.
+- [`docs/experiments/phase1b-continuum/final-report.md`](docs/experiments/phase1b-continuum/final-report.md) — final Phase 1B real-runtime evidence.
 - [`docs/policy-adapter-design.md`](docs/policy-adapter-design.md) — validated Phase 1A block-level eviction adapter.
+- [`docs/archive/`](docs/archive/) — superseded spikes and historical implementation records.
 - [`docs/team-responsibilities.md`](docs/team-responsibilities.md) — ownership and phase responsibilities.
 
 ## Team Responsibilities
