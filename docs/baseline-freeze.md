@@ -9,7 +9,7 @@ It is based on the completed feasibility spike in `docs/archive/phase1b-continuu
 Implementation-level decisions that refine this frozen scope are recorded in:
 
 ```text
-docs/phase1b-continuum-implementation-decisions.md
+docs/archive/phase1b-continuum/phase1b-continuum-implementation-decisions.md
 ```
 
 That decision record supplements this document for concrete Phase 1B implementation semantics such as dynamic-TTL inputs, lifecycle edge cases, shared-block protection, free-queue coordination, and deterministic scheduler ordering. It does not change the baseline scope frozen here.
