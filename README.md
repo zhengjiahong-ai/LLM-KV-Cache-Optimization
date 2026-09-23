@@ -30,8 +30,8 @@ Phase 0   Backend & architecture validation          CLOSED
 Phase 1A  Common block-level eviction adapter        CLOSED
 Phase 1B  Continuum baseline implementation          COMPLETE
 Phase 1B  Real-runtime validation                    COMPLETE
-Phase 1B  Final integration to main                  READY FOR MERGE
-Phase 2   Baseline profiling / Cost-Aware design     NEXT
+Phase 1B  Continuum baseline                        CLOSED
+Phase 2   Baseline profiling / Cost-Aware design     ACTIVE
 ```
 
 The real backend is frozen to **vLLM 0.27.1** with GPU Automatic Prefix Caching (APC).

@@ -2,7 +2,7 @@
 
 ## Status
 
-**Phase 1B implementation and real-runtime validation are COMPLETE. Final integration to `main` is pending.**
+**Phase 1B implementation, real-runtime validation, and integration to `main` are COMPLETE. Phase 1B is CLOSED.**
 
 This document is the current implementation index for the Continuum-style baseline adapted to vLLM 0.27.1. It intentionally stays concise. Historical feasibility, observation-spike, and implementation-decision records are preserved under `docs/archive/phase1b-continuum/`.
 
