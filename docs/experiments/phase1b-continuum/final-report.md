@@ -188,15 +188,41 @@ changing production behavior.
 
 - Explicit program identity survives changing native request IDs.
 - The first nonterminal request establishes retained/protected cache state.
-- A waiting follow-up preserves protection through the pressure phase.
-- The ordinary competitor is admitted before pressure.
-- Follow-up admission is deferred until pressure completes.
-- CONTROLLED scheduler evidence demonstrates policy ordering on the real
-  native `Request` objects.
+- The staged logical follow-up remains represented as a protected waiting
+  follow-up through the pressure phase.
+- CONTROLLED scheduler evidence demonstrates Continuum policy ordering at the
+  native `vllm.scheduler.schedule` boundary on real native `Request` objects.
 - Terminal lifecycle cleanup succeeds.
 - NATIVE and SHADOW remain non-mutating at their respective boundaries.
 
-## 7. Regression checks
+### Evidence boundary
+
+The controlled scenario validates the project scheduler policy boundary,
+logical waiting-follow-up retention state, protected-pressure release, and
+native BlockPool cleanup. It does **not** claim that native request completion
+itself remained blocked until the project-side staged admission event. The raw
+artifact records both the policy ordering evidence and native completion
+ordering so this distinction remains auditable.
+
+## 7. Frozen closure checklist
+
+| Frozen requirement | Closeout evidence |
+| --- | --- |
+| explicit program/session continuity across request IDs | final CONTROLLED validation: `program_continuity = PASS` |
+| separate lifecycle/history inputs and dynamic TTL path | runtime/unit coverage plus final TTL decision evidence in the validation artifact |
+| explicit input provenance / approximations | TTL decision and PrefillReload provenance fields in the final artifacts |
+| retained/protected state and terminal cleanup | `nonterminal_retention = PASS`, `terminal_cleanup = PASS` |
+| APC prefix reuse remains functional | prior real-runtime observation evidence preserved in `docs/archive/phase1b-continuum/continuum-vllm-observation-evidence.md` |
+| protection cannot deadlock allocation; protected fallback is deterministic | final constrained-pool pressure scenario and retention-release evidence |
+| real eviction still uses native BlockPool cleanup | `native_cleanup = PASS` and native eviction callback evidence |
+| program-level scheduler policy is exercisable in CONTROLLED mode | `scheduler_coordination = PASS` at the native scheduler boundary |
+| NATIVE / SHADOW behavior boundaries remain available | `mode_boundaries = PASS` |
+| Phase 1A / repository regression safety | focused tests 48 passed; full suite 622 passed; Ruff/AST/import/diff checks PASS |
+
+The original requirements remain defined by `docs/baseline-freeze.md`; this
+table maps them to the closeout evidence without expanding the frozen scope.
+
+## 8. Regression checks
 
 Final completed checks:
 
@@ -214,7 +240,7 @@ Production `src/` was not modified by PR7. The formal PrefillReload profile
 was not rerun during final closeout, and no Metal rerun occurred after the
 successful final artifact.
 
-## 8. Raw artifact integrity and provenance disclosure
+## 9. Raw artifact integrity and provenance disclosure
 
 The curated files are byte-for-byte copies of the authoritative local result
 artifacts:
