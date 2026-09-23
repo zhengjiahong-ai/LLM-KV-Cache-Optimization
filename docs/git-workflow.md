@@ -641,33 +641,25 @@ Performance claims should only be added after formal evaluation.
 The project has completed:
 
 ```text
-Phase 0 — Backend & Architecture Validation
-COMPLETE
+Phase 0  Backend & architecture validation        CLOSED
+Phase 1A Common block-level eviction adapter      CLOSED
+Phase 1B Continuum-style baseline                 CLOSED / VALIDATED
 ```
 
-The real backend is pinned to:
+The real backend remains pinned to:
 
 ```text
 vLLM 0.27.1
 ```
 
-Validated items include:
+The current project phase is:
 
 ```text
-GPU inference
-APC cache hit
-controlled cache pressure
-cached-block eviction
-BlockPool integration point
+Phase 2 — Baseline profiling / bottleneck identification
+          -> Cost-Aware eviction design and implementation
 ```
 
-The project is now entering:
-
-```text
-Phase 1 — Baseline Reproduction
-```
-
-New work should therefore start from the latest `main`, not from stale long-lived branches created before Phase 0 was completed.
+New work should start from the latest integrated baseline branch/main state, use the common runtime/policy interfaces, and avoid reopening frozen Phase 1B scope unless a correctness regression is found.
 
 ---
 
