@@ -43,6 +43,7 @@ from .snapshots import (
     TTLHistoryMode,
     TTLInput,
 )
+from .tool_call import ToolCallParser, derive_next_tool_type
 from .types import (
     BlockIdentity,
     ExternalToolDurationRecord,
@@ -101,7 +102,9 @@ __all__ = [
     "TTLDecision",
     "TTLHistoryMode",
     "TTLInput",
+    "ToolCallParser",
     "ToolGapEnded",
     "ToolGapStarted",
     "TurnFinished",
+    "derive_next_tool_type",
 ]
