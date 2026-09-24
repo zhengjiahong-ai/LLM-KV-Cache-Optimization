@@ -1,10 +1,11 @@
 """Read-only vLLM tool-call observation adapter.
 
 The module deliberately imports no vLLM package. It reads the pinned
-observation surface of one finished native request (``output_token_ids``)
-through a supplied tokenizer and derives the Continuum next-tool identity
-from the model output, mirroring the source ``ToolCallEstimator`` output
-parsing path.
+observation surface of one finished native request (the public
+``output_token_ids`` view, with the wrapped private ``_output_token_ids``
+list as fallback) through a supplied tokenizer and derives the Continuum
+next-tool identity from the model output, mirroring the source
+``ToolCallEstimator`` output parsing path.
 """
 
 from __future__ import annotations
@@ -26,7 +27,11 @@ class _TokenizerLike(Protocol):
 
 
 def _read_output_token_ids(request: object) -> Sequence[int] | None:
+    # The public ConstantList view is the source-observed field; the private
+    # list is the same underlying storage and covers builds without the view.
     output_token_ids = getattr(request, "output_token_ids", None)
+    if output_token_ids is None:
+        output_token_ids = getattr(request, "_output_token_ids", None)
     if output_token_ids is None:
         return None
     if isinstance(output_token_ids, (str, bytes)) or not isinstance(

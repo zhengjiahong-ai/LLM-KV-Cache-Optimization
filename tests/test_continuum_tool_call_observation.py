@@ -61,6 +61,19 @@ def test_adapter_reports_unavailable_when_request_lacks_attribute() -> None:
     assert provenance.source is InputSource.UNAVAILABLE
 
 
+def test_adapter_falls_back_to_private_output_token_ids() -> None:
+    class _PrivateOnlyRequest:
+        def __init__(self, output_token_ids) -> None:
+            self._output_token_ids = output_token_ids
+
+    request = _PrivateOnlyRequest([10, 11, 12])
+    tokenizer = _FakeTokenizer(_BASH_OUTPUT)
+    tool_type, provenance = next_tool_type_from_request(request, tokenizer)
+    assert tool_type == "git"
+    assert provenance.source is InputSource.OBSERVED
+    assert tokenizer.decode_calls == [[10, 11, 12]]
+
+
 def test_adapter_propagates_tokenizer_failures() -> None:
     request = _FakeRequest([1])
     tokenizer = _FakeTokenizer(failure=RuntimeError("detokenize failed"))
