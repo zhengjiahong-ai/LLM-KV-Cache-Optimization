@@ -105,6 +105,7 @@ Continuum is reproduced as a strong **system-level baseline**, including the ret
 
 - explicit `program_id/session_id`;
 - online tool-gap / reuse history;
+- server-side tool-call parsing for `next_tool_type` (orchestrator input fallback);
 - dynamic TTL estimation;
 - soft retention protection;
 - lazy expiry and deterministic pressure release;
