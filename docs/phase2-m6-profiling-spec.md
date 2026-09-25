@@ -97,9 +97,11 @@ Class C must never be fed back into an online policy feature column.
 
 The current forced-release snapshot intentionally does **not** contain `program_arrival_time`.
 
-The Continuum paper-level forced-release heuristic uses program arrival time, so Member 6 must obtain:
+The Continuum paper-level forced-release heuristic uses program arrival time. For Phase 2A replay, the project operationalizes that value as:
 
 > the observed server arrival timestamp of the program's first request
+
+This is a project execution convention chosen to make program-level arrival deterministic and auditable. It must not be presented as a verbatim paper definition. If Member 2 identifies a different source-grounded definition, Member 1 must update the replay contract before formal evaluation.
 
 from the benchmark/runtime execution record.
 
@@ -239,6 +241,8 @@ when protected release is required:
 For the first Phase 2A workload, Member 5 constrains one protected entry per program and disjoint candidate blocks. This makes program-level paper semantics and entry-level replay unambiguous.
 
 Member 6 should compute the paper-reference selection **offline from the exact observed candidate set**.
+
+The paper stops unpinning when the first request can be scheduled. The first Phase 2A offline replay cannot reproduce the full scheduler counterfactual, so it operationalizes that stopping condition as: release candidates until the decision's observed `required_blocks` target can be satisfied. This is a **Phase 2A replay adaptation**, not an exact reproduction of Continuum's scheduler loop. Any formal claim about executing the original paper heuristic requires a live policy implementation and replayed runtime evidence.
 
 Record at least:
 

@@ -88,7 +88,7 @@ programs:
 Important:
 
 - `planned_program_arrival_offset` is a workload input, **not** the authoritative paper-heuristic arrival timestamp.
-- The paper heuristic must use the **observed server arrival time of the program's first request** collected during execution.
+- For Phase 2A, the project's operationalization of paper-level `program arrival time` is the **observed server arrival time of the program's first request** collected during execution. This is a project execution convention for replay, not a claim that the paper explicitly defines the timestamp that way.
 - Prefix/block IDs and actual block counts are runtime observations and must not be hard-coded into the trace manifest.
 
 ## 5. Minimum scenario family
@@ -215,6 +215,7 @@ scenario_id
 seed
 git_sha
 runtime/backend identity
+hardware identity
 model/tokenizer revisions
 cache-pressure config
 program_id -> observed first-request arrival timestamp
