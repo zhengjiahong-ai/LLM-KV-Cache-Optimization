@@ -2,6 +2,8 @@ from dataclasses import dataclass
 
 import pytest
 
+from kvopt.profiling import InMemoryForcedReleaseObserver
+
 from kvopt.continuum import (
     BlockIdentity,
     InputProvenance,
@@ -330,3 +332,57 @@ def test_pressure_release_preserves_any_protected_shared_block() -> None:
     assert manager.snapshot(_key(first)).protected is False
     assert manager.snapshot(_key(second)).protected is True
     assert manager.is_block_protected(BlockIdentity(7)) is True
+
+
+def test_runtime_integration_can_inject_forced_release_observer() -> None:
+    manager = RetentionManager(FakeClock())
+    entry = _entry("program-a", "prefix-a", (7,))
+    manager.upsert(entry)
+    observer = InMemoryForcedReleaseObserver()
+
+    result = RetentionRuntimeIntegration(
+        manager,
+        forced_release_observer=observer,
+    ).apply_pressure(
+        mode=RetentionMode.SHADOW,
+        blocks=(_block(7), _block(8, hashed=False)),
+        required_blocks=2,
+        timestamp=1.0,
+        remove_selected=lambda _ids: None,
+    )
+
+    assert result.selection_plan is not None
+    snapshots = observer.snapshot()
+    assert len(snapshots) == 1
+    assert snapshots[0].preparation == result.selection_plan.preparation
+    assert snapshots[0].selected_releases == (
+        result.selection_plan.preparation.pressure_releases
+    )
+
+
+def test_runtime_integration_default_observer_keeps_existing_behavior() -> None:
+    manager = RetentionManager(FakeClock())
+    entry = _entry("program-a", "prefix-a", (7,))
+    manager.upsert(entry)
+
+    original = RetentionRuntimeIntegration(manager).apply_pressure(
+        mode=RetentionMode.SHADOW,
+        blocks=(_block(7), _block(8, hashed=False)),
+        required_blocks=2,
+        timestamp=1.0,
+        remove_selected=lambda _ids: None,
+    )
+    observer = InMemoryForcedReleaseObserver()
+    observed = RetentionRuntimeIntegration(
+        manager,
+        forced_release_observer=observer,
+    ).apply_pressure(
+        mode=RetentionMode.SHADOW,
+        blocks=(_block(7), _block(8, hashed=False)),
+        required_blocks=2,
+        timestamp=1.0,
+        remove_selected=lambda _ids: None,
+    )
+
+    assert observed == original
+    assert len(observer.snapshot()) == 1

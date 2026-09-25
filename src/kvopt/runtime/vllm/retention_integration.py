@@ -10,6 +10,7 @@ from kvopt.continuum.pressure import RetentionAwareSelectionCoordinator
 from kvopt.continuum.retention import RetentionManager
 from kvopt.continuum.selection import SelectionPlan
 from kvopt.continuum.types import BlockIdentity
+from kvopt.profiling import ForcedReleaseObserver
 
 from .adapter import NativeLRUAdapter, RetentionAwareLRUAdapter
 from .bridge import VLLMBlockLike, VLLMEvictionBridge
@@ -26,10 +27,15 @@ class RetentionPressureResult:
 class RetentionRuntimeIntegration:
     """Coordinate native, shadow, and controlled retention pressure modes."""
 
-    def __init__(self, manager: RetentionManager) -> None:
+    def __init__(
+        self,
+        manager: RetentionManager,
+        forced_release_observer: ForcedReleaseObserver | None = None,
+    ) -> None:
         if not isinstance(manager, RetentionManager):
             raise TypeError("manager must be RetentionManager")
         self._manager = manager
+        self._forced_release_observer = forced_release_observer
 
     def apply_pressure(
         self,
@@ -60,7 +66,9 @@ class RetentionRuntimeIntegration:
             return RetentionPressureResult(selected, None)
 
         candidates = native_bridge.build_candidates(native_blocks)
-        preparation = RetentionAwareSelectionCoordinator().prepare(
+        preparation = RetentionAwareSelectionCoordinator(
+            self._forced_release_observer
+        ).prepare(
             candidates,
             self._manager.planning_snapshots(),
             required_blocks=required_blocks,
