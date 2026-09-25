@@ -1,5 +1,7 @@
 import pytest
 
+from kvopt.profiling import InMemoryForcedReleaseObserver
+
 from kvopt.continuum import (
     BlockIdentity,
     EligibilityPreparation,
@@ -288,3 +290,79 @@ def test_selection_plan_rejects_output_that_does_not_follow_virtual_order() -> N
             "RetentionAwareLRUAdapter",
             [BlockIdentity(7), BlockIdentity(8)],
         )
+
+
+def test_forced_release_observer_records_all_decision_time_candidates() -> None:
+    observer = InMemoryForcedReleaseObserver()
+    first = _entry("program-a", "prefix-a", (7,), deadline=5.0)
+    second = _entry("program-b", "prefix-b", (8,), deadline=6.0)
+
+    preparation = RetentionAwareSelectionCoordinator(observer).prepare(
+        [
+            _candidate(7, 0),
+            _candidate(8, 1),
+            _candidate(9, 2, has_block_hash=False),
+        ],
+        (first, second),
+        required_blocks=3,
+        timestamp=1.0,
+    )
+
+    snapshots = observer.snapshot()
+    assert len(snapshots) == 1
+    observed = snapshots[0]
+    assert observed.preparation == preparation
+    assert observed.required_blocks == 3
+    assert observed.timestamp == 1.0
+    assert tuple(candidate.entry_key for candidate in observed.candidates) == (
+        _key(first),
+        _key(second),
+    )
+    assert observed.candidates[0].initially_reclaimable_block_ids == (
+        BlockIdentity(7),
+    )
+    assert observed.candidates[1].initially_reclaimable_block_ids == (
+        BlockIdentity(8),
+    )
+    assert observed.selected_releases == preparation.pressure_releases
+
+
+def test_forced_release_observation_does_not_change_selection() -> None:
+    entry = _entry("program-a", "prefix-a", (7,), deadline=5.0)
+    queue = [
+        _candidate(7, 0),
+        _candidate(8, 1, has_block_hash=False),
+    ]
+
+    baseline = RetentionAwareSelectionCoordinator().prepare(
+        queue,
+        (entry,),
+        required_blocks=2,
+        timestamp=1.0,
+    )
+    observer = InMemoryForcedReleaseObserver()
+    observed = RetentionAwareSelectionCoordinator(observer).prepare(
+        queue,
+        (entry,),
+        required_blocks=2,
+        timestamp=1.0,
+    )
+
+    assert observed == baseline
+    assert _select_block_ids(observed, queue, 2) == _select_block_ids(
+        baseline, queue, 2
+    )
+    assert len(observer.snapshot()) == 1
+
+
+def test_observer_is_not_called_without_forced_release() -> None:
+    observer = InMemoryForcedReleaseObserver()
+    preparation = RetentionAwareSelectionCoordinator(observer).prepare(
+        [_candidate(8, 0, has_block_hash=False)],
+        (),
+        required_blocks=1,
+        timestamp=1.0,
+    )
+
+    assert preparation.pressure_releases == ()
+    assert observer.snapshot() == ()

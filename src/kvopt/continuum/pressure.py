@@ -7,6 +7,12 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
+from kvopt.profiling.forced_release import (
+    ForcedReleaseObserver,
+    NullForcedReleaseObserver,
+    build_forced_release_snapshot,
+)
+
 from .selection import (
     BlockEligibilitySnapshot,
     EligibilityPreparation,
@@ -38,7 +44,12 @@ class RetentionAwareSelectionCoordinator:
 
     The coordinator only reasons over candidate and retention snapshots. It
     does not mutate the live retention manager, native queue, or block state.
+    Optional Phase 2 observation is read-only and does not participate in
+    release ordering or victim selection.
     """
+
+    def __init__(self, observer: ForcedReleaseObserver | None = None) -> None:
+        self._observer = observer if observer is not None else NullForcedReleaseObserver()
 
     def prepare(
         self,
@@ -72,6 +83,18 @@ class RetentionAwareSelectionCoordinator:
             released_keys,
         )
         tier_2_ids: set[BlockIdentity] = set()
+
+        initially_reclaimable_by_entry = {
+            key: self._newly_eligible_blocks_after_release(
+                key,
+                states,
+                entries,
+                entries_by_block,
+                released_keys,
+            )
+            for key, entry in entries.items()
+            if entry.protected and key not in released_keys
+        }
 
         pressure_releases: list[PressureReleaseEffect] = []
         while len(tier_1_ids | tier_2_ids) < target:
@@ -122,13 +145,22 @@ class RetentionAwareSelectionCoordinator:
             )
             for state in states
         )
-        return EligibilityPreparation(
+        preparation = EligibilityPreparation(
             required_blocks=required,
             original_free_queue=snapshots,
             ordinary_expired_entries=ordinary_expired,
             pressure_releases=tuple(pressure_releases),
             preparation_timestamp=now,
         )
+        if preparation.pressure_releases:
+            self._observer.observe(
+                build_forced_release_snapshot(
+                    preparation,
+                    tuple(entries.values()),
+                    initially_reclaimable_by_entry,
+                )
+            )
+        return preparation
 
     @staticmethod
     def _normalize_candidates(
