@@ -338,6 +338,63 @@ Not recommended: rewriting `BlockPool` allocation bookkeeping (freeze §6),
 or porting the request-level TTL objective to blocks (it optimizes
 protection windows, not victim value).
 
+### G.1 Literature evidence for the cost curve and the design (2026-09-26)
+
+Verified against arXiv (search engines blocked; abs/HTML pages fetched
+directly):
+
+- **InferCept** (arXiv:2402.01869, UCSB/UCSD) is the origin of this whole
+  line: it reports that recomputation of already-computed contexts is
+  **37-40% of total model forwarding time** in augmented-LLM workloads,
+  and its preserve/discard/swap decision is driven by `T_fwd(C)` — an
+  explicitly measured "scheduled tokens -> iteration time" mapping. It
+  establishes both the cost-curve measurement methodology and the payoff
+  ceiling for getting victim selection right.
+- **KVFlow** (arXiv:2507.07400, UCSD+AWS) is the current SOTA for agentic
+  prefix caching. Its eviction priority is **pure future-reuse distance**
+  ("steps-to-execution") with **no cost term**: agents closer to their
+  next activation are retained longer, shared nodes take the most
+  conservative child priority, and dynamic suffixes are evicted first.
+  It beats SGLang's LRU radix cache by 1.83x-2.19x, which proves the
+  reuse-distance dimension alone is worth more than anything measured in
+  this spike. Its Figure 2(b) is a directly citable measured
+  prefill-latency-vs-context-length curve (Llama-3.1-8B, batch size 1),
+  alongside the PCIe-swap-vs-recompute comparison. **The request-level
+  score proposed here is complementary to KVFlow**: it adds the loss
+  dimension KVFlow omits, and KVFlow adds the reuse-distance dimension
+  the frozen TTL only approximates.
+- **KVCache Cache in the Wild** (arXiv:2506.02634, USENIX ATC'25) is the
+  "Workload-Aware Eviction" characterization: reuse probability and reuse
+  time are diverse overall but **predictable per request category**, the
+  cache size needed for an ideal hit ratio is moderate, and the
+  workload-aware eviction policy helps most **under limited cache
+  capacity** — consistent with the high-pressure observations in E.1 and
+  the empirical basis for `P_return`.
+- **Sarathi-Serve** (arXiv:2403.02310) establishes that prefill saturates
+  GPU compute and that its cost is well structured by chunk size; the
+  fixed-overhead tail of the cost curve follows from the same
+  measurement tradition.
+
+**Cost-curve expectation for the qualified platform.** Prefill cost
+decomposes as `2*N*P` (linear) + `2*N^2*d*L` (attention) + fixed
+overhead, so per-token cost is elevated at both ends and flattest in the
+middle. For Qwen2.5-0.5B (`P ~ 0.5B`, `d = 896`, `L = 24`) the attention
+term catches the linear term at `N* ~ 23k` tokens, giving an estimated
+per-block loss ratio of roughly 1.1x at 4k, 1.3x at 8k, 1.6x at 16k and
+2.3x at 32k relative to 2k tokens — a FLOPs lower bound, since attention
+kernels typically achieve lower efficiency than the linear GEMMs and bend
+the curve earlier. The canonical profile point (`PrefillReload(256) =
+0.0887 s`) sits in the flat region and therefore **hides this curvature**
+by linear extrapolation. Consequence for the decision: on this platform
+the non-uniformity — and hence the request-level win — is expected to
+concentrate in **long-context pools (>8k tokens)**, while mid-range pools
+stay neutral. The power-1.5 matrix cell (E.2) probed exactly this
+long-tail regime and was null only because the TTL filter collapsed the
+protected pool to a single size class there; a real smooth curve keeps
+several size classes protected, so the win condition is more achievable
+than that cell suggests. Measuring the real `C(r)` curve on Metal/H100
+remains the single decisive experiment.
+
 ## H. Final verdict
 
 **Go for the request-level method under a stated condition; block-level
@@ -357,11 +414,14 @@ remains the primary contribution.**
 - **Conditions before claiming it for the paper.** (i) The qualified
   runtime must produce a non-linear PrefillReload profile (measure the
   real `C(r)` curve on Metal/H100 instead of interpolating the single
-  256-token point linearly); if the real profile is linear in the served
-  size range, the method is neutral there and should be reported as such.
-  (ii) `lambda * C_queue` needs a per-request queue signal (F.3) before
-  the queue term can contribute; it is currently a global mean.
-  (iii) The marginal-block refinement is rejected (F.6); do not ship it.
+  256-token point linearly); G.1 predicts the curvature concentrates
+  above ~8k tokens on Qwen2.5-0.5B (attention crossover ~23k), so the
+  experiment must cover long-context pools. If the real profile is linear
+  in the served size range, the method is neutral there and should be
+  reported as such. (ii) `lambda * C_queue` needs a per-request queue
+  signal (F.3) before the queue term can contribute; it is currently a
+  global mean. (iii) The marginal-block refinement is rejected (F.6); do
+  not ship it.
 - **Recommended next step (Go):** block-level victim selection remains
   the primary contribution path (G), because partial-prefix retention is
   the only way to obtain the positional (leading-vs-suffix) loss
