@@ -1,8 +1,8 @@
 """Bridge between vLLM free-queue snapshots and project eviction policies."""
 
+import time
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-import time
 from typing import Protocol
 
 from .adapter import EvictionPolicyAdapter
