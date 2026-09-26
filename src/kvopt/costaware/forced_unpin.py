@@ -31,9 +31,20 @@ def _empirical_cdf(samples: tuple[float, ...], value: float) -> float:
 
 @dataclass(frozen=True, slots=True)
 class ForcedUnpinConfig:
-    """Weights of the request-level expected-loss score."""
+    """Weights of the request-level expected-loss score.
+
+    ``lambda_queue_seconds`` weights the queueing-cost term.
+    ``marginal_block_denominator`` switches the score denominator from the
+    entry's total observed block count to the blocks the release would
+    immediately make eligible. It is retained as an evaluated-and-rejected
+    ablation: for co-protected entries the iterative release loop already
+    sequences the cheap co-owner releases, so the marginal form only
+    over-penalizes them (see ``test_marginal_denominator_is_rejected_by_
+    co_protection``).
+    """
 
     lambda_queue_seconds: float = 1.0
+    marginal_block_denominator: bool = False
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -43,6 +54,8 @@ class ForcedUnpinConfig:
                 self.lambda_queue_seconds, "lambda_queue_seconds"
             ),
         )
+        if not isinstance(self.marginal_block_denominator, bool):
+            raise TypeError("marginal_block_denominator must be bool")
 
 
 def estimate_conditional_return_probability(
@@ -76,6 +89,21 @@ def estimate_conditional_return_probability(
     return (cdf_deadline - cdf_elapsed) / survived
 
 
+def _expected_reuse_loss(
+    entry: RetentionEntrySnapshot,
+    timestamp: float,
+    weights: ForcedUnpinConfig,
+) -> float:
+    """Expected loss numerator ``P_return * (C_recompute + lambda * C_queue)``."""
+    ttl_input = entry.ttl_decision.ttl_input
+    reuse_cost = (
+        ttl_input.prefill_reload_seconds
+        + weights.lambda_queue_seconds * ttl_input.queue_delay_t_seconds
+    )
+    probability = estimate_conditional_return_probability(entry, timestamp)
+    return probability * reuse_cost
+
+
 def estimate_eviction_loss(
     entry: RetentionEntrySnapshot,
     timestamp: float,
@@ -88,7 +116,8 @@ def estimate_eviction_loss(
     Lower scores are released first. All terms come from the entry's frozen
     TTL input snapshot; no new runtime state is introduced. Entries with no
     observed blocks score ``+inf`` so they are released only as a last
-    resort.
+    resort. The marginal-block form is only available inside the
+    coordinator, which sees the full queue state.
     """
     if not isinstance(entry, RetentionEntrySnapshot):
         raise TypeError("entry must be RetentionEntrySnapshot")
@@ -99,13 +128,7 @@ def estimate_eviction_loss(
     block_count = len(entry.block_ids)
     if block_count == 0:
         return math.inf
-    ttl_input = entry.ttl_decision.ttl_input
-    reuse_cost = (
-        ttl_input.prefill_reload_seconds
-        + weights.lambda_queue_seconds * ttl_input.queue_delay_t_seconds
-    )
-    probability = estimate_conditional_return_probability(entry, now)
-    return probability * reuse_cost / block_count
+    return _expected_reuse_loss(entry, now, weights) / block_count
 
 
 class CostAwareForcedUnpinCoordinator(RetentionAwareSelectionCoordinator):
@@ -157,5 +180,18 @@ class CostAwareForcedUnpinCoordinator(RetentionAwareSelectionCoordinator):
         now = self._prepare_timestamp
         if now is None:
             raise RuntimeError("release ranking requires an active prepare call")
-        score = estimate_eviction_loss(entry, now, self._config)
-        return (score, entry.deadline_timestamp, key.sort_key)
+        numerator = _expected_reuse_loss(entry, now, self._config)
+        denominator = len(entry.block_ids)
+        if self._config.marginal_block_denominator:
+            marginal = self._newly_eligible_blocks_after_release(
+                key,
+                states,
+                entries,
+                entries_by_block,
+                released_keys,
+            )
+            denominator = len(marginal)
+        if denominator == 0:
+            # Releasing frees nothing: a productive entry always wins.
+            return (math.inf, entry.deadline_timestamp, key.sort_key)
+        return (numerator / denominator, entry.deadline_timestamp, key.sort_key)

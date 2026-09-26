@@ -376,3 +376,53 @@ def test_integration_rejects_invalid_coordinator() -> None:
     )
     with pytest.raises(TypeError):
         RetentionRuntimeIntegration(manager, object())
+
+
+def test_marginal_denominator_is_rejected_by_co_protection() -> None:
+    # A is alone on its blocks; B shares every block with C, so releasing B
+    # alone frees nothing while the B+C pair releases the shared blocks.
+    entry_a = _entry(
+        prefix="prefix-a",
+        ttl_seconds=2.0,
+        block_ids=(0, 1),
+        prefill=1.0,
+    )
+    entry_b = _entry(
+        prefix="prefix-b",
+        ttl_seconds=20.0,
+        block_ids=(2, 3),
+        prefill=0.1,
+    )
+    entry_c = _entry(
+        prefix="prefix-c",
+        ttl_seconds=30.0,
+        block_ids=(2, 3),
+        prefill=0.1,
+    )
+    entries = (entry_a, entry_b, entry_c)
+    candidates = _hashed_candidates(4)
+
+    total_denominator = CostAwareForcedUnpinCoordinator(
+        ForcedUnpinConfig(0.0, marginal_block_denominator=False)
+    ).prepare(candidates, entries, required_blocks=2, timestamp=1.0)
+    marginal_denominator = CostAwareForcedUnpinCoordinator(
+        ForcedUnpinConfig(0.0, marginal_block_denominator=True)
+    ).prepare(candidates, entries, required_blocks=2, timestamp=1.0)
+
+    # The total-block form sequences the two cheap co-owner releases and
+    # frees the shared blocks at a combined loss of ~0.2 s.
+    assert [
+        release.entry_key.prefix_id.canonical_value
+        for release in total_denominator.pressure_releases
+    ] == ["prefix-b", "prefix-c"]
+    # The marginal form refuses to release a co-protected entry at all and
+    # falls back to the expensive single-owner entry (~1.0 s loss) instead.
+    assert [
+        release.entry_key.prefix_id.canonical_value
+        for release in marginal_denominator.pressure_releases
+    ] == ["prefix-a"]
+
+
+def test_forced_unpin_config_validates_denominator_flag() -> None:
+    with pytest.raises(TypeError):
+        ForcedUnpinConfig(1.0, "yes")  # type: ignore[arg-type]
