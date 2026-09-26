@@ -114,6 +114,30 @@ class AffinePrefillReload:
         )
 
 
+class PowerPrefillReload:
+    """Power-law PrefillReload normalized to the linear cost at the reference.
+
+    ``C(r) = spt * r * (r / REFERENCE_TOKENS) ** (exponent - 1)`` keeps the
+    reference-length cost identical to the canonical linear profile while
+    spreading the per-block loss across prefix sizes by ``r ** (exponent-1)``
+    (sub-linear exponents make small prefixes expensive per block,
+    super-linear exponents make large prefixes expensive per block).
+    """
+
+    REFERENCE_TOKENS = 32768
+
+    def __init__(self, exponent: float) -> None:
+        self._exponent = exponent
+
+    def estimate(self, token_count: int) -> tuple[float, InputProvenance]:
+        scale = (token_count / self.REFERENCE_TOKENS) ** (self._exponent - 1.0)
+        seconds = SECONDS_PER_TOKEN * token_count * scale
+        return seconds, InputProvenance(
+            InputSource.APPROXIMATED,
+            f"power-law PrefillReload profile exponent={self._exponent}",
+        )
+
+
 @dataclass(frozen=True)
 class ProgramPlan:
     """One scripted agent program: turns, tool identity, and tool gaps."""
@@ -677,6 +701,55 @@ def _bench_entry(
     )
 
 
+# ---- prefill-profile matrix (escape route b) --------------------------------
+
+
+MATRIX_PROFILES: tuple[tuple[str, Callable[[], object]], ...] = (
+    ("linear", lambda: LinearPrefillReload(SECONDS_PER_TOKEN)),
+    ("affine-5s", lambda: AffinePrefillReload(5.0, SECONDS_PER_TOKEN)),
+    ("power-0.5", lambda: PowerPrefillReload(0.5)),
+    ("power-1.5", lambda: PowerPrefillReload(1.5)),
+)
+
+# Scenarios kept for the matrix: each has forced unpins and prefix-size
+# diversity (high_pressure is the size-homogeneous tight-capacity control).
+MATRIX_SCENARIOS = (
+    "mixed_length",
+    "anticorrelated_size_gap",
+    "heavy_tail_aged",
+    "high_pressure",
+)
+
+
+def run_profile_matrix() -> dict[str, dict[str, dict[str, object]]]:
+    """Replay the forced-unpin scenarios under non-linear prefill profiles.
+
+    Non-uniform loss per cached block is the only regime in which the
+    per-block greedy ranking can diverge from the frozen deadline ordering.
+    The linear cell is a consistency control: it must reproduce the main run.
+    """
+    by_name = {
+        name: (capacity, plans) for name, capacity, plans, _provider in build_scenarios()
+    }
+    matrix: dict[str, dict[str, dict[str, object]]] = {}
+    for scenario_name in MATRIX_SCENARIOS:
+        capacity, plans = by_name[scenario_name]
+        for profile_label, profile_factory in MATRIX_PROFILES:
+            cell = f"{scenario_name}@{profile_label}"
+            print(f"  matrix cell {cell}", flush=True)
+            matrix[cell] = {}
+            for policy_name, policy_factory in POLICIES:
+                world = _World(
+                    name=cell,
+                    capacity_blocks=capacity,
+                    plans=plans,
+                    selection_coordinator=policy_factory(),
+                    prefill_provider=profile_factory(),
+                )
+                matrix[cell][policy_name] = _summarize(world.run())
+    return matrix
+
+
 def bench_overhead() -> dict[str, object]:
     """Time prepare() for both coordinators on one synthetic pressured state."""
     entries_count = 60
@@ -702,6 +775,12 @@ def bench_overhead() -> dict[str, object]:
     coordinators = (
         ("baseline", RetentionAwareSelectionCoordinator()),
         ("costaware", CostAwareForcedUnpinCoordinator()),
+        (
+            "costaware-marginal",
+            CostAwareForcedUnpinCoordinator(
+                ForcedUnpinConfig(0.0, marginal_block_denominator=True)
+            ),
+        ),
     )
     timings: dict[str, float] = {}
     for label, coordinator in coordinators:
@@ -734,7 +813,8 @@ def bench_overhead() -> dict[str, object]:
 def main() -> None:
     results = run_worlds()
     overhead = bench_overhead()
-    output = {"scenarios": results, "overhead_benchmark": overhead}
+    matrix = run_profile_matrix()
+    output = {"scenarios": results, "overhead_benchmark": overhead, "profile_matrix": matrix}
     target = Path(__file__).parent / "results"
     target.mkdir(exist_ok=True)
     (target / "summary.json").write_text(
@@ -746,6 +826,16 @@ def main() -> None:
         for policy, summary in policies.items():
             print(
                 f"  {policy:<20} unpin={summary['forced_unpin_events']:<4} "
+                f"hit_rate={summary['hit_rate']} "
+                f"recompute_s={summary['recompute_seconds']} "
+                f"miss={summary['miss_followups']}"
+            )
+    print("== profile matrix ==")
+    for cell, policies in matrix.items():
+        print(f"  {cell}")
+        for policy, summary in policies.items():
+            print(
+                f"    {policy:<20} unpin={summary['forced_unpin_events']:<4} "
                 f"hit_rate={summary['hit_rate']} "
                 f"recompute_s={summary['recompute_seconds']} "
                 f"miss={summary['miss_followups']}"
