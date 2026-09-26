@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from typing import Any
 
 from kvopt.continuum.config import RetentionMode
 from kvopt.continuum.pressure import RetentionAwareSelectionCoordinator
@@ -26,10 +27,23 @@ class RetentionPressureResult:
 class RetentionRuntimeIntegration:
     """Coordinate native, shadow, and controlled retention pressure modes."""
 
-    def __init__(self, manager: RetentionManager) -> None:
+    def __init__(
+        self, manager: RetentionManager, selection_coordinator: Any | None = None
+    ) -> None:
         if not isinstance(manager, RetentionManager):
             raise TypeError("manager must be RetentionManager")
+        if selection_coordinator is not None and not callable(
+            getattr(selection_coordinator, "prepare", None)
+        ):
+            raise TypeError("selection_coordinator must provide prepare")
         self._manager = manager
+        # The default remains the frozen Phase 1B coordinator; an alternative
+        # duck-typed coordinator is injected only by explicit opt-in.
+        self._selection_coordinator = (
+            RetentionAwareSelectionCoordinator()
+            if selection_coordinator is None
+            else selection_coordinator
+        )
 
     def apply_pressure(
         self,
@@ -60,7 +74,7 @@ class RetentionRuntimeIntegration:
             return RetentionPressureResult(selected, None)
 
         candidates = native_bridge.build_candidates(native_blocks)
-        preparation = RetentionAwareSelectionCoordinator().prepare(
+        preparation = self._selection_coordinator.prepare(
             candidates,
             self._manager.planning_snapshots(),
             required_blocks=required_blocks,
