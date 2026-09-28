@@ -256,7 +256,41 @@ Requirements:
 
 JSONL is a reasonable first raw format, but the exact serialization is not frozen as long as it is stable and machine-readable.
 
-## 9. Raw facts to expose
+## 9. Hardware / backend boundary
+
+Member 5 is **not** responsible for making low-level GPU telemetry work identically on every team member's machine.
+
+Different machines may use different:
+
+- GPU vendors / models;
+- CUDA / Metal / other backend stacks;
+- driver/runtime versions;
+- supported profiling APIs;
+- counters exposed by the backend.
+
+Member 5's responsibility is to define and preserve a stable observation boundary, for example:
+
+```text
+HardwareObservationProvider / BackendMetricProvider
+    -> capability / availability description
+    -> optional raw measurements
+    -> explicit unavailable reason
+```
+
+The Phase 2 harness should be able to run even when a hardware-specific provider is absent.
+
+Hardware/backend-specific implementations may be supplied by the member running the experiment on that machine, or by Member 1 when integration with the pinned runtime is required.
+
+Member 5 must not:
+
+- hard-code one developer's GPU device path or profiler;
+- make a specific GPU vendor mandatory for generic workload/replay tests;
+- fabricate unavailable hardware counters;
+- block the whole experiment harness because optional device-level telemetry is unavailable.
+
+Generic experiment infrastructure should therefore depend on an interface/capability contract, not on one concrete GPU collector.
+
+## 19. Raw facts to expose
 
 Member 5 should expose the following categories as far as the current backend and approved interfaces make them available.
 
