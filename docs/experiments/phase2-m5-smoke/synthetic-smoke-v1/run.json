@@ -1,0 +1,85 @@
+{
+  "backend": "kvopt.workload.phase2_smoke:build_synthetic_smoke_backend",
+  "backend_revision": "synthetic-smoke-v1",
+  "batching": {
+    "max_concurrent_requests": 1
+  },
+  "cache": {
+    "block_override": 4,
+    "block_size": 16
+  },
+  "config": {
+    "backend_factory": "kvopt.workload.phase2_smoke:build_synthetic_smoke_backend",
+    "backend_revision": "synthetic-smoke-v1",
+    "batching": {
+      "max_concurrent_requests": 1
+    },
+    "cache": {
+      "block_override": 4,
+      "block_size": 16
+    },
+    "generation": {
+      "max_new_tokens": 1,
+      "temperature": 0
+    },
+    "model": {
+      "name": "synthetic-smoke",
+      "revision": "none"
+    },
+    "observe": true,
+    "policy": "continuum-baseline",
+    "pressure": {
+      "required_blocks": 1,
+      "safety_ceiling": 4
+    },
+    "runtime_mode": "synthetic-smoke",
+    "schema_version": "phase2.config.v1",
+    "seed": 42,
+    "tokenizer": {
+      "name": "synthetic-smoke",
+      "revision": "none"
+    },
+    "trace": "smoke-trace.json"
+  },
+  "config_sha256": "26353b92f341bdb8867bc2a965a8d0158a9bb900c45669ad327b40fe47c7a83c",
+  "ended_at_utc": "2026-09-28T07:44:18.239148+00:00",
+  "event_count": 16,
+  "failure_reason": null,
+  "generation": {
+    "max_new_tokens": 1,
+    "temperature": 0
+  },
+  "git_dirty": true,
+  "git_sha": "b3acb264fc063df95e4b192b501be58d7ac91058",
+  "hardware": {
+    "availability": "unavailable",
+    "reason": "no compatible provider"
+  },
+  "model": {
+    "name": "synthetic-smoke",
+    "revision": "none"
+  },
+  "observation_availability": {
+    "forced_release": "optional approved observer emission",
+    "hardware_counters": "unavailable",
+    "lifecycle": "optional backend emission",
+    "native_apc_hit_miss": "unavailable without backend observation"
+  },
+  "observed_forced_release_count": 1,
+  "platform": "Windows-10-10.0.26200-SP0",
+  "pressure": {
+    "required_blocks": 1,
+    "safety_ceiling": 4
+  },
+  "run_id": "synthetic-smoke-v1",
+  "schema_version": "phase2.run.v1",
+  "seed": 42,
+  "started_at_utc": "2026-09-28T07:44:18.223166+00:00",
+  "status": "success",
+  "tokenizer": {
+    "name": "synthetic-smoke",
+    "revision": "none"
+  },
+  "trace_id": "infrastructure-smoke-v1",
+  "trace_sha256": "8826cfc88f9a9f8d894c925b2effe9267c2be987dd8e82773aa2f98fc6efc769"
+}

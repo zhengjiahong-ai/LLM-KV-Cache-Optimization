@@ -9,6 +9,7 @@ from .experiment_events import (
     NullExperimentEventSink,
     experiment_event_from_lifecycle,
 )
+from .artifacts import JsonlExperimentEventSink
 from .forced_release import (
     ForcedReleaseCandidateSnapshot,
     ForcedReleaseDecisionSnapshot,
@@ -22,6 +23,7 @@ __all__ = [
     "ExperimentEvent",
     "ExperimentEventSink",
     "ExperimentForcedReleaseObserver",
+    "JsonlExperimentEventSink",
     "FrozenExperimentPayload",
     "InMemoryExperimentEventSink",
     "NullExperimentEventSink",

@@ -12,6 +12,8 @@ from kvopt.continuum.events import (
     BlocksObserved,
     FollowupCancelled,
     FollowupWaiting,
+    ProgramCompleted,
+    ProgramStarted,
     RequestAdmitted,
     RequestArrived,
     RequestPreempted,
@@ -195,6 +197,7 @@ class InMemoryExperimentEventSink:
 
 
 _SUPPORTED_LIFECYCLE = (
+    ProgramStarted,
     RequestArrived,
     RequestAdmitted,
     RequestPreempted,
@@ -205,6 +208,7 @@ _SUPPORTED_LIFECYCLE = (
     ToolGapEnded,
     BlocksObserved,
     BlockEvicted,
+    ProgramCompleted,
 )
 
 
@@ -218,7 +222,13 @@ def experiment_event_from_lifecycle(event: object) -> ExperimentEvent:
     request_id = getattr(event, "request_id", None)
     prefix_id = getattr(event, "prefix_id", None)
 
-    if isinstance(event, RequestArrived):
+    if isinstance(event, ProgramStarted):
+        timestamp = event.start_timestamp
+        payload = {}
+    elif isinstance(event, ProgramCompleted):
+        timestamp = event.completion_timestamp
+        payload = {}
+    elif isinstance(event, RequestArrived):
         timestamp = event.arrival_timestamp
         payload = {}
     elif isinstance(event, RequestAdmitted):
@@ -316,6 +326,25 @@ class ExperimentForcedReleaseObserver:
                 source="continuum.forced_release",
                 payload={
                     "required_blocks": snapshot.required_blocks,
+                    "original_free_queue": tuple(
+                        {
+                            "block_id": block.block_id.block_id,
+                            "native_lru_rank": block.native_lru_rank,
+                            "has_block_hash": block.has_block_hash,
+                            "eligibility_tier": (
+                                block.eligibility_tier.value
+                                if block.eligibility_tier is not None else None
+                            ),
+                        }
+                        for block in snapshot.preparation.original_free_queue
+                    ),
+                    "ordinary_expired_entries": tuple(
+                        {
+                            "program_id": key.program_id.value,
+                            "prefix_id": key.prefix_id.canonical_value,
+                        }
+                        for key in snapshot.preparation.ordinary_expired_entries
+                    ),
                     "candidates": candidates,
                     "selected_releases": selected,
                 },

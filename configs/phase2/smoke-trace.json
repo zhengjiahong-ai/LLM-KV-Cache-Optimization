@@ -1,0 +1,44 @@
+{
+  "schema_version": "phase2.trace.v1",
+  "trace_id": "infrastructure-smoke-v1",
+  "programs": [
+    {
+      "program_id": "agent-a",
+      "turns": [
+        {
+          "arrival_offset_seconds": 0,
+          "prefix_prompt": "Shared context. ",
+          "prompt": "Find the first fact.",
+          "terminal": false,
+          "next_tool_type": "search",
+          "tool_gap_seconds": 0.5
+        },
+        {
+          "arrival_offset_seconds": 3,
+          "prefix_prompt": "Shared context. ",
+          "prompt": "Use the result.",
+          "terminal": true
+        }
+      ]
+    },
+    {
+      "program_id": "agent-b",
+      "turns": [
+        {
+          "arrival_offset_seconds": 1,
+          "prompt": "Independent request.",
+          "terminal": true
+        }
+      ]
+    }
+  ],
+  "pressure_stages": [
+    {
+      "stage_id": "between-turns",
+      "arrival_offset_seconds": 2,
+      "prompt": "Unique pressure context",
+      "max_requests": 4,
+      "stop_on_forced_release": true
+    }
+  ]
+}

@@ -15,6 +15,8 @@ from .events import (
     BlocksObserved,
     FollowupCancelled,
     FollowupWaiting,
+    ProgramCompleted,
+    ProgramStarted,
     RequestAdmitted,
     RequestArrived,
     ToolGapEnded,
@@ -165,7 +167,11 @@ class RuntimeCoordinator:
         self.queue_delay_history.record(record)
 
     def handle(self, event: object) -> None:
-        if isinstance(event, RequestArrived):
+        if isinstance(event, (ProgramStarted, ProgramCompleted)):
+            # Program lifecycle markers are raw observations. Request and
+            # retention state transitions remain owned by their existing events.
+            pass
+        elif isinstance(event, RequestArrived):
             self._handle_request_arrived(event)
         elif isinstance(event, RequestAdmitted):
             self.retention.admit_followup(event.program_id)

@@ -1,0 +1,16 @@
+{
+  "schema_version": "phase2.config.v1",
+  "trace": "smoke-trace.json",
+  "seed": 42,
+  "policy": "continuum-baseline",
+  "runtime_mode": "synthetic-smoke",
+  "backend_factory": "kvopt.workload.phase2_smoke:build_synthetic_smoke_backend",
+  "backend_revision": "synthetic-smoke-v1",
+  "model": {"name": "synthetic-smoke", "revision": "none"},
+  "tokenizer": {"name": "synthetic-smoke", "revision": "none"},
+  "cache": {"block_override": 4, "block_size": 16},
+  "generation": {"max_new_tokens": 1, "temperature": 0},
+  "batching": {"max_concurrent_requests": 1},
+  "pressure": {"required_blocks": 1, "safety_ceiling": 4},
+  "observe": true
+}

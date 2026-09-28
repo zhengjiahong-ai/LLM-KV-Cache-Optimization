@@ -1,0 +1,120 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from kvopt.profiling.artifacts import JsonlExperimentEventSink
+from kvopt.profiling.experiment_events import ExperimentEvent
+from kvopt.workload.phase2 import load_phase2_trace
+from kvopt.workload.phase2_runner import run_phase2
+
+
+ROOT = Path(__file__).resolve().parents[1]
+CONFIG = ROOT / "configs/phase2/smoke-config.json"
+TRACE = ROOT / "configs/phase2/smoke-trace.json"
+
+
+def _records(path: Path) -> list[dict[str, object]]:
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+
+
+def test_smoke_replay_is_identical_and_joinable_across_runs(tmp_path: Path) -> None:
+    first = run_phase2(CONFIG, output_root=tmp_path, run_id="first")
+    second = run_phase2(CONFIG, output_root=tmp_path, run_id="second")
+    assert (first / "replay.jsonl").read_bytes() == (second / "replay.jsonl").read_bytes()
+    assert (first / "trace.json").read_bytes() == (second / "trace.json").read_bytes()
+    round_trip = load_phase2_trace(first / "trace.json")
+    assert round_trip.trace_id == "infrastructure-smoke-v1"
+    assert tuple(item.request_id for item in round_trip.requests) == (
+        "agent-a:turn:1", "agent-a:turn:2", "agent-b:turn:1"
+    )
+
+    manifest = json.loads((first / "run.json").read_text(encoding="utf-8"))
+    events = _records(first / "events.jsonl")
+    replay = _records(first / "replay.jsonl")
+    assert manifest["status"] == "success"
+    assert manifest["observed_forced_release_count"] == 1
+    assert manifest["hardware"]["availability"] == "unavailable"
+    assert [event["event_index"] for event in events] == list(range(len(events)))
+    assert all(event["clock_domain"] for event in events)
+    assert [item["request_id"] for item in replay] == [
+        "agent-a:turn:1", "agent-b:turn:1", "pressure:between-turns:1", "agent-a:turn:2"
+    ]
+    decision = next(event for event in events if event["event_type"] == "FORCED_RELEASE_DECISION")
+    candidate = decision["payload"]["candidates"][0]
+    release = decision["payload"]["selected_releases"][0]
+    assert candidate["program_id"] == release["program_id"] == "agent-a"
+    assert candidate["prefix_id"] == release["prefix_id"]
+    assert candidate["initially_reclaimable_block_ids"] == release["newly_eligible_block_ids"]
+    assert decision["payload"]["original_free_queue"][0]["native_lru_rank"] == 0
+    assert any(
+        event["event_type"] == "TURN_FINISHED" and event.get("request_id") == "agent-a:turn:2"
+        for event in events
+    )
+    assert "oracle" not in json.dumps(events)
+
+
+def test_pressure_stops_at_safety_ceiling_when_no_release(tmp_path: Path) -> None:
+    config = json.loads(CONFIG.read_text(encoding="utf-8"))
+    config["pressure"]["safety_ceiling"] = 2
+    trace = json.loads(TRACE.read_text(encoding="utf-8"))
+    trace["programs"] = []
+    (tmp_path / "trace.json").write_text(json.dumps(trace), encoding="utf-8")
+    config["trace"] = "trace.json"
+    (tmp_path / "config.json").write_text(json.dumps(config), encoding="utf-8")
+
+    output = run_phase2(tmp_path / "config.json", output_root=tmp_path, run_id="ceiling")
+    manifest = json.loads((output / "run.json").read_text(encoding="utf-8"))
+    assert manifest["status"] == "success"
+    assert manifest["pressure_ceiling_reached"] == ["between-turns"]
+    assert manifest["observed_forced_release_count"] == 0
+    assert len(_records(output / "replay.jsonl")) == 2
+
+
+def test_backend_failure_keeps_partial_evidence(tmp_path: Path, monkeypatch) -> None:
+    class FailingBackend:
+        def __init__(self, _config, sink):
+            self.sink = sink
+
+        def execute(self, request):
+            self.sink.emit(ExperimentEvent.create(
+                event_type="OBSERVED_BEFORE_FAILURE", timestamp=1,
+                clock_domain="test", source="test", payload={"request_id": request.request_id}
+            ))
+            raise RuntimeError("backend stopped")
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(
+        "kvopt.workload.phase2_runner._load_factory", lambda _reference: FailingBackend
+    )
+    output = run_phase2(CONFIG, output_root=tmp_path, run_id="failed")
+    manifest = json.loads((output / "run.json").read_text(encoding="utf-8"))
+    assert manifest["status"] == "failed"
+    assert manifest["failure_reason"] == "RuntimeError: backend stopped"
+    assert len(_records(output / "events.jsonl")) == 1
+    assert len(_records(output / "replay.jsonl")) == 1
+    assert (output / "stderr.log").exists()
+
+
+def test_event_sink_rejects_malformed_events_without_advancing_index(tmp_path: Path) -> None:
+    with JsonlExperimentEventSink(tmp_path / "events.jsonl", "test") as sink:
+        with pytest.raises(TypeError):
+            sink.emit({"event_type": "BAD"})  # type: ignore[arg-type]
+        sink.emit(ExperimentEvent.create(
+            event_type="GOOD", timestamp=0, clock_domain="test", source="test"
+        ))
+        assert sink.event_count == 1
+    assert _records(tmp_path / "events.jsonl")[0]["event_index"] == 0
+
+
+def test_trace_rejects_duplicate_program_identity(tmp_path: Path) -> None:
+    raw = json.loads(TRACE.read_text(encoding="utf-8"))
+    raw["programs"].append(raw["programs"][0])
+    path = tmp_path / "trace.json"
+    path.write_text(json.dumps(raw), encoding="utf-8")
+    with pytest.raises(ValueError, match="duplicate"):
+        load_phase2_trace(path)

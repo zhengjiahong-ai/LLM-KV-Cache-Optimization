@@ -10,8 +10,10 @@ from kvopt.continuum import (
     InputProvenance,
     InputSource,
     PrefixIdentity,
+    ProgramCompleted,
     PressureReleaseEffect,
     ProgramIdentity,
+    ProgramStarted,
     RequestAdmitted,
     RequestArrived,
     RequestIdentity,
@@ -25,6 +27,7 @@ from kvopt.profiling import (
     ForcedReleaseCandidateSnapshot,
     ForcedReleaseDecisionSnapshot,
     InMemoryExperimentEventSink,
+    experiment_event_from_lifecycle,
 )
 
 
@@ -85,6 +88,7 @@ def test_runtime_mirrors_supported_lifecycle_without_changing_state() -> None:
     assert events[0].timestamp == 1.0
     assert events[0].clock_domain == "continuum_lifecycle"
 
+    clock.set(1.5)
     candidate = runtime.scheduler_candidates((request,))[0]
     assert candidate.program_arrival_timestamp == 1.0
     assert candidate.request_arrival_timestamp == 1.0
@@ -140,3 +144,30 @@ def test_forced_release_observer_uses_common_experiment_sink() -> None:
     assert payload["required_blocks"] == 1
     assert payload["candidates"][0]["program_id"] == "program-a"
     assert payload["selected_releases"][0]["newly_eligible_block_ids"] == [7]
+
+
+def test_program_lifecycle_events_are_raw_observations() -> None:
+    program = ProgramIdentity("program-a")
+    started = experiment_event_from_lifecycle(ProgramStarted(program, 1.0))
+    completed = experiment_event_from_lifecycle(ProgramCompleted(program, 2.0))
+    assert started.event_type == "PROGRAM_STARTED"
+    assert started.program_id == program
+    assert started.timestamp == 1.0
+    assert completed.event_type == "PROGRAM_COMPLETED"
+    assert completed.timestamp == 2.0
+
+
+def test_runtime_accepts_program_lifecycle_markers_without_state_change() -> None:
+    sink = InMemoryExperimentEventSink()
+    runtime = build_runtime(
+        clock=FakeClock(),
+        prefill_reload_provider=_PrefillProvider(),
+        default_ttl_seconds=1.0,
+        experiment_event_sink=sink,
+    )
+    program = ProgramIdentity("program-a")
+    runtime.handle(ProgramStarted(program, 0.0))
+    runtime.handle(ProgramCompleted(program, 1.0))
+    assert tuple(event.event_type for event in sink.snapshot()) == (
+        "PROGRAM_STARTED", "PROGRAM_COMPLETED"
+    )
