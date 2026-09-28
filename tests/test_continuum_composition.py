@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 
 from kvopt.continuum import ContinuumConfig, FakeClock, InputProvenance, InputSource
+from kvopt.profiling import InMemoryExperimentEventSink
 
 TOKEN_GRID = (16, 32, 128, 256, 512)
 FORMAL_MEDIANS = {
@@ -152,3 +153,26 @@ def test_composition_forwards_independent_runtime_parameters(
     assert captured["queue_delay_window_size"] == 11
     assert captured["default_ttl_seconds"] == 0.0
     assert captured["prefill_reload_provider"] is not None
+
+
+def test_composition_forwards_experiment_event_sink(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from kvopt.continuum import composition
+
+    captured: dict[str, object] = {}
+
+    def fake_build_runtime(**kwargs: object) -> dict[str, object]:
+        captured.update(kwargs)
+        return captured
+
+    monkeypatch.setattr(composition, "build_runtime", fake_build_runtime)
+    sink = InMemoryExperimentEventSink()
+
+    composition.build_runtime_from_config(
+        config=_config(_write_profile(tmp_path)),
+        clock=FakeClock(),
+        experiment_event_sink=sink,
+    )
+
+    assert captured["experiment_event_sink"] is sink

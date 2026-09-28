@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+from kvopt.profiling.experiment_events import (
+    ExperimentEventSink,
+    NullExperimentEventSink,
+    experiment_event_from_lifecycle,
+)
+
 from .clock import Clock
 from .config import ContinuumConfig
 from .events import (
@@ -53,12 +59,22 @@ class RuntimeCoordinator:
         default_ttl_seconds: float,
         duration_history_threshold: int,
         queue_delay_window_size: int,
+        experiment_event_sink: ExperimentEventSink | None = None,
     ) -> None:
         if not isinstance(clock, Clock):
             raise TypeError("clock must implement Clock")
         if not callable(getattr(prefill_reload_provider, "estimate", None)):
             raise TypeError("prefill_reload_provider must provide estimate")
         self._clock = clock
+        if experiment_event_sink is not None and not callable(
+            getattr(experiment_event_sink, "emit", None)
+        ):
+            raise TypeError("experiment_event_sink must provide emit")
+        self._experiment_event_sink = (
+            experiment_event_sink
+            if experiment_event_sink is not None
+            else NullExperimentEventSink()
+        )
         self.retention = RetentionManager(clock)
         self.server_gap_history = ServerGapHistory()
         self.external_tool_duration_history = ExternalToolDurationHistory()
@@ -151,32 +167,28 @@ class RuntimeCoordinator:
     def handle(self, event: object) -> None:
         if isinstance(event, RequestArrived):
             self._handle_request_arrived(event)
-            return
-        if isinstance(event, RequestAdmitted):
+        elif isinstance(event, RequestAdmitted):
             self.retention.admit_followup(event.program_id)
-            return
-        if isinstance(event, FollowupWaiting):
+        elif isinstance(event, FollowupWaiting):
             self.retention.mark_followup_waiting(event.program_id)
-            return
-        if isinstance(event, FollowupCancelled):
+        elif isinstance(event, FollowupCancelled):
             self.retention.cancel_followup(event.program_id)
-            return
-        if isinstance(event, ToolGapStarted):
+        elif isinstance(event, ToolGapStarted):
             self._handle_tool_gap_started(event)
-            return
-        if isinstance(event, ToolGapEnded):
+        elif isinstance(event, ToolGapEnded):
             self._handle_tool_gap_ended(event)
-            return
-        if isinstance(event, BlocksObserved):
+        elif isinstance(event, BlocksObserved):
             self._handle_blocks_observed(event)
-            return
-        if isinstance(event, TurnFinished):
+        elif isinstance(event, TurnFinished):
             self._handle_turn_finished(event)
-            return
-        if isinstance(event, BlockEvicted):
+        elif isinstance(event, BlockEvicted):
             self.retention.observe_eviction(event.block_id)
-            return
-        raise TypeError("unsupported runtime event")
+        else:
+            raise TypeError("unsupported runtime event")
+
+        self._experiment_event_sink.emit(
+            experiment_event_from_lifecycle(event)
+        )
 
     def _handle_request_arrived(self, event: RequestArrived) -> None:
         previous = self._request_arrivals.get(event.request_id)
@@ -330,6 +342,7 @@ def build_runtime(
     default_ttl_seconds: float,
     duration_history_threshold: int = 100,
     queue_delay_window_size: int | None = None,
+    experiment_event_sink: ExperimentEventSink | None = None,
 ) -> RuntimeCoordinator:
     """Build the runtime coordinator with explicit runtime inputs."""
     window_size = (
@@ -343,4 +356,5 @@ def build_runtime(
         default_ttl_seconds=default_ttl_seconds,
         duration_history_threshold=duration_history_threshold,
         queue_delay_window_size=window_size,
+        experiment_event_sink=experiment_event_sink,
     )

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from kvopt.profiling.experiment_events import ExperimentEventSink
+
 from .clock import Clock
 from .config import ContinuumConfig
 from .prefill_profile import load_prefill_reload_provider
@@ -16,6 +18,7 @@ def build_runtime_from_config(
     *,
     config: ContinuumConfig,
     clock: Clock,
+    experiment_event_sink: ExperimentEventSink | None = None,
 ) -> RuntimeCoordinator:
     """Compose a profile-backed runtime from explicit deployment inputs."""
     if not isinstance(config, ContinuumConfig):
@@ -42,4 +45,5 @@ def build_runtime_from_config(
         default_ttl_seconds=default_ttl_seconds,
         duration_history_threshold=config.duration_history_threshold,
         queue_delay_window_size=config.queue_delay_window_size,
+        experiment_event_sink=experiment_event_sink,
     )
