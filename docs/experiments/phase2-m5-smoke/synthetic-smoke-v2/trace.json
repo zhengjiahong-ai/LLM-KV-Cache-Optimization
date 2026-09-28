@@ -1,0 +1,51 @@
+{
+  "pressure_stages": [
+    {
+      "max_requests": 4,
+      "planned_arrival_offset_seconds": 2.0,
+      "prompt": "Unique pressure context",
+      "stage_id": "between-turns",
+      "stop_on_forced_release": true
+    }
+  ],
+  "requests": [
+    {
+      "is_terminal": false,
+      "kind": "turn",
+      "next_tool_type": "search",
+      "planned_arrival_offset_seconds": 0.0,
+      "prefix_prompt": "Shared context. ",
+      "program_id": "agent-a",
+      "prompt": "Find the first fact.",
+      "request_id": "agent-a:turn:1",
+      "tool_gap_seconds": 0.5,
+      "turn_index": 1
+    },
+    {
+      "is_terminal": true,
+      "kind": "turn",
+      "next_tool_type": null,
+      "planned_arrival_offset_seconds": 3.0,
+      "prefix_prompt": "Shared context. ",
+      "program_id": "agent-a",
+      "prompt": "Use the result.",
+      "request_id": "agent-a:turn:2",
+      "tool_gap_seconds": null,
+      "turn_index": 2
+    },
+    {
+      "is_terminal": true,
+      "kind": "turn",
+      "next_tool_type": null,
+      "planned_arrival_offset_seconds": 1.0,
+      "prefix_prompt": "",
+      "program_id": "agent-b",
+      "prompt": "Independent request.",
+      "request_id": "agent-b:turn:1",
+      "tool_gap_seconds": null,
+      "turn_index": 1
+    }
+  ],
+  "schema_version": "phase2.trace.v1",
+  "trace_id": "infrastructure-smoke-v1"
+}

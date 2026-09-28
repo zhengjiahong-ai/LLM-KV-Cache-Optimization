@@ -14,6 +14,8 @@ from kvopt.continuum import (
     PrefillContextTokenCountRecord,
     PrefixIdentity,
     ProgramIdentity,
+    ProgramCompleted,
+    ProgramStarted,
     RequestAdmitted,
     RequestArrived,
     RequestIdentity,
@@ -63,6 +65,7 @@ class SyntheticSmokeBackend:
         self._blocks: list[_SyntheticBlock] = []
         self._next_block = 1
         self._config = config
+        self.selected_block_ids: list[tuple[int, ...]] = []
 
     def execute(self, request: PlannedRequest) -> None:
         self._clock.set(max(self._clock.now(), request.planned_arrival_offset_seconds))
@@ -71,6 +74,8 @@ class SyntheticSmokeBackend:
             return
         program = ProgramIdentity(request.program_id)
         identity = RequestIdentity(request.request_id)
+        if request.turn_index == 1:
+            self._runtime.handle(ProgramStarted(program, self._clock.now()))
         arrived = self._clock.now()
         self._runtime.handle(RequestArrived(program, identity, arrived))
         admitted = self._clock.advance(0.01)
@@ -92,6 +97,8 @@ class SyntheticSmokeBackend:
         self._runtime.handle(TurnFinished(
             program, identity, finished, request.is_terminal, request.next_tool_type
         ))
+        if request.is_terminal:
+            self._runtime.handle(ProgramCompleted(program, finished))
         if not request.is_terminal:
             assert request.next_tool_type is not None
             assert request.tool_gap_seconds is not None
@@ -122,6 +129,7 @@ class SyntheticSmokeBackend:
             timestamp=now,
             remove_selected=lambda ids: self._remove(ids),
         )
+        self.selected_block_ids.append(result.selected_block_ids)
         self._sink.emit(ExperimentEvent.create(
             event_type="SYNTHETIC_PRESSURE_SELECTION",
             timestamp=now,

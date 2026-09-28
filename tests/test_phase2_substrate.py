@@ -6,8 +6,13 @@ from pathlib import Path
 import pytest
 
 from kvopt.profiling.artifacts import JsonlExperimentEventSink
-from kvopt.profiling.experiment_events import ExperimentEvent
-from kvopt.workload.phase2 import load_phase2_trace
+from kvopt.profiling.experiment_events import (
+    ExperimentEvent,
+    InMemoryExperimentEventSink,
+    NullExperimentEventSink,
+)
+from kvopt.workload.phase2 import PlannedRequest, load_phase2_trace
+from kvopt.workload.phase2_smoke import SyntheticSmokeBackend
 from kvopt.workload.phase2_runner import run_phase2
 
 
@@ -98,6 +103,42 @@ def test_backend_failure_keeps_partial_evidence(tmp_path: Path, monkeypatch) -> 
     assert len(_records(output / "events.jsonl")) == 1
     assert len(_records(output / "replay.jsonl")) == 1
     assert (output / "stderr.log").exists()
+
+
+def test_factory_failure_still_creates_empty_replay_artifact(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(
+        "kvopt.workload.phase2_runner._load_factory",
+        lambda _reference: (_ for _ in ()).throw(ImportError("factory missing")),
+    )
+    output = run_phase2(CONFIG, output_root=tmp_path, run_id="factory-failed")
+    manifest = json.loads((output / "run.json").read_text(encoding="utf-8"))
+    assert manifest["status"] == "failed"
+    assert manifest["failure_reason"] == "ImportError: factory missing"
+    assert (output / "events.jsonl").read_text(encoding="utf-8") == ""
+    assert (output / "replay.jsonl").read_text(encoding="utf-8") == ""
+
+
+def test_observation_toggle_does_not_change_synthetic_selection() -> None:
+    trace = load_phase2_trace(TRACE)
+    first_turn = next(request for request in trace.requests if request.request_id == "agent-a:turn:1")
+    pressure = next(stage for stage in trace.pressure_stages if stage.stage_id == "between-turns")
+    config = json.loads(CONFIG.read_text(encoding="utf-8"))
+    observed = InMemoryExperimentEventSink()
+    unobserved = NullExperimentEventSink()
+    first_backend = SyntheticSmokeBackend(config, observed)
+    second_backend = SyntheticSmokeBackend(config, unobserved)
+    first_backend.execute(first_turn)
+    second_backend.execute(first_turn)
+    first_backend.execute(pressure.request(1, 42))
+    second_backend.execute(pressure.request(1, 42))
+    observed_selection = next(
+        event.payload["selected_block_ids"]
+        for event in observed.snapshot()
+        if event.event_type == "SYNTHETIC_PRESSURE_SELECTION"
+    )
+    unobserved_selection = second_backend.selected_block_ids[0]
+    assert observed_selection == unobserved_selection
+    assert tuple(event.event_type for event in observed.snapshot()).count("FORCED_RELEASE_DECISION") == 1
 
 
 def test_event_sink_rejects_malformed_events_without_advancing_index(tmp_path: Path) -> None:

@@ -169,36 +169,39 @@ def run_phase2(
     _save_json(output / "trace.json", trace.to_dict())
     backend: Phase2Backend | None = None
     writer: JsonlExperimentEventSink | None = None
+    replay = None
     try:
         if hardware_provider is not None:
             manifest["hardware"] = hardware_provider.describe()
             _save_json(output / "run.json", manifest)
         writer = JsonlExperimentEventSink(output / "events.jsonl", identity)
         sink: ExperimentEventSink = writer if config.get("observe", True) else NullExperimentEventSink()
+        replay = (output / "replay.jsonl").open("x", encoding="utf-8", newline="\n")
         backend = _load_factory(_required_text(config, "backend_factory"))(config, sink)
         if not callable(getattr(backend, "execute", None)):
             raise TypeError("backend must provide execute")
-        with (output / "replay.jsonl").open("x", encoding="utf-8", newline="\n") as replay:
-            for action in trace.actions():
-                if isinstance(action, PlannedRequest):
-                    _execute(backend, action, replay)
-                    continue
-                assert isinstance(action, PressureStage)
-                ceiling = min(action.max_requests, config["pressure"]["safety_ceiling"])
-                observed_before = writer.forced_release_count
-                for attempt in range(1, ceiling + 1):
-                    _execute(backend, action.request(attempt, config["seed"]), replay)
-                    if action.stop_on_forced_release and writer.forced_release_count > observed_before:
-                        break
-                else:
-                    if action.stop_on_forced_release:
-                        manifest.setdefault("pressure_ceiling_reached", []).append(action.stage_id)
+        for action in trace.actions():
+            if isinstance(action, PlannedRequest):
+                _execute(backend, action, replay)
+                continue
+            assert isinstance(action, PressureStage)
+            ceiling = min(action.max_requests, config["pressure"]["safety_ceiling"])
+            observed_before = writer.forced_release_count
+            for attempt in range(1, ceiling + 1):
+                _execute(backend, action.request(attempt, config["seed"]), replay)
+                if action.stop_on_forced_release and writer.forced_release_count > observed_before:
+                    break
+            else:
+                if action.stop_on_forced_release:
+                    manifest.setdefault("pressure_ceiling_reached", []).append(action.stage_id)
         manifest["status"] = "success"
     except Exception as error:
         manifest["status"] = "failed"
         manifest["failure_reason"] = f"{type(error).__name__}: {error}"
         (output / "stderr.log").write_text(traceback.format_exc(), encoding="utf-8")
     finally:
+        if replay is not None:
+            replay.close()
         if backend is not None:
             try:
                 backend.close()
