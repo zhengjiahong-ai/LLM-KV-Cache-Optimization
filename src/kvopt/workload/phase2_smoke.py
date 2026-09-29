@@ -66,10 +66,14 @@ class SyntheticSmokeBackend:
         self._next_block = 1
         self._config = config
         self.selected_block_ids: list[tuple[int, ...]] = []
+        self.pressure_request_count = 0
+        self.forced_release_observed = False
+        self.forced_release_count = 0
 
     def execute(self, request: PlannedRequest) -> None:
         self._clock.set(max(self._clock.now(), request.planned_arrival_offset_seconds))
         if request.kind == "pressure":
+            self.pressure_request_count += 1
             self._execute_pressure(request)
             return
         program = ProgramIdentity(request.program_id)
@@ -102,7 +106,10 @@ class SyntheticSmokeBackend:
         if not request.is_terminal:
             assert request.next_tool_type is not None
             assert request.tool_gap_seconds is not None
-            self._runtime.handle(FollowupWaiting(program, identity, finished))
+            followup_request_id = RequestIdentity(
+                f"{request.program_id}:turn:{request.turn_index + 1}"
+            )
+            self._runtime.handle(FollowupWaiting(program, followup_request_id, finished))
             self._runtime.handle(ToolGapStarted(program, request.next_tool_type, finished))
             ended = self._clock.advance(request.tool_gap_seconds)
             self._runtime.handle(ToolGapEnded(program, request.next_tool_type, ended))
@@ -129,6 +136,11 @@ class SyntheticSmokeBackend:
             timestamp=now,
             remove_selected=lambda ids: self._remove(ids),
         )
+        self.forced_release_observed = self.forced_release_observed or bool(
+            result.selection_plan and result.selection_plan.preparation.pressure_releases
+        )
+        if result.selection_plan and result.selection_plan.preparation.pressure_releases:
+            self.forced_release_count += 1
         self.selected_block_ids.append(result.selected_block_ids)
         self._sink.emit(ExperimentEvent.create(
             event_type="SYNTHETIC_PRESSURE_SELECTION",
@@ -143,6 +155,10 @@ class SyntheticSmokeBackend:
 
     def close(self) -> None:
         pass
+
+    @property
+    def last_selected_block_ids(self) -> tuple[int, ...]:
+        return self.selected_block_ids[-1] if self.selected_block_ids else ()
 
 
 def build_synthetic_smoke_backend(

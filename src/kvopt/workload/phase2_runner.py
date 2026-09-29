@@ -15,7 +15,11 @@ from pathlib import Path
 from typing import Protocol
 
 from kvopt.profiling.artifacts import JsonlExperimentEventSink
-from kvopt.profiling.experiment_events import ExperimentEventSink, NullExperimentEventSink
+from kvopt.profiling.experiment_events import (
+    ExperimentEvent,
+    ExperimentEventSink,
+    NullExperimentEventSink,
+)
 
 from .phase2 import PlannedRequest, PressureStage, load_phase2_trace
 
@@ -32,6 +36,19 @@ class HardwareObservationProvider(Protocol):
     """Optional hardware-specific capability description, without mandatory counters."""
 
     def describe(self) -> dict[str, object]: ...
+
+
+class HardwareTelemetryProvider(Protocol):
+    """Optional extension for raw hardware observations."""
+
+    def observe(self) -> tuple[ExperimentEvent, ...]: ...
+
+
+class PressureObservation(Protocol):
+    """Control-plane signal independent of raw event persistence."""
+
+    @property
+    def forced_release_observed(self) -> bool: ...
 
 
 def _now() -> str:
@@ -158,6 +175,7 @@ def run_phase2(
         "status": "running",
         "failure_reason": None,
         "observed_forced_release_count": 0,
+        "pressure_selected_block_ids": [],
         "observation_availability": {
             "lifecycle": "optional backend emission",
             "forced_release": "optional approved observer emission",
@@ -186,10 +204,14 @@ def run_phase2(
                 continue
             assert isinstance(action, PressureStage)
             ceiling = min(action.max_requests, config["pressure"]["safety_ceiling"])
-            observed_before = writer.forced_release_count
+            observed_before = _pressure_count(backend)
             for attempt in range(1, ceiling + 1):
                 _execute(backend, action.request(attempt, config["seed"]), replay)
-                if action.stop_on_forced_release and writer.forced_release_count > observed_before:
+                selected = _selected_blocks(backend)
+                if selected:
+                    manifest["pressure_selected_block_ids"].append(list(selected))
+                observed_after = _pressure_count(backend)
+                if action.stop_on_forced_release and observed_after > observed_before:
                     break
             else:
                 if action.stop_on_forced_release:
@@ -211,6 +233,11 @@ def run_phase2(
         if writer is not None:
             manifest["observed_forced_release_count"] = writer.forced_release_count
             manifest["event_count"] = writer.event_count
+            if hardware_provider is not None:
+                for event in _hardware_events(hardware_provider):
+                    if config.get("observe", True):
+                        writer.emit(event)
+                manifest["event_count"] = writer.event_count
             writer.close()
         manifest["ended_at_utc"] = _now()
         _save_json(output / "run.json", manifest)
@@ -221,3 +248,37 @@ def _execute(backend: Phase2Backend, request: PlannedRequest, replay) -> None:
     replay.write(json.dumps(request.to_dict(), sort_keys=True, allow_nan=False) + "\n")
     replay.flush()
     backend.execute(request)
+
+
+def _pressure_count(backend: Phase2Backend) -> int:
+    count = getattr(backend, "forced_release_count", None)
+    count = count() if callable(count) else count
+    if isinstance(count, int) and not isinstance(count, bool) and count >= 0:
+        return count
+    signal = getattr(backend, "forced_release_observed", False)
+    signal = signal() if callable(signal) else signal
+    return 1 if signal else 0
+
+
+def _selected_blocks(backend: Phase2Backend) -> tuple[int, ...]:
+    value = getattr(backend, "last_selected_block_ids", ())
+    value = value() if callable(value) else value
+    if value is None:
+        return ()
+    if isinstance(value, tuple) and all(isinstance(item, int) for item in value):
+        return value
+    return ()
+
+
+def _hardware_events(provider: HardwareObservationProvider) -> tuple[ExperimentEvent, ...]:
+    observe = getattr(provider, "observe", None)
+    if observe is None:
+        return ()
+    if not callable(observe):
+        raise TypeError("hardware provider observe must be callable")
+    events = observe()
+    if not isinstance(events, tuple) or not all(
+        isinstance(event, ExperimentEvent) for event in events
+    ):
+        raise TypeError("hardware provider observe must return ExperimentEvent tuple")
+    return events

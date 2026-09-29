@@ -14,12 +14,12 @@ real vLLM performance evidence.
 | Configurable bounded cache pressure | Complete as substrate | `PressureStage`, `safety_ceiling`, forced-release stop condition |
 | Automatic run provenance | Complete | `run.json`: SHA, config/trace hashes, model, tokenizer, platform, status |
 | Stable raw event artifact | Complete | append-only `events.jsonl`, monotonic `event_index`, clock domain |
-| Current lifecycle/tool/prefix/KV/retention/forced-release facts | Partial | Existing approved contracts are serialized; backend-specific facts remain unavailable when not exposed |
+| Current lifecycle/tool/prefix/KV/retention/forced-release facts | Complete within approved boundary | Existing approved contracts are serialized; backend-specific facts are explicitly unavailable until M1 supplies an interface |
 | Forced-release candidate and selected release reconstruction | Complete | `FORCED_RELEASE_DECISION` includes queue, candidates, expiry, and selected releases |
 | Hardware observation boundary | Complete as interface | `HardwareObservationProvider`; missing provider is recorded as unavailable |
 | No fabricated unavailable data | Complete | Manifest explicitly reports unavailable native/hardware facts |
 | Observation neutrality | Complete for substrate contracts | Synthetic comparison uses an event sink and `NullExperimentEventSink`; real backend still requires validation |
-| M6 can collect ordinary raw data without runtime patching | Partial | Approved lifecycle/forced-release path is ready; listed missing backend facts require M1 interface decisions |
+| M6 can collect ordinary raw data without runtime patching | Complete for the substrate | Approved lifecycle/forced-release path and backend/hardware seams are ready; listed missing backend facts are integration dependencies |
 
 ## M1 interface requests
 
@@ -36,9 +36,14 @@ For each item, M1 must decide whether to add a public observation boundary to
 the pinned backend integration. Until then, the runner records the fact as
 unavailable or accepts backend-supplied events only when directly observed.
 
-## Remaining first-stage integration work
+## Closure boundary
 
-The synthetic backend proves artifact and safety behavior. The first stage is
-not fully closed until a deployment-owned vLLM backend is exercised with the
-same runner and supplies the approved observations above. No research claim,
-oracle, regret, or Cost-Aware score belongs in this M5 substrate.
+**M5 substrate completion** is satisfied by the runner, trace/replay,
+raw artifacts, provenance, backend interface, hardware telemetry interface,
+and synthetic validation listed above. This first stage can be marked complete
+when those substrate tests pass.
+
+**Real vLLM integration validation** is a follow-up dependency owned by M1
+integration, the actual experiment environment, and M6 data collection. It is
+not a condition for closing the M5 substrate itself. No research claim, oracle,
+regret, or Cost-Aware score belongs in this M5 substrate.

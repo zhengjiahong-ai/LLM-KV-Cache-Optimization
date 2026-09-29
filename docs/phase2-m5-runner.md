@@ -20,8 +20,8 @@ On a source checkout without installation, set `PYTHONPATH=src` first. The
 runner prints the run directory and exits nonzero for a failed execution.
 
 Each run writes `run.json` (config, provenance, status, availability),
-`trace.json` (validated logical trace), `replay.jsonl` (requests actually
-submitted), and `events.jsonl` (append-only raw backend observations). A failed
+`trace.json` (validated logical trace), `replay.jsonl` (attempted execution
+sequence), and `events.jsonl` (append-only raw backend observations). A failed
 run keeps these partial files plus `stderr.log`. `event_index` orders records
 within one run; timestamps carry an explicit clock domain and must not be
 compared across domains without backend evidence. The runner stops each
@@ -50,8 +50,10 @@ settings, and pressure request execution. It must use approved runtime hooks:
   its real clock domain and source.
 
 An optional `HardwareObservationProvider.describe()` can identify supported
-hardware observations. Without a provider, the run remains valid and reports
-hardware counters as unavailable. No generic GPU counter is fabricated.
+hardware observations, and `observe()` can return optional raw hardware events
+with their real clock domain. The runner writes those events through the same
+artifact sink. Without a provider, the run remains valid and reports hardware
+telemetry as unavailable. No generic GPU counter is fabricated.
 
 ## Current observation boundary
 
@@ -65,6 +67,14 @@ the forced-release snapshot, and native cleanup completion still require
 explicit backend observation interfaces. M1 must approve any new vLLM-facing
 interface; these fields remain unavailable rather than inferred.
 
-The committed smoke artifact under `docs/experiments/phase2-m5-smoke/` shows
+`replay.jsonl` is written before each `backend.execute()` call, so it records
+attempted requests even when execution fails. The committed smoke artifact under
+`docs/experiments/phase2-m5-smoke/` shows
 the serialization path only. Formal Phase 2 experiments need a deployment
 backend, pinned model/tokenizer revisions, and an approved protocol.
+
+Pressure stopping uses a backend control signal (`forced_release_count`, with a
+boolean compatibility fallback), never the presence or absence of persisted
+events. The run manifest records optional `pressure_selected_block_ids` for
+replay fairness checks; these are control observations, while `events.jsonl`
+remains governed by the `observe` persistence setting.

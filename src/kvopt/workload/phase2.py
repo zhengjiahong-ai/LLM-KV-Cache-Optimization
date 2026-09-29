@@ -175,6 +175,11 @@ def load_phase2_trace(path: str | Path) -> Phase2Trace:
                 range(1, len(program_requests) + 1)
             ):
                 raise ValueError("turn indexes must be contiguous within each program")
+            if any(
+                later.planned_arrival_offset_seconds < earlier.planned_arrival_offset_seconds
+                for earlier, later in zip(program_requests, program_requests[1:])
+            ):
+                raise ValueError("planned arrival offsets must be non-decreasing within a program")
             if any(request.is_terminal for request in program_requests[:-1]) or not (
                 program_requests[-1].is_terminal
             ):

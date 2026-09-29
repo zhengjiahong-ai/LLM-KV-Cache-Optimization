@@ -58,7 +58,38 @@ def test_smoke_replay_is_identical_and_joinable_across_runs(tmp_path: Path) -> N
         event["event_type"] == "TURN_FINISHED" and event.get("request_id") == "agent-a:turn:2"
         for event in events
     )
+    waiting = next(event for event in events if event["event_type"] == "FOLLOWUP_WAITING")
+    assert waiting["request_id"] == "agent-a:turn:2"
     assert "oracle" not in json.dumps(events)
+
+
+def test_observe_toggle_keeps_full_pressure_loop_identical(tmp_path: Path) -> None:
+    true_config = json.loads(CONFIG.read_text(encoding="utf-8"))
+    false_config = json.loads(CONFIG.read_text(encoding="utf-8"))
+    false_config["observe"] = False
+    true_config["trace"] = str((ROOT / "configs/phase2/smoke-trace.json").resolve())
+    false_config["trace"] = true_config["trace"]
+    true_path = tmp_path / "true.json"
+    false_path = tmp_path / "false.json"
+    true_path.write_text(json.dumps(true_config), encoding="utf-8")
+    false_path.write_text(json.dumps(false_config), encoding="utf-8")
+    first = run_phase2(true_path, output_root=tmp_path, run_id="observed")
+    second = run_phase2(false_path, output_root=tmp_path, run_id="unobserved")
+    first_replay = _records(first / "replay.jsonl")
+    second_replay = _records(second / "replay.jsonl")
+    assert first_replay == second_replay
+    assert sum(item["kind"] == "pressure" for item in first_replay) == 1
+    assert sum(item["kind"] == "pressure" for item in second_replay) == 1
+    first_manifest = json.loads((first / "run.json").read_text(encoding="utf-8"))
+    second_manifest = json.loads((second / "run.json").read_text(encoding="utf-8"))
+    assert first_manifest["pressure_selected_block_ids"] == second_manifest["pressure_selected_block_ids"]
+    first_selection = next(
+        event["payload"]["selected_block_ids"]
+        for event in _records(first / "events.jsonl")
+        if event["event_type"] == "SYNTHETIC_PRESSURE_SELECTION"
+    )
+    assert first_selection == [1]
+    assert (second / "events.jsonl").read_text(encoding="utf-8") == ""
 
 
 def test_pressure_stops_at_safety_ceiling_when_no_release(tmp_path: Path) -> None:
@@ -102,6 +133,7 @@ def test_backend_failure_keeps_partial_evidence(tmp_path: Path, monkeypatch) -> 
     assert manifest["failure_reason"] == "RuntimeError: backend stopped"
     assert len(_records(output / "events.jsonl")) == 1
     assert len(_records(output / "replay.jsonl")) == 1
+    assert _records(output / "replay.jsonl")[0]["request_id"] == "agent-a:turn:1"
     assert (output / "stderr.log").exists()
 
 
@@ -159,3 +191,39 @@ def test_trace_rejects_duplicate_program_identity(tmp_path: Path) -> None:
     path.write_text(json.dumps(raw), encoding="utf-8")
     with pytest.raises(ValueError, match="duplicate"):
         load_phase2_trace(path)
+
+
+def test_normalized_trace_rejects_decreasing_arrival_order(tmp_path: Path) -> None:
+    raw = json.loads((ROOT / "docs/experiments/phase2-m5-smoke/synthetic-smoke-v2/trace.json").read_text())
+    raw["requests"][0]["planned_arrival_offset_seconds"] = 5
+    raw["requests"][1]["planned_arrival_offset_seconds"] = 2
+    path = tmp_path / "invalid.json"
+    path.write_text(json.dumps(raw), encoding="utf-8")
+    with pytest.raises(ValueError, match="arrival offsets"):
+        load_phase2_trace(path)
+
+
+def test_normalized_trace_round_trip_is_valid(tmp_path: Path) -> None:
+    trace = load_phase2_trace(ROOT / "docs/experiments/phase2-m5-smoke/synthetic-smoke-v2/trace.json")
+    path = tmp_path / "round-trip.json"
+    path.write_text(json.dumps(trace.to_dict()), encoding="utf-8")
+    reloaded = load_phase2_trace(path)
+    assert reloaded.to_dict() == trace.to_dict()
+
+
+def test_fake_hardware_provider_events_are_written(tmp_path: Path) -> None:
+    class FakeProvider:
+        def describe(self):
+            return {"availability": "available", "provider": "fake"}
+
+        def observe(self):
+            return (ExperimentEvent.create(
+                event_type="HARDWARE_SAMPLE", timestamp=1.0,
+                clock_domain="fake_hardware", source="fake", payload={"power_w": 12.5}
+            ),)
+
+    output = run_phase2(CONFIG, output_root=tmp_path, run_id="hardware", hardware_provider=FakeProvider())
+    manifest = json.loads((output / "run.json").read_text(encoding="utf-8"))
+    events = _records(output / "events.jsonl")
+    assert manifest["hardware"] == {"availability": "available", "provider": "fake"}
+    assert any(event["event_type"] == "HARDWARE_SAMPLE" for event in events)

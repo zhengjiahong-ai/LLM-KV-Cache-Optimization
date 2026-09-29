@@ -42,7 +42,7 @@
     "trace": "smoke-trace.json"
   },
   "config_sha256": "26353b92f341bdb8867bc2a965a8d0158a9bb900c45669ad327b40fe47c7a83c",
-  "ended_at_utc": "2026-09-28T08:52:25.752993+00:00",
+  "ended_at_utc": "2026-09-29T06:43:38.682703+00:00",
   "event_count": 20,
   "failure_reason": null,
   "generation": {
@@ -50,7 +50,7 @@
     "temperature": 0
   },
   "git_dirty": true,
-  "git_sha": "a29c0df729e4eb9aba1390e783cdc1180b87d847",
+  "git_sha": "4ef87716dc53b2c8315870995f5b3b193a200767",
   "hardware": {
     "availability": "unavailable",
     "reason": "no compatible provider"
@@ -71,10 +71,15 @@
     "required_blocks": 1,
     "safety_ceiling": 4
   },
+  "pressure_selected_block_ids": [
+    [
+      1
+    ]
+  ],
   "run_id": "synthetic-smoke-v2",
   "schema_version": "phase2.run.v1",
   "seed": 42,
-  "started_at_utc": "2026-09-28T08:52:25.737639+00:00",
+  "started_at_utc": "2026-09-29T06:43:38.650622+00:00",
   "status": "success",
   "tokenizer": {
     "name": "synthetic-smoke",
