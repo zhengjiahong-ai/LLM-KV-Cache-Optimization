@@ -38,7 +38,7 @@ class HardwareObservationProvider(Protocol):
     def describe(self) -> dict[str, object]: ...
 
 
-class HardwareTelemetryProvider(Protocol):
+class HardwareTelemetryProvider(HardwareObservationProvider, Protocol):
     """Optional extension for raw hardware observations."""
 
     def observe(self) -> tuple[ExperimentEvent, ...]: ...
@@ -49,6 +49,9 @@ class PressureObservation(Protocol):
 
     @property
     def forced_release_observed(self) -> bool: ...
+
+    @property
+    def forced_release_count(self) -> int: ...
 
 
 def _now() -> str:
@@ -204,6 +207,8 @@ def run_phase2(
                 continue
             assert isinstance(action, PressureStage)
             ceiling = min(action.max_requests, config["pressure"]["safety_ceiling"])
+            if action.stop_on_forced_release:
+                _require_pressure_capability(backend)
             observed_before = _pressure_count(backend)
             for attempt in range(1, ceiling + 1):
                 _execute(backend, action.request(attempt, config["seed"]), replay)
@@ -234,10 +239,23 @@ def run_phase2(
             manifest["observed_forced_release_count"] = writer.forced_release_count
             manifest["event_count"] = writer.event_count
             if hardware_provider is not None:
-                for event in _hardware_events(hardware_provider):
+                try:
+                    events = _hardware_events(hardware_provider)
                     if config.get("observe", True):
-                        writer.emit(event)
-                manifest["event_count"] = writer.event_count
+                        for event in events:
+                            writer.emit(event)
+                        manifest["event_count"] = writer.event_count
+                    manifest["hardware_telemetry"] = {
+                        "availability": "available",
+                        "event_count": len(events),
+                        "persisted": config.get("observe", True),
+                    }
+                except Exception as error:
+                    manifest["hardware_telemetry"] = {
+                        "availability": "error",
+                        "reason": f"{type(error).__name__}: {error}",
+                    }
+                    manifest["observation_availability"]["hardware_telemetry"] = "error"
             writer.close()
         manifest["ended_at_utc"] = _now()
         _save_json(output / "run.json", manifest)
@@ -258,6 +276,25 @@ def _pressure_count(backend: Phase2Backend) -> int:
     signal = getattr(backend, "forced_release_observed", False)
     signal = signal() if callable(signal) else signal
     return 1 if signal else 0
+
+
+def _require_pressure_capability(backend: Phase2Backend) -> None:
+    has_count = hasattr(backend, "forced_release_count")
+    has_signal = hasattr(backend, "forced_release_observed")
+    if not (has_count or has_signal):
+        raise RuntimeError(
+            "backend missing required forced-release pressure observation capability"
+        )
+    if has_count:
+        count = getattr(backend, "forced_release_count")
+        count = count() if callable(count) else count
+        if isinstance(count, bool) or not isinstance(count, int) or count < 0:
+            raise TypeError("backend forced_release_count must be a non-negative integer")
+    else:
+        signal = getattr(backend, "forced_release_observed")
+        signal = signal() if callable(signal) else signal
+        if not isinstance(signal, bool):
+            raise TypeError("backend forced_release_observed must be bool")
 
 
 def _selected_blocks(backend: Phase2Backend) -> tuple[int, ...]:

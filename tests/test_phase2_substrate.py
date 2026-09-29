@@ -150,6 +150,36 @@ def test_factory_failure_still_creates_empty_replay_artifact(tmp_path: Path, mon
     assert (output / "replay.jsonl").read_text(encoding="utf-8") == ""
 
 
+def test_pressure_capability_missing_fails_before_pressure_requests(
+    tmp_path: Path, monkeypatch
+) -> None:
+    class BackendWithoutPressureCapability:
+        def __init__(self, _config, _sink):
+            pass
+
+        def execute(self, _request):
+            pass
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(
+        "kvopt.workload.phase2_runner._load_factory",
+        lambda _reference: BackendWithoutPressureCapability,
+    )
+    output = run_phase2(CONFIG, output_root=tmp_path, run_id="missing-pressure-capability")
+    manifest = json.loads((output / "run.json").read_text(encoding="utf-8"))
+    replay = _records(output / "replay.jsonl")
+    assert manifest["status"] == "failed"
+    assert "missing required forced-release pressure observation capability" in manifest[
+        "failure_reason"
+    ]
+    assert all(item["kind"] != "pressure" for item in replay)
+    assert "missing required forced-release pressure observation capability" in (
+        output / "stderr.log"
+    ).read_text(encoding="utf-8")
+
+
 def test_observation_toggle_does_not_change_synthetic_selection() -> None:
     trace = load_phase2_trace(TRACE)
     first_turn = next(request for request in trace.requests if request.request_id == "agent-a:turn:1")
@@ -227,3 +257,25 @@ def test_fake_hardware_provider_events_are_written(tmp_path: Path) -> None:
     events = _records(output / "events.jsonl")
     assert manifest["hardware"] == {"availability": "available", "provider": "fake"}
     assert any(event["event_type"] == "HARDWARE_SAMPLE" for event in events)
+
+
+def test_failing_hardware_provider_does_not_break_finalization(tmp_path: Path) -> None:
+    class FailingProvider:
+        def describe(self):
+            return {"availability": "available", "provider": "failing-fake"}
+
+        def observe(self):
+            raise RuntimeError("telemetry unavailable")
+
+    output = run_phase2(
+        CONFIG,
+        output_root=tmp_path,
+        run_id="hardware-failed",
+        hardware_provider=FailingProvider(),
+    )
+    manifest = json.loads((output / "run.json").read_text(encoding="utf-8"))
+    assert manifest["status"] == "success"
+    assert manifest["hardware_telemetry"]["availability"] == "error"
+    assert "telemetry unavailable" in manifest["hardware_telemetry"]["reason"]
+    assert (output / "events.jsonl").exists()
+    assert (output / "run.json").exists()
