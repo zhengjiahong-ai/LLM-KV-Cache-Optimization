@@ -217,6 +217,10 @@ def run_phase2(
                 if action.stop_on_forced_release:
                     assert observed_before is not None
                     observed_after = _pressure_count(backend)
+                    if observed_after < observed_before:
+                        raise RuntimeError(
+                            "backend forced_release_count must be monotonic"
+                        )
                     if observed_after > observed_before:
                         break
             else:
