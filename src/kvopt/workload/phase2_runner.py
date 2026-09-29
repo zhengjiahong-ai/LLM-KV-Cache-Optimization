@@ -45,10 +45,7 @@ class HardwareTelemetryProvider(HardwareObservationProvider, Protocol):
 
 
 class PressureObservation(Protocol):
-    """Control-plane signal independent of raw event persistence."""
-
-    @property
-    def forced_release_observed(self) -> bool: ...
+    """Monotonic control-plane counter independent of raw event persistence."""
 
     @property
     def forced_release_count(self) -> int: ...
@@ -178,6 +175,7 @@ def run_phase2(
         "status": "running",
         "failure_reason": None,
         "observed_forced_release_count": 0,
+        "persisted_forced_release_event_count": 0,
         "pressure_selected_block_ids": [],
         "observation_availability": {
             "lifecycle": "optional backend emission",
@@ -207,17 +205,20 @@ def run_phase2(
                 continue
             assert isinstance(action, PressureStage)
             ceiling = min(action.max_requests, config["pressure"]["safety_ceiling"])
+            observed_before: int | None = None
             if action.stop_on_forced_release:
                 _require_pressure_capability(backend)
-            observed_before = _pressure_count(backend)
+                observed_before = _pressure_count(backend)
             for attempt in range(1, ceiling + 1):
                 _execute(backend, action.request(attempt, config["seed"]), replay)
                 selected = _selected_blocks(backend)
                 if selected:
                     manifest["pressure_selected_block_ids"].append(list(selected))
-                observed_after = _pressure_count(backend)
-                if action.stop_on_forced_release and observed_after > observed_before:
-                    break
+                if action.stop_on_forced_release:
+                    assert observed_before is not None
+                    observed_after = _pressure_count(backend)
+                    if observed_after > observed_before:
+                        break
             else:
                 if action.stop_on_forced_release:
                     manifest.setdefault("pressure_ceiling_reached", []).append(action.stage_id)
@@ -230,13 +231,16 @@ def run_phase2(
         if replay is not None:
             replay.close()
         if backend is not None:
+            control_count = _optional_pressure_count(backend)
+            if control_count is not None:
+                manifest["observed_forced_release_count"] = control_count
             try:
                 backend.close()
             except Exception as error:
                 manifest["status"] = "failed"
                 manifest["failure_reason"] = f"backend close: {type(error).__name__}: {error}"
         if writer is not None:
-            manifest["observed_forced_release_count"] = writer.forced_release_count
+            manifest["persisted_forced_release_event_count"] = writer.forced_release_count
             manifest["event_count"] = writer.event_count
             if hardware_provider is not None:
                 try:
@@ -268,33 +272,27 @@ def _execute(backend: Phase2Backend, request: PlannedRequest, replay) -> None:
     backend.execute(request)
 
 
-def _pressure_count(backend: Phase2Backend) -> int:
-    count = getattr(backend, "forced_release_count", None)
+def _optional_pressure_count(backend: Phase2Backend) -> int | None:
+    if not hasattr(backend, "forced_release_count"):
+        return None
+    count = getattr(backend, "forced_release_count")
     count = count() if callable(count) else count
-    if isinstance(count, int) and not isinstance(count, bool) and count >= 0:
-        return count
-    signal = getattr(backend, "forced_release_observed", False)
-    signal = signal() if callable(signal) else signal
-    return 1 if signal else 0
+    if isinstance(count, bool) or not isinstance(count, int) or count < 0:
+        raise TypeError("backend forced_release_count must be a non-negative integer")
+    return count
+
+
+def _pressure_count(backend: Phase2Backend) -> int:
+    count = _optional_pressure_count(backend)
+    if count is None:
+        raise RuntimeError(
+            "backend missing required monotonic forced_release_count capability"
+        )
+    return count
 
 
 def _require_pressure_capability(backend: Phase2Backend) -> None:
-    has_count = hasattr(backend, "forced_release_count")
-    has_signal = hasattr(backend, "forced_release_observed")
-    if not (has_count or has_signal):
-        raise RuntimeError(
-            "backend missing required forced-release pressure observation capability"
-        )
-    if has_count:
-        count = getattr(backend, "forced_release_count")
-        count = count() if callable(count) else count
-        if isinstance(count, bool) or not isinstance(count, int) or count < 0:
-            raise TypeError("backend forced_release_count must be a non-negative integer")
-    else:
-        signal = getattr(backend, "forced_release_observed")
-        signal = signal() if callable(signal) else signal
-        if not isinstance(signal, bool):
-            raise TypeError("backend forced_release_observed must be bool")
+    _pressure_count(backend)
 
 
 def _selected_blocks(backend: Phase2Backend) -> tuple[int, ...]:

@@ -73,8 +73,15 @@ attempted requests even when execution fails. The committed smoke artifact under
 the serialization path only. Formal Phase 2 experiments need a deployment
 backend, pinned model/tokenizer revisions, and an approved protocol.
 
-Pressure stopping uses a backend control signal (`forced_release_count`, with a
-boolean compatibility fallback), never the presence or absence of persisted
-events. The run manifest records optional `pressure_selected_block_ids` for
-replay fairness checks; these are control observations, while `events.jsonl`
-remains governed by the `observe` persistence setting.
+Pressure stopping requires a backend-provided, monotonic `forced_release_count`
+control signal and never depends on whether raw events are persisted. A backend
+that cannot provide this counter must fail loudly before a
+`stop_on_forced_release` pressure stage starts.
+
+The run manifest separates control-plane and artifact counts:
+`observed_forced_release_count` is the backend control-plane count, while
+`persisted_forced_release_event_count` is the number of
+`FORCED_RELEASE_DECISION` records actually written to `events.jsonl`.
+Therefore `observe=false` can suppress raw persistence without changing
+pressure stopping semantics. The manifest also records optional
+`pressure_selected_block_ids` for replay fairness checks.

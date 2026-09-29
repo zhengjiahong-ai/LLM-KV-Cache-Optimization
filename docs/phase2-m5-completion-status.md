@@ -1,5 +1,7 @@
 # M5 Phase 2 First-Stage Status
 
+**Implementation status: COMPLETE / ready for merge review.**
+
 This status is intentionally limited to the experimental substrate owned by
 M5. Synthetic smoke evidence verifies infrastructure plumbing only; it is not
 real vLLM performance evidence.
@@ -40,8 +42,9 @@ unavailable or accepts backend-supplied events only when directly observed.
 
 **M5 substrate completion** is satisfied by the runner, trace/replay,
 raw artifacts, provenance, backend interface, hardware telemetry interface,
-and synthetic validation listed above. This first stage can be marked complete
-when those substrate tests pass.
+and synthetic validation listed above. The implementation is complete; formal
+repository closure still requires the normal merge-time test execution because
+this branch currently has no CI/check run attached.
 
 **Real vLLM integration validation** is a follow-up dependency owned by M1
 integration, the actual experiment environment, and M6 data collection. It is

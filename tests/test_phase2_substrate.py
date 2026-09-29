@@ -83,6 +83,10 @@ def test_observe_toggle_keeps_full_pressure_loop_identical(tmp_path: Path) -> No
     first_manifest = json.loads((first / "run.json").read_text(encoding="utf-8"))
     second_manifest = json.loads((second / "run.json").read_text(encoding="utf-8"))
     assert first_manifest["pressure_selected_block_ids"] == second_manifest["pressure_selected_block_ids"]
+    assert first_manifest["observed_forced_release_count"] == 1
+    assert first_manifest["persisted_forced_release_event_count"] == 1
+    assert second_manifest["observed_forced_release_count"] == 1
+    assert second_manifest["persisted_forced_release_event_count"] == 0
     first_selection = next(
         event["payload"]["selected_block_ids"]
         for event in _records(first / "events.jsonl")
@@ -171,11 +175,11 @@ def test_pressure_capability_missing_fails_before_pressure_requests(
     manifest = json.loads((output / "run.json").read_text(encoding="utf-8"))
     replay = _records(output / "replay.jsonl")
     assert manifest["status"] == "failed"
-    assert "missing required forced-release pressure observation capability" in manifest[
+    assert "missing required monotonic forced_release_count capability" in manifest[
         "failure_reason"
     ]
     assert all(item["kind"] != "pressure" for item in replay)
-    assert "missing required forced-release pressure observation capability" in (
+    assert "missing required monotonic forced_release_count capability" in (
         output / "stderr.log"
     ).read_text(encoding="utf-8")
 
@@ -279,3 +283,67 @@ def test_failing_hardware_provider_does_not_break_finalization(tmp_path: Path) -
     assert "telemetry unavailable" in manifest["hardware_telemetry"]["reason"]
     assert (output / "events.jsonl").exists()
     assert (output / "run.json").exists()
+
+
+
+def test_two_pressure_stages_use_monotonic_forced_release_count(
+    tmp_path: Path, monkeypatch
+) -> None:
+    class CountingBackend:
+        def __init__(self, _config, _sink):
+            self.forced_release_count = 0
+
+        def execute(self, request):
+            if request.kind == "pressure":
+                self.forced_release_count += 1
+
+        def close(self):
+            pass
+
+    trace = {
+        "schema_version": "phase2.trace.v1",
+        "trace_id": "two-pressure-stages",
+        "programs": [],
+        "pressure_stages": [
+            {
+                "stage_id": "first",
+                "arrival_offset_seconds": 1,
+                "prompt": "pressure first",
+                "max_requests": 3,
+                "stop_on_forced_release": True,
+            },
+            {
+                "stage_id": "second",
+                "arrival_offset_seconds": 2,
+                "prompt": "pressure second",
+                "max_requests": 3,
+                "stop_on_forced_release": True,
+            },
+        ],
+    }
+    config = json.loads(CONFIG.read_text(encoding="utf-8"))
+    (tmp_path / "trace.json").write_text(json.dumps(trace), encoding="utf-8")
+    config["trace"] = "trace.json"
+    (tmp_path / "config.json").write_text(json.dumps(config), encoding="utf-8")
+    monkeypatch.setattr(
+        "kvopt.workload.phase2_runner._load_factory",
+        lambda _reference: CountingBackend,
+    )
+
+    output = run_phase2(
+        tmp_path / "config.json",
+        output_root=tmp_path,
+        run_id="two-pressure-stages",
+    )
+
+    manifest = json.loads((output / "run.json").read_text(encoding="utf-8"))
+    replay = _records(output / "replay.jsonl")
+    pressure_requests = [item for item in replay if item["kind"] == "pressure"]
+    assert manifest["status"] == "success"
+    assert len(pressure_requests) == 2
+    assert [item["request_id"] for item in pressure_requests] == [
+        "pressure:first:1",
+        "pressure:second:1",
+    ]
+    assert manifest["observed_forced_release_count"] == 2
+    assert manifest["persisted_forced_release_event_count"] == 0
