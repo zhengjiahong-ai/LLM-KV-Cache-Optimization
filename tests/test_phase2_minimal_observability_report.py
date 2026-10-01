@@ -17,8 +17,12 @@ def _write_run(tmp_path: Path, events: list[dict[str, object]]) -> Path:
     )
     (run / "trace.json").write_text("{}\n", encoding="utf-8")
     (run / "replay.jsonl").write_text("{}\n", encoding="utf-8")
+    indexed_events = [
+        {**event, "event_index": index}
+        for index, event in enumerate(events)
+    ]
     (run / "events.jsonl").write_text(
-        "".join(json.dumps(event) + "\n" for event in events),
+        "".join(json.dumps(event) + "\n" for event in indexed_events),
         encoding="utf-8",
     )
     return run
