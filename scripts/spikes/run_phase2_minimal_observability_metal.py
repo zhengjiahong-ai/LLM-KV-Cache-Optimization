@@ -109,11 +109,11 @@ def build_observation_report(run_directory: Path) -> dict[str, object]:
         and bool(event["payload"].get("block_ids"))
     }
 
-    decision_timestamp = (
-        float(decision["timestamp"])
+    decision_index = (
+        decision.get("event_index")
         if decision is not None
-        and isinstance(decision.get("timestamp"), (int, float))
-        and not isinstance(decision.get("timestamp"), bool)
+        and isinstance(decision.get("event_index"), int)
+        and not isinstance(decision.get("event_index"), bool)
         else None
     )
     selected_programs = {
@@ -124,16 +124,18 @@ def build_observation_report(run_directory: Path) -> dict[str, object]:
     future_arrivals = {
         event.get("program_id")
         for event in by_type.get("REQUEST_ARRIVED", [])
-        if decision_timestamp is not None
-        and isinstance(event.get("timestamp"), (int, float))
-        and float(event["timestamp"]) > decision_timestamp
+        if decision_index is not None
+        and isinstance(event.get("event_index"), int)
+        and not isinstance(event.get("event_index"), bool)
+        and event["event_index"] > decision_index
     }
     future_prefix_keys = {
         (event.get("program_id"), event.get("prefix_id"))
         for event in by_type.get("VLLM_PREFIX_SNAPSHOT", [])
-        if decision_timestamp is not None
-        and isinstance(event.get("timestamp"), (int, float))
-        and float(event["timestamp"]) > decision_timestamp
+        if decision_index is not None
+        and isinstance(event.get("event_index"), int)
+        and not isinstance(event.get("event_index"), bool)
+        and event["event_index"] > decision_index
     }
 
     required_candidate_fields = {
