@@ -97,15 +97,25 @@ are observed:
 
 1. the normal M5 artifacts exist and `run.json` reports success;
 2. at least two programs have non-empty `BLOCKS_OBSERVED` mappings;
-3. a `FORCED_RELEASE_DECISION` contains selected releases;
-4. its complete candidate set contains at least two distinct
-   `(program_id, prefix_id)` identities;
-5. every selected release is drawn from that candidate set;
-6. at least one `BLOCK_EVICTED` block is one of the selected release's
+3. the lifecycle contract exposes program/request arrival, admission, turn
+   completion, follow-up waiting, tool-gap boundaries, prefix/block mapping,
+   native eviction, and program completion;
+4. a `FORCED_RELEASE_DECISION` contains selected releases;
+5. the decision payload exposes `required_blocks`, `original_free_queue`,
+   `ordinary_expired_entries`, the complete `candidates`, and
+   `selected_releases`;
+6. every candidate exposes the Phase 2A decision-time raw fields:
+   `program_id`, `prefix_id`, retention deadline, waiting-follow-up state,
+   full block IDs, initially reclaimable block IDs, next tool type, elapsed
+   time since TTL decision, PrefillReload, eta, and queue-delay input;
+7. its candidate set contains at least two distinct
+   `(program_id, prefix_id)` identities, and each selected release is drawn
+   from that set with explicit `newly_eligible_block_ids`;
+8. at least one `BLOCK_EVICTED` block is one of the selected release's
    `newly_eligible_block_ids`;
-7. a selected program later produces a `REQUEST_ARRIVED`;
-8. a later `VLLM_PREFIX_SNAPSHOT` rejoins the same selected
-   `(program_id, prefix_id)`.
+9. a selected program later produces a `REQUEST_ARRIVED`;
+10. a later `VLLM_PREFIX_SNAPSHOT` rejoins the same selected
+    `(program_id, prefix_id)`.
 
 This deliberately tests both logical and physical boundaries.  Merely
 generating `events.jsonl` is not sufficient.
