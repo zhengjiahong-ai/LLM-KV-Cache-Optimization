@@ -1,0 +1,53 @@
+{
+  "schema_version": "phase2.trace.v1",
+  "trace_id": "phase2a-minimal-real-observability-v1",
+  "programs": [
+    {
+      "program_id": "agent-a",
+      "turns": [
+        {
+          "arrival_offset_seconds": 0,
+          "prefix_prompt": "agent-a deterministic 256-token reusable prefix",
+          "prompt": "establish reusable state",
+          "terminal": false,
+          "next_tool_type": "search",
+          "tool_gap_seconds": 1
+        },
+        {
+          "arrival_offset_seconds": 3,
+          "prefix_prompt": "agent-a deterministic 256-token reusable prefix",
+          "prompt": "return after pressure",
+          "terminal": true
+        }
+      ]
+    },
+    {
+      "program_id": "agent-b",
+      "turns": [
+        {
+          "arrival_offset_seconds": 1,
+          "prefix_prompt": "agent-b deterministic 256-token reusable prefix",
+          "prompt": "establish second reusable state",
+          "terminal": false,
+          "next_tool_type": "database",
+          "tool_gap_seconds": 1
+        },
+        {
+          "arrival_offset_seconds": 4,
+          "prefix_prompt": "agent-b deterministic 256-token reusable prefix",
+          "prompt": "return after pressure",
+          "terminal": true
+        }
+      ]
+    }
+  ],
+  "pressure_stages": [
+    {
+      "stage_id": "two-candidate-pressure",
+      "arrival_offset_seconds": 2,
+      "prompt": "deterministic 512-token pressure request",
+      "max_requests": 2,
+      "stop_on_forced_release": true
+    }
+  ]
+}
