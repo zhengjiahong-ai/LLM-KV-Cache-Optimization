@@ -113,6 +113,20 @@ def _program_prefix_sizes(options: Mapping[str, object]) -> dict[str, int]:
     return sizes
 
 
+def _expected_profiling_block_override(
+    program_prefix_tokens: Mapping[str, int],
+    pressure_tokens: int,
+) -> int:
+    if not program_prefix_tokens:
+        raise ValueError("program_prefix_tokens must not be empty")
+    if pressure_tokens % _BLOCK_SIZE != 0:
+        raise ValueError("pressure token count must align to the KV block size")
+    return (
+        sum(size // _BLOCK_SIZE for size in program_prefix_tokens.values())
+        + pressure_tokens // _BLOCK_SIZE
+    )
+
+
 def _program_prefix_token_ids(
     program_id: str, *, vocabulary_size: int, token_count: int
 ) -> tuple[int, ...]:
@@ -229,9 +243,9 @@ class MinimalMetalObservabilityBackend:
             "config.cache.block_override",
         )
         if self._program_prefix_tokens:
-            expected_override = (
-                sum(size // _BLOCK_SIZE for size in self._program_prefix_tokens.values())
-                + self._pressure_tokens // _BLOCK_SIZE
+            expected_override = _expected_profiling_block_override(
+                self._program_prefix_tokens,
+                self._pressure_tokens,
             )
             if block_override != expected_override:
                 raise ValueError(
