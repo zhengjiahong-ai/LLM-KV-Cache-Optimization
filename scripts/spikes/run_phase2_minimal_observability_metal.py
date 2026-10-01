@@ -136,6 +136,64 @@ def build_observation_report(run_directory: Path) -> dict[str, object]:
         and float(event["timestamp"]) > decision_timestamp
     }
 
+    required_candidate_fields = {
+        "program_id",
+        "prefix_id",
+        "retention_deadline_timestamp",
+        "waiting_followup",
+        "block_ids",
+        "initially_reclaimable_block_ids",
+        "next_tool_type",
+        "elapsed_since_ttl_decision_seconds",
+        "prefill_reload_seconds",
+        "eta",
+        "queue_delay_t_seconds",
+    }
+    required_release_fields = {
+        "program_id",
+        "prefix_id",
+        "newly_eligible_block_ids",
+    }
+    required_decision_fields = {
+        "required_blocks",
+        "original_free_queue",
+        "ordinary_expired_entries",
+        "candidates",
+        "selected_releases",
+    }
+    decision_fields_complete = bool(decision_payload) and required_decision_fields <= set(
+        decision_payload
+    )
+    candidate_fields_complete = (
+        len(candidates) >= 2
+        and all(
+            isinstance(item, Mapping)
+            and required_candidate_fields <= set(item)
+            for item in candidates
+        )
+    )
+    release_fields_complete = (
+        bool(selected)
+        and all(
+            isinstance(item, Mapping)
+            and required_release_fields <= set(item)
+            for item in selected
+        )
+    )
+    lifecycle_types = {
+        "PROGRAM_STARTED",
+        "REQUEST_ARRIVED",
+        "REQUEST_ADMITTED",
+        "TURN_FINISHED",
+        "FOLLOWUP_WAITING",
+        "TOOL_GAP_STARTED",
+        "TOOL_GAP_ENDED",
+        "BLOCKS_OBSERVED",
+        "BLOCK_EVICTED",
+        "PROGRAM_COMPLETED",
+    }
+    present_lifecycle_types = lifecycle_types & set(by_type)
+
     checks = {
         "artifacts_present": _check(
             all(artifact_presence.values()),
@@ -145,6 +203,13 @@ def build_observation_report(run_directory: Path) -> dict[str, object]:
             run.get("status") == "success",
             f"run status={run.get('status')!r}",
         ),
+        "lifecycle_contract_exposed": _check(
+            lifecycle_types <= set(by_type),
+            (
+                f"present lifecycle events={sorted(present_lifecycle_types)}; "
+                f"missing={sorted(lifecycle_types - set(by_type))}"
+            ),
+        ),
         "two_prefixes_mapped": _check(
             len(mapped_programs) >= 2,
             f"programs with BLOCKS_OBSERVED={sorted(str(x) for x in mapped_programs)}",
@@ -152,6 +217,16 @@ def build_observation_report(run_directory: Path) -> dict[str, object]:
         "forced_release_observed": _check(
             decision is not None,
             f"forced-release decisions with selected releases={len(decisions)}",
+        ),
+        "forced_release_snapshot_fields": _check(
+            decision_fields_complete
+            and candidate_fields_complete
+            and release_fields_complete,
+            (
+                f"decision_fields_complete={decision_fields_complete}; "
+                f"candidate_fields_complete={candidate_fields_complete}; "
+                f"release_fields_complete={release_fields_complete}"
+            ),
         ),
         "candidate_set_has_choice": _check(
             len(candidate_keys) >= 2,
