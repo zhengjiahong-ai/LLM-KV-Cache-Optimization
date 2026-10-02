@@ -1,0 +1,19 @@
+{
+  "schema_version": "phase2a.pilot_suite.v1",
+  "suite_id": "phase2a-p0-p1-pilot-v1",
+  "seeds": [11, 23, 37],
+  "scenarios": [
+    {
+      "scenario_id": "P0-equal-256-256",
+      "config": "p0-equal-256-256.json"
+    },
+    {
+      "scenario_id": "P1-cost-128-256",
+      "config": "p1-cost-128-256.json"
+    },
+    {
+      "scenario_id": "P1-cost-256-512",
+      "config": "p1-cost-256-512.json"
+    }
+  ]
+}
