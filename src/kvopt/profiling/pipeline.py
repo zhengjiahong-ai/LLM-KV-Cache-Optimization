@@ -8,7 +8,11 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-from .analysis import DecisionRegretRow
+from .analysis import (
+    CandidateFeatureSpreadRow,
+    DecisionRegretRow,
+    build_candidate_feature_spreads,
+)
 from .datasets import (
     DecisionCandidateRow,
     DecisionRow,
@@ -21,6 +25,11 @@ from .datasets import (
     build_runs_table,
 )
 from .decision_outcomes import DecisionOutcomeRow, build_decision_outcomes_table
+from .gate import (
+    EmpiricalGapInputs,
+    EmpiricalGapReport,
+    evaluate_empirical_gap_gate,
+)
 from .ingestion import (
     ArtifactValidationError,
     RawRunArtifacts,
@@ -28,10 +37,18 @@ from .ingestion import (
 )
 from .loss_views import (
     CandidateLossEvidenceRow,
+    CandidateLossSpreadRow,
     LossViewAvailabilityRow,
     build_loss_view_tables,
 )
 from .request_outcomes import RequestOutcomeRow, build_request_outcomes_table
+from .statistics import (
+    AnalysisRunMetadata,
+    CandidateHeterogeneitySummaryRow,
+    LossHeterogeneitySummaryRow,
+    RegretSummaryRow,
+    build_statistical_summary_tables,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,6 +60,19 @@ class RunValidityRow:
     decision_count: int
     multi_candidate_decision_count: int
     valid_decision_count: int
+    valid_for_candidate_analysis: bool
+    invalid_reasons: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class DecisionValidityRow:
+    """Decision-level gate for candidate comparison and regret."""
+
+    run_id: str
+    decision_event_index: int
+    candidate_count: int
+    selected_release_count: int
+    post_decision_lifecycle_traceable: bool
     valid_for_candidate_analysis: bool
     invalid_reasons: tuple[str, ...]
 
@@ -71,8 +101,19 @@ class DerivedDatasetBundle:
     candidate_loss_evidence: tuple[CandidateLossEvidenceRow, ...]
     loss_view_availability: tuple[LossViewAvailabilityRow, ...]
     decision_regret: tuple[DecisionRegretRow, ...]
+    candidate_loss_spreads: tuple[CandidateLossSpreadRow, ...]
+    candidate_feature_spreads: tuple[CandidateFeatureSpreadRow, ...]
+    candidate_heterogeneity_summary: tuple[
+        CandidateHeterogeneitySummaryRow,
+        ...,
+    ]
+    regret_summary: tuple[RegretSummaryRow, ...]
+    loss_heterogeneity_summary: tuple[LossHeterogeneitySummaryRow, ...]
+    decision_validity: tuple[DecisionValidityRow, ...]
     run_validity: tuple[RunValidityRow, ...]
     capabilities: tuple[CapabilityRow, ...]
+    empirical_gap_report: EmpiricalGapReport
+    formal_campaign: bool
 
 
 _TRACEABLE_LIFECYCLE_EVENTS = {
@@ -81,6 +122,10 @@ _TRACEABLE_LIFECYCLE_EVENTS = {
     "TURN_FINISHED",
     "PROGRAM_COMPLETED",
 }
+
+_BOOTSTRAP_RESAMPLES = 2_000
+_BOOTSTRAP_SEED = 0
+_CONFIDENCE_LEVEL = 0.95
 
 
 def discover_run_artifacts(
@@ -104,35 +149,66 @@ def discover_run_artifacts(
     return tuple(load_run_artifacts(path) for path in run_directories)
 
 
-def _build_run_validity(
+def _build_decision_validity(
     raw_runs: tuple[RawRunArtifacts, ...],
     run_rows: tuple[RunRow, ...],
     decisions: tuple[DecisionRow, ...],
-) -> tuple[RunValidityRow, ...]:
-    decisions_by_run: dict[str, list[DecisionRow]] = {}
+) -> tuple[DecisionValidityRow, ...]:
+    artifacts_by_run = {run.run_id: run for run in raw_runs}
+    run_rows_by_id = {run.run_id: run for run in run_rows}
+    rows: list[DecisionValidityRow] = []
     for decision in decisions:
+        artifacts = artifacts_by_run[decision.run_id]
+        run_row = run_rows_by_id[decision.run_id]
+        has_future_lifecycle = any(
+            event.get("event_type") in _TRACEABLE_LIFECYCLE_EVENTS
+            and isinstance(event.get("event_index"), int)
+            and event["event_index"] > decision.decision_event_index
+            for event in artifacts.events
+        )
+        reasons: list[str] = []
+        if run_row.status != "success":
+            reasons.append("run_status_not_success")
+        if decision.candidate_count < 2:
+            reasons.append("fewer_than_two_candidates")
+        if decision.selected_release_count == 0:
+            reasons.append("no_selected_release")
+        if not has_future_lifecycle:
+            reasons.append("post_decision_lifecycle_not_traceable")
+        rows.append(
+            DecisionValidityRow(
+                run_id=decision.run_id,
+                decision_event_index=decision.decision_event_index,
+                candidate_count=decision.candidate_count,
+                selected_release_count=decision.selected_release_count,
+                post_decision_lifecycle_traceable=has_future_lifecycle,
+                valid_for_candidate_analysis=not reasons,
+                invalid_reasons=tuple(reasons),
+            )
+        )
+    return tuple(rows)
+
+
+def _build_run_validity(
+    run_rows: tuple[RunRow, ...],
+    decision_validity: tuple[DecisionValidityRow, ...],
+) -> tuple[RunValidityRow, ...]:
+    decisions_by_run: dict[str, list[DecisionValidityRow]] = {}
+    for decision in decision_validity:
         decisions_by_run.setdefault(decision.run_id, []).append(decision)
 
-    run_rows_by_id = {row.run_id: row for row in run_rows}
     rows: list[RunValidityRow] = []
-    for artifacts in raw_runs:
-        run_row = run_rows_by_id[artifacts.run_id]
-        run_decisions = decisions_by_run.get(artifacts.run_id, [])
+    for run_row in run_rows:
+        run_decisions = decisions_by_run.get(run_row.run_id, [])
         multi_candidate = [
             decision
             for decision in run_decisions
             if decision.candidate_count >= 2
         ]
-        valid_decision_count = 0
-        for decision in multi_candidate:
-            has_future_lifecycle = any(
-                event.get("event_type") in _TRACEABLE_LIFECYCLE_EVENTS
-                and isinstance(event.get("event_index"), int)
-                and event["event_index"] > decision.decision_event_index
-                for event in artifacts.events
-            )
-            if decision.selected_release_count > 0 and has_future_lifecycle:
-                valid_decision_count += 1
+        valid_decision_count = sum(
+            decision.valid_for_candidate_analysis
+            for decision in run_decisions
+        )
 
         reasons: list[str] = []
         if run_row.status != "success":
@@ -146,7 +222,7 @@ def _build_run_validity(
 
         rows.append(
             RunValidityRow(
-                run_id=artifacts.run_id,
+                run_id=run_row.run_id,
                 run_status=run_row.status,
                 decision_count=len(run_decisions),
                 multi_candidate_decision_count=len(multi_candidate),
@@ -206,6 +282,8 @@ def _build_capabilities(
 
 def build_derived_dataset_bundle(
     runs: Iterable[RawRunArtifacts],
+    *,
+    formal_campaign: bool = False,
 ) -> DerivedDatasetBundle:
     """Build every canonical Phase 2A table from validated raw runs."""
 
@@ -216,6 +294,108 @@ def build_derived_dataset_bundle(
     loss_views = build_loss_view_tables(
         decision_tables.candidates,
         decision_outcomes,
+    )
+    decision_validity = _build_decision_validity(
+        raw_runs,
+        run_rows,
+        decision_tables.decisions,
+    )
+    run_validity = _build_run_validity(
+        run_rows,
+        decision_validity,
+    )
+    validity_by_run = {row.run_id: row for row in run_validity}
+    feature_spreads = build_candidate_feature_spreads(
+        decision_tables.candidates
+    )
+    valid_decision_keys = {
+        (row.run_id, row.decision_event_index)
+        for row in decision_validity
+        if row.valid_for_candidate_analysis
+    }
+    summaries = build_statistical_summary_tables(
+        (
+            AnalysisRunMetadata(
+                run_id=row.run_id,
+                scenario_id=row.scenario_id,
+                seed=row.seed,
+                valid_for_candidate_analysis=validity_by_run[
+                    row.run_id
+                ].valid_for_candidate_analysis,
+            )
+            for row in run_rows
+        ),
+        (
+            row
+            for row in feature_spreads
+            if (row.run_id, row.decision_event_index)
+            in valid_decision_keys
+        ),
+        (
+            row
+            for row in loss_views.loss_spreads
+            if (row.run_id, row.decision_event_index)
+            in valid_decision_keys
+        ),
+        (
+            row
+            for row in loss_views.decision_regret
+            if (row.run_id, row.decision_event_index)
+            in valid_decision_keys
+        ),
+        bootstrap_resamples=_BOOTSTRAP_RESAMPLES,
+        bootstrap_seed=_BOOTSTRAP_SEED,
+        confidence_level=_CONFIDENCE_LEVEL,
+    )
+    valid_run_ids = {run_id for run_id, _ in valid_decision_keys}
+    valid_run_rows = [row for row in run_rows if row.run_id in valid_run_ids]
+    physical_evidence = [
+        row
+        for row in loss_views.evidence
+        if row.loss_view == "observed_physical_eviction_blocks"
+    ]
+    direct_loss_views = tuple(
+        sorted(
+            {
+                row.loss_view
+                for row in loss_views.evidence
+                if row.availability == "available"
+                and row.evidence_kind == "direct_runtime_observation"
+            }
+        )
+    )
+    gap_report = evaluate_empirical_gap_gate(
+        EmpiricalGapInputs(
+            formal_campaign=formal_campaign,
+            otherwise_valid_decision_count=sum(
+                row.candidate_count >= 2
+                and "run_status_not_success" not in row.invalid_reasons
+                for row in decision_validity
+            ),
+            joinable_decision_count=len(valid_decision_keys),
+            valid_decision_count=len(valid_decision_keys),
+            scenario_family_count=len(
+                {
+                    row.scenario_family_id
+                    for row in valid_run_rows
+                    if row.scenario_family_id is not None
+                }
+            ),
+            seed_count=len({row.seed for row in valid_run_rows}),
+            physical_missingness_explicit=all(
+                row.availability == "available"
+                or row.unavailable_reason is not None
+                for row in physical_evidence
+            ),
+            provenance_complete=all(
+                row.run_id and row.decision_event_index >= 0
+                for row in decision_tables.candidates
+            ),
+            online_signal_supported=None,
+            direct_loss_views=direct_loss_views,
+        ),
+        summaries.loss_heterogeneity,
+        summaries.regret,
     )
     return DerivedDatasetBundle(
         runs=run_rows,
@@ -228,12 +408,16 @@ def build_derived_dataset_bundle(
         candidate_loss_evidence=loss_views.evidence,
         loss_view_availability=loss_views.availability,
         decision_regret=loss_views.decision_regret,
-        run_validity=_build_run_validity(
-            raw_runs,
-            run_rows,
-            decision_tables.decisions,
-        ),
+        candidate_loss_spreads=loss_views.loss_spreads,
+        candidate_feature_spreads=feature_spreads,
+        candidate_heterogeneity_summary=summaries.candidate_heterogeneity,
+        regret_summary=summaries.regret,
+        loss_heterogeneity_summary=summaries.loss_heterogeneity,
+        decision_validity=decision_validity,
+        run_validity=run_validity,
         capabilities=_build_capabilities(run_rows),
+        empirical_gap_report=gap_report,
+        formal_campaign=formal_campaign,
     )
 
 
@@ -269,8 +453,17 @@ def write_derived_dataset_bundle(
         "candidate_loss_evidence": bundle.candidate_loss_evidence,
         "loss_view_availability": bundle.loss_view_availability,
         "decision_regret": bundle.decision_regret,
+        "candidate_loss_spreads": bundle.candidate_loss_spreads,
+        "candidate_feature_spreads": bundle.candidate_feature_spreads,
+        "candidate_heterogeneity_summary": (
+            bundle.candidate_heterogeneity_summary
+        ),
+        "regret_summary": bundle.regret_summary,
+        "loss_heterogeneity_summary": bundle.loss_heterogeneity_summary,
+        "decision_validity": bundle.decision_validity,
         "run_validity": bundle.run_validity,
         "capabilities": bundle.capabilities,
+        "empirical_gap_report": (bundle.empirical_gap_report,),
     }
     for name, rows in tables.items():
         _write_jsonl(output_dir / f"{name}.jsonl", rows)
@@ -279,6 +472,12 @@ def write_derived_dataset_bundle(
         "schema_version": "phase2a.derived.v1",
         "source_run_ids": [row.run_id for row in bundle.runs],
         "row_counts": {name: len(rows) for name, rows in tables.items()},
+        "analysis_parameters": {
+            "bootstrap_resamples": _BOOTSTRAP_RESAMPLES,
+            "bootstrap_seed": _BOOTSTRAP_SEED,
+            "confidence_level": _CONFIDENCE_LEVEL,
+            "formal_campaign": bundle.formal_campaign,
+        },
     }
     (output_dir / "manifest.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n",

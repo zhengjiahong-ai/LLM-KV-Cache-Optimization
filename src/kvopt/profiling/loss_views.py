@@ -44,12 +44,26 @@ class LossViewAvailabilityRow:
 
 
 @dataclass(frozen=True, slots=True)
+class CandidateLossSpreadRow:
+    """Within-decision spread for one fully comparable loss view."""
+
+    run_id: str
+    decision_event_index: int
+    loss_view: str
+    candidate_count: int
+    minimum_loss: float
+    maximum_loss: float
+    loss_spread: float
+
+
+@dataclass(frozen=True, slots=True)
 class LossViewTables:
     """Loss evidence, comparability gates, and safe regret results."""
 
     evidence: tuple[CandidateLossEvidenceRow, ...]
     availability: tuple[LossViewAvailabilityRow, ...]
     comparable_losses: tuple[CandidateLossRow, ...]
+    loss_spreads: tuple[CandidateLossSpreadRow, ...]
     decision_regret: tuple[DecisionRegretRow, ...]
 
 
@@ -255,9 +269,35 @@ def build_loss_view_tables(
 
     evidence_rows = tuple(evidence)
     availability, comparable = _gate_loss_views(evidence_rows)
+    comparable_groups: dict[
+        tuple[str, int, str],
+        list[CandidateLossRow],
+    ] = defaultdict(list)
+    for row in comparable:
+        comparable_groups[
+            (row.run_id, row.decision_event_index, row.loss_view)
+        ].append(row)
+    loss_spreads = tuple(
+        CandidateLossSpreadRow(
+            run_id=run_id,
+            decision_event_index=event_index,
+            loss_view=loss_view,
+            candidate_count=len(group),
+            minimum_loss=min(row.loss for row in group),
+            maximum_loss=max(row.loss for row in group),
+            loss_spread=(
+                max(row.loss for row in group)
+                - min(row.loss for row in group)
+            ),
+        )
+        for (run_id, event_index, loss_view), group in sorted(
+            comparable_groups.items()
+        )
+    )
     return LossViewTables(
         evidence=evidence_rows,
         availability=availability,
         comparable_losses=comparable,
+        loss_spreads=loss_spreads,
         decision_regret=build_decision_regret_table(comparable),
     )

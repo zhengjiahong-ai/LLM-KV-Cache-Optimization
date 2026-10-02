@@ -66,6 +66,7 @@ def test_loss_views_only_send_fully_comparable_proxy_to_regret() -> None:
     assert not gates["observed_physical_eviction_blocks"].usable_for_regret
     assert not gates["observed_recomputed_tokens"].usable_for_regret
     assert len(tables.comparable_losses) == 2
+    assert tables.loss_spreads[0].loss_spread == 4.0
     assert len(tables.decision_regret) == 1
     assert tables.decision_regret[0].absolute_regret == 4.0
 

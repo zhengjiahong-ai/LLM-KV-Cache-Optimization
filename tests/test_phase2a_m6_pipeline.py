@@ -1,3 +1,4 @@
+import copy
 import json
 import shutil
 from pathlib import Path
@@ -34,6 +35,43 @@ def _load_current_schema_smoke_run(tmp_path: Path):
     return load_run_artifacts(run_dir)
 
 
+def _load_mixed_validity_smoke_run(tmp_path: Path):
+    artifacts = _load_current_schema_smoke_run(tmp_path)
+    events_path = artifacts.run_dir / "events.jsonl"
+    events = [
+        json.loads(line)
+        for line in events_path.read_text(encoding="utf-8").splitlines()
+    ]
+    first_decision = events[14]
+    second_candidate = copy.deepcopy(first_decision["payload"]["candidates"][0])
+    second_candidate.update(
+        program_id="agent-b",
+        prefix_id="prefix-agent-b",
+        block_ids=[20],
+        initially_reclaimable_block_ids=[20],
+    )
+    first_decision["payload"]["candidates"].append(second_candidate)
+
+    untraceable_decision = copy.deepcopy(first_decision)
+    untraceable_decision["event_index"] = 20
+    untraceable_decision["timestamp"] = 9.0
+    events.append(untraceable_decision)
+    events_path.write_text(
+        "".join(json.dumps(event) + "\n" for event in events),
+        encoding="utf-8",
+    )
+
+    manifest_path = artifacts.run_dir / "run.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["event_count"] = 21
+    manifest["persisted_forced_release_event_count"] = 2
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return load_run_artifacts(artifacts.run_dir)
+
+
 def test_pipeline_builds_and_writes_small_smoke_bundle(tmp_path: Path) -> None:
     raw_manifest_before = (SMOKE_RUN / "run.json").read_text(encoding="utf-8")
     bundle = build_derived_dataset_bundle(
@@ -55,9 +93,17 @@ def test_pipeline_builds_and_writes_small_smoke_bundle(tmp_path: Path) -> None:
     validity = bundle.run_validity[0]
     assert not validity.valid_for_candidate_analysis
     assert validity.invalid_reasons == ("no_multi_candidate_decision",)
+    assert bundle.decision_validity[0].invalid_reasons == (
+        "fewer_than_two_candidates",
+    )
     assert len(bundle.candidate_loss_evidence) == 3
     assert len(bundle.loss_view_availability) == 3
     assert bundle.decision_regret == ()
+    assert len(bundle.candidate_feature_spreads) == 7
+    assert bundle.candidate_heterogeneity_summary == ()
+    assert bundle.regret_summary == ()
+    assert bundle.loss_heterogeneity_summary == ()
+    assert bundle.empirical_gap_report.overall_outcome == "INSUFFICIENT-EVENTS"
 
     output_dir = tmp_path / "derived"
     write_derived_dataset_bundle(bundle, output_dir)
@@ -66,7 +112,8 @@ def test_pipeline_builds_and_writes_small_smoke_bundle(tmp_path: Path) -> None:
     )
     assert manifest["schema_version"] == "phase2a.derived.v1"
     assert manifest["row_counts"]["request_outcomes"] == 4
-    assert len(tuple(output_dir.glob("*.jsonl"))) == 12
+    assert manifest["analysis_parameters"]["bootstrap_seed"] == 0
+    assert len(tuple(output_dir.glob("*.jsonl"))) == 19
     assert (SMOKE_RUN / "run.json").read_text(encoding="utf-8") == raw_manifest_before
 
 
@@ -104,3 +151,21 @@ def test_discovery_fails_when_no_runs_exist(tmp_path: Path) -> None:
         match="no run.json files found",
     ):
         discover_run_artifacts(tmp_path)
+
+
+def test_pipeline_statistics_exclude_invalid_decision_within_valid_run(
+    tmp_path: Path,
+) -> None:
+    bundle = build_derived_dataset_bundle(
+        (_load_mixed_validity_smoke_run(tmp_path),)
+    )
+
+    assert [
+        row.valid_for_candidate_analysis for row in bundle.decision_validity
+    ] == [True, False]
+    assert bundle.run_validity[0].valid_for_candidate_analysis
+    assert all(
+        row.decision_count == 1
+        for row in bundle.candidate_heterogeneity_summary
+    )
+    assert all(row.decision_count == 1 for row in bundle.regret_summary)
