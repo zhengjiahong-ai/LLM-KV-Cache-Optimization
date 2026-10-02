@@ -55,6 +55,9 @@ def test_pipeline_builds_and_writes_small_smoke_bundle(tmp_path: Path) -> None:
     validity = bundle.run_validity[0]
     assert not validity.valid_for_candidate_analysis
     assert validity.invalid_reasons == ("no_multi_candidate_decision",)
+    assert len(bundle.candidate_loss_evidence) == 3
+    assert len(bundle.loss_view_availability) == 3
+    assert bundle.decision_regret == ()
 
     output_dir = tmp_path / "derived"
     write_derived_dataset_bundle(bundle, output_dir)
@@ -63,7 +66,7 @@ def test_pipeline_builds_and_writes_small_smoke_bundle(tmp_path: Path) -> None:
     )
     assert manifest["schema_version"] == "phase2a.derived.v1"
     assert manifest["row_counts"]["request_outcomes"] == 4
-    assert len(tuple(output_dir.glob("*.jsonl"))) == 9
+    assert len(tuple(output_dir.glob("*.jsonl"))) == 12
     assert (SMOKE_RUN / "run.json").read_text(encoding="utf-8") == raw_manifest_before
 
 
