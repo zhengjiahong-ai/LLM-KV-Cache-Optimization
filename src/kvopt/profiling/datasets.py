@@ -309,6 +309,22 @@ class LogicalReleaseRow:
     newly_eligible_block_count: int
 
 
+@dataclass(frozen=True, slots=True)
+class PhysicalEvictionRow:
+    """One observed physical eviction, keyed by its source event."""
+
+    run_id: str
+    eviction_event_index: int
+    source_event_index: int
+    timestamp: float
+    clock_domain: str
+    source: str
+    block_id: int
+    preceding_decision_event_index: int | None
+    native_hash_hex: str | None
+    identity_kind: str
+
+
 def _required_list(value: object, field_name: str) -> list[object]:
     if not isinstance(value, list):
         raise ArtifactValidationError(f"{field_name} must be a list")
@@ -634,5 +650,81 @@ def build_logical_releases_table(
                         newly_eligible_block_count=len(newly_eligible),
                     )
                 )
+
+    return tuple(rows)
+
+
+def build_physical_evictions_table(
+    runs: Iterable[RawRunArtifacts],
+) -> tuple[PhysicalEvictionRow, ...]:
+    """Preserve physical eviction events without treating block IDs as content IDs."""
+
+    rows: list[PhysicalEvictionRow] = []
+    seen_event_keys: set[tuple[str, int]] = set()
+
+    for artifacts in runs:
+        if not isinstance(artifacts, RawRunArtifacts):
+            raise TypeError("runs must contain RawRunArtifacts instances")
+
+        preceding_decision_event_index: int | None = None
+        for event in artifacts.events:
+            event_index = _required_non_negative_int(
+                event.get("event_index"),
+                "event_index",
+            )
+            event_type = event.get("event_type")
+            if event_type == "FORCED_RELEASE_DECISION":
+                preceding_decision_event_index = event_index
+                continue
+            if event_type != "BLOCK_EVICTED":
+                continue
+
+            event_key = (artifacts.run_id, event_index)
+            if event_key in seen_event_keys:
+                raise ArtifactValidationError(
+                    f"duplicate physical eviction event key: {event_key}"
+                )
+            seen_event_keys.add(event_key)
+
+            payload = _required_mapping(
+                event.get("payload"),
+                f"physical eviction {event_index} payload",
+            )
+            native_hash_hex = _optional_text(
+                payload.get("native_hash_hex"),
+                f"physical eviction {event_index} native_hash_hex",
+            )
+            rows.append(
+                PhysicalEvictionRow(
+                    run_id=artifacts.run_id,
+                    eviction_event_index=event_index,
+                    source_event_index=event_index,
+                    timestamp=_required_non_negative_float(
+                        event.get("timestamp"),
+                        f"physical eviction {event_index} timestamp",
+                    ),
+                    clock_domain=_required_text(
+                        event.get("clock_domain"),
+                        f"physical eviction {event_index} clock_domain",
+                    ),
+                    source=_required_text(
+                        event.get("source"),
+                        f"physical eviction {event_index} source",
+                    ),
+                    block_id=_required_non_negative_int(
+                        payload.get("block_id"),
+                        f"physical eviction {event_index} block_id",
+                    ),
+                    preceding_decision_event_index=(
+                        preceding_decision_event_index
+                    ),
+                    native_hash_hex=native_hash_hex,
+                    identity_kind=(
+                        "native_hash"
+                        if native_hash_hex is not None
+                        else "block_slot_only"
+                    ),
+                )
+            )
 
     return tuple(rows)
