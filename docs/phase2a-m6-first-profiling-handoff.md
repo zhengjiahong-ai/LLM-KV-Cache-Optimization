@@ -16,6 +16,48 @@ Read together:
 
 ## M6 — start now
 
+### Task 0: run P0 and P1 together
+
+Use the combined frozen pilot suite instead of running P0 and P1 as separate handoffs.
+
+From the repository root:
+
+```bash
+git checkout feature/phase2a-profiling-protocol
+git pull
+
+PYTHONPATH=src:. \
+python benchmarks/run_phase2a_p0_p1_suite.py
+```
+
+If the pinned vLLM-Metal source checkout is available:
+
+```bash
+PYTHONPATH=src:. \
+python benchmarks/run_phase2a_p0_p1_suite.py \
+  --vllm-metal-source-checkout /absolute/path/to/vllm-metal
+```
+
+The suite contains:
+
+```text
+P0-equal-256-256
+P1-cost-128-256
+P1-cost-256-512
+```
+
+with seeds:
+
+```text
+11
+23
+37
+```
+
+for a total of 9 runs.
+
+Do not stop after P0 unless the suite encounters a real execution failure.
+
 ### Task A: build the derived dataset pipeline
 
 Input source of truth:
@@ -43,32 +85,28 @@ Every derived row must retain raw source event indexes.
 
 Do not put oracle/regret into runtime code.
 
-### Task B: collect P0 first
+### Task B: validate the combined P0/P1 output
 
-P0 is equal-cost sanity:
+For all 9 runs check:
 
-- 2 protected candidates
-- 256 vs 256 reusable tokens
-- controlled pressure
-- at least 3 seeds
-
-Check:
-
+- forced release occurred
 - candidate_count >= 2
-- logical selected release
-- actual physical evictions
-- future program/prefix return
-- no lost provenance
+- logical selected release is joinable
+- actual physical eviction is joinable
+- future program/prefix lifecycle is joinable
+- per-program materialized prefix size matches the scenario
+- no provenance was lost
 
-### Task C: collect P1 after per-program prefix sizing is available
+P0 remains the equal-cost sanity control:
 
-P1 targets cost heterogeneity:
+- 256 vs 256
+
+P1 contains the cost-heterogeneity cases:
 
 - 128 vs 256
 - 256 vs 512
-- at least 3 seeds per concrete case
 
-Do not emulate size differences only in analysis; the backend must materialize the actual requested reusable-token sizes.
+Do not emulate size differences only in analysis; the backend now materializes the requested reusable-token sizes in the real runtime.
 
 ### Task D: do not interpret P2/P3 timing yet
 
@@ -140,10 +178,13 @@ M5 substrate remains CLOSED.
 
 ## First checkpoint
 
-Return for review when either:
+Return for review after the combined P0/P1 suite has completed.
 
-A. M6 has at least 3 valid P0 runs and the first decision_candidates / physical_evictions join; or
+Bring back the full 9-run artifact directory plus the first:
 
-B. M1 has the profiling backend ready for per-program prefix sizes and real planned timing.
+- decision_candidates join
+- logical_releases join
+- physical_evictions join
+- request_outcomes join
 
-At that checkpoint we verify the data shape before scaling to the 30-decision pilot target.
+At that checkpoint we verify P0 and P1 together before enabling P2/P3 timing-sensitive profiling or scaling toward the 30-decision gate target.
