@@ -4,7 +4,10 @@ from pathlib import Path
 
 import pytest
 
-from kvopt.profiling.datasets import build_decision_tables
+from kvopt.profiling.datasets import (
+    build_decision_tables,
+    build_logical_releases_table,
+)
 from kvopt.profiling.ingestion import ArtifactValidationError, RawRunArtifacts
 
 
@@ -201,3 +204,58 @@ def test_build_decision_tables_rejects_foreign_reclaimable_block() -> None:
         match="reclaimable blocks must belong to candidate",
     ):
         build_decision_tables((run,))
+
+
+def test_build_logical_releases_table_preserves_release_effect() -> None:
+    rows = build_logical_releases_table((_raw_run_with_decision(),))
+
+    assert len(rows) == 1
+    row = rows[0]
+    assert row.run_id == "run-a"
+    assert row.decision_event_index == 7
+    assert row.source_event_index == 7
+    assert row.release_order == 1
+    assert row.program_id == "agent-b"
+    assert row.prefix_id == "prefix-b"
+    assert row.newly_eligible_block_ids == (3,)
+    assert row.newly_eligible_block_count == 1
+
+
+def test_build_logical_releases_table_preserves_multiple_release_order() -> None:
+    run = _raw_run_with_decision()
+    payload = run.events[0]["payload"]
+    assert isinstance(payload, dict)
+    releases = payload["selected_releases"]
+    assert isinstance(releases, list)
+    releases.insert(
+        0,
+        {
+            "program_id": "agent-a",
+            "prefix_id": "prefix-a",
+            "newly_eligible_block_ids": [1],
+        },
+    )
+
+    rows = build_logical_releases_table((run,))
+
+    assert [(row.program_id, row.release_order) for row in rows] == [
+        ("agent-a", 1),
+        ("agent-b", 2),
+    ]
+
+
+def test_build_logical_releases_table_rejects_foreign_block() -> None:
+    run = _raw_run_with_decision()
+    payload = run.events[0]["payload"]
+    assert isinstance(payload, dict)
+    releases = payload["selected_releases"]
+    assert isinstance(releases, list)
+    release = releases[0]
+    assert isinstance(release, dict)
+    release["newly_eligible_block_ids"] = [999]
+
+    with pytest.raises(
+        ArtifactValidationError,
+        match="newly eligible blocks must belong to the selected candidate",
+    ):
+        build_logical_releases_table((run,))
