@@ -1,3 +1,26 @@
+# Phase 2A Foundation Profiling Protocol (Historical Name)
+
+Status: RECLASSIFIED AS FOUNDATION TEST PROTOCOL
+
+This document originally described the P0-P3 micro-scenario suite as the first profiling round.
+That classification is now superseded.
+
+The P0-P3 suite is only the Phase 2A foundation test layer. It validates scenario
+materialization, real-runtime observability, controlled pressure, joins, and timing
+plumbing. It is not sufficient by itself to support M4 method design or to pass the
+Empirical Gap Gate.
+
+Authoritative follow-up documents:
+
+- docs/phase2a-foundation-test-suite.md
+- docs/phase2a-m6-formal-profiling-plan.md
+- docs/phase2a-profiling-data-contract.md
+- docs/phase2a-empirical-gap-gate.md
+
+The remaining content below is retained as the concrete foundation-test design.
+
+---
+
 # Phase 2A First Profiling Protocol
 
 Status: FROZEN FOR PILOT PROFILING
