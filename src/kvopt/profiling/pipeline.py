@@ -8,6 +8,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+from .analysis import DecisionRegretRow
 from .datasets import (
     DecisionCandidateRow,
     DecisionRow,
@@ -24,6 +25,11 @@ from .ingestion import (
     ArtifactValidationError,
     RawRunArtifacts,
     load_run_artifacts,
+)
+from .loss_views import (
+    CandidateLossEvidenceRow,
+    LossViewAvailabilityRow,
+    build_loss_view_tables,
 )
 from .request_outcomes import RequestOutcomeRow, build_request_outcomes_table
 
@@ -62,6 +68,9 @@ class DerivedDatasetBundle:
     physical_evictions: tuple[PhysicalEvictionRow, ...]
     request_outcomes: tuple[RequestOutcomeRow, ...]
     decision_outcomes: tuple[DecisionOutcomeRow, ...]
+    candidate_loss_evidence: tuple[CandidateLossEvidenceRow, ...]
+    loss_view_availability: tuple[LossViewAvailabilityRow, ...]
+    decision_regret: tuple[DecisionRegretRow, ...]
     run_validity: tuple[RunValidityRow, ...]
     capabilities: tuple[CapabilityRow, ...]
 
@@ -203,6 +212,11 @@ def build_derived_dataset_bundle(
     raw_runs = tuple(runs)
     run_rows = build_runs_table(raw_runs)
     decision_tables = build_decision_tables(raw_runs)
+    decision_outcomes = build_decision_outcomes_table(raw_runs)
+    loss_views = build_loss_view_tables(
+        decision_tables.candidates,
+        decision_outcomes,
+    )
     return DerivedDatasetBundle(
         runs=run_rows,
         decisions=decision_tables.decisions,
@@ -210,7 +224,10 @@ def build_derived_dataset_bundle(
         logical_releases=build_logical_releases_table(raw_runs),
         physical_evictions=build_physical_evictions_table(raw_runs),
         request_outcomes=build_request_outcomes_table(raw_runs),
-        decision_outcomes=build_decision_outcomes_table(raw_runs),
+        decision_outcomes=decision_outcomes,
+        candidate_loss_evidence=loss_views.evidence,
+        loss_view_availability=loss_views.availability,
+        decision_regret=loss_views.decision_regret,
         run_validity=_build_run_validity(
             raw_runs,
             run_rows,
@@ -249,6 +266,9 @@ def write_derived_dataset_bundle(
         "physical_evictions": bundle.physical_evictions,
         "request_outcomes": bundle.request_outcomes,
         "decision_outcomes": bundle.decision_outcomes,
+        "candidate_loss_evidence": bundle.candidate_loss_evidence,
+        "loss_view_availability": bundle.loss_view_availability,
+        "decision_regret": bundle.decision_regret,
         "run_validity": bundle.run_validity,
         "capabilities": bundle.capabilities,
     }
