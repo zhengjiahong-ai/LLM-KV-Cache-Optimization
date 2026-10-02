@@ -26,6 +26,7 @@ class RunRow:
     policy: str
     runtime_mode: str
     scenario_id: str | None
+    scenario_family_id: str | None
     backend: str
     backend_revision: str
     model_name: str
@@ -171,6 +172,10 @@ def _build_run_row(artifacts: RawRunArtifacts) -> RunRow:
         scenario_id=_optional_text(
             config.get("profiling_scenario_id"),
             "run.json config.profiling_scenario_id",
+        ),
+        scenario_family_id=_optional_text(
+            config.get("profiling_scenario_family"),
+            "run.json config.profiling_scenario_family",
         ),
         backend=_required_text(
             manifest.get("backend"),

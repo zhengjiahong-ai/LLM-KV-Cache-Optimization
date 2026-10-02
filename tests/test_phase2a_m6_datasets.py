@@ -98,6 +98,7 @@ def test_build_runs_table_preserves_counts_and_capabilities() -> None:
 
     assert row.event_count == 8
     assert row.forced_release_event_count == 2
+    assert row.scenario_family_id is None
     assert row.observation_availability == {
         "forced_release": "available",
         "native_apc_hit_miss": "unavailable",

@@ -29,6 +29,11 @@ def _parser() -> argparse.ArgumentParser:
         required=True,
         help="new directory for derived JSONL tables",
     )
+    parser.add_argument(
+        "--formal-campaign",
+        action="store_true",
+        help="declare that inputs belong to the formal M6 campaign",
+    )
     return parser
 
 
@@ -39,7 +44,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     arguments = parser.parse_args(argv)
     try:
         runs = discover_run_artifacts(arguments.artifact_root)
-        bundle = build_derived_dataset_bundle(runs)
+        bundle = build_derived_dataset_bundle(
+            runs,
+            formal_campaign=arguments.formal_campaign,
+        )
         write_derived_dataset_bundle(bundle, arguments.output)
     except (ArtifactValidationError, FileExistsError) as error:
         parser.error(str(error))
