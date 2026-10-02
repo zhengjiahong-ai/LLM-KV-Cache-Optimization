@@ -1,0 +1,53 @@
+{
+  "schema_version": "phase2.trace.v1",
+  "trace_id": "phase2a-timing-b-early-a-late-v1",
+  "programs": [
+    {
+      "program_id": "agent-a",
+      "turns": [
+        {
+          "arrival_offset_seconds": 0.0,
+          "prefix_prompt": "deterministic reusable prefix A",
+          "prompt": "establish candidate A",
+          "terminal": false,
+          "next_tool_type": "search",
+          "tool_gap_seconds": 2.25
+        },
+        {
+          "arrival_offset_seconds": 2.25,
+          "prefix_prompt": "deterministic reusable prefix A",
+          "prompt": "return after pressure",
+          "terminal": true
+        }
+      ]
+    },
+    {
+      "program_id": "agent-b",
+      "turns": [
+        {
+          "arrival_offset_seconds": 0.25,
+          "prefix_prompt": "deterministic reusable prefix B",
+          "prompt": "establish candidate B",
+          "terminal": false,
+          "next_tool_type": "database",
+          "tool_gap_seconds": 1
+        },
+        {
+          "arrival_offset_seconds": 1.25,
+          "prefix_prompt": "deterministic reusable prefix B",
+          "prompt": "return after pressure",
+          "terminal": true
+        }
+      ]
+    }
+  ],
+  "pressure_stages": [
+    {
+      "stage_id": "profiling-pressure",
+      "arrival_offset_seconds": 0.5,
+      "prompt": "deterministic 512-token pressure request",
+      "max_requests": 2,
+      "stop_on_forced_release": true
+    }
+  ]
+}
