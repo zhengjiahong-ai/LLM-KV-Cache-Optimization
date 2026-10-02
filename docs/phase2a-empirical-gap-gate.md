@@ -2,11 +2,13 @@
 
 Status: FROZEN v0 FOR PILOT
 
-The gate decides whether it is justified to ask M4 to implement a Cost-Aware forced-release policy. It does not decide the final score formula.
+The gate decides whether M6's FORMAL profiling and analysis provide enough evidence to justify asking M4 to implement a Cost-Aware forced-release policy. It does not decide the final score formula.
+
+The 30-run P0-P3 foundation suite is NOT an eligible standalone gate input. It may validate instrumentation, joins, and metric code, but GAP-PASS requires the broader M6 formal profiling dataset defined in docs/phase2a-m6-formal-profiling-plan.md.
 
 ## 1. Gate inputs
 
-Use only M6 datasets derived from raw Phase 2A artifacts under the profiling data contract.
+Use only M6 datasets derived from the FORMAL Phase 2A profiling campaign under the profiling data contract. Foundation-test artifacts may be included only as validation/sanity evidence, not as the sole statistical basis.
 
 A valid decision has:
 - candidate_count >= 2
@@ -27,7 +29,7 @@ Failure means fix instrumentation/dataset construction, not no research gap.
 
 ## 3. Event-volume gate — REQUIRED
 
-Pilot target:
+Minimum formal-dataset target:
 - at least 30 valid multi-candidate forced-release decisions
 - across at least 3 scenario families
 - with at least 3 seeds represented
