@@ -295,6 +295,20 @@ class DecisionTables:
     candidates: tuple[DecisionCandidateRow, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class LogicalReleaseRow:
+    """One logical protection release selected at a decision."""
+
+    run_id: str
+    decision_event_index: int
+    source_event_index: int
+    release_order: int
+    program_id: str
+    prefix_id: str
+    newly_eligible_block_ids: tuple[int, ...]
+    newly_eligible_block_count: int
+
+
 def _required_list(value: object, field_name: str) -> list[object]:
     if not isinstance(value, list):
         raise ArtifactValidationError(f"{field_name} must be a list")
@@ -542,3 +556,83 @@ def build_decision_tables(
         decisions=tuple(decisions),
         candidates=tuple(candidates),
     )
+
+
+def build_logical_releases_table(
+    runs: Iterable[RawRunArtifacts],
+) -> tuple[LogicalReleaseRow, ...]:
+    """Expand selected releases without treating them as physical evictions."""
+
+    raw_runs = tuple(runs)
+    decision_tables = build_decision_tables(raw_runs)
+    candidate_blocks = {
+        (
+            row.run_id,
+            row.decision_event_index,
+            row.program_id,
+            row.prefix_id,
+        ): row.block_ids
+        for row in decision_tables.candidates
+    }
+    rows: list[LogicalReleaseRow] = []
+
+    for artifacts in raw_runs:
+        for event in artifacts.events:
+            if event.get("event_type") != "FORCED_RELEASE_DECISION":
+                continue
+
+            event_index = _required_non_negative_int(
+                event.get("event_index"),
+                "forced-release event_index",
+            )
+            payload = _required_mapping(
+                event.get("payload"),
+                f"decision {event_index} payload",
+            )
+            releases = _required_list(
+                payload.get("selected_releases"),
+                f"decision {event_index} selected_releases",
+            )
+
+            for order, raw_release in enumerate(releases, start=1):
+                field_prefix = f"decision {event_index} selected release {order}"
+                release = _required_mapping(raw_release, field_prefix)
+                program_id = _required_text(
+                    release.get("program_id"),
+                    f"{field_prefix} program_id",
+                )
+                prefix_id = _required_text(
+                    release.get("prefix_id"),
+                    f"{field_prefix} prefix_id",
+                )
+                newly_eligible = _required_block_ids(
+                    release.get("newly_eligible_block_ids"),
+                    f"{field_prefix} newly_eligible_block_ids",
+                )
+                candidate_key = (
+                    artifacts.run_id,
+                    event_index,
+                    program_id,
+                    prefix_id,
+                )
+                owned_blocks = candidate_blocks[candidate_key]
+                if not set(newly_eligible).issubset(owned_blocks):
+                    raise ArtifactValidationError(
+                        f"{field_prefix} newly eligible blocks "
+                        "must belong to the selected candidate"
+                    )
+
+                rows.append(
+                    LogicalReleaseRow(
+                        run_id=artifacts.run_id,
+                        decision_event_index=event_index,
+                        source_event_index=event_index,
+                        release_order=order,
+                        program_id=program_id,
+                        prefix_id=prefix_id,
+                        newly_eligible_block_ids=newly_eligible,
+                        newly_eligible_block_count=len(newly_eligible),
+                    )
+                )
+
+    return tuple(rows)
