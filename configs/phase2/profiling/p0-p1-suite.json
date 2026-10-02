@@ -1,19 +1,17 @@
 {
   "schema_version": "phase2a.pilot_suite.v1",
-  "suite_id": "phase2a-p0-p1-pilot-v1",
+  "suite_id": "phase2a-full-pilot-v1",
   "seeds": [11, 23, 37],
   "scenarios": [
-    {
-      "scenario_id": "P0-equal-256-256",
-      "config": "p0-equal-256-256.json"
-    },
-    {
-      "scenario_id": "P1-cost-128-256",
-      "config": "p1-cost-128-256.json"
-    },
-    {
-      "scenario_id": "P1-cost-256-512",
-      "config": "p1-cost-256-512.json"
-    }
+    {"scenario_id": "P0-equal-256-256", "config": "p0-equal-256-256.json"},
+    {"scenario_id": "P1-cost-128-256", "config": "p1-cost-128-256.json"},
+    {"scenario_id": "P1-cost-256-512", "config": "p1-cost-256-512.json"},
+    {"scenario_id": "P2-reuse-a-early", "config": "p2-reuse-a-early.json"},
+    {"scenario_id": "P2-reuse-b-early", "config": "p2-reuse-b-early.json"},
+    {"scenario_id": "P2-reuse-b-outside-horizon", "config": "p2-reuse-b-outside-horizon.json"},
+    {"scenario_id": "P3-a512-b128-a-early", "config": "p3-a512-b128-a-early.json"},
+    {"scenario_id": "P3-a512-b128-b-early", "config": "p3-a512-b128-b-early.json"},
+    {"scenario_id": "P3-a128-b512-a-early", "config": "p3-a128-b512-a-early.json"},
+    {"scenario_id": "P3-a128-b512-b-early", "config": "p3-a128-b512-b-early.json"}
   ]
 }
