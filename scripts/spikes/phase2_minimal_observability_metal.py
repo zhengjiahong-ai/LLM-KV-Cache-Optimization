@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import importlib
 import os
+import time
 from importlib.metadata import version as distribution_version
 from pathlib import Path
 from typing import Any, Mapping
@@ -88,6 +89,42 @@ def _resolve_repo_path(value: object, field: str) -> Path:
     if not path.is_absolute():
         path = _repo_root() / path
     return path.resolve()
+
+
+def _program_prefix_sizes(options: Mapping[str, object]) -> dict[str, int]:
+    raw = options.get("program_prefix_tokens")
+    if raw is None:
+        return {}
+    if not isinstance(raw, Mapping):
+        raise TypeError("backend_options.program_prefix_tokens must be an object")
+    sizes: dict[str, int] = {}
+    for program_id, value in raw.items():
+        if not isinstance(program_id, str) or not program_id.strip():
+            raise ValueError("program_prefix_tokens keys must be non-empty program IDs")
+        size = _positive_int(
+            value,
+            f"backend_options.program_prefix_tokens[{program_id!r}]",
+        )
+        if size not in {128, 256, 512}:
+            raise ValueError("profiling prefix size must be one of 128, 256, 512")
+        if size % _BLOCK_SIZE != 0:
+            raise ValueError("profiling prefix size must align to the KV block size")
+        sizes[program_id] = size
+    return sizes
+
+
+def _expected_profiling_block_override(
+    program_prefix_tokens: Mapping[str, int],
+    pressure_tokens: int,
+) -> int:
+    if not program_prefix_tokens:
+        raise ValueError("program_prefix_tokens must not be empty")
+    if pressure_tokens % _BLOCK_SIZE != 0:
+        raise ValueError("pressure token count must align to the KV block size")
+    return (
+        sum(size // _BLOCK_SIZE for size in program_prefix_tokens.values())
+        + pressure_tokens // _BLOCK_SIZE
+    )
 
 
 def _program_prefix_token_ids(
@@ -192,20 +229,41 @@ class MinimalMetalObservabilityBackend:
             options.get("target_prefix_tokens", _TARGET_PREFIX_TOKENS),
             "backend_options.target_prefix_tokens",
         )
+        self._program_prefix_tokens = _program_prefix_sizes(options)
         self._pressure_tokens = _positive_int(
             options.get("pressure_prompt_tokens", _PRESSURE_TOKENS),
             "backend_options.pressure_prompt_tokens",
         )
+        timing = options.get("execute_planned_timing", False)
+        if not isinstance(timing, bool):
+            raise TypeError("backend_options.execute_planned_timing must be bool")
+        self._execute_planned_timing = timing
         block_override = _positive_int(
             config["cache"]["block_override"],  # type: ignore[index]
             "config.cache.block_override",
         )
-        if block_override != _DEFAULT_BLOCK_OVERRIDE:
-            raise ValueError(
-                "minimal two-candidate observability test requires cache.block_override=64"
+        if self._program_prefix_tokens:
+            expected_override = _expected_profiling_block_override(
+                self._program_prefix_tokens,
+                self._pressure_tokens,
             )
-        if self._prefix_tokens != _TARGET_PREFIX_TOKENS or self._pressure_tokens != _PRESSURE_TOKENS:
-            raise ValueError("qualified minimal test requires 256-prefix / 512-pressure tokens")
+            if block_override != expected_override:
+                raise ValueError(
+                    "profiling cache.block_override must equal protected-prefix blocks "
+                    "+ pressure-demand blocks"
+                )
+        else:
+            if block_override != _DEFAULT_BLOCK_OVERRIDE:
+                raise ValueError(
+                    "minimal two-candidate observability test requires cache.block_override=64"
+                )
+            if (
+                self._prefix_tokens != _TARGET_PREFIX_TOKENS
+                or self._pressure_tokens != _PRESSURE_TOKENS
+            ):
+                raise ValueError(
+                    "qualified minimal test requires 256-prefix / 512-pressure tokens"
+                )
 
         continuum_config = ContinuumConfig(
             enabled=True,
@@ -337,6 +395,7 @@ class MinimalMetalObservabilityBackend:
         self._started_programs: set[str] = set()
         self._pending_tool_gaps: dict[str, str] = {}
         self._closed = False
+        self._run_start_timestamp = float(self._clock.now())
 
         self._sink.emit(
             ExperimentEvent.create(
@@ -351,7 +410,9 @@ class MinimalMetalObservabilityBackend:
                     "cache_block_override": block_override,
                     "block_size": _BLOCK_SIZE,
                     "target_prefix_tokens": self._prefix_tokens,
+                    "program_prefix_tokens": self._program_prefix_tokens,
                     "pressure_prompt_tokens": self._pressure_tokens,
+                    "execute_planned_timing": self._execute_planned_timing,
                     "gpu_memory_utilization": gpu_memory_utilization,
                 },
             )
@@ -365,8 +426,45 @@ class MinimalMetalObservabilityBackend:
     def last_selected_block_ids(self) -> tuple[int, ...]:
         return self._retention_integration.last_selected_block_ids
 
+    def _prefix_tokens_for(self, request: PlannedRequest) -> int:
+        return self._program_prefix_tokens.get(
+            request.program_id,
+            self._prefix_tokens,
+        )
+
+    def _wait_for_planned_arrival(self, request: PlannedRequest) -> None:
+        if not self._execute_planned_timing:
+            return
+        planned_offset = request.planned_arrival_offset_seconds
+        target = self._run_start_timestamp + planned_offset
+        now = float(self._clock.now())
+        if target > now:
+            time.sleep(target - now)
+        observed = float(self._clock.now())
+        self._sink.emit(
+            ExperimentEvent.create(
+                event_type="PLANNED_ARRIVAL_REACHED",
+                timestamp=observed,
+                clock_domain="system_monotonic",
+                source="phase2.minimal_metal",
+                program_id=ProgramIdentity(request.program_id),
+                request_id=RequestIdentity(request.request_id),
+                payload={
+                    "planned_arrival_offset_seconds": planned_offset,
+                    "run_start_timestamp": self._run_start_timestamp,
+                    "planned_arrival_timestamp": target,
+                    "observed_arrival_boundary_timestamp": observed,
+                    "lateness_seconds": max(0.0, observed - target),
+                },
+            )
+        )
+
     def _emit_materialization(
-        self, request: PlannedRequest, token_ids: tuple[int, ...]
+        self,
+        request: PlannedRequest,
+        token_ids: tuple[int, ...],
+        *,
+        reusable_prefix_tokens: int | None = None,
     ) -> None:
         self._sink.emit(
             ExperimentEvent.create(
@@ -379,15 +477,24 @@ class MinimalMetalObservabilityBackend:
                 payload={
                     "kind": request.kind,
                     "token_count": len(token_ids),
+                    "reusable_prefix_token_count": reusable_prefix_tokens,
                     "materialization": "deterministic_token_ids",
                 },
             )
         )
 
     def _enqueue(
-        self, request: PlannedRequest, token_ids: tuple[int, ...]
+        self,
+        request: PlannedRequest,
+        token_ids: tuple[int, ...],
+        *,
+        reusable_prefix_tokens: int | None = None,
     ) -> tuple[str, str, float]:
-        self._emit_materialization(request, token_ids)
+        self._emit_materialization(
+            request,
+            token_ids,
+            reusable_prefix_tokens=reusable_prefix_tokens,
+        )
         native_ids = tuple(
             self._llm.enqueue(
                 [{"prompt_token_ids": list(token_ids)}],
@@ -489,6 +596,7 @@ class MinimalMetalObservabilityBackend:
         return prefix, token_count, blocks
 
     def _execute_turn(self, request: PlannedRequest) -> None:
+        self._wait_for_planned_arrival(request)
         program = ProgramIdentity(request.program_id)
         logical_request = RequestIdentity(request.request_id)
         now = float(self._clock.now())
@@ -501,12 +609,17 @@ class MinimalMetalObservabilityBackend:
             self._runtime.handle(ToolGapEnded(program, pending_tool, now))
 
         self._runtime.handle(RequestArrived(program, logical_request, now))
+        prefix_tokens = self._prefix_tokens_for(request)
         token_ids = _turn_token_ids(
             request,
             vocabulary_size=self._vocabulary_size,
-            prefix_tokens=self._prefix_tokens,
+            prefix_tokens=prefix_tokens,
         )
-        native_id, external_id, submitted_at = self._enqueue(request, token_ids)
+        native_id, external_id, submitted_at = self._enqueue(
+            request,
+            token_ids,
+            reusable_prefix_tokens=prefix_tokens,
+        )
         # This is the framework's logical admission boundary (engine enqueue
         # accepted), not a claim of native scheduler-admission timestamp.
         self._runtime.handle(RequestAdmitted(program, logical_request, submitted_at))
@@ -514,7 +627,7 @@ class MinimalMetalObservabilityBackend:
         prefix, token_count, blocks = self._prefix_snapshot(
             request,
             native_id,
-            expected_token_count=self._prefix_tokens,
+            expected_token_count=prefix_tokens,
         )
 
         if request.is_terminal:
@@ -567,6 +680,7 @@ class MinimalMetalObservabilityBackend:
         self._pending_tool_gaps[request.program_id] = request.next_tool_type
 
     def _execute_pressure(self, request: PlannedRequest) -> None:
+        self._wait_for_planned_arrival(request)
         token_ids = _pressure_token_ids(
             request,
             vocabulary_size=self._vocabulary_size,

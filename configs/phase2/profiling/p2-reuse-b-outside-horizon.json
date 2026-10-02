@@ -1,0 +1,45 @@
+{
+  "schema_version": "phase2.config.v1",
+  "trace": "timing-a-early-b-outside-horizon.json",
+  "seed": 42,
+  "policy": "continuum-baseline",
+  "runtime_mode": "vllm-metal-observability",
+  "backend_factory": "scripts.spikes.phase2_minimal_observability_metal:build_phase2_metal_observability_backend",
+  "backend_revision": "phase2a-profiling-metal-v1",
+  "model": {
+    "name": "Qwen/Qwen2.5-0.5B-Instruct",
+    "revision": "7ae557604adf67be50417f59c2c2f167def9a775"
+  },
+  "tokenizer": {
+    "name": "Qwen/Qwen2.5-0.5B-Instruct",
+    "revision": "7ae557604adf67be50417f59c2c2f167def9a775"
+  },
+  "cache": {
+    "block_override": 64,
+    "block_size": 16
+  },
+  "generation": {
+    "max_new_tokens": 1,
+    "temperature": 0
+  },
+  "batching": {
+    "max_concurrent_requests": 1
+  },
+  "pressure": {
+    "required_blocks": 32,
+    "safety_ceiling": 2
+  },
+  "backend_options": {
+    "program_prefix_tokens": {
+      "agent-a": 256,
+      "agent-b": 256
+    },
+    "pressure_prompt_tokens": 512,
+    "execute_planned_timing": true,
+    "gpu_memory_utilization": 0.8,
+    "prefill_profile_path": "docs/experiments/phase1b-continuum/artifacts/prefill-reload-profile-formal-20260920T045859Z-6183d106.json"
+  },
+  "observe": true,
+  "profiling_scenario_id": "P2-reuse-b-outside-horizon",
+  "analysis_horizon_seconds": 1.5
+}

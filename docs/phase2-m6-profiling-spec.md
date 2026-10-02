@@ -1,55 +1,146 @@
-# Phase 2A Member 6 Spec — Forced-Release Profiling and Data Analysis
+# Phase 2A Member 6 Spec — Formal Profiling, Experiment Tests, and Method Support
 
-## 1. Goal
+Status: **ACTIVE TASK SPEC**
 
-Member 6 owns the measurement and analysis side of Phase 2A.
+This document is the authoritative Member 6 specification for Phase 2A.
 
-The first objective is to answer:
+It supersedes the earlier narrower interpretation in which Member 6 mainly
+recorded and analyzed a small forced-release audit.  The current assignment is
+broader: Member 6 owns the formal experiment/test/analysis layer that produces
+the evidence Member 4 needs before designing the Cost-Aware method.
 
-> Does Continuum forced release have measurable decision headroom, and can that headroom be explained by information available at decision time?
+Authoritative companion documents:
 
-This phase evaluates a candidate research gap. It does **not** assume the proposed Cost-Aware method is valid.
+- `docs/phase2a-foundation-test-suite.md`
+- `docs/phase2a-m6-formal-profiling-plan.md`
+- `docs/phase2a-m6-formal-experiment-matrix.md`
+- `docs/phase2a-m6-formal-test-plan.md`
+- `docs/phase2a-profiling-data-contract.md`
+- `docs/phase2a-empirical-gap-gate.md`
+- `docs/phase2a-m4-method-support-pack.md`
 
-Authoritative inputs:
+## 1. Stage goal
 
-- `docs/phase2-plan.md`
-- `docs/phase2-m5-workload-spec.md`
-- `src/kvopt/profiling/forced_release.py`
+Member 6 must provide evidence for the next Member 4 design step.
 
-## 2. Ownership boundary
+The central questions are:
+
+1. How often does multi-candidate forced release occur?
+2. How different are candidates at decision time?
+3. How different are their realized outcomes?
+4. Where does Continuum/P1B forced release make hindsight-suboptimal choices?
+5. How large is the resulting headroom/regret?
+6. Is that headroom predictable using information available online at decision time?
+
+This phase evaluates a research gap.  It does **not** assume that a Cost-Aware
+method is valid.
+
+Member 4 should not design the final optimization from intuition or from the
+foundation micro-tests alone.  The required input is the Member 6 **Method
+Support Pack**.
+
+## 2. Foundation tests are not the formal experiment
+
+The existing P0-P3 suite is classified as:
+
+> **Phase 2A Foundation Tests**
+
+It validates:
+
+- scenario materialization;
+- low-cost real-runtime execution;
+- multi-candidate forced release;
+- prefix-size plumbing;
+- planned/observed timing plumbing;
+- decision/logical-release/physical-eviction/future-lifecycle joins;
+- basic analysis/test fixtures.
+
+The current 30 foundation runs are useful for bring-up and regression testing.
+
+They are **not** sufficient by themselves to:
+
+- characterize real problem prevalence;
+- establish final candidate-set distributions;
+- establish statistical headroom;
+- pass the Empirical Gap Gate;
+- justify a Cost-Aware design;
+- support paper-level performance claims.
+
+## 3. Member 6 ownership
+
+Member 6 owns the formal Phase 2A experiment layer.
+
+### 3.1 Experiment and workload work
 
 Member 6 owns:
 
-- profiling recorder/output schema;
-- joining forced-release decisions with workload/runtime evidence;
+- formal experiment design;
+- formal scenario/workload design for Phase 2A;
+- writing scenario generators / experiment configurations;
+- writing experiment tests;
+- selecting formal repetitions/seeds;
+- executing formal profiling campaigns;
+- documenting invalid/failed runs.
+
+Member 6 may reuse Member 5 substrate and the foundation backend/configs, but
+must not treat the provided P0-P3 suite as the complete experiment.
+
+### 3.2 Data and analysis work
+
+Member 6 owns:
+
+- raw artifact ingestion;
+- derived-dataset construction;
+- join logic;
 - outcome attribution;
-- offline paper-heuristic replay;
+- capability/missingness handling;
+- paper-reference replay;
 - offline oracle/proxy analysis;
 - regret/headroom analysis;
-- plots/tables for Phase 2A;
-- measurement limitations and negative results.
+- statistical summaries;
+- visualization;
+- negative/null-result preservation;
+- method-support interpretation for Member 4.
+
+### 3.3 Test work
+
+Member 6 owns tests for:
+
+- scenario construction;
+- runtime evidence integrity;
+- dataset construction;
+- metric correctness;
+- no-future-leakage;
+- capability missingness;
+- analysis regressions.
+
+## 4. Member 6 does not own
 
 Member 6 does **not** own:
 
-- workload semantics or trace generation;
-- Continuum baseline implementation;
-- Cost-Aware policy implementation;
-- changing the forced-release decision rule;
-- adding future information to the online observation contract.
+- changing the live Continuum/P1B forced-release decision rule;
+- implementing the Cost-Aware policy;
+- silently redefining runtime event semantics;
+- adding future outcome information to online policy inputs;
+- changing generic Member 5 substrate behavior unless a real substrate defect is found;
+- bypassing Member 1 review for a new low-level observation seam.
 
-If an analysis requires a missing decision-time fact, request an interface change from Member 1 before modifying baseline internals.
+If a formal experiment requires a missing raw runtime fact, Member 6 should
+identify the required fact and ask Member 1 for a narrow observation/interface
+decision rather than patching baseline logic.
 
-## 3. Source-of-truth separation
+## 5. Source-of-truth separation
 
-Phase 2A data must preserve three distinct classes of information.
+Phase 2A must keep four evidence layers distinct.
 
 ### A. Decision-time facts
 
-Facts legally available when forced release is decided.
+Facts legally available at forced-release decision time.
 
 Source:
 
-`ForcedReleaseDecisionSnapshot` plus explicitly approved runtime/workload observations.
+`FORCED_RELEASE_DECISION` plus explicitly approved runtime/workload
+observations.
 
 Examples:
 
@@ -57,28 +148,41 @@ Examples:
 - retention deadline;
 - waiting-followup state;
 - protected block IDs;
-- immediately reclaimable block IDs;
+- initially reclaimable block IDs;
 - next tool type;
 - elapsed time since TTL decision;
 - PrefillReload estimate;
 - eta;
 - queue-delay signal;
-- actual Phase 1B selected release effect.
+- native LRU/free-queue position;
+- actual P1B selected release effect.
 
-### B. Execution provenance / workload facts
+### B. Logical release facts
 
-Facts needed to reconstruct the run but not supplied by the forced-release snapshot.
+Facts describing which logical protection was removed.
 
 Examples:
 
-- run/trace/scenario ID;
-- seed;
-- observed server arrival time of each program's first request;
-- request/program mapping;
-- cache-pressure configuration;
-- model/runtime/hardware identity.
+- selected logical entry;
+- release order;
+- newly eligible blocks.
 
-### C. Future outcome / oracle labels
+Logical release is not equivalent to immediate physical eviction.
+
+### C. Physical runtime facts
+
+Facts describing actual native cache behavior.
+
+Examples:
+
+- physical block eviction;
+- block-slot reuse;
+- native hash/content identity where safely available;
+- known logical owner attribution where safely available.
+
+A bare `block_id` is not a persistent content identity.
+
+### D. Future outcome facts
 
 Facts known only after the decision.
 
@@ -86,364 +190,523 @@ Examples:
 
 - later follow-up arrival;
 - later reuse;
-- observed APC hit/miss;
-- recomputed tokens or a documented recomputation proxy;
-- observed next-turn TTFT/latency;
-- future return distance/time.
+- APC hit/miss where available;
+- recomputed/prefill tokens where available;
+- future return time/distance;
+- TTFT/latency where valid raw landmarks exist.
 
-Class C must never be fed back into an online policy feature column.
+Class D must never be used as an online policy feature.
 
-## 4. Important current interface limitation
+## 6. Canonical identities and ordering
 
-The current forced-release snapshot intentionally does **not** contain `program_arrival_time`.
+Every persisted record belongs to one run and carries append-only
+`event_index`.
 
-The Continuum paper-level forced-release heuristic uses program arrival time. For Phase 2A replay, the project operationalizes that value as:
+Canonical keys:
+
+- run: `run_id`;
+- decision: `(run_id, decision_event_index)`;
+- candidate/logical object: `(program_id, prefix_id)`;
+- request: `(run_id, request_id)`.
+
+Recommended candidate-row key:
+
+`(run_id, decision_event_index, program_id, prefix_id)`
+
+Use `event_index` for within-run causal ordering.
+
+Compare timestamps only when the relevant `clock_domain` values are known to
+be compatible.
+
+## 7. Formal experiment coverage
+
+Formal profiling must go beyond two-candidate micro-cases.
+
+Member 6 must cover the dimensions in the formal experiment matrix.
+
+### F1. Prevalence / candidate-set structure
+
+Measure:
+
+- forced-release frequency;
+- candidate-set size distribution;
+- required-block/shortage distribution;
+- releases per decision;
+- repeated releases / repeated pressure.
+
+Include at least:
+
+- two-candidate cases;
+- more-than-two-candidate cases;
+- a higher-contention case.
+
+### F2. Cost heterogeneity
+
+Cover:
+
+- homogeneous prefix sizes;
+- heterogeneous materialized prefix sizes;
+- larger within-decision cost spreads;
+- more than one candidate-set size.
+
+Measure:
+
+- reusable-token/block footprint;
+- PrefillReload;
+- within-decision cost spread;
+- divergence among logical size, physical eviction, and eventual recomputation.
+
+### F3. Reuse / return heterogeneity
+
+Cover:
+
+- early return;
+- late return;
+- no return within predeclared horizon;
+- repeated multi-turn return;
+- interleaved follow-ups.
+
+Measure:
+
+- return probability by horizon;
+- time to return;
+- repeated-return behavior.
+
+### F4. Pressure severity / repeated contention
+
+Cover:
+
+- shallow shortage;
+- deeper shortage;
+- cases requiring multiple logical releases or substantial newly eligible capacity;
+- repeated pressure stages.
+
+Measure:
+
+- logical release volume;
+- newly eligible blocks;
+- actual physical eviction;
+- logical-vs-physical divergence.
+
+### F5. Queue / timing / concurrency
+
+Cover variation in:
+
+- arrival overlap;
+- waiting population;
+- tool-gap pattern;
+- queue-delay state;
+- return order under fixed prefix-size assignment.
+
+Preserve planned timing and observed timing separately.
+
+### F6. Cache structure / identity robustness
+
+Where supported, include:
+
+- physical block-slot reuse;
+- shared/overlapping ownership;
+- evolving prefixes;
+- repeated eviction of the same physical block ID while holding different content.
+
+## 8. M6 formal tests
+
+Member 6 must implement the following test classes.
+
+### 8.1 Scenario-construction tests
+
+Verify:
+
+- requested candidate count is actually materialized;
+- requested prefix sizes equal observed reusable-token counts;
+- intended pressure shortage is achieved;
+- pressure occurs after intended protected candidates exist;
+- planned timing/order is deterministic;
+- seeds do not silently change scenario semantics;
+- repeated-pressure traces really contain repeated pressure stages.
+
+### 8.2 Runtime-evidence tests
+
+Verify:
+
+- provenance is complete;
+- `event_index` is valid and monotonic;
+- every forced-release decision has complete candidates;
+- selected releases belong to the candidate set;
+- newly eligible blocks obey recorded snapshot semantics;
+- future joins respect event ordering;
+- incompatible clock domains are not compared;
+- block-slot reuse cannot create a false content join.
+
+### 8.3 Dataset-construction tests
+
+Use synthetic/compact fixtures for:
+
+- one decision / two candidates;
+- one decision / more than two candidates;
+- multiple decisions in one run;
+- multiple selected releases;
+- repeated release of one logical object;
+- block ID reuse with different content;
+- no-return cases;
+- tie cases;
+- missing optional capabilities.
+
+Tests must prevent many-to-many join duplication.
+
+### 8.4 Metric tests
+
+Test hand-computable examples for:
+
+- candidate count;
+- within-decision spread;
+- logical release volume;
+- physical eviction before return;
+- return horizon labels;
+- time to return;
+- recompute loss where available;
+- hindsight best candidate;
+- tie handling;
+- absolute regret;
+- normalized regret;
+- aggregation by family/seed;
+- bootstrap/statistical-summary plumbing.
+
+### 8.5 No-future-leakage tests
+
+Maintain an explicit allowlist of online candidate features.
+
+Reject future-only information as online features, including:
+
+- future request arrival;
+- return/no-return label;
+- post-decision physical eviction;
+- recomputed tokens observed after decision;
+- future TTFT/latency;
+- hindsight best candidate;
+- regret.
+
+## 9. Data artifacts
+
+Raw artifacts remain authoritative:
+
+- `run.json`;
+- `trace.json`;
+- `replay.jsonl`;
+- `events.jsonl`;
+- explicit capability availability/missingness.
+
+Member 6 derived datasets should include at least:
+
+- `runs`;
+- `decisions`;
+- `decision_candidates`;
+- `logical_releases`;
+- `physical_evictions`;
+- `request_outcomes`;
+- `decision_outcomes`.
+
+Every derived row must retain source event-index references.
+
+## 10. Program first-arrival convention
+
+The forced-release snapshot intentionally does not contain
+`program_arrival_time`.
+
+For paper-reference replay, Phase 2A operationalizes program arrival as:
 
 > the observed server arrival timestamp of the program's first request
 
-This is a project execution convention chosen to make program-level arrival deterministic and auditable. It must not be presented as a verbatim paper definition. If Member 2 identifies a different source-grounded definition, Member 1 must update the replay contract before formal evaluation.
+This is a project execution convention, not a verbatim Continuum paper
+definition.
 
-from the benchmark/runtime execution record.
-
-Do **not** substitute:
+Do not substitute:
 
 - planned arrival offset;
-- request ID ordering;
+- request-ID ordering;
 - trace-file order;
 - current request arrival;
 - TTL decision timestamp.
 
-If the observed first-arrival timestamp cannot be obtained reliably, the paper-heuristic comparison is blocked and must be reported to Member 1.
+If observed first arrival cannot be established reliably, the corresponding
+paper-reference replay is blocked and must be reported.
 
-## 5. Data artifacts
+## 11. Paper-Continuum replay
 
-Prefer append-friendly machine-readable artifacts rather than one large custom report.
+The paper-level forced-release reference is operationalized as:
 
-### A. Run metadata
+- when protected release is required;
+- repeatedly select the candidate whose program has the latest observed
+  first-request arrival time;
+- release until the observed `required_blocks` target can be satisfied.
 
-One record per run:
-
-```text
-run_id
-trace_id
-scenario_id
-seed
-git_sha
-backend/runtime identity
-model/tokenizer revisions
-hardware
-cache/memory config
-generation/batching config
-policy/reference mode
-status / failure reason
-```
-
-### B. Decision-candidate table
-
-One row per `(forced-release decision, candidate entry)`.
-
-Minimum logical columns:
-
-```text
-run_id
-decision_id
-decision_index
-decision_timestamp
-required_blocks
-
-program_id
-prefix_id
-candidate_index
-
-retention_deadline
-waiting_followup
-
-protected_block_count
-initially_reclaimable_block_count
-
-next_tool_type
-elapsed_since_ttl_decision
-prefill_reload_seconds
-eta
-queue_delay_t_seconds
-
-observed_program_first_arrival
-
-p1b_selected
-p1b_release_order
-```
-
-`decision_id` may be recorder-owned, for example a deterministic composite of `run_id + decision_index`. It does not need to be added to the core runtime contract.
-
-### C. Outcome table
-
-One row per candidate entry when outcome facts can be established:
-
-```text
-run_id
-decision_id
-program_id
-prefix_id
-
-followup_arrived
-followup_arrival_timestamp
-reuse_observed
-reuse_delay
-
-apc_hit_or_miss
-recomputed_tokens_observed_or_proxy
-prefill_penalty_observed_or_proxy
-next_turn_ttft
-next_turn_latency
-
-outcome_source
-outcome_limitation
-```
-
-Every derived/proxy field must identify that it is not a direct measurement.
-
-## 6. Counterfactual limitation — do not overclaim
-
-A single run observes the real downstream consequence of the release(s) that actually occurred.
-
-It does **not** directly observe the counterfactual latency that would have occurred if a different protected candidate had been released.
-
-Therefore:
-
-```text
-actual selected victim outcome
-    = may be directly observed
-
-unselected candidate counterfactual outcome
-    = NOT directly observed in that run
-```
-
-The first Phase 2A oracle/regret analysis must use one of the following, clearly labeled:
-
-1. **trace-derived offline proxy / upper bound**, using future reuse/return facts plus profiled recomputation cost; or
-2. controlled replay under an explicitly implemented alternate victim policy.
-
-Do not label proxy counterfactual loss as “measured latency”.
-
-Controlled replay is optional for the first audit, but should be used later to validate important/high-regret cases before making causal performance claims.
-
-## 7. Paper-Continuum replay
-
-The paper-level reference is:
-
-```text
-when protected release is required:
-    repeatedly select the candidate whose program has the latest
-    observed first-request arrival time
-    until enough capacity is released
-```
-
-For the first Phase 2A workload, Member 5 constrains one protected entry per program and disjoint candidate blocks. This makes program-level paper semantics and entry-level replay unambiguous.
-
-Member 6 should compute the paper-reference selection **offline from the exact observed candidate set**.
-
-The paper stops unpinning when the first request can be scheduled. The first Phase 2A offline replay cannot reproduce the full scheduler counterfactual, so it operationalizes that stopping condition as: release candidates until the decision's observed `required_blocks` target can be satisfied. This is a **Phase 2A replay adaptation**, not an exact reproduction of Continuum's scheduler loop. Any formal claim about executing the original paper heuristic requires a live policy implementation and replayed runtime evidence.
+This is an offline Phase 2A replay adaptation because it does not reproduce the
+full scheduler counterfactual.
 
 Record at least:
 
-```text
-paper_selected
-paper_release_order
-```
+- `paper_selected`;
+- `paper_release_order`.
 
-Do not mutate the live P1B baseline merely to produce this first audit.
+Do not call the live P1B adaptation "original Continuum".
 
-If later formal experiments require real execution under the paper heuristic, that becomes a separate implementation/integration task reviewed by Member 1.
+## 12. P1B adaptation reference
 
-## 8. P1B adaptation reference
+The actual P1B forced release is:
 
-The actual P1B release is already present in the decision observation:
+- earliest retention deadline;
+- native-LRU key;
+- stable entry identity.
 
-```text
-earliest retention deadline
-    -> native-LRU key
-    -> stable entry identity
-```
+Preserve this actual executed reference independently from the paper replay.
 
-Member 6 must preserve this as an independent reference and must not call it “original Continuum”.
+## 13. Counterfactual limitation
 
-## 9. Offline oracle / headroom metric
+One runtime execution directly observes the consequence of the release(s) that
+actually occurred.
 
-The oracle exists only to answer:
+It does not directly observe the latency that would have occurred if a
+different candidate had been released.
 
-> how much room is there for a better forced-release choice?
+Therefore:
 
-The first oracle should stay deliberately simple and auditable.
+- actual selected-victim outcome may be directly observed;
+- unselected-victim counterfactual outcome is not directly measured in that run.
 
-A recommended first proxy is based on future reuse plus profiled recomputation loss, for example:
+Offline regret may use:
 
-```text
-candidate_proxy_loss
-    = future_reuse_indicator_or_weight
-      * profiled_prefill_reload_cost
-```
+1. a clearly labeled trace-derived/proxy loss; or
+2. controlled alternate-policy replay.
 
-The exact proxy formula is an **analysis definition**, not the proposed online policy.
+Do not label proxy counterfactual latency as measured latency.
 
-If memory released differs materially across candidates, report both:
+High-value/high-regret cases should later be validated with controlled replay
+before causal performance claims are made.
 
-- total release loss;
-- loss normalized by immediately reclaimed blocks, where useful.
+## 14. Multiple loss views
 
-Do not add queueing/continuity terms merely to make the oracle favor the candidate hypothesis. Add additional loss terms only when their measurement semantics are explicit.
+Do not choose one loss definition too early.
 
-For each decision, compute:
+Formal analysis should preserve separate views:
 
-```text
-P1B adaptation proxy loss
-paper heuristic proxy loss
-oracle minimum proxy loss
+### LogicalReleaseCost
 
-P1B regret   = P1B loss   - oracle loss
-paper regret = paper loss - oracle loss
-```
+Loss associated with removing protection from the logical entry.
 
-For multi-entry release, evaluate the selected release set, not only the first victim.
+### PhysicalEvictionCost
 
-## 10. Required first analyses
+Actual cache content displaced by native eviction.
 
-The first Phase 2A report should answer at least:
+### RecomputeCost
 
-### A. Forced-release coverage
+Work actually redone when a future request returns.
 
-- number of runs;
-- number of successful forced-release decisions;
-- candidate count distribution;
-- number of protected entries released per decision.
+### ServingImpact
 
-### B. Candidate-value heterogeneity
+Observed request/service effect such as valid TTFT/E2E measurements.
 
-Within each decision:
+The Method Support Pack should explicitly show where these views agree or
+diverge.
 
-- distribution/range of proxy release loss;
-- recomputation-cost heterogeneity;
-- future-reuse/return heterogeneity.
+## 15. Oracle / regret analysis
 
-### C. Baseline regret
+The oracle exists only to estimate headroom.
 
-For both:
+It is offline analysis and must never feed future information into the online
+policy.
 
-- paper-Continuum latest-arrival reference;
-- P1B deterministic adaptation.
+For each usable loss view, preserve ties and compute:
+
+- actual P1B selected loss;
+- paper-reference selected loss where available;
+- hindsight minimum loss;
+- absolute regret;
+- normalized regret.
+
+For multi-release decisions, evaluate the release set rather than only the
+first victim.
+
+## 16. Required analyses
+
+The formal Phase 2A report must include at least:
+
+### A. Baseline prevalence
+
+- forced-release frequency;
+- candidate-count distribution;
+- pressure severity;
+- releases per decision;
+- repeated pressure/release.
+
+### B. Candidate heterogeneity
+
+For decision-time features:
+
+- overall distributions;
+- within-decision spreads;
+- breakdown by workload family;
+- missingness/availability.
+
+### C. Outcome heterogeneity
+
+Keep separate:
+
+- logical release;
+- physical eviction;
+- recomputation;
+- serving impact.
+
+### D. Baseline headroom
 
 Report:
 
-- zero-regret fraction;
-- mean/median regret;
-- P90/P95 where sample count is sufficient;
-- worst cases with trace IDs.
+- tie rate;
+- misselection rate;
+- absolute regret distribution;
+- normalized regret distribution;
+- high-regret cases;
+- breakdown by family/candidate count/pressure severity.
 
-### D. Causal consequence for actual releases
+### E. Decision-time signal usefulness
 
-For the release actually executed in the runtime, connect where observable:
+Using only online-available facts, evaluate:
 
-```text
-forced release
-    -> later follow-up/reuse
-    -> APC miss / recomputation
-    -> next-turn TTFT / latency
-```
+- stratified comparisons;
+- rank correlations;
+- simple one/two-feature diagnostics;
+- held-out checks across seeds/families;
+- signals that fail to generalize.
 
-Do not imply this causal chain for unexecuted counterfactual victims without replay evidence.
+This section diagnoses what Member 4 may plausibly use.  It is not the final
+policy model.
 
-### E. Signal association
+## 17. Method Support Pack for Member 4
 
-Explore whether decision-time features relate to the offline proxy loss:
+Member 6's main stage deliverable is the **Method Support Pack**.
 
-- remaining TTL / deadline distance;
-- elapsed tool gap;
-- next tool type;
-- PrefillReload;
-- eta;
-- queue-delay signal;
-- reclaimable block count;
-- observed program arrival age.
+It must contain:
 
-This is exploratory profiling, not feature selection for the final method.
+1. baseline prevalence;
+2. candidate heterogeneity;
+3. outcome heterogeneity;
+4. baseline headroom/regret;
+5. decision-time signal usefulness;
+6. method constraints.
 
-## 11. Required controls
+The method-constraints section must tell Member 4:
 
-At minimum compare across the controlled workload families:
+- which features are truly available online;
+- which features vary enough to matter;
+- which features show stable association with realized loss;
+- which features are weak/unstable;
+- which information is future-only and forbidden online;
+- which observation capabilities remain unavailable;
+- which corner cases must be handled;
+- which loss view(s) are best supported by the evidence;
+- which questions remain unresolved.
 
-- homogeneous control;
-- return-time heterogeneity;
-- recomputation-cost heterogeneity.
-
-Results should be broken down by scenario rather than pooled immediately.
-
-A strong candidate direction should ideally show:
-
-- little headroom in homogeneous/control cases;
-- larger and interpretable headroom when value heterogeneity exists.
-
-Negative or null results must be preserved.
-
-## 12. Reproducibility requirements
+## 18. Reproducibility
 
 Every derived table/figure must be traceable to:
 
 - run ID;
+- decision event index;
 - Git SHA;
-- trace/scenario ID;
+- trace/scenario;
 - seed;
 - runtime/model/hardware config;
-- raw decision artifact;
-- raw outcome/runtime evidence;
+- raw decision evidence;
+- raw outcome evidence;
 - analysis script/version.
 
-Analysis scripts should regenerate summarized tables/plots from raw artifacts without manual editing.
+Analysis must regenerate outputs from raw artifacts without manual data edits.
 
-Do not overwrite raw artifacts during analysis.
+Raw artifacts must not be overwritten.
 
-## 13. First delivery
+## 19. Empirical Gap Gate
 
-The first Member 6 PR should contain:
+The Empirical Gap Gate applies to the **formal M6 profiling dataset**, not the
+P0-P3 foundation suite.
 
-1. recorder/export path for `ForcedReleaseDecisionSnapshot`;
-2. join logic for M5 run/trace metadata;
-3. decision-candidate schema;
-4. outcome schema;
-5. offline paper-heuristic replay;
-6. simple oracle/proxy loss implementation;
-7. tests on synthetic fixture data;
-8. one small end-to-end sample artifact/summary if M5 workload is available.
+The foundation suite may validate instrumentation and metric code but cannot by
+itself produce `GAP-PASS`.
 
-It does **not** need:
+Possible stage conclusions:
 
-- final plots;
-- large experiment sweeps;
-- a Cost-Aware policy;
-- a learned predictor;
-- a complex statistical model;
-- paper-quality significance testing.
+- `GAP-PASS`;
+- `GAP-PROVISIONAL`;
+- `NO-MEASURABLE-GAP`;
+- `HEADROOM-BUT-NO-ONLINE-SIGNAL`;
+- `INSUFFICIENT-EVENTS`;
+- `DATA-INVALID`.
 
-## 14. Acceptance criteria
+Only `GAP-PASS` should normally trigger Member 4 Cost-Aware method
+implementation.
 
-Member 6 is ready for bulk Phase 2A collection when:
+## 20. Delivery requirements
 
-- [ ] every forced-release decision has a stable `decision_id`;
-- [ ] all candidates, not only the selected victim, are recorded;
-- [ ] P1B actual selection is preserved exactly;
-- [ ] observed program first-arrival time is available for paper replay;
+A complete Member 6 Phase 2A delivery contains:
+
+### Code/tests
+
+- formal scenario/workload generator or equivalent configs;
+- scenario-construction tests;
+- runtime-evidence tests;
+- dataset-construction tests;
+- metric tests;
+- no-future-leakage tests;
+- analysis pipeline.
+
+### Data
+
+- formal raw artifacts;
+- run-validity table;
+- derived datasets;
+- capability/missingness summary.
+
+### Analysis
+
+- prevalence summary;
+- heterogeneity summary;
+- regret/headroom analysis;
+- signal-usefulness analysis;
+- negative/null findings;
+- selected raw exemplars.
+
+### Handoff
+
+- Method Support Pack for Member 4;
+- explicit Empirical Gap Gate outcome.
+
+## 21. Closure criteria
+
+Member 6 Phase 2A work is **implementation/analysis complete** when:
+
+- [ ] foundation suite is treated only as a sanity layer;
+- [ ] formal experiment matrix covers all required axes;
+- [ ] M6-authored formal tests exist and pass;
+- [ ] all formal runs preserve provenance;
+- [ ] raw-to-derived joins are reproducible;
 - [ ] decision-time and future-outcome columns are separated;
-- [ ] proxy vs direct measurement is explicit;
-- [ ] one run cannot accidentally treat unselected counterfactual latency as observed;
-- [ ] paper heuristic and P1B adaptation are reported as different references;
-- [ ] offline oracle never feeds future information into online features;
-- [ ] raw artifacts can regenerate the first summary tables.
+- [ ] proxy versus direct measurement is explicit;
+- [ ] block-slot reuse cannot silently corrupt attribution;
+- [ ] paper reference and P1B adaptation remain distinct;
+- [ ] oracle/regret analysis contains no online future leakage;
+- [ ] formal dataset satisfies or explicitly fails the Empirical Gap Gate;
+- [ ] Method Support Pack is delivered to Member 4;
+- [ ] negative/insufficient evidence is reported rather than hidden.
 
-## 15. Escalation to Member 1
+Formal repository closure still requires normal integration/review validation.
+
+## 22. Escalation to Member 1
 
 Stop and request an interface decision if:
 
-- program first-arrival time cannot be observed reliably;
+- a required raw fact cannot be observed reliably;
 - candidate identity cannot be joined across decision and outcome records;
-- actual APC reuse/miss cannot be attributed to the relevant prefix/program;
-- recomputation evidence is ambiguous enough to change the regret conclusion;
-- shared blocks or multiple protected entries per program appear in the first workload despite the Phase 2A simplification;
-- analysis would require changing the live baseline policy path.
+- physical eviction attribution is ambiguous enough to affect conclusions;
+- recomputation evidence ambiguity can change the regret result;
+- shared ownership semantics are unclear;
+- analysis would require changing the live baseline decision path;
+- a proposed feature would use future information;
+- formal experiment validity depends on redefining runtime event semantics.
