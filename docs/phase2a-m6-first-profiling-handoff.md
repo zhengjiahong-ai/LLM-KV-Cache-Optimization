@@ -16,9 +16,9 @@ Read together:
 
 ## M6 — start now
 
-### Task 0: run P0 and P1 together
+### Task 0: run the full P0-P3 pilot suite
 
-Use the combined frozen pilot suite instead of running P0 and P1 as separate handoffs.
+Run the entire first profiling round in one batch.
 
 From the repository root:
 
@@ -27,26 +27,34 @@ git checkout feature/phase2a-profiling-protocol
 git pull
 
 PYTHONPATH=src:. \
-python benchmarks/run_phase2a_p0_p1_suite.py
+python benchmarks/run_phase2a_full_pilot.py
 ```
 
 If the pinned vLLM-Metal source checkout is available:
 
 ```bash
 PYTHONPATH=src:. \
-python benchmarks/run_phase2a_p0_p1_suite.py \
+python benchmarks/run_phase2a_full_pilot.py \
   --vllm-metal-source-checkout /absolute/path/to/vllm-metal
 ```
 
-The suite contains:
+The frozen suite contains 10 concrete scenarios:
 
 ```text
-P0-equal-256-256
-P1-cost-128-256
-P1-cost-256-512
+P0
+  1 equal-cost sanity scenario
+
+P1
+  2 recomputation-cost heterogeneity scenarios
+
+P2
+  3 reuse / return-pattern scenarios
+
+P3
+  4 mixed cost x return-pattern scenarios
 ```
 
-with seeds:
+Each scenario runs seeds:
 
 ```text
 11
@@ -54,9 +62,11 @@ with seeds:
 37
 ```
 
-for a total of 9 runs.
+for exactly 30 runs.
 
-Do not stop after P0 unless the suite encounters a real execution failure.
+This intentionally reaches the minimum 30-decision diagnostic volume in the Empirical Gap Gate in one release. Do not insert an artificial P0/P1 checkpoint before P2/P3 unless the suite encounters an actual execution or data-integrity failure.
+
+P2/P3 configs enable real planned timing. Preserve both planned timing and observed monotonic timing; do not overwrite either.
 
 ### Task A: build the derived dataset pipeline
 
@@ -85,36 +95,34 @@ Every derived row must retain raw source event indexes.
 
 Do not put oracle/regret into runtime code.
 
-### Task B: validate the combined P0/P1 output
+### Task B: validate all four scenario families
 
-For all 9 runs check:
+For all 30 runs check:
 
 - forced release occurred
 - candidate_count >= 2
 - logical selected release is joinable
 - actual physical eviction is joinable
 - future program/prefix lifecycle is joinable
-- per-program materialized prefix size matches the scenario
+- materialized prefix size matches the scenario
+- P2/P3 planned timing and observed timing are both retained
 - no provenance was lost
 
-P0 remains the equal-cost sanity control:
+Interpret the families separately:
 
-- 256 vs 256
+P0:
+- equal-cost sanity, 256 vs 256
 
-P1 contains the cost-heterogeneity cases:
+P1:
+- cost heterogeneity, 128 vs 256 and 256 vs 512
 
-- 128 vs 256
-- 256 vs 512
+P2:
+- equal-size candidates with A-early, B-early, and outside-horizon return patterns
 
-Do not emulate size differences only in analysis; the backend now materializes the requested reusable-token sizes in the real runtime.
+P3:
+- 512 vs 128 and 128 vs 512 crossed with A-early / B-early return patterns
 
-### Task D: do not interpret P2/P3 timing yet
-
-P2/P3 require actual arrival/tool-gap execution.
-
-The current minimal observability backend proves ordering, not planned real-time gaps.
-
-Until the profiling backend executes planned timing, P2/P3 may be prepared but not used as timing evidence.
+Do not collapse all 30 runs into one average before checking per-family behavior.
 
 ## M1 — immediate implementation work
 
@@ -178,13 +186,16 @@ M5 substrate remains CLOSED.
 
 ## First checkpoint
 
-Return for review after the combined P0/P1 suite has completed.
+Return for review after the full 30-run P0-P3 suite has completed, or earlier only if there is a real execution/data-integrity blocker.
 
-Bring back the full 9-run artifact directory plus the first:
+Bring back:
 
-- decision_candidates join
-- logical_releases join
-- physical_evictions join
-- request_outcomes join
+- the full artifact directory for all runs
+- decision_candidates
+- logical_releases
+- physical_evictions
+- request_outcomes
+- decision_outcomes
+- a run-validity table
 
-At that checkpoint we verify P0 and P1 together before enabling P2/P3 timing-sensitive profiling or scaling toward the 30-decision gate target.
+At that checkpoint we run the frozen Empirical Gap Gate directly. There is no additional staged release between P0/P1 and P2/P3.
