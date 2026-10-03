@@ -41,7 +41,24 @@ from .loss_views import (
     LossViewAvailabilityRow,
     build_loss_view_tables,
 )
+from .method_support import (
+    CapabilityFinding,
+    MethodSupportPack,
+    build_method_support_pack,
+)
+from .prevalence import (
+    PrevalenceSummaryRow,
+    RunPrevalenceRow,
+    build_prevalence_tables,
+)
 from .request_outcomes import RequestOutcomeRow, build_request_outcomes_table
+from .signals import (
+    SignalAssociationRow,
+    SignalEvaluationRow,
+    SignalRunMetadata,
+    SignalSupportRow,
+    build_signal_analysis_tables,
+)
 from .statistics import (
     AnalysisRunMetadata,
     CandidateHeterogeneitySummaryRow,
@@ -112,7 +129,13 @@ class DerivedDatasetBundle:
     decision_validity: tuple[DecisionValidityRow, ...]
     run_validity: tuple[RunValidityRow, ...]
     capabilities: tuple[CapabilityRow, ...]
+    signal_associations: tuple[SignalAssociationRow, ...]
+    signal_support: tuple[SignalSupportRow, ...]
+    signal_evaluation: SignalEvaluationRow
+    run_prevalence: tuple[RunPrevalenceRow, ...]
+    prevalence_summary: tuple[PrevalenceSummaryRow, ...]
     empirical_gap_report: EmpiricalGapReport
+    method_support_pack: MethodSupportPack
     formal_campaign: bool
 
 
@@ -290,6 +313,9 @@ def build_derived_dataset_bundle(
     raw_runs = tuple(runs)
     run_rows = build_runs_table(raw_runs)
     decision_tables = build_decision_tables(raw_runs)
+    logical_releases = build_logical_releases_table(raw_runs)
+    physical_evictions = build_physical_evictions_table(raw_runs)
+    request_outcomes = build_request_outcomes_table(raw_runs)
     decision_outcomes = build_decision_outcomes_table(raw_runs)
     loss_views = build_loss_view_tables(
         decision_tables.candidates,
@@ -349,6 +375,28 @@ def build_derived_dataset_bundle(
     )
     valid_run_ids = {run_id for run_id, _ in valid_decision_keys}
     valid_run_rows = [row for row in run_rows if row.run_id in valid_run_ids]
+    signal_tables = build_signal_analysis_tables(
+        (
+            row
+            for row in decision_tables.candidates
+            if (row.run_id, row.decision_event_index)
+            in valid_decision_keys
+        ),
+        (
+            row
+            for row in loss_views.comparable_losses
+            if (row.run_id, row.decision_event_index)
+            in valid_decision_keys
+        ),
+        (
+            SignalRunMetadata(
+                run_id=row.run_id,
+                scenario_family_id=row.scenario_family_id,
+                seed=row.seed,
+            )
+            for row in valid_run_rows
+        ),
+    )
     physical_evidence = [
         row
         for row in loss_views.evidence
@@ -364,6 +412,7 @@ def build_derived_dataset_bundle(
             }
         )
     )
+    capabilities = _build_capabilities(run_rows)
     gap_report = evaluate_empirical_gap_gate(
         EmpiricalGapInputs(
             formal_campaign=formal_campaign,
@@ -391,19 +440,48 @@ def build_derived_dataset_bundle(
                 row.run_id and row.decision_event_index >= 0
                 for row in decision_tables.candidates
             ),
-            online_signal_supported=None,
+            online_signal_supported=(
+                signal_tables.evaluation.online_signal_supported
+            ),
             direct_loss_views=direct_loss_views,
         ),
         summaries.loss_heterogeneity,
         summaries.regret,
     )
+    prevalence = build_prevalence_tables(
+        run_rows,
+        decision_tables.decisions,
+        logical_releases,
+        request_outcomes,
+    )
+    method_support_pack = build_method_support_pack(
+        formal_campaign=formal_campaign,
+        prevalence=prevalence.summary,
+        candidate_heterogeneity=summaries.candidate_heterogeneity,
+        loss_heterogeneity=summaries.loss_heterogeneity,
+        regret_summary=summaries.regret,
+        decision_regret=loss_views.decision_regret,
+        signal_support=signal_tables.support,
+        signal_evaluation=signal_tables.evaluation,
+        capabilities=tuple(
+            CapabilityFinding(
+                run_id=row.run_id,
+                capability=row.capability,
+                availability=row.availability,
+                reason=row.reason,
+            )
+            for row in capabilities
+        ),
+        direct_loss_views=direct_loss_views,
+        gate_report=gap_report,
+    )
     return DerivedDatasetBundle(
         runs=run_rows,
         decisions=decision_tables.decisions,
         decision_candidates=decision_tables.candidates,
-        logical_releases=build_logical_releases_table(raw_runs),
-        physical_evictions=build_physical_evictions_table(raw_runs),
-        request_outcomes=build_request_outcomes_table(raw_runs),
+        logical_releases=logical_releases,
+        physical_evictions=physical_evictions,
+        request_outcomes=request_outcomes,
         decision_outcomes=decision_outcomes,
         candidate_loss_evidence=loss_views.evidence,
         loss_view_availability=loss_views.availability,
@@ -415,8 +493,14 @@ def build_derived_dataset_bundle(
         loss_heterogeneity_summary=summaries.loss_heterogeneity,
         decision_validity=decision_validity,
         run_validity=run_validity,
-        capabilities=_build_capabilities(run_rows),
+        capabilities=capabilities,
+        signal_associations=signal_tables.associations,
+        signal_support=signal_tables.support,
+        signal_evaluation=signal_tables.evaluation,
+        run_prevalence=prevalence.runs,
+        prevalence_summary=prevalence.summary,
         empirical_gap_report=gap_report,
+        method_support_pack=method_support_pack,
         formal_campaign=formal_campaign,
     )
 
@@ -463,15 +547,32 @@ def write_derived_dataset_bundle(
         "decision_validity": bundle.decision_validity,
         "run_validity": bundle.run_validity,
         "capabilities": bundle.capabilities,
+        "signal_associations": bundle.signal_associations,
+        "signal_support": bundle.signal_support,
+        "signal_evaluation": (bundle.signal_evaluation,),
+        "run_prevalence": bundle.run_prevalence,
+        "prevalence_summary": bundle.prevalence_summary,
         "empirical_gap_report": (bundle.empirical_gap_report,),
     }
     for name, rows in tables.items():
         _write_jsonl(output_dir / f"{name}.jsonl", rows)
 
+    (output_dir / "method_support_pack.json").write_text(
+        json.dumps(
+            asdict(bundle.method_support_pack),
+            allow_nan=False,
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
     manifest = {
         "schema_version": "phase2a.derived.v1",
         "source_run_ids": [row.run_id for row in bundle.runs],
         "row_counts": {name: len(rows) for name, rows in tables.items()},
+        "method_support_pack": "method_support_pack.json",
         "analysis_parameters": {
             "bootstrap_resamples": _BOOTSTRAP_RESAMPLES,
             "bootstrap_seed": _BOOTSTRAP_SEED,

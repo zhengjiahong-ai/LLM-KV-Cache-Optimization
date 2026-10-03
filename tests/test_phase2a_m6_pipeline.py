@@ -103,6 +103,9 @@ def test_pipeline_builds_and_writes_small_smoke_bundle(tmp_path: Path) -> None:
     assert bundle.candidate_heterogeneity_summary == ()
     assert bundle.regret_summary == ()
     assert bundle.loss_heterogeneity_summary == ()
+    assert bundle.signal_evaluation.status == "INSUFFICIENT_COVERAGE"
+    assert bundle.run_prevalence[0].decision_count == 1
+    assert bundle.prevalence_summary[0].run_count == 1
     assert bundle.empirical_gap_report.overall_outcome == "INSUFFICIENT-EVENTS"
 
     output_dir = tmp_path / "derived"
@@ -113,7 +116,11 @@ def test_pipeline_builds_and_writes_small_smoke_bundle(tmp_path: Path) -> None:
     assert manifest["schema_version"] == "phase2a.derived.v1"
     assert manifest["row_counts"]["request_outcomes"] == 4
     assert manifest["analysis_parameters"]["bootstrap_seed"] == 0
-    assert len(tuple(output_dir.glob("*.jsonl"))) == 19
+    pack = json.loads(
+        (output_dir / "method_support_pack.json").read_text(encoding="utf-8")
+    )
+    assert pack["schema_version"] == "phase2a.method-support.v1"
+    assert len(tuple(output_dir.glob("*.jsonl"))) == 24
     assert (SMOKE_RUN / "run.json").read_text(encoding="utf-8") == raw_manifest_before
 
 
