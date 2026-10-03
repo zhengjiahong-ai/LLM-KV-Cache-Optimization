@@ -27,6 +27,9 @@ class DecisionOutcomeRow:
     event_distance_to_return: int | None
     time_to_return_seconds: float | None
     time_to_return_status: str
+    analysis_horizon_seconds: float | None
+    returned_within_horizon: bool | None
+    return_horizon_status: str
     return_prefix_snapshot_event_index: int | None
     same_prefix_reobserved: bool | None
     physical_eviction_event_indexes: tuple[int, ...]
@@ -135,6 +138,37 @@ def _time_to_return(
     return return_timestamp - decision.timestamp, "available"
 
 
+def _analysis_horizon(manifest: dict[str, object]) -> float | None:
+    raw_config = manifest.get("config")
+    if raw_config is None:
+        return None
+    config = _mapping(raw_config, "run config")
+    raw_horizon = config.get("analysis_horizon_seconds")
+    if raw_horizon is None:
+        return None
+    horizon = _timestamp(raw_horizon, "analysis_horizon_seconds")
+    if horizon == 0:
+        raise ArtifactValidationError(
+            "analysis_horizon_seconds must be greater than zero"
+        )
+    return horizon
+
+
+def _return_horizon_result(
+    return_event: dict[str, object] | None,
+    time_to_return: float | None,
+    time_status: str,
+    analysis_horizon: float | None,
+) -> tuple[bool | None, str]:
+    if return_event is None:
+        return False, "no_return"
+    if analysis_horizon is None:
+        return None, "horizon_not_configured"
+    if time_status != "available" or time_to_return is None:
+        return None, time_status
+    return time_to_return <= analysis_horizon, "available"
+
+
 def _physical_evictions_before_return(
     events: tuple[dict[str, object], ...],
     candidate: DecisionCandidateRow,
@@ -199,6 +233,13 @@ def build_decision_outcomes_table(
         return_event = _first_future_return(artifacts.events, candidate)
         prefix_event = _return_prefix_snapshot(artifacts.events, return_event)
         time_to_return, time_status = _time_to_return(decision, return_event)
+        analysis_horizon = _analysis_horizon(artifacts.manifest)
+        returned_within_horizon, horizon_status = _return_horizon_result(
+            return_event,
+            time_to_return,
+            time_status,
+            analysis_horizon,
+        )
         eviction_indexes, eviction_status = _physical_evictions_before_return(
             artifacts.events,
             candidate,
@@ -255,6 +296,9 @@ def build_decision_outcomes_table(
                 ),
                 time_to_return_seconds=time_to_return,
                 time_to_return_status=time_status,
+                analysis_horizon_seconds=analysis_horizon,
+                returned_within_horizon=returned_within_horizon,
+                return_horizon_status=horizon_status,
                 return_prefix_snapshot_event_index=prefix_event_index,
                 same_prefix_reobserved=same_prefix_reobserved,
                 physical_eviction_event_indexes=eviction_indexes,

@@ -90,6 +90,18 @@ def _logical_proxy_evidence(
     source_indexes = [candidate.decision_event_index]
     if outcome.return_arrival_event_index is not None:
         source_indexes.append(outcome.return_arrival_event_index)
+    if outcome.returned_within_horizon is None:
+        loss = None
+        availability = "unavailable"
+        unavailable_reason = f"return_horizon_{outcome.return_horizon_status}"
+    else:
+        loss = (
+            candidate.prefill_reload_seconds
+            if outcome.returned_within_horizon
+            else 0.0
+        )
+        availability = "available"
+        unavailable_reason = None
     return CandidateLossEvidenceRow(
         run_id=candidate.run_id,
         decision_event_index=candidate.decision_event_index,
@@ -99,13 +111,9 @@ def _logical_proxy_evidence(
         loss_view=_LOGICAL_PROXY,
         evidence_kind="trace_derived_proxy",
         unit="seconds",
-        loss=(
-            candidate.prefill_reload_seconds
-            if outcome.returned_after_decision
-            else 0.0
-        ),
-        availability="available",
-        unavailable_reason=None,
+        loss=loss,
+        availability=availability,
+        unavailable_reason=unavailable_reason,
         source_event_indexes=tuple(source_indexes),
     )
 
