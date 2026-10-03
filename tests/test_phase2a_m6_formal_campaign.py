@@ -86,6 +86,9 @@ def test_materialized_campaign_is_deterministic_and_loadable(
         )
         assert config["profiling_scenario_id"] == scenario["scenario_id"]
         assert config["profiling_scenario_family"] == scenario["family_id"]
+        assert config["backend_options"]["pressure_prompt_tokens"] == (
+            spec.required_blocks * block_size
+        )
         assert config["cache"]["block_override"] == (
             protected_blocks + pressure_blocks
         )

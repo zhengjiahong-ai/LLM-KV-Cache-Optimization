@@ -145,7 +145,7 @@ def build_formal_config(
     candidate_blocks = sum(
         math.ceil(tokens / block_size_value) for tokens in spec.prefix_tokens
     )
-    pressure_prompt_tokens = max(512, spec.required_blocks * block_size_value)
+    pressure_prompt_tokens = spec.required_blocks * block_size_value
     pressure_blocks = math.ceil(pressure_prompt_tokens / block_size_value)
     cache["block_size"] = block_size_value
     cache["block_override"] = candidate_blocks + pressure_blocks
