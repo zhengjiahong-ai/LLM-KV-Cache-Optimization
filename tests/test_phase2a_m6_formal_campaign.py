@@ -1,4 +1,5 @@
 import json
+import math
 from pathlib import Path
 
 from kvopt.workload.phase2 import load_phase2_trace
@@ -70,11 +71,23 @@ def test_materialized_campaign_is_deterministic_and_loadable(
         family: 3 for family in ("F1", "F2", "F3", "F4", "F5", "F6")
     }
 
+    specs_by_id = {spec.scenario_id: spec for spec in formal_scenario_specs()}
     for scenario in first["scenarios"]:
         config_path = first_manifest.parent / scenario["config"]
         config = json.loads(config_path.read_text(encoding="utf-8"))
         trace = load_phase2_trace(first_manifest.parent / config["trace"])
+        spec = specs_by_id[scenario["scenario_id"]]
+        block_size = config["cache"]["block_size"]
+        protected_blocks = sum(
+            math.ceil(tokens / block_size) for tokens in spec.prefix_tokens
+        )
+        pressure_blocks = math.ceil(
+            config["backend_options"]["pressure_prompt_tokens"] / block_size
+        )
         assert config["profiling_scenario_id"] == scenario["scenario_id"]
         assert config["profiling_scenario_family"] == scenario["family_id"]
+        assert config["cache"]["block_override"] == (
+            protected_blocks + pressure_blocks
+        )
         assert len(trace.pressure_stages) >= 1
         assert len({request.program_id for request in trace.requests}) >= 2

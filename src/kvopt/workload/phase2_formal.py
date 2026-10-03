@@ -148,10 +148,7 @@ def build_formal_config(
     pressure_prompt_tokens = max(512, spec.required_blocks * block_size_value)
     pressure_blocks = math.ceil(pressure_prompt_tokens / block_size_value)
     cache["block_size"] = block_size_value
-    cache["block_override"] = max(
-        candidate_blocks,
-        candidate_blocks + pressure_blocks - spec.required_blocks,
-    )
+    cache["block_override"] = candidate_blocks + pressure_blocks
 
     pressure = config.setdefault("pressure", {})
     if not isinstance(pressure, dict):
