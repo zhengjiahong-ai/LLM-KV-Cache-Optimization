@@ -45,6 +45,9 @@ def _outcome(program_id: str, *, selected: bool) -> DecisionOutcomeRow:
         event_distance_to_return=10 if returned else None,
         time_to_return_seconds=3.0 if returned else None,
         time_to_return_status="available" if returned else "no_return",
+        analysis_horizon_seconds=5.0,
+        returned_within_horizon=returned,
+        return_horizon_status="available" if returned else "no_return",
         return_prefix_snapshot_event_index=None,
         same_prefix_reobserved=None,
         physical_eviction_event_indexes=(15,) if selected else (),
@@ -119,3 +122,52 @@ def test_ambiguous_block_reuse_is_not_treated_as_physical_loss() -> None:
     )
     assert physical.loss is None
     assert physical.unavailable_reason == "ambiguous_block_slot_reuse"
+
+
+def test_logical_proxy_ignores_return_outside_horizon() -> None:
+    late_outcome = replace(
+        _outcome("a", selected=True),
+        returned_within_horizon=False,
+    )
+    tables = build_loss_view_tables(
+        (_candidate("a", selected=True), _candidate("b", selected=False)),
+        (late_outcome, _outcome("b", selected=False)),
+    )
+
+    proxy = next(
+        row
+        for row in tables.evidence
+        if row.loss_view == "trace_return_weighted_prefill_proxy"
+        and row.program_id == "a"
+    )
+    assert proxy.loss == 0.0
+    assert proxy.availability == "available"
+
+
+def test_logical_proxy_rejects_unknown_horizon_membership() -> None:
+    unknown_outcome = replace(
+        _outcome("a", selected=True),
+        returned_within_horizon=None,
+        return_horizon_status="incompatible_clock_domain",
+    )
+    tables = build_loss_view_tables(
+        (_candidate("a", selected=True), _candidate("b", selected=False)),
+        (unknown_outcome, _outcome("b", selected=False)),
+    )
+
+    proxy = next(
+        row
+        for row in tables.evidence
+        if row.loss_view == "trace_return_weighted_prefill_proxy"
+        and row.program_id == "a"
+    )
+    gate = next(
+        row
+        for row in tables.availability
+        if row.loss_view == "trace_return_weighted_prefill_proxy"
+    )
+    assert proxy.loss is None
+    assert proxy.unavailable_reason == (
+        "return_horizon_incompatible_clock_domain"
+    )
+    assert not gate.usable_for_regret
