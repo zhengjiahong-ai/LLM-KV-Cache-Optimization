@@ -127,7 +127,15 @@ def _time_to_return(
         return_event.get("clock_domain"),
         "return clock_domain",
     )
-    if return_domain != decision.clock_domain:
+    compatible_continuum_domains = {
+        "continuum_lifecycle",
+        "continuum_pressure",
+    }
+    domains_are_compatible = (
+        return_domain == decision.clock_domain
+        or {return_domain, decision.clock_domain} == compatible_continuum_domains
+    )
+    if not domains_are_compatible:
         return None, "incompatible_clock_domain"
     return_timestamp = _timestamp(
         return_event.get("timestamp"),

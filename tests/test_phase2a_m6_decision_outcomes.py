@@ -101,6 +101,26 @@ def _run(*extra_events: dict[str, object]) -> RawRunArtifacts:
     )
 
 
+def _with_decision_clock(
+    run: RawRunArtifacts,
+    clock_domain: str,
+) -> RawRunArtifacts:
+    events = tuple(
+        {**event, "clock_domain": clock_domain}
+        if event["event_type"] == "FORCED_RELEASE_DECISION"
+        else event
+        for event in run.events
+    )
+    return RawRunArtifacts(
+        run_dir=run.run_dir,
+        run_id=run.run_id,
+        manifest=run.manifest,
+        trace=run.trace,
+        replay=run.replay,
+        events=events,
+    )
+
+
 def test_decision_outcome_uses_only_post_decision_return() -> None:
     run = _run(
         _event(11, "BLOCK_EVICTED", payload={"block_id": 1}),
@@ -161,6 +181,28 @@ def test_decision_outcome_does_not_compare_incompatible_clocks() -> None:
     assert row.time_to_return_status == "incompatible_clock_domain"
     assert row.returned_within_horizon is None
     assert row.return_horizon_status == "incompatible_clock_domain"
+
+
+def test_decision_outcome_compares_known_continuum_clock_domains() -> None:
+    run = _with_decision_clock(
+        _run(
+            _event(
+                12,
+                "REQUEST_ARRIVED",
+                program_id="agent-a",
+                request_id="future-request",
+                clock_domain="continuum_lifecycle",
+            ),
+        ),
+        "continuum_pressure",
+    )
+
+    row = build_decision_outcomes_table((run,))[0]
+
+    assert row.time_to_return_seconds == pytest.approx(2.0)
+    assert row.time_to_return_status == "available"
+    assert row.returned_within_horizon is True
+    assert row.return_horizon_status == "available"
 
 
 def test_decision_outcome_marks_return_outside_analysis_horizon() -> None:
