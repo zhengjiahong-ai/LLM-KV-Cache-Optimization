@@ -13,7 +13,10 @@ from kvopt.profiling.experiment_events import (
 )
 from kvopt.workload.phase2 import PlannedRequest, load_phase2_trace
 from kvopt.workload.phase2_smoke import SyntheticSmokeBackend
-from kvopt.workload.phase2_runner import run_phase2
+from kvopt.workload.phase2_runner import (
+    REQUIRED_OBSERVATION_CAPABILITIES,
+    run_phase2,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -347,3 +350,105 @@ def test_two_pressure_stages_use_monotonic_forced_release_count(
     ]
     assert manifest["observed_forced_release_count"] == 2
     assert manifest["persisted_forced_release_event_count"] == 0
+
+
+def test_run_manifest_registers_complete_observation_capability_contract(
+    tmp_path: Path,
+) -> None:
+    output = run_phase2(
+        CONFIG,
+        output_root=tmp_path,
+        run_id="capability-contract",
+    )
+    manifest = json.loads((output / "run.json").read_text(encoding="utf-8"))
+    contract = manifest["observation_capability_contract"]
+    availability = manifest["observation_availability"]
+
+    assert contract["schema_version"] == "phase2.observation_capabilities.v1"
+    assert contract["complete"] is True
+    assert tuple(contract["required"]) == REQUIRED_OBSERVATION_CAPABILITIES
+    assert set(REQUIRED_OBSERVATION_CAPABILITIES) <= set(availability)
+
+    for name in REQUIRED_OBSERVATION_CAPABILITIES:
+        entry = availability[name]
+        assert entry["status"] in {"AVAILABLE", "UNAVAILABLE", "ERROR"}
+        if entry["status"] in {"UNAVAILABLE", "ERROR"}:
+            assert isinstance(entry["reason"], str)
+            assert entry["reason"].strip()
+
+
+def test_runner_explicitly_marks_undeclared_backend_capabilities_unavailable(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    class MinimalBackend:
+        def __init__(self, _config, _sink):
+            self.forced_release_count = 0
+
+        def execute(self, request):
+            if request.kind == "pressure":
+                self.forced_release_count += 1
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(
+        "kvopt.workload.phase2_runner._load_factory",
+        lambda _reference: MinimalBackend,
+    )
+    output = run_phase2(
+        CONFIG,
+        output_root=tmp_path,
+        run_id="capability-defaults",
+    )
+    manifest = json.loads((output / "run.json").read_text(encoding="utf-8"))
+    availability = manifest["observation_availability"]
+
+    assert manifest["observation_capability_contract"]["complete"] is True
+    assert availability["recomputed_prefill_tokens"] == {
+        "status": "UNAVAILABLE",
+        "reason": "backend did not declare this capability",
+    }
+    assert availability["native_block_content_identity"] == {
+        "status": "UNAVAILABLE",
+        "reason": "backend did not declare this capability",
+    }
+
+
+def test_invalid_backend_capability_declaration_fails_run(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    class InvalidCapabilityBackend:
+        observation_capabilities = {
+            "native_apc_hit_miss": {
+                "status": "UNAVAILABLE",
+                "reason": None,
+            }
+        }
+
+        def __init__(self, _config, _sink):
+            self.forced_release_count = 0
+
+        def execute(self, _request):
+            pass
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(
+        "kvopt.workload.phase2_runner._load_factory",
+        lambda _reference: InvalidCapabilityBackend,
+    )
+    output = run_phase2(
+        CONFIG,
+        output_root=tmp_path,
+        run_id="invalid-capability",
+    )
+    manifest = json.loads((output / "run.json").read_text(encoding="utf-8"))
+
+    assert manifest["status"] == "failed"
+    assert manifest["observation_capability_contract"]["complete"] is False
+    assert "UNAVAILABLE capability requires a non-empty reason" in manifest[
+        "failure_reason"
+    ]
