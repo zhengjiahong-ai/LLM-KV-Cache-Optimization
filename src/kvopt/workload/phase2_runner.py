@@ -51,6 +51,108 @@ class PressureObservation(Protocol):
     def forced_release_count(self) -> int: ...
 
 
+CAPABILITY_STATUS_AVAILABLE = "AVAILABLE"
+CAPABILITY_STATUS_UNAVAILABLE = "UNAVAILABLE"
+CAPABILITY_STATUS_ERROR = "ERROR"
+CAPABILITY_STATUSES = {
+    CAPABILITY_STATUS_AVAILABLE,
+    CAPABILITY_STATUS_UNAVAILABLE,
+    CAPABILITY_STATUS_ERROR,
+}
+
+REQUIRED_OBSERVATION_CAPABILITIES = (
+    "runtime_identity",
+    "logical_lifecycle",
+    "prefix_block_mapping",
+    "forced_release_snapshot",
+    "native_block_eviction",
+    "native_block_content_identity",
+    "native_block_logical_owners",
+    "native_block_lru_position",
+    "generated_token_count",
+    "native_apc_hit_miss",
+    "recomputed_prefill_tokens",
+    "native_first_token_timestamp",
+    "native_scheduler_admission_timestamp",
+    "hardware_counters",
+)
+
+
+def _capability(
+    status: str,
+    reason: str | None = None,
+) -> dict[str, object]:
+    if status not in CAPABILITY_STATUSES:
+        raise ValueError(f"unsupported capability status: {status}")
+    if status in {CAPABILITY_STATUS_UNAVAILABLE, CAPABILITY_STATUS_ERROR}:
+        if not isinstance(reason, str) or not reason.strip():
+            raise ValueError(f"{status} capability requires a non-empty reason")
+    elif reason is not None and (not isinstance(reason, str) or not reason.strip()):
+        raise ValueError("AVAILABLE capability reason must be non-empty text or null")
+    return {"status": status, "reason": reason}
+
+
+def _default_observation_capabilities(
+    hardware_provider: HardwareObservationProvider | None,
+) -> dict[str, dict[str, object]]:
+    unavailable = {
+        name: _capability(
+            CAPABILITY_STATUS_UNAVAILABLE,
+            "backend did not declare this capability",
+        )
+        for name in REQUIRED_OBSERVATION_CAPABILITIES
+    }
+    if hardware_provider is not None and callable(getattr(hardware_provider, "observe", None)):
+        unavailable["hardware_counters"] = _capability(
+            CAPABILITY_STATUS_AVAILABLE,
+            "hardware telemetry provider exposes observe()",
+        )
+    else:
+        unavailable["hardware_counters"] = _capability(
+            CAPABILITY_STATUS_UNAVAILABLE,
+            "no hardware telemetry provider with observe()",
+        )
+    return unavailable
+
+
+def _normalize_backend_capabilities(
+    backend: Phase2Backend,
+    base: dict[str, dict[str, object]],
+) -> dict[str, dict[str, object]]:
+    raw = getattr(backend, "observation_capabilities", None)
+    raw = raw() if callable(raw) else raw
+    if raw is None:
+        return base
+    if not isinstance(raw, dict):
+        raise TypeError("backend observation_capabilities must be an object")
+
+    merged = dict(base)
+    for name, value in raw.items():
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("capability name must be non-empty text")
+        if not isinstance(value, dict):
+            raise TypeError(f"capability {name} declaration must be an object")
+        status = value.get("status")
+        reason = value.get("reason")
+        if not isinstance(status, str) or status not in CAPABILITY_STATUSES:
+            raise ValueError(
+                f"capability {name} status must be one of "
+                f"{sorted(CAPABILITY_STATUSES)}"
+            )
+        merged[name] = _capability(status, reason)
+
+    missing = [
+        name for name in REQUIRED_OBSERVATION_CAPABILITIES
+        if name not in merged
+    ]
+    if missing:
+        raise RuntimeError(
+            "observation capability contract incomplete: "
+            + ", ".join(sorted(missing))
+        )
+    return merged
+
+
 def _now() -> str:
     return datetime.now(UTC).isoformat()
 
@@ -177,11 +279,13 @@ def run_phase2(
         "observed_forced_release_count": 0,
         "persisted_forced_release_event_count": 0,
         "pressure_selected_block_ids": [],
-        "observation_availability": {
-            "lifecycle": "optional backend emission",
-            "forced_release": "optional approved observer emission",
-            "native_apc_hit_miss": "unavailable without backend observation",
-            "hardware_counters": "provider supplied" if hardware_provider else "unavailable",
+        "observation_availability": _default_observation_capabilities(
+            hardware_provider
+        ),
+        "observation_capability_contract": {
+            "schema_version": "phase2.observation_capabilities.v1",
+            "required": list(REQUIRED_OBSERVATION_CAPABILITIES),
+            "complete": False,
         },
     }
     _save_json(output / "run.json", manifest)
@@ -199,6 +303,12 @@ def run_phase2(
         backend = _load_factory(_required_text(config, "backend_factory"))(config, sink)
         if not callable(getattr(backend, "execute", None)):
             raise TypeError("backend must provide execute")
+        manifest["observation_availability"] = _normalize_backend_capabilities(
+            backend,
+            manifest["observation_availability"],
+        )
+        manifest["observation_capability_contract"]["complete"] = True
+        _save_json(output / "run.json", manifest)
         for action in trace.actions():
             if isinstance(action, PlannedRequest):
                 _execute(backend, action, replay)
@@ -263,7 +373,10 @@ def run_phase2(
                         "availability": "error",
                         "reason": f"{type(error).__name__}: {error}",
                     }
-                    manifest["observation_availability"]["hardware_telemetry"] = "error"
+                    manifest["observation_availability"]["hardware_counters"] = _capability(
+                        CAPABILITY_STATUS_ERROR,
+                        f"{type(error).__name__}: {error}",
+                    )
             writer.close()
         manifest["ended_at_utc"] = _now()
         _save_json(output / "run.json", manifest)
