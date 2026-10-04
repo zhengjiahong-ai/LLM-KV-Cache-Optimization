@@ -272,3 +272,22 @@ def test_decision_outcome_marks_block_slot_reuse_as_ambiguous() -> None:
     assert row.physical_eviction_event_indexes == ()
     assert row.physical_eviction_count == 0
     assert row.physical_eviction_match_status == "ambiguous_block_reuse"
+
+
+def test_decision_outcome_counts_each_candidate_block_once() -> None:
+    run = _run(
+        _event(11, "BLOCK_EVICTED", payload={"block_id": 1}),
+        _event(12, "BLOCK_EVICTED", payload={"block_id": 1}),
+        _event(
+            13,
+            "REQUEST_ARRIVED",
+            program_id="agent-a",
+            request_id="future-request",
+        ),
+    )
+
+    row = build_decision_outcomes_table((run,))[0]
+
+    assert row.physical_eviction_event_indexes == (11,)
+    assert row.physical_eviction_count == 1
+    assert row.physical_eviction_match_status == "block_slot_proxy"
