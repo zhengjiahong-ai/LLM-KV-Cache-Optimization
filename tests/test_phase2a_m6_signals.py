@@ -84,6 +84,47 @@ def test_signal_analysis_supports_stable_cross_family_rank_signal() -> None:
     assert tables.evaluation.online_signal_supported is True
 
 
+def test_signal_analysis_rejects_within_decision_constant_feature() -> None:
+    metadata = tuple(
+        SignalRunMetadata(
+            run_id=f"run-{size}",
+            scenario_family_id=f"family-{size}",
+            seed=size,
+        )
+        for size in range(2, 5)
+    )
+    candidates = tuple(
+        _candidate(f"run-{size}", chr(ord("a") + position), position + 1)
+        for size in range(2, 5)
+        for position in range(size)
+    )
+    losses = tuple(
+        _loss(
+            f"run-{size}",
+            chr(ord("a") + position),
+            float(position + 1),
+        )
+        for size in range(2, 5)
+        for position in range(size)
+    )
+
+    tables = build_signal_analysis_tables(candidates, losses, metadata)
+    eta_support = next(
+        row for row in tables.support if row.feature == "eta"
+    )
+    eta_association = next(
+        row
+        for row in tables.associations
+        if row.feature == "eta" and row.group_type == "overall"
+    )
+
+    assert eta_association.observation_count == 0
+    assert eta_association.decision_count == 0
+    assert eta_support.overall_spearman_rho is None
+    assert not eta_support.coverage_sufficient
+    assert not eta_support.supported
+
+
 def test_signal_analysis_preserves_insufficient_coverage() -> None:
     tables = build_signal_analysis_tables(
         (_candidate("run-1", "a", 1), _candidate("run-1", "b", 3)),
