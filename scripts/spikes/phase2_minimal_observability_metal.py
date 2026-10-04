@@ -396,6 +396,64 @@ class MinimalMetalObservabilityBackend:
         self._pending_tool_gaps: dict[str, str] = {}
         self._closed = False
         self._run_start_timestamp = float(self._clock.now())
+        self.observation_capabilities = {
+            "runtime_identity": {
+                "status": "AVAILABLE",
+                "reason": "REAL_RUNTIME_READY records pinned vLLM/Metal runtime identity",
+            },
+            "logical_lifecycle": {
+                "status": "AVAILABLE",
+                "reason": "approved lifecycle events are persisted",
+            },
+            "prefix_block_mapping": {
+                "status": "AVAILABLE",
+                "reason": "BLOCKS_OBSERVED and VLLM_PREFIX_SNAPSHOT map prefixes to blocks",
+            },
+            "forced_release_snapshot": {
+                "status": "AVAILABLE",
+                "reason": "FORCED_RELEASE_DECISION is emitted by the approved observer",
+            },
+            "native_block_eviction": {
+                "status": "AVAILABLE",
+                "reason": "native eviction callback is bridged to BLOCK_EVICTED",
+            },
+            "native_block_content_identity": {
+                "status": "UNAVAILABLE",
+                "reason": "current approved eviction callback does not persist pre-eviction content identity",
+            },
+            "native_block_logical_owners": {
+                "status": "UNAVAILABLE",
+                "reason": "current approved eviction callback does not persist logical owner attribution",
+            },
+            "native_block_lru_position": {
+                "status": "UNAVAILABLE",
+                "reason": "current approved eviction callback does not persist eviction-time native LRU position",
+            },
+            "generated_token_count": {
+                "status": "AVAILABLE",
+                "reason": "VLLM_REQUEST_COMPLETED records output_token_count",
+            },
+            "native_apc_hit_miss": {
+                "status": "UNAVAILABLE",
+                "reason": "current approved backend boundary has no stable per-request APC hit/miss event",
+            },
+            "recomputed_prefill_tokens": {
+                "status": "UNAVAILABLE",
+                "reason": "current approved backend boundary has no direct recomputation-token event",
+            },
+            "native_first_token_timestamp": {
+                "status": "UNAVAILABLE",
+                "reason": "wait_for_completion does not expose a first-token timestamp",
+            },
+            "native_scheduler_admission_timestamp": {
+                "status": "UNAVAILABLE",
+                "reason": "REQUEST_ADMITTED is a logical retention boundary, not native scheduler timing",
+            },
+            "hardware_counters": {
+                "status": "UNAVAILABLE",
+                "reason": "device counters are intentionally outside the low-configuration Metal backend",
+            },
+        }
 
         self._sink.emit(
             ExperimentEvent.create(

@@ -69,6 +69,64 @@ class SyntheticSmokeBackend:
         self.pressure_request_count = 0
         self.forced_release_observed = False
         self.forced_release_count = 0
+        self.observation_capabilities = {
+            "runtime_identity": {
+                "status": "AVAILABLE",
+                "reason": "synthetic backend identity is fixed and explicit",
+            },
+            "logical_lifecycle": {
+                "status": "AVAILABLE",
+                "reason": "synthetic backend emits approved lifecycle events",
+            },
+            "prefix_block_mapping": {
+                "status": "AVAILABLE",
+                "reason": "synthetic BlocksObserved events include block identities",
+            },
+            "forced_release_snapshot": {
+                "status": "AVAILABLE",
+                "reason": "synthetic pressure uses ExperimentForcedReleaseObserver",
+            },
+            "native_block_eviction": {
+                "status": "UNAVAILABLE",
+                "reason": "synthetic backend has no native block eviction callback",
+            },
+            "native_block_content_identity": {
+                "status": "UNAVAILABLE",
+                "reason": "synthetic smoke does not model native cache content identity",
+            },
+            "native_block_logical_owners": {
+                "status": "UNAVAILABLE",
+                "reason": "synthetic smoke does not expose native owner attribution",
+            },
+            "native_block_lru_position": {
+                "status": "UNAVAILABLE",
+                "reason": "synthetic smoke has no native eviction-time LRU observation",
+            },
+            "generated_token_count": {
+                "status": "UNAVAILABLE",
+                "reason": "synthetic smoke does not execute model generation",
+            },
+            "native_apc_hit_miss": {
+                "status": "UNAVAILABLE",
+                "reason": "synthetic smoke has no native APC",
+            },
+            "recomputed_prefill_tokens": {
+                "status": "UNAVAILABLE",
+                "reason": "synthetic smoke does not execute native prefill",
+            },
+            "native_first_token_timestamp": {
+                "status": "UNAVAILABLE",
+                "reason": "synthetic smoke does not stream native generation",
+            },
+            "native_scheduler_admission_timestamp": {
+                "status": "UNAVAILABLE",
+                "reason": "synthetic RequestAdmitted is a logical boundary",
+            },
+            "hardware_counters": {
+                "status": "UNAVAILABLE",
+                "reason": "synthetic smoke has no hardware telemetry",
+            },
+        }
 
     def execute(self, request: PlannedRequest) -> None:
         self._clock.set(max(self._clock.now(), request.planned_arrival_offset_seconds))
