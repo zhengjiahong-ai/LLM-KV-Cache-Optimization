@@ -32,6 +32,19 @@ Only the following artifacts are inputs to this result:
 - M4 handoff data:
   `artifacts/phase2a-formal-v4-derived-v3/method_support_pack.json`.
 
+Because `artifacts/` is intentionally Git-ignored, the three authoritative
+artifact directories are packaged for out-of-band handoff as
+`artifacts/phase2a-m6-formal-evidence-f40a3bb.tar.gz` (602 KiB). Its SHA-256
+is `ea6fda72d6fb1cb09f357fcfbc30bac4122ff8baec8387dccf55a19ab507c114`.
+The archive contains 445 entries and must be transferred separately from the
+pull request.
+
+A reviewable text-only subset is committed under
+`docs/experiments/phase2a-m6-formal/curated-evidence/`. It contains the
+campaign and execution manifests, final validity/statistical/handoff outputs,
+and three selected high-regret raw exemplars. `SHA256SUMS` records the digest
+of every curated evidence file.
+
 The campaign manifest SHA-256 is
 `088fc4c7f874ea1b17be1606fc04fb653a61ff2f3bd3cf1cf7564d0086d571fb`.
 All 54 raw runs report project Git SHA

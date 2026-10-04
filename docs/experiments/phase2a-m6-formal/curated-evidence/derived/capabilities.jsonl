@@ -1,0 +1,216 @@
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f1-five-contention-deep-seed-101"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f1-five-contention-deep-seed-101"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f1-five-contention-deep-seed-101"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f1-five-contention-deep-seed-101"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f1-five-contention-deep-seed-211"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f1-five-contention-deep-seed-211"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f1-five-contention-deep-seed-211"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f1-five-contention-deep-seed-211"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f1-five-contention-deep-seed-307"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f1-five-contention-deep-seed-307"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f1-five-contention-deep-seed-307"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f1-five-contention-deep-seed-307"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f1-three-mixed-medium-seed-101"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f1-three-mixed-medium-seed-101"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f1-three-mixed-medium-seed-101"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f1-three-mixed-medium-seed-101"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f1-three-mixed-medium-seed-211"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f1-three-mixed-medium-seed-211"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f1-three-mixed-medium-seed-211"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f1-three-mixed-medium-seed-211"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f1-three-mixed-medium-seed-307"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f1-three-mixed-medium-seed-307"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f1-three-mixed-medium-seed-307"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f1-three-mixed-medium-seed-307"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f1-two-homogeneous-shallow-seed-101"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f1-two-homogeneous-shallow-seed-101"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f1-two-homogeneous-shallow-seed-101"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f1-two-homogeneous-shallow-seed-101"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f1-two-homogeneous-shallow-seed-211"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f1-two-homogeneous-shallow-seed-211"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f1-two-homogeneous-shallow-seed-211"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f1-two-homogeneous-shallow-seed-211"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f1-two-homogeneous-shallow-seed-307"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f1-two-homogeneous-shallow-seed-307"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f1-two-homogeneous-shallow-seed-307"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f1-two-homogeneous-shallow-seed-307"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f2-equal-256-seed-101"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f2-equal-256-seed-101"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f2-equal-256-seed-101"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f2-equal-256-seed-101"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f2-equal-256-seed-211"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f2-equal-256-seed-211"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f2-equal-256-seed-211"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f2-equal-256-seed-211"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f2-equal-256-seed-307"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f2-equal-256-seed-307"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f2-equal-256-seed-307"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f2-equal-256-seed-307"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f2-large-spread-five-seed-101"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f2-large-spread-five-seed-101"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f2-large-spread-five-seed-101"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f2-large-spread-five-seed-101"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f2-large-spread-five-seed-211"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f2-large-spread-five-seed-211"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f2-large-spread-five-seed-211"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f2-large-spread-five-seed-211"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f2-large-spread-five-seed-307"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f2-large-spread-five-seed-307"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f2-large-spread-five-seed-307"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f2-large-spread-five-seed-307"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f2-mixed-128-256-512-seed-101"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f2-mixed-128-256-512-seed-101"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f2-mixed-128-256-512-seed-101"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f2-mixed-128-256-512-seed-101"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f2-mixed-128-256-512-seed-211"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f2-mixed-128-256-512-seed-211"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f2-mixed-128-256-512-seed-211"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f2-mixed-128-256-512-seed-211"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f2-mixed-128-256-512-seed-307"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f2-mixed-128-256-512-seed-307"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f2-mixed-128-256-512-seed-307"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f2-mixed-128-256-512-seed-307"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f3-a-early-b-late-seed-101"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f3-a-early-b-late-seed-101"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f3-a-early-b-late-seed-101"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f3-a-early-b-late-seed-101"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f3-a-early-b-late-seed-211"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f3-a-early-b-late-seed-211"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f3-a-early-b-late-seed-211"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f3-a-early-b-late-seed-211"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f3-a-early-b-late-seed-307"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f3-a-early-b-late-seed-307"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f3-a-early-b-late-seed-307"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f3-a-early-b-late-seed-307"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f3-b-early-a-late-seed-101"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f3-b-early-a-late-seed-101"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f3-b-early-a-late-seed-101"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f3-b-early-a-late-seed-101"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f3-b-early-a-late-seed-211"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f3-b-early-a-late-seed-211"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f3-b-early-a-late-seed-211"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f3-b-early-a-late-seed-211"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f3-b-early-a-late-seed-307"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f3-b-early-a-late-seed-307"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f3-b-early-a-late-seed-307"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f3-b-early-a-late-seed-307"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f3-outside-horizon-interleaved-seed-101"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f3-outside-horizon-interleaved-seed-101"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f3-outside-horizon-interleaved-seed-101"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f3-outside-horizon-interleaved-seed-101"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f3-outside-horizon-interleaved-seed-211"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f3-outside-horizon-interleaved-seed-211"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f3-outside-horizon-interleaved-seed-211"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f3-outside-horizon-interleaved-seed-211"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f3-outside-horizon-interleaved-seed-307"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f3-outside-horizon-interleaved-seed-307"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f3-outside-horizon-interleaved-seed-307"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f3-outside-horizon-interleaved-seed-307"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f4-deep-multi-release-seed-101"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f4-deep-multi-release-seed-101"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f4-deep-multi-release-seed-101"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f4-deep-multi-release-seed-101"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f4-deep-multi-release-seed-211"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f4-deep-multi-release-seed-211"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f4-deep-multi-release-seed-211"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f4-deep-multi-release-seed-211"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f4-deep-multi-release-seed-307"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f4-deep-multi-release-seed-307"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f4-deep-multi-release-seed-307"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f4-deep-multi-release-seed-307"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f4-repeated-pressure-seed-101"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f4-repeated-pressure-seed-101"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f4-repeated-pressure-seed-101"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f4-repeated-pressure-seed-101"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f4-repeated-pressure-seed-211"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f4-repeated-pressure-seed-211"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f4-repeated-pressure-seed-211"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f4-repeated-pressure-seed-211"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f4-repeated-pressure-seed-307"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f4-repeated-pressure-seed-307"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f4-repeated-pressure-seed-307"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f4-repeated-pressure-seed-307"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f4-shallow-single-pressure-seed-101"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f4-shallow-single-pressure-seed-101"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f4-shallow-single-pressure-seed-101"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f4-shallow-single-pressure-seed-101"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f4-shallow-single-pressure-seed-211"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f4-shallow-single-pressure-seed-211"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f4-shallow-single-pressure-seed-211"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f4-shallow-single-pressure-seed-211"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f4-shallow-single-pressure-seed-307"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f4-shallow-single-pressure-seed-307"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f4-shallow-single-pressure-seed-307"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f4-shallow-single-pressure-seed-307"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f5-overlap-high-waiting-seed-101"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f5-overlap-high-waiting-seed-101"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f5-overlap-high-waiting-seed-101"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f5-overlap-high-waiting-seed-101"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f5-overlap-high-waiting-seed-211"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f5-overlap-high-waiting-seed-211"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f5-overlap-high-waiting-seed-211"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f5-overlap-high-waiting-seed-211"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f5-overlap-high-waiting-seed-307"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f5-overlap-high-waiting-seed-307"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f5-overlap-high-waiting-seed-307"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f5-overlap-high-waiting-seed-307"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f5-same-cost-return-reversal-seed-101"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f5-same-cost-return-reversal-seed-101"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f5-same-cost-return-reversal-seed-101"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f5-same-cost-return-reversal-seed-101"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f5-same-cost-return-reversal-seed-211"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f5-same-cost-return-reversal-seed-211"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f5-same-cost-return-reversal-seed-211"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f5-same-cost-return-reversal-seed-211"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f5-same-cost-return-reversal-seed-307"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f5-same-cost-return-reversal-seed-307"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f5-same-cost-return-reversal-seed-307"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f5-same-cost-return-reversal-seed-307"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f5-staggered-low-waiting-seed-101"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f5-staggered-low-waiting-seed-101"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f5-staggered-low-waiting-seed-101"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f5-staggered-low-waiting-seed-101"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f5-staggered-low-waiting-seed-211"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f5-staggered-low-waiting-seed-211"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f5-staggered-low-waiting-seed-211"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f5-staggered-low-waiting-seed-211"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f5-staggered-low-waiting-seed-307"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f5-staggered-low-waiting-seed-307"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f5-staggered-low-waiting-seed-307"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f5-staggered-low-waiting-seed-307"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f6-evolving-prefixes-seed-101"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f6-evolving-prefixes-seed-101"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f6-evolving-prefixes-seed-101"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f6-evolving-prefixes-seed-101"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f6-evolving-prefixes-seed-211"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f6-evolving-prefixes-seed-211"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f6-evolving-prefixes-seed-211"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f6-evolving-prefixes-seed-211"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f6-evolving-prefixes-seed-307"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f6-evolving-prefixes-seed-307"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f6-evolving-prefixes-seed-307"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f6-evolving-prefixes-seed-307"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f6-repeated-block-reuse-seed-101"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f6-repeated-block-reuse-seed-101"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f6-repeated-block-reuse-seed-101"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f6-repeated-block-reuse-seed-101"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f6-repeated-block-reuse-seed-211"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f6-repeated-block-reuse-seed-211"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f6-repeated-block-reuse-seed-211"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f6-repeated-block-reuse-seed-211"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f6-repeated-block-reuse-seed-307"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f6-repeated-block-reuse-seed-307"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f6-repeated-block-reuse-seed-307"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f6-repeated-block-reuse-seed-307"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f6-shared-ownership-audit-seed-101"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f6-shared-ownership-audit-seed-101"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f6-shared-ownership-audit-seed-101"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f6-shared-ownership-audit-seed-101"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f6-shared-ownership-audit-seed-211"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f6-shared-ownership-audit-seed-211"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f6-shared-ownership-audit-seed-211"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f6-shared-ownership-audit-seed-211"}
+{"availability":"optional approved observer emission","capability":"forced_release","reason":null,"run_id":"f6-shared-ownership-audit-seed-307"}
+{"availability":"unavailable","capability":"hardware_counters","reason":null,"run_id":"f6-shared-ownership-audit-seed-307"}
+{"availability":"optional backend emission","capability":"lifecycle","reason":null,"run_id":"f6-shared-ownership-audit-seed-307"}
+{"availability":"unavailable without backend observation","capability":"native_apc_hit_miss","reason":null,"run_id":"f6-shared-ownership-audit-seed-307"}

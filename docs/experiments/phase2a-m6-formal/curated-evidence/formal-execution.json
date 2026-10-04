@@ -1,0 +1,556 @@
+{
+  "campaign_id": "phase2a-m6-formal-v4",
+  "campaign_manifest": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-campaign-v4/campaign.json",
+  "campaign_manifest_sha256": "088fc4c7f874ea1b17be1606fc04fb653a61ff2f3bd3cf1cf7564d0086d571fb",
+  "ended_at_utc": "2026-10-04T07:18:58.999004+00:00",
+  "executed_run_count": 54,
+  "failed_run_count": 0,
+  "planned_run_count": 54,
+  "results": [
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F1",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f1-two-homogeneous-shallow-seed-101",
+      "run_id": "f1-two-homogeneous-shallow-seed-101",
+      "scenario_id": "f1-two-homogeneous-shallow",
+      "seed": 101,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F1",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f1-two-homogeneous-shallow-seed-211",
+      "run_id": "f1-two-homogeneous-shallow-seed-211",
+      "scenario_id": "f1-two-homogeneous-shallow",
+      "seed": 211,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F1",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f1-two-homogeneous-shallow-seed-307",
+      "run_id": "f1-two-homogeneous-shallow-seed-307",
+      "scenario_id": "f1-two-homogeneous-shallow",
+      "seed": 307,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F1",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f1-three-mixed-medium-seed-101",
+      "run_id": "f1-three-mixed-medium-seed-101",
+      "scenario_id": "f1-three-mixed-medium",
+      "seed": 101,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F1",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f1-three-mixed-medium-seed-211",
+      "run_id": "f1-three-mixed-medium-seed-211",
+      "scenario_id": "f1-three-mixed-medium",
+      "seed": 211,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F1",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f1-three-mixed-medium-seed-307",
+      "run_id": "f1-three-mixed-medium-seed-307",
+      "scenario_id": "f1-three-mixed-medium",
+      "seed": 307,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F1",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f1-five-contention-deep-seed-101",
+      "run_id": "f1-five-contention-deep-seed-101",
+      "scenario_id": "f1-five-contention-deep",
+      "seed": 101,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F1",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f1-five-contention-deep-seed-211",
+      "run_id": "f1-five-contention-deep-seed-211",
+      "scenario_id": "f1-five-contention-deep",
+      "seed": 211,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F1",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f1-five-contention-deep-seed-307",
+      "run_id": "f1-five-contention-deep-seed-307",
+      "scenario_id": "f1-five-contention-deep",
+      "seed": 307,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F2",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f2-equal-256-seed-101",
+      "run_id": "f2-equal-256-seed-101",
+      "scenario_id": "f2-equal-256",
+      "seed": 101,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F2",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f2-equal-256-seed-211",
+      "run_id": "f2-equal-256-seed-211",
+      "scenario_id": "f2-equal-256",
+      "seed": 211,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F2",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f2-equal-256-seed-307",
+      "run_id": "f2-equal-256-seed-307",
+      "scenario_id": "f2-equal-256",
+      "seed": 307,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F2",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f2-mixed-128-256-512-seed-101",
+      "run_id": "f2-mixed-128-256-512-seed-101",
+      "scenario_id": "f2-mixed-128-256-512",
+      "seed": 101,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F2",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f2-mixed-128-256-512-seed-211",
+      "run_id": "f2-mixed-128-256-512-seed-211",
+      "scenario_id": "f2-mixed-128-256-512",
+      "seed": 211,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F2",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f2-mixed-128-256-512-seed-307",
+      "run_id": "f2-mixed-128-256-512-seed-307",
+      "scenario_id": "f2-mixed-128-256-512",
+      "seed": 307,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F2",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f2-large-spread-five-seed-101",
+      "run_id": "f2-large-spread-five-seed-101",
+      "scenario_id": "f2-large-spread-five",
+      "seed": 101,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F2",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f2-large-spread-five-seed-211",
+      "run_id": "f2-large-spread-five-seed-211",
+      "scenario_id": "f2-large-spread-five",
+      "seed": 211,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F2",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f2-large-spread-five-seed-307",
+      "run_id": "f2-large-spread-five-seed-307",
+      "scenario_id": "f2-large-spread-five",
+      "seed": 307,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F3",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f3-a-early-b-late-seed-101",
+      "run_id": "f3-a-early-b-late-seed-101",
+      "scenario_id": "f3-a-early-b-late",
+      "seed": 101,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F3",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f3-a-early-b-late-seed-211",
+      "run_id": "f3-a-early-b-late-seed-211",
+      "scenario_id": "f3-a-early-b-late",
+      "seed": 211,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F3",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f3-a-early-b-late-seed-307",
+      "run_id": "f3-a-early-b-late-seed-307",
+      "scenario_id": "f3-a-early-b-late",
+      "seed": 307,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F3",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f3-b-early-a-late-seed-101",
+      "run_id": "f3-b-early-a-late-seed-101",
+      "scenario_id": "f3-b-early-a-late",
+      "seed": 101,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F3",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f3-b-early-a-late-seed-211",
+      "run_id": "f3-b-early-a-late-seed-211",
+      "scenario_id": "f3-b-early-a-late",
+      "seed": 211,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F3",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f3-b-early-a-late-seed-307",
+      "run_id": "f3-b-early-a-late-seed-307",
+      "scenario_id": "f3-b-early-a-late",
+      "seed": 307,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F3",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f3-outside-horizon-interleaved-seed-101",
+      "run_id": "f3-outside-horizon-interleaved-seed-101",
+      "scenario_id": "f3-outside-horizon-interleaved",
+      "seed": 101,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F3",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f3-outside-horizon-interleaved-seed-211",
+      "run_id": "f3-outside-horizon-interleaved-seed-211",
+      "scenario_id": "f3-outside-horizon-interleaved",
+      "seed": 211,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F3",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f3-outside-horizon-interleaved-seed-307",
+      "run_id": "f3-outside-horizon-interleaved-seed-307",
+      "scenario_id": "f3-outside-horizon-interleaved",
+      "seed": 307,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F4",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f4-shallow-single-pressure-seed-101",
+      "run_id": "f4-shallow-single-pressure-seed-101",
+      "scenario_id": "f4-shallow-single-pressure",
+      "seed": 101,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F4",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f4-shallow-single-pressure-seed-211",
+      "run_id": "f4-shallow-single-pressure-seed-211",
+      "scenario_id": "f4-shallow-single-pressure",
+      "seed": 211,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F4",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f4-shallow-single-pressure-seed-307",
+      "run_id": "f4-shallow-single-pressure-seed-307",
+      "scenario_id": "f4-shallow-single-pressure",
+      "seed": 307,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F4",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f4-deep-multi-release-seed-101",
+      "run_id": "f4-deep-multi-release-seed-101",
+      "scenario_id": "f4-deep-multi-release",
+      "seed": 101,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F4",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f4-deep-multi-release-seed-211",
+      "run_id": "f4-deep-multi-release-seed-211",
+      "scenario_id": "f4-deep-multi-release",
+      "seed": 211,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F4",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f4-deep-multi-release-seed-307",
+      "run_id": "f4-deep-multi-release-seed-307",
+      "scenario_id": "f4-deep-multi-release",
+      "seed": 307,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F4",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f4-repeated-pressure-seed-101",
+      "run_id": "f4-repeated-pressure-seed-101",
+      "scenario_id": "f4-repeated-pressure",
+      "seed": 101,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F4",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f4-repeated-pressure-seed-211",
+      "run_id": "f4-repeated-pressure-seed-211",
+      "scenario_id": "f4-repeated-pressure",
+      "seed": 211,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F4",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f4-repeated-pressure-seed-307",
+      "run_id": "f4-repeated-pressure-seed-307",
+      "scenario_id": "f4-repeated-pressure",
+      "seed": 307,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F5",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f5-staggered-low-waiting-seed-101",
+      "run_id": "f5-staggered-low-waiting-seed-101",
+      "scenario_id": "f5-staggered-low-waiting",
+      "seed": 101,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F5",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f5-staggered-low-waiting-seed-211",
+      "run_id": "f5-staggered-low-waiting-seed-211",
+      "scenario_id": "f5-staggered-low-waiting",
+      "seed": 211,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F5",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f5-staggered-low-waiting-seed-307",
+      "run_id": "f5-staggered-low-waiting-seed-307",
+      "scenario_id": "f5-staggered-low-waiting",
+      "seed": 307,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F5",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f5-overlap-high-waiting-seed-101",
+      "run_id": "f5-overlap-high-waiting-seed-101",
+      "scenario_id": "f5-overlap-high-waiting",
+      "seed": 101,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F5",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f5-overlap-high-waiting-seed-211",
+      "run_id": "f5-overlap-high-waiting-seed-211",
+      "scenario_id": "f5-overlap-high-waiting",
+      "seed": 211,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F5",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f5-overlap-high-waiting-seed-307",
+      "run_id": "f5-overlap-high-waiting-seed-307",
+      "scenario_id": "f5-overlap-high-waiting",
+      "seed": 307,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F5",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f5-same-cost-return-reversal-seed-101",
+      "run_id": "f5-same-cost-return-reversal-seed-101",
+      "scenario_id": "f5-same-cost-return-reversal",
+      "seed": 101,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F5",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f5-same-cost-return-reversal-seed-211",
+      "run_id": "f5-same-cost-return-reversal-seed-211",
+      "scenario_id": "f5-same-cost-return-reversal",
+      "seed": 211,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F5",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f5-same-cost-return-reversal-seed-307",
+      "run_id": "f5-same-cost-return-reversal-seed-307",
+      "scenario_id": "f5-same-cost-return-reversal",
+      "seed": 307,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F6",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f6-evolving-prefixes-seed-101",
+      "run_id": "f6-evolving-prefixes-seed-101",
+      "scenario_id": "f6-evolving-prefixes",
+      "seed": 101,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F6",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f6-evolving-prefixes-seed-211",
+      "run_id": "f6-evolving-prefixes-seed-211",
+      "scenario_id": "f6-evolving-prefixes",
+      "seed": 211,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F6",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f6-evolving-prefixes-seed-307",
+      "run_id": "f6-evolving-prefixes-seed-307",
+      "scenario_id": "f6-evolving-prefixes",
+      "seed": 307,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F6",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f6-repeated-block-reuse-seed-101",
+      "run_id": "f6-repeated-block-reuse-seed-101",
+      "scenario_id": "f6-repeated-block-reuse",
+      "seed": 101,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F6",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f6-repeated-block-reuse-seed-211",
+      "run_id": "f6-repeated-block-reuse-seed-211",
+      "scenario_id": "f6-repeated-block-reuse",
+      "seed": 211,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F6",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f6-repeated-block-reuse-seed-307",
+      "run_id": "f6-repeated-block-reuse-seed-307",
+      "scenario_id": "f6-repeated-block-reuse",
+      "seed": 307,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F6",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f6-shared-ownership-audit-seed-101",
+      "run_id": "f6-shared-ownership-audit-seed-101",
+      "scenario_id": "f6-shared-ownership-audit",
+      "seed": 101,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F6",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f6-shared-ownership-audit-seed-211",
+      "run_id": "f6-shared-ownership-audit-seed-211",
+      "scenario_id": "f6-shared-ownership-audit",
+      "seed": 211,
+      "status": "success"
+    },
+    {
+      "action": "executed",
+      "failure_reason": null,
+      "family_id": "F6",
+      "output_dir": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-v4-final/f6-shared-ownership-audit-seed-307",
+      "run_id": "f6-shared-ownership-audit-seed-307",
+      "scenario_id": "f6-shared-ownership-audit",
+      "seed": 307,
+      "status": "success"
+    }
+  ],
+  "resume": false,
+  "schema_version": "phase2a.formal_execution.v1",
+  "skipped_run_count": 0,
+  "started_at_utc": "2026-10-04T07:06:11.267794+00:00",
+  "successful_run_count": 54
+}
