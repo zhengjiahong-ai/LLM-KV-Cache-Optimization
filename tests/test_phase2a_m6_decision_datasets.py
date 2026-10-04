@@ -46,11 +46,12 @@ def _raw_run_with_decision() -> RawRunArtifacts:
             "required_blocks": 2,
             "original_free_queue": [
                 {
-                    "block_id": 1,
-                    "native_lru_rank": 0,
+                    "block_id": block_id,
+                    "native_lru_rank": native_lru_rank,
                     "has_block_hash": True,
                     "eligibility_tier": "protected",
                 }
+                for native_lru_rank, block_id in enumerate((1, 2, 3, 4, 5))
             ],
             "ordinary_expired_entries": [],
             "candidates": [
@@ -107,7 +108,7 @@ def test_build_decision_tables_creates_one_decision_row() -> None:
     assert decision.required_blocks == 2
     assert decision.candidate_count == 2
     assert decision.selected_release_count == 1
-    assert decision.original_free_queue_count == 1
+    assert decision.original_free_queue_count == 5
     assert decision.ordinary_expired_entry_count == 0
 
 
@@ -127,6 +128,7 @@ def test_build_decision_tables_creates_one_row_per_candidate() -> None:
     assert first.block_ids == (1, 2)
     assert first.block_count == 2
     assert first.initially_reclaimable_block_ids == (1,)
+    assert first.decision_native_lru_position == 0
     assert first.prefill_reload_seconds == 0.1
 
     second = tables.candidates[1]
@@ -138,6 +140,7 @@ def test_build_decision_tables_creates_one_row_per_candidate() -> None:
     assert second.block_ids == (3, 4, 5)
     assert second.block_count == 3
     assert second.initially_reclaimable_block_ids == (3,)
+    assert second.decision_native_lru_position == 2
     assert second.prefill_reload_seconds == 0.2
 
 

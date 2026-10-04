@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from collections.abc import Iterable, Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -168,6 +169,35 @@ _REQUIRED_V5_CAPABILITIES = {
 }
 
 _V5_CAPABILITY_STATUSES = {"AVAILABLE", "UNAVAILABLE", "ERROR"}
+
+
+def _analysis_provenance() -> dict[str, object]:
+    """Record the analysis code revision without requiring Git at runtime."""
+
+    try:
+        revision = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        status = subprocess.run(
+            ["git", "status", "--porcelain", "--untracked-files=no"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        git_sha = None
+        git_dirty = None
+    else:
+        git_sha = revision.stdout.strip() if revision.returncode == 0 else None
+        git_dirty = bool(status.stdout.strip()) if status.returncode == 0 else None
+    return {
+        "entry_point": "kvopt.profiling.cli",
+        "git_sha": git_sha,
+        "git_dirty": git_dirty,
+    }
 
 
 
@@ -607,6 +637,7 @@ def write_derived_dataset_bundle(
 
     manifest = {
         "schema_version": "phase2a.derived.v1",
+        "analysis_provenance": _analysis_provenance(),
         "source_run_ids": [row.run_id for row in bundle.runs],
         "row_counts": {name: len(rows) for name, rows in tables.items()},
         "method_support_pack": "method_support_pack.json",

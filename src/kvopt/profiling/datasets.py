@@ -240,6 +240,9 @@ def _build_run_row(artifacts: RawRunArtifacts) -> RunRow:
             "run.json persisted_forced_release_event_count",
         ),
         observation_availability=dict(availability),
+        observation_capability_contract_complete=(
+            capability_contract_complete
+        ),
     )
 
 
@@ -308,6 +311,7 @@ class DecisionCandidateRow:
     prefill_reload_seconds: float
     eta: float
     queue_delay_t_seconds: float
+    decision_native_lru_position: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -411,6 +415,38 @@ def _selected_release_order(
     return result
 
 
+def _free_queue_lru_ranks(
+    raw_free_queue: list[object],
+    event_index: int,
+) -> dict[int, int]:
+    """Map block IDs to their native LRU rank at the decision boundary."""
+
+    ranks: dict[int, int] = {}
+    seen_ranks: set[int] = set()
+    for position, raw_block in enumerate(raw_free_queue):
+        field_prefix = f"decision {event_index} free queue block {position}"
+        block = _required_mapping(raw_block, field_prefix)
+        block_id = _required_non_negative_int(
+            block.get("block_id"),
+            f"{field_prefix} block_id",
+        )
+        native_lru_rank = _required_non_negative_int(
+            block.get("native_lru_rank"),
+            f"{field_prefix} native_lru_rank",
+        )
+        if block_id in ranks:
+            raise ArtifactValidationError(
+                f"decision {event_index} free queue contains duplicate block_id"
+            )
+        if native_lru_rank in seen_ranks:
+            raise ArtifactValidationError(
+                f"decision {event_index} free queue contains duplicate native_lru_rank"
+            )
+        ranks[block_id] = native_lru_rank
+        seen_ranks.add(native_lru_rank)
+    return ranks
+
+
 def _candidate_row(
     *,
     artifacts: RawRunArtifacts,
@@ -418,6 +454,7 @@ def _candidate_row(
     position: int,
     raw_candidate: object,
     selected_order: dict[tuple[str, str], int],
+    free_queue_lru_ranks: dict[int, int],
 ) -> DecisionCandidateRow:
     field_prefix = f"decision {event_index} candidate {position}"
     candidate = _required_mapping(raw_candidate, field_prefix)
@@ -443,6 +480,16 @@ def _candidate_row(
         )
     key = (program_id, prefix_id)
     release_order = selected_order.get(key)
+    candidate_lru_ranks = [
+        free_queue_lru_ranks[block_id]
+        for block_id in block_ids
+        if block_id in free_queue_lru_ranks
+    ]
+    decision_native_lru_position = (
+        min(candidate_lru_ranks)
+        if len(candidate_lru_ranks) == len(block_ids) and block_ids
+        else None
+    )
 
     return DecisionCandidateRow(
         run_id=artifacts.run_id,
@@ -485,6 +532,7 @@ def _candidate_row(
             candidate.get("queue_delay_t_seconds"),
             f"{field_prefix} queue_delay_t_seconds",
         ),
+        decision_native_lru_position=decision_native_lru_position,
     )
 
 
@@ -532,6 +580,10 @@ def build_decision_tables(
                 payload.get("original_free_queue"),
                 f"decision {event_index} original_free_queue",
             )
+            free_queue_lru_ranks = _free_queue_lru_ranks(
+                free_queue,
+                event_index,
+            )
             expired_entries = _required_list(
                 payload.get("ordinary_expired_entries"),
                 f"decision {event_index} ordinary_expired_entries",
@@ -547,6 +599,7 @@ def build_decision_tables(
                     position=position,
                     raw_candidate=raw_candidate,
                     selected_order=selected_order,
+                    free_queue_lru_ranks=free_queue_lru_ranks,
                 )
                 candidate_key = (row.program_id, row.prefix_id)
                 if candidate_key in candidate_keys:

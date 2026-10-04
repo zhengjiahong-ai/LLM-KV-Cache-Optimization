@@ -86,6 +86,7 @@ class _RankObservation:
 _ONLINE_FEATURES = (
     "block_count",
     "initially_reclaimable_block_count",
+    "decision_native_lru_position",
     "retention_deadline_timestamp",
     "waiting_followup",
     "next_tool_type=search",
@@ -101,13 +102,14 @@ _MINIMUM_GROUP_COUNT = 3
 _MINIMUM_DIRECTION_AGREEMENT_RATE = 2.0 / 3.0
 
 
-def _feature_value(row: DecisionCandidateRow, feature: str) -> float:
+def _feature_value(row: DecisionCandidateRow, feature: str) -> float | None:
     if feature == "waiting_followup":
         return float(row.waiting_followup)
     if feature.startswith("next_tool_type="):
         category = feature.removeprefix("next_tool_type=")
         return float(row.next_tool_type == category)
-    return float(getattr(row, feature))
+    value = getattr(row, feature)
+    return None if value is None else float(value)
 
 
 def _average_ranks(values: Sequence[float]) -> tuple[float, ...]:
@@ -273,9 +275,14 @@ def build_signal_analysis_tables(
             feature_values = [
                 _feature_value(row, feature) for row in decision_candidates
             ]
-            if len(set(feature_values)) < 2:
+            if any(value is None for value in feature_values):
                 continue
-            feature_ranks = _normalized_ranks(feature_values)
+            numeric_feature_values = [
+                value for value in feature_values if value is not None
+            ]
+            if len(set(numeric_feature_values)) < 2:
+                continue
+            feature_ranks = _normalized_ranks(numeric_feature_values)
             for position in range(len(losses)):
                 observations.append(
                     _RankObservation(

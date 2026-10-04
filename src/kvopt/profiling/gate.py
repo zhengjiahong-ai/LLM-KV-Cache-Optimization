@@ -56,7 +56,10 @@ def evaluate_empirical_gap_gate(
 ) -> EmpiricalGapReport:
     """Apply the documented thresholds without inferring missing evidence."""
 
-    if inputs.otherwise_valid_decision_count == 0:
+    if not inputs.capability_contract_complete:
+        integrity_status = "FAIL"
+        join_rate = None
+    elif inputs.otherwise_valid_decision_count == 0:
         integrity_status = "INSUFFICIENT"
         join_rate = None
     else:
@@ -76,7 +79,11 @@ def evaluate_empirical_gap_gate(
         gate="data_integrity",
         status=integrity_status,
         explanation=(
-            "no otherwise-valid multi-candidate decisions"
+            (
+                "capability_contract_complete=False"
+                if not inputs.capability_contract_complete
+                else "no otherwise-valid multi-candidate decisions"
+            )
             if join_rate is None
             else (
                 f"decision join coverage={join_rate:.3f}; "

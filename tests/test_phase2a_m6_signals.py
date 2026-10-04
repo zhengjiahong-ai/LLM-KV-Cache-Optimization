@@ -170,6 +170,49 @@ def test_signal_analysis_evaluates_next_tool_type_without_ordering_categories() 
     assert code_support.supported
 
 
+def test_signal_analysis_evaluates_decision_native_lru_position() -> None:
+    metadata = tuple(
+        SignalRunMetadata(
+            run_id=f"run-{index}",
+            scenario_family_id=f"family-{index}",
+            seed=index,
+        )
+        for index in range(1, 4)
+    )
+    candidates = tuple(
+        candidate
+        for index in range(1, 4)
+        for candidate in (
+            replace(
+                _candidate(f"run-{index}", "a", 1),
+                decision_native_lru_position=0,
+            ),
+            replace(
+                _candidate(f"run-{index}", "b", 1),
+                decision_native_lru_position=5,
+            ),
+        )
+    )
+    losses = tuple(
+        loss
+        for index in range(1, 4)
+        for loss in (
+            _loss(f"run-{index}", "a", 1.0),
+            _loss(f"run-{index}", "b", 3.0),
+        )
+    )
+
+    tables = build_signal_analysis_tables(candidates, losses, metadata)
+    lru_support = next(
+        row
+        for row in tables.support
+        if row.feature == "decision_native_lru_position"
+    )
+
+    assert lru_support.overall_spearman_rho == 1.0
+    assert lru_support.supported
+
+
 def test_signal_analysis_preserves_insufficient_coverage() -> None:
     tables = build_signal_analysis_tables(
         (_candidate("run-1", "a", 1), _candidate("run-1", "b", 3)),

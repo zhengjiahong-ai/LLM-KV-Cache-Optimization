@@ -61,6 +61,7 @@ class DecisionRegretRow:
 _ONLINE_NUMERIC_FEATURES = (
     "block_count",
     "initially_reclaimable_block_count",
+    "decision_native_lru_position",
     "retention_deadline_timestamp",
     "elapsed_since_ttl_decision_seconds",
     "prefill_reload_seconds",
@@ -87,7 +88,10 @@ def build_candidate_feature_spreads(
     rows: list[CandidateFeatureSpreadRow] = []
     for (run_id, decision_event_index), group in sorted(groups.items()):
         for feature in _ONLINE_NUMERIC_FEATURES:
-            values = [float(getattr(candidate, feature)) for candidate in group]
+            raw_values = [getattr(candidate, feature) for candidate in group]
+            if any(value is None for value in raw_values):
+                continue
+            values = [float(value) for value in raw_values]
             minimum = min(values)
             maximum = max(values)
             rows.append(

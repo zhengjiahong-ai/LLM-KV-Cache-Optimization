@@ -13,7 +13,6 @@ from kvopt.profiling.pipeline import (
     write_derived_dataset_bundle,
 )
 
-
 _V5_CAPABILITIES = (
     "runtime_identity",
     "logical_lifecycle",
@@ -148,7 +147,7 @@ def test_pipeline_builds_and_writes_small_smoke_bundle(tmp_path: Path) -> None:
     assert len(bundle.candidate_loss_evidence) == 3
     assert len(bundle.loss_view_availability) == 3
     assert bundle.decision_regret == ()
-    assert len(bundle.candidate_feature_spreads) == 7
+    assert len(bundle.candidate_feature_spreads) == 8
     assert bundle.candidate_heterogeneity_summary == ()
     assert bundle.regret_summary == ()
     assert bundle.loss_heterogeneity_summary == ()
@@ -163,6 +162,11 @@ def test_pipeline_builds_and_writes_small_smoke_bundle(tmp_path: Path) -> None:
         (output_dir / "manifest.json").read_text(encoding="utf-8")
     )
     assert manifest["schema_version"] == "phase2a.derived.v1"
+    assert manifest["analysis_provenance"]["entry_point"] == (
+        "kvopt.profiling.cli"
+    )
+    assert "git_sha" in manifest["analysis_provenance"]
+    assert "git_dirty" in manifest["analysis_provenance"]
     assert manifest["row_counts"]["request_outcomes"] == 4
     assert manifest["analysis_parameters"]["bootstrap_seed"] == 0
     pack = json.loads(
