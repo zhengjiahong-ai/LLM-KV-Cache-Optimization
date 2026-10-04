@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 from kvopt.profiling.analysis import CandidateLossRow
 from kvopt.profiling.datasets import DecisionCandidateRow
 from kvopt.profiling.signals import (
@@ -123,6 +125,49 @@ def test_signal_analysis_rejects_within_decision_constant_feature() -> None:
     assert eta_support.overall_spearman_rho is None
     assert not eta_support.coverage_sufficient
     assert not eta_support.supported
+
+
+def test_signal_analysis_evaluates_next_tool_type_without_ordering_categories() -> None:
+    metadata = tuple(
+        SignalRunMetadata(
+            run_id=f"run-{index}",
+            scenario_family_id=f"family-{index}",
+            seed=index,
+        )
+        for index in range(1, 4)
+    )
+    candidates = tuple(
+        candidate
+        for index in range(1, 4)
+        for candidate in (
+            replace(
+                _candidate(f"run-{index}", "a", 1),
+                next_tool_type="search",
+            ),
+            replace(
+                _candidate(f"run-{index}", "b", 1),
+                next_tool_type="code",
+            ),
+        )
+    )
+    losses = tuple(
+        loss
+        for index in range(1, 4)
+        for loss in (
+            _loss(f"run-{index}", "a", 1.0),
+            _loss(f"run-{index}", "b", 3.0),
+        )
+    )
+
+    tables = build_signal_analysis_tables(candidates, losses, metadata)
+    code_support = next(
+        row
+        for row in tables.support
+        if row.feature == "next_tool_type=code"
+    )
+
+    assert code_support.overall_spearman_rho == 1.0
+    assert code_support.supported
 
 
 def test_signal_analysis_preserves_insufficient_coverage() -> None:
