@@ -83,10 +83,14 @@ class _RankObservation:
     loss_rank: float
 
 
-_ONLINE_NUMERIC_FEATURES = (
+_ONLINE_FEATURES = (
     "block_count",
     "initially_reclaimable_block_count",
     "retention_deadline_timestamp",
+    "waiting_followup",
+    "next_tool_type=search",
+    "next_tool_type=database",
+    "next_tool_type=code",
     "elapsed_since_ttl_decision_seconds",
     "prefill_reload_seconds",
     "eta",
@@ -95,6 +99,15 @@ _ONLINE_NUMERIC_FEATURES = (
 _MINIMUM_ABSOLUTE_RHO = 0.2
 _MINIMUM_GROUP_COUNT = 3
 _MINIMUM_DIRECTION_AGREEMENT_RATE = 2.0 / 3.0
+
+
+def _feature_value(row: DecisionCandidateRow, feature: str) -> float:
+    if feature == "waiting_followup":
+        return float(row.waiting_followup)
+    if feature.startswith("next_tool_type="):
+        category = feature.removeprefix("next_tool_type=")
+        return float(row.next_tool_type == category)
+    return float(getattr(row, feature))
 
 
 def _average_ranks(values: Sequence[float]) -> tuple[float, ...]:
@@ -250,15 +263,15 @@ def build_signal_analysis_tables(
                 )
             decision_candidates.append(candidate)
         signal_keys.update(
-            (loss_view, feature) for feature in _ONLINE_NUMERIC_FEATURES
+            (loss_view, feature) for feature in _ONLINE_FEATURES
         )
         loss_values = [row.loss for row in losses]
         if len(set(loss_values)) < 2:
             continue
         loss_ranks = _normalized_ranks(loss_values)
-        for feature in _ONLINE_NUMERIC_FEATURES:
+        for feature in _ONLINE_FEATURES:
             feature_values = [
-                float(getattr(row, feature)) for row in decision_candidates
+                _feature_value(row, feature) for row in decision_candidates
             ]
             if len(set(feature_values)) < 2:
                 continue
