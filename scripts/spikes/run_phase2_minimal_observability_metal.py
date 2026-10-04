@@ -284,6 +284,18 @@ def build_observation_report(run_directory: Path) -> dict[str, object]:
             "status": "AVAILABLE" if evicted_blocks else "UNAVAILABLE",
             "reason": "BLOCK_EVICTED callback evidence",
         },
+        "native_block_content_identity": {
+            "status": "UNAVAILABLE",
+            "reason": "current approved eviction callback does not persist pre-eviction content identity",
+        },
+        "native_block_logical_owners": {
+            "status": "UNAVAILABLE",
+            "reason": "current approved eviction callback does not persist logical owner attribution",
+        },
+        "native_block_lru_position": {
+            "status": "UNAVAILABLE",
+            "reason": "current approved eviction callback does not persist eviction-time native LRU position",
+        },
         "generated_token_count": {
             "status": "AVAILABLE" if completed else "UNAVAILABLE",
             "reason": "VLLM_REQUEST_COMPLETED.output_token_count",
