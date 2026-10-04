@@ -20,6 +20,7 @@ def _inputs(*, formal: bool, signal: bool | None = True) -> EmpiricalGapInputs:
         provenance_complete=True,
         online_signal_supported=signal,
         direct_loss_views=(),
+        capability_contract_complete=True,
     )
 
 
@@ -96,3 +97,25 @@ def test_gate_reports_no_measurable_gap_when_heterogeneity_fails() -> None:
     )
 
     assert report.overall_outcome == "NO-MEASURABLE-GAP"
+
+
+def test_gate_rejects_incomplete_v5_capability_contract() -> None:
+    inputs = _inputs(formal=True)
+    inputs = EmpiricalGapInputs(
+        **{
+            **inputs.__dict__,
+            "capability_contract_complete": False,
+        }
+    )
+    report = evaluate_empirical_gap_gate(
+        inputs,
+        (_heterogeneity(),),
+        (_regret(),),
+    )
+
+    assert report.overall_outcome == "DATA-INVALID"
+    integrity = next(
+        row for row in report.checks if row.gate == "data_integrity"
+    )
+    assert integrity.status == "FAIL"
+    assert "capability_contract_complete=False" in integrity.explanation
