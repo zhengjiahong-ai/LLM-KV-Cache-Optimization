@@ -112,6 +112,13 @@ def _average_ranks(values: Sequence[float]) -> tuple[float, ...]:
     return tuple(ranks)
 
 
+def _normalized_ranks(values: Sequence[float]) -> tuple[float, ...]:
+    ranks = _average_ranks(values)
+    if len(ranks) < 2:
+        return tuple(0.5 for _rank in ranks)
+    return tuple((rank - 1.0) / (len(ranks) - 1.0) for rank in ranks)
+
+
 def _correlation(x_values: Sequence[float], y_values: Sequence[float]) -> float | None:
     if len(x_values) < 2 or len(x_values) != len(y_values):
         return None
@@ -154,6 +161,18 @@ def _association(
             [row.feature_rank for row in observations],
             [row.loss_rank for row in observations],
         ),
+    )
+
+
+def _empty_association(loss_view: str, feature: str) -> SignalAssociationRow:
+    return SignalAssociationRow(
+        loss_view=loss_view,
+        feature=feature,
+        group_type="overall",
+        group_value="all",
+        observation_count=0,
+        decision_count=0,
+        spearman_rho=None,
     )
 
 
@@ -214,6 +233,7 @@ def build_signal_analysis_tables(
         loss_groups[group_key].append(loss)
 
     observations: list[_RankObservation] = []
+    signal_keys: set[tuple[str, str]] = set()
     for (run_id, event_index, loss_view), losses in sorted(loss_groups.items()):
         metadata = metadata_by_run.get(run_id)
         if metadata is None:
@@ -229,11 +249,20 @@ def build_signal_analysis_tables(
                     f"candidate loss is missing decision-time candidate: {key}"
                 )
             decision_candidates.append(candidate)
-        loss_ranks = _average_ranks([row.loss for row in losses])
+        signal_keys.update(
+            (loss_view, feature) for feature in _ONLINE_NUMERIC_FEATURES
+        )
+        loss_values = [row.loss for row in losses]
+        if len(set(loss_values)) < 2:
+            continue
+        loss_ranks = _normalized_ranks(loss_values)
         for feature in _ONLINE_NUMERIC_FEATURES:
-            feature_ranks = _average_ranks(
-                [float(getattr(row, feature)) for row in decision_candidates]
-            )
+            feature_values = [
+                float(getattr(row, feature)) for row in decision_candidates
+            ]
+            if len(set(feature_values)) < 2:
+                continue
+            feature_ranks = _normalized_ranks(feature_values)
             for position in range(len(losses)):
                 observations.append(
                     _RankObservation(
@@ -253,7 +282,11 @@ def build_signal_analysis_tables(
         by_signal[(row.loss_view, row.feature)].append(row)
 
     associations: list[SignalAssociationRow] = []
-    for _, rows in sorted(by_signal.items()):
+    for signal_key in sorted(signal_keys):
+        rows = by_signal.get(signal_key, [])
+        if not rows:
+            associations.append(_empty_association(*signal_key))
+            continue
         associations.append(
             _association(rows, group_type="overall", group_value="all")
         )
