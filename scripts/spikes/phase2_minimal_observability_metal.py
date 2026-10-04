@@ -12,9 +12,10 @@ import hashlib
 import importlib
 import os
 import time
+from collections.abc import Mapping
 from importlib.metadata import version as distribution_version
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from kvopt.continuum import (
     BlockEvicted,
@@ -47,7 +48,6 @@ from kvopt.profiling.experiment_events import (
 from kvopt.runtime.vllm.observer import install_retention_hook
 from kvopt.runtime.vllm.retention_integration import RetentionRuntimeIntegration
 from kvopt.workload.phase2 import PlannedRequest
-
 
 _TARGET_PREFIX_TOKENS = 256
 _PRESSURE_TOKENS = 512
@@ -125,6 +125,30 @@ def _expected_profiling_block_override(
         sum(size // _BLOCK_SIZE for size in program_prefix_tokens.values())
         + pressure_tokens // _BLOCK_SIZE
     )
+
+
+def _pressure_stage_sizes(options: Mapping[str, object]) -> dict[str, int]:
+    raw = options.get("pressure_stage_prompt_tokens")
+    if raw is None:
+        return {}
+    if not isinstance(raw, Mapping):
+        raise TypeError("backend_options.pressure_stage_prompt_tokens must be an object")
+    sizes: dict[str, int] = {}
+    for stage_id, value in raw.items():
+        if not isinstance(stage_id, str) or not stage_id.strip():
+            raise ValueError(
+                "pressure_stage_prompt_tokens keys must be non-empty stage IDs"
+            )
+        size = _positive_int(
+            value,
+            f"backend_options.pressure_stage_prompt_tokens[{stage_id!r}]",
+        )
+        if size % _BLOCK_SIZE != 0:
+            raise ValueError(
+                "pressure-stage token count must align to the KV block size"
+            )
+        sizes[stage_id] = size
+    return sizes
 
 
 def _program_prefix_token_ids(
@@ -234,6 +258,7 @@ class MinimalMetalObservabilityBackend:
             options.get("pressure_prompt_tokens", _PRESSURE_TOKENS),
             "backend_options.pressure_prompt_tokens",
         )
+        self._pressure_stage_tokens = _pressure_stage_sizes(options)
         timing = options.get("execute_planned_timing", False)
         if not isinstance(timing, bool):
             raise TypeError("backend_options.execute_planned_timing must be bool")
@@ -283,10 +308,10 @@ class MinimalMetalObservabilityBackend:
         )
 
         try:
-            from vllm import LLM, SamplingParams
             import mlx.core as mx
             import vllm
             import vllm_metal
+            from vllm import LLM, SamplingParams
             from vllm.platforms import current_platform
             from vllm.v1.core.block_pool import BlockPool
             from vllm.v1.core.kv_cache_utils import FreeKVCacheBlockQueue
@@ -412,6 +437,7 @@ class MinimalMetalObservabilityBackend:
                     "target_prefix_tokens": self._prefix_tokens,
                     "program_prefix_tokens": self._program_prefix_tokens,
                     "pressure_prompt_tokens": self._pressure_tokens,
+                    "pressure_stage_prompt_tokens": self._pressure_stage_tokens,
                     "execute_planned_timing": self._execute_planned_timing,
                     "gpu_memory_utilization": gpu_memory_utilization,
                 },
@@ -681,10 +707,15 @@ class MinimalMetalObservabilityBackend:
 
     def _execute_pressure(self, request: PlannedRequest) -> None:
         self._wait_for_planned_arrival(request)
+        stage_id = request.program_id.removeprefix("pressure:")
+        pressure_tokens = self._pressure_stage_tokens.get(
+            stage_id,
+            self._pressure_tokens,
+        )
         token_ids = _pressure_token_ids(
             request,
             vocabulary_size=self._vocabulary_size,
-            token_count=self._pressure_tokens,
+            token_count=pressure_tokens,
         )
         native_id, external_id, _submitted_at = self._enqueue(request, token_ids)
         finished_at = self._complete(request, native_id, external_id)
