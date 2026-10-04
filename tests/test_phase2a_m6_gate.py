@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 from kvopt.profiling.gate import (
     EmpiricalGapInputs,
     evaluate_empirical_gap_gate,
@@ -101,11 +103,9 @@ def test_gate_reports_no_measurable_gap_when_heterogeneity_fails() -> None:
 
 def test_gate_rejects_incomplete_v5_capability_contract() -> None:
     inputs = _inputs(formal=True)
-    inputs = EmpiricalGapInputs(
-        **{
-            **inputs.__dict__,
-            "capability_contract_complete": False,
-        }
+    inputs = replace(
+        inputs,
+        capability_contract_complete=False,
     )
     report = evaluate_empirical_gap_gate(
         inputs,
