@@ -1,4 +1,6 @@
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -7,6 +9,7 @@ from kvopt.workload.phase2_formal import materialize_formal_campaign
 from kvopt.workload.phase2_formal_runner import (
     execute_formal_campaign,
     load_formal_campaign,
+    run_phase2_isolated,
 )
 
 BASE_CONFIG = (
@@ -157,3 +160,69 @@ def test_formal_runner_rejects_modified_scenario_config(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="scenario config SHA-256 mismatch"):
         load_formal_campaign(campaign)
+
+
+def test_isolated_executor_launches_fresh_python_process(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_path = tmp_path / "config.json"
+    config_path.write_text("{}\n", encoding="utf-8")
+    output_root = tmp_path / "runs"
+    output_root.mkdir()
+
+    def fake_run(
+        command: list[str],
+        *,
+        capture_output: bool,
+        check: bool,
+        text: bool,
+    ) -> subprocess.CompletedProcess[str]:
+        assert command[:3] == [
+            sys.executable,
+            "-m",
+            "kvopt.workload.phase2_single_runner",
+        ]
+        assert capture_output and not check and text
+        run_dir = output_root / "isolated-run"
+        run_dir.mkdir()
+        (run_dir / "run.json").write_text(
+            json.dumps({"status": "success"}),
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(command, 0, "success\n", "runtime log\n")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    result = run_phase2_isolated(
+        config_path,
+        output_root=output_root,
+        run_id="isolated-run",
+    )
+
+    assert result == output_root / "isolated-run"
+    assert (result / "launcher-stdout.log").read_text(encoding="utf-8") == "success\n"
+    assert (result / "launcher-stderr.log").read_text(encoding="utf-8") == "runtime log\n"
+
+
+def test_isolated_executor_reports_missing_manifest(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args[0],
+            2,
+            "",
+            "child failed before creating artifacts",
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="without run.json"):
+        run_phase2_isolated(
+            tmp_path / "config.json",
+            output_root=tmp_path / "runs",
+            run_id="missing",
+        )

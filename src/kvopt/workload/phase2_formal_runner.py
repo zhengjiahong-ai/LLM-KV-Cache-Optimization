@@ -7,6 +7,8 @@ import hashlib
 import json
 import os
 import re
+import subprocess
+import sys
 import tempfile
 import uuid
 from collections.abc import Callable, Iterable, Sequence
@@ -66,6 +68,55 @@ RunExecutor = Callable[..., Path]
 
 def _now() -> str:
     return datetime.now(UTC).isoformat()
+
+
+def run_phase2_isolated(
+    config_path: Path,
+    *,
+    output_root: Path,
+    run_id: str,
+) -> Path:
+    """Run one experiment in a child process so Metal memory is reclaimed."""
+
+    command = [
+        sys.executable,
+        "-m",
+        "kvopt.workload.phase2_single_runner",
+        "--config",
+        str(config_path),
+        "--output-root",
+        str(output_root),
+        "--run-id",
+        run_id,
+    ]
+    completed = subprocess.run(
+        command,
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+    run_dir = output_root / run_id
+    if run_dir.is_dir():
+        if completed.stdout:
+            (run_dir / "launcher-stdout.log").write_text(
+                completed.stdout,
+                encoding="utf-8",
+            )
+        if completed.stderr:
+            (run_dir / "launcher-stderr.log").write_text(
+                completed.stderr,
+                encoding="utf-8",
+            )
+    manifest_path = run_dir / "run.json"
+    if not manifest_path.is_file():
+        detail = completed.stderr.strip() or completed.stdout.strip()
+        if detail:
+            detail = f": {detail[-1000:]}"
+        raise RuntimeError(
+            f"isolated run exited with code {completed.returncode} "
+            f"without run.json{detail}"
+        )
+    return run_dir
 
 
 def _json_object(path: Path) -> dict[str, object]:
@@ -399,6 +450,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         family_ids=arguments.families,
         scenario_ids=arguments.scenarios,
         seeds=arguments.seeds,
+        run_executor=run_phase2_isolated,
     )
     print(
         f"formal campaign complete: {summary.successful_run_count} success, "
