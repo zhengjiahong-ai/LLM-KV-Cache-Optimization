@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import pytest
 
+from kvopt.workload.phase2 import PlannedRequest
 from scripts.spikes.phase2_minimal_observability_metal import (
     _expected_profiling_block_override,
+    _pressure_stage_sizes,
     _program_prefix_sizes,
     _turn_token_ids,
 )
-from kvopt.workload.phase2 import PlannedRequest
 
 
 def test_expected_block_budget_matches_controlled_scarcity_rule() -> None:
@@ -54,3 +55,17 @@ def test_materialized_turn_uses_requested_prefix_size() -> None:
 
     assert len(token_ids) == 129
     assert len(set(token_ids[:128])) == 128
+
+
+def test_pressure_stage_sizes_accept_aligned_overrides() -> None:
+    assert _pressure_stage_sizes({
+        "pressure_stage_prompt_tokens": {
+            "pressure-1": 256,
+            "pressure-2": 512,
+        }
+    }) == {"pressure-1": 256, "pressure-2": 512}
+
+    with pytest.raises(ValueError, match="align to the KV block size"):
+        _pressure_stage_sizes({
+            "pressure_stage_prompt_tokens": {"pressure-1": 255}
+        })

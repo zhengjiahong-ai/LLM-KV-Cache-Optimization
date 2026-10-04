@@ -28,6 +28,7 @@ class FormalScenarioSpec:
     required_blocks: int
     analysis_horizon_seconds: float
     tags: tuple[str, ...]
+    pressure_stage_blocks: tuple[int, ...] = ()
 
 
 def formal_scenario_specs() -> tuple[FormalScenarioSpec, ...]:
@@ -45,12 +46,12 @@ def formal_scenario_specs() -> tuple[FormalScenarioSpec, ...]:
         FormalScenarioSpec("F3", "f3-outside-horizon-interleaved", (128, 256, 512), (0, 0.2, 0.4), (3, 5, 12), (2,), 16, 4, ("outside-horizon", "interleaved-return")),
         FormalScenarioSpec("F4", "f4-shallow-single-pressure", (256, 256), (0, 0.2), (5, 6), (2,), 4, 5, ("shallow-pressure",)),
         FormalScenarioSpec("F4", "f4-deep-multi-release", (128, 256, 512), (0, 0.2, 0.4), (7, 8, 9), (2,), 32, 6, ("deep-pressure", "multi-release")),
-        FormalScenarioSpec("F4", "f4-repeated-pressure", (256, 256, 512), (0, 0.2, 0.4), (8, 9, 10), (2, 5), 16, 6, ("repeated-pressure", "repeated-release")),
+        FormalScenarioSpec("F4", "f4-repeated-pressure", (256, 256, 512), (0, 0.2, 0.4), (8, 9, 10), (2, 5), 16, 6, ("repeated-pressure", "repeated-release"), (16, 32)),
         FormalScenarioSpec("F5", "f5-staggered-low-waiting", (256, 256), (0, 1), (5, 7), (3,), 8, 5, ("staggered", "low-waiting")),
         FormalScenarioSpec("F5", "f5-overlap-high-waiting", (128, 256, 512, 256), (0, 0, 0.1, 0.1), (6, 7, 8, 9), (2,), 16, 6, ("overlap", "high-waiting")),
         FormalScenarioSpec("F5", "f5-same-cost-return-reversal", (256, 256, 256), (0, 0.2, 0.4), (7, 3, 5), (2,), 16, 5, ("return-order-reversed", "queue-state")),
         FormalScenarioSpec("F6", "f6-evolving-prefixes", (128, 256, 512), (0, 0.2, 0.4), (5, 6, 7), (2,), 16, 5, ("evolving-prefix", "identity-audit")),
-        FormalScenarioSpec("F6", "f6-repeated-block-reuse", (256, 256, 512), (0, 0.2, 0.4), (8, 9, 10), (2, 5), 32, 6, ("block-slot-reuse", "repeated-pressure")),
+        FormalScenarioSpec("F6", "f6-repeated-block-reuse", (256, 256, 512), (0, 0.2, 0.4), (8, 9, 10), (2, 5), 32, 6, ("block-slot-reuse", "repeated-pressure"), (32, 48)),
         FormalScenarioSpec("F6", "f6-shared-ownership-audit", (512, 512, 512), (0, 0.1, 0.2), (6, 7, 8), (2,), 16, 5, ("shared-ownership", "capability-gated")),
     )
 
@@ -71,6 +72,13 @@ def build_formal_trace(spec: FormalScenarioSpec) -> Phase2Trace:
         raise ValueError("formal scenario candidate dimensions must match")
     if not spec.pressure_offsets:
         raise ValueError("formal scenario must contain pressure")
+    if spec.pressure_stage_blocks and (
+        len(spec.pressure_stage_blocks) != len(spec.pressure_offsets)
+        or spec.pressure_stage_blocks[0] != spec.required_blocks
+    ):
+        raise ValueError(
+            "formal pressure-stage blocks must match stages and start at required_blocks"
+        )
 
     requests: list[PlannedRequest] = []
     for index, (initial_offset, return_offset) in enumerate(
@@ -156,6 +164,10 @@ def build_formal_config(
         raise TypeError("base config pressure must be an object")
     pressure["required_blocks"] = spec.required_blocks
     pressure["safety_ceiling"] = max(3, int(pressure.get("safety_ceiling", 1)))
+    stage_blocks = spec.pressure_stage_blocks or tuple(
+        spec.required_blocks for _offset in spec.pressure_offsets
+    )
+    pressure["stage_required_blocks"] = list(stage_blocks)
 
     backend_options = config.setdefault("backend_options", {})
     if not isinstance(backend_options, dict):
@@ -165,6 +177,10 @@ def build_formal_config(
         for index, tokens in enumerate(spec.prefix_tokens)
     }
     backend_options["pressure_prompt_tokens"] = pressure_prompt_tokens
+    backend_options["pressure_stage_prompt_tokens"] = {
+        f"pressure-{index}": blocks * block_size_value
+        for index, blocks in enumerate(stage_blocks, start=1)
+    }
     backend_options["execute_planned_timing"] = True
     return config
 
@@ -218,7 +234,7 @@ def materialize_formal_campaign(
 
     manifest = {
         "schema_version": "phase2a.formal_campaign.v2",
-        "campaign_id": "phase2a-m6-formal-v2",
+        "campaign_id": "phase2a-m6-formal-v3",
         "campaign_kind": "formal",
         "seeds": list(FORMAL_SEEDS),
         "predeclared_repetitions_per_scenario": len(FORMAL_SEEDS),

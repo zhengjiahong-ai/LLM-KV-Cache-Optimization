@@ -97,6 +97,16 @@ def test_materialized_campaign_is_deterministic_and_loadable(
         assert config["backend_options"]["pressure_prompt_tokens"] == (
             spec.required_blocks * block_size
         )
+        expected_stage_blocks = spec.pressure_stage_blocks or tuple(
+            spec.required_blocks for _offset in spec.pressure_offsets
+        )
+        assert config["pressure"]["stage_required_blocks"] == list(
+            expected_stage_blocks
+        )
+        assert config["backend_options"]["pressure_stage_prompt_tokens"] == {
+            f"pressure-{index}": blocks * block_size
+            for index, blocks in enumerate(expected_stage_blocks, start=1)
+        }
         assert config["cache"]["block_override"] == (
             protected_blocks + pressure_blocks
         )
