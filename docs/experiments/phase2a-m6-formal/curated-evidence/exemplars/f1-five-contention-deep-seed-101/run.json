@@ -1,0 +1,154 @@
+{
+  "backend": "scripts.spikes.phase2_minimal_observability_metal:build_phase2_metal_observability_backend",
+  "backend_revision": "phase2a-minimal-metal-observability-v1",
+  "batching": {
+    "max_concurrent_requests": 1
+  },
+  "cache": {
+    "block_override": 109,
+    "block_size": 16
+  },
+  "config": {
+    "analysis_horizon_seconds": 6,
+    "backend_factory": "scripts.spikes.phase2_minimal_observability_metal:build_phase2_metal_observability_backend",
+    "backend_options": {
+      "execute_planned_timing": true,
+      "gpu_memory_utilization": 0.8,
+      "prefill_profile_path": "docs/experiments/phase1b-continuum/artifacts/prefill-reload-profile-formal-20260920T045859Z-6183d106.json",
+      "pressure_prompt_tokens": 512,
+      "pressure_stage_prompt_tokens": {
+        "pressure-1": 512
+      },
+      "program_prefix_tokens": {
+        "agent-a": 128,
+        "agent-b": 128,
+        "agent-c": 256,
+        "agent-d": 512,
+        "agent-e": 512
+      },
+      "target_prefix_tokens": 256
+    },
+    "backend_revision": "phase2a-minimal-metal-observability-v1",
+    "batching": {
+      "max_concurrent_requests": 1
+    },
+    "cache": {
+      "block_override": 109,
+      "block_size": 16
+    },
+    "formal_scenario_tags": [
+      "candidate-scale-5",
+      "higher-contention"
+    ],
+    "generation": {
+      "max_new_tokens": 1,
+      "temperature": 0
+    },
+    "model": {
+      "name": "Qwen/Qwen2.5-0.5B-Instruct",
+      "revision": "7ae557604adf67be50417f59c2c2f167def9a775"
+    },
+    "observe": true,
+    "policy": "continuum-baseline",
+    "pressure": {
+      "initial_shortage_blocks": 20,
+      "required_blocks": 32,
+      "safety_ceiling": 3,
+      "stage_required_blocks": [
+        32
+      ]
+    },
+    "profiling_scenario_family": "F1",
+    "profiling_scenario_id": "f1-five-contention-deep",
+    "runtime_mode": "vllm-metal-observability",
+    "schema_version": "phase2.config.v1",
+    "seed": 101,
+    "tokenizer": {
+      "name": "Qwen/Qwen2.5-0.5B-Instruct",
+      "revision": "7ae557604adf67be50417f59c2c2f167def9a775"
+    },
+    "trace": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-campaign-v4/f1-five-contention-deep.trace.json"
+  },
+  "config_sha256": "51c871e1665d524dfbbff5f6471f7d95751beb0920f4b5de4e1f8b57fae2c649",
+  "ended_at_utc": "2026-10-04T07:07:40.775587+00:00",
+  "event_count": 170,
+  "failure_reason": null,
+  "generation": {
+    "max_new_tokens": 1,
+    "temperature": 0
+  },
+  "git_dirty": false,
+  "git_sha": "f402cff097764ecead840690fff266fa736f9322",
+  "hardware": {
+    "availability": "unavailable",
+    "reason": "no compatible provider"
+  },
+  "model": {
+    "name": "Qwen/Qwen2.5-0.5B-Instruct",
+    "revision": "7ae557604adf67be50417f59c2c2f167def9a775"
+  },
+  "observation_availability": {
+    "forced_release": "optional approved observer emission",
+    "hardware_counters": "unavailable",
+    "lifecycle": "optional backend emission",
+    "native_apc_hit_miss": "unavailable without backend observation"
+  },
+  "observed_forced_release_count": 1,
+  "persisted_forced_release_event_count": 1,
+  "platform": "macOS-26.5.1-arm64-arm-64bit",
+  "pressure": {
+    "initial_shortage_blocks": 20,
+    "required_blocks": 32,
+    "safety_ceiling": 3,
+    "stage_required_blocks": [
+      32
+    ]
+  },
+  "pressure_selected_block_ids": [
+    [
+      97,
+      98,
+      99,
+      100,
+      101,
+      102,
+      103,
+      104,
+      105,
+      106,
+      107,
+      108,
+      8,
+      7,
+      6,
+      5,
+      4,
+      3,
+      2,
+      1,
+      16,
+      15,
+      14,
+      13,
+      12,
+      11,
+      10,
+      9,
+      32,
+      31,
+      30,
+      29
+    ]
+  ],
+  "run_id": "f1-five-contention-deep-seed-101",
+  "schema_version": "phase2.run.v1",
+  "seed": 101,
+  "started_at_utc": "2026-10-04T07:07:25.270032+00:00",
+  "status": "success",
+  "tokenizer": {
+    "name": "Qwen/Qwen2.5-0.5B-Instruct",
+    "revision": "7ae557604adf67be50417f59c2c2f167def9a775"
+  },
+  "trace_id": "phase2a-formal-f1-five-contention-deep-v1",
+  "trace_sha256": "d0009d5262d7bd6ca23a2658ee006b5b866f5fb10979a5356525e00a3825060f"
+}

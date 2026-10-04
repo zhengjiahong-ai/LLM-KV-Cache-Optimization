@@ -1,0 +1,87 @@
+{
+  "pressure_stages": [
+    {
+      "max_requests": 3,
+      "planned_arrival_offset_seconds": 2.0,
+      "prompt": "formal pressure for f4-deep-multi-release stage 1",
+      "stage_id": "pressure-1",
+      "stop_on_forced_release": true
+    }
+  ],
+  "requests": [
+    {
+      "is_terminal": false,
+      "kind": "turn",
+      "next_tool_type": "search",
+      "planned_arrival_offset_seconds": 0.0,
+      "prefix_prompt": "formal reusable prefix for agent-a",
+      "program_id": "agent-a",
+      "prompt": "establish agent-a",
+      "request_id": "agent-a:turn:1",
+      "tool_gap_seconds": 7.0,
+      "turn_index": 1
+    },
+    {
+      "is_terminal": true,
+      "kind": "turn",
+      "next_tool_type": null,
+      "planned_arrival_offset_seconds": 7.0,
+      "prefix_prompt": "formal reusable prefix for agent-a",
+      "program_id": "agent-a",
+      "prompt": "return agent-a",
+      "request_id": "agent-a:turn:2",
+      "tool_gap_seconds": null,
+      "turn_index": 2
+    },
+    {
+      "is_terminal": false,
+      "kind": "turn",
+      "next_tool_type": "database",
+      "planned_arrival_offset_seconds": 0.2,
+      "prefix_prompt": "formal reusable prefix for agent-b",
+      "program_id": "agent-b",
+      "prompt": "establish agent-b",
+      "request_id": "agent-b:turn:1",
+      "tool_gap_seconds": 7.8,
+      "turn_index": 1
+    },
+    {
+      "is_terminal": true,
+      "kind": "turn",
+      "next_tool_type": null,
+      "planned_arrival_offset_seconds": 8.0,
+      "prefix_prompt": "formal reusable prefix for agent-b",
+      "program_id": "agent-b",
+      "prompt": "return agent-b",
+      "request_id": "agent-b:turn:2",
+      "tool_gap_seconds": null,
+      "turn_index": 2
+    },
+    {
+      "is_terminal": false,
+      "kind": "turn",
+      "next_tool_type": "code",
+      "planned_arrival_offset_seconds": 0.4,
+      "prefix_prompt": "formal reusable prefix for agent-c",
+      "program_id": "agent-c",
+      "prompt": "establish agent-c",
+      "request_id": "agent-c:turn:1",
+      "tool_gap_seconds": 8.6,
+      "turn_index": 1
+    },
+    {
+      "is_terminal": true,
+      "kind": "turn",
+      "next_tool_type": null,
+      "planned_arrival_offset_seconds": 9.0,
+      "prefix_prompt": "formal reusable prefix for agent-c",
+      "program_id": "agent-c",
+      "prompt": "return agent-c",
+      "request_id": "agent-c:turn:2",
+      "tool_gap_seconds": null,
+      "turn_index": 2
+    }
+  ],
+  "schema_version": "phase2.trace.v1",
+  "trace_id": "phase2a-formal-f4-deep-multi-release-v1"
+}

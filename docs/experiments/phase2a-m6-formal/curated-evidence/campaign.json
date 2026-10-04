@@ -1,0 +1,219 @@
+{
+  "campaign_id": "phase2a-m6-formal-v4",
+  "campaign_kind": "formal",
+  "family_scenario_counts": {
+    "F1": 3,
+    "F2": 3,
+    "F3": 3,
+    "F4": 3,
+    "F5": 3,
+    "F6": 3
+  },
+  "planned_run_count": 54,
+  "predeclared_repetitions_per_scenario": 3,
+  "scenarios": [
+    {
+      "config": "f1-two-homogeneous-shallow.config.json",
+      "config_sha256": "8a20d5caed42bef568783dea3b7f4150ebe6bd28580f10c3d1c30bf26c25d6a5",
+      "family_id": "F1",
+      "scenario_id": "f1-two-homogeneous-shallow",
+      "tags": [
+        "candidate-scale-2",
+        "homogeneous"
+      ],
+      "trace_sha256": "bf13fd02dbf38f7a11fcbdc702ee2366092cc91c0ff7c9de102ff7176e4433b8"
+    },
+    {
+      "config": "f1-three-mixed-medium.config.json",
+      "config_sha256": "ad8a6b01b4fcdcac81a45b22008f883095bddad81ee610df8245057831ba37f2",
+      "family_id": "F1",
+      "scenario_id": "f1-three-mixed-medium",
+      "tags": [
+        "candidate-scale-3",
+        "heterogeneous"
+      ],
+      "trace_sha256": "640d144e8c9fc002b57c739d6591a30ae4c9bb91296b1a66494fb2bcce21c5a5"
+    },
+    {
+      "config": "f1-five-contention-deep.config.json",
+      "config_sha256": "abe32e8b98f8336c32860d21ae5da45b10161f569a3506b5c3f2f2da2e9600eb",
+      "family_id": "F1",
+      "scenario_id": "f1-five-contention-deep",
+      "tags": [
+        "candidate-scale-5",
+        "higher-contention"
+      ],
+      "trace_sha256": "d0009d5262d7bd6ca23a2658ee006b5b866f5fb10979a5356525e00a3825060f"
+    },
+    {
+      "config": "f2-equal-256.config.json",
+      "config_sha256": "926d291f1a195dcf8f1f23a33d4db7bd392090ac9cc2daed984ceb0aa0d228a2",
+      "family_id": "F2",
+      "scenario_id": "f2-equal-256",
+      "tags": [
+        "homogeneous",
+        "cost-control"
+      ],
+      "trace_sha256": "8b86c157a9eb4642190938841f3777a74bc5b5deb6d37e6c899bba4939605596"
+    },
+    {
+      "config": "f2-mixed-128-256-512.config.json",
+      "config_sha256": "1beab2ff4219bd3c883e3a0f8500ba58b4f3ac07281ce4fa0d157e5a6ce836ab",
+      "family_id": "F2",
+      "scenario_id": "f2-mixed-128-256-512",
+      "tags": [
+        "heterogeneous",
+        "cost-spread"
+      ],
+      "trace_sha256": "00733ecff457dd93cf61d1e490e40a0ee1469ddde882e05765a58b7d921192bb"
+    },
+    {
+      "config": "f2-large-spread-five.config.json",
+      "config_sha256": "1d70229fb43d4ed6d8e3d388d188fa11de87fa205ae161c0a74245605fda5732",
+      "family_id": "F2",
+      "scenario_id": "f2-large-spread-five",
+      "tags": [
+        "heterogeneous",
+        "large-cost-spread"
+      ],
+      "trace_sha256": "68251de2b8cf56fc4e98d455bc4e525f590519110d87ee28dc5dc30f7b95f172"
+    },
+    {
+      "config": "f3-a-early-b-late.config.json",
+      "config_sha256": "5bbdff4a958b07b2f144ae5ca88b01bd50e7452719431d3f81cee86b9bcbba7a",
+      "family_id": "F3",
+      "scenario_id": "f3-a-early-b-late",
+      "tags": [
+        "early-return",
+        "late-return"
+      ],
+      "trace_sha256": "c29078f4a44978c89695a247995c55e503954a2056c403cb936fc8b8366aa1b5"
+    },
+    {
+      "config": "f3-b-early-a-late.config.json",
+      "config_sha256": "b81cd2d4ef130f6a31aebe13944883c5e5d23cdf244d05f2120cfc576443b5b7",
+      "family_id": "F3",
+      "scenario_id": "f3-b-early-a-late",
+      "tags": [
+        "return-order-reversed",
+        "late-return"
+      ],
+      "trace_sha256": "65f39987f63f774496edad2e1320648fbb35a2edb764ba240a8e03ee248a5773"
+    },
+    {
+      "config": "f3-outside-horizon-interleaved.config.json",
+      "config_sha256": "83eb4b5d9b94b1f5c3484c34d2734e222a1a129e27230369de916ceee76a25a5",
+      "family_id": "F3",
+      "scenario_id": "f3-outside-horizon-interleaved",
+      "tags": [
+        "outside-horizon",
+        "interleaved-return"
+      ],
+      "trace_sha256": "45877826cda9331523e4ba8cee6eb46e7c22d184d9238f704b1e0d783574c7f8"
+    },
+    {
+      "config": "f4-shallow-single-pressure.config.json",
+      "config_sha256": "a796a69006f728409c92233a68ea563c76de137e3a974f5620ec2de4a645365c",
+      "family_id": "F4",
+      "scenario_id": "f4-shallow-single-pressure",
+      "tags": [
+        "shallow-pressure"
+      ],
+      "trace_sha256": "99c8066c342cc54f90c10ce49fa0454c5c437fb81f48f72eb492cd77c69dd045"
+    },
+    {
+      "config": "f4-deep-multi-release.config.json",
+      "config_sha256": "838a9fca81a936df100e1190d82d173fef0d1b673d5409d20b661433b9bd720e",
+      "family_id": "F4",
+      "scenario_id": "f4-deep-multi-release",
+      "tags": [
+        "deep-pressure",
+        "multi-release"
+      ],
+      "trace_sha256": "3bd4a2c2923a04f70f08cb4704290f9bc3b1bc60c9246631e5cb5bc47daca0c7"
+    },
+    {
+      "config": "f4-repeated-pressure.config.json",
+      "config_sha256": "14a26a934d438e36033a4f53b955f6e4f554e2fb00e25f7179c5d7ee9e9f26eb",
+      "family_id": "F4",
+      "scenario_id": "f4-repeated-pressure",
+      "tags": [
+        "repeated-pressure",
+        "repeated-release"
+      ],
+      "trace_sha256": "f25fbcfd9b99fe8014feb9c6d4fac469091f9cfd512899232be9ff7b3f0bd76a"
+    },
+    {
+      "config": "f5-staggered-low-waiting.config.json",
+      "config_sha256": "44497c960fe60b73de6a441f15697ad39121a3f43c4ec124b4818b1f01e8adc1",
+      "family_id": "F5",
+      "scenario_id": "f5-staggered-low-waiting",
+      "tags": [
+        "staggered",
+        "low-waiting"
+      ],
+      "trace_sha256": "5d2ecdff9efcd23f285adaf0f69060e3a47db8d90aa684f67954591fb5d21305"
+    },
+    {
+      "config": "f5-overlap-high-waiting.config.json",
+      "config_sha256": "1637d6777465cb9d38a21ef66539513cd46e405a8c69fd86e23900aaa81df35f",
+      "family_id": "F5",
+      "scenario_id": "f5-overlap-high-waiting",
+      "tags": [
+        "overlap",
+        "high-waiting"
+      ],
+      "trace_sha256": "032e92c69f4bb27dd02d6c25048cf19f5b51eeeb71fb0e0bd7ed51a923a64027"
+    },
+    {
+      "config": "f5-same-cost-return-reversal.config.json",
+      "config_sha256": "42099b7b08719659ed19ddac95151887c547939bb5166168935a675a69d3d240",
+      "family_id": "F5",
+      "scenario_id": "f5-same-cost-return-reversal",
+      "tags": [
+        "return-order-reversed",
+        "queue-state"
+      ],
+      "trace_sha256": "c5abaf52851edf4c4de1501679adbd629c99db16d077132209e5db1c238ea9f3"
+    },
+    {
+      "config": "f6-evolving-prefixes.config.json",
+      "config_sha256": "039ed6f9ce27f1c67b1ff85e9097f77211515ec33c31dfc6d7f3bbf1b2b23e4e",
+      "family_id": "F6",
+      "scenario_id": "f6-evolving-prefixes",
+      "tags": [
+        "evolving-prefix",
+        "identity-audit"
+      ],
+      "trace_sha256": "4bb655260948ceb74b7a66f07722c5a9f1cfba3f8474eb20928d4e5980708618"
+    },
+    {
+      "config": "f6-repeated-block-reuse.config.json",
+      "config_sha256": "5c5de7aad9807291a1bfc52d1df2513a77b8b3597aabcbfe57b46b3b193374d0",
+      "family_id": "F6",
+      "scenario_id": "f6-repeated-block-reuse",
+      "tags": [
+        "block-slot-reuse",
+        "repeated-pressure"
+      ],
+      "trace_sha256": "2ae9feb23b687c5e62db12cc71b70e0707ffc9b9a2ca973a53acc707cee9b957"
+    },
+    {
+      "config": "f6-shared-ownership-audit.config.json",
+      "config_sha256": "4ec96b9a30822f924ca0cae3444fdff0225565d0e4dc94a5299cfc5e33961b2c",
+      "family_id": "F6",
+      "scenario_id": "f6-shared-ownership-audit",
+      "tags": [
+        "shared-ownership",
+        "capability-gated"
+      ],
+      "trace_sha256": "3168ef994405dbd08b67adc78816629622db0d8d1b706c0b0217c42b89fe32bf"
+    }
+  ],
+  "schema_version": "phase2a.formal_campaign.v2",
+  "seeds": [
+    101,
+    211,
+    307
+  ]
+}
