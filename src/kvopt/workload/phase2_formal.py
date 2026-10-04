@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import hashlib
 import json
 import math
 from collections import Counter
@@ -186,36 +187,38 @@ def materialize_formal_campaign(
     for spec in specs:
         trace_path = output / f"{spec.scenario_id}.trace.json"
         config_path = output / f"{spec.scenario_id}.config.json"
-        trace_path.write_text(
+        trace_text = (
             json.dumps(
-                build_formal_trace(spec).to_dict(),
-                indent=2,
-                sort_keys=True,
+                build_formal_trace(spec).to_dict(), indent=2, sort_keys=True
             )
-            + "\n",
-            encoding="utf-8",
+            + "\n"
         )
-        config_path.write_text(
+        config_text = (
             json.dumps(
-                build_formal_config(spec, base_config),
-                indent=2,
-                sort_keys=True,
+                build_formal_config(spec, base_config), indent=2, sort_keys=True
             )
-            + "\n",
-            encoding="utf-8",
+            + "\n"
         )
+        trace_path.write_text(trace_text, encoding="utf-8")
+        config_path.write_text(config_text, encoding="utf-8")
         scenarios.append(
             {
                 "scenario_id": spec.scenario_id,
                 "family_id": spec.family_id,
                 "config": config_path.name,
+                "config_sha256": hashlib.sha256(
+                    config_text.encode("utf-8")
+                ).hexdigest(),
+                "trace_sha256": hashlib.sha256(
+                    trace_text.encode("utf-8")
+                ).hexdigest(),
                 "tags": list(spec.tags),
             }
         )
 
     manifest = {
-        "schema_version": "phase2a.formal_campaign.v1",
-        "campaign_id": "phase2a-m6-formal-v1",
+        "schema_version": "phase2a.formal_campaign.v2",
+        "campaign_id": "phase2a-m6-formal-v2",
         "campaign_kind": "formal",
         "seeds": list(FORMAL_SEEDS),
         "predeclared_repetitions_per_scenario": len(FORMAL_SEEDS),

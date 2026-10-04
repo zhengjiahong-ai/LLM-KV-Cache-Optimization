@@ -81,12 +81,19 @@ def _text(value: object, field_name: str) -> str:
     return value
 
 
+def _sha256(value: object, field_name: str) -> str:
+    result = _text(value, field_name)
+    if re.fullmatch(r"[0-9a-f]{64}", result) is None:
+        raise ValueError(f"{field_name} must be a lowercase SHA-256 digest")
+    return result
+
+
 def load_formal_campaign(path: str | Path) -> LoadedFormalCampaign:
     """Validate a materialized formal campaign manifest."""
 
     manifest_path = Path(path).resolve()
     value = _json_object(manifest_path)
-    if value.get("schema_version") != "phase2a.formal_campaign.v1":
+    if value.get("schema_version") != "phase2a.formal_campaign.v2":
         raise ValueError("unsupported formal campaign schema_version")
     if value.get("campaign_kind") != "formal":
         raise ValueError("campaign_kind must be formal")
@@ -124,11 +131,29 @@ def load_formal_campaign(path: str | Path) -> LoadedFormalCampaign:
             config_path = (manifest_path.parent / config_path).resolve()
         if not config_path.is_file():
             raise ValueError(f"scenario config does not exist: {config_path}")
+        expected_config_sha256 = _sha256(
+            raw_scenario.get("config_sha256"),
+            "scenario config_sha256",
+        )
+        if hashlib.sha256(config_path.read_bytes()).hexdigest() != expected_config_sha256:
+            raise ValueError("scenario config SHA-256 mismatch")
         config = _json_object(config_path)
         if config.get("profiling_scenario_id") != scenario_id:
             raise ValueError("scenario config has mismatched profiling_scenario_id")
         if config.get("profiling_scenario_family") != family_id:
             raise ValueError("scenario config has mismatched profiling_scenario_family")
+        trace_name = _text(config.get("trace"), "scenario config trace")
+        trace_path = Path(trace_name)
+        if not trace_path.is_absolute():
+            trace_path = (config_path.parent / trace_path).resolve()
+        if not trace_path.is_file():
+            raise ValueError(f"scenario trace does not exist: {trace_path}")
+        expected_trace_sha256 = _sha256(
+            raw_scenario.get("trace_sha256"),
+            "scenario trace_sha256",
+        )
+        if hashlib.sha256(trace_path.read_bytes()).hexdigest() != expected_trace_sha256:
+            raise ValueError("scenario trace SHA-256 mismatch")
         scenarios.append(FormalCampaignScenario(scenario_id, family_id, config_path))
 
     expected_runs = len(seeds) * len(scenarios)

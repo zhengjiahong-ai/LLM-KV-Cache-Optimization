@@ -4,7 +4,10 @@ from pathlib import Path
 import pytest
 
 from kvopt.workload.phase2_formal import materialize_formal_campaign
-from kvopt.workload.phase2_formal_runner import execute_formal_campaign
+from kvopt.workload.phase2_formal_runner import (
+    execute_formal_campaign,
+    load_formal_campaign,
+)
 
 BASE_CONFIG = (
     Path(__file__).parents[1]
@@ -141,3 +144,16 @@ def test_formal_runner_resume_preserves_failed_run(tmp_path: Path) -> None:
     assert second.failed_run_count == 1
     assert second.skipped_run_count == 1
     assert calls == 1
+
+
+def test_formal_runner_rejects_modified_scenario_config(tmp_path: Path) -> None:
+    campaign = materialize_formal_campaign(BASE_CONFIG, tmp_path / "campaign")
+    manifest = json.loads(campaign.read_text(encoding="utf-8"))
+    config_path = campaign.parent / manifest["scenarios"][0]["config"]
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8") + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="scenario config SHA-256 mismatch"):
+        load_formal_campaign(campaign)

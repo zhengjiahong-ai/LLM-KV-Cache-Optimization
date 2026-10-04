@@ -1,3 +1,4 @@
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -65,7 +66,7 @@ def test_materialized_campaign_is_deterministic_and_loadable(
     second = json.loads(second_manifest.read_text(encoding="utf-8"))
 
     assert first == second
-    assert first["schema_version"] == "phase2a.formal_campaign.v1"
+    assert first["schema_version"] == "phase2a.formal_campaign.v2"
     assert first["planned_run_count"] == 54
     assert first["family_scenario_counts"] == {
         family: 3 for family in ("F1", "F2", "F3", "F4", "F5", "F6")
@@ -74,8 +75,15 @@ def test_materialized_campaign_is_deterministic_and_loadable(
     specs_by_id = {spec.scenario_id: spec for spec in formal_scenario_specs()}
     for scenario in first["scenarios"]:
         config_path = first_manifest.parent / scenario["config"]
+        assert scenario["config_sha256"] == hashlib.sha256(
+            config_path.read_bytes()
+        ).hexdigest()
         config = json.loads(config_path.read_text(encoding="utf-8"))
-        trace = load_phase2_trace(first_manifest.parent / config["trace"])
+        trace_path = first_manifest.parent / config["trace"]
+        assert scenario["trace_sha256"] == hashlib.sha256(
+            trace_path.read_bytes()
+        ).hexdigest()
+        trace = load_phase2_trace(trace_path)
         spec = specs_by_id[scenario["scenario_id"]]
         block_size = config["cache"]["block_size"]
         protected_blocks = sum(
