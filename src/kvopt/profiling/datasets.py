@@ -39,7 +39,7 @@ class RunRow:
     event_count: int
     forced_release_event_count: int
     observation_availability: dict[str, object]
-    observation_capability_contract_complete: bool
+    observation_capability_contract_complete: bool = False
 
 
 def _required_mapping(
