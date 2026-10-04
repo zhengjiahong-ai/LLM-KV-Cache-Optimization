@@ -39,6 +39,7 @@ class RunRow:
     event_count: int
     forced_release_event_count: int
     observation_availability: dict[str, object]
+    observation_capability_contract_complete: bool = False
 
 
 def _required_mapping(
@@ -116,6 +117,23 @@ def _build_run_row(artifacts: RawRunArtifacts) -> RunRow:
         manifest.get("observation_availability"),
         "run.json observation_availability",
     )
+    raw_contract = manifest.get("observation_capability_contract")
+    if raw_contract is None:
+        capability_contract_complete = False
+    else:
+        contract = _required_mapping(
+            raw_contract,
+            "run.json observation_capability_contract",
+        )
+        if contract.get("schema_version") != "phase2.observation_capabilities.v1":
+            capability_contract_complete = False
+        else:
+            complete = contract.get("complete")
+            if not isinstance(complete, bool):
+                raise ArtifactValidationError(
+                    "run.json observation_capability_contract.complete must be bool"
+                )
+            capability_contract_complete = complete
 
     manifest_run_id = _required_text(
         manifest.get("run_id"),

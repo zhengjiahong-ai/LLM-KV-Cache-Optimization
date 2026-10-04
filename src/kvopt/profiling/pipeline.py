@@ -150,6 +150,26 @@ _BOOTSTRAP_RESAMPLES = 2_000
 _BOOTSTRAP_SEED = 0
 _CONFIDENCE_LEVEL = 0.95
 
+_REQUIRED_V5_CAPABILITIES = {
+    "runtime_identity",
+    "logical_lifecycle",
+    "prefix_block_mapping",
+    "forced_release_snapshot",
+    "native_block_eviction",
+    "native_block_content_identity",
+    "native_block_logical_owners",
+    "native_block_lru_position",
+    "generated_token_count",
+    "native_apc_hit_miss",
+    "recomputed_prefill_tokens",
+    "native_first_token_timestamp",
+    "native_scheduler_admission_timestamp",
+    "hardware_counters",
+}
+
+_V5_CAPABILITY_STATUSES = {"AVAILABLE", "UNAVAILABLE", "ERROR"}
+
+
 
 def discover_run_artifacts(
     artifact_root: str | Path,
@@ -261,15 +281,22 @@ def _build_run_validity(
 
 def _build_capabilities(
     run_rows: tuple[RunRow, ...],
-) -> tuple[CapabilityRow, ...]:
+) -> tuple[tuple[CapabilityRow, ...], bool]:
     rows: list[CapabilityRow] = []
+    all_contracts_complete = True
     for run in run_rows:
+        seen: set[str] = set()
+        run_contract_complete = run.observation_capability_contract_complete
         for capability, raw_value in sorted(
             run.observation_availability.items()
         ):
+            seen.add(capability)
             reason: str | None = None
             if isinstance(raw_value, str) and raw_value.strip():
+                # Legacy pre-V5 manifests remain readable for diagnostics, but
+                # string-only capability declarations do not satisfy V5.
                 availability = raw_value
+                run_contract_complete = False
             elif isinstance(raw_value, dict):
                 raw_availability = raw_value.get(
                     "availability",
@@ -280,14 +307,15 @@ def _build_capabilities(
                     raise ArtifactValidationError(
                         f"capability {capability} availability must be non-empty text"
                     )
-                if raw_reason is not None and (
-                    not isinstance(raw_reason, str) or not raw_reason.strip()
-                ):
-                    raise ArtifactValidationError(
-                        f"capability {capability} reason must be non-empty text or null"
-                    )
                 availability = raw_availability
                 reason = raw_reason
+                if capability in _REQUIRED_V5_CAPABILITIES:
+                    if availability not in _V5_CAPABILITY_STATUSES:
+                        run_contract_complete = False
+                    if availability in {"UNAVAILABLE", "ERROR"} and (
+                        not isinstance(reason, str) or not reason.strip()
+                    ):
+                        run_contract_complete = False
             else:
                 raise ArtifactValidationError(
                     f"capability {capability} must be text or an object"
@@ -300,7 +328,13 @@ def _build_capabilities(
                     reason=reason,
                 )
             )
-    return tuple(rows)
+
+        if not _REQUIRED_V5_CAPABILITIES.issubset(seen):
+            run_contract_complete = False
+        all_contracts_complete = (
+            all_contracts_complete and run_contract_complete
+        )
+    return tuple(rows), all_contracts_complete
 
 
 def build_derived_dataset_bundle(
@@ -412,7 +446,9 @@ def build_derived_dataset_bundle(
             }
         )
     )
-    capabilities = _build_capabilities(run_rows)
+    capabilities, capability_contract_complete = _build_capabilities(
+        run_rows
+    )
     gap_report = evaluate_empirical_gap_gate(
         EmpiricalGapInputs(
             formal_campaign=formal_campaign,
@@ -440,6 +476,7 @@ def build_derived_dataset_bundle(
                 row.run_id and row.decision_event_index >= 0
                 for row in decision_tables.candidates
             ),
+            capability_contract_complete=capability_contract_complete,
             online_signal_supported=(
                 signal_tables.evaluation.online_signal_supported
             ),

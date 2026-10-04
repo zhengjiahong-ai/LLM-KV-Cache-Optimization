@@ -13,6 +13,54 @@ from kvopt.profiling.pipeline import (
     write_derived_dataset_bundle,
 )
 
+
+_V5_CAPABILITIES = (
+    "runtime_identity",
+    "logical_lifecycle",
+    "prefix_block_mapping",
+    "forced_release_snapshot",
+    "native_block_eviction",
+    "native_block_content_identity",
+    "native_block_logical_owners",
+    "native_block_lru_position",
+    "generated_token_count",
+    "native_apc_hit_miss",
+    "recomputed_prefill_tokens",
+    "native_first_token_timestamp",
+    "native_scheduler_admission_timestamp",
+    "hardware_counters",
+)
+
+
+def _mark_manifest_v5_capability_complete(manifest: dict[str, object]) -> None:
+    manifest["observation_capability_contract"] = {
+        "schema_version": "phase2.observation_capabilities.v1",
+        "required": list(_V5_CAPABILITIES),
+        "complete": True,
+    }
+    manifest["observation_availability"] = {
+        name: {
+            "status": "AVAILABLE"
+            if name in {
+                "runtime_identity",
+                "logical_lifecycle",
+                "prefix_block_mapping",
+                "forced_release_snapshot",
+            }
+            else "UNAVAILABLE",
+            "reason": None
+            if name in {
+                "runtime_identity",
+                "logical_lifecycle",
+                "prefix_block_mapping",
+                "forced_release_snapshot",
+            }
+            else "test fixture capability unavailable",
+        }
+        for name in _V5_CAPABILITIES
+    }
+
+
 SMOKE_RUN = (
     Path(__file__).parents[1]
     / "docs"
@@ -28,6 +76,7 @@ def _load_current_schema_smoke_run(tmp_path: Path):
     manifest_path = run_dir / "run.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest["persisted_forced_release_event_count"] = 1
+    _mark_manifest_v5_capability_complete(manifest)
     manifest_path.write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
@@ -176,3 +225,31 @@ def test_pipeline_statistics_exclude_invalid_decision_within_valid_run(
         for row in bundle.candidate_heterogeneity_summary
     )
     assert all(row.decision_count == 1 for row in bundle.regret_summary)
+
+
+def test_legacy_pre_v5_manifest_is_diagnostic_but_gate_invalid(
+    tmp_path: Path,
+) -> None:
+    run_dir = tmp_path / "legacy-run"
+    shutil.copytree(SMOKE_RUN, run_dir)
+    manifest_path = run_dir / "run.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["persisted_forced_release_event_count"] = 1
+    manifest.pop("observation_capability_contract", None)
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    bundle = build_derived_dataset_bundle(
+        (load_run_artifacts(run_dir),),
+        formal_campaign=True,
+    )
+
+    assert bundle.empirical_gap_report.overall_outcome == "DATA-INVALID"
+    integrity = next(
+        row
+        for row in bundle.empirical_gap_report.checks
+        if row.gate == "data_integrity"
+    )
+    assert integrity.status == "FAIL"
