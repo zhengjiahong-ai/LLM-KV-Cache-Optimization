@@ -141,6 +141,12 @@ def _normalize_backend_capabilities(
             )
         merged[name] = _capability(status, reason)
 
+    if (
+        base["hardware_counters"]["status"]
+        == CAPABILITY_STATUS_AVAILABLE
+    ):
+        merged["hardware_counters"] = base["hardware_counters"]
+
     missing = [
         name for name in REQUIRED_OBSERVATION_CAPABILITIES
         if name not in merged
