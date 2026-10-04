@@ -1,76 +1,65 @@
 # Phase 2A M6 Formal Profiling Results
 
-Status: FORMAL RESULT / M4 HANDOFF
+Status: CANONICAL FORMAL RESULT / M1 AND M4 HANDOFF
 
 ## 1. Decision
 
-The frozen Empirical Gap Gate outcome is:
+The canonical Empirical Gap Gate outcome is:
 
 ```text
-HEADROOM-BUT-NO-ONLINE-SIGNAL
+GAP-PROVISIONAL
 ```
 
-The formal campaign shows heterogeneous candidate loss and substantial
-Continuum baseline headroom under the supported proxy loss. It does not show a
-stable association between any evaluated decision-time feature and that loss
-across scenario families and seeds.
+All five Gate checks pass under the preregistered, trace-derived canonical
+loss view `planned_return_weighted_prefill_proxy`. The campaign shows candidate
+loss heterogeneity, Continuum baseline headroom, and four decision-time
+features that meet the proxy-support thresholds.
 
-M4 should not begin Cost-Aware policy implementation from this evidence. The
-next method step requires either a newly approved decision-time observation or
-a revised hypothesis. Future-derived labels and hindsight choices must remain
-offline-only.
+This is `PROXY_SUPPORTED`, not `RUNTIME_STABLE`. The canonical label is based
+on planned workload timing, and no independent formal rerun has yet replicated
+the signal result. It supports continued method design, but not a claim that
+the same signals are stable predictors of realized runtime loss.
 
-## 2. Authoritative artifacts and provenance
+## 2. Canonical artifacts and provenance
 
-Only the following artifacts are inputs to this result:
+The authoritative evidence is:
 
-- campaign: `artifacts/phase2a-formal-campaign-v4/campaign.json`;
-- raw runs: `artifacts/phase2a-formal-v4-final/`;
+- campaign: `artifacts/phase2a-formal-campaign-v4/`;
+- V5 raw runs: `artifacts/phase2a-formal-v5-final/`;
 - execution summary:
-  `artifacts/phase2a-formal-v4-final/formal-execution-d2d92156d205.json`;
-- final derived bundle: `artifacts/phase2a-formal-v4-derived-v3/`;
-- M4 handoff data:
-  `artifacts/phase2a-formal-v4-derived-v3/method_support_pack.json`.
+  `artifacts/phase2a-formal-v5-final/formal-execution-dedc3e2e21c1.json`;
+- canonical derived bundle: `artifacts/phase2a-formal-v5-derived-v2/`;
+- Method Support Pack:
+  `artifacts/phase2a-formal-v5-derived-v2/method_support_pack.json`.
 
-Because `artifacts/` is intentionally Git-ignored, the three authoritative
-artifact directories are packaged for out-of-band handoff as
-`artifacts/phase2a-m6-formal-evidence-f40a3bb.tar.gz` (602 KiB). Its SHA-256
-is `ea6fda72d6fb1cb09f357fcfbc30bac4122ff8baec8387dccf55a19ab507c114`.
-The archive contains 445 entries and must be transferred separately from the
-pull request.
+The 54 raw runs were collected from clean project commit
+`b0ca52fb9a743aa46447feff34be6675c76af290`. The canonical derived bundle was
+generated from clean analysis commit
+`6023c66e9b8d51491f189e881b45eabe4a823cd9`. Its manifest uses schema
+`phase2a.derived.v2` and records planned timing as canonical and observed
+timing as non-Gate sensitivity evidence.
 
-A reviewable text-only subset is committed under
-`docs/experiments/phase2a-m6-formal/curated-evidence/`. It contains the
-campaign and execution manifests, final validity/statistical/handoff outputs,
-and three selected high-regret raw exemplars. `SHA256SUMS` records the digest
-of every curated evidence file.
+Because `artifacts/` is Git-ignored, the complete evidence is packaged for
+out-of-band transfer as:
 
-The campaign manifest SHA-256 is
-`088fc4c7f874ea1b17be1606fc04fb653a61ff2f3bd3cf1cf7564d0086d571fb`.
-All 54 raw runs report project Git SHA
-`f402cff097764ecead840690fff266fa736f9322` and `git_dirty=false`. The
-final derived bundle was produced with analysis Git SHA `f40a3bb`.
+```text
+artifacts/phase2a-m6-formal-evidence-6023c66.tar.gz
+```
 
-The qualified runtime evidence records:
+Archive properties:
 
-- vLLM distribution `0.27.1+cpu` and module release `0.27.1`;
-- vLLM-Metal `0.3.0`;
-- clean vLLM-Metal source commit
-  `a8b7e75c412aedcefe26ac3ab98d2a76e3e166fb`;
-- the Metal platform plugin active with MLX configured on GPU;
-- Qwen/Qwen2.5-0.5B-Instruct model and tokenizer revision
-  `7ae557604adf67be50417f59c2c2f167def9a775`;
-- macOS arm64 execution with in-process engine observation and paged Metal KV
-  enabled.
+- size: 656 KiB;
+- entries: 447;
+- SHA-256:
+  `eb38f82643c9f173f745cb7bf6b822e4019932f5dbebf9bfc77860bde12d3770`.
 
-The final execution ran from `2026-10-04T07:06:11Z` to
-`2026-10-04T07:18:58Z`. Every run used a fresh child process so Metal memory
-was reclaimed between repetitions.
+The archive must be transferred separately from the pull request. Its transfer
+channel must be agreed with M1 or the project team.
 
-## 3. Campaign and validity
+## 3. Campaign validity
 
-The campaign contains 18 scenarios across F1-F6 and three predeclared seeds
-(`101`, `211`, and `307`), for 54 runs.
+The campaign contains 18 scenarios across F1-F6 and seeds `101`, `211`, and
+`307`.
 
 | Check | Result |
 | --- | ---: |
@@ -79,162 +68,148 @@ The campaign contains 18 scenarios across F1-F6 and three predeclared seeds
 | Runs valid for candidate analysis | 54 / 54 |
 | Forced-release decisions | 60 |
 | Multi-candidate decisions | 60 (100%) |
-| Candidate rows | 174 |
+| Candidate / decision-outcome rows | 174 / 174 |
 | Logical-release rows | 69 |
 | Physical-eviction rows | 870 |
 | Request-outcome rows | 384 |
 | Decision join coverage | 100% |
 
-The derived statistics use 2,000 deterministic bootstrap resamples, bootstrap
-seed 0, and 95% confidence intervals.
+The execution ran from `2026-10-04T11:55:19Z` to
+`2026-10-04T12:16:17Z`. Derived statistics use 2,000 deterministic bootstrap
+resamples, bootstrap seed 0, and 95% confidence intervals.
 
-## 4. Baseline prevalence
+## 4. Canonical loss semantics
 
-Across all runs, forced release occurred at a rate of `0.15625` decisions per
-request. Candidate sets contained 2-5 candidates, with mean size 2.9. Required
-pressure was 4-48 blocks, with mean 19.2 blocks. The baseline selected a mean
-of 1.15 logical releases per decision.
+For a candidate at a forced-release decision:
 
-F4 and F6 contributed repeated-pressure coverage. Six runs contained repeated
-pressure, or 11.1% of all runs. No logical object was counted as repeatedly
-released without becoming eligible again.
+```text
+planned_time_to_return
+= future return request planned arrival offset
+  - triggering pressure request planned arrival offset
 
-## 5. Candidate and outcome heterogeneity
+planned_returned_within_horizon
+= planned_time_to_return <= analysis_horizon_seconds
 
-The decision-time candidates vary in footprint and measured PrefillReload cost
-in 60% of decisions. Timing since the TTL decision and the retention deadline
-vary in every decision. `eta`, queue delay, and `waiting_followup` have no
-within-decision spread in this campaign and therefore cannot rank candidates.
+planned_return_weighted_prefill_proxy
+= PrefillReload if planned_returned_within_horizon else 0
+```
 
-The only loss view that supports complete candidate comparison is
-`trace_return_weighted_prefill_proxy`. It is explicitly a trace-derived proxy,
-not direct recomputation or serving impact.
+All 174 candidate outcomes have a valid planned pressure anchor. The canonical
+view is fully comparable at all 60 decisions and is the only view admitted to
+the formal regret, signal, and Gate calculations.
 
-For this view:
+Observed wall-clock timing remains in `decision_outcomes.jsonl`. The separate
+`observed_return_weighted_prefill_proxy_sensitivity` view is explicitly marked
+`sensitivity_view_not_gate_eligible` and cannot affect the canonical Gate.
 
-- 43 of 60 decisions have positive within-decision loss spread (71.7%);
-- mean spread is `0.07379` seconds;
-- bootstrap 95% CI for mean spread is `[0.06113, 0.08616]`.
+## 5. Heterogeneity and baseline headroom
 
-Observed physical eviction is available for 57 candidate outcomes and is
-classified as block-slot proxy evidence. It is unavailable for the other 117
-candidate outcomes. Observed recomputed-token loss is unavailable for all 174
-candidates. Native APC hit/miss and hardware-counter capabilities are also
-unavailable. Missingness is explicit in the derived tables.
+Under `planned_return_weighted_prefill_proxy`:
 
-## 6. Baseline headroom
+- 39 of 60 decisions have positive within-decision loss spread (65.0%);
+- mean spread is `0.07015` seconds;
+- bootstrap 95% CI for mean spread is `[0.05571, 0.08369]`;
+- 27 decisions are non-tied;
+- Continuum selects a strictly worse release set in 12 of them;
+- non-tied misselection rate is `44.44%`;
+- mean absolute regret is `0.03625` seconds, with 95% CI
+  `[0.02380, 0.04971]`;
+- mean normalized regret is `0.36882`, with 95% CI
+  `[0.25215, 0.49019]`.
 
-Under `trace_return_weighted_prefill_proxy`:
+These are offline proxy comparisons. They show method headroom but do not
+constitute direct recomputation or serving-impact evidence.
 
-- 31 decisions are non-tied;
-- Continuum selects a strictly worse release set in 17 of them;
-- non-tied misselection rate is `54.84%`;
-- mean absolute regret is `0.04170` seconds, with 95% CI
-  `[0.02943, 0.05486]`;
-- mean normalized regret is `0.45215`, with 95% CI
-  `[0.33707, 0.57482]`.
+## 6. Planned versus observed sensitivity
 
-Representative high-regret cases include:
+The planned and observed strict-horizon labels are comparable for all 174
+candidate outcomes. Ten labels flip, for a boundary flip rate of `5.75%`.
 
-| Run / decision | Absolute regret | Normalized regret |
-| --- | ---: | ---: |
-| `f6-shared-ownership-audit-seed-101`, event 40 | 0.17106 | 1.00000 |
-| `f1-five-contention-deep-seed-101`, event 64 | 0.13848 | 0.73568 |
-| `f4-deep-multi-release-seed-101`, event 40 | 0.08873 | 0.64072 |
+Observed horizon margins are:
 
-These are offline hindsight comparisons. They demonstrate headroom but do not
-provide an online policy input.
+- minimum: `-4.00558` seconds;
+- median: `-1.00059` seconds;
+- maximum: `5.99929` seconds.
+
+This confirms that runtime jitter changes a non-zero fraction of strict
+observed-horizon labels. The observed view is retained for sensitivity
+diagnosis only and is not an alternative canonical result.
 
 ## 7. Decision-time signal analysis
 
-Signal analysis keeps only decisions where both the feature and loss
-differentiate candidates, normalizes ranks within each decision, and then
-checks direction stability across six families and three seeds. Numeric
-features are evaluated directly. `next_tool_type` is evaluated as three
-predeclared one-hot features so no artificial category ordering is imposed.
+Support requires absolute overall Spearman rho of at least `0.2`, at least
+three evaluable family and seed groups, and direction agreement of at least
+`2/3`. Four features meet those thresholds against the canonical planned
+proxy:
 
-Support requires absolute overall Spearman rho of at least 0.2, at least three
-evaluable family and seed groups, and direction agreement of at least 2/3.
-None of the 11 evaluated representations pass.
+| Feature | Overall rho | Family agreement | Seed agreement | Level |
+| --- | ---: | ---: | ---: | --- |
+| block count | 0.205 | 0.833 | 1.000 | PROXY_SUPPORTED |
+| initially reclaimable block count | 0.205 | 0.833 | 1.000 | PROXY_SUPPORTED |
+| next tool = code | 0.283 | 0.667 | 1.000 | PROXY_SUPPORTED |
+| PrefillReload | 0.205 | 0.833 | 1.000 | PROXY_SUPPORTED |
 
-| Feature | Overall rho | Family agreement | Supported |
-| --- | ---: | ---: | --- |
-| block count | 0.073 | 0.500 | no |
-| initially reclaimable blocks | 0.073 | 0.500 | no |
-| PrefillReload | 0.073 | 0.500 | no |
-| elapsed since TTL decision | 0.101 | 0.833 | no |
-| retention deadline | -0.101 | 0.833 | no |
-| next tool = search | -0.110 | 0.667 | no |
-| next tool = database | 0.007 | 0.500 | no |
-| next tool = code | 0.097 | 0.500 | no |
-| eta | unavailable: no within-decision spread | - | no |
-| queue delay | unavailable: no within-decision spread | - | no |
-| waiting follow-up | unavailable: no within-decision spread | - | no |
-
-The signal result is `NO_STABLE_SIGNAL`. Seed direction agreement alone is not
-sufficient because the family-held checks fail or the effect size is below the
-predeclared threshold.
+Native LRU position, elapsed time, retention deadline, search/database tool
+indicators, `eta`, queue delay, and waiting-follow-up do not meet the support
+rule. The evaluation records `runtime_replicated=false`; an independent formal
+rerun must preserve direction, effect-size threshold, family agreement, and
+seed agreement before any feature can be upgraded to `RUNTIME_STABLE`.
 
 ## 8. Empirical Gap Gate
 
 | Gate | Status | Evidence |
 | --- | --- | --- |
-| Data integrity | PASS | decision join coverage = 1.000 |
+| Data integrity | PASS | join coverage 1.000; V5 capability contract complete |
 | Event volume | PASS | 60 decisions, 6 families, 3 seeds |
-| Loss heterogeneity | PASS | proxy view passes spread thresholds |
-| Baseline headroom | PASS | proxy view passes regret thresholds |
-| Decision-time signal | FAIL | no stable online signal supported |
+| Loss heterogeneity | PASS | canonical planned proxy passes spread thresholds |
+| Baseline headroom | PASS | canonical planned proxy passes regret thresholds |
+| Decision-time signal | PASS | four proxy-supported decision-time features |
 
-The overall result is therefore `HEADROOM-BUT-NO-ONLINE-SIGNAL`, not
-`GAP-PASS`. The strongest supported loss remains a proxy, so the result also
-does not justify claims about direct recomputation or serving impact.
+The overall result is `GAP-PROVISIONAL`. It permits the next method-design
+step using the canonical planned proxy, subject to the explicit
+`PROXY_SUPPORTED` limitation. It does not authorize presenting proxy support
+as realized runtime stability.
 
-## 9. Handoff and constraints
+## 9. Handoff constraints
 
 ### M4
 
-- Hold Cost-Aware policy implementation.
-- Do not convert the offline hindsight loss or future return labels into online
-  features.
-- Do not select a score merely because baseline regret is large; the evaluated
-  online fields do not generalize across families.
+- Treat the four supported signals as candidate inputs for method design, not
+  as independently replicated runtime predictors.
+- Keep planned/observed return labels, hindsight choices, regret, and horizon
+  margins offline-only.
 - Preserve support for multiple releases, repeated pressure, block-slot reuse,
-  shared ownership, no-return candidates, return-order reversal, and tied
-  losses in any future design.
+  shared ownership, no-return candidates, return-order reversal, and ties.
 
-### M1 / observation review
+### Future runtime replication
 
-- Decide whether an additional safe decision-time observation is justified,
-  such as the already-listed native LRU position or a reviewed reuse-history
-  summary.
-- If the research claim requires direct realized loss, approve only the
-  narrow observation seam needed for recomputed work or serving impact.
-- Do not redefine runtime event semantics or change the live baseline decision
-  path solely to make the gate pass.
+An independent formal campaign may upgrade a proxy-supported signal to
+`RUNTIME_STABLE` only if direction, effect size, family agreement, and seed
+agreement all remain above the preregistered thresholds. No additional raw
+rerun is required merely to validate the planned-proxy re-derivation reported
+here.
 
 ### Remaining limitations
 
 - unselected-victim counterfactual outcomes require controlled replay;
 - serving-impact loss is not constructed;
-- direct recomputed-token evidence is unavailable;
-- physical eviction is incomplete candidate-level block-slot proxy evidence;
+- direct recomputed-token evidence remains unavailable;
+- physical eviction remains incomplete candidate-level block-slot evidence;
 - native APC hit/miss and hardware counters are unavailable;
-- the workload matrix is controlled and diagnostic, not a final production
+- the workload matrix is controlled and diagnostic, not a production
   benchmark.
 
-## 10. Excluded diagnostic artifacts
+## 10. Superseded and diagnostic evidence
 
-The following directories are retained for debugging and must not be pooled
-with the formal result:
+The following evidence remains preserved but is not canonical:
 
-- `artifacts/phase2a-formal-v4-runs/`: same-process Metal-memory accumulation;
-- `artifacts/phase2a-formal-v4-runs-isolated/`: interrupted/resumed run plus
-  SSL and pre-fix context-length failures;
-- `artifacts/phase2a-interrupted-runs/`: preserved Control-C partial run;
-- `artifacts/phase2a-formal-v4-context-check/`: one-run fix validation;
-- `artifacts/phase2a-formal-v4-derived/`: pre-fix rank-confounded signal result;
-- `artifacts/phase2a-formal-v4-derived-v2/`: numeric-only signal analysis.
+- V4 final derived results, including
+  `HEADROOM-BUT-NO-ONLINE-SIGNAL`, are diagnostic only;
+- `artifacts/phase2a-formal-v5-derived/` uses the observed-horizon proxy and
+  its `GAP-PROVISIONAL` result is superseded;
+- interrupted, same-process, context-check, and validation-only campaigns are
+  debugging evidence and must not be pooled with the canonical result.
 
-The authoritative formal conclusion must be regenerated only from
-`phase2a-formal-v4-final` into `phase2a-formal-v4-derived-v3` or a byte- and
-code-equivalent successor.
+The V5 raw directory must remain byte-unchanged. The canonical conclusion must
+be regenerated from `phase2a-formal-v5-final` into a fresh derived directory
+using analysis commit `6023c66` or an explicitly reviewed successor.
