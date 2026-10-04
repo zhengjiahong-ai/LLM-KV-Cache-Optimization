@@ -107,8 +107,14 @@ def test_materialized_campaign_is_deterministic_and_loadable(
             f"pressure-{index}": blocks * block_size
             for index, blocks in enumerate(expected_stage_blocks, start=1)
         }
+        assert config["pressure"]["initial_shortage_blocks"] == (
+            spec.initial_shortage_blocks
+        )
         assert config["cache"]["block_override"] == (
-            protected_blocks + pressure_blocks
+            protected_blocks
+            + pressure_blocks
+            + 1
+            - spec.initial_shortage_blocks
         )
         assert len(trace.pressure_stages) >= 1
         assert len({request.program_id for request in trace.requests}) >= 2

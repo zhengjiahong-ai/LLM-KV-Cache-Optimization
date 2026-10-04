@@ -189,6 +189,7 @@ def _physical_evictions_before_return(
     )
     candidate_blocks = set(candidate.block_ids)
     ambiguous_blocks: set[int] = set()
+    matched_blocks: set[int] = set()
     matched_indexes: list[int] = []
 
     for event in events:
@@ -212,7 +213,12 @@ def _physical_evictions_before_return(
             continue
         payload = _mapping(event.get("payload"), "physical eviction payload")
         block_id = _index(payload.get("block_id"), "physical eviction block_id")
-        if block_id in candidate_blocks and block_id not in ambiguous_blocks:
+        if (
+            block_id in candidate_blocks
+            and block_id not in ambiguous_blocks
+            and block_id not in matched_blocks
+        ):
+            matched_blocks.add(block_id)
             matched_indexes.append(event_index)
 
     if ambiguous_blocks:

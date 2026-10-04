@@ -29,6 +29,7 @@ class FormalScenarioSpec:
     analysis_horizon_seconds: float
     tags: tuple[str, ...]
     pressure_stage_blocks: tuple[int, ...] = ()
+    initial_shortage_blocks: int = 1
 
 
 def formal_scenario_specs() -> tuple[FormalScenarioSpec, ...]:
@@ -37,7 +38,7 @@ def formal_scenario_specs() -> tuple[FormalScenarioSpec, ...]:
     return (
         FormalScenarioSpec("F1", "f1-two-homogeneous-shallow", (256, 256), (0, 0.2), (4, 5), (2,), 4, 4, ("candidate-scale-2", "homogeneous")),
         FormalScenarioSpec("F1", "f1-three-mixed-medium", (128, 256, 512), (0, 0.2, 0.4), (5, 6, 7), (2,), 16, 5, ("candidate-scale-3", "heterogeneous")),
-        FormalScenarioSpec("F1", "f1-five-contention-deep", (128, 128, 256, 512, 512), (0, 0.1, 0.2, 0.3, 0.4), (6, 7, 8, 9, 10), (2,), 32, 6, ("candidate-scale-5", "higher-contention")),
+        FormalScenarioSpec("F1", "f1-five-contention-deep", (128, 128, 256, 512, 512), (0, 0.1, 0.2, 0.3, 0.4), (6, 7, 8, 9, 10), (2,), 32, 6, ("candidate-scale-5", "higher-contention"), (), 20),
         FormalScenarioSpec("F2", "f2-equal-256", (256, 256, 256), (0, 0.2, 0.4), (5, 6, 7), (2,), 16, 5, ("homogeneous", "cost-control")),
         FormalScenarioSpec("F2", "f2-mixed-128-256-512", (128, 256, 512), (0, 0.2, 0.4), (5, 6, 7), (2,), 16, 5, ("heterogeneous", "cost-spread")),
         FormalScenarioSpec("F2", "f2-large-spread-five", (128, 128, 256, 512, 512), (0, 0.1, 0.2, 0.3, 0.4), (6, 7, 8, 9, 10), (2,), 32, 6, ("heterogeneous", "large-cost-spread")),
@@ -45,7 +46,7 @@ def formal_scenario_specs() -> tuple[FormalScenarioSpec, ...]:
         FormalScenarioSpec("F3", "f3-b-early-a-late", (256, 256), (0, 0.2), (7, 3), (2,), 8, 5, ("return-order-reversed", "late-return")),
         FormalScenarioSpec("F3", "f3-outside-horizon-interleaved", (128, 256, 512), (0, 0.2, 0.4), (3, 5, 12), (2,), 16, 4, ("outside-horizon", "interleaved-return")),
         FormalScenarioSpec("F4", "f4-shallow-single-pressure", (256, 256), (0, 0.2), (5, 6), (2,), 4, 5, ("shallow-pressure",)),
-        FormalScenarioSpec("F4", "f4-deep-multi-release", (128, 256, 512), (0, 0.2, 0.4), (7, 8, 9), (2,), 32, 6, ("deep-pressure", "multi-release")),
+        FormalScenarioSpec("F4", "f4-deep-multi-release", (128, 256, 512), (0, 0.2, 0.4), (7, 8, 9), (2,), 32, 6, ("deep-pressure", "multi-release"), (), 20),
         FormalScenarioSpec("F4", "f4-repeated-pressure", (256, 256, 512), (0, 0.2, 0.4), (8, 9, 10), (2, 5), 16, 6, ("repeated-pressure", "repeated-release"), (16, 32)),
         FormalScenarioSpec("F5", "f5-staggered-low-waiting", (256, 256), (0, 1), (5, 7), (3,), 8, 5, ("staggered", "low-waiting")),
         FormalScenarioSpec("F5", "f5-overlap-high-waiting", (128, 256, 512, 256), (0, 0, 0.1, 0.1), (6, 7, 8, 9), (2,), 16, 6, ("overlap", "high-waiting")),
@@ -156,13 +157,23 @@ def build_formal_config(
     )
     pressure_prompt_tokens = spec.required_blocks * block_size_value
     pressure_blocks = math.ceil(pressure_prompt_tokens / block_size_value)
+    if not 1 <= spec.initial_shortage_blocks <= pressure_blocks:
+        raise ValueError(
+            "formal initial_shortage_blocks must be within pressure demand"
+        )
     cache["block_size"] = block_size_value
-    cache["block_override"] = candidate_blocks + pressure_blocks
+    cache["block_override"] = (
+        candidate_blocks
+        + pressure_blocks
+        + 1
+        - spec.initial_shortage_blocks
+    )
 
     pressure = config.setdefault("pressure", {})
     if not isinstance(pressure, dict):
         raise TypeError("base config pressure must be an object")
     pressure["required_blocks"] = spec.required_blocks
+    pressure["initial_shortage_blocks"] = spec.initial_shortage_blocks
     pressure["safety_ceiling"] = max(3, int(pressure.get("safety_ceiling", 1)))
     stage_blocks = spec.pressure_stage_blocks or tuple(
         spec.required_blocks for _offset in spec.pressure_offsets
@@ -234,7 +245,7 @@ def materialize_formal_campaign(
 
     manifest = {
         "schema_version": "phase2a.formal_campaign.v2",
-        "campaign_id": "phase2a-m6-formal-v3",
+        "campaign_id": "phase2a-m6-formal-v4",
         "campaign_kind": "formal",
         "seeds": list(FORMAL_SEEDS),
         "predeclared_repetitions_per_scenario": len(FORMAL_SEEDS),

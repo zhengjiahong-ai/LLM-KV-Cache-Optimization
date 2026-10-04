@@ -21,6 +21,11 @@ def test_expected_block_budget_matches_controlled_scarcity_rule() -> None:
     assert _expected_profiling_block_override(
         {"agent-a": 256, "agent-b": 512}, 512
     ) == 80
+    assert _expected_profiling_block_override(
+        {"agent-a": 128, "agent-b": 256, "agent-c": 512},
+        512,
+        20,
+    ) == 69
 
 
 def test_program_prefix_sizes_accept_only_measured_points() -> None:
