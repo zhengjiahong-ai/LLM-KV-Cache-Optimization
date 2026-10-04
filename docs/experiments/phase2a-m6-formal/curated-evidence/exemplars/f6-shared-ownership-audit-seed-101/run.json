@@ -1,0 +1,136 @@
+{
+  "backend": "scripts.spikes.phase2_minimal_observability_metal:build_phase2_metal_observability_backend",
+  "backend_revision": "phase2a-minimal-metal-observability-v1",
+  "batching": {
+    "max_concurrent_requests": 1
+  },
+  "cache": {
+    "block_override": 112,
+    "block_size": 16
+  },
+  "config": {
+    "analysis_horizon_seconds": 5,
+    "backend_factory": "scripts.spikes.phase2_minimal_observability_metal:build_phase2_metal_observability_backend",
+    "backend_options": {
+      "execute_planned_timing": true,
+      "gpu_memory_utilization": 0.8,
+      "prefill_profile_path": "docs/experiments/phase1b-continuum/artifacts/prefill-reload-profile-formal-20260920T045859Z-6183d106.json",
+      "pressure_prompt_tokens": 256,
+      "pressure_stage_prompt_tokens": {
+        "pressure-1": 256
+      },
+      "program_prefix_tokens": {
+        "agent-a": 512,
+        "agent-b": 512,
+        "agent-c": 512
+      },
+      "target_prefix_tokens": 256
+    },
+    "backend_revision": "phase2a-minimal-metal-observability-v1",
+    "batching": {
+      "max_concurrent_requests": 1
+    },
+    "cache": {
+      "block_override": 112,
+      "block_size": 16
+    },
+    "formal_scenario_tags": [
+      "shared-ownership",
+      "capability-gated"
+    ],
+    "generation": {
+      "max_new_tokens": 1,
+      "temperature": 0
+    },
+    "model": {
+      "name": "Qwen/Qwen2.5-0.5B-Instruct",
+      "revision": "7ae557604adf67be50417f59c2c2f167def9a775"
+    },
+    "observe": true,
+    "policy": "continuum-baseline",
+    "pressure": {
+      "initial_shortage_blocks": 1,
+      "required_blocks": 16,
+      "safety_ceiling": 3,
+      "stage_required_blocks": [
+        16
+      ]
+    },
+    "profiling_scenario_family": "F6",
+    "profiling_scenario_id": "f6-shared-ownership-audit",
+    "runtime_mode": "vllm-metal-observability",
+    "schema_version": "phase2.config.v1",
+    "seed": 101,
+    "tokenizer": {
+      "name": "Qwen/Qwen2.5-0.5B-Instruct",
+      "revision": "7ae557604adf67be50417f59c2c2f167def9a775"
+    },
+    "trace": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase2a-formal-campaign-v4/f6-shared-ownership-audit.trace.json"
+  },
+  "config_sha256": "df3c6314e624c3468701b6296d2fbf7bbffa90e4389a816b02b2e32e260865e0",
+  "ended_at_utc": "2026-10-04T07:18:30.486113+00:00",
+  "event_count": 76,
+  "failure_reason": null,
+  "generation": {
+    "max_new_tokens": 1,
+    "temperature": 0
+  },
+  "git_dirty": false,
+  "git_sha": "f402cff097764ecead840690fff266fa736f9322",
+  "hardware": {
+    "availability": "unavailable",
+    "reason": "no compatible provider"
+  },
+  "model": {
+    "name": "Qwen/Qwen2.5-0.5B-Instruct",
+    "revision": "7ae557604adf67be50417f59c2c2f167def9a775"
+  },
+  "observation_availability": {
+    "forced_release": "optional approved observer emission",
+    "hardware_counters": "unavailable",
+    "lifecycle": "optional backend emission",
+    "native_apc_hit_miss": "unavailable without backend observation"
+  },
+  "observed_forced_release_count": 1,
+  "persisted_forced_release_event_count": 1,
+  "platform": "macOS-26.5.1-arm64-arm-64bit",
+  "pressure": {
+    "initial_shortage_blocks": 1,
+    "required_blocks": 16,
+    "safety_ceiling": 3,
+    "stage_required_blocks": [
+      16
+    ]
+  },
+  "pressure_selected_block_ids": [
+    [
+      97,
+      98,
+      99,
+      100,
+      101,
+      102,
+      103,
+      104,
+      105,
+      106,
+      107,
+      108,
+      109,
+      110,
+      111,
+      32
+    ]
+  ],
+  "run_id": "f6-shared-ownership-audit-seed-101",
+  "schema_version": "phase2.run.v1",
+  "seed": 101,
+  "started_at_utc": "2026-10-04T07:18:16.594034+00:00",
+  "status": "success",
+  "tokenizer": {
+    "name": "Qwen/Qwen2.5-0.5B-Instruct",
+    "revision": "7ae557604adf67be50417f59c2c2f167def9a775"
+  },
+  "trace_id": "phase2a-formal-f6-shared-ownership-audit-v1",
+  "trace_sha256": "3168ef994405dbd08b67adc78816629622db0d8d1b706c0b0217c42b89fe32bf"
+}

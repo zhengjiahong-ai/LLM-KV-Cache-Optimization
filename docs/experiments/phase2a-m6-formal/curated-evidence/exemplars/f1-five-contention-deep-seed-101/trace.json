@@ -1,0 +1,135 @@
+{
+  "pressure_stages": [
+    {
+      "max_requests": 3,
+      "planned_arrival_offset_seconds": 2.0,
+      "prompt": "formal pressure for f1-five-contention-deep stage 1",
+      "stage_id": "pressure-1",
+      "stop_on_forced_release": true
+    }
+  ],
+  "requests": [
+    {
+      "is_terminal": false,
+      "kind": "turn",
+      "next_tool_type": "search",
+      "planned_arrival_offset_seconds": 0.0,
+      "prefix_prompt": "formal reusable prefix for agent-a",
+      "program_id": "agent-a",
+      "prompt": "establish agent-a",
+      "request_id": "agent-a:turn:1",
+      "tool_gap_seconds": 6.0,
+      "turn_index": 1
+    },
+    {
+      "is_terminal": true,
+      "kind": "turn",
+      "next_tool_type": null,
+      "planned_arrival_offset_seconds": 6.0,
+      "prefix_prompt": "formal reusable prefix for agent-a",
+      "program_id": "agent-a",
+      "prompt": "return agent-a",
+      "request_id": "agent-a:turn:2",
+      "tool_gap_seconds": null,
+      "turn_index": 2
+    },
+    {
+      "is_terminal": false,
+      "kind": "turn",
+      "next_tool_type": "database",
+      "planned_arrival_offset_seconds": 0.1,
+      "prefix_prompt": "formal reusable prefix for agent-b",
+      "program_id": "agent-b",
+      "prompt": "establish agent-b",
+      "request_id": "agent-b:turn:1",
+      "tool_gap_seconds": 6.9,
+      "turn_index": 1
+    },
+    {
+      "is_terminal": true,
+      "kind": "turn",
+      "next_tool_type": null,
+      "planned_arrival_offset_seconds": 7.0,
+      "prefix_prompt": "formal reusable prefix for agent-b",
+      "program_id": "agent-b",
+      "prompt": "return agent-b",
+      "request_id": "agent-b:turn:2",
+      "tool_gap_seconds": null,
+      "turn_index": 2
+    },
+    {
+      "is_terminal": false,
+      "kind": "turn",
+      "next_tool_type": "code",
+      "planned_arrival_offset_seconds": 0.2,
+      "prefix_prompt": "formal reusable prefix for agent-c",
+      "program_id": "agent-c",
+      "prompt": "establish agent-c",
+      "request_id": "agent-c:turn:1",
+      "tool_gap_seconds": 7.8,
+      "turn_index": 1
+    },
+    {
+      "is_terminal": true,
+      "kind": "turn",
+      "next_tool_type": null,
+      "planned_arrival_offset_seconds": 8.0,
+      "prefix_prompt": "formal reusable prefix for agent-c",
+      "program_id": "agent-c",
+      "prompt": "return agent-c",
+      "request_id": "agent-c:turn:2",
+      "tool_gap_seconds": null,
+      "turn_index": 2
+    },
+    {
+      "is_terminal": false,
+      "kind": "turn",
+      "next_tool_type": "search",
+      "planned_arrival_offset_seconds": 0.3,
+      "prefix_prompt": "formal reusable prefix for agent-d",
+      "program_id": "agent-d",
+      "prompt": "establish agent-d",
+      "request_id": "agent-d:turn:1",
+      "tool_gap_seconds": 8.7,
+      "turn_index": 1
+    },
+    {
+      "is_terminal": true,
+      "kind": "turn",
+      "next_tool_type": null,
+      "planned_arrival_offset_seconds": 9.0,
+      "prefix_prompt": "formal reusable prefix for agent-d",
+      "program_id": "agent-d",
+      "prompt": "return agent-d",
+      "request_id": "agent-d:turn:2",
+      "tool_gap_seconds": null,
+      "turn_index": 2
+    },
+    {
+      "is_terminal": false,
+      "kind": "turn",
+      "next_tool_type": "database",
+      "planned_arrival_offset_seconds": 0.4,
+      "prefix_prompt": "formal reusable prefix for agent-e",
+      "program_id": "agent-e",
+      "prompt": "establish agent-e",
+      "request_id": "agent-e:turn:1",
+      "tool_gap_seconds": 9.6,
+      "turn_index": 1
+    },
+    {
+      "is_terminal": true,
+      "kind": "turn",
+      "next_tool_type": null,
+      "planned_arrival_offset_seconds": 10.0,
+      "prefix_prompt": "formal reusable prefix for agent-e",
+      "program_id": "agent-e",
+      "prompt": "return agent-e",
+      "request_id": "agent-e:turn:2",
+      "tool_gap_seconds": null,
+      "turn_index": 2
+    }
+  ],
+  "schema_version": "phase2.trace.v1",
+  "trace_id": "phase2a-formal-f1-five-contention-deep-v1"
+}

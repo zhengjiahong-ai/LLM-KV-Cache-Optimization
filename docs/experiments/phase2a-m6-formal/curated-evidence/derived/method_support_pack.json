@@ -1,0 +1,1015 @@
+{
+  "candidate_heterogeneity": [
+    {
+      "decision_count": 60,
+      "feature": "block_count",
+      "mean_spread": 12.8,
+      "mean_spread_ci_lower": 9.866666666666667,
+      "mean_spread_ci_upper": 15.466666666666667,
+      "positive_spread_rate": 0.6
+    },
+    {
+      "decision_count": 60,
+      "feature": "elapsed_since_ttl_decision_seconds",
+      "mean_spread": 0.36057773620001776,
+      "mean_spread_ci_lower": 0.3153968722732134,
+      "mean_spread_ci_upper": 0.4099659043182359,
+      "positive_spread_rate": 1.0
+    },
+    {
+      "decision_count": 60,
+      "feature": "eta",
+      "mean_spread": 0.0,
+      "mean_spread_ci_lower": 0.0,
+      "mean_spread_ci_upper": 0.0,
+      "positive_spread_rate": 0.0
+    },
+    {
+      "decision_count": 60,
+      "feature": "initially_reclaimable_block_count",
+      "mean_spread": 12.8,
+      "mean_spread_ci_lower": 10.0,
+      "mean_spread_ci_upper": 15.466666666666667,
+      "positive_spread_rate": 0.6
+    },
+    {
+      "decision_count": 60,
+      "feature": "prefill_reload_seconds",
+      "mean_spread": 0.06498634150048019,
+      "mean_spread_ci_lower": 0.051555096001420685,
+      "mean_spread_ci_upper": 0.078415763683491,
+      "positive_spread_rate": 0.6
+    },
+    {
+      "decision_count": 60,
+      "feature": "queue_delay_t_seconds",
+      "mean_spread": 0.0,
+      "mean_spread_ci_lower": 0.0,
+      "mean_spread_ci_upper": 0.0,
+      "positive_spread_rate": 0.0
+    },
+    {
+      "decision_count": 60,
+      "feature": "retention_deadline_timestamp",
+      "mean_spread": 0.36057773620001776,
+      "mean_spread_ci_lower": 0.31635057797356547,
+      "mean_spread_ci_upper": 0.41127586074100075,
+      "positive_spread_rate": 1.0
+    }
+  ],
+  "constraints": {
+    "best_supported_loss_views": [
+      "trace_return_weighted_prefill_proxy"
+    ],
+    "future_only_forbidden_online": [
+      "returned_after_decision",
+      "time_to_return_seconds",
+      "physical_eviction_count",
+      "recomputed_tokens",
+      "serving_impact",
+      "hindsight_best_candidate",
+      "absolute_regret",
+      "normalized_regret"
+    ],
+    "required_corner_cases": [
+      "multiple selected releases",
+      "repeated release of one logical object",
+      "block-slot reuse with changing content",
+      "shared or overlapping block ownership",
+      "selected candidate never returns",
+      "unselected candidate returns first",
+      "ties in realized loss"
+    ],
+    "safe_online_features": [
+      "block_count",
+      "initially_reclaimable_block_count",
+      "retention_deadline_timestamp",
+      "waiting_followup",
+      "next_tool_type",
+      "elapsed_since_ttl_decision_seconds",
+      "prefill_reload_seconds",
+      "eta",
+      "queue_delay_t_seconds"
+    ],
+    "unavailable_capabilities": [
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f1-five-contention-deep-seed-101"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f1-five-contention-deep-seed-101"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f1-five-contention-deep-seed-211"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f1-five-contention-deep-seed-211"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f1-five-contention-deep-seed-307"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f1-five-contention-deep-seed-307"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f1-three-mixed-medium-seed-101"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f1-three-mixed-medium-seed-101"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f1-three-mixed-medium-seed-211"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f1-three-mixed-medium-seed-211"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f1-three-mixed-medium-seed-307"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f1-three-mixed-medium-seed-307"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f1-two-homogeneous-shallow-seed-101"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f1-two-homogeneous-shallow-seed-101"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f1-two-homogeneous-shallow-seed-211"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f1-two-homogeneous-shallow-seed-211"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f1-two-homogeneous-shallow-seed-307"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f1-two-homogeneous-shallow-seed-307"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f2-equal-256-seed-101"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f2-equal-256-seed-101"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f2-equal-256-seed-211"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f2-equal-256-seed-211"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f2-equal-256-seed-307"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f2-equal-256-seed-307"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f2-large-spread-five-seed-101"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f2-large-spread-five-seed-101"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f2-large-spread-five-seed-211"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f2-large-spread-five-seed-211"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f2-large-spread-five-seed-307"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f2-large-spread-five-seed-307"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f2-mixed-128-256-512-seed-101"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f2-mixed-128-256-512-seed-101"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f2-mixed-128-256-512-seed-211"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f2-mixed-128-256-512-seed-211"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f2-mixed-128-256-512-seed-307"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f2-mixed-128-256-512-seed-307"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f3-a-early-b-late-seed-101"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f3-a-early-b-late-seed-101"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f3-a-early-b-late-seed-211"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f3-a-early-b-late-seed-211"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f3-a-early-b-late-seed-307"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f3-a-early-b-late-seed-307"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f3-b-early-a-late-seed-101"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f3-b-early-a-late-seed-101"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f3-b-early-a-late-seed-211"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f3-b-early-a-late-seed-211"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f3-b-early-a-late-seed-307"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f3-b-early-a-late-seed-307"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f3-outside-horizon-interleaved-seed-101"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f3-outside-horizon-interleaved-seed-101"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f3-outside-horizon-interleaved-seed-211"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f3-outside-horizon-interleaved-seed-211"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f3-outside-horizon-interleaved-seed-307"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f3-outside-horizon-interleaved-seed-307"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f4-deep-multi-release-seed-101"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f4-deep-multi-release-seed-101"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f4-deep-multi-release-seed-211"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f4-deep-multi-release-seed-211"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f4-deep-multi-release-seed-307"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f4-deep-multi-release-seed-307"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f4-repeated-pressure-seed-101"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f4-repeated-pressure-seed-101"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f4-repeated-pressure-seed-211"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f4-repeated-pressure-seed-211"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f4-repeated-pressure-seed-307"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f4-repeated-pressure-seed-307"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f4-shallow-single-pressure-seed-101"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f4-shallow-single-pressure-seed-101"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f4-shallow-single-pressure-seed-211"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f4-shallow-single-pressure-seed-211"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f4-shallow-single-pressure-seed-307"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f4-shallow-single-pressure-seed-307"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f5-overlap-high-waiting-seed-101"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f5-overlap-high-waiting-seed-101"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f5-overlap-high-waiting-seed-211"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f5-overlap-high-waiting-seed-211"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f5-overlap-high-waiting-seed-307"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f5-overlap-high-waiting-seed-307"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f5-same-cost-return-reversal-seed-101"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f5-same-cost-return-reversal-seed-101"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f5-same-cost-return-reversal-seed-211"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f5-same-cost-return-reversal-seed-211"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f5-same-cost-return-reversal-seed-307"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f5-same-cost-return-reversal-seed-307"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f5-staggered-low-waiting-seed-101"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f5-staggered-low-waiting-seed-101"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f5-staggered-low-waiting-seed-211"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f5-staggered-low-waiting-seed-211"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f5-staggered-low-waiting-seed-307"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f5-staggered-low-waiting-seed-307"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f6-evolving-prefixes-seed-101"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f6-evolving-prefixes-seed-101"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f6-evolving-prefixes-seed-211"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f6-evolving-prefixes-seed-211"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f6-evolving-prefixes-seed-307"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f6-evolving-prefixes-seed-307"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f6-repeated-block-reuse-seed-101"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f6-repeated-block-reuse-seed-101"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f6-repeated-block-reuse-seed-211"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f6-repeated-block-reuse-seed-211"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f6-repeated-block-reuse-seed-307"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f6-repeated-block-reuse-seed-307"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f6-shared-ownership-audit-seed-101"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f6-shared-ownership-audit-seed-101"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f6-shared-ownership-audit-seed-211"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f6-shared-ownership-audit-seed-211"
+      },
+      {
+        "availability": "unavailable",
+        "capability": "hardware_counters",
+        "reason": null,
+        "run_id": "f6-shared-ownership-audit-seed-307"
+      },
+      {
+        "availability": "unavailable without backend observation",
+        "capability": "native_apc_hit_miss",
+        "reason": null,
+        "run_id": "f6-shared-ownership-audit-seed-307"
+      }
+    ],
+    "unresolved_questions": [
+      "unselected-victim counterfactual outcomes require controlled replay",
+      "serving-impact loss is not yet constructed",
+      "one or more runtime observation capabilities are unavailable",
+      "headroom currently lacks a direct realized-loss view"
+    ],
+    "weak_or_unstable_online_features": [
+      "block_count",
+      "elapsed_since_ttl_decision_seconds",
+      "eta",
+      "initially_reclaimable_block_count",
+      "next_tool_type=code",
+      "next_tool_type=database",
+      "next_tool_type=search",
+      "prefill_reload_seconds",
+      "queue_delay_t_seconds",
+      "retention_deadline_timestamp",
+      "waiting_followup"
+    ]
+  },
+  "formal_campaign": true,
+  "gate_outcome": "HEADROOM-BUT-NO-ONLINE-SIGNAL",
+  "high_regret_examples": [
+    {
+      "absolute_regret": 0.17105704150890233,
+      "decision_event_index": 40,
+      "hindsight_best_loss": 0.0,
+      "loss_view": "trace_return_weighted_prefill_proxy",
+      "normalized_regret": 1.0,
+      "run_id": "f6-shared-ownership-audit-seed-101",
+      "selected_loss": 0.17105704150890233
+    },
+    {
+      "absolute_regret": 0.17105704150890233,
+      "decision_event_index": 40,
+      "hindsight_best_loss": 0.0,
+      "loss_view": "trace_return_weighted_prefill_proxy",
+      "normalized_regret": 1.0,
+      "run_id": "f6-shared-ownership-audit-seed-211",
+      "selected_loss": 0.17105704150890233
+    },
+    {
+      "absolute_regret": 0.17105704150890233,
+      "decision_event_index": 40,
+      "hindsight_best_loss": 0.0,
+      "loss_view": "trace_return_weighted_prefill_proxy",
+      "normalized_regret": 1.0,
+      "run_id": "f6-shared-ownership-audit-seed-307",
+      "selected_loss": 0.17105704150890233
+    },
+    {
+      "absolute_regret": 0.1384847710141912,
+      "decision_event_index": 64,
+      "hindsight_best_loss": 0.04975464601011481,
+      "loss_view": "trace_return_weighted_prefill_proxy",
+      "normalized_regret": 0.7356842323640943,
+      "run_id": "f1-five-contention-deep-seed-101",
+      "selected_loss": 0.18823941702430602
+    },
+    {
+      "absolute_regret": 0.1384847710141912,
+      "decision_event_index": 64,
+      "hindsight_best_loss": 0.04975464601011481,
+      "loss_view": "trace_return_weighted_prefill_proxy",
+      "normalized_regret": 0.7356842323640943,
+      "run_id": "f1-five-contention-deep-seed-211",
+      "selected_loss": 0.18823941702430602
+    },
+    {
+      "absolute_regret": 0.1384847710141912,
+      "decision_event_index": 64,
+      "hindsight_best_loss": 0.04975464601011481,
+      "loss_view": "trace_return_weighted_prefill_proxy",
+      "normalized_regret": 0.7356842323640943,
+      "run_id": "f1-five-contention-deep-seed-307",
+      "selected_loss": 0.18823941702430602
+    },
+    {
+      "absolute_regret": 0.0887301250040764,
+      "decision_event_index": 40,
+      "hindsight_best_loss": 0.0,
+      "loss_view": "trace_return_weighted_prefill_proxy",
+      "normalized_regret": 1.0,
+      "run_id": "f2-equal-256-seed-307",
+      "selected_loss": 0.0887301250040764
+    },
+    {
+      "absolute_regret": 0.0887301250040764,
+      "decision_event_index": 28,
+      "hindsight_best_loss": 0.0,
+      "loss_view": "trace_return_weighted_prefill_proxy",
+      "normalized_regret": 1.0,
+      "run_id": "f3-a-early-b-late-seed-307",
+      "selected_loss": 0.0887301250040764
+    },
+    {
+      "absolute_regret": 0.0887301250040764,
+      "decision_event_index": 40,
+      "hindsight_best_loss": 0.04975464601011481,
+      "loss_view": "trace_return_weighted_prefill_proxy",
+      "normalized_regret": 0.6407211735576599,
+      "run_id": "f4-deep-multi-release-seed-101",
+      "selected_loss": 0.1384847710141912
+    },
+    {
+      "absolute_regret": 0.0887301250040764,
+      "decision_event_index": 40,
+      "hindsight_best_loss": 0.04975464601011481,
+      "loss_view": "trace_return_weighted_prefill_proxy",
+      "normalized_regret": 0.6407211735576599,
+      "run_id": "f4-deep-multi-release-seed-211",
+      "selected_loss": 0.1384847710141912
+    }
+  ],
+  "outcome_heterogeneity_and_headroom": [
+    {
+      "decision_count": 60,
+      "evidence_level": "proxy",
+      "loss_view": "trace_return_weighted_prefill_proxy",
+      "mean_absolute_regret": 0.041695209412258315,
+      "mean_normalized_regret": 0.45215360362942103,
+      "mean_spread": 0.07378992945305071,
+      "mean_spread_ci_lower": 0.06112977025733926,
+      "non_tied_misselection_rate": 0.5483870967741935,
+      "normalized_regret_ci_lower": 0.33706965460952826,
+      "positive_spread_rate": 0.7166666666666667,
+      "tie_rate": 0.48333333333333334
+    }
+  ],
+  "prevalence": {
+    "decision_count": 60,
+    "failed_run_count": 0,
+    "forced_release_per_request": 0.15625,
+    "maximum_candidate_count": 5,
+    "mean_candidate_count": 2.9,
+    "mean_required_blocks": 19.2,
+    "mean_selected_release_count": 1.15,
+    "multi_candidate_decision_rate": 1.0,
+    "repeated_logical_release_count": 0,
+    "repeated_pressure_run_rate": 0.1111111111111111,
+    "request_count": 384,
+    "run_count": 54,
+    "seed_count": 3,
+    "successful_run_count": 54
+  },
+  "schema_version": "phase2a.method-support.v1",
+  "signal_evaluation_status": "NO_STABLE_SIGNAL",
+  "signals": [
+    {
+      "evaluable_family_count": 6,
+      "evaluable_seed_count": 3,
+      "family_direction_agreement_rate": 0.5,
+      "feature": "block_count",
+      "loss_view": "trace_return_weighted_prefill_proxy",
+      "overall_spearman_rho": 0.07254512655253098,
+      "seed_direction_agreement_rate": 1.0,
+      "supported": false
+    },
+    {
+      "evaluable_family_count": 6,
+      "evaluable_seed_count": 3,
+      "family_direction_agreement_rate": 0.8333333333333334,
+      "feature": "elapsed_since_ttl_decision_seconds",
+      "loss_view": "trace_return_weighted_prefill_proxy",
+      "overall_spearman_rho": 0.10107092003870027,
+      "seed_direction_agreement_rate": 1.0,
+      "supported": false
+    },
+    {
+      "evaluable_family_count": 0,
+      "evaluable_seed_count": 0,
+      "family_direction_agreement_rate": null,
+      "feature": "eta",
+      "loss_view": "trace_return_weighted_prefill_proxy",
+      "overall_spearman_rho": null,
+      "seed_direction_agreement_rate": null,
+      "supported": false
+    },
+    {
+      "evaluable_family_count": 6,
+      "evaluable_seed_count": 3,
+      "family_direction_agreement_rate": 0.5,
+      "feature": "initially_reclaimable_block_count",
+      "loss_view": "trace_return_weighted_prefill_proxy",
+      "overall_spearman_rho": 0.07254512655253098,
+      "seed_direction_agreement_rate": 1.0,
+      "supported": false
+    },
+    {
+      "evaluable_family_count": 6,
+      "evaluable_seed_count": 3,
+      "family_direction_agreement_rate": 0.5,
+      "feature": "next_tool_type=code",
+      "loss_view": "trace_return_weighted_prefill_proxy",
+      "overall_spearman_rho": 0.09679745040136928,
+      "seed_direction_agreement_rate": 1.0,
+      "supported": false
+    },
+    {
+      "evaluable_family_count": 6,
+      "evaluable_seed_count": 3,
+      "family_direction_agreement_rate": 0.5,
+      "feature": "next_tool_type=database",
+      "loss_view": "trace_return_weighted_prefill_proxy",
+      "overall_spearman_rho": 0.006805221046835205,
+      "seed_direction_agreement_rate": 0.6666666666666666,
+      "supported": false
+    },
+    {
+      "evaluable_family_count": 6,
+      "evaluable_seed_count": 3,
+      "family_direction_agreement_rate": 0.6666666666666666,
+      "feature": "next_tool_type=search",
+      "loss_view": "trace_return_weighted_prefill_proxy",
+      "overall_spearman_rho": -0.1095682700581152,
+      "seed_direction_agreement_rate": 0.6666666666666666,
+      "supported": false
+    },
+    {
+      "evaluable_family_count": 6,
+      "evaluable_seed_count": 3,
+      "family_direction_agreement_rate": 0.5,
+      "feature": "prefill_reload_seconds",
+      "loss_view": "trace_return_weighted_prefill_proxy",
+      "overall_spearman_rho": 0.07254512655253098,
+      "seed_direction_agreement_rate": 1.0,
+      "supported": false
+    },
+    {
+      "evaluable_family_count": 0,
+      "evaluable_seed_count": 0,
+      "family_direction_agreement_rate": null,
+      "feature": "queue_delay_t_seconds",
+      "loss_view": "trace_return_weighted_prefill_proxy",
+      "overall_spearman_rho": null,
+      "seed_direction_agreement_rate": null,
+      "supported": false
+    },
+    {
+      "evaluable_family_count": 6,
+      "evaluable_seed_count": 3,
+      "family_direction_agreement_rate": 0.8333333333333334,
+      "feature": "retention_deadline_timestamp",
+      "loss_view": "trace_return_weighted_prefill_proxy",
+      "overall_spearman_rho": -0.1010709200387003,
+      "seed_direction_agreement_rate": 1.0,
+      "supported": false
+    },
+    {
+      "evaluable_family_count": 0,
+      "evaluable_seed_count": 0,
+      "family_direction_agreement_rate": null,
+      "feature": "waiting_followup",
+      "loss_view": "trace_return_weighted_prefill_proxy",
+      "overall_spearman_rho": null,
+      "seed_direction_agreement_rate": null,
+      "supported": false
+    }
+  ],
+  "source_tables": [
+    "runs.jsonl",
+    "decisions.jsonl",
+    "decision_candidates.jsonl",
+    "candidate_feature_spreads.jsonl",
+    "candidate_loss_evidence.jsonl",
+    "candidate_loss_spreads.jsonl",
+    "decision_regret.jsonl",
+    "signal_associations.jsonl",
+    "capabilities.jsonl",
+    "empirical_gap_report.jsonl"
+  ]
+}

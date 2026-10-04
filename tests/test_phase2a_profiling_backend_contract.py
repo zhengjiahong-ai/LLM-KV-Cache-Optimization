@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import pytest
 
+from kvopt.workload.phase2 import PlannedRequest
 from scripts.spikes.phase2_minimal_observability_metal import (
     _expected_profiling_block_override,
+    _pressure_stage_sizes,
     _program_prefix_sizes,
+    _required_max_model_len,
     _turn_token_ids,
 )
-from kvopt.workload.phase2 import PlannedRequest
 
 
 def test_expected_block_budget_matches_controlled_scarcity_rule() -> None:
@@ -20,6 +22,11 @@ def test_expected_block_budget_matches_controlled_scarcity_rule() -> None:
     assert _expected_profiling_block_override(
         {"agent-a": 256, "agent-b": 512}, 512
     ) == 80
+    assert _expected_profiling_block_override(
+        {"agent-a": 128, "agent-b": 256, "agent-c": 512},
+        512,
+        20,
+    ) == 69
 
 
 def test_program_prefix_sizes_accept_only_measured_points() -> None:
@@ -54,3 +61,32 @@ def test_materialized_turn_uses_requested_prefix_size() -> None:
 
     assert len(token_ids) == 129
     assert len(set(token_ids[:128])) == 128
+
+
+def test_pressure_stage_sizes_accept_aligned_overrides() -> None:
+    assert _pressure_stage_sizes({
+        "pressure_stage_prompt_tokens": {
+            "pressure-1": 256,
+            "pressure-2": 512,
+        }
+    }) == {"pressure-1": 256, "pressure-2": 512}
+
+    with pytest.raises(ValueError, match="align to the KV block size"):
+        _pressure_stage_sizes({
+            "pressure_stage_prompt_tokens": {"pressure-1": 255}
+        })
+
+
+def test_max_model_len_covers_largest_pressure_stage() -> None:
+    assert _required_max_model_len(
+        {"agent-a": 256, "agent-b": 512},
+        512,
+        {"pressure-1": 512},
+        1,
+    ) == 528
+    assert _required_max_model_len(
+        {"agent-a": 256, "agent-b": 512},
+        512,
+        {"pressure-1": 512, "pressure-2": 768},
+        1,
+    ) == 784
