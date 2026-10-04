@@ -7,6 +7,7 @@ from scripts.spikes.phase2_minimal_observability_metal import (
     _expected_profiling_block_override,
     _pressure_stage_sizes,
     _program_prefix_sizes,
+    _required_max_model_len,
     _turn_token_ids,
 )
 
@@ -74,3 +75,18 @@ def test_pressure_stage_sizes_accept_aligned_overrides() -> None:
         _pressure_stage_sizes({
             "pressure_stage_prompt_tokens": {"pressure-1": 255}
         })
+
+
+def test_max_model_len_covers_largest_pressure_stage() -> None:
+    assert _required_max_model_len(
+        {"agent-a": 256, "agent-b": 512},
+        512,
+        {"pressure-1": 512},
+        1,
+    ) == 528
+    assert _required_max_model_len(
+        {"agent-a": 256, "agent-b": 512},
+        512,
+        {"pressure-1": 512, "pressure-2": 768},
+        1,
+    ) == 784

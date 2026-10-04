@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib
+import math
 import os
 import time
 from collections.abc import Mapping
@@ -157,6 +158,24 @@ def _pressure_stage_sizes(options: Mapping[str, object]) -> dict[str, int]:
             )
         sizes[stage_id] = size
     return sizes
+
+
+def _required_max_model_len(
+    program_prefix_tokens: Mapping[str, int],
+    pressure_tokens: int,
+    pressure_stage_tokens: Mapping[str, int],
+    max_new_tokens: int,
+) -> int:
+    """Cover the largest materialized prompt and align to a KV block."""
+
+    largest_prompt = max(
+        pressure_tokens,
+        *(pressure_stage_tokens.values()),
+        *(tokens + 1 for tokens in program_prefix_tokens.values()),
+    )
+    required_tokens = largest_prompt + max_new_tokens
+    aligned_tokens = math.ceil(required_tokens / _BLOCK_SIZE) * _BLOCK_SIZE
+    return max(_DEFAULT_MAX_MODEL_LEN, aligned_tokens)
 
 
 def _program_prefix_token_ids(
@@ -380,6 +399,16 @@ class MinimalMetalObservabilityBackend:
             options.get("gpu_memory_utilization", 0.8),
             "backend_options.gpu_memory_utilization",
         )
+        max_new_tokens = _positive_int(
+            config["generation"]["max_new_tokens"],  # type: ignore[index]
+            "config.generation.max_new_tokens",
+        )
+        max_model_len = _required_max_model_len(
+            self._program_prefix_tokens,
+            self._pressure_tokens,
+            self._pressure_stage_tokens,
+            max_new_tokens,
+        )
         llm_kwargs = {
             "model": model["name"],
             "revision": model["revision"],
@@ -389,12 +418,12 @@ class MinimalMetalObservabilityBackend:
             "gpu_memory_utilization": gpu_memory_utilization,
             "seed": int(config["seed"]),
             "num_gpu_blocks_override": block_override,
-            "max_model_len": _DEFAULT_MAX_MODEL_LEN,
-            "max_num_batched_tokens": _DEFAULT_MAX_MODEL_LEN,
+            "max_model_len": max_model_len,
+            "max_num_batched_tokens": max_model_len,
         }
         self._llm = LLM(**llm_kwargs)
         self._sampling_params = SamplingParams(
-            max_tokens=int(config["generation"]["max_new_tokens"]),  # type: ignore[index]
+            max_tokens=max_new_tokens,
             temperature=float(config["generation"]["temperature"]),  # type: ignore[index]
             seed=int(config["seed"]),
         )
