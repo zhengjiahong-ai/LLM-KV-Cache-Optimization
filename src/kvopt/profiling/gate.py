@@ -19,9 +19,9 @@ class EmpiricalGapInputs:
     seed_count: int
     physical_missingness_explicit: bool
     provenance_complete: bool
-    capability_contract_complete: bool
     online_signal_supported: bool | None
     direct_loss_views: tuple[str, ...]
+    capability_contract_complete: bool = False
 
 
 @dataclass(frozen=True, slots=True)
