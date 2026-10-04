@@ -19,6 +19,7 @@ class EmpiricalGapInputs:
     seed_count: int
     physical_missingness_explicit: bool
     provenance_complete: bool
+    capability_contract_complete: bool
     online_signal_supported: bool | None
     direct_loss_views: tuple[str, ...]
 
@@ -68,6 +69,7 @@ def evaluate_empirical_gap_gate(
             if join_rate >= 0.95
             and inputs.physical_missingness_explicit
             and inputs.provenance_complete
+            and inputs.capability_contract_complete
             else "FAIL"
         )
     integrity = GateCheckRow(
@@ -76,7 +78,10 @@ def evaluate_empirical_gap_gate(
         explanation=(
             "no otherwise-valid multi-candidate decisions"
             if join_rate is None
-            else f"decision join coverage={join_rate:.3f}"
+            else (
+                f"decision join coverage={join_rate:.3f}; "
+                f"capability_contract_complete={inputs.capability_contract_complete}"
+            )
         ),
     )
 
