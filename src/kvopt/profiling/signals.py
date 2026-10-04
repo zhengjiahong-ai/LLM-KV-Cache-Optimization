@@ -47,6 +47,9 @@ class SignalSupportRow:
     seed_direction_agreement_rate: float | None
     coverage_sufficient: bool
     supported: bool
+    proxy_supported: bool
+    runtime_replicated: bool
+    support_level: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,6 +60,9 @@ class SignalEvaluationRow:
     online_signal_supported: bool | None
     evaluated_feature_count: int
     supported_feature_count: int
+    proxy_supported: bool | None
+    runtime_replicated: bool
+    support_level: str
     minimum_absolute_rho: float
     minimum_group_count: int
     minimum_direction_agreement_rate: float
@@ -368,6 +374,11 @@ def build_signal_analysis_tables(
                 seed_direction_agreement_rate=seed_agreement,
                 coverage_sufficient=coverage_sufficient,
                 supported=supported,
+                proxy_supported=supported,
+                runtime_replicated=False,
+                support_level=(
+                    "PROXY_SUPPORTED" if supported else "NOT_SUPPORTED"
+                ),
             )
         )
 
@@ -386,6 +397,13 @@ def build_signal_analysis_tables(
         ),
         evaluated_feature_count=len(support_rows),
         supported_feature_count=supported_count,
+        proxy_supported=(
+            None if not evaluation_complete else supported_count > 0
+        ),
+        runtime_replicated=False,
+        support_level=(
+            "PROXY_SUPPORTED" if supported_count else "NOT_SUPPORTED"
+        ),
         minimum_absolute_rho=_MINIMUM_ABSOLUTE_RHO,
         minimum_group_count=_MINIMUM_GROUP_COUNT,
         minimum_direction_agreement_rate=(

@@ -144,8 +144,10 @@ def test_pipeline_builds_and_writes_small_smoke_bundle(tmp_path: Path) -> None:
     assert bundle.decision_validity[0].invalid_reasons == (
         "fewer_than_two_candidates",
     )
-    assert len(bundle.candidate_loss_evidence) == 3
-    assert len(bundle.loss_view_availability) == 3
+    assert len(bundle.candidate_loss_evidence) == 4
+    assert len(bundle.loss_view_availability) == 4
+    assert len(bundle.horizon_sensitivity) == 1
+    assert bundle.horizon_sensitivity_summary[0].candidate_count == 1
     assert bundle.decision_regret == ()
     assert len(bundle.candidate_feature_spreads) == 8
     assert bundle.candidate_heterogeneity_summary == ()
@@ -161,7 +163,7 @@ def test_pipeline_builds_and_writes_small_smoke_bundle(tmp_path: Path) -> None:
     manifest = json.loads(
         (output_dir / "manifest.json").read_text(encoding="utf-8")
     )
-    assert manifest["schema_version"] == "phase2a.derived.v1"
+    assert manifest["schema_version"] == "phase2a.derived.v2"
     assert manifest["analysis_provenance"]["entry_point"] == (
         "kvopt.profiling.cli"
     )
@@ -169,11 +171,17 @@ def test_pipeline_builds_and_writes_small_smoke_bundle(tmp_path: Path) -> None:
     assert "git_dirty" in manifest["analysis_provenance"]
     assert manifest["row_counts"]["request_outcomes"] == 4
     assert manifest["analysis_parameters"]["bootstrap_seed"] == 0
+    assert manifest["analysis_parameters"]["canonical_loss_view"] == (
+        "planned_return_weighted_prefill_proxy"
+    )
+    assert not manifest["analysis_parameters"][
+        "observed_sensitivity_gate_eligible"
+    ]
     pack = json.loads(
         (output_dir / "method_support_pack.json").read_text(encoding="utf-8")
     )
-    assert pack["schema_version"] == "phase2a.method-support.v1"
-    assert len(tuple(output_dir.glob("*.jsonl"))) == 24
+    assert pack["schema_version"] == "phase2a.method-support.v2"
+    assert len(tuple(output_dir.glob("*.jsonl"))) == 26
     assert (SMOKE_RUN / "run.json").read_text(encoding="utf-8") == raw_manifest_before
 
 

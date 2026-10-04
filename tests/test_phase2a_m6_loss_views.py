@@ -43,11 +43,22 @@ def _outcome(program_id: str, *, selected: bool) -> DecisionOutcomeRow:
         return_arrival_clock_domain="runtime" if returned else None,
         returned_after_decision=returned,
         event_distance_to_return=10 if returned else None,
-        time_to_return_seconds=3.0 if returned else None,
-        time_to_return_status="available" if returned else "no_return",
+        observed_time_to_return_seconds=3.0 if returned else None,
+        observed_time_to_return_status="available" if returned else "no_return",
         analysis_horizon_seconds=5.0,
-        returned_within_horizon=returned,
-        return_horizon_status="available" if returned else "no_return",
+        observed_returned_within_horizon=returned,
+        observed_return_horizon_status="available" if returned else "no_return",
+        observed_horizon_margin_seconds=-2.0 if returned else None,
+        planned_decision_anchor_offset_seconds=1.0,
+        planned_return_offset_seconds=4.0 if returned else None,
+        planned_time_to_return_seconds=3.0 if returned else None,
+        planned_time_to_return_status=(
+            "available" if returned else "no_planned_return"
+        ),
+        planned_returned_within_horizon=returned,
+        planned_return_horizon_status=(
+            "available" if returned else "no_planned_return"
+        ),
         return_prefix_snapshot_event_index=None,
         same_prefix_reobserved=None,
         physical_eviction_event_indexes=(15,) if selected else (),
@@ -65,7 +76,10 @@ def test_loss_views_only_send_fully_comparable_proxy_to_regret() -> None:
     )
     gates = {row.loss_view: row for row in tables.availability}
 
-    assert gates["trace_return_weighted_prefill_proxy"].usable_for_regret
+    assert gates["planned_return_weighted_prefill_proxy"].usable_for_regret
+    assert not gates[
+        "observed_return_weighted_prefill_proxy_sensitivity"
+    ].usable_for_regret
     assert not gates["observed_physical_eviction_blocks"].usable_for_regret
     assert not gates["observed_recomputed_tokens"].usable_for_regret
     assert len(tables.comparable_losses) == 2
@@ -127,7 +141,7 @@ def test_ambiguous_block_reuse_is_not_treated_as_physical_loss() -> None:
 def test_logical_proxy_ignores_return_outside_horizon() -> None:
     late_outcome = replace(
         _outcome("a", selected=True),
-        returned_within_horizon=False,
+        planned_returned_within_horizon=False,
     )
     tables = build_loss_view_tables(
         (_candidate("a", selected=True), _candidate("b", selected=False)),
@@ -137,7 +151,7 @@ def test_logical_proxy_ignores_return_outside_horizon() -> None:
     proxy = next(
         row
         for row in tables.evidence
-        if row.loss_view == "trace_return_weighted_prefill_proxy"
+        if row.loss_view == "planned_return_weighted_prefill_proxy"
         and row.program_id == "a"
     )
     assert proxy.loss == 0.0
@@ -147,8 +161,8 @@ def test_logical_proxy_ignores_return_outside_horizon() -> None:
 def test_logical_proxy_rejects_unknown_horizon_membership() -> None:
     unknown_outcome = replace(
         _outcome("a", selected=True),
-        returned_within_horizon=None,
-        return_horizon_status="incompatible_clock_domain",
+        planned_returned_within_horizon=None,
+        planned_return_horizon_status="pressure_anchor_unavailable",
     )
     tables = build_loss_view_tables(
         (_candidate("a", selected=True), _candidate("b", selected=False)),
@@ -158,16 +172,16 @@ def test_logical_proxy_rejects_unknown_horizon_membership() -> None:
     proxy = next(
         row
         for row in tables.evidence
-        if row.loss_view == "trace_return_weighted_prefill_proxy"
+        if row.loss_view == "planned_return_weighted_prefill_proxy"
         and row.program_id == "a"
     )
     gate = next(
         row
         for row in tables.availability
-        if row.loss_view == "trace_return_weighted_prefill_proxy"
+        if row.loss_view == "planned_return_weighted_prefill_proxy"
     )
     assert proxy.loss is None
     assert proxy.unavailable_reason == (
-        "return_horizon_incompatible_clock_domain"
+        "return_horizon_pressure_anchor_unavailable"
     )
     assert not gate.usable_for_regret

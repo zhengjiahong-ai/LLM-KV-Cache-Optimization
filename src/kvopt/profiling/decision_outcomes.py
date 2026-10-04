@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import statistics
 from collections.abc import Iterable
 from dataclasses import dataclass
 
@@ -25,16 +26,51 @@ class DecisionOutcomeRow:
     return_arrival_clock_domain: str | None
     returned_after_decision: bool
     event_distance_to_return: int | None
-    time_to_return_seconds: float | None
-    time_to_return_status: str
+    observed_time_to_return_seconds: float | None
+    observed_time_to_return_status: str
     analysis_horizon_seconds: float | None
-    returned_within_horizon: bool | None
-    return_horizon_status: str
+    observed_returned_within_horizon: bool | None
+    observed_return_horizon_status: str
+    observed_horizon_margin_seconds: float | None
+    planned_decision_anchor_offset_seconds: float | None
+    planned_return_offset_seconds: float | None
+    planned_time_to_return_seconds: float | None
+    planned_time_to_return_status: str
+    planned_returned_within_horizon: bool | None
+    planned_return_horizon_status: str
     return_prefix_snapshot_event_index: int | None
     same_prefix_reobserved: bool | None
     physical_eviction_event_indexes: tuple[int, ...]
     physical_eviction_count: int
     physical_eviction_match_status: str
+
+
+@dataclass(frozen=True, slots=True)
+class HorizonSensitivityRow:
+    """Candidate-level planned/observed horizon comparison."""
+
+    run_id: str
+    decision_event_index: int
+    program_id: str
+    prefix_id: str
+    planned_returned_within_horizon: bool | None
+    observed_returned_within_horizon: bool | None
+    observed_horizon_margin_seconds: float | None
+    boundary_label_flipped: bool | None
+
+
+@dataclass(frozen=True, slots=True)
+class HorizonSensitivitySummaryRow:
+    """Aggregate runtime-jitter sensitivity diagnostics."""
+
+    candidate_count: int
+    comparable_label_count: int
+    boundary_flip_count: int
+    boundary_flip_rate: float | None
+    observed_margin_count: int
+    observed_margin_min_seconds: float | None
+    observed_margin_median_seconds: float | None
+    observed_margin_max_seconds: float | None
 
 
 def _text(value: object, field_name: str) -> str:
@@ -162,6 +198,99 @@ def _analysis_horizon(manifest: dict[str, object]) -> float | None:
     return horizon
 
 
+def _replay_offset(row: dict[str, object]) -> float:
+    return _timestamp(
+        row.get("planned_arrival_offset_seconds"),
+        "replay planned_arrival_offset_seconds",
+    )
+
+
+def _replay_by_request_id(
+    replay: tuple[dict[str, object], ...],
+) -> dict[str, dict[str, object]]:
+    result: dict[str, dict[str, object]] = {}
+    for row in replay:
+        request_id = _text(row.get("request_id"), "replay request_id")
+        if request_id in result:
+            raise ArtifactValidationError(
+                f"duplicate replay request_id: {request_id}"
+            )
+        _replay_offset(row)
+        result[request_id] = row
+    return result
+
+
+def _planned_decision_anchor_offset(
+    events: tuple[dict[str, object], ...],
+    replay_by_request: dict[str, dict[str, object]],
+    decision_event_index: int,
+) -> float | None:
+    """Return the planned offset of the pressure request causing a decision."""
+
+    anchor: float | None = None
+    for event in events:
+        event_index = _index(event.get("event_index"), "event_index")
+        if event_index >= decision_event_index:
+            break
+        if event.get("event_type") != "PLANNED_ARRIVAL_REACHED":
+            continue
+        request_id = event.get("request_id")
+        if not isinstance(request_id, str):
+            continue
+        replay_row = replay_by_request.get(request_id)
+        if replay_row is None or replay_row.get("kind") != "pressure":
+            continue
+        anchor = _replay_offset(replay_row)
+    return anchor
+
+
+def _planned_return_offset(
+    replay: tuple[dict[str, object], ...],
+    replay_by_request: dict[str, dict[str, object]],
+    candidate: DecisionCandidateRow,
+    return_event: dict[str, object] | None,
+    anchor_offset: float | None,
+) -> float | None:
+    if anchor_offset is None:
+        return None
+    if return_event is not None:
+        request_id = return_event.get("request_id")
+        if isinstance(request_id, str):
+            replay_row = replay_by_request.get(request_id)
+            if replay_row is not None:
+                return _replay_offset(replay_row)
+    future_offsets = [
+        _replay_offset(row)
+        for row in replay
+        if row.get("kind") == "turn"
+        and row.get("program_id") == candidate.program_id
+        and _replay_offset(row) > anchor_offset
+    ]
+    return min(future_offsets) if future_offsets else None
+
+
+def _planned_horizon_result(
+    anchor_offset: float | None,
+    return_offset: float | None,
+    analysis_horizon: float | None,
+) -> tuple[float | None, str, bool | None, str]:
+    if anchor_offset is None:
+        return None, "pressure_anchor_unavailable", None, "pressure_anchor_unavailable"
+    if return_offset is None:
+        return None, "no_planned_return", False, "no_planned_return"
+    if return_offset < anchor_offset:
+        raise ArtifactValidationError("planned return precedes pressure anchor")
+    time_to_return = return_offset - anchor_offset
+    if analysis_horizon is None:
+        return time_to_return, "available", None, "horizon_not_configured"
+    return (
+        time_to_return,
+        "available",
+        time_to_return <= analysis_horizon,
+        "available",
+    )
+
+
 def _return_horizon_result(
     return_event: dict[str, object] | None,
     time_to_return: float | None,
@@ -243,6 +372,7 @@ def build_decision_outcomes_table(
 
     for candidate in tables.candidates:
         artifacts = runs_by_id[candidate.run_id]
+        replay_by_request = _replay_by_request_id(artifacts.replay)
         decision = decisions[(candidate.run_id, candidate.decision_event_index)]
         return_event = _first_future_return(artifacts.events, candidate)
         prefix_event = _return_prefix_snapshot(artifacts.events, return_event)
@@ -252,6 +382,33 @@ def build_decision_outcomes_table(
             return_event,
             time_to_return,
             time_status,
+            analysis_horizon,
+        )
+        observed_margin = (
+            None
+            if time_to_return is None or analysis_horizon is None
+            else time_to_return - analysis_horizon
+        )
+        planned_anchor = _planned_decision_anchor_offset(
+            artifacts.events,
+            replay_by_request,
+            candidate.decision_event_index,
+        )
+        planned_return = _planned_return_offset(
+            artifacts.replay,
+            replay_by_request,
+            candidate,
+            return_event,
+            planned_anchor,
+        )
+        (
+            planned_time_to_return,
+            planned_time_status,
+            planned_within_horizon,
+            planned_horizon_status,
+        ) = _planned_horizon_result(
+            planned_anchor,
+            planned_return,
             analysis_horizon,
         )
         eviction_indexes, eviction_status = _physical_evictions_before_return(
@@ -308,11 +465,18 @@ def build_decision_outcomes_table(
                     if return_index is None
                     else return_index - candidate.decision_event_index
                 ),
-                time_to_return_seconds=time_to_return,
-                time_to_return_status=time_status,
+                observed_time_to_return_seconds=time_to_return,
+                observed_time_to_return_status=time_status,
                 analysis_horizon_seconds=analysis_horizon,
-                returned_within_horizon=returned_within_horizon,
-                return_horizon_status=horizon_status,
+                observed_returned_within_horizon=returned_within_horizon,
+                observed_return_horizon_status=horizon_status,
+                observed_horizon_margin_seconds=observed_margin,
+                planned_decision_anchor_offset_seconds=planned_anchor,
+                planned_return_offset_seconds=planned_return,
+                planned_time_to_return_seconds=planned_time_to_return,
+                planned_time_to_return_status=planned_time_status,
+                planned_returned_within_horizon=planned_within_horizon,
+                planned_return_horizon_status=planned_horizon_status,
                 return_prefix_snapshot_event_index=prefix_event_index,
                 same_prefix_reobserved=same_prefix_reobserved,
                 physical_eviction_event_indexes=eviction_indexes,
@@ -322,3 +486,64 @@ def build_decision_outcomes_table(
         )
 
     return tuple(rows)
+
+
+def build_horizon_sensitivity_tables(
+    outcomes: Iterable[DecisionOutcomeRow],
+) -> tuple[
+    tuple[HorizonSensitivityRow, ...],
+    tuple[HorizonSensitivitySummaryRow, ...],
+]:
+    """Compare canonical planned labels with observed strict-horizon labels."""
+
+    rows = tuple(outcomes)
+    sensitivity = tuple(
+        HorizonSensitivityRow(
+            run_id=row.run_id,
+            decision_event_index=row.decision_event_index,
+            program_id=row.program_id,
+            prefix_id=row.prefix_id,
+            planned_returned_within_horizon=(
+                row.planned_returned_within_horizon
+            ),
+            observed_returned_within_horizon=(
+                row.observed_returned_within_horizon
+            ),
+            observed_horizon_margin_seconds=(
+                row.observed_horizon_margin_seconds
+            ),
+            boundary_label_flipped=(
+                None
+                if row.planned_returned_within_horizon is None
+                or row.observed_returned_within_horizon is None
+                else row.planned_returned_within_horizon
+                != row.observed_returned_within_horizon
+            ),
+        )
+        for row in rows
+    )
+    comparable = [
+        row.boundary_label_flipped
+        for row in sensitivity
+        if row.boundary_label_flipped is not None
+    ]
+    margins = [
+        row.observed_horizon_margin_seconds
+        for row in sensitivity
+        if row.observed_horizon_margin_seconds is not None
+    ]
+    summary = HorizonSensitivitySummaryRow(
+        candidate_count=len(sensitivity),
+        comparable_label_count=len(comparable),
+        boundary_flip_count=sum(comparable),
+        boundary_flip_rate=(
+            None if not comparable else sum(comparable) / len(comparable)
+        ),
+        observed_margin_count=len(margins),
+        observed_margin_min_seconds=min(margins) if margins else None,
+        observed_margin_median_seconds=(
+            statistics.median(margins) if margins else None
+        ),
+        observed_margin_max_seconds=max(margins) if margins else None,
+    )
+    return sensitivity, (summary,)

@@ -85,6 +85,12 @@ def _run(*extra_events: dict[str, object]) -> RawRunArtifacts:
             program_id="agent-a",
             request_id="old-request",
         ),
+        _event(
+            9,
+            "PLANNED_ARRIVAL_REACHED",
+            program_id="pressure:stage-1",
+            request_id="pressure:stage-1:1",
+        ),
         decision,
         *extra_events,
     )
@@ -96,7 +102,26 @@ def _run(*extra_events: dict[str, object]) -> RawRunArtifacts:
             "config": {"analysis_horizon_seconds": 3.0},
         },
         trace={"trace_id": "trace-a"},
-        replay=(),
+        replay=(
+            {
+                "kind": "pressure",
+                "program_id": "pressure:stage-1",
+                "request_id": "pressure:stage-1:1",
+                "planned_arrival_offset_seconds": 1.0,
+            },
+            {
+                "kind": "turn",
+                "program_id": "agent-a",
+                "request_id": "future-request",
+                "planned_arrival_offset_seconds": 3.0,
+            },
+            {
+                "kind": "turn",
+                "program_id": "agent-a",
+                "request_id": "late-request",
+                "planned_arrival_offset_seconds": 5.0,
+            },
+        ),
         events=events,
     )
 
@@ -147,11 +172,16 @@ def test_decision_outcome_uses_only_post_decision_return() -> None:
     assert returned.return_request_id == "future-request"
     assert returned.return_arrival_event_index == 12
     assert returned.event_distance_to_return == 2
-    assert returned.time_to_return_seconds == pytest.approx(2.0)
-    assert returned.time_to_return_status == "available"
+    assert returned.observed_time_to_return_seconds == pytest.approx(2.0)
+    assert returned.observed_time_to_return_status == "available"
     assert returned.analysis_horizon_seconds == pytest.approx(3.0)
-    assert returned.returned_within_horizon is True
-    assert returned.return_horizon_status == "available"
+    assert returned.observed_returned_within_horizon is True
+    assert returned.observed_return_horizon_status == "available"
+    assert returned.observed_horizon_margin_seconds == pytest.approx(-1.0)
+    assert returned.planned_decision_anchor_offset_seconds == pytest.approx(1.0)
+    assert returned.planned_return_offset_seconds == pytest.approx(3.0)
+    assert returned.planned_time_to_return_seconds == pytest.approx(2.0)
+    assert returned.planned_returned_within_horizon is True
     assert returned.same_prefix_reobserved is True
     assert returned.physical_eviction_event_indexes == (11,)
     assert returned.physical_eviction_match_status == "block_slot_proxy"
@@ -159,9 +189,11 @@ def test_decision_outcome_uses_only_post_decision_return() -> None:
     no_return = by_program["agent-b"]
     assert no_return.returned_after_decision is False
     assert no_return.return_request_id is None
-    assert no_return.time_to_return_status == "no_return"
-    assert no_return.returned_within_horizon is False
-    assert no_return.return_horizon_status == "no_return"
+    assert no_return.observed_time_to_return_status == "no_return"
+    assert no_return.observed_returned_within_horizon is False
+    assert no_return.observed_return_horizon_status == "no_return"
+    assert no_return.planned_returned_within_horizon is False
+    assert no_return.planned_return_horizon_status == "no_planned_return"
 
 
 def test_decision_outcome_does_not_compare_incompatible_clocks() -> None:
@@ -177,10 +209,10 @@ def test_decision_outcome_does_not_compare_incompatible_clocks() -> None:
 
     row = build_decision_outcomes_table((run,))[0]
 
-    assert row.time_to_return_seconds is None
-    assert row.time_to_return_status == "incompatible_clock_domain"
-    assert row.returned_within_horizon is None
-    assert row.return_horizon_status == "incompatible_clock_domain"
+    assert row.observed_time_to_return_seconds is None
+    assert row.observed_time_to_return_status == "incompatible_clock_domain"
+    assert row.observed_returned_within_horizon is None
+    assert row.observed_return_horizon_status == "incompatible_clock_domain"
 
 
 def test_decision_outcome_compares_known_continuum_clock_domains() -> None:
@@ -199,10 +231,10 @@ def test_decision_outcome_compares_known_continuum_clock_domains() -> None:
 
     row = build_decision_outcomes_table((run,))[0]
 
-    assert row.time_to_return_seconds == pytest.approx(2.0)
-    assert row.time_to_return_status == "available"
-    assert row.returned_within_horizon is True
-    assert row.return_horizon_status == "available"
+    assert row.observed_time_to_return_seconds == pytest.approx(2.0)
+    assert row.observed_time_to_return_status == "available"
+    assert row.observed_returned_within_horizon is True
+    assert row.observed_return_horizon_status == "available"
 
 
 def test_decision_outcome_marks_return_outside_analysis_horizon() -> None:
@@ -218,9 +250,11 @@ def test_decision_outcome_marks_return_outside_analysis_horizon() -> None:
     row = build_decision_outcomes_table((run,))[0]
 
     assert row.returned_after_decision is True
-    assert row.time_to_return_seconds == pytest.approx(4.0)
-    assert row.returned_within_horizon is False
-    assert row.return_horizon_status == "available"
+    assert row.observed_time_to_return_seconds == pytest.approx(4.0)
+    assert row.observed_returned_within_horizon is False
+    assert row.observed_return_horizon_status == "available"
+    assert row.planned_time_to_return_seconds == pytest.approx(4.0)
+    assert row.planned_returned_within_horizon is False
 
 
 def test_decision_outcome_preserves_missing_horizon() -> None:
@@ -244,8 +278,10 @@ def test_decision_outcome_preserves_missing_horizon() -> None:
     row = build_decision_outcomes_table((run,))[0]
 
     assert row.analysis_horizon_seconds is None
-    assert row.returned_within_horizon is None
-    assert row.return_horizon_status == "horizon_not_configured"
+    assert row.observed_returned_within_horizon is None
+    assert row.observed_return_horizon_status == "horizon_not_configured"
+    assert row.planned_returned_within_horizon is None
+    assert row.planned_return_horizon_status == "horizon_not_configured"
 
 
 def test_decision_outcome_marks_block_slot_reuse_as_ambiguous() -> None:

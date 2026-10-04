@@ -67,9 +67,11 @@ class LossViewTables:
     decision_regret: tuple[DecisionRegretRow, ...]
 
 
-_LOGICAL_PROXY = "trace_return_weighted_prefill_proxy"
+_PLANNED_PROXY = "planned_return_weighted_prefill_proxy"
+_OBSERVED_SENSITIVITY = "observed_return_weighted_prefill_proxy_sensitivity"
 _PHYSICAL = "observed_physical_eviction_blocks"
 _RECOMPUTE = "observed_recomputed_tokens"
+_GATE_ELIGIBLE_VIEWS = {_PLANNED_PROXY, _PHYSICAL, _RECOMPUTE}
 
 
 def _candidate_key(
@@ -83,21 +85,26 @@ def _candidate_key(
     )
 
 
-def _logical_proxy_evidence(
+def _return_weighted_prefill_evidence(
     candidate: DecisionCandidateRow,
     outcome: DecisionOutcomeRow,
+    *,
+    loss_view: str,
+    evidence_kind: str,
+    returned_within_horizon: bool | None,
+    horizon_status: str,
 ) -> CandidateLossEvidenceRow:
     source_indexes = [candidate.decision_event_index]
     if outcome.return_arrival_event_index is not None:
         source_indexes.append(outcome.return_arrival_event_index)
-    if outcome.returned_within_horizon is None:
+    if returned_within_horizon is None:
         loss = None
         availability = "unavailable"
-        unavailable_reason = f"return_horizon_{outcome.return_horizon_status}"
+        unavailable_reason = f"return_horizon_{horizon_status}"
     else:
         loss = (
             candidate.prefill_reload_seconds
-            if outcome.returned_within_horizon
+            if returned_within_horizon
             else 0.0
         )
         availability = "available"
@@ -108,8 +115,8 @@ def _logical_proxy_evidence(
         program_id=candidate.program_id,
         prefix_id=candidate.prefix_id,
         selected=candidate.selected,
-        loss_view=_LOGICAL_PROXY,
-        evidence_kind="trace_derived_proxy",
+        loss_view=loss_view,
+        evidence_kind=evidence_kind,
         unit="seconds",
         loss=loss,
         availability=availability,
@@ -197,7 +204,9 @@ def _gate_loss_views(
             reason = "candidate_evidence_unavailable"
         else:
             reason = None
-        usable = reason is None
+        usable = reason is None and loss_view in _GATE_ELIGIBLE_VIEWS
+        if reason is None and not usable:
+            reason = "sensitivity_view_not_gate_eligible"
         availability_rows.append(
             LossViewAvailabilityRow(
                 run_id=run_id,
@@ -263,7 +272,26 @@ def build_loss_view_tables(
             )
         evidence.extend(
             (
-                _logical_proxy_evidence(candidate, outcome),
+                _return_weighted_prefill_evidence(
+                    candidate,
+                    outcome,
+                    loss_view=_PLANNED_PROXY,
+                    evidence_kind="planned_trace_derived_proxy",
+                    returned_within_horizon=(
+                        outcome.planned_returned_within_horizon
+                    ),
+                    horizon_status=outcome.planned_return_horizon_status,
+                ),
+                _return_weighted_prefill_evidence(
+                    candidate,
+                    outcome,
+                    loss_view=_OBSERVED_SENSITIVITY,
+                    evidence_kind="observed_runtime_sensitivity",
+                    returned_within_horizon=(
+                        outcome.observed_returned_within_horizon
+                    ),
+                    horizon_status=outcome.observed_return_horizon_status,
+                ),
                 _physical_evidence(candidate, outcome),
                 _recompute_evidence(candidate),
             )

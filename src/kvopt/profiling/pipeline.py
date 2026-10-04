@@ -25,7 +25,13 @@ from .datasets import (
     build_physical_evictions_table,
     build_runs_table,
 )
-from .decision_outcomes import DecisionOutcomeRow, build_decision_outcomes_table
+from .decision_outcomes import (
+    DecisionOutcomeRow,
+    HorizonSensitivityRow,
+    HorizonSensitivitySummaryRow,
+    build_decision_outcomes_table,
+    build_horizon_sensitivity_tables,
+)
 from .gate import (
     EmpiricalGapInputs,
     EmpiricalGapReport,
@@ -116,6 +122,8 @@ class DerivedDatasetBundle:
     physical_evictions: tuple[PhysicalEvictionRow, ...]
     request_outcomes: tuple[RequestOutcomeRow, ...]
     decision_outcomes: tuple[DecisionOutcomeRow, ...]
+    horizon_sensitivity: tuple[HorizonSensitivityRow, ...]
+    horizon_sensitivity_summary: tuple[HorizonSensitivitySummaryRow, ...]
     candidate_loss_evidence: tuple[CandidateLossEvidenceRow, ...]
     loss_view_availability: tuple[LossViewAvailabilityRow, ...]
     decision_regret: tuple[DecisionRegretRow, ...]
@@ -381,6 +389,9 @@ def build_derived_dataset_bundle(
     physical_evictions = build_physical_evictions_table(raw_runs)
     request_outcomes = build_request_outcomes_table(raw_runs)
     decision_outcomes = build_decision_outcomes_table(raw_runs)
+    horizon_sensitivity, horizon_sensitivity_summary = (
+        build_horizon_sensitivity_tables(decision_outcomes)
+    )
     loss_views = build_loss_view_tables(
         decision_tables.candidates,
         decision_outcomes,
@@ -550,6 +561,8 @@ def build_derived_dataset_bundle(
         physical_evictions=physical_evictions,
         request_outcomes=request_outcomes,
         decision_outcomes=decision_outcomes,
+        horizon_sensitivity=horizon_sensitivity,
+        horizon_sensitivity_summary=horizon_sensitivity_summary,
         candidate_loss_evidence=loss_views.evidence,
         loss_view_availability=loss_views.availability,
         decision_regret=loss_views.decision_regret,
@@ -601,6 +614,8 @@ def write_derived_dataset_bundle(
         "physical_evictions": bundle.physical_evictions,
         "request_outcomes": bundle.request_outcomes,
         "decision_outcomes": bundle.decision_outcomes,
+        "horizon_sensitivity": bundle.horizon_sensitivity,
+        "horizon_sensitivity_summary": bundle.horizon_sensitivity_summary,
         "candidate_loss_evidence": bundle.candidate_loss_evidence,
         "loss_view_availability": bundle.loss_view_availability,
         "decision_regret": bundle.decision_regret,
@@ -636,7 +651,7 @@ def write_derived_dataset_bundle(
     )
 
     manifest = {
-        "schema_version": "phase2a.derived.v1",
+        "schema_version": "phase2a.derived.v2",
         "analysis_provenance": _analysis_provenance(),
         "source_run_ids": [row.run_id for row in bundle.runs],
         "row_counts": {name: len(rows) for name, rows in tables.items()},
@@ -646,6 +661,12 @@ def write_derived_dataset_bundle(
             "bootstrap_seed": _BOOTSTRAP_SEED,
             "confidence_level": _CONFIDENCE_LEVEL,
             "formal_campaign": bundle.formal_campaign,
+            "canonical_loss_view": "planned_return_weighted_prefill_proxy",
+            "canonical_timing_semantics": "planned_arrival_offsets",
+            "observed_sensitivity_loss_view": (
+                "observed_return_weighted_prefill_proxy_sensitivity"
+            ),
+            "observed_sensitivity_gate_eligible": False,
         },
     }
     (output_dir / "manifest.json").write_text(

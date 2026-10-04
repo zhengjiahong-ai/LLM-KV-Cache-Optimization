@@ -79,11 +79,17 @@ def test_signal_analysis_supports_stable_cross_family_rank_signal() -> None:
     assert block_support.evaluable_family_count == 3
     assert block_support.evaluable_seed_count == 3
     assert block_support.supported
+    assert block_support.proxy_supported
+    assert block_support.runtime_replicated is False
+    assert block_support.support_level == "PROXY_SUPPORTED"
     assert "returned_after_decision" not in {
         row.feature for row in tables.associations
     }
     assert tables.evaluation.status == "SUPPORTED"
     assert tables.evaluation.online_signal_supported is True
+    assert tables.evaluation.proxy_supported is True
+    assert tables.evaluation.runtime_replicated is False
+    assert tables.evaluation.support_level == "PROXY_SUPPORTED"
 
 
 def test_signal_analysis_rejects_within_decision_constant_feature() -> None:

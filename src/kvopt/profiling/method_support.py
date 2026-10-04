@@ -87,6 +87,9 @@ class SignalFinding:
     evaluable_seed_count: int
     seed_direction_agreement_rate: float | None
     supported: bool
+    proxy_supported: bool
+    runtime_replicated: bool
+    support_level: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -229,6 +232,9 @@ def build_method_support_pack(
             evaluable_seed_count=row.evaluable_seed_count,
             seed_direction_agreement_rate=row.seed_direction_agreement_rate,
             supported=row.supported,
+            proxy_supported=row.proxy_supported,
+            runtime_replicated=row.runtime_replicated,
+            support_level=row.support_level,
         )
         for row in signal_support
     )
@@ -243,9 +249,12 @@ def build_method_support_pack(
         unresolved.append("signal stability has insufficient family/seed coverage")
     if not direct_loss_views:
         unresolved.append("headroom currently lacks a direct realized-loss view")
+    unresolved.append(
+        "observed-horizon results are sensitivity-only and excluded from the formal gate"
+    )
 
     return MethodSupportPack(
-        schema_version="phase2a.method-support.v1",
+        schema_version="phase2a.method-support.v2",
         formal_campaign=formal_campaign,
         gate_outcome=gate_report.overall_outcome,
         prevalence=PrevalenceFinding(
@@ -298,6 +307,7 @@ def build_method_support_pack(
             safe_online_features=(
                 "block_count",
                 "initially_reclaimable_block_count",
+                "decision_native_lru_position",
                 "retention_deadline_timestamp",
                 "waiting_followup",
                 "next_tool_type",
@@ -311,7 +321,11 @@ def build_method_support_pack(
             ),
             future_only_forbidden_online=(
                 "returned_after_decision",
-                "time_to_return_seconds",
+                "observed_time_to_return_seconds",
+                "observed_returned_within_horizon",
+                "observed_horizon_margin_seconds",
+                "planned_time_to_return_seconds",
+                "planned_returned_within_horizon",
                 "physical_eviction_count",
                 "recomputed_tokens",
                 "serving_impact",
@@ -340,6 +354,8 @@ def build_method_support_pack(
             "candidate_loss_evidence.jsonl",
             "candidate_loss_spreads.jsonl",
             "decision_regret.jsonl",
+            "horizon_sensitivity.jsonl",
+            "horizon_sensitivity_summary.jsonl",
             "signal_associations.jsonl",
             "capabilities.jsonl",
             "empirical_gap_report.jsonl",
