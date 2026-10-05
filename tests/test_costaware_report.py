@@ -85,6 +85,8 @@ def test_render_text_includes_every_section() -> None:
         "REPLAY FIDELITY",
         "EVALUATION",
         "RELEASE BURDEN",
+        "PRESSURE-FEASIBLE ORACLE",
+        "SCENARIO CLUSTERS",
         "PAIRED COMPARISON",
         "DEGENERACY",
         "ABLATION",
@@ -95,6 +97,75 @@ def test_render_text_includes_every_section() -> None:
     assert "offline proxy only" in text
 
 
+def test_report_separates_diagnostic_and_canonical_denominators() -> None:
+    """Q9: the two tie conventions must never be merged into one field."""
+    report = build_offline_report(_EXEMPLARS)
+    baseline = next(
+        row
+        for row in report["evaluation"]["aggregates"]
+        if row["rule_id"] == EXECUTED_BASELINE_RULE_ID
+    )
+    # The M4 diagnostic denominator answers "can the choice matter" and is
+    # deliberately not named ``non_tied``.
+    assert "non_tied_decisions" not in baseline
+    assert baseline["loss_discriminating_decisions"] >= (
+        baseline["positive_regret_decisions"]
+    )
+    assert baseline["positive_regret_rate"] == pytest.approx(
+        baseline["positive_regret_decisions"]
+        / baseline["loss_discriminating_decisions"]
+    )
+    # The canonical view reuses the M6 definition and is size-matched, so it can
+    # never exceed the number of decisions where the sizes agree.
+    assert baseline["canonical_non_tied_decisions"] <= (
+        baseline["canonical_applicable_decisions"]
+    )
+    assert baseline["canonical_applicable_decisions"] <= baseline["decisions"]
+    comparator = report["canonical_m6_comparator"]
+    assert "unique" in str(comparator["tie_definition"])
+
+
+def test_report_feasible_metrics_follow_the_frozen_order() -> None:
+    """Q11: absolute regret and paired delta lead; normalised regret trails."""
+    report = build_offline_report(_EXEMPLARS)
+    for aggregate in report["pressure_feasible_oracle"]["aggregates"]:
+        keys = list(aggregate)
+        assert keys.index("mean_absolute_regret") < keys.index(
+            "mean_paired_loss_delta_vs_baseline"
+        )
+        assert keys.index("mean_paired_loss_delta_vs_baseline") < keys.index(
+            "better_than_baseline_decisions"
+        )
+        assert keys.index("better_than_baseline_decisions") < keys.index(
+            "zero_regret_rate"
+        )
+        assert keys.index("zero_regret_rate") < keys.index(
+            "mean_normalized_regret"
+        )
+        assert "oracle_best_rate" not in aggregate
+        assert aggregate["zero_regret_rate"] == pytest.approx(
+            1.0 - aggregate["positive_regret_decisions"] / aggregate["decisions"]
+        )
+
+
+def test_report_publishes_the_effective_cluster_sample() -> None:
+    """Q10: raw rows overstate the evidence, so the cluster view is reported."""
+    report = build_offline_report(_EXEMPLARS)
+    clusters = report["scenario_clusters"]
+    assert clusters["raw_decision_count"] == report["evaluation"][
+        "evaluated_decisions"
+    ]
+    assert 0 < clusters["effective_cluster_count"] <= clusters[
+        "raw_decision_count"
+    ]
+    assert len(clusters["decisions"]) == clusters["effective_cluster_count"]
+    assert clusters["clusters_identical_across_seeds"] <= clusters[
+        "effective_cluster_count"
+    ]
+    for row in clusters["decisions"]:
+        assert row["seed_count"] >= 1
+
+
 def test_cli_writes_a_json_report(tmp_path: Path) -> None:
     output = tmp_path / "report.json"
     exit_code = main(
@@ -102,7 +173,7 @@ def test_cli_writes_a_json_report(tmp_path: Path) -> None:
     )
     assert exit_code == 0
     payload = json.loads(output.read_text(encoding="utf-8"))
-    assert payload["schema_version"] == "phase2a.m4.offline_report.v1"
+    assert payload["schema_version"] == "phase2a.m4.offline_report.v2"
     assert payload["replay_fidelity"]["release_set_match_rate"] == pytest.approx(1.0)
 
 

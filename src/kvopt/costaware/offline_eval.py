@@ -26,7 +26,7 @@ from __future__ import annotations
 import math
 import statistics
 from collections import defaultdict
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 
 from kvopt.profiling.analysis import (
@@ -44,6 +44,7 @@ from .feasible_oracle import (
     pressure_feasible_regret,
 )
 from .replay import (
+    CandidateKey,
     DecisionSnapshot,
     ReplayOutcome,
     RuleStrategy,
@@ -95,14 +96,32 @@ class RuleDecisionOutcome:
 
 @dataclass(frozen=True, slots=True)
 class RuleAggregate:
-    """Aggregate behaviour of one rule across decisions."""
+    """Aggregate behaviour of one rule across decisions.
+
+    Two denominator conventions are reported side by side and **must not be
+    mixed** (M1 ruling, Q9):
+
+    - ``loss_discriminating_decisions`` counts decisions whose candidate losses
+      are not all equal. This is the M4 diagnostic denominator: the decision is
+      one the choice *can* affect. It is deliberately **not** called canonical
+      ``non_tied``.
+    - ``canonical_non_tied_decisions`` follows the canonical M6 definition,
+      where a decision is non-tied only when its hindsight-optimal release set is
+      unique (``hindsight_best_set_count == 1``). It is computed only over
+      decisions where the rule released the same number of entries as observed,
+      because the canonical optimum is defined for that count.
+    """
 
     rule_id: str
     family: str
     decisions: int
-    non_tied_decisions: int
-    strictly_worse_decisions: int
-    misselection_rate: float | None
+    loss_discriminating_decisions: int
+    positive_regret_decisions: int
+    positive_regret_rate: float | None
+    canonical_applicable_decisions: int
+    canonical_non_tied_decisions: int
+    canonical_positive_regret_decisions: int
+    canonical_misselection_rate: float | None
     mean_absolute_regret: float
     mean_normalized_regret: float
     tie_rate: float
@@ -134,19 +153,37 @@ class ReleaseBurdenRow:
 class PressureFeasibleAggregate:
     """Per-rule summary against the pressure-feasible oracle.
 
-    This is the M4 method-selection metric. The canonical M6 size-matched
-    regret is retained separately for provenance and sensitivity.
+    This is the M4 method-selection metric. The canonical M6 size-matched regret
+    is retained separately for provenance.
+
+    Frozen metric order (M1 ruling, Q11), because ``oracle_loss`` is exactly zero
+    on 24/60 decisions and normalised regret degenerates towards 0/1 there:
+
+    1. mean / median absolute regret
+    2. paired selected-loss delta versus the baseline
+    3. better / worse / tied decision counts
+    4. zero-regret rate
+    5. normalised regret - secondary and sensitivity only
+
+    A decision counts as **not improving** only when its absolute regret is
+    positive. Selecting a different but equally optimal set is not a
+    misselection.
     """
 
     rule_id: str
     decisions: int
-    loss_choices_matter_decisions: int
-    misselection_rate: float | None
     mean_absolute_regret: float
-    mean_normalized_regret: float
-    oracle_best_rate: float
+    median_absolute_regret: float
+    zero_regret_rate: float
+    positive_regret_decisions: int
+    better_than_baseline_decisions: int
+    worse_than_baseline_decisions: int
+    tied_with_baseline_decisions: int
+    mean_paired_loss_delta_vs_baseline: float
     mean_entry_count_delta: float
-    """Released entries minus the oracle's; positive means less efficient."""
+    # Released entries minus the oracle's; positive means less efficient.
+    mean_normalized_regret: float
+    # Secondary only: degenerate when ``oracle_loss`` is zero.
 
 
 @dataclass(frozen=True, slots=True)
@@ -195,14 +232,20 @@ class AblationRow:
 
 @dataclass(frozen=True, slots=True)
 class BehaviourBreakdown:
-    """Aggregates for one rule, split by one contextual dimension."""
+    """Aggregates for one rule, split by one contextual dimension.
+
+    Uses the M4 **diagnostic** denominator (``candidate_loss_tied``), i.e. "the
+    choice can affect this decision". It is deliberately not named
+    ``non_tied``; the canonical M6 view lives on ``RuleAggregate.canonical_*``.
+    """
 
     rule_id: str
     dimension: str
     bucket: str
     decisions: int
-    non_tied_decisions: int
-    misselection_rate: float | None
+    loss_discriminating_decisions: int
+    positive_regret_decisions: int
+    positive_regret_rate: float | None
     mean_absolute_regret: float
     mean_normalized_regret: float
 
@@ -223,6 +266,25 @@ class RuleEvaluation:
     oracle_rows: tuple[FeasibleOracleRow, ...] = ()
     feasible_regret_rows: tuple[PressureFeasibleRegretRow, ...] = ()
     pressure_feasible_aggregates: tuple[PressureFeasibleAggregate, ...] = ()
+    clusters: tuple[ScenarioClusterRow, ...] = ()
+
+    @property
+    def effective_cluster_count(self) -> int:
+        """Distinct scenario-cluster decisions, the non-inflated sample size.
+
+        Seeds are near-replicas under the planned proxy (Q10), so this is much
+        smaller than ``evaluated_decisions`` and is the honest unit count for
+        any cluster-level claim.
+        """
+        return len(self.clusters)
+
+    @property
+    def clusters_identical_across_seeds(self) -> int:
+        """Clusters whose loss profile is the same in every represented seed."""
+        return sum(
+            1 for cluster in self.clusters
+            if cluster.loss_profile_identical_across_seeds
+        )
 
     def for_rule(self, rule_id: str) -> RuleAggregate:
         for aggregate in self.aggregates:
@@ -394,8 +456,10 @@ def evaluate_rules(
                 )
             )
 
+    observed_counts = {key: len(value) for key, value in executed.items()}
     aggregates = tuple(
-        _aggregate(rule, outcomes[rule.rule_id]) for rule in rules
+        _aggregate(rule, outcomes[rule.rule_id], canonical, observed_counts)
+        for rule in rules
     )
     oracle_losses = _oracle_loss_map(grouped_losses)
     oracle_rows = build_feasible_oracle(
@@ -409,6 +473,9 @@ def evaluate_rules(
         selections=selections,
         losses=oracle_losses,
         loss_view=loss_view,
+    )
+    feasible_aggregates = _feasible_aggregates(
+        rules, oracle_rows, feasible_rows
     )
     return RuleEvaluation(
         loss_view=loss_view,
@@ -424,8 +491,14 @@ def evaluate_rules(
         unsatisfied_decisions=unsatisfied,
         oracle_rows=oracle_rows,
         feasible_regret_rows=feasible_rows,
-        pressure_feasible_aggregates=_feasible_aggregates(
-            rules, oracle_rows, feasible_rows
+        pressure_feasible_aggregates=feasible_aggregates,
+        clusters=scenario_clusters(
+            [
+                snapshot
+                for snapshot in snapshots
+                if included_runs is None or snapshot.run_id in included_runs
+            ],
+            oracle_losses,
         ),
     )
 
@@ -446,44 +519,71 @@ def _feasible_aggregates(
     oracle_rows: Sequence[FeasibleOracleRow],
     feasible_rows: Sequence[PressureFeasibleRegretRow],
 ) -> tuple[PressureFeasibleAggregate, ...]:
-    """Aggregate each rule's distance from the feasibility-aware optimum."""
-    matters = {
-        (row.run_id, row.decision_event_index): row.loss_choices_matter
-        for row in oracle_rows
-        if not row.unreachable
-    }
+    """Aggregate each rule's distance from the feasibility-aware optimum.
+
+    Ordered per the frozen Q11 metric priority. A decision is only counted as
+    not-improving when its absolute regret is positive, so choosing a different
+    but equally optimal set is not penalised.
+    """
+    del oracle_rows
     grouped: dict[str, list[PressureFeasibleRegretRow]] = defaultdict(list)
     for row in feasible_rows:
         grouped[row.rule_id].append(row)
+
+    baseline_id = "M0_p1b_executed_ordering"
+    baseline_loss = {
+        (row.run_id, row.decision_event_index): row.selected_loss
+        for row in grouped.get(baseline_id, [])
+    }
 
     aggregates: list[PressureFeasibleAggregate] = []
     for rule in rules:
         rows = grouped.get(rule.rule_id, [])
         if not rows:
             continue
-        decidable = [
-            row
-            for row in rows
-            if matters.get((row.run_id, row.decision_event_index), False)
-        ]
-        worse = [row for row in decidable if not row.selected_is_oracle_best]
+        positive = [row for row in rows if row.absolute_regret > 0.0]
+        better = worse = tied = 0
+        deltas: list[float] = []
+        for row in rows:
+            reference = baseline_loss.get(
+                (row.run_id, row.decision_event_index)
+            )
+            if reference is None:
+                continue
+            delta = reference - row.selected_loss
+            deltas.append(delta)
+            if math.isclose(delta, 0.0, abs_tol=1e-12):
+                tied += 1
+            elif delta > 0.0:
+                better += 1
+            else:
+                worse += 1
         aggregates.append(
             PressureFeasibleAggregate(
                 rule_id=rule.rule_id,
                 decisions=len(rows),
-                loss_choices_matter_decisions=len(decidable),
-                misselection_rate=(len(worse) / len(decidable)) if decidable else None,
                 mean_absolute_regret=statistics.fmean(
                     row.absolute_regret for row in rows
                 ),
-                mean_normalized_regret=statistics.fmean(
-                    row.normalized_regret for row in rows
+                median_absolute_regret=statistics.median(
+                    row.absolute_regret for row in rows
                 ),
-                oracle_best_rate=(
-                    sum(1 for row in rows if row.selected_is_oracle_best) / len(rows)
+                zero_regret_rate=(
+                    sum(1 for row in rows if row.absolute_regret == 0.0)
+                    / len(rows)
+                ),
+                positive_regret_decisions=len(positive),
+                better_than_baseline_decisions=better,
+                worse_than_baseline_decisions=worse,
+                tied_with_baseline_decisions=tied,
+                mean_paired_loss_delta_vs_baseline=(
+                    statistics.fmean(deltas) if deltas else float("nan")
                 ),
                 mean_entry_count_delta=statistics.fmean(
                     row.entry_count_delta for row in rows
+                ),
+                mean_normalized_regret=statistics.fmean(
+                    row.normalized_regret for row in rows
                 ),
             )
         )
@@ -547,31 +647,77 @@ def _release_burden(
 
 
 def _aggregate(
-    rule: CandidateRule, outcomes: Sequence[RuleDecisionOutcome]
+    rule: CandidateRule,
+    outcomes: Sequence[RuleDecisionOutcome],
+    canonical: dict[tuple[str, int], DecisionRegretRow],
+    observed_counts: dict[tuple[str, int], int],
 ) -> RuleAggregate:
+    """Summarize one rule, keeping the two tie conventions apart (Q9)."""
     if not outcomes:
         return RuleAggregate(
             rule_id=rule.rule_id,
             family=rule.family,
             decisions=0,
-            non_tied_decisions=0,
-            strictly_worse_decisions=0,
-            misselection_rate=None,
+            loss_discriminating_decisions=0,
+            positive_regret_decisions=0,
+            positive_regret_rate=None,
+            canonical_applicable_decisions=0,
+            canonical_non_tied_decisions=0,
+            canonical_positive_regret_decisions=0,
+            canonical_misselection_rate=None,
             mean_absolute_regret=float("nan"),
             mean_normalized_regret=float("nan"),
             tie_rate=float("nan"),
         )
-    # A decision is non-tied when its candidates have different losses, i.e. the
-    # choice can matter. This is independent of whether this rule got it right.
-    non_tied = [row for row in outcomes if not row.candidate_loss_tied]
-    worse = [row for row in non_tied if not row.selected_is_hindsight_best]
+
+    # M4 diagnostic denominator: the choice can affect the decision at all.
+    discriminating = [row for row in outcomes if not row.candidate_loss_tied]
+    discriminating_worse = [
+        row for row in discriminating if not row.selected_is_hindsight_best
+    ]
+
+    # Canonical M6 denominator: the hindsight-optimal release set is unique.
+    # Only comparable when the rule released the observed number of entries.
+    applicable: list[RuleDecisionOutcome] = []
+    for row in outcomes:
+        key = (row.run_id, row.decision_event_index)
+        canonical_row = canonical.get(key)
+        if canonical_row is None:
+            continue
+        if observed_counts.get(key) != row.selection_count:
+            continue
+        applicable.append(row)
+    canonical_non_tied = [
+        row
+        for row in applicable
+        if canonical[
+            (row.run_id, row.decision_event_index)
+        ].hindsight_best_set_count
+        == 1
+    ]
+    canonical_worse = [
+        row for row in canonical_non_tied if not row.selected_is_hindsight_best
+    ]
+
     return RuleAggregate(
         rule_id=rule.rule_id,
         family=rule.family,
         decisions=len(outcomes),
-        non_tied_decisions=len(non_tied),
-        strictly_worse_decisions=len(worse),
-        misselection_rate=(len(worse) / len(non_tied)) if non_tied else None,
+        loss_discriminating_decisions=len(discriminating),
+        positive_regret_decisions=len(discriminating_worse),
+        positive_regret_rate=(
+            len(discriminating_worse) / len(discriminating)
+            if discriminating
+            else None
+        ),
+        canonical_applicable_decisions=len(applicable),
+        canonical_non_tied_decisions=len(canonical_non_tied),
+        canonical_positive_regret_decisions=len(canonical_worse),
+        canonical_misselection_rate=(
+            len(canonical_worse) / len(canonical_non_tied)
+            if canonical_non_tied
+            else None
+        ),
         mean_absolute_regret=statistics.fmean(row.absolute_regret for row in outcomes),
         mean_normalized_regret=statistics.fmean(
             row.normalized_regret for row in outcomes
@@ -580,6 +726,68 @@ def _aggregate(
             sum(1 for row in outcomes if row.candidate_loss_tied) / len(outcomes)
         ),
     )
+
+
+@dataclass(frozen=True, slots=True)
+class ScenarioClusterRow:
+    """One scenario-cluster summary row (M1 ruling, Q10).
+
+    Seeds were supplied to the runtime but the canonical loss is the planned
+    proxy, which is driven by pre-designed scenario timing / prefix / return
+    patterns. The three seeds are therefore near-replicas of one another, so the
+    60 decision rows are not 60 independent observations. Clustering by
+    (scenario group, decision position) gives the effective sample size.
+    """
+
+    scenario_group: str
+    decision_event_index: int
+    seed_count: int
+    loss_profile_identical_across_seeds: bool
+
+
+def scenario_clusters(
+    snapshots: Sequence[DecisionSnapshot],
+    losses: Mapping[tuple[str, int, CandidateKey], float],
+) -> tuple[ScenarioClusterRow, ...]:
+    """Group decisions by scenario family-spec and decision position (Q10)."""
+    grouped: dict[tuple[str, int], list[str]] = defaultdict(list)
+    profiles: dict[tuple[str, int], set[tuple[float, ...]]] = defaultdict(set)
+    for snapshot in snapshots:
+        group = _scenario_group(snapshot.run_id)
+        key = (group, snapshot.decision_event_index)
+        grouped[key].append(snapshot.run_id)
+        values = []
+        for candidate in snapshot.candidate_keys:
+            value = losses.get(
+                (snapshot.run_id, snapshot.decision_event_index, candidate)
+            )
+            if value is None:
+                values = []
+                break
+            values.append(round(float(value), 12))
+        if values:
+            profiles[key].add(tuple(sorted(values)))
+
+    rows: list[ScenarioClusterRow] = []
+    for key in sorted(grouped):
+        run_ids = grouped[key]
+        row_profiles = profiles.get(key, set())
+        rows.append(
+            ScenarioClusterRow(
+                scenario_group=key[0],
+                decision_event_index=key[1],
+                seed_count=len(run_ids),
+                loss_profile_identical_across_seeds=len(row_profiles) <= 1,
+            )
+        )
+    return tuple(rows)
+
+
+def _scenario_group(run_id: str) -> str:
+    """Strip the ``-seed-NNN`` suffix so the three seeds share one group."""
+    marker = "-seed-"
+    index = run_id.rfind(marker)
+    return run_id[:index] if index > 0 else run_id
 
 
 def _rank_identity(
@@ -881,8 +1089,11 @@ def behaviour_breakdown(
                 dimension=dimension,
                 bucket=bucket,
                 decisions=len(outcomes),
-                non_tied_decisions=len(non_tied),
-                misselection_rate=(len(worse) / len(non_tied)) if non_tied else None,
+                loss_discriminating_decisions=len(non_tied),
+                positive_regret_decisions=len(worse),
+                positive_regret_rate=(
+                    (len(worse) / len(non_tied)) if non_tied else None
+                ),
                 mean_absolute_regret=statistics.fmean(
                     row.absolute_regret for row in outcomes
                 ),

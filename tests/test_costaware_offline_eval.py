@@ -13,13 +13,40 @@ from kvopt.costaware.offline_eval import (
     evaluate_rules,
     leave_one_family_out,
     paired_comparison,
+    scenario_clusters,
 )
 from kvopt.costaware.replay import DecisionSnapshot, QueueBlock
 from kvopt.costaware.rules import CANDIDATE_RULES, rule_by_id
+from kvopt.profiling.analysis import DecisionRegretRow
 from kvopt.profiling.datasets import DecisionCandidateRow
 from kvopt.profiling.loss_views import CandidateLossEvidenceRow
 
 _PREFIX = "p"
+
+
+def _canonical_row(
+    run_id: str,
+    decision_event_index: int,
+    *,
+    best_set_count: int,
+) -> DecisionRegretRow:
+    """Minimal canonical M6 row; only the best-set count drives the Q9 view."""
+    return DecisionRegretRow(
+        run_id=run_id,
+        decision_event_index=decision_event_index,
+        loss_view=CANONICAL_LOSS_VIEW,
+        candidate_count=2,
+        selection_count=1,
+        selected_candidates=(),
+        hindsight_mandatory_candidates=(),
+        hindsight_boundary_candidates=(),
+        hindsight_best_set_count=best_set_count,
+        selected_loss=0.0,
+        hindsight_best_loss=0.0,
+        absolute_regret=0.0,
+        normalized_regret=0.0,
+        selected_is_hindsight_best=best_set_count == 1,
+    )
 
 
 def _row(
@@ -323,24 +350,115 @@ def test_cost_rule_needs_one_release_where_the_baseline_needs_two() -> None:
 def test_aggregates_report_the_hand_computed_baseline_values() -> None:
     aggregate = _evaluate().for_rule("M0_p1b_executed_ordering")
     assert aggregate.decisions == 3
-    # D40 and D50 have headroom; D60 is a tie.
-    assert aggregate.non_tied_decisions == 2
+    # D40 and D50 have headroom; D60 is a tie. This is the M4 diagnostic
+    # denominator, deliberately not called canonical ``non_tied``.
+    assert aggregate.loss_discriminating_decisions == 2
     # Only D40 misselects: it releases loss 0.5 where 0.0 was available.
-    assert aggregate.strictly_worse_decisions == 1
-    assert aggregate.misselection_rate == pytest.approx(0.5)
+    assert aggregate.positive_regret_decisions == 1
+    assert aggregate.positive_regret_rate == pytest.approx(0.5)
     assert aggregate.mean_absolute_regret == pytest.approx(0.5 / 3.0)
     assert aggregate.mean_normalized_regret == pytest.approx(1.0 / 3.0)
     assert aggregate.tie_rate == pytest.approx(1.0 / 3.0)
+    # No canonical M6 table was supplied, so the canonical view stays empty
+    # rather than silently reusing the diagnostic denominator.
+    assert aggregate.canonical_applicable_decisions == 0
+    assert aggregate.canonical_non_tied_decisions == 0
+    assert aggregate.canonical_positive_regret_decisions == 0
+    assert aggregate.canonical_misselection_rate is None
 
 
 def test_aggregates_report_the_hand_computed_cost_rule_values() -> None:
     aggregate = _evaluate().for_rule("M1_prefill_reload_ascending")
     assert aggregate.decisions == 3
-    assert aggregate.non_tied_decisions == 2
+    assert aggregate.loss_discriminating_decisions == 2
     # D40 releases all three, so its release set is the whole candidate set and
     # matches the size-matched hindsight; D50 picks the cheapest.
-    assert aggregate.strictly_worse_decisions == 0
-    assert aggregate.misselection_rate == pytest.approx(0.0)
+    assert aggregate.positive_regret_decisions == 0
+    assert aggregate.positive_regret_rate == pytest.approx(0.0)
+
+
+def test_canonical_denominator_uses_the_unique_hindsight_best_set() -> None:
+    """Q9: canonical non-tied means the hindsight-best set is unique.
+
+    D40 has two distinct candidate losses, so it is diagnostic non-tied, but its
+    two-entry commitment is *also* non-tied canonically. D60 has identical losses
+    and a single best set only by the tie-break, so it is non-tied under neither
+    reading. D50 contributes no canonical row at all because the cost rule
+    releases one entry where two were observed.
+    """
+    canonical = (
+        _canonical_row("run-1", 40, best_set_count=1),
+        _canonical_row("run-1", 50, best_set_count=2),
+        _canonical_row("run-2", 60, best_set_count=2),
+    )
+    aggregate = _evaluate(canonical_regret=canonical).for_rule(
+        "M0_p1b_executed_ordering"
+    )
+    # The baseline releases the observed count everywhere, so all three rows are
+    # applicable; only D40 has a unique hindsight optimum.
+    assert aggregate.canonical_applicable_decisions == 3
+    assert aggregate.canonical_non_tied_decisions == 1
+    # The baseline released 0.5 where 0.0 existed; the canonical best set is
+    # unique, so it is counted as a positive regret.
+    assert aggregate.canonical_positive_regret_decisions == 1
+    assert aggregate.canonical_misselection_rate == pytest.approx(1.0)
+
+    cost = _evaluate(canonical_regret=canonical).for_rule(
+        "M1_prefill_reload_ascending"
+    )
+    # The cost rule releases three entries at D40 and one at D50, neither of which
+    # is size-matched to the canonical optimum, so those decisions are excluded
+    # from the canonical view rather than counted as misselections. Only D60 is
+    # comparable, and its two tied best sets make it canonically tied.
+    assert cost.canonical_applicable_decisions == 1
+    assert cost.canonical_non_tied_decisions == 0
+    assert cost.canonical_misselection_rate is None
+
+
+def test_scenario_clusters_group_seeds_by_decision_position() -> None:
+    """Q10: the effective sample is clusters, not raw decision rows."""
+    evaluation = _evaluate()
+    assert evaluation.evaluated_decisions == 3
+    assert evaluation.effective_cluster_count == 3
+    assert evaluation.clusters_identical_across_seeds == 3
+    keys = {
+        (row.scenario_group, row.decision_event_index)
+        for row in evaluation.clusters
+    }
+    # Distinct run ids mean distinct groups, so nothing is merged here.
+    assert keys == {("run-1", 40), ("run-1", 50), ("run-2", 60)}
+
+
+def test_scenario_clusters_merge_seed_replicas_of_one_scenario() -> None:
+    """The ``-seed-NNN`` suffix is stripped so seeds form one cluster."""
+    rows = scenario_clusters(
+        (
+            _snapshot(
+                run_id="sc-1-seed-101",
+                decision_event_index=7,
+                entries={"pg-a": (0,), "pg-b": (1,)},
+                required_blocks=1,
+                observed_selected=("pg-a",),
+            ),
+            _snapshot(
+                run_id="sc-1-seed-202",
+                decision_event_index=7,
+                entries={"pg-a": (0,), "pg-b": (1,)},
+                required_blocks=1,
+                observed_selected=("pg-a",),
+            ),
+        ),
+        {
+            ("sc-1-seed-101", 7, ("pg-a", _PREFIX)): 0.5,
+            ("sc-1-seed-101", 7, ("pg-b", _PREFIX)): 0.1,
+            ("sc-1-seed-202", 7, ("pg-a", _PREFIX)): 0.5,
+            ("sc-1-seed-202", 7, ("pg-b", _PREFIX)): 0.1,
+        },
+    )
+    assert len(rows) == 1
+    assert rows[0].scenario_group == "sc-1"
+    assert rows[0].seed_count == 2
+    assert rows[0].loss_profile_identical_across_seeds is True
 
 
 def test_totals_loss_is_the_primary_cross_rule_comparator() -> None:

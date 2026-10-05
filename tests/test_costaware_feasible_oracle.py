@@ -480,8 +480,21 @@ def test_evaluator_exposes_both_comparators_separately() -> None:
     assert evaluation.for_rule("M0_p1b_executed_ordering")
     assert evaluation.feasible_for_rule("M0_p1b_executed_ordering")
     baseline_feasible = evaluation.feasible_for_rule("M0_p1b_executed_ordering")
-    assert baseline_feasible.oracle_best_rate == pytest.approx(0.0)
+    # The baseline loses 0.5 where 0.0 was reachable, so no decision is zero
+    # regret and the normalised regret is the degenerate maximum of 1.0.
+    assert baseline_feasible.zero_regret_rate == pytest.approx(0.0)
+    assert baseline_feasible.positive_regret_decisions == 1
     assert baseline_feasible.mean_normalized_regret == pytest.approx(1.0)
+    assert baseline_feasible.mean_absolute_regret == pytest.approx(0.5)
+    assert baseline_feasible.median_absolute_regret == pytest.approx(0.5)
+    # Compared with itself one entry short of the oracle, the baseline is tied on
+    # loss but never better.
+    assert baseline_feasible.better_than_baseline_decisions == 0
+    assert baseline_feasible.worse_than_baseline_decisions == 0
+    assert baseline_feasible.tied_with_baseline_decisions == 1
+    assert baseline_feasible.mean_paired_loss_delta_vs_baseline == pytest.approx(
+        0.0
+    )
 
 
 def test_evaluator_feasible_aggregate_reports_entry_delta() -> None:
@@ -527,9 +540,55 @@ def test_evaluator_feasible_aggregate_reports_entry_delta() -> None:
     assert oracle.oracle_entry_count == 1
     assert set(oracle.oracle_released) == {("a", "p")}
     aggregate = evaluation.feasible_for_rule("M0_p1b_executed_ordering")
-    # The baseline releases b and c: one entry more than the oracle.
+    # The baseline releases b and c: one entry more than the oracle, at the cost
+    # of an extra 0.1 of reload loss.
     assert aggregate.mean_entry_count_delta == pytest.approx(1.0)
-    assert aggregate.oracle_best_rate == pytest.approx(0.0)
+    assert aggregate.zero_regret_rate == pytest.approx(0.0)
+    assert aggregate.positive_regret_decisions == 1
+    assert aggregate.mean_absolute_regret == pytest.approx(0.1)
+
+
+def test_zero_regret_is_not_a_misselection() -> None:
+    """Q9/Q11: another equally optimal set still counts as zero regret.
+
+    Every release set satisfies the target at the same total loss, so the
+    lexicographic oracle picks one specific set but the baseline's different
+    choice costs nothing. It must not be scored as a misselection.
+    """
+    snapshot = _snapshot(entries={"a": (1,), "b": (2,)}, required_blocks=1)
+    candidates = (
+        _row(run_id="run-1", decision_event_index=40, program_id="a",
+             block_ids=(1,), prefill_reload_seconds=0.1, selected=True,
+             retention_deadline_timestamp=100.0),
+        _row(run_id="run-1", decision_event_index=40, program_id="b",
+             block_ids=(2,), prefill_reload_seconds=0.1, selected=False,
+             retention_deadline_timestamp=200.0),
+    )
+    evidence = tuple(
+        CandidateLossEvidenceRow(
+            run_id="run-1",
+            decision_event_index=40,
+            program_id=program_id,
+            prefix_id="p",
+            selected=False,
+            loss_view=_VIEW,
+            evidence_kind="trace_derived_proxy",
+            unit="seconds",
+            loss=0.2,
+            availability="available",
+            unavailable_reason=None,
+            source_event_indexes=(40,),
+        )
+        for program_id in ("a", "b")
+    )
+    evaluation = evaluate_rules(
+        candidates=candidates, evidence=evidence, snapshots=(snapshot,)
+    )
+    aggregate = evaluation.feasible_for_rule("M0_p1b_executed_ordering")
+    assert aggregate.zero_regret_rate == pytest.approx(1.0)
+    assert aggregate.positive_regret_decisions == 0
+    assert aggregate.mean_absolute_regret == pytest.approx(0.0)
+    assert aggregate.median_absolute_regret == pytest.approx(0.0)
 
 
 def test_evaluator_feasible_aggregate_rejects_unknown_rule() -> None:

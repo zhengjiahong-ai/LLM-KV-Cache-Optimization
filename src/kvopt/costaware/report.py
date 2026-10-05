@@ -121,7 +121,7 @@ def build_offline_report(
     )
 
     return {
-        "schema_version": "phase2a.m4.offline_report.v1",
+        "schema_version": "phase2a.m4.offline_report.v2",
         "artifact_root": str(root),
         "formal_campaign": formal,
         "loss_view": loss_view,
@@ -191,14 +191,20 @@ def build_offline_report(
             ],
         },
         "canonical_m6_comparator": {
-            "role": "provenance and sensitivity only",
+            "role": "the one to quote next to M6; also sensitivity for M4",
+            "tie_definition": (
+                "canonical M6 non-tied = the decision's hindsight-optimal release "
+                "set is unique; the canonical_* aggregate fields above use exactly "
+                "this definition and are restricted to decisions where the rule "
+                "released the observed number of entries"
+            ),
             "definition": (
                 "size-matched lowest-loss hindsight from "
                 "build_decision_regret_table; does not check pressure feasibility"
             ),
             "note": (
                 "unchanged canonical M6 code; reported separately from the "
-                "pressure-feasible oracle"
+                "pressure-feasible oracle so the two denominators never compete"
             ),
         },
         "paired_vs_executed_baseline": paired,
@@ -224,8 +230,13 @@ def build_offline_report(
             family: {
                 rule_id: {
                     "decisions": aggregate.decisions,
-                    "non_tied_decisions": aggregate.non_tied_decisions,
-                    "misselection_rate": aggregate.misselection_rate,
+                    "loss_discriminating_decisions": (
+                        aggregate.loss_discriminating_decisions
+                    ),
+                    "positive_regret_decisions": (
+                        aggregate.positive_regret_decisions
+                    ),
+                    "positive_regret_rate": aggregate.positive_regret_rate,
                     "mean_absolute_regret": aggregate.mean_absolute_regret,
                     "mean_normalized_regret": aggregate.mean_normalized_regret,
                 }
@@ -233,17 +244,58 @@ def build_offline_report(
             }
             for family, mapping in holdout.items()
         },
+        # Q10: the 60 decision rows are not 60 independent observations. Seeds
+        # are near-replicas under the planned proxy, so clustering by
+        # (scenario group, decision position) gives the effective sample size.
+        "scenario_clusters": {
+            "role": "effective-sample view; analysis-level, no campaign rerun",
+            "grouping": "run_id minus the -seed-NNN suffix, by decision position",
+            "effective_cluster_count": evaluation.effective_cluster_count,
+            "raw_decision_count": evaluation.evaluated_decisions,
+            "clusters_identical_across_seeds": (
+                evaluation.clusters_identical_across_seeds
+            ),
+            "decisions": [
+                {
+                    "scenario_group": row.scenario_group,
+                    "decision_event_index": row.decision_event_index,
+                    "seed_count": row.seed_count,
+                    "loss_profile_identical_across_seeds": (
+                        row.loss_profile_identical_across_seeds
+                    ),
+                }
+                for row in evaluation.clusters
+            ],
+        },
     }
 
 
 def _aggregate_payload(aggregate: RuleAggregate) -> dict[str, object]:
+    """Serialize one rule aggregate.
+
+    ``loss_discriminating_*`` is the M4 diagnostic denominator; it can differ
+    from the decision at all. ``canonical_*`` reuses the canonical M6 tie
+    definition (unique hindsight-best set) and is the one to quote next to M6.
+    """
     return {
         "rule_id": aggregate.rule_id,
         "family": aggregate.family,
         "decisions": aggregate.decisions,
-        "non_tied_decisions": aggregate.non_tied_decisions,
-        "strictly_worse_decisions": aggregate.strictly_worse_decisions,
-        "misselection_rate": aggregate.misselection_rate,
+        "loss_discriminating_decisions": (
+            aggregate.loss_discriminating_decisions
+        ),
+        "positive_regret_decisions": aggregate.positive_regret_decisions,
+        "positive_regret_rate": aggregate.positive_regret_rate,
+        "canonical_applicable_decisions": (
+            aggregate.canonical_applicable_decisions
+        ),
+        "canonical_non_tied_decisions": (
+            aggregate.canonical_non_tied_decisions
+        ),
+        "canonical_positive_regret_decisions": (
+            aggregate.canonical_positive_regret_decisions
+        ),
+        "canonical_misselection_rate": aggregate.canonical_misselection_rate,
         "mean_absolute_regret": aggregate.mean_absolute_regret,
         "mean_normalized_regret": aggregate.mean_normalized_regret,
         "tie_rate": aggregate.tie_rate,
@@ -266,17 +318,33 @@ def _burden_payload(row: ReleaseBurdenRow) -> dict[str, object]:
 def _feasible_aggregate_payload(
     aggregate: PressureFeasibleAggregate,
 ) -> dict[str, object]:
+    """Serialize one feasibility-aware aggregate in the frozen Q11 order.
+
+    Zero regret means no loss: selecting a different but equally optimal set is
+    not a misselection. Normalised regret is last because it degenerates when
+    ``oracle_loss`` is zero.
+    """
     return {
         "rule_id": aggregate.rule_id,
         "decisions": aggregate.decisions,
-        "loss_choices_matter_decisions": (
-            aggregate.loss_choices_matter_decisions
-        ),
-        "misselection_rate": aggregate.misselection_rate,
         "mean_absolute_regret": aggregate.mean_absolute_regret,
-        "mean_normalized_regret": aggregate.mean_normalized_regret,
-        "oracle_best_rate": aggregate.oracle_best_rate,
+        "median_absolute_regret": aggregate.median_absolute_regret,
+        "mean_paired_loss_delta_vs_baseline": (
+            aggregate.mean_paired_loss_delta_vs_baseline
+        ),
+        "better_than_baseline_decisions": (
+            aggregate.better_than_baseline_decisions
+        ),
+        "worse_than_baseline_decisions": (
+            aggregate.worse_than_baseline_decisions
+        ),
+        "tied_with_baseline_decisions": (
+            aggregate.tied_with_baseline_decisions
+        ),
+        "zero_regret_rate": aggregate.zero_regret_rate,
+        "positive_regret_decisions": aggregate.positive_regret_decisions,
         "mean_entry_count_delta": aggregate.mean_entry_count_delta,
+        "mean_normalized_regret": aggregate.mean_normalized_regret,
     }
 
 
@@ -344,19 +412,25 @@ def render_text(report: dict[str, object]) -> str:
     )
     emit()
     header = (
-        f"  {'rule':38s} {'dec':>4s} {'nontied':>8s} {'misrate':>8s} "
-        f"{'mean_abs':>10s} {'mean_norm':>10s}"
+        f"  {'rule':32s} {'dec':>4s} {'lossdisc':>8s} {'posreg':>6s} "
+        f"{'C-app':>5s} {'C-nontied':>9s} {'C-misrate':>9s} "
+        f"{'mean_abs':>10s}"
     )
     emit(header)
     emit("  " + "-" * (len(header) - 2))
     for aggregate in evaluation["aggregates"]:  # type: ignore[union-attr]
         emit(
-            f"  {aggregate['rule_id']:38s} {aggregate['decisions']:4d} "
-            f"{aggregate['non_tied_decisions']:8d} "
-            f"{_fmt(aggregate['misselection_rate'], 3):>8s} "
-            f"{_fmt(aggregate['mean_absolute_regret']):>10s} "
-            f"{_fmt(aggregate['mean_normalized_regret']):>10s}"
+            f"  {aggregate['rule_id']:32s} {aggregate['decisions']:4d} "
+            f"{aggregate['loss_discriminating_decisions']:8d} "
+            f"{aggregate['positive_regret_decisions']:6d} "
+            f"{aggregate['canonical_applicable_decisions']:5d} "
+            f"{aggregate['canonical_non_tied_decisions']:9d} "
+            f"{_fmt(aggregate['canonical_misselection_rate'], 3):>9s} "
+            f"{_fmt(aggregate['mean_absolute_regret']):>10s}"
         )
+    emit("  lossdisc = M4 diagnostic denominator (choice can matter)")
+    emit("  C-* = canonical M6 tie definition (unique hindsight-best set); use")
+    emit("        C-nontied / C-misrate whenever the numbers sit next to M6")
     emit()
 
     emit(line)
@@ -405,22 +479,54 @@ def render_text(report: dict[str, object]) -> str:
         )
     emit()
     header = (
-        f"  {'rule':38s} {'dec':>4s} {'matters':>8s} {'misrate':>8s} "
-        f"{'mean_abs':>10s} {'mean_norm':>10s} {'entryΔ':>7s}"
+        f"  {'rule':32s} {'dec':>4s} {'mean_abs':>10s} {'med_abs':>9s} "
+        f"{'pairedΔ':>10s} {'B':>3s} {'W':>3s} {'T':>3s} {'zero':>6s} "
+        f"{'entryΔ':>7s} {'mean_norm':>10s}"
     )
     emit(header)
     emit("  " + "-" * (len(header) - 2))
     for aggregate in oracle["aggregates"]:  # type: ignore[union-attr]
         emit(
-            f"  {aggregate['rule_id']:38s} {aggregate['decisions']:4d} "
-            f"{aggregate['loss_choices_matter_decisions']:8d} "
-            f"{_fmt(aggregate['misselection_rate'], 3):>8s} "
+            f"  {aggregate['rule_id']:32s} {aggregate['decisions']:4d} "
             f"{_fmt(aggregate['mean_absolute_regret']):>10s} "
-            f"{_fmt(aggregate['mean_normalized_regret']):>10s} "
-            f"{_fmt(aggregate['mean_entry_count_delta'], 2):>7s}"
+            f"{_fmt(aggregate['median_absolute_regret']):>9s} "
+            f"{_fmt(aggregate['mean_paired_loss_delta_vs_baseline']):>10s} "
+            f"{aggregate['better_than_baseline_decisions']:3d} "
+            f"{aggregate['worse_than_baseline_decisions']:3d} "
+            f"{aggregate['tied_with_baseline_decisions']:3d} "
+            f"{_fmt(aggregate['zero_regret_rate'], 3):>6s} "
+            f"{_fmt(aggregate['mean_entry_count_delta'], 2):>7s} "
+            f"{_fmt(aggregate['mean_normalized_regret']):>10s}"
         )
+    emit("  frozen order (Q11): mean/median abs regret, paired delta, B/W/T,")
+    emit("  zero-regret rate; mean_norm last because it degenerates at zero loss")
+    emit("  pairedΔ > 0 = lower selected loss than P1B; zero = no regret, so a")
+    emit("  different but equally optimal set is NOT a misselection")
     emit("  entryΔ = released entries minus the oracle's; positive = less efficient")
     emit()
+
+    clusters = report.get("scenario_clusters")  # type: ignore[union-attr]
+    if clusters:
+        emit(line)
+        emit("SCENARIO CLUSTERS  (effective sample, analysis-level only)")
+        emit("  grouping: run_id minus -seed-NNN, by decision position")
+        emit(line)
+        emit(
+            f"  raw decision rows            : "
+            f"{clusters['raw_decision_count']}"
+        )
+        emit(
+            f"  effective cluster decisions  : "
+            f"{clusters['effective_cluster_count']}"
+        )
+        emit(
+            f"  clusters with identical loss profile across seeds: "
+            f"{clusters['clusters_identical_across_seeds']} / "
+            f"{clusters['effective_cluster_count']}"
+        )
+        emit("  seeds are near-replicas under the planned proxy, so raw row")
+        emit("  counts overstate independent evidence; quote both views")
+        emit()
     emit("  canonical M6 regret above is size-matched and does NOT check")
     emit("  pressure feasibility; it is retained for provenance only")
     emit()
