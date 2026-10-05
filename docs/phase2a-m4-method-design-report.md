@@ -2,6 +2,10 @@
 
 状态：**方法设计（非运行时实现）** — 依 `docs/phase2a-m4-method-design-input.md` §14
 
+**证据状态：完整 canonical campaign 已评估**（54 runs / 60 decisions / 174 candidates / 6 families / 3 seeds）。
+
+⛔ **主要结论是否定性的**：9 条被评估的 entry-level 规则中，**没有一条带来实质改善**。详见 §5 与 §12。
+
 授权依据与边界：
 
 ```text
@@ -23,6 +27,33 @@ M1 未授权：冻结或合并最终运行时 Cost-Aware 实现。
 | 单元测试（111 项） | `tests/test_costaware_{rules,replay,feasible_oracle,offline_eval,report}.py` | 已提交 |
 | 本地探针 | `local/probe_*.py`、`local/cost_aware_local_experiment.py` | **不入库**（`.gitignore` 已忽略 `local/`） |
 | `.gitignore` | 新增 `local/` 条目 | 声明本地工作区不入评审 |
+
+### 1.1 数据来源与可复现性
+
+本节全部数字来自 canonical 证据包的 `phase2a-formal-v5-final`：
+
+```text
+artifacts/phase2a-formal-v5-final/
+  54 run 目录，每个含 run.json / trace.json / replay.jsonl / events.jsonl
+```
+
+provenance 已核对：
+
+```text
+run git_sha     : b0ca52fb9a743aa46447feff34be6675c76af290   （与 M6 results 文档一致）
+git_dirty       : False
+schema          : phase2a.derived.v2
+campaign        : formal = True
+```
+
+复现命令（无需 vLLM / GPU / 模型下载）：
+
+```bash
+python -m kvopt.costaware.cli \
+  --artifact-root <path>/phase2a-formal-v5-final --formal --output report.json
+```
+
+在完整数据上耗时 **约 1.2 秒**。
 
 入库入口**不需要 vLLM、GPU 或模型下载**：它只重放已持久化的决策 artifact。`local/` 只是同一代码路径的薄封装，不再是唯一可复现的运行方式。
 
@@ -146,25 +177,46 @@ tertiary   稳定逻辑身份序            （确定性）
 
 | 决策 | 目标 | 候选数 | 可行集合数 | oracle 损失 | 最差可行损失 | 选择影响结果 |
 | --- | ---: | ---: | ---: | ---: | ---: | :---: |
-| f1 ev64 | 32 | 5 | 27 | **0.000000** | 0.188239 | 是 |
-| f4 ev40 | 32 | 3 | 5 | **0.000000** | 0.138485 | 是 |
-| f6 ev40 | 16 | 3 | 7 | **0.000000** | 0.342114 | 是 |
+#### 2.6.4 完整 canonical 数据上的结果
 
-**三个决策的 oracle 损失全为 0，且 oracle 都只需释放 1 个条目。**
+**以下为权威结果**（60 决策）。§2.6.5 保留了 3 个 exemplar 的早期读数，作为「不要在高 regret 样例上推断」的记录。
 
-含义：每个决策都存在**单个零损失条目**即可满足压力 —— 即释放一个不返回（因此代理损失为 0）的候选就够了。
+| 事实 | 值 |
+| --- | ---: |
+| 有 oracle 的决策 | 60 / 60 |
+| oracle 只需 **1 个条目**的决策 | **60 / 60** |
+| oracle 损失为 **0** 的决策 | **24 / 60** |
+| 不可达决策 | 0 |
+| 平均可行集合数 | 8.1 |
 
-两个 comparator 的对比因此变得很锐利：
+两个 comparator 的对比：
 
-| 规则 | canonical M6 平均归一化 regret | **feasible oracle 平均归一化 regret** | feasible 条目数差 |
-| --- | ---: | ---: | ---: |
-| `M0_p1b_executed_ordering`（基线） | 0.792135 | **1.000000** | **+1.00** |
-| `M1_prefill_reload_ascending` | 0.792135 | 1.000000 | +1.00 |
-| `M1_marginal_cost_per_reclaimable` | 0.333333 | **0.333333** | **0.00** |
+| 指标 | canonical M6 comparator | **feasible oracle comparator** |
+| --- | ---: | ---: |
+| 基线平均归一化 regret | 0.368820 | **0.400000** |
+| 基线平均绝对 regret | 0.036250 | **0.041225** |
+| 基线达到可行最优的比例 | — | 0.600 |
+| 基线平均条目数差 | — | +0.15 |
 
-**feasible comparator 严格得多**：基线在它下面的归一化 regret 是 **1.000**（因为 oracle 损失为 0，归一化后即为 1），而 canonical 只给出 0.792。
+⇒ feasible comparator **确实更严**（0.400 vs 0.369），因为它检查了压力可行性。但**差距远小于 exemplar 读数**。
 
-⚠️ **同样受 §6 的样本级限定约束**：3 个决策 / 11 个候选 / 仅 seed-101，且为 M6 按构造挑选的高 regret 样例。这些数字是**诊断假设**，不是结果。它们之所以重要，是因为它们给出了明确的、可在完整数据上检验的预测：**若「存在单个零损失可行释放」在 60 个决策上普遍成立，那么基线的可行 regret 会显著高于 canonical 所暗示的水平。**
+⚠️ **一个需要 M1 裁定的度量问题**：由于 24 个决策的 `oracle_loss` 恰为 0，这些决策上的归一化 regret 只能取 `abs/selected = 1.0`（未达最优时）或 `0.0`，因此该指标对多数规则都落在 `24/60 = 0.400`，**近似二值**。跨规则比较应以 `mean_absolute_regret` 与配对损失变化为主。**登记为 Q11。**
+
+#### 2.6.5 保留记录：3 个 exemplar 的早期读数（**已被完整数据部分证伪**）
+
+在仓库内的 3 个高 regret exemplar 上：
+
+| 决策 | 目标 | 候选数 | 可行集合数 | oracle 损失 | 最差可行损失 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| f1 ev64 | 32 | 5 | 27 | **0.000000** | 0.188239 |
+| f4 ev40 | 32 | 3 | 5 | **0.000000** | 0.138485 |
+| f6 ev40 | 16 | 3 | 7 | **0.000000** | 0.342114 |
+
+当时得到了「基线 feasible 归一化 regret = 1.000」这类很强的读数，并据此预测「单个零损失可行释放在全样本普遍成立」。
+
+**完整数据的结果是 24/60 = 40%，而非普遍成立。** 这是本报告第二处「exemplar 推断被完整数据修正」的记录（第一处见 §6.5）。
+
+⇒ **方法学教训**：3 个按构造挑选的高 regret 样例会把效应幅度系统性放大，并可能制造出看似普遍的规律。本报告的所有结论现在都只在完整数据上陈述。
 
 ## 3. 规则集（依 handoff §8 的 M0–M3 家族）
 
@@ -184,28 +236,43 @@ tertiary   稳定逻辑身份序            （确定性）
 
 ## 4. 自检：replay 是否忠实
 
-自检现在由 **replay 保真度**承担（旧的固定数量自检函数已删除，因为它假定了一个错误约束）。在仓库内已有的 3 个真实 M6 exemplar 上：
+自检由 **replay 保真度**承担（旧的固定数量自检函数已删除，因为它假定了一个错误约束）。
+
+### 4.1 在完整 canonical campaign 上（54 runs / 60 decisions / 174 candidates）
 
 ```text
-decisions compared        : 3
+decisions compared        : 60
 release SET match rate    : 1.0000
 release ORDER match rate  : 1.0000
-marginal blocks match rate: 1.0000  (11 fields)
+marginal blocks match rate: 1.0000  (174 fields)
 ```
 
-即冻结的 P1B 排序在 replay 下**精确复现了观察到的决策**：集合、顺序、以及每个条目的 `initially_reclaimable_block_ids` 全部一致。
+即冻结的 P1B 排序在 replay 下**精确复现了全部 60 个观察决策**：集合、顺序、以及每个条目的 `initially_reclaimable_block_ids` 全部一致。第三项独立于任何策略，单独验证了所有权与可用性模型。
 
-这是对判定器本身的验证，不是研究结果。它证明：所有权模型、可用性语义、重排循环与 canonical regret 链路四者一致。第三项独立于任何策略，因此它单独验证了块可用性模型。
+### 4.2 独立复现 canonical M6 数字
 
-## 5. 已验证运行的结果（附重要偏差警告）
+评估器在完整数据上给出的基线指标，与 M6 正式报告**逐位一致**：
 
-在 3 个已提交 exemplar 上运行全部 9 条规则（**replay 语义**）：
+| 指标 | 本报告 | M6 handoff §1 |
+| --- | ---: | ---: |
+| 平均绝对 regret | `0.03624980627828336` | `0.03625` |
+| 平均归一化 regret | `0.3688202702960877` | `0.36882` |
+| 非平局决策 | 39 | 39 |
+| 严格劣选决策 | 24 | 12（见下方说明） |
+
+这与「保真度 1.0」共同构成对 harness 的强验证：**replay 语义、可用性模型、与 canonical regret 链路三者一致**。
+
+ⓘ 严格劣选数 24 vs M6 的 12：M6 的 12 是基于其自身的 `hindsight_mandatory` 定义在**非平局 27 个决策**上；本报告的 24 建立在**非平局 39 个决策**上，因为 `non_tied` 采用「候选损失不完全相同」的 M6 定义而 M6 的 regret 表使用的是另一套平局判定。两者的 `mean_absolute_regret` 与 `mean_normalized_regret` 完全一致，说明差异仅在平局分母口径，不影响任何比较结论。**登记为 §11 Q9。**
+
+## 5. canonical campaign 上的完整结果
+
+数据源：`artifacts/phase2a-formal-v5-final`（54 runs / 60 decisions / 174 candidates / 6 families / 3 seeds），`formal_campaign=True`。
 
 ```text
-evaluated decisions : 3
+evaluated decisions : 60
 skipped decisions   : 0
 unsatisfied         : 0
-candidates scored   : 11
+candidates scored   : 174
 ```
 
 ### 5.0 指标定义（与 M6 对齐）
@@ -213,111 +280,141 @@ candidates scored   : 11
 - `non_tied_decisions`：**决策内候选损失不完全相同**，即选择会影响结果的决策数。
   它刻画「该决策有无 headroom」，与「本规则是否抓住」无关。
 - `strictly_worse_decisions`：本规则的选择未落在 canonical 最优集合内的决策数。
-- `misselection_rate` = `strictly_worse / non_tied`，即 M6 的 non-tied misselection rate。
+- `misselection_rate` = `strictly_worse / non_tied`。
 - `tie_rate`：全部候选损失相同的决策占比。
 
-ⓘ 这两个概念在实现初期被混淆过（把 `non_tied` 当作「本规则失手」），
-会**隐藏「有 headroom 但规则未取」的决策**。已修正，并由
-`tests/test_costaware_offline_eval.py` 的多释放用例锁定。
+### 5.1 canonical 汇总表
 
-### 5.1 汇总表
-
-| 规则 | 平均归一化 regret | 平均绝对 regret | 误选率 | 平均释放数 | 对比基线：更好/更差/平 |
+| 规则 | 平均归一化 regret | 平均绝对 regret | 误选率 | 平均释放数 | 对比基线 更好/更差/平 |
 | --- | ---: | ---: | ---: | ---: | --- |
-| `M1_marginal_cost_per_reclaimable` | **0.333333** | 0.057019 | **0.333** | **1.00** | 2 / 0 / 1 |
-| `M2_non_code_first` | 0.713574 | 0.103181 | 1.000 | 2.00 | 1 / 0 / 2 |
-| `M3_non_code_then_small_prefill` | 0.713574 | 0.103181 | 1.000 | 2.00 | 1 / 0 / 2 |
-| `M3_non_code_then_size_score` | 0.713574 | 0.103181 | 1.000 | 2.00 | 1 / 0 / 2 |
-| `M0_p1b_executed_ordering` | 0.792135 | 0.132757 | 1.000 | 2.00 | 基线 |
-| `M1_prefill_reload_ascending` | 0.792135 | 0.132757 | 1.000 | 2.00 | 0 / 0 / 3 |
-| `M1_block_count_ascending` | 0.792135 | 0.132757 | 1.000 | 2.00 | 0 / 0 / 3 |
-| `M1_reclaimable_ascending` | 0.792135 | 0.132757 | 1.000 | 2.00 | 0 / 0 / 3 |
-| `M3_size_score_only` | 0.792135 | 0.132757 | 1.000 | 2.00 | 0 / 0 / 3 |
+| `M0_p1b_executed_ordering`（基线） | 0.368820 | 0.036250 | 0.615 | 1.150 | 基线 |
+| `M1_prefill_reload_ascending` | 0.368820 | 0.036250 | 0.615 | 1.150 | **0 / 0 / 60** |
+| `M1_block_count_ascending` | 0.368820 | 0.036250 | 0.615 | 1.150 | **0 / 0 / 60** |
+| `M1_reclaimable_ascending` | 0.368820 | 0.036250 | 0.615 | 1.150 | **0 / 0 / 60** |
+| `M3_size_score_only` | 0.368820 | 0.036250 | 0.615 | 1.150 | **0 / 0 / 60** |
+| `M2_non_code_first` | **0.357036** | **0.031813** | 0.615 | 1.150 | **3 / 0 / 57** |
+| `M3_non_code_then_small_prefill` | 0.357036 | 0.031813 | 0.615 | 1.150 | 3 / 0 / 57 |
+| `M3_non_code_then_size_score` | 0.357036 | 0.031813 | 0.615 | 1.150 | 3 / 0 / 57 |
+| `M1_marginal_cost_per_reclaimable` | 0.254498 | 0.043534 | 0.538 | **1.000** | 18 / 18 / 24 |
 
-ⓘ **与修正前对比**：在固定数量语义下边际分母规则的误选率是 1.000、平均归一化 regret 是 0.626172；在 replay 语义下误选率降为 0.333、平均归一化 regret 降为 0.333333，且平均只需 **1.00** 次释放（基线 2.00）。
+**三个确定结论：**
 
-⇒ 这正是 §2.2 所述语义错误的影响：它在结构上看不到「用更少释放满足同一 target」这一维度，因而**低估**了该规则。
+1. **size 簇与基线在全部 60 个决策上完全同构**（0 更好 / 0 更差 / 60 平）。这不是样本噪声，而是结构性事实（详见 §6）。
+2. **只有 tool 指示打破同构**，且方向一致向好：3 更好 / 0 更差 / 57 平，平均损失改善 `+0.004437` 秒，**零回归**。
+3. **边际分母规则是净负面的**：18 更好但 18 更差，平均损失变化 `−0.002308` 秒（负值 = 更贵）。它确实用更少的释放（1.000 vs 1.150），但换来的损失抵消并超过了这一收益。
 
-### 5.2 警告：该样本被刻意偏差化，数字不得引用为效应量
+### 5.2 该样本的统计地位
 
-这 3 个 exemplar 是 M6 **特意挑选的高 regret 样例**（见 `docs/phase2a-m6-formal/README.md`：`exemplars/` 为 "three representative high-regret runs"）。
+与之前 3 个 exemplar 版本不同，本节的数字**不再受「刻意挑选高 regret 样例」影响**——它们是完整正式 campaign 的全部 60 个决策。
+
+但仍须注意：
+
+- **证据仍为代理级别**（`planned_return_weighted_prefill_proxy`），非实测重计算或 serving 影响；
+- **有效独立样本量小于 60**，因为 seed 维度近似重复（详见 §5.4）；
+- **`PROXY_SUPPORTED` 不等于 `RUNTIME_STABLE`**：尚无独立正式重跑复现信号结果。
+
+### 5.3 族级行为（handoff §9，Q3 的核心证据）
+
+平均归一化 regret：
+
+| 规则 | F1 | F2 | F3 | F4 | F5 | F6 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `M0_p1b_executed_ordering`（基线） | 0.2452 | 0.3333 | 0.3333 | 0.4102 | 0.3333 | 0.5000 |
+| `M2_non_code_first` | **0.1667** | 0.3333 | 0.3333 | 0.4102 | 0.3333 | 0.5000 |
+| `M1_marginal_cost_per_reclaimable` | 0.2364 | 0.2364 | **0.0000** | **0.1203** | 0.3333 | **0.5476** |
+
+**这是本轮最重要的否定性发现之一：**
+
+> `M2_non_code_first` 与基线**只在 F1 一个族上不同**（0.1667 vs 0.2452）；在 F2–F6 上**逐位相同**。
+
+也就是说，tool 信号的全部收益**来自单一场景族**。这正是 handoff §9 警告的「scenario-family memorization」失败模式。按 M6 预注册的族一致性要求（≥ 2/3），该信号**不满足稳定性**。
+
+留出交叉验证给出同一结论（留出 F1 时两者完全相同）：
+
+| 规则 | 留出 F1 | 留出 F2 | 留出 F3 | 留出 F4 | 留出 F5 | 留出 F6 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 基线 | 0.3906 | 0.3751 | 0.3751 | 0.3585 | 0.3751 | 0.3360 |
+| `M2_non_code_first` | 0.3906 | 0.3612 | 0.3612 | 0.3438 | 0.3612 | 0.3213 |
+
+边际分母规则在 F1/F2/F3/F4 上改善，但在 **F6 上明显变差**（0.5476 vs 0.5000），与其整体净负面的配对结果一致。
+
+### 5.4 seed 维度：**近似重复，seed 稳定性为空**
+
+handoff §3 要求 seed 一致性。本报告测得一个**方法学上重要的负面事实**：
+
+```text
+基线 mean_abs  = 0.03624980627828336   （seed 101 / 211 / 307 三个子集逐位相同）
+基线 mean_norm = 0.3688202702960877    （同上）
+每个 seed 的决策数 = 20；每个 (family, seed) 单元决策数完全相同
+```
+
+原因：18 个场景组中，**16 组的损失剖面在三个 seed 之间完全相同**，只有 2 组（`f4-repeated-pressure`、`f6-repeated-block-reuse`）不同。
+
+⇒ **三个 seed 在指标层面是排列副本，几乎不提供独立信息。**
 
 后果：
 
-- 基线 regret 在此样本上**按构造就很大**，因此任何改善幅度都被系统性放大；
-- 3 个决策无法支撑任何统计结论；
-- 上述数字只能作为**仪器可用性证据**（instrument check），不能作为方法效果证据。
+1. **「跨 seed 稳定」在本 campaign 上是空命题** —— 没有变异可供稳定；
+2. **有效独立样本约为 20 个场景决策**，而非 60；
+3. 任何「在 3 个 seed 上稳定」的声明都应视为**未获证据**。
 
-**结论：本报告不宣称任何效应量。** 有效评估必须在完整 canonical bundle 上运行（见 §11）。
+M6 的 gate 在数值上满足「≥3 seeds represented」，但该满足不带来统计效力。**登记为 §11 Q10。**
 
-### 5.3 族留出（leave-one-family-out）
+### 5.5 结论冻结声明
 
-评估器已实现族级留出（handoff §9）。在这个 3 决策样本上，每个族只含 1 个 run，
-因此留出某族后的 `mean_normalized_regret` 如下（来自本地运行的
-`leave_one_family_out`）：
+本报告**未冻结任何验收规则**，因为**没有任何候选规则达到可提交标准**（见 §12 第一条）。§5–§7 的分解因此仅具诊断地位。
 
-| 规则 | 留出 F1 | 留出 F4 | 留出 F6 |
-| --- | ---: | ---: | ---: |
-| `M0_p1b_executed_ordering` | 0.820361 | 0.867842 | 0.688203 |
-| `M1_prefill_reload_ascending` | 0.820361 | 0.867842 | 0.688203 |
-| `M1_block_count_ascending` | 0.820361 | 0.867842 | 0.688203 |
-| `M1_marginal_cost_per_reclaimable` | 0.719629 | 0.719629 | 0.439259 |
-| `M2_non_code_first` | 0.820361 | 0.750000 | 0.570361 |
-| `M3_non_code_then_size_score` | 0.820361 | 0.750000 | 0.570361 |
+⚠️ 前版报告曾基于 3 个高 regret exemplar 给出数字，**已全部替换为本节的完整 canonical 结果**。二者差异很大（例如「单个零损失可行释放」在 exemplar 上是 3/3，在完整数据上只有 24/60），这本身就是「不要在高 regret 样例上做推断」的实证。
 
-两点谨慎解读：
-
-1. 所有规则在**每一个**留出配置下都保持正归一化 regret，即**没有规则能消除 headroom**。
-2. 规则间的相对次序在三个留出配置下一致（边际分母规则最低，size 簇与基线并列最高）。
-   但这是 3 个决策、每族 1 个 run 的结果，**不构成稳定性证据**。真正的族留出检验
-   需要完整 campaign 的 18 个场景 / 6 个族（见 §11）。
-
-## 6. 退化审计（handoff §10）—— **样本级证据**
+## 6. 退化审计（handoff §10）—— 已在完整数据上确认
 
 Handoff §10 要求重新检验请求级退化，而非假设其不存在。结果如下。
 
-> ⚠️ **证据级别声明（必读）**：本节全部观察建立在本仓库内可得的 **3 个决策 / 11 个候选**上，且这 3 个 exemplar 是 M6 **按构造挑选的高 regret 代表性样例**，**仅含 seed-101**。
+> **证据级别声明**：本节结论建立在**完整 canonical campaign**（54 runs / 60 decisions / 174 candidates / 6 families）之上，不再是 exemplar 推断。前版报告基于 3 个高 regret exemplar 的表述**已全部替换或修正**，其中两项被完整数据推翻（§6.5、§6.7）。
 >
-> 因此以下内容应读作 **exemplar-level evidence suggests …**（样本级证据提示），**而不是**已验证机制或最终结论。它们是有价值的诊断假设，需在完整 canonical bundle（54 runs / 60 decisions / 174 candidates / 6 families / 3 seeds）上重新验证后，才能升格为机制陈述。
->
-> 本节此前曾使用「已验证机制」「否证 block-level 路径」等表述，**已降级**。
+> 仍须注意：证据为**代理级别**（`planned_return_weighted_prefill_proxy`）；**seed 维度近似重复**（§5.4），故「跨 seed 稳定」不构成独立验证；且 `PROXY_SUPPORTED ≠ RUNTIME_STABLE`。
 
-### 6.1 观察：size/recompute 簇与基线排序同构
+### 6.1 已确认：size/recompute 簇与基线排序**完全同构**
+
+在完整 canonical campaign（60 决策）上：
 
 ```text
-M0_p1b_executed_ordering == M1_prefill_reload_ascending   over 3 decisions
-M0_p1b_executed_ordering == M1_block_count_ascending      over 3 decisions
-M0_p1b_executed_ordering == M1_reclaimable_ascending      over 3 decisions
-M0_p1b_executed_ordering == M3_size_score_only            over 3 decisions
-M1_prefill_reload_ascending == M1_block_count_ascending   over 3 decisions
-M1_prefill_reload_ascending == M1_reclaimable_ascending   over 3 decisions
-M1_block_count_ascending == M3_size_score_only            over 3 decisions
+M0_p1b_executed_ordering == M1_prefill_reload_ascending   over 60 decisions
+M0_p1b_executed_ordering == M1_block_count_ascending      over 60 decisions
+M0_p1b_executed_ordering == M1_reclaimable_ascending      over 60 decisions
+M0_p1b_executed_ordering == M3_size_score_only            over 60 decisions
 ```
 
-**整个 size/recompute 簇（PrefillReload、block_count、reclaimable）与已执行的 P1B 排序在全部 3 个决策上完全同构，配对比较为 0 更好 / 0 更差 / 3 平。**
+配对比较（对基线）：**0 更好 / 0 更差 / 60 平**，平均损失变化 `0.000000`。
 
-也就是说：**handoff §2 表中四个 `PROXY_SUPPORTED` 特征里的三个（size 簇）在本样本上没有产生任何与基线不同的选择。** 只有 `next_tool_type` 打破了同构。
+消融表确认同一事实——三个 size 开关的选择同一率均为 **1.000**：
 
-M6 的 ρ≈0.205 是**秩关联**证据，而秩关联可以完全落在基线排序的方向上而不产生分歧。**关联显著 ≠ 决策可分歧。**
+| 消融变体 | 选择同一率 |
+| --- | ---: |
+| size 簇：成本 vs 占用 | **1.000** |
+| size 簇：成本 vs 可回收 | **1.000** |
+| size 簇：成本 vs 三者平均 | **1.000** |
 
-### 6.2 修正：6.1 的成因**不是**线性成本退化（样本内测量）
+且在**每个 seed 上都是 1.000**（101 / 211 / 307）。
 
-本节记录一次被自己证伪的解释，因为它是本报告最重要的方法学修正。
+**结论（已验证，非假设）：`PROXY_SUPPORTED` 的四个特征中，三个 size 特征在本 campaign 上不产生任何与已执行 P1B 排序不同的选择。** 13 个规则对完全同构。
 
-**曾提出的解释（已证伪）**：spike 的线性成本论证认为 `C_recompute / Blocks` 近似常数，因此 deadline 排序与尺寸排序一致。本文档初版沿用了这一解释。
+⚠️ 这**不**意味着 M6 的 ρ≈0.205 是错的。秩关联可以完全落在基线排序的方向上而不产生分歧。**关联显著 ≠ 决策可分歧** —— 而这正是之前 3 个 exemplar 无法确定的。
 
-**证伪**：对 3 个决策逐候选比较「PrefillReload 序」与「retention deadline 序」：
+### 6.2 该同构的成因**不是**线性成本退化（已在完整数据上确认）
+
+**曾提出的解释（已证伪）**：spike 的线性成本论证认为 `C_recompute / Blocks` 近似常数，因此 deadline 排序与尺寸排序一致。
+
+**完整数据上的证伪**：逐候选比较「PrefillReload 序」与「retention deadline 序」：
 
 ```text
-decisions where cost-order == deadline-order : 1/3
-Pearson(deadline, PrefillReload) over 11 candidates : 0.4517
+decisions where cost-order == deadline-order : 21/60  (35%)
+Pearson(deadline, PrefillReload) over 174 candidates : 0.1960
 ```
 
-只有 **1/3** 的决策同序，相关系数仅 **0.45**。线性成本退化论证在本样本上**不成立**。
+只有 **35%** 的决策同序，相关系数仅 **0.196**。线性成本退化论证在全样本上**不成立**（且比 3-exemplar 时的 0.45 更弱）。
 
-### 6.3 样本级证据提示的机理：损失可能由返回窗口主导，成本规则对此全盲
-
-> 措辞已降级：本节是 **exemplar-level evidence suggests**，不是已验证机制。
+### 6.3 已确认的机理候选：损失由返回窗口主导，成本规则对此全盲
 
 canonical 代理损失**不是纯成本**：
 
@@ -325,89 +422,89 @@ $$
 \text{loss} = \begin{cases} \text{PrefillReload} & \text{若规划在 horizon 内返回} \\ 0 & \text{否则} \end{cases}
 $$
 
-对三个决策逐候选展开（本地诊断输出）：
+完整数据上的两项支持证据：
 
-| 决策 | 候选数 | 基线释放数 | 最优集中零损失候选数 | **最高成本候选的损失为 0** |
-| --- | ---: | ---: | ---: | :---: |
-| `f1-five-contention-deep-seed-101` event 64 | 5 | 3 | 2 / 3 | **是** |
-| `f4-deep-multi-release-seed-101` event 40 | 3 | 2 | 1 / 2 | **是** |
-| `f6-shared-ownership-audit-seed-101` event 40 | 3 | 1 | 1 / 1 | **是** |
+1. **24/60 个决策存在零损失可行释放**，而 oracle 在 **60/60** 个决策中都只需释放 **1 个条目**（§6.7）。也就是说，总存在一个单条目释放能满足压力；其中 40% 的情况该条目损失为 0。
+2. **size 簇与基线同构**（§6.1）：若判别维度是成本，成本升序应当偏离 deadline 排序；它没有偏离，而两者的成对相关性又只有 0.196。**它们同构不是因为同序，而是因为两者都无法分辨真正的判别维度。**
 
-**三个决策中，损失为 0（即规划不返回）的候选恰好都是 PrefillReload 最高的那个。**
+**机理假设（现有证据支持，但仍为假设）**：在 canonical 代理下，判别维度是**复用/返回窗口**，而非成本。因此任何纯成本规则都无法改善，**与成本曲线形状无关**。
 
-于是：
+其意义：它**削弱**（不是否证）了「只要测到非线性 $C(r)$ 就能让成本规则生效」这条路径。
 
-- P1B（最早 deadline 优先）挑走了「会返回」的候选 → 有 regret；
-- M1（成本升序优先）也挑走最便宜的 = 同样「会返回」的 → **同一个错误**；
-- 两者因此同构，原因是**它们读同一类信号**，不是因为成本曲线退化。
+⚠️ **仍需独立正式重跑验证**：本 campaign 是 `PROXY_SUPPORTED`，且 seed 维度近似重复（§5.4），因此「在 3 seeds 上稳定」不构成独立验证。该机理升格为机制陈述需要一次**独立重跑**。
 
-`f6` 最能说明问题：三个候选的 `PrefillReload` 全等于 `0.171057`、`block_count` 全等于 `32` —— **成本特征在结构上无法区分任何东西**，唯一差别是 deadline 与是否返回。
-
-**样本级机理假设**：在本样本的 canonical 代理下，判别维度可能是**复用/返回窗口**，而不是成本。假如这成立，任何纯成本规则都无法改善，**与成本曲线形状无关**。
-
-假如该假设在完整数据上成立，它的意义是：它**削弱**了「只要测到非线性 $C(r)$ 就能让成本规则生效」这一路径。注意这里用「削弱」而非「否证」：3 个高 regret exemplar 不足以否证一条路径。
-
-### 6.4 该机理与既有证据的关系
+### 6.4 与既有证据的关系
 
 - 与 spike 的 F.2（「TTL 层本身就是 cost-aware 过滤器」）方向一致，但**机制不同**：F.2 说的是保护池被同质化，这里说的是**损失函数本身由返回窗口主导**。
-- 与 M6 的信号门禁一致：`next_tool_type=code` 是唯一从**不同语义维度**通过的特征，也是本样本上唯一能打破同构的。
-- ⚠️ **仍不得作为结论引用**：3 个 exemplar 是 M6 按构造挑选的高 regret 样例，任何在其中发现的规律都被系统性筛选过。Handoff §13 明确禁止仅凭样本内代理 regret 改善来论证实现。该机理需在完整 54-run / 60 决策上验证（§11 Q1/Q5）。
+- 与 M6 的信号门禁**部分冲突**：`next_tool_type=code` 通过了门禁，但在完整数据上它的收益只在 **F1 一个族**出现（§5.3），因此不满足族一致性。
 
-### 6.5 边际分母规则（handoff §10 明令）—— 修正后的新解释
+### 6.5 边际分母规则：**完整数据上不成立**（修正前版的结论）
 
-在**固定数量**语义下，`M1_marginal_cost_per_reclaimable` 是本样本上唯一大幅改善的规则（2/3 更好），当时只能猜测它「只是打破了同构」。
-
-在**修正后的 replay 语义**下，解释变得可用测量支撑，而且**不同**：
+前版基于 3 个高 regret exemplar 认为该规则是「唯一大幅改善者」。**完整数据推翻了这一结论：**
 
 | 指标 | 观测基线 | 边际分母规则 |
 | --- | ---: | ---: |
-| 平均释放次数 | 2.00 | **1.00** |
-| 相对基线的平均释放数差 | 0 | **−1.00** |
-| 更省释放的决策数 | — | **2 / 3** |
-| 误选率 | 1.000 | 0.333 |
+| 平均释放次数 | 1.150 | **1.000** |
+| 更省释放的决策数 | — | **6 / 60** |
+| 配对结果 vs 基线 | — | **18 更好 / 18 更差 / 24 平** |
+| 平均损失变化 | — | **−0.002308 秒（净负面）** |
+| 平均归一化 regret | 0.368820 | 0.254498 |
+| feasible oracle 误选率 | 0.400 | **0.450（更差）** |
+| feasible oracle 平均绝对 regret | 0.041225 | **0.043534（更差）** |
 
-即：它满足**同一个** `required_blocks` 时只需 **1 次**释放，而基线需要 **2 次**。释放的条目正是产生代理损失的条目，所以**更少释放 = 更低总损失**。结合 §6.6 的分母测量（分母与成本单调同向但非成比例，相除后破坏成本序），可以得出一个不再依赖猜测的结论：
+**两个 comparator 出现分歧**，这本身是重要发现：
 
-> 该规则的表面优势主要是一个**释放数量效应**：它优先选中那些能一次解开更多块的条目（即「每单位成本解开块数」最高者），而不是因为更好地度量了成本。
+- canonical comparator 认为它最好（0.2545 vs 0.3688）；
+- feasible comparator 认为它**更差**（误选率 0.450 vs 0.400，绝对 regret 0.0435 vs 0.0412）。
 
-因此：**该规则仍不作为候选方法提出。** 理由与之前不同——不是「可能是假象」，而是「它的机制不是成本信号」。它留在规则集中仅作为退化审计项。
+配对比较给出了裁决：**18 更好 / 18 更差 / 净损失变化为负**。它是「用更少释放换更差选择」的赌博，且**赌输了**。
 
-⚠️ 但这里出现了一个**新的、更重要的开放性**：释放数量本身就是一个可优化维度。如果某条规则能持续用更少释放满足同一 target，那它的价值就不在于「成本感知」而在于「解开效率」。这需要在完整数据上判定，且可能需要重新考虑它是否应该被排除（§11 Q2/Q7）。
+⇒ **明确结论：该规则不成立，应从候选中排除。** 这与 handoff §10 的禁令一致，且现在有了完整数据支撑。
 
-### 6.6 §10 子问题 c：分母是否抵消了成本信号（已测）
+⚠️ 它也**推翻了「释放数量效应是真实收益」这一假设**（§11 Q7）：释放更少确实发生了（1.000 vs 1.150），但**总损失没有下降**。原因是它换掉的那些条目损失更高，抵消并超过了释放数量带来的收益。
 
-§10 明确列出四个必须审计的子问题，其中第三个此前未答：
+### 6.6 §10 子问题 c：分母是否抵消了成本信号（完整数据）
 
-> does dividing by reclaimable blocks cancel the useful cost signal?
-
-现在已测。`denominator_diagnostic()` 逐决策比较「成本序」与「成本 / 可回收块数序」：
-
-| 决策 | 候选数 | 分母恒定 | Spearman(成本, 分母) | 秩反转 / 可比较对数 |
-| --- | ---: | :---: | ---: | ---: |
-| `f1-five-contention-deep-seed-101` ev64 | 5 | 否 | **1.000** | **8 / 10** |
-| `f4-deep-multi-release-seed-101` ev40 | 3 | 否 | **1.000** | **3 / 3** |
-| `f6-shared-ownership-audit-seed-101` ev40 | 3 | **是** | n/a | 0 / 3 |
-
-汇总：
+`denominator_diagnostic()` 在 60 个决策上：
 
 ```text
-decisions with a CONSTANT denominator : 1/3
-cost-vs-ratio rank inversions          : 11/16 comparable pairs (69%)
+decisions with a CONSTANT denominator : 24/60
+cost-vs-ratio rank inversions          : 126/189 comparable pairs (66.7%)
 ```
 
-**答案：是，分母确实破坏了成本序。** 注意 Spearman = 1.000 表示分母与成本**单调同向**，但并非**成比例**——于是相除后序被反转。11/16 的可比较对发生秩反转。
+三分之二的可比较对发生秩反转。**答案：是，分母确实破坏了成本序**，与 3-exemplar 时的定性结论一致（当时 11/16 = 69%），现在在完整数据上确认。
 
-这为 §6.5 的异常表现提供了确定解释：
+但它**不再构成排除理由**——§6.5 已经用配对比较直接否证了该规则的有效性。
 
-> `M1_marginal_cost_per_reclaimable` 的改善**不是**因为更好地度量了成本。
-> 它是因为**放弃了成本序**，去探索一个不同的候选。
-> 因此它不能被描述为成本感知方法的候选，其收益也不能被归因于成本信号。
+### 6.7 feasibility-aware oracle 在完整数据上的结果（Q8 交付）
 
-**结论：§10 子问题 c 已回答——是，分母破坏了成本序。** 这为 §6.5 的机制解释提供了支撑：该规则的收益不能归因于成本信号。但它**不再单独构成排除理由**，因为 replay 语义显示它的优势主要来自释放数量效益（§6.5、§7.5）。是否应排除它，取决于 Q7。
+| 事实 | 值 |
+| --- | ---: |
+| 有 oracle 的决策 | 60 / 60 |
+| oracle 只需 **1 个条目**的决策 | **60 / 60** |
+| oracle 损失为 **0** 的决策 | **24 / 60** |
+| 不可达决策 | 0 |
+| 平均可行集合数 | 8.1 |
+| 平均候选数 | 2.9 |
 
-## 7. §9 要求的行为分解与消融
+**baseline 与可行最优的差距：**
 
-§9 列出 9 项必须报告的内容。本节补齐此前缺失的 5 项（其余 4 项见 §5.1）。
+| 指标 | canonical M6 comparator | **feasible oracle comparator** |
+| --- | ---: | ---: |
+| 基线平均归一化 regret | 0.368820 | **0.400000** |
+| 基线平均绝对 regret | 0.036250 | **0.041225** |
+| 基线达到可行最优的比例 | — | 0.600 |
+| 基线平均条目数差 | — | +0.15 |
+
+⇒ feasible comparator **严格更严**（0.400 vs 0.369），但**没有 3-exemplar 时那么悬殊**（当时基线归一化 regret 为 1.000，因为所有决策 oracle 损失都是 0）。
+
+⚠️ **前版预测被部分证伪**：3 个 exemplar 上「单个零损失可行释放」是 3/3，我据此预测它在全样本普遍成立。**完整数据只有 24/60 = 40%。** 这正是「不要在高 regret 样例上做推断」的又一实证。
+
+⚠️ **feasible 归一化 regret 在当前损失结构下近似二值**：由于 24 个决策的 `oracle_loss` 恰为 0，这些决策上的归一化 regret 只能是 `abs/selected = 1.0`（未达最优时）。因此该指标的均值对多数规则都落在 `24/60 = 0.400`。**跨规则比较应以 `mean_absolute_regret` 与配对损失变化为主。** 登记为 §11 Q11。
+
+## 7. §9 要求的行为分解与消融（完整 canonical 数据）
+
+§9 列出 9 项必须报告的内容。本节覆盖全部 9 项。
 
 ### 7.1 特征消融表
 
@@ -415,71 +512,69 @@ cost-vs-ratio rank inversions          : 11/16 comparable pairs (69%)
 
 | 消融变体 | 选择同一率 | 变体平均归一化 regret | 基准 |
 | --- | ---: | ---: | ---: |
-| size 簇：成本 alone vs 占用 alone | **1.000** | 0.792135 | 0.792135 |
-| size 簇：成本 alone vs 可回收 alone | **1.000** | 0.792135 | 0.792135 |
-| size 簇：成本 alone vs 三者平均 | **1.000** | 0.792135 | 0.792135 |
-| tool 指示：关闭 vs 开启（成本为主） | 0.667 | 0.713574 | 0.792135 |
-| tool 指示：关闭 vs 开启（分数为主） | 0.667 | 0.713574 | 0.792135 |
-| 分母：成本 alone vs 成本/可回收 | **0.333** | **0.333333** | 0.792135 |
-
-两点：
-
-1. **size 簇的三个特征完全互换**（同一率 1.000，regret 差为 0）。这不是「冗余」的统计陈述，而是**在任何测试决策上不产生任何不同选择**。切换其中任何一个都不会有任何效果。
-2. **只有 tool 指示（0.667）与分母（0.333）真正改变了选择。** 分母改变得最多，而且在 replay 语义下其 regret 改善（0.333）远大于固定数量下的测值（0.626）—— 因为后者的语义根本看不到「用更少释放满足同一 target」。
-
-这同时回答了 §10 子问题 d（表观收益是否只来自 tool 指示变量）：**否。** tool 指示确实改变了选择（同一率 0.667），但分母改变得更多（0.333）且改善更大。不过 §6.5 已说明分母的机制是释放数量效应，而非成本信号，因此这两个都不是已验证的「成本感知」收益。
-
-### 7.2 按场景族的行为
-
-平均归一化 regret（每个族包含 1 个 run）：
-
-| 规则 | F1 | F4 | F6 |
-| --- | ---: | ---: | ---: |
-| `M0_p1b_executed_ordering`（基线） | 0.735684 | 0.640721 | 1.000000 |
-| `M1_block_count_ascending` | 0.735684 | 0.640721 | 1.000000 |
-| `M1_marginal_cost_per_reclaimable` | **0.000000** | **0.000000** | **1.000000** |
-
-在 replay 语义下，边际分母规则的面貌变得非常锐利：它在 **F1 与 F4 上完全正确（0.0）**，而在 **F6 上完全错（1.0）**。
-
-原因能在数据里直接看到：F1 与 F4 的 `required_blocks` 都可以被**一次**释放满足（见 §7.5），而 F6 的三个候选成本特征**全等**（`PrefillReload` 均为 `0.171057`、`block_count` 均为 32），在那里任何成本类排序都无法分辨，分母规则也不例外。
-
-⇒ 样本级提示：该规则的收益与失败都取决于「能否用更少释放满足 target」，而不是取决于成本排序的优劣。
-
-### 7.3 按候选集规模与释放数的行为
-
-平均归一化 regret：
-
-| 规则 | n=3 | n=5 | releases=1 | releases=2 | releases=3 |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| `M0_p1b_executed_ordering` | 0.820361 | 0.735684 | 1.000000 | 0.640721 | 0.735684 |
-| `M1_marginal_cost_per_reclaimable` | — | — | **0.333333** | — | — |
-
-边际分母规则**只在 `releases=1` 出现**（它的每次决策都只用一次释放），而基线横跨 1–3 次。这正是 §6.5 所述释放数量效应的直接体现：两者的 `releases=1` 桶不可直接比较，因为其中的决策集合不同。
+| size 簇：成本 alone vs 占用 alone | **1.000** | 0.368820 | 0.368820 |
+| size 簇：成本 alone vs 可回收 alone | **1.000** | 0.368820 | 0.368820 |
+| size 簇：成本 alone vs 三者平均 | **1.000** | 0.368820 | 0.368820 |
+| tool 指示：关闭 vs 开启（成本为主） | **0.950** | **0.357036** | 0.368820 |
+| tool 指示：关闭 vs 开启（分数为主） | 0.950 | 0.357036 | 0.368820 |
+| 分母：成本 alone vs 成本/可回收 | **0.400** | 0.254498 | 0.368820 |
 
 三点：
 
-1. **多释放行为已分离报告**（`releases=1/2/3`），不再合并。这直接回应了 handoff §9 对 multi-release 行为的要求。
-2. **size 簇的每一条规则（包括基线）在所有维度上给出完全相同的数字。** 这不是巧合，而是 §6.1 同构的直接后果：它们的选择集逐决策一致。
-3. **基线在 `releases=1` 上 regret 为 1.000000**，即单释放决策上完全错 —— 与上表 F6 是同一个决策。
+1. **size 簇三个特征完全互换**（同一率 1.000，regret 差为 0）：切换其中任何一个都**不产生任何不同选择**。
+2. **tool 指示改变 3/60 个决策**（同一率 0.950），是唯一带来**零回归改善**的维度。
+3. **分母改变 36/60 个决策**（同一率 0.400），是改变最多者——但 §6.5 已证明它在配对比较上**净负面**。
 
-### 7.4 跨 seed 的排序稳定性：**不可评估**
+这回答了 §10 子问题 d（表观收益是否只来自 tool 指示）：**否**——分母改变得更多。但两者都不构成「成本感知」收益。
 
-§9 要求报告 ranking stability across seeds。**在本仓库内无法完成**，原因已核实：
+### 7.2 按场景族的行为（Q3 核心）
+
+平均归一化 regret：
+
+| 规则 | F1 | F2 | F3 | F4 | F5 | F6 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `M0_p1b_executed_ordering`（基线） | 0.2452 | 0.3333 | 0.3333 | 0.4102 | 0.3333 | 0.5000 |
+| `M1_block_count_ascending` | 0.2452 | 0.3333 | 0.3333 | 0.4102 | 0.3333 | 0.5000 |
+| `M3_size_score_only` | 0.2452 | 0.3333 | 0.3333 | 0.4102 | 0.3333 | 0.5000 |
+| `M2_non_code_first` | **0.1667** | 0.3333 | 0.3333 | 0.4102 | 0.3333 | 0.5000 |
+| `M1_marginal_cost_per_reclaimable` | 0.2364 | 0.2364 | **0.0000** | **0.1203** | 0.3333 | **0.5476** |
+
+**决定性发现**：`M2_non_code_first` 与基线**只在 F1 一个族上不同**（0.1667 vs 0.2452），在 F2–F6 上**逐位相同**。
+
+⇒ tool 信号的**全部**收益来自单一场景族，正是 handoff §9 警告的 family memorization。按 M6 预注册的族一致性要求（≥ 2/3），**该信号不满足稳定性**。
+
+### 7.3 按候选集规模与释放数的行为
+
+平均归一化 regret（基线）：
+
+| n=2 | n=3 | n=4 | n=5 | releases=1 | releases=2 |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.4000 | 0.3333 | 0.2857 | 0.4000 | 0.4000 | 0.2857 |
+
+三点：
+
+1. **多释放行为已分离报告**（`releases=1/2`），回应 handoff §9 对 multi-release 的要求。
+2. **size 簇的每条规则（含基线）在所有维度上给出完全相同的数字** —— 这是 §6.1 同构的直接后果。
+3. canonical campaign 的释放数只取 1 与 2（平均 1.150），**没有 3 次释放的决策**。
+
+### 7.4 跨 seed 的排序稳定性：**已评估，但为空命题**
+
+§9 要求报告 ranking stability across seeds。现在数据齐备，结果是：
 
 ```text
-curated-evidence/exemplars/ 仅含 seed-101
-  f1-five-contention-deep-seed-101
-  f4-deep-multi-release-seed-101
-  f6-shared-ownership-audit-seed-101
+seed 101 : mean_abs 0.03624980627828336  mean_norm 0.3688202702960877  n=20
+seed 211 : mean_abs 0.03624980627828336  mean_norm 0.3688202702960877  n=20
+seed 307 : mean_abs 0.03624980627828336  mean_norm 0.3688202702960877  n=20
+all      : mean_abs 0.03624980627828336  mean_norm 0.3688202702960877  n=60
 ```
 
-正式 campaign 的另两个 seed（**211、307**）不在仓库中。因此跨 seed 稳定性**必须等外部证据包**（§13）。
+**三个 seed 的聚合值逐位相同。** 原因见 §5.4：18 个场景组中 16 组的损失剖面在 seed 之间完全相同。
 
-依 §3，特征只有经过**独立正式 campaign**复核方向、效应量阈值、族一致性与 seed 一致性之后，才可称为 `RUNTIME_STABLE`。这不在当前授权范围内。
+⇒ 跨 seed 稳定性**形式上满足但实质为空**：没有变异可供稳定。任何「在 3 个 seed 上稳定」的声明都应视为**未获证据**。
+
+依 §3，特征升格为 `RUNTIME_STABLE` 需要**独立正式重跑**复核方向、效应量、族一致性与 seed 一致性。**这不在当前授权范围内，且本报告不主张任何特征已达到该级别。**
 
 ### 7.5 释放负担（replay 语义下新增的维度）
-
-在修正后的语义下，**释放数量本身成为可报告的结果**。评估器为每条规则给出：
 
 | 字段 | 含义 |
 | --- | --- |
@@ -488,9 +583,17 @@ curated-evidence/exemplars/ 仅含 seed-101
 | `frugal_decisions` | 比基线释放更少的决策数 |
 | `saturated_decisions` | 比基线释放更多的决策数 |
 
-本样本上的结果：size 簇全部规则与基线**完全一致**（`mean_releases` 2.00，差 0，更省 0 / 更饱和 0）；只有 `next_tool_type` 与边际分母规则改变了释放次数，其中边际分母规则平均只需 **1.00** 次（差 **−1.00**，2 个决策更省）。
+完整数据上的结果：
 
-这一维度的重要性：释放的条目正是产生代理损失的条目，因此**在满足同一 target 的前提下，更少的释放直接意味着更低的总损失**。前版固定数量比较把这一维度完全遮蔽了。
+| 规则 | 平均释放数 | 差 vs 基线 | 更省 | 更饱和 |
+| --- | ---: | ---: | ---: | ---: |
+| size 簇（全部 4 条） | 1.150 | 0.000 | 0 | 0 |
+| `M2_non_code_first` 等 | 1.150 | 0.000 | 0 | 0 |
+| `M1_marginal_cost_per_reclaimable` | **1.000** | **−0.150** | **6** | 0 |
+
+**唯一改变释放次数的是边际分母规则**，但它只影响 6/60 个决策，且**净损失变化为负**（§6.5）。
+
+⇒ **Q7 的答案：释放数量效应在完整数据上不构成收益。** 释放更少确实发生，但换来的损失抵消并超过它。前版基于 3 个 exemplar 的「释放数量效应是真实收益」假设**被推翻**。
 
 ### 7.6 结论冻结声明
 
@@ -498,7 +601,7 @@ curated-evidence/exemplars/ 仅含 seed-101
 
 > Any score/threshold acceptance rule must be frozen before using the final holdout result.
 
-**本报告未冻结任何验收规则**，因为**没有任何候选规则被提出**（见 §12 第一条）。这使 §7 的消融与分解仅具诊断地位，不构成方法选择。
+**本报告未冻结任何验收规则**，因为**没有任何候选规则达到可提交标准**（见 §12 第一条）。§7 的消融与分解因此仅具诊断地位。
 
 ## 8. 复杂度与开销（handoff §13 第 8 项）
 
@@ -567,11 +670,21 @@ curated-evidence/exemplars/ 仅含 seed-101
 
 这是本节的核心结论，也是与之前 block-level 草案不同的地方。
 
-### 10.1 胜出家族只需要**零新增观测**
+### 10.1 entry-level 家族只需要**零新增观测**
 
 M1/M2/M3 家族用到的全部字段（`prefill_reload_seconds`、`block_count`、`initially_reclaimable_block_count`、`next_tool_type`）**已经存在于 `FORCED_RELEASE_DECISION` 载荷中**，即已在正式 campaign 中被采集。
 
 因此不需要新的运行时观测缝。这与 handoff §9「M1 may decide whether an additional safe decision-time observation is justified」是相容的：**对 entry-level 家族而言，答案是不需要。**
+
+⚠️ **但必须同时说明**：完整数据的结论是 **entry-level 家族内没有任何规则带来实质改善**（§11 Q1/Q2/Q3）。所以「不需要新观测」不等于「可以实施」——恰恰相反，它意味着**在现有观测下，这条路径已经被完整数据否定**。
+
+这正是 handoff §9 提到的另一种可能结局：
+
+```text
+HEADROOM-BUT-NO-ONLINE-SIGNAL 的复发
+```
+
+本 campaign 上，headroom 存在（基线 feasible 误选率 0.400），但**可用的在线信号无法把它转化为可靠的改善**：唯一零回归的维度（tool 指示）只在单一族有效。
 
 ### 10.2 但需要一次接口扩展才能到达策略边界
 
@@ -594,29 +707,34 @@ Block-level / partial-prefix（草案 B1）**未被本报告请求**，因为 ha
 
 ## 11. 未决问题
 
-| 编号 | 问题 | 状态与解决方式 |
+| 编号 | 问题 | 状态 |
 | --- | --- | --- |
-| Q1 | size 簇与基线排序的同构在完整 54-run 数据上是否成立？ | 未决 —— 在 canonical bundle 上运行本评估器 |
-| Q2 | `M1_marginal_cost_per_reclaimable` 的改善是真实结构还是打破同构的副作用？ | **本仓库内已答（§6.6）：是后者。** 分母与成本单调同向但非成比例，相除后 11/16 可比较对发生秩反转，即该规则放弃了成本序。剩余问题：这个「放弃成本序」的收益是否在 60 个决策上可复现，还是高 regret 样例的偶合 |
-| Q3 | `next_tool_type=code` 的收益在 family-held-out 下是否稳定？ | 未决 —— 同上；本仓库已实现 leave-one-family-out |
-| Q4 | 是否存在能超越 entry-level 的 block-level 收益？ | 未决 —— handoff §11 的四个前置问题 |
-| Q5 | §6.3 的「返回窗口主导」机理在 60 个决策上是否成立？ | 未决 —— 同上；并检查不同族是否给出不同机理 |
-| Q6 | §7.1 的 size 簇完全互换（同一率 1.000）在 60 个决策上是否成立？ | 未决 —— 若成立，则三个 `PROXY_SUPPORTED` 尺寸特征应被视为**一个**特征，而非三个独立信号 |
-| Q7 | §6.5 的**释放数量效应**在 60 个决策上是否可复现？若可复现，「每单位成本解开块数」是否应被当作一个正当的优化目标（而不是被当作成本信号的伪装而排除）？ | 未决 —— 同上；这可能需要修正 §6.5 的排除结论 |
-| Q8 | §2.1 声明的 regret 局限（hindsight 为**同数量**且不检查可行性）是否影响主结论？ | **已解决（§2.6）**：按 M1 裁定实现了 feasibility-aware oracle。canonical M6 继续保留为 provenance/sensitivity，M4 方法选择改用 feasible oracle。剩余问题：oracle 的结论（零损失单条目普遍存在）需在 60 个决策上验证 |
+| Q1 | size 簇与基线排序的同构在完整数据上是否成立？ | **已答（§6.1）：成立。** 0 更好 / 0 更差 / **60 平**，消融同一率 1.000，且在全部 3 个 seed 上为 1.000 |
+| Q2 | `M1_marginal_cost_per_reclaimable` 的改善是否复现？ | **已答（§6.5）：不复现。** 配对 **18 更好 / 18 更差**，平均损失变化 **−0.002308（净负面）**；feasible oracle 上误选率更差（0.450 vs 0.400）。**应从候选中排除** |
+| Q3 | `next_tool_type=code` 的收益是否跨族稳定？ | **已答（§5.3、§7.2）：不稳定。** 收益**只在 F1 一个族**出现，F2–F6 逐位相同。不满足 M6 族一致性要求 |
+| Q4 | 是否存在能超越 entry-level 的 block-level 收益？ | **未决** —— handoff §11 的四个前置问题（真实 $C(r)$、部分 APC 语义、接口可用性、超越 entry-level 的离线收益）。**且因 Q3 的否定结果，其优先级下降** |
+| Q5 | §6.3 的「返回窗口主导」机理在完整数据上是否成立？ | **部分确认（§6.3）：** 24/60 决策存在零损失可行释放、60/60 只需单条目释放；size 簇与基线同构且 cost/deadline 相关性仅 0.196。升格为机制陈述仍需**独立正式重跑** |
+| Q6 | size 簇完全互换在完整数据上是否成立？ | **已答（§6.1、§7.1）：成立。** 三个尺寸特征应被视为**一个**特征，而非三个独立信号 |
+| Q7 | 释放数量效应是否构成收益？ | **已答（§6.5、§7.5）：不构成。** 只有边际分母规则改变释放数（6/60），但它**净损失为负**。前版「释放更少 = 总损失更低」的假设**被推翻** |
+| Q8 | regret 的同数量、非可行局限是否影响主结论？ | **已解决（§2.6）** —— feasibility-aware oracle 已实现并与 canonical M6 comparator 分离报告 |
+| **Q9** | **本报告的 `non_tied`/`strictly_worse`（39/24）与 M6 报告（27/12）口径不一致** | **未决** —— 两者的 `mean_absolute_regret` 与 `mean_normalized_regret` 逐位相同，差异仅在平局分母定义。需 M1/M6 统一口径 |
+| **Q10** | **seed 维度近似重复，如何影响「3 seeds」的 gate 证据效力？** | **未决** —— §5.4 测得 seed 聚合值逐位相同、16/18 场景组损失剖面相同。**需 M1 裁定**该 gate 项是否仍算有效证据 |
+| **Q11** | **feasible 归一化 regret 因 24 个 `oracle_loss==0` 决策而近似二值** | **未决** —— 跨规则比较应以 `mean_absolute_regret` 与配对损失变化为主；需 M1 确认该优先级 |
 
-前八项**都不需要新观测**，只需要把外部证据包传进来。
+**Q1/Q2/Q3/Q6/Q7 已由完整数据回答；Q8 已实现；Q4/Q5/Q9/Q10/Q11 待定。**
 
 ## 12. 局限
 
-- **没有提出候选方法。** Handoff §13 第 1 项要求“提出的规则”，而 §14 要求的是能胜出的设计。本报告交付的是 replay 引擎、评估器、规则集与诊断，**尚未收敛到一条可提交评审的规则**。这是最主要的遗留缺口，且有双重制约：§6.3 的样本级机理假设，以及 §6.5 新出现的「释放数量是否本身就是一个目标」的开放问题。
-- **机制结论均为样本级。** §6 全部内容来自 **3 个决策 / 11 个候选 / 仅 seed-101**，且这 3 个 exemplar 是 M6 **按构造挑选的高 regret 样例**。任何在其中发现的规律都被系统性筛选过，不能作为机制陈述或效应量引用。
-- **regret 是同数量且非可行的。** §2.1 已声明：hindsight 只取损失最小的同规模集合，不检查是否能解开压力。跨规则比较应以总代理损失为主。
-- **证据为代理级别。** canonical 损失视角 `planned_return_weighted_prefill_proxy` 是 trace 派生的规划代理，不是实测重计算、TTL 或 serving 影响。依 handoff §3，除 `PROXY_SUPPORTED` 外不得作更强声明。
-- **无运行时验证。** 无 vLLM 进程、无 GPU、无延迟数据。运行时可复制性（runtime replication）按 canonical 记录仍为 `false`。
-- **未拟合任何模型。** 依 handoff §8，未对 60 个受控决策拟合高容量模型。
+- **没有提出候选方法 —— 而且现在有证据表明当前规则集内不存在。** Handoff §13 第 1 项要求「提出的规则」，§14 要求「能胜出的设计」。完整数据给出的结论是：**9 条被评估的决策时规则中，没有一条带来实质改善。** size 簇与基线完全同构（Q1）、边际分母规则净负面（Q2）、tool 信号只在单一族有效（Q3）。这是本报告最重要的交付——一个**有完整数据支撑的否定结果**。
+- **regret 是同数量且非可行的。** §2.1 已声明；M4 方法选择已改用 feasibility-aware oracle（§2.6），canonical M6 comparator 保留为 provenance。
+- **`non_tied` 口径与 M6 不一致（Q9）。** 不影响 regret 数值（逐位相同），但影响误选率的分母。
+- **seed 维度近似重复（Q10）。** 有效独立样本约为 **20 个场景决策**，而非 60。「跨 seed 稳定」在本 campaign 上不构成独立证据。
+- **证据为代理级别。** `planned_return_weighted_prefill_proxy` 是 trace 派生的规划代理，不是实测重计算、TTL 或 serving 影响。依 handoff §3，**`PROXY_SUPPORTED` 不得升格为 `RUNTIME_STABLE`**，且本 campaign 尚无独立正式重跑。
+- **无运行时验证。** 无 vLLM 进程、无 GPU、无实测延迟。canonical 记录的 runtime replication 仍为 `false`。
+- **未拟合任何模型。** 依 handoff §8，未对 60 个受控决策拟合高容量模型；本报告只评估小规模、可手审的规则。
 - **未做新颖性核查**（§13 第 11 项），需 M2 的相关工作输入。
-- **仓库既有测试失败。** 全量套件在干净 `origin/main` 上即有失败（`test_continuum_vllm_observation_runner` 6 项、`test_phase2a_m6_*` 5 项），已核实与本次改动无关；属 M1/M6 范围。
+- **区块级路径的证据基础被削弱。** §6.3 的机理若成立，则「测到非线性 $C(r)$ 就能让成本规则生效」这条路径被削弱，因此 block-level 的**动机**（此前依赖于成本非线性）需要重新论证。
+- **仓库既有测试失败。** 全量套件在干净 `origin/main` 上即有 11 项失败（`test_continuum_vllm_observation_runner` 6 项、`test_phase2a_m6_*` 5 项），已核实与本次改动无关；属 M1/M6 范围。
 
 ## 13. 复现
 
@@ -666,13 +784,14 @@ python -m kvopt.costaware.cli --loss-view observed_recomputed_tokens
 | §5.2 | `docs/experiments/phase2a-m6-formal/README.md`（exemplars 为高 regret 样例） |
 | §5.3 | 入库 CLI 报告的 LEAVE-ONE-FAMILY-OUT 段 |
 | §6.1 | 入库 CLI 报告的 DEGENERACY 段 |
-| §6.2 | `local/probe_deadline_vs_cost.py` 输出（1/3、r=0.4517） |
-| §6.3 | `local/probe_loss_mechanism.py` 输出 |
-| §6.5, §7.5 | 入库 CLI 报告的 RELEASE BURDEN 段（`ReleaseBurdenRow`） |
-| §6.6 | `offline_eval.denominator_diagnostic()`；入库 CLI 报告的 DENOMINATOR DIAGNOSTIC 段 |
+| §6.2 | 本报告在完整数据上的测量（21/60、r=0.1960） |
+| §6.3 | 入库 CLI 的 PRESSURE-FEASIBLE ORACLE 段；`local/probe_loss_mechanism.py` |
+| §6.5 | 入库 CLI 的 PAIRED COMPARISON、RELEASE BURDEN 与 PRESSURE-FEASIBLE ORACLE 段 |
+| §6.6 | `offline_eval.denominator_diagnostic()`；入库 CLI 的 DENOMINATOR DIAGNOSTIC 段 |
+| §6.7 | 入库 CLI 的 PRESSURE-FEASIBLE ORACLE 段 |
 | §7.1 | `offline_eval.ablation_table()` 与 `ABLATION_PAIRS` |
-| §7.2–7.3 | `offline_eval.behaviour_breakdown()`；入库 CLI 报告的对应段 |
-| §7.4 | `docs/experiments/phase2a-m6-formal/README.md`（exemplars 仅含 seed-101） |
+| §7.2–7.5 | `offline_eval.behaviour_breakdown()`；入库 CLI 的对应段；`local/probe_seed_stability.py` |
+| §5.4, §7.4 | `local/probe_seed_stability.py` 输出（seed 聚合值逐位相同） |
 | §8 | `local/probe_rule_complexity.py` 输出；`tests/test_costaware_rules.py::test_size_score_prepare_does_not_rescan_per_candidate` |
 | §9 | `src/kvopt/costaware/rules.py` 模块 docstring 与 `fallback_key()`；四个回退测试 |
 | §10 | `docs/policy-adapter-design.md`；`src/kvopt/runtime/vllm/types.py`；`docs/phase2a-m4-method-design-input.md` §5/§11 |
