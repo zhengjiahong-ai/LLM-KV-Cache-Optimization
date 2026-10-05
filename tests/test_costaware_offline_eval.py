@@ -183,9 +183,12 @@ def test_cost_only_rule_improves_but_stays_degenerate_with_baseline() -> None:
 def test_lifecycle_rule_reaches_zero_regret_on_this_fixture() -> None:
     aggregate = _evaluate().for_rule("M2_non_code_first")
     assert aggregate.mean_absolute_regret == pytest.approx(0.0)
-    assert aggregate.non_tied_decisions == 0
-    assert aggregate.misselection_rate is None
-    assert aggregate.tie_rate == pytest.approx(1.0)
+    # Two decisions have headroom; the rule still captured all of it.
+    assert aggregate.non_tied_decisions == 2
+    assert aggregate.strictly_worse_decisions == 0
+    assert aggregate.misselection_rate == pytest.approx(0.0)
+    # One of the three decisions has identical candidate losses.
+    assert aggregate.tie_rate == pytest.approx(1.0 / 3.0)
 
 
 def test_selection_count_is_held_equal_to_the_executed_baseline() -> None:
@@ -399,3 +402,186 @@ def test_for_rule_rejects_unknown_rule() -> None:
 def test_evaluate_rejects_non_sequence_input() -> None:
     with pytest.raises(TypeError, match="candidates must be an ordered sequence"):
         evaluate_rules(candidates="not-a-sequence", evidence=())  # type: ignore[arg-type]
+
+
+# --- Multi-release and larger candidate sets -------------------------------
+
+
+def _planned_proxy_dataset(
+    *,
+    sizes: list[float],
+    returns_within_horizon: set[int],
+    selected_positions: set[int],
+    run_id: str = "run-multi",
+    decision_event_index: int = 40,
+) -> tuple[tuple[DecisionCandidateRow, ...], tuple[CandidateLossEvidenceRow, ...]]:
+    """Build one decision under the canonical planned proxy semantics.
+
+    Loss is ``PrefillReload`` when the candidate is planned to return within the
+    horizon, and ``0`` otherwise. This is what makes "return window" and "cost"
+    separable, so multi-release behaviour is exercised meaningfully.
+    """
+    candidates: list[DecisionCandidateRow] = []
+    evidence: list[CandidateLossEvidenceRow] = []
+    ordered_selected = sorted(selected_positions)
+    for position, size in enumerate(sizes):
+        program = f"pg-{position}"
+        selected = position in selected_positions
+        candidates.append(
+            _candidate(
+                run_id=run_id,
+                decision_event_index=decision_event_index,
+                program_id=program,
+                selected=selected,
+                prefill_reload_seconds=size,
+                block_count=int(size * 100),
+                retention_deadline_timestamp=100.0 + position,
+                decision_native_lru_position=position,
+            )
+        )
+        evidence.append(
+            _evidence(
+                run_id=run_id,
+                decision_event_index=decision_event_index,
+                program_id=program,
+                loss=size if position in returns_within_horizon else 0.0,
+            )
+        )
+    assert len(ordered_selected) == sum(1 for row in candidates if row.selected)
+    return tuple(candidates), tuple(evidence)
+
+
+def test_multi_release_holds_count_and_picks_the_cheapest_pair() -> None:
+    """Baseline releases 2 of 4; a cost rule must pick the two cheapest."""
+    candidates, evidence = _planned_proxy_dataset(
+        sizes=[0.5, 0.4, 0.2, 0.1],
+        returns_within_horizon={0, 1, 2, 3},
+        selected_positions={0, 1},
+    )
+    evaluation = evaluate_rules(candidates=candidates, evidence=evidence)
+    cost_rule = evaluation.for_rule("M1_prefill_reload_ascending")
+    assert cost_rule.decisions == 1
+    assert cost_rule.misselection_rate == pytest.approx(0.0)
+
+    baseline = evaluation.for_rule("M0_p1b_executed_ordering")
+    assert baseline.misselection_rate == pytest.approx(1.0)
+
+    row = next(
+        item
+        for item in evaluation.outcomes
+        if item.rule_id == "M1_prefill_reload_ascending"
+    )
+    assert row.selection_count == 2
+    # Release order puts the cheapest candidate first.
+    assert row.selected_identities == (("pg-3", _PREFIX), ("pg-2", _PREFIX))
+    assert row.selected_loss == pytest.approx(0.3)
+    assert row.hindsight_best_loss == pytest.approx(0.3)
+    assert row.absolute_regret == pytest.approx(0.0)
+
+
+def test_multi_release_cost_rule_cannot_see_the_return_window() -> None:
+    """The mechanism behind the degeneracy: loss is dominated by return, not cost.
+
+    The cost rule picks the two cheapest candidates, but the cheapest candidates
+    are exactly the ones that return, so the zero-loss candidates are missed.
+    """
+    candidates, evidence = _planned_proxy_dataset(
+        sizes=[0.5, 0.4, 0.2, 0.1],
+        # Only the two most expensive candidates do NOT return -> loss 0.
+        returns_within_horizon={2, 3},
+        selected_positions={0, 1},
+    )
+    evaluation = evaluate_rules(candidates=candidates, evidence=evidence)
+    row = next(
+        item
+        for item in evaluation.outcomes
+        if item.rule_id == "M1_prefill_reload_ascending"
+    )
+    # It picks pg-3 and pg-2, which are exactly the ones that return.
+    assert row.selected_identities == (("pg-3", _PREFIX), ("pg-2", _PREFIX))
+    assert row.selected_loss == pytest.approx(0.3)
+    assert row.hindsight_best_loss == pytest.approx(0.0)
+    assert row.absolute_regret == pytest.approx(0.3)
+
+
+def test_multi_release_is_independent_of_baseline_count() -> None:
+    """A 3-of-5 baseline must still release exactly three candidates."""
+    candidates, evidence = _planned_proxy_dataset(
+        sizes=[0.5, 0.4, 0.3, 0.2, 0.1],
+        returns_within_horizon={0, 1, 2, 3, 4},
+        selected_positions={0, 1, 2},
+    )
+    _candidates, _evidence = candidates, evidence
+    evaluation = evaluate_rules(candidates=candidates, evidence=evidence)
+    for outcome in evaluation.outcomes:
+        assert outcome.selection_count == 3
+        assert len(outcome.selected_identities) == 3
+    assert evaluation.for_rule("M1_prefill_reload_ascending").misselection_rate == pytest.approx(0.0)
+
+
+def test_multi_release_with_identical_cost_is_a_tie() -> None:
+    """Equal costs must not be reported as a misselection."""
+    candidates, evidence = _planned_proxy_dataset(
+        sizes=[0.2, 0.2, 0.2, 0.2],
+        returns_within_horizon={0, 1, 2, 3},
+        selected_positions={0, 1},
+    )
+    evaluation = evaluate_rules(candidates=candidates, evidence=evidence)
+    for aggregate in evaluation.aggregates:
+        assert aggregate.decisions == 1
+        assert aggregate.non_tied_decisions == 0
+        assert aggregate.misselection_rate is None
+        assert aggregate.tie_rate == pytest.approx(1.0)
+
+
+def test_large_candidate_set_is_ordered_and_split_correctly() -> None:
+    """Twenty candidates, half released: count and ordering must hold."""
+    sizes = [0.01 * (index + 1) for index in range(20)]
+    candidates, evidence = _planned_proxy_dataset(
+        sizes=sizes,
+        returns_within_horizon=set(range(20)),
+        selected_positions=set(range(10)),
+    )
+    evaluation = evaluate_rules(candidates=candidates, evidence=evidence)
+    row = next(
+        item
+        for item in evaluation.outcomes
+        if item.rule_id == "M1_prefill_reload_ascending"
+    )
+    assert row.candidate_count == 20
+    assert row.selection_count == 10
+    # The ten cheapest candidates are pg-000..pg-009.
+    assert row.selected_identities == tuple(
+        (f"pg-{index}", _PREFIX) for index in range(10)
+    )
+    assert row.selected_loss == pytest.approx(sum(sizes[:10]))
+    assert row.hindsight_best_loss == pytest.approx(sum(sizes[:10]))
+    assert row.absolute_regret == pytest.approx(0.0)
+
+
+def test_multi_release_decisions_aggregate_across_a_run() -> None:
+    """Two multi-release decisions in one run must both be counted."""
+    candidates_a, evidence_a = _planned_proxy_dataset(
+        sizes=[0.5, 0.4, 0.2, 0.1],
+        returns_within_horizon={0, 1, 2, 3},
+        selected_positions={0, 1},
+        run_id="run-multi",
+        decision_event_index=40,
+    )
+    candidates_b, evidence_b = _planned_proxy_dataset(
+        sizes=[0.6, 0.3, 0.2, 0.1],
+        returns_within_horizon={0, 1, 2, 3},
+        selected_positions={0, 1},
+        run_id="run-multi",
+        decision_event_index=41,
+    )
+    evaluation = evaluate_rules(
+        candidates=candidates_a + candidates_b,
+        evidence=evidence_a + evidence_b,
+    )
+    assert evaluation.evaluated_decisions == 2
+    aggregate = evaluation.for_rule("M1_prefill_reload_ascending")
+    assert aggregate.decisions == 2
+    assert aggregate.non_tied_decisions == 2
+    assert aggregate.strictly_worse_decisions == 0
+    assert aggregate.misselection_rate == pytest.approx(0.0)

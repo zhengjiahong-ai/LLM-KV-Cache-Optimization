@@ -64,6 +64,14 @@ class RuleDecisionOutcome:
     absolute_regret: float
     normalized_regret: float
     selected_is_hindsight_best: bool
+    candidate_loss_tied: bool
+    """True when every candidate has the same loss, so no choice can matter.
+
+    This is the M6 notion of a tied decision. It is deliberately independent of
+    whether *this rule* captured the available headroom: conflating the two
+    would make the misselection rate hide decisions where headroom exists but
+    the rule failed to take it.
+    """
 
 
 @dataclass(frozen=True, slots=True)
@@ -245,6 +253,7 @@ def evaluate_rules(
                     absolute_regret=regret_row.absolute_regret,
                     normalized_regret=regret_row.normalized_regret,
                     selected_is_hindsight_best=regret_row.selected_is_hindsight_best,
+                    candidate_loss_tied=len({losses[_identity(row)] for row in group}) == 1,
                 )
             )
 
@@ -279,7 +288,9 @@ def _aggregate(
             mean_normalized_regret=float("nan"),
             tie_rate=float("nan"),
         )
-    non_tied = [row for row in outcomes if row.hindsight_best_loss < row.selected_loss - 1e-12]
+    # A decision is non-tied when its candidates have different losses, i.e. the
+    # choice can matter. This is independent of whether this rule got it right.
+    non_tied = [row for row in outcomes if not row.candidate_loss_tied]
     worse = [row for row in non_tied if not row.selected_is_hindsight_best]
     return RuleAggregate(
         rule_id=rule.rule_id,
@@ -293,7 +304,7 @@ def _aggregate(
             row.normalized_regret for row in outcomes
         ),
         tie_rate=(
-            sum(1 for row in outcomes if row.selected_is_hindsight_best) / len(outcomes)
+            sum(1 for row in outcomes if row.candidate_loss_tied) / len(outcomes)
         ),
     )
 

@@ -9,6 +9,7 @@ from kvopt.costaware.rules import (
     DECISION_TIME_FEATURES,
     FORBIDDEN_FEATURES,
     CandidateRule,
+    fallback_key,
     rule_by_id,
 )
 from kvopt.profiling.datasets import DecisionCandidateRow
@@ -239,3 +240,142 @@ def test_marginal_rule_divides_cost_by_reclaimable_blocks() -> None:
     )
     ordered = rule.order([pg_a, pg_b])
     assert [candidate.program_id for candidate in ordered] == ["pg-b", "pg-a"]
+
+
+# --- Fallback ladder -------------------------------------------------------
+
+
+def test_fallback_key_is_the_stable_logical_identity() -> None:
+    candidate = _candidate(program_id="pg-a", prefix_id="pfx-7")
+    assert fallback_key(candidate) == ("pg-a", "pfx-7")
+
+
+def test_fallback_key_rejects_non_candidate() -> None:
+    with pytest.raises(TypeError, match="DecisionCandidateRow"):
+        fallback_key("not-a-candidate")  # type: ignore[arg-type]
+
+
+def test_ordering_is_total_when_every_feature_is_identical() -> None:
+    """Ladder step 2 must separate candidates that step 1 cannot."""
+    rule = rule_by_id("M1_prefill_reload_ascending")
+    twins = [
+        _candidate(program_id="pg-b", prefix_id="p1", prefill_reload_seconds=0.5),
+        _candidate(program_id="pg-a", prefix_id="p2", prefill_reload_seconds=0.5),
+        _candidate(program_id="pg-a", prefix_id="p1", prefill_reload_seconds=0.5),
+    ]
+    ordered = rule.order(twins)
+    assert [(c.program_id, c.prefix_id) for c in ordered] == [
+        ("pg-a", "p1"),
+        ("pg-a", "p2"),
+        ("pg-b", "p1"),
+    ]
+
+
+def test_ordering_does_not_depend_on_input_order() -> None:
+    """Ladder step 3: input order must never influence the result."""
+    rule = rule_by_id("M3_non_code_then_size_score")
+    group = [
+        _candidate(program_id="pg-a", prefill_reload_seconds=0.4, block_count=32,
+                   initially_reclaimable_block_count=32, next_tool_type="code"),
+        _candidate(program_id="pg-b", prefill_reload_seconds=0.1, block_count=8,
+                   initially_reclaimable_block_count=8, next_tool_type="search"),
+        _candidate(program_id="pg-c", prefill_reload_seconds=0.2, block_count=16,
+                   initially_reclaimable_block_count=16, next_tool_type="code"),
+    ]
+    baseline = [c.program_id for c in rule.order(group)]
+    assert [c.program_id for c in rule.order(list(reversed(group)))] == baseline
+    assert [c.program_id for c in rule.order([group[1], group[2], group[0]])] == baseline
+
+
+def test_non_p1b_rules_ignore_the_lru_position_capability() -> None:
+    """Entry-level rules must not depend on the unsupported LRU capability."""
+    for rule_id in (
+        "M1_prefill_reload_ascending",
+        "M2_non_code_first",
+        "M3_non_code_then_size_score",
+    ):
+        rule = rule_by_id(rule_id)
+        assert "decision_native_lru_position" not in rule.features
+
+
+def test_size_score_rule_requires_its_prepared_context() -> None:
+    """Guards the O(n log n) path against silently falling back to a rescan."""
+    rule = rule_by_id("M3_size_score_only")
+    assert rule.prepare is not None
+    candidate = _candidate(program_id="pg-a")
+    with pytest.raises(TypeError, match="prepared context"):
+        rule.key((candidate,), candidate)
+
+
+def test_size_score_prepare_is_linear_in_candidate_count() -> None:
+    """The prepared context must be a lookup, not a per-call rescan."""
+    rule = rule_by_id("M3_size_score_only")
+    group = [
+        _candidate(
+            program_id=f"pg-{index:03d}",
+            prefill_reload_seconds=0.1 * (index + 1),
+            block_count=8 * (index + 1),
+            initially_reclaimable_block_count=8 * (index + 1),
+        )
+        for index in range(40)
+    ]
+    context = rule.prepare(tuple(group))
+    assert len(context) == 40
+    # Every candidate receives a finite normalized score in [0, 1].
+    for candidate in group:
+        value = rule.key(context, candidate)[0]
+        assert 0.0 <= float(value) <= 1.0
+
+
+def test_size_score_prepare_does_not_rescan_per_candidate() -> None:
+    """Pins the O(n) preparation bound.
+
+    The preparation must read each feature of each candidate a bounded number of
+    times. Recomputing a field's min/max per candidate would make the decision
+    quadratic, which is the defect this test exists to prevent from returning.
+
+    Counted rather than timed, so the bound is deterministic and machine
+    independent.
+    """
+    reads: list[str] = []
+    tracked = {
+        "prefill_reload_seconds",
+        "block_count",
+        "initially_reclaimable_block_count",
+    }
+
+    class CountingCandidate(DecisionCandidateRow):
+        def __getattribute__(self, name: str):
+            if name in tracked:
+                reads.append(name)
+            return super().__getattribute__(name)
+
+    rule = rule_by_id("M3_size_score_only")
+    assert rule.prepare is not None
+
+    count = 25
+    group = tuple(
+        _candidate(
+            program_id=f"pg-{index:03d}",
+            prefill_reload_seconds=0.1 * (index + 1),
+            block_count=8 * (index + 1),
+            initially_reclaimable_block_count=8 * (index + 1),
+        )
+        for index in range(count)
+    )
+    typed = tuple(
+        CountingCandidate(
+            **{
+                field: getattr(candidate, field)
+                for field in DecisionCandidateRow.__dataclass_fields__
+            }
+        )
+        for candidate in group
+    )
+    reads.clear()
+    rule.prepare(typed)
+
+    # Two passes over each of the three features: one to find bounds, one to
+    # score. A quadratic preparation would read roughly `count` times more.
+    assert len(reads) == count * 3 * 2
+    assert len(reads) < count * count

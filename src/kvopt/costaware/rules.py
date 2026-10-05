@@ -12,11 +12,37 @@ Authority and boundaries:
   families this module implements.
 - The allowed field set is enforced below; nothing outside
   :data:`DECISION_TIME_FEATURES` may be read by a rule.
-"""
+Fallback ladder (required by ``docs/phase2a-m4-method-design-input.md`` §13)
+---------------------------------------------------------------------------
+
+When a rule cannot separate two candidates, resolution follows a fixed,
+documented ladder:
+
+1. **Primary rule key.** The decision-time feature(s) the rule declares.
+2. **Stable logical identity** ``(program_id, prefix_id)``. Always available and
+   deterministic, so every rule induces a total order and no candidate is
+   silently dropped or ordered by accident.
+3. **For the frozen P1B rule only:** an unknown ``decision_native_lru_position``
+   (``None``) sorts last. This is the conservative reading: an unknown position
+   is treated as most-recently-used, therefore most expensive to release, so it
+   is deferred rather than guessed at.
+
+What the ladder explicitly does *not* do:
+
+- it never falls back to LRU recency for a non-P1B rule. Doing so would
+  silently transform every cost rule into the baseline it is being compared
+  against, which would make the comparison meaningless;
+- it never falls back to a future-derived label;
+- it never falls back to input order, which would make results depend on how
+  artifacts happened to be enumerated.
+
+A useful consequence: the entry-level rules (M1/M2/M3) do not read
+``decision_native_lru_position`` at all, so they are unaffected by that
+capability being unsupported in the M6 signal analysis."""
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 
 from kvopt.profiling.datasets import DecisionCandidateRow
@@ -52,10 +78,25 @@ FORBIDDEN_FEATURES = (
 
 _UNKNOWN_LRU_POSITION = 2**31 - 1
 
+#: A rule key receives either the raw candidate sequence or the object returned
+#: by :meth:`CandidateRule.prepare`.
+RuleKeyContext = Sequence[DecisionCandidateRow] | Mapping[tuple[str, str], float]
+
 
 def _identity(candidate: DecisionCandidateRow) -> tuple[str, str]:
-    """Deterministic tie-break, matching the canonical regret ordering."""
+    """Stable logical identity, used as the final deterministic tie-break."""
     return (candidate.program_id, candidate.prefix_id)
+
+
+def fallback_key(candidate: DecisionCandidateRow) -> tuple[str, str]:
+    """Public view of the ladder's step 2.
+
+    Exposed so callers can reproduce the exact fallback the evaluator applies
+    instead of re-deriving it.
+    """
+    if not isinstance(candidate, DecisionCandidateRow):
+        raise TypeError("candidate must be DecisionCandidateRow")
+    return _identity(candidate)
 
 
 def _lru_position(candidate: DecisionCandidateRow) -> int:
@@ -63,20 +104,42 @@ def _lru_position(candidate: DecisionCandidateRow) -> int:
     return _UNKNOWN_LRU_POSITION if position is None else int(position)
 
 
-def _min_max_normalizer(
-    field: str,
-) -> Callable[[Sequence[DecisionCandidateRow], DecisionCandidateRow], float]:
-    def normalize(
-        candidates: Sequence[DecisionCandidateRow], candidate: DecisionCandidateRow
-    ) -> float:
-        values = [float(getattr(item, field)) for item in candidates]
-        low = min(values)
-        high = max(values)
-        if high <= low:
-            return 0.0
-        return (float(getattr(candidate, field)) - low) / (high - low)
+def _prepare_size_score(
+    candidates: Sequence[DecisionCandidateRow],
+) -> Mapping[tuple[str, str], float]:
+    """Precompute the normalized size score once per decision, in O(n).
 
-    return normalize
+    Two things would silently make a decision quadratic here, and both are
+    avoided deliberately:
+
+    - computing the normalization inside the sort key, which rescan every
+      candidate per comparison;
+    - recomputing each field's min/max per candidate inside the preparation,
+      which rescans the group once per field per candidate.
+
+    Both bounds are pinned by
+    ``test_size_score_prepare_does_not_rescan_per_candidate``.
+    """
+    fields = (
+        "prefill_reload_seconds",
+        "block_count",
+        "initially_reclaimable_block_count",
+    )
+    # One pass per field, not one pass per field per candidate.
+    bounds: dict[str, tuple[float, float]] = {}
+    for field in fields:
+        values = [float(getattr(candidate, field)) for candidate in candidates]
+        bounds[field] = (min(values), max(values))
+
+    scores: dict[tuple[str, str], float] = {}
+    for candidate in candidates:
+        total = 0.0
+        for field in fields:
+            low, high = bounds[field]
+            value = float(getattr(candidate, field))
+            total += 0.0 if high <= low else (value - low) / (high - low)
+        scores[_identity(candidate)] = total / len(fields)
+    return scores
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,7 +150,8 @@ class CandidateRule:
     family: str
     description: str
     features: tuple[str, ...]
-    key: Callable[[Sequence[DecisionCandidateRow], DecisionCandidateRow], tuple[object, ...]]
+    key: Callable[[RuleKeyContext, DecisionCandidateRow], tuple[object, ...]]
+    prepare: Callable[[Sequence[DecisionCandidateRow]], RuleKeyContext] | None = None
 
     def __post_init__(self) -> None:
         if not self.rule_id or not self.rule_id.strip():
@@ -100,21 +164,30 @@ class CandidateRule:
         unknown = sorted(set(self.features) - set(DECISION_TIME_FEATURES))
         if unknown:
             raise ValueError(f"rule reads undeclared features: {unknown}")
+        if self.prepare is not None and not callable(self.prepare):
+            raise TypeError("prepare must be callable or None")
 
     def order(
         self, candidates: Sequence[DecisionCandidateRow]
     ) -> tuple[DecisionCandidateRow, ...]:
-        """Return candidates in release order; the first one is released first."""
+        """Return candidates in release order; the first one is released first.
+
+        Applied ladder: primary key, then stable identity. See the module
+        docstring for the full fallback contract.
+        """
         if isinstance(candidates, (str, bytes)) or not isinstance(candidates, Sequence):
             raise TypeError("candidates must be an ordered sequence")
         materialized = tuple(candidates)
         if not materialized:
             return ()
+        context: RuleKeyContext = (
+            materialized if self.prepare is None else self.prepare(materialized)
+        )
         return tuple(
             sorted(
                 materialized,
                 key=lambda candidate: (
-                    self.key(materialized, candidate),
+                    self.key(context, candidate),
                     _identity(candidate),
                 ),
             )
@@ -195,21 +268,22 @@ def _size_score_key(
     candidates: Sequence[DecisionCandidateRow], candidate: DecisionCandidateRow
 ) -> tuple[object, ...]:
     """Normalized additive size/recompute cluster score, tool indicator excluded."""
-    prefill = _min_max_normalizer("prefill_reload_seconds")(candidates, candidate)
-    blocks = _min_max_normalizer("block_count")(candidates, candidate)
-    reclaimable = _min_max_normalizer("initially_reclaimable_block_count")(
-        candidates, candidate
-    )
-    return ((prefill + blocks + reclaimable) / 3.0,)
+def _size_score_key(
+    context: RuleKeyContext, candidate: DecisionCandidateRow
+) -> tuple[object, ...]:
+    """Read the precomputed normalized size score from the prepared context."""
+    if not isinstance(context, Mapping):
+        raise TypeError("size score rule requires its prepared context")
+    return (context[_identity(candidate)],)
 
 
 def _non_code_then_size_score_key(
-    candidates: Sequence[DecisionCandidateRow], candidate: DecisionCandidateRow
+    context: RuleKeyContext, candidate: DecisionCandidateRow
 ) -> tuple[object, ...]:
     """Lexicographic tool indicator first, then the normalized size score."""
     return (
         1 if candidate.next_tool_type == "code" else 0,
-        _size_score_key(candidates, candidate),
+        _size_score_key(context, candidate),
     )
 
 
@@ -293,6 +367,7 @@ CANDIDATE_RULES: tuple[CandidateRule, ...] = (
             "initially_reclaimable_block_count",
         ),
         key=_size_score_key,
+        prepare=_prepare_size_score,
     ),
     CandidateRule(
         rule_id="M3_non_code_then_size_score",
@@ -308,6 +383,7 @@ CANDIDATE_RULES: tuple[CandidateRule, ...] = (
             "initially_reclaimable_block_count",
         ),
         key=_non_code_then_size_score_key,
+        prepare=_prepare_size_score,
     ),
 )
 
