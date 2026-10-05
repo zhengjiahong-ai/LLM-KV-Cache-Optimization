@@ -49,7 +49,14 @@ def _identity(row: DecisionCandidateRow) -> tuple[str, str]:
 
 @dataclass(frozen=True, slots=True)
 class RuleDecisionOutcome:
-    """One rule's regret result for one decision."""
+    """One rule's regret result for one decision.
+
+    ``candidate_loss_tied`` is True when every candidate has the same loss, so no
+    choice can matter. This is the M6 notion of a tied decision, and it is
+    deliberately independent of whether *this rule* captured the available
+    headroom: conflating the two would make the misselection rate hide decisions
+    where headroom exists but the rule failed to take it.
+    """
 
     rule_id: str
     run_id: str
@@ -65,13 +72,6 @@ class RuleDecisionOutcome:
     normalized_regret: float
     selected_is_hindsight_best: bool
     candidate_loss_tied: bool
-    """True when every candidate has the same loss, so no choice can matter.
-
-    This is the M6 notion of a tied decision. It is deliberately independent of
-    whether *this rule* captured the available headroom: conflating the two
-    would make the misselection rate hide decisions where headroom exists but
-    the rule failed to take it.
-    """
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,6 +98,53 @@ class DegeneracyAuditRow:
     shared_decisions: int
     identical_selection_count: int
     identical_selection_rate: float | None
+
+
+@dataclass(frozen=True, slots=True)
+class DenominatorDiagnosticRow:
+    """One decision's evidence for the handoff section 10c sub-question.
+
+    Section 10c asks whether dividing by the reclaimable-block count cancels the
+    useful cost signal. If the metadata denominator moves in lockstep with the
+    cost numerator, the ratio stops being a cost measure and becomes noise.
+    """
+
+    run_id: str
+    decision_event_index: int
+    candidate_count: int
+    denominator_is_constant: bool
+    """True when every candidate frees the same number of blocks."""
+    numerator_denominator_spearman: float | None
+    """Within-decision rank association between cost and the denominator."""
+    rank_inversions: int
+    """Pairs whose order flips when the denominator is applied."""
+    comparable_pairs: int
+
+
+@dataclass(frozen=True, slots=True)
+class AblationRow:
+    """One feature on/off comparison built from existing rule pairs."""
+
+    variant: str
+    changes: str
+    shared_decisions: int
+    identical_selection_rate: float | None
+    mean_normalized_regret: float
+    baseline_mean_normalized_regret: float
+
+
+@dataclass(frozen=True, slots=True)
+class BehaviourBreakdown:
+    """Aggregates for one rule, split by one contextual dimension."""
+
+    rule_id: str
+    dimension: str
+    bucket: str
+    decisions: int
+    non_tied_decisions: int
+    misselection_rate: float | None
+    mean_absolute_regret: float
+    mean_normalized_regret: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -451,3 +498,203 @@ def leave_one_family_out(
             aggregate.rule_id: aggregate for aggregate in evaluation.aggregates
         }
     return result
+
+
+def _spearman(values_a: Sequence[float], values_b: Sequence[float]) -> float | None:
+    """Tie-aware Spearman rank correlation, or None when it is undefined."""
+    if len(values_a) != len(values_b):
+        raise ValueError("spearman inputs must have equal length")
+    if len(values_a) < 2:
+        return None
+
+    def ranks(values: Sequence[float]) -> list[float]:
+        order = sorted(range(len(values)), key=lambda index: values[index])
+        result = [0.0] * len(values)
+        start = 0
+        while start < len(order):
+            end = start
+            while end + 1 < len(order) and values[order[end + 1]] == values[order[start]]:
+                end += 1
+            average = (start + end) / 2 + 1
+            for index in range(start, end + 1):
+                result[order[index]] = average
+            start = end + 1
+        return result
+
+    ranks_a = ranks(values_a)
+    ranks_b = ranks(values_b)
+    mean_a = statistics.fmean(ranks_a)
+    mean_b = statistics.fmean(ranks_b)
+    cov = sum(
+        (left - mean_a) * (right - mean_b) for left, right in zip(ranks_a, ranks_b)
+    )
+    var_a = sum((left - mean_a) ** 2 for left in ranks_a)
+    var_b = sum((right - mean_b) ** 2 for right in ranks_b)
+    if var_a == 0.0 or var_b == 0.0:
+        return None
+    return cov / (var_a * var_b) ** 0.5
+
+
+def denominator_diagnostic(
+    candidates: Sequence[DecisionCandidateRow],
+) -> tuple[DenominatorDiagnosticRow, ...]:
+    """Test handoff section 10c: does the reclaimable denominator cancel cost?
+
+    Compares the cost ordering against the ``cost / reclaimable`` ordering inside
+    each decision. If the two orderings disagree arbitrarily, the ratio is not a
+    cost measure and the previously rejected marginal-denominator rule cannot be
+    justified by it.
+    """
+    by_decision: dict[tuple[str, int], list[DecisionCandidateRow]] = defaultdict(list)
+    for row in candidates:
+        by_decision[(row.run_id, row.decision_event_index)].append(row)
+
+    rows: list[DenominatorDiagnosticRow] = []
+    for key in sorted(by_decision):
+        group = [row for row in by_decision[key] if row.initially_reclaimable_block_count > 0]
+        if len(group) < 2:
+            continue
+        costs = [float(row.prefill_reload_seconds) for row in group]
+        denominators = [float(row.initially_reclaimable_block_count) for row in group]
+        ratios = [cost / denominator for cost, denominator in zip(costs, denominators)]
+
+        inversions = 0
+        pairs = 0
+        for left in range(len(group)):
+            for right in range(left + 1, len(group)):
+                pairs += 1
+                cost_order = costs[left] - costs[right]
+                ratio_order = ratios[left] - ratios[right]
+                if cost_order == 0.0 or ratio_order == 0.0:
+                    continue
+                if (cost_order > 0) != (ratio_order > 0):
+                    inversions += 1
+
+        rows.append(
+            DenominatorDiagnosticRow(
+                run_id=key[0],
+                decision_event_index=key[1],
+                candidate_count=len(group),
+                denominator_is_constant=len(set(denominators)) == 1,
+                numerator_denominator_spearman=_spearman(costs, denominators),
+                rank_inversions=inversions,
+                comparable_pairs=pairs,
+            )
+        )
+    return tuple(rows)
+
+
+#: Feature on/off comparisons required by handoff section 9's ablation list.
+ABLATION_PAIRS: tuple[tuple[str, str, str], ...] = (
+    (
+        "size cluster: cost alone vs footprint alone",
+        "M1_prefill_reload_ascending -> M1_block_count_ascending",
+        "M1_prefill_reload_ascending:M1_block_count_ascending",
+    ),
+    (
+        "size cluster: cost alone vs reclaimable alone",
+        "M1_prefill_reload_ascending -> M1_reclaimable_ascending",
+        "M1_prefill_reload_ascending:M1_reclaimable_ascending",
+    ),
+    (
+        "size cluster: cost alone vs all three averaged",
+        "M1_prefill_reload_ascending -> M3_size_score_only",
+        "M1_prefill_reload_ascending:M3_size_score_only",
+    ),
+    (
+        "tool indicator: off vs on, cost primary",
+        "M1_prefill_reload_ascending -> M3_non_code_then_small_prefill",
+        "M1_prefill_reload_ascending:M3_non_code_then_small_prefill",
+    ),
+    (
+        "tool indicator: off vs on, size score primary",
+        "M3_size_score_only -> M3_non_code_then_size_score",
+        "M3_size_score_only:M3_non_code_then_size_score",
+    ),
+    (
+        "denominator: cost alone vs cost/reclaimable",
+        "M1_prefill_reload_ascending -> M1_marginal_cost_per_reclaimable",
+        "M1_prefill_reload_ascending:M1_marginal_cost_per_reclaimable",
+    ),
+)
+
+
+def ablation_table(evaluation: RuleEvaluation) -> tuple[AblationRow, ...]:
+    """Feature on/off comparison using the existing rule set.
+
+    An ablation that never changes a selection cannot be credited with an effect,
+    so the rank-identity rate is reported next to the regret difference. A high
+    identity rate with a regret difference would mean the two rules tie with the
+    baseline for the same reason.
+    """
+    aggregates = {row.rule_id: row for row in evaluation.aggregates}
+    identity = {
+        frozenset((row.rule_a, row.rule_b)): row.identical_selection_rate
+        for row in evaluation.degeneracy
+    }
+
+    rows: list[AblationRow] = []
+    for label, changes, pair in ABLATION_PAIRS:
+        left_id, right_id = pair.split(":")
+        left = aggregates.get(left_id)
+        right = aggregates.get(right_id)
+        if left is None or right is None:
+            continue
+        rows.append(
+            AblationRow(
+                variant=label,
+                changes=changes,
+                shared_decisions=left.decisions,
+                identical_selection_rate=identity.get(frozenset((left_id, right_id))),
+                mean_normalized_regret=right.mean_normalized_regret,
+                baseline_mean_normalized_regret=left.mean_normalized_regret,
+            )
+        )
+    return tuple(rows)
+
+
+def behaviour_breakdown(
+    evaluation: RuleEvaluation,
+    *,
+    dimensions: Sequence[str] = ("scenario_family", "candidate_count", "selection_count"),
+) -> tuple[BehaviourBreakdown, ...]:
+    """Split each rule's outcomes by the contextual dimensions handoff section 9 lists."""
+    if not dimensions:
+        raise ValueError("dimensions must not be empty")
+    unknown = sorted(set(dimensions) - {"scenario_family", "candidate_count", "selection_count"})
+    if unknown:
+        raise ValueError(f"unsupported dimensions: {unknown}")
+
+    grouped: dict[tuple[str, str, str], list[RuleDecisionOutcome]] = defaultdict(list)
+    for outcome in evaluation.outcomes:
+        for dimension in dimensions:
+            if dimension == "scenario_family":
+                bucket = outcome.scenario_family_id or "(unlabelled)"
+            elif dimension == "candidate_count":
+                bucket = f"n={outcome.candidate_count}"
+            else:
+                bucket = f"releases={outcome.selection_count}"
+            grouped[(outcome.rule_id, dimension, bucket)].append(outcome)
+
+    rows: list[BehaviourBreakdown] = []
+    for (rule_id, dimension, bucket) in sorted(grouped):
+        outcomes = grouped[(rule_id, dimension, bucket)]
+        non_tied = [row for row in outcomes if not row.candidate_loss_tied]
+        worse = [row for row in non_tied if not row.selected_is_hindsight_best]
+        rows.append(
+            BehaviourBreakdown(
+                rule_id=rule_id,
+                dimension=dimension,
+                bucket=bucket,
+                decisions=len(outcomes),
+                non_tied_decisions=len(non_tied),
+                misselection_rate=(len(worse) / len(non_tied)) if non_tied else None,
+                mean_absolute_regret=statistics.fmean(
+                    row.absolute_regret for row in outcomes
+                ),
+                mean_normalized_regret=statistics.fmean(
+                    row.normalized_regret for row in outcomes
+                ),
+            )
+        )
+    return tuple(rows)

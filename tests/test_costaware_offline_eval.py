@@ -5,7 +5,11 @@ from __future__ import annotations
 import pytest
 
 from kvopt.costaware.offline_eval import (
+    ABLATION_PAIRS,
     CANONICAL_LOSS_VIEW,
+    ablation_table,
+    behaviour_breakdown,
+    denominator_diagnostic,
     evaluate_rules,
     leave_one_family_out,
     paired_comparison,
@@ -585,3 +589,152 @@ def test_multi_release_decisions_aggregate_across_a_run() -> None:
     assert aggregate.non_tied_decisions == 2
     assert aggregate.strictly_worse_decisions == 0
     assert aggregate.misselection_rate == pytest.approx(0.0)
+
+
+# --- Denominator diagnostic (handoff section 10c) -------------------------
+
+
+def test_denominator_diagnostic_flags_a_constant_denominator() -> None:
+    """A constant denominator makes the ratio a pure rescaling."""
+    candidates, _evidence = _planned_proxy_dataset(
+        sizes=[0.3, 0.2, 0.1],
+        returns_within_horizon={0, 1, 2},
+        selected_positions={0},
+    )
+    flat = tuple(
+        DecisionCandidateRow(
+            **{
+                **{
+                    field: getattr(row, field)
+                    for field in DecisionCandidateRow.__dataclass_fields__
+                },
+                "initially_reclaimable_block_ids": tuple(range(4)),
+                "initially_reclaimable_block_count": 4,
+            }
+        )
+        for row in candidates
+    )
+    rows = denominator_diagnostic(flat)
+    assert len(rows) == 1
+    assert rows[0].denominator_is_constant is True
+    assert rows[0].numerator_denominator_spearman is None
+    assert rows[0].rank_inversions == 0
+
+
+def test_denominator_diagnostic_detects_ordering_inversions() -> None:
+    """A monotone but non-proportional denominator reverses the cost order."""
+    # costs 1:2:4 with denominators 1:4:16 give ratios 1 : 0.5 : 0.25 -> reversed.
+    candidates, _evidence = _planned_proxy_dataset(
+        sizes=[0.1, 0.2, 0.4],
+        returns_within_horizon={0, 1, 2},
+        selected_positions={0},
+    )
+    scaled = tuple(
+        DecisionCandidateRow(
+            **{
+                **{
+                    field: getattr(row, field)
+                    for field in DecisionCandidateRow.__dataclass_fields__
+                },
+                "initially_reclaimable_block_ids": tuple(range(4 ** index)),
+                "initially_reclaimable_block_count": 4**index,
+            }
+        )
+        for index, row in enumerate(candidates)
+    )
+    rows = denominator_diagnostic(scaled)
+    assert len(rows) == 1
+    assert rows[0].denominator_is_constant is False
+    assert rows[0].numerator_denominator_spearman == pytest.approx(1.0)
+    # Every comparable pair flips, because the denominator grows superlinearly.
+    assert rows[0].rank_inversions == rows[0].comparable_pairs == 3
+
+
+def test_denominator_diagnostic_skips_single_candidate_decisions() -> None:
+    candidates, _evidence = _planned_proxy_dataset(
+        sizes=[0.1],
+        returns_within_horizon={0},
+        selected_positions={0},
+    )
+    assert denominator_diagnostic(candidates) == ()
+
+
+# --- Ablation table (handoff section 9) -----------------------------------
+
+
+def test_ablation_pairs_reference_registered_rules() -> None:
+    """Every declared ablation must name rules that actually exist."""
+    from kvopt.costaware.rules import rule_by_id
+
+    for _label, _changes, pair in ABLATION_PAIRS:
+        left_id, right_id = pair.split(":")
+        assert rule_by_id(left_id).rule_id == left_id
+        assert rule_by_id(right_id).rule_id == right_id
+
+
+def test_ablation_table_reports_identity_and_regret_difference() -> None:
+    evaluation = _evaluate()
+    rows = ablation_table(evaluation)
+    assert rows
+    by_variant = {row.variant: row for row in rows}
+    key = "size cluster: cost alone vs footprint alone"
+    assert key in by_variant
+    row = by_variant[key]
+    # The size cluster is rank-identical on this fixture.
+    assert row.identical_selection_rate == pytest.approx(1.0)
+    assert row.mean_normalized_regret == pytest.approx(
+        row.baseline_mean_normalized_regret
+    )
+
+
+def test_ablation_table_shows_a_non_identical_toggle() -> None:
+    """The tool indicator must actually change selections on this fixture."""
+    evaluation = _evaluate()
+    rows = {row.variant: row for row in ablation_table(evaluation)}
+    row = rows["tool indicator: off vs on, cost primary"]
+    assert row.identical_selection_rate is not None
+    assert row.identical_selection_rate < 1.0
+
+
+# --- Behaviour breakdown (handoff section 9) ------------------------------
+
+
+def test_behaviour_breakdown_covers_all_requested_dimensions() -> None:
+    rows = behaviour_breakdown(_evaluate())
+    assert rows
+    assert {row.dimension for row in rows} == {
+        "scenario_family",
+        "candidate_count",
+        "selection_count",
+    }
+
+
+def test_behaviour_breakdown_splits_by_family() -> None:
+    rows = [
+        row
+        for row in behaviour_breakdown(_evaluate(), dimensions=("scenario_family",))
+        if row.rule_id == "M2_non_code_first"
+    ]
+    buckets = {row.bucket for row in rows}
+    assert buckets == {"F1", "F2"}
+    assert sum(row.decisions for row in rows) == 3
+
+
+def test_behaviour_breakdown_splits_by_candidate_count_and_releases() -> None:
+    rows = behaviour_breakdown(
+        _evaluate(), dimensions=("candidate_count", "selection_count")
+    )
+    by_size = {row.bucket for row in rows if row.dimension == "candidate_count"}
+    by_release = {row.bucket for row in rows if row.dimension == "selection_count"}
+    assert by_size == {"n=2", "n=3"}
+    assert by_release == {"releases=1"}
+
+
+def test_behaviour_breakdown_rejects_unknown_dimension() -> None:
+    with pytest.raises(ValueError, match="unsupported dimensions"):
+        behaviour_breakdown(_evaluate(), dimensions=("not_a_dimension",))
+
+
+def test_behaviour_breakdown_rejects_empty_dimensions() -> None:
+    with pytest.raises(ValueError, match="dimensions must not be empty"):
+        behaviour_breakdown(_evaluate(), dimensions=())

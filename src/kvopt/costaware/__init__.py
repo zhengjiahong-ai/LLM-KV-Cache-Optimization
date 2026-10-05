@@ -12,11 +12,18 @@ Authority:
 """
 
 from .offline_eval import (
+    ABLATION_PAIRS,
+    AblationRow,
     BaselineReproduction,
+    BehaviourBreakdown,
     DegeneracyAuditRow,
+    DenominatorDiagnosticRow,
     RuleAggregate,
     RuleDecisionOutcome,
     RuleEvaluation,
+    ablation_table,
+    behaviour_breakdown,
+    denominator_diagnostic,
     evaluate_rules,
     reproduce_executed_baseline,
 )
@@ -29,15 +36,22 @@ from .rules import (
 )
 
 __all__ = [
+    "ABLATION_PAIRS",
     "CANDIDATE_RULES",
     "DECISION_TIME_FEATURES",
     "FORBIDDEN_FEATURES",
+    "AblationRow",
     "BaselineReproduction",
+    "BehaviourBreakdown",
     "CandidateRule",
     "DegeneracyAuditRow",
+    "DenominatorDiagnosticRow",
     "RuleAggregate",
     "RuleDecisionOutcome",
     "RuleEvaluation",
+    "ablation_table",
+    "behaviour_breakdown",
+    "denominator_diagnostic",
     "evaluate_rules",
     "reproduce_executed_baseline",
     "rule_by_id",
