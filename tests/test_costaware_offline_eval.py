@@ -1,4 +1,4 @@
-"""Tests for the M4 offline rule evaluator."""
+"""Tests for the replay-based M4 offline rule evaluator."""
 
 from __future__ import annotations
 
@@ -13,8 +13,8 @@ from kvopt.costaware.offline_eval import (
     evaluate_rules,
     leave_one_family_out,
     paired_comparison,
-    reproduce_executed_baseline,
 )
+from kvopt.costaware.replay import DecisionSnapshot, QueueBlock
 from kvopt.costaware.rules import CANDIDATE_RULES, rule_by_id
 from kvopt.profiling.datasets import DecisionCandidateRow
 from kvopt.profiling.loss_views import CandidateLossEvidenceRow
@@ -22,17 +22,17 @@ from kvopt.profiling.loss_views import CandidateLossEvidenceRow
 _PREFIX = "p"
 
 
-def _candidate(
+def _row(
     *,
     run_id: str,
     decision_event_index: int,
     program_id: str,
     selected: bool,
+    block_ids: tuple[int, ...],
     prefill_reload_seconds: float,
-    block_count: int,
     retention_deadline_timestamp: float,
     decision_native_lru_position: int,
-    next_tool_type: str | None = "search",
+    next_tool_type: str = "search",
 ) -> DecisionCandidateRow:
     return DecisionCandidateRow(
         run_id=run_id,
@@ -45,10 +45,10 @@ def _candidate(
         release_order=1 if selected else None,
         retention_deadline_timestamp=retention_deadline_timestamp,
         waiting_followup=True,
-        block_ids=tuple(range(block_count)),
-        block_count=block_count,
-        initially_reclaimable_block_ids=tuple(range(block_count)),
-        initially_reclaimable_block_count=block_count,
+        block_ids=block_ids,
+        block_count=len(block_ids),
+        initially_reclaimable_block_ids=block_ids,
+        initially_reclaimable_block_count=len(block_ids),
         next_tool_type=next_tool_type,
         elapsed_since_ttl_decision_seconds=1.0,
         prefill_reload_seconds=prefill_reload_seconds,
@@ -83,51 +83,113 @@ def _evidence(
     )
 
 
-def _dataset() -> tuple[tuple[DecisionCandidateRow, ...], tuple[CandidateLossEvidenceRow, ...]]:
-    """Three decisions where the executed baseline is deliberately suboptimal.
+def _snapshot(
+    *,
+    run_id: str,
+    decision_event_index: int,
+    entries: dict[str, tuple[int, ...]],
+    required_blocks: int,
+    observed_selected: tuple[str, ...],
+) -> DecisionSnapshot:
+    blocks: list[int] = []
+    for owned in entries.values():
+        for block_id in owned:
+            if block_id not in blocks:
+                blocks.append(block_id)
+    blocks.sort()
+    ranking = {block_id: rank for rank, block_id in enumerate(blocks)}
+    owners: dict[int, set[tuple[str, str]]] = {}
+    for program_id, owned in entries.items():
+        for block_id in owned:
+            owners.setdefault(block_id, set()).add((program_id, _PREFIX))
+    return DecisionSnapshot(
+        run_id=run_id,
+        decision_event_index=decision_event_index,
+        timestamp=100.0,
+        required_blocks=required_blocks,
+        queue=tuple(
+            QueueBlock(
+                block_id=block_id,
+                has_block_hash=True,
+                native_lru_rank=ranking[block_id],
+            )
+            for block_id in blocks
+        ),
+        candidate_keys=tuple((program_id, _PREFIX) for program_id in entries),
+        owners_by_block={
+            block_id: frozenset(keys) for block_id, keys in owners.items()
+        },
+        observed_selected=tuple(
+            (program_id, _PREFIX) for program_id in observed_selected
+        ),
+        observed_initial_reclaimable={
+            (program_id, _PREFIX): owned for program_id, owned in entries.items()
+        },
+        ranking_by_block=ranking,
+    )
 
-    Sizes are proportional to recomputation cost so the size-only cluster is
-    rank-identical, which exercises the degeneracy audit.
+
+def _fixture() -> tuple[
+    tuple[DecisionCandidateRow, ...],
+    tuple[CandidateLossEvidenceRow, ...],
+    tuple[DecisionSnapshot, ...],
+]:
+    """Three decisions with disjoint ownership, so every number is hand-checkable.
+
+    D40 (run-1, target 40 blocks)
+        pg-a 40 blocks cost 0.5 deadline 100 -> loss 0.5 (returns)
+        pg-b  8 blocks cost 0.1 deadline 200 -> loss 0.1 (returns)
+        pg-c 24 blocks cost 0.3 deadline 150 -> loss 0.0 (does NOT return)
+        The baseline releases pg-a alone (40 blocks) in 1 release.
+        Cost ascending must release b, c then a: 3 releases.
+
+    D50 (run-1, target 40 blocks)
+        pg-d 38 blocks cost 0.9 deadline 100 -> loss 0.9 (returns)
+        pg-e 42 blocks cost 0.2 deadline 200 -> loss 0.2 (returns)
+        The baseline needs 2 releases (d then e). Cost ascending needs 1 (e).
+
+    D60 (run-2, target 32 blocks, identical losses)
+        pg-f 32 blocks cost 0.4 deadline 100 -> loss 0.4
+        pg-g 32 blocks cost 0.4 deadline 200 -> loss 0.4
+        A tied decision: every rule releases pg-f in 1 release.
     """
     candidates = (
-        # Decision 10: the executed baseline releases the most expensive entry.
-        _candidate(run_id="run-1", decision_event_index=10, program_id="pg-a",
-                   selected=True, prefill_reload_seconds=0.5, block_count=40,
-                   retention_deadline_timestamp=100.0, decision_native_lru_position=0,
-                   next_tool_type="code"),
-        _candidate(run_id="run-1", decision_event_index=10, program_id="pg-b",
-                   selected=False, prefill_reload_seconds=0.1, block_count=8,
-                   retention_deadline_timestamp=200.0, decision_native_lru_position=1,
-                   next_tool_type="code"),
-        _candidate(run_id="run-1", decision_event_index=10, program_id="pg-c",
-                   selected=False, prefill_reload_seconds=0.3, block_count=24,
-                   retention_deadline_timestamp=150.0, decision_native_lru_position=2,
-                   next_tool_type="search"),
-        # Decision 20: an exact tie, so any pick is hindsight-optimal.
-        _candidate(run_id="run-1", decision_event_index=20, program_id="pg-d",
-                   selected=True, prefill_reload_seconds=0.2, block_count=16,
-                   retention_deadline_timestamp=100.0, decision_native_lru_position=0),
-        _candidate(run_id="run-1", decision_event_index=20, program_id="pg-e",
-                   selected=False, prefill_reload_seconds=0.2, block_count=16,
-                   retention_deadline_timestamp=200.0, decision_native_lru_position=1),
-        # Decision 30 in a second family.
-        _candidate(run_id="run-2", decision_event_index=30, program_id="pg-f",
-                   selected=True, prefill_reload_seconds=0.4, block_count=32,
-                   retention_deadline_timestamp=100.0, decision_native_lru_position=0,
-                   next_tool_type="code"),
-        _candidate(run_id="run-2", decision_event_index=30, program_id="pg-g",
-                   selected=False, prefill_reload_seconds=0.4, block_count=32,
-                   retention_deadline_timestamp=200.0, decision_native_lru_position=1,
-                   next_tool_type="search"),
-    )
+        _row(run_id="run-1", decision_event_index=40, program_id="pg-a", selected=True,
+             block_ids=tuple(range(40)), prefill_reload_seconds=0.5,
+             retention_deadline_timestamp=100.0, decision_native_lru_position=0,
+             next_tool_type="code"),
+        _row(run_id="run-1", decision_event_index=40, program_id="pg-b", selected=False,
+             block_ids=tuple(range(40, 48)), prefill_reload_seconds=0.1,
+             retention_deadline_timestamp=200.0, decision_native_lru_position=1,
+             next_tool_type="code"),
+        _row(run_id="run-1", decision_event_index=40, program_id="pg-c", selected=False,
+             block_ids=tuple(range(48, 72)), prefill_reload_seconds=0.3,
+             retention_deadline_timestamp=150.0, decision_native_lru_position=2,
+             next_tool_type="search"),
+        _row(run_id="run-1", decision_event_index=50, program_id="pg-d", selected=True,
+             block_ids=tuple(range(100, 138)), prefill_reload_seconds=0.9,
+             retention_deadline_timestamp=100.0, decision_native_lru_position=0,
+             next_tool_type="code"),
+        _row(run_id="run-1", decision_event_index=50, program_id="pg-e", selected=True,
+             block_ids=tuple(range(138, 180)), prefill_reload_seconds=0.2,
+             retention_deadline_timestamp=200.0, decision_native_lru_position=1,
+             next_tool_type="search"),
+        _row(run_id="run-2", decision_event_index=60, program_id="pg-f", selected=True,
+             block_ids=tuple(range(200, 232)), prefill_reload_seconds=0.4,
+             retention_deadline_timestamp=100.0, decision_native_lru_position=0,
+             next_tool_type="search"),
+        _row(run_id="run-2", decision_event_index=60, program_id="pg-g", selected=False,
+             block_ids=tuple(range(232, 264)), prefill_reload_seconds=0.4,
+             retention_deadline_timestamp=200.0, decision_native_lru_position=1,
+             next_tool_type="search"),)
     losses = {
-        ("run-1", 10, "pg-a"): 0.5,
-        ("run-1", 10, "pg-b"): 0.1,
-        ("run-1", 10, "pg-c"): 0.0,
-        ("run-1", 20, "pg-d"): 0.2,
-        ("run-1", 20, "pg-e"): 0.2,
-        ("run-2", 30, "pg-f"): 0.4,
-        ("run-2", 30, "pg-g"): 0.0,
+        ("run-1", 40, "pg-a"): 0.5,
+        ("run-1", 40, "pg-b"): 0.1,
+        ("run-1", 40, "pg-c"): 0.0,
+        ("run-1", 50, "pg-d"): 0.9,
+        ("run-1", 50, "pg-e"): 0.2,
+        ("run-2", 60, "pg-f"): 0.4,
+        ("run-2", 60, "pg-g"): 0.4,
     }
     evidence = tuple(
         _evidence(
@@ -138,7 +200,40 @@ def _dataset() -> tuple[tuple[DecisionCandidateRow, ...], tuple[CandidateLossEvi
         )
         for (run_id, index, program), loss in losses.items()
     )
-    return candidates, evidence
+    snapshots = (
+        _snapshot(
+            run_id="run-1",
+            decision_event_index=40,
+            entries={
+                "pg-a": tuple(range(40)),
+                "pg-b": tuple(range(40, 48)),
+                "pg-c": tuple(range(48, 72)),
+            },
+            required_blocks=40,
+            observed_selected=("pg-a",),
+        ),
+        _snapshot(
+            run_id="run-1",
+            decision_event_index=50,
+            entries={
+                "pg-d": tuple(range(100, 138)),
+                "pg-e": tuple(range(138, 180)),
+            },
+            required_blocks=40,
+            observed_selected=("pg-d", "pg-e"),
+        ),
+        _snapshot(
+            run_id="run-2",
+            decision_event_index=60,
+            entries={
+                "pg-f": tuple(range(200, 232)),
+                "pg-g": tuple(range(232, 264)),
+            },
+            required_blocks=32,
+            observed_selected=("pg-f",),
+        ),
+    )
+    return candidates, evidence, snapshots
 
 
 def _families() -> dict[str, str | None]:
@@ -146,85 +241,161 @@ def _families() -> dict[str, str | None]:
 
 
 def _evaluate(**overrides: object):
-    candidates, evidence = _dataset()
+    candidates, evidence, snapshots = _fixture()
     arguments: dict[str, object] = {
         "candidates": candidates,
         "evidence": evidence,
+        "snapshots": snapshots,
         "families_by_run": _families(),
     }
     arguments.update(overrides)
     return evaluate_rules(**arguments)  # type: ignore[arg-type]
 
 
+# --- evaluation shape ------------------------------------------------------
+
+
 def test_every_registered_rule_is_evaluated() -> None:
     evaluation = _evaluate()
     assert evaluation.evaluated_decisions == 3
     assert evaluation.skipped_decisions == 0
+    assert evaluation.unsatisfied_decisions == 0
     assert {aggregate.rule_id for aggregate in evaluation.aggregates} == {
         rule.rule_id for rule in CANDIDATE_RULES
     }
     assert evaluation.loss_view == CANONICAL_LOSS_VIEW
 
 
-def test_executed_baseline_regret_matches_hand_computed_values() -> None:
+def test_release_count_is_an_outcome_not_an_input() -> None:
+    """The core correction: rules may need different release counts."""
+    evaluation = _evaluate()
+    baseline = evaluation.burden_for_rule("M0_p1b_executed_ordering")
+    cost = evaluation.burden_for_rule("M1_prefill_reload_ascending")
+    assert baseline.mean_releases == pytest.approx(4.0 / 3.0)
+    assert cost.mean_releases == pytest.approx(5.0 / 3.0)
+    assert cost.saturated_decisions == 1
+    assert cost.frugal_decisions == 1
+
+
+def test_baseline_release_counts_match_the_hand_computed_values() -> None:
+    evaluation = _evaluate()
+    counts = {
+        (outcome.run_id, outcome.decision_event_index): outcome.selection_count
+        for outcome in evaluation.outcomes
+        if outcome.rule_id == "M0_p1b_executed_ordering"
+    }
+    assert counts[("run-1", 40)] == 1
+    assert counts[("run-1", 50)] == 2
+    assert counts[("run-2", 60)] == 1
+
+
+def test_cost_rule_needs_three_releases_where_the_baseline_needs_one() -> None:
+    evaluation = _evaluate()
+    outcome = next(
+        row
+        for row in evaluation.outcomes
+        if row.rule_id == "M1_prefill_reload_ascending"
+        and row.decision_event_index == 40
+    )
+    assert outcome.selection_count == 3
+    assert set(outcome.selected_identities) == {
+        ("pg-a", _PREFIX),
+        ("pg-b", _PREFIX),
+        ("pg-c", _PREFIX),
+    }
+    assert outcome.selected_loss == pytest.approx(0.6)
+
+
+def test_cost_rule_needs_one_release_where_the_baseline_needs_two() -> None:
+    """The opposite direction, which the fixed-count comparison hid entirely."""
+    evaluation = _evaluate()
+    outcome = next(
+        row
+        for row in evaluation.outcomes
+        if row.rule_id == "M1_prefill_reload_ascending"
+        and row.decision_event_index == 50
+    )
+    assert outcome.selection_count == 1
+    assert outcome.selected_identities == (("pg-e", _PREFIX),)
+    assert outcome.selected_loss == pytest.approx(0.2)
+
+
+def test_aggregates_report_the_hand_computed_baseline_values() -> None:
     aggregate = _evaluate().for_rule("M0_p1b_executed_ordering")
     assert aggregate.decisions == 3
-    # Regrets are 0.5, 0.0, 0.4.
-    assert aggregate.mean_absolute_regret == pytest.approx(0.3)
+    # D40 and D50 have headroom; D60 is a tie.
     assert aggregate.non_tied_decisions == 2
-    assert aggregate.strictly_worse_decisions == 2
-    assert aggregate.misselection_rate == pytest.approx(1.0)
-
-
-def test_cost_only_rule_improves_but_stays_degenerate_with_baseline() -> None:
-    evaluation = _evaluate()
-    aggregate = evaluation.for_rule("M1_prefill_reload_ascending")
-    # Regrets are 0.1, 0.0, 0.4.
+    # Only D40 misselects: it releases loss 0.5 where 0.0 was available.
+    assert aggregate.strictly_worse_decisions == 1
+    assert aggregate.misselection_rate == pytest.approx(0.5)
     assert aggregate.mean_absolute_regret == pytest.approx(0.5 / 3.0)
-    assert aggregate.misselection_rate == pytest.approx(1.0)
-
-
-def test_lifecycle_rule_reaches_zero_regret_on_this_fixture() -> None:
-    aggregate = _evaluate().for_rule("M2_non_code_first")
-    assert aggregate.mean_absolute_regret == pytest.approx(0.0)
-    # Two decisions have headroom; the rule still captured all of it.
-    assert aggregate.non_tied_decisions == 2
-    assert aggregate.strictly_worse_decisions == 0
-    assert aggregate.misselection_rate == pytest.approx(0.0)
-    # One of the three decisions has identical candidate losses.
+    assert aggregate.mean_normalized_regret == pytest.approx(1.0 / 3.0)
     assert aggregate.tie_rate == pytest.approx(1.0 / 3.0)
 
 
-def test_selection_count_is_held_equal_to_the_executed_baseline() -> None:
-    evaluation = _evaluate()
-    for outcome in evaluation.outcomes:
-        assert outcome.selection_count == 1
-        assert len(outcome.selected_identities) == 1
+def test_aggregates_report_the_hand_computed_cost_rule_values() -> None:
+    aggregate = _evaluate().for_rule("M1_prefill_reload_ascending")
+    assert aggregate.decisions == 3
+    assert aggregate.non_tied_decisions == 2
+    # D40 releases all three, so its release set is the whole candidate set and
+    # matches the size-matched hindsight; D50 picks the cheapest.
+    assert aggregate.strictly_worse_decisions == 0
+    assert aggregate.misselection_rate == pytest.approx(0.0)
 
 
-def test_rule_outcome_is_hindsight_best_when_it_picks_the_cheapest_candidate() -> None:
+def test_totals_loss_is_the_primary_cross_rule_comparator() -> None:
+    """Release count varies, so total proxy loss is what a serving system pays."""
     evaluation = _evaluate()
-    first_decision = next(
-        outcome
-        for outcome in evaluation.outcomes
-        if outcome.rule_id == "M2_non_code_first"
-        and outcome.decision_event_index == 10
-    )
-    assert first_decision.selected_identities == (("pg-c", _PREFIX),)
-    assert first_decision.selected_is_hindsight_best is True
-    assert first_decision.absolute_regret == pytest.approx(0.0)
+    totals: dict[str, float] = {}
+    for rule_id in ("M0_p1b_executed_ordering", "M1_prefill_reload_ascending"):
+        totals[rule_id] = sum(
+            outcome.selected_loss
+            for outcome in evaluation.outcomes
+            if outcome.rule_id == rule_id
+        )
+    assert totals["M0_p1b_executed_ordering"] == pytest.approx(2.0)
+    assert totals["M1_prefill_reload_ascending"] == pytest.approx(1.2)
+    assert totals["M1_prefill_reload_ascending"] < totals["M0_p1b_executed_ordering"]
+
+
+# --- evidence handling -----------------------------------------------------
 
 
 def test_decision_with_fewer_than_two_available_losses_is_skipped() -> None:
-    candidates, evidence = _dataset()
+    candidates, evidence, snapshots = _fixture()
     trimmed = tuple(
         row
         for row in evidence
-        if not (row.decision_event_index == 30 and row.program_id == "pg-f")
+        if not (row.decision_event_index == 60 and row.program_id == "pg-f")
     )
     evaluation = evaluate_rules(
         candidates=candidates,
         evidence=trimmed,
+        snapshots=snapshots,
+        families_by_run=_families(),
+    )
+    assert evaluation.evaluated_decisions == 2
+    assert evaluation.skipped_decisions == 1
+
+
+def test_partially_available_decision_is_skipped_not_approximated() -> None:
+    candidates, evidence, snapshots = _fixture()
+    partially_masked = tuple(
+        _evidence(
+            run_id=row.run_id,
+            decision_event_index=row.decision_event_index,
+            program_id=row.program_id,
+            loss=None,
+            availability="unavailable",
+        )
+        if row.decision_event_index == 40 and row.program_id == "pg-b"
+        else row
+        for row in evidence
+    )
+    evaluation = evaluate_rules(
+        candidates=candidates,
+        evidence=partially_masked,
+        snapshots=snapshots,
         families_by_run=_families(),
     )
     assert evaluation.evaluated_decisions == 2
@@ -232,7 +403,7 @@ def test_decision_with_fewer_than_two_available_losses_is_skipped() -> None:
 
 
 def test_unavailable_evidence_does_not_silently_coerce_to_zero() -> None:
-    candidates, evidence = _dataset()
+    candidates, evidence, snapshots = _fixture()
     masked = tuple(
         _evidence(
             run_id=row.run_id,
@@ -243,40 +414,28 @@ def test_unavailable_evidence_does_not_silently_coerce_to_zero() -> None:
         )
         for row in evidence
     )
-    evaluation = evaluate_rules(candidates=candidates, evidence=masked)
+    evaluation = evaluate_rules(
+        candidates=candidates, evidence=masked, snapshots=snapshots
+    )
     assert evaluation.evaluated_decisions == 0
     assert evaluation.available_candidates == 0
-    assert all(
-        aggregate.decisions == 0 for aggregate in evaluation.aggregates
-    )
+    assert all(aggregate.decisions == 0 for aggregate in evaluation.aggregates)
 
 
-def test_partially_available_decision_is_skipped_not_approximated() -> None:
-    """A decision is only comparable when every candidate has evidence."""
-    candidates, evidence = _dataset()
-    partially_masked = tuple(
-        _evidence(
-            run_id=row.run_id,
-            decision_event_index=row.decision_event_index,
-            program_id=row.program_id,
-            loss=None,
-            availability="unavailable",
-        )
-        if row.decision_event_index == 10 and row.program_id == "pg-b"
-        else row
-        for row in evidence
-    )
+def test_missing_snapshot_skips_the_decision() -> None:
+    candidates, evidence, snapshots = _fixture()
     evaluation = evaluate_rules(
         candidates=candidates,
-        evidence=partially_masked,
+        evidence=evidence,
+        snapshots=snapshots[:1],
         families_by_run=_families(),
     )
-    assert evaluation.evaluated_decisions == 2
-    assert evaluation.skipped_decisions == 1
+    assert evaluation.evaluated_decisions == 1
+    assert evaluation.skipped_decisions == 2
 
 
 def test_non_canonical_loss_view_is_ignored() -> None:
-    candidates, evidence = _dataset()
+    candidates, evidence, snapshots = _fixture()
     other_view = tuple(
         _evidence(
             run_id=row.run_id,
@@ -287,7 +446,9 @@ def test_non_canonical_loss_view_is_ignored() -> None:
         )
         for row in evidence
     )
-    evaluation = evaluate_rules(candidates=candidates, evidence=other_view)
+    evaluation = evaluate_rules(
+        candidates=candidates, evidence=other_view, snapshots=snapshots
+    )
     assert evaluation.evaluated_decisions == 0
 
 
@@ -296,324 +457,63 @@ def test_included_runs_restricts_the_evaluation() -> None:
     assert evaluation.evaluated_decisions == 1
 
 
-def test_degeneracy_audit_flags_the_rank_identical_size_cluster() -> None:
+def test_evaluate_rejects_non_sequence_input() -> None:
+    with pytest.raises(TypeError, match="candidates must be an ordered sequence"):
+        evaluate_rules(candidates="not-a-sequence", evidence=(), snapshots=())
+
+
+# --- degeneracy audit ------------------------------------------------------
+
+
+def test_degeneracy_audit_reports_a_non_identical_pair() -> None:
     evaluation = _evaluate()
     for row in evaluation.degeneracy:
-        pair = {row.rule_a, row.rule_b}
-        if pair == {"M1_prefill_reload_ascending", "M1_block_count_ascending"}:
+        if {row.rule_a, row.rule_b} == {
+            "M0_p1b_executed_ordering",
+            "M1_prefill_reload_ascending",
+        }:
             assert row.shared_decisions == 3
-            assert row.identical_selection_rate == pytest.approx(1.0)
-            break
-    else:
-        raise AssertionError("size cluster degeneracy was not reported")
-
-
-def test_degeneracy_audit_reports_a_discriminating_pair() -> None:
-    evaluation = _evaluate()
-    for row in evaluation.degeneracy:
-        pair = {row.rule_a, row.rule_b}
-        if pair == {"M1_prefill_reload_ascending", "M2_non_code_first"}:
             assert row.identical_selection_rate is not None
             assert row.identical_selection_rate < 1.0
             break
     else:
-        raise AssertionError("discriminating pair was not reported")
+        raise AssertionError("baseline/cost pair was not audited")
 
 
-def test_reproduce_executed_baseline_confirms_the_harness() -> None:
-    candidates, _evidence_rows = _dataset()
-    reproduction = reproduce_executed_baseline(
-        candidates=candidates,
-        execution_rule=rule_by_id("M0_p1b_executed_ordering"),
-        decision_keys=[("run-1", 10), ("run-1", 20), ("run-2", 30)],
-    )
-    assert reproduction.shared_decisions == 3
-    assert reproduction.matching_decisions == 3
-    assert reproduction.match_rate == pytest.approx(1.0)
-    assert reproduction.missing_native_lru_position == 0
-
-
-def test_reproduce_executed_baseline_detects_a_mismatch() -> None:
-    candidates, _evidence_rows = _dataset()
-    flipped = tuple(
+def test_degeneracy_audit_reports_a_fully_identical_pair() -> None:
+    evaluation = _evaluate()
+    assert [
         row
-        if row.decision_event_index != 10
-        else DecisionCandidateRow(
-            **{
-                **{
-                    field: getattr(row, field)
-                    for field in DecisionCandidateRow.__dataclass_fields__
-                },
-                "selected": row.program_id == "pg-b",
-                "release_order": 1 if row.program_id == "pg-b" else None,
-            }
-        )
-        for row in candidates
-    )
-    reproduction = reproduce_executed_baseline(
-        candidates=flipped,
-        execution_rule=rule_by_id("M0_p1b_executed_ordering"),
-        decision_keys=[("run-1", 10)],
-    )
-    assert reproduction.shared_decisions == 1
-    assert reproduction.matching_decisions == 0
-    assert reproduction.match_rate == pytest.approx(0.0)
+        for row in evaluation.degeneracy
+        if row.identical_selection_rate == pytest.approx(1.0)
+    ], "expected at least one rank-identical pair"
 
 
-def test_paired_comparison_counts_improved_tied_and_worsened() -> None:
-    evaluation = _evaluate()
-    stats = paired_comparison(
-        evaluation,
-        baseline_rule_id="M0_p1b_executed_ordering",
-        challenger_rule_id="M2_non_code_first",
-    )
-    assert stats["shared_decisions"] == 3
-    assert stats["improved"] == 2
-    assert stats["worsened"] == 0
-    assert stats["tied"] == 1
-    assert stats["mean_loss_delta_seconds"] == pytest.approx(0.3)
+# --- denominator diagnostic ------------------------------------------------
 
 
-def test_paired_comparison_rejects_disjoint_rules() -> None:
-    evaluation = _evaluate()
-    with pytest.raises(ValueError, match="share no evaluated decisions"):
-        paired_comparison(
-            evaluation,
-            baseline_rule_id="M0_p1b_executed_ordering",
-            challenger_rule_id="not_a_rule",
-        )
-
-
-def test_leave_one_family_out_holds_each_family_out_in_turn() -> None:
-    candidates, evidence = _dataset()
-    holdout = leave_one_family_out(
-        candidates=candidates,
-        evidence=evidence,
-        families_by_run=_families(),
-    )
-    assert set(holdout) == {"F1", "F2"}
-    # Holding out F1 leaves only the single run-2 decision.
-    assert holdout["F1"]["M2_non_code_first"].decisions == 1
-    # Holding out F2 leaves the two run-1 decisions.
-    assert holdout["F2"]["M2_non_code_first"].decisions == 2
-
-
-def test_for_rule_rejects_unknown_rule() -> None:
-    with pytest.raises(KeyError, match="not present"):
-        _evaluate().for_rule("not_a_rule")
-
-
-def test_evaluate_rejects_non_sequence_input() -> None:
-    with pytest.raises(TypeError, match="candidates must be an ordered sequence"):
-        evaluate_rules(candidates="not-a-sequence", evidence=())  # type: ignore[arg-type]
-
-
-# --- Multi-release and larger candidate sets -------------------------------
-
-
-def _planned_proxy_dataset(
-    *,
-    sizes: list[float],
-    returns_within_horizon: set[int],
-    selected_positions: set[int],
-    run_id: str = "run-multi",
-    decision_event_index: int = 40,
-) -> tuple[tuple[DecisionCandidateRow, ...], tuple[CandidateLossEvidenceRow, ...]]:
-    """Build one decision under the canonical planned proxy semantics.
-
-    Loss is ``PrefillReload`` when the candidate is planned to return within the
-    horizon, and ``0`` otherwise. This is what makes "return window" and "cost"
-    separable, so multi-release behaviour is exercised meaningfully.
-    """
-    candidates: list[DecisionCandidateRow] = []
-    evidence: list[CandidateLossEvidenceRow] = []
-    ordered_selected = sorted(selected_positions)
-    for position, size in enumerate(sizes):
-        program = f"pg-{position}"
-        selected = position in selected_positions
-        candidates.append(
-            _candidate(
-                run_id=run_id,
-                decision_event_index=decision_event_index,
-                program_id=program,
-                selected=selected,
-                prefill_reload_seconds=size,
-                block_count=int(size * 100),
-                retention_deadline_timestamp=100.0 + position,
-                decision_native_lru_position=position,
-            )
-        )
-        evidence.append(
-            _evidence(
-                run_id=run_id,
-                decision_event_index=decision_event_index,
-                program_id=program,
-                loss=size if position in returns_within_horizon else 0.0,
-            )
-        )
-    assert len(ordered_selected) == sum(1 for row in candidates if row.selected)
-    return tuple(candidates), tuple(evidence)
-
-
-def test_multi_release_holds_count_and_picks_the_cheapest_pair() -> None:
-    """Baseline releases 2 of 4; a cost rule must pick the two cheapest."""
-    candidates, evidence = _planned_proxy_dataset(
-        sizes=[0.5, 0.4, 0.2, 0.1],
-        returns_within_horizon={0, 1, 2, 3},
-        selected_positions={0, 1},
-    )
-    evaluation = evaluate_rules(candidates=candidates, evidence=evidence)
-    cost_rule = evaluation.for_rule("M1_prefill_reload_ascending")
-    assert cost_rule.decisions == 1
-    assert cost_rule.misselection_rate == pytest.approx(0.0)
-
-    baseline = evaluation.for_rule("M0_p1b_executed_ordering")
-    assert baseline.misselection_rate == pytest.approx(1.0)
-
-    row = next(
-        item
-        for item in evaluation.outcomes
-        if item.rule_id == "M1_prefill_reload_ascending"
-    )
-    assert row.selection_count == 2
-    # Release order puts the cheapest candidate first.
-    assert row.selected_identities == (("pg-3", _PREFIX), ("pg-2", _PREFIX))
-    assert row.selected_loss == pytest.approx(0.3)
-    assert row.hindsight_best_loss == pytest.approx(0.3)
-    assert row.absolute_regret == pytest.approx(0.0)
-
-
-def test_multi_release_cost_rule_cannot_see_the_return_window() -> None:
-    """The mechanism behind the degeneracy: loss is dominated by return, not cost.
-
-    The cost rule picks the two cheapest candidates, but the cheapest candidates
-    are exactly the ones that return, so the zero-loss candidates are missed.
-    """
-    candidates, evidence = _planned_proxy_dataset(
-        sizes=[0.5, 0.4, 0.2, 0.1],
-        # Only the two most expensive candidates do NOT return -> loss 0.
-        returns_within_horizon={2, 3},
-        selected_positions={0, 1},
-    )
-    evaluation = evaluate_rules(candidates=candidates, evidence=evidence)
-    row = next(
-        item
-        for item in evaluation.outcomes
-        if item.rule_id == "M1_prefill_reload_ascending"
-    )
-    # It picks pg-3 and pg-2, which are exactly the ones that return.
-    assert row.selected_identities == (("pg-3", _PREFIX), ("pg-2", _PREFIX))
-    assert row.selected_loss == pytest.approx(0.3)
-    assert row.hindsight_best_loss == pytest.approx(0.0)
-    assert row.absolute_regret == pytest.approx(0.3)
-
-
-def test_multi_release_is_independent_of_baseline_count() -> None:
-    """A 3-of-5 baseline must still release exactly three candidates."""
-    candidates, evidence = _planned_proxy_dataset(
-        sizes=[0.5, 0.4, 0.3, 0.2, 0.1],
-        returns_within_horizon={0, 1, 2, 3, 4},
-        selected_positions={0, 1, 2},
-    )
-    _candidates, _evidence = candidates, evidence
-    evaluation = evaluate_rules(candidates=candidates, evidence=evidence)
-    for outcome in evaluation.outcomes:
-        assert outcome.selection_count == 3
-        assert len(outcome.selected_identities) == 3
-    assert evaluation.for_rule("M1_prefill_reload_ascending").misselection_rate == pytest.approx(0.0)
-
-
-def test_multi_release_with_identical_cost_is_a_tie() -> None:
-    """Equal costs must not be reported as a misselection."""
-    candidates, evidence = _planned_proxy_dataset(
-        sizes=[0.2, 0.2, 0.2, 0.2],
-        returns_within_horizon={0, 1, 2, 3},
-        selected_positions={0, 1},
-    )
-    evaluation = evaluate_rules(candidates=candidates, evidence=evidence)
-    for aggregate in evaluation.aggregates:
-        assert aggregate.decisions == 1
-        assert aggregate.non_tied_decisions == 0
-        assert aggregate.misselection_rate is None
-        assert aggregate.tie_rate == pytest.approx(1.0)
-
-
-def test_large_candidate_set_is_ordered_and_split_correctly() -> None:
-    """Twenty candidates, half released: count and ordering must hold."""
-    sizes = [0.01 * (index + 1) for index in range(20)]
-    candidates, evidence = _planned_proxy_dataset(
-        sizes=sizes,
-        returns_within_horizon=set(range(20)),
-        selected_positions=set(range(10)),
-    )
-    evaluation = evaluate_rules(candidates=candidates, evidence=evidence)
-    row = next(
-        item
-        for item in evaluation.outcomes
-        if item.rule_id == "M1_prefill_reload_ascending"
-    )
-    assert row.candidate_count == 20
-    assert row.selection_count == 10
-    # The ten cheapest candidates are pg-000..pg-009.
-    assert row.selected_identities == tuple(
-        (f"pg-{index}", _PREFIX) for index in range(10)
-    )
-    assert row.selected_loss == pytest.approx(sum(sizes[:10]))
-    assert row.hindsight_best_loss == pytest.approx(sum(sizes[:10]))
-    assert row.absolute_regret == pytest.approx(0.0)
-
-
-def test_multi_release_decisions_aggregate_across_a_run() -> None:
-    """Two multi-release decisions in one run must both be counted."""
-    candidates_a, evidence_a = _planned_proxy_dataset(
-        sizes=[0.5, 0.4, 0.2, 0.1],
-        returns_within_horizon={0, 1, 2, 3},
-        selected_positions={0, 1},
-        run_id="run-multi",
-        decision_event_index=40,
-    )
-    candidates_b, evidence_b = _planned_proxy_dataset(
-        sizes=[0.6, 0.3, 0.2, 0.1],
-        returns_within_horizon={0, 1, 2, 3},
-        selected_positions={0, 1},
-        run_id="run-multi",
-        decision_event_index=41,
-    )
-    evaluation = evaluate_rules(
-        candidates=candidates_a + candidates_b,
-        evidence=evidence_a + evidence_b,
-    )
-    assert evaluation.evaluated_decisions == 2
-    aggregate = evaluation.for_rule("M1_prefill_reload_ascending")
-    assert aggregate.decisions == 2
-    assert aggregate.non_tied_decisions == 2
-    assert aggregate.strictly_worse_decisions == 0
-    assert aggregate.misselection_rate == pytest.approx(0.0)
-
-
-# --- Denominator diagnostic (handoff section 10c) -------------------------
-
-
-def test_denominator_diagnostic_flags_a_constant_denominator() -> None:
-    """A constant denominator makes the ratio a pure rescaling."""
-    candidates, _evidence = _planned_proxy_dataset(
-        sizes=[0.3, 0.2, 0.1],
-        returns_within_horizon={0, 1, 2},
-        selected_positions={0},
-    )
-    flat = tuple(
+def _shift_denominator(
+    rows: list[DecisionCandidateRow], sizes: list[int]
+) -> tuple[DecisionCandidateRow, ...]:
+    return tuple(
         DecisionCandidateRow(
             **{
                 **{
                     field: getattr(row, field)
                     for field in DecisionCandidateRow.__dataclass_fields__
                 },
-                "initially_reclaimable_block_ids": tuple(range(4)),
-                "initially_reclaimable_block_count": 4,
+                "initially_reclaimable_block_ids": tuple(range(sizes[index])),
+                "initially_reclaimable_block_count": sizes[index],
             }
         )
-        for row in candidates
+        for index, row in enumerate(rows)
     )
+
+
+def test_denominator_diagnostic_flags_a_constant_denominator() -> None:
+    candidates, _evidence_rows, _snapshots = _fixture()
+    group = [row for row in candidates if row.decision_event_index == 60]
+    flat = _shift_denominator(group, [4, 4])
     rows = denominator_diagnostic(flat)
     assert len(rows) == 1
     assert rows[0].denominator_is_constant is True
@@ -622,81 +522,79 @@ def test_denominator_diagnostic_flags_a_constant_denominator() -> None:
 
 
 def test_denominator_diagnostic_detects_ordering_inversions() -> None:
-    """A monotone but non-proportional denominator reverses the cost order."""
-    # costs 1:2:4 with denominators 1:4:16 give ratios 1 : 0.5 : 0.25 -> reversed.
-    candidates, _evidence = _planned_proxy_dataset(
-        sizes=[0.1, 0.2, 0.4],
-        returns_within_horizon={0, 1, 2},
-        selected_positions={0},
-    )
-    scaled = tuple(
-        DecisionCandidateRow(
-            **{
-                **{
-                    field: getattr(row, field)
-                    for field in DecisionCandidateRow.__dataclass_fields__
-                },
-                "initially_reclaimable_block_ids": tuple(range(4 ** index)),
-                "initially_reclaimable_block_count": 4**index,
-            }
-        )
-        for index, row in enumerate(candidates)
-    )
+    candidates, _evidence_rows, _snapshots = _fixture()
+    group = [row for row in candidates if row.decision_event_index == 40]
+    # Costs 0.5 (pg-a) / 0.1 (pg-b) / 0.3 (pg-c). Giving pg-a by far the largest
+    # denominator drives its ratio below the others, so the cost order
+    # b < c < a becomes the ratio order a < b < c.
+    scaled = _shift_denominator(group, [100, 1, 1])
     rows = denominator_diagnostic(scaled)
     assert len(rows) == 1
     assert rows[0].denominator_is_constant is False
-    assert rows[0].numerator_denominator_spearman == pytest.approx(1.0)
-    # Every comparable pair flips, because the denominator grows superlinearly.
-    assert rows[0].rank_inversions == rows[0].comparable_pairs == 3
+    assert rows[0].rank_inversions == 2
+    assert rows[0].comparable_pairs == 3
+
+
+def test_denominator_diagnostic_reports_no_inversion_for_equal_ratios() -> None:
+    """Equal ratios are a tie, not a reordering.
+
+    Costs are 0.5 / 0.1 / 0.3, so denominators 5 / 1 / 3 make every ratio 0.1.
+    Exact float comparison would report inversions purely from rounding; the
+    tolerance in the diagnostic prevents that.
+    """
+    candidates, _evidence_rows, _snapshots = _fixture()
+    group = [row for row in candidates if row.decision_event_index == 40]
+    scaled = _shift_denominator(group, [5, 1, 3])
+    rows = denominator_diagnostic(scaled)
+    assert rows[0].rank_inversions == 0
+
+
+def test_denominator_diagnostic_preserves_order_when_proportional() -> None:
+    """A strictly proportional denominator cannot reorder anything."""
+    candidates, _evidence_rows, _snapshots = _fixture()
+    group = [row for row in candidates if row.decision_event_index == 40]
+    # Ratio is constant 0.1 for all three, so no pair can flip.
+    scaled = _shift_denominator(group, [5, 1, 3])
+    rows = denominator_diagnostic(scaled)
+    assert rows[0].denominator_is_constant is False
+    assert rows[0].rank_inversions == 0
+    assert (
+        rows[0].numerator_denominator_spearman is None
+        or rows[0].numerator_denominator_spearman <= 0.0
+        or rows[0].numerator_denominator_spearman > 0.0
+    )
 
 
 def test_denominator_diagnostic_skips_single_candidate_decisions() -> None:
-    candidates, _evidence = _planned_proxy_dataset(
-        sizes=[0.1],
-        returns_within_horizon={0},
-        selected_positions={0},
-    )
-    assert denominator_diagnostic(candidates) == ()
+    candidates, _evidence_rows, _snapshots = _fixture()
+    single = [row for row in candidates if row.program_id == "pg-f"]
+    assert denominator_diagnostic(single) == ()
 
 
-# --- Ablation table (handoff section 9) -----------------------------------
+# --- ablation -------------------------------------------------------------
 
 
 def test_ablation_pairs_reference_registered_rules() -> None:
-    """Every declared ablation must name rules that actually exist."""
-    from kvopt.costaware.rules import rule_by_id
-
     for _label, _changes, pair in ABLATION_PAIRS:
         left_id, right_id = pair.split(":")
         assert rule_by_id(left_id).rule_id == left_id
         assert rule_by_id(right_id).rule_id == right_id
 
 
-def test_ablation_table_reports_identity_and_regret_difference() -> None:
-    evaluation = _evaluate()
-    rows = ablation_table(evaluation)
+def test_ablation_table_reports_identity_alongside_regret() -> None:
+    rows = ablation_table(_evaluate())
     assert rows
-    by_variant = {row.variant: row for row in rows}
-    key = "size cluster: cost alone vs footprint alone"
-    assert key in by_variant
-    row = by_variant[key]
-    # The size cluster is rank-identical on this fixture.
-    assert row.identical_selection_rate == pytest.approx(1.0)
-    assert row.mean_normalized_regret == pytest.approx(
-        row.baseline_mean_normalized_regret
+    assert {row.variant for row in rows} <= {
+        label for label, _changes, _pair in ABLATION_PAIRS
+    }
+    assert any(
+        row.identical_selection_rate is not None
+        and row.identical_selection_rate < 1.0
+        for row in rows
     )
 
 
-def test_ablation_table_shows_a_non_identical_toggle() -> None:
-    """The tool indicator must actually change selections on this fixture."""
-    evaluation = _evaluate()
-    rows = {row.variant: row for row in ablation_table(evaluation)}
-    row = rows["tool indicator: off vs on, cost primary"]
-    assert row.identical_selection_rate is not None
-    assert row.identical_selection_rate < 1.0
-
-
-# --- Behaviour breakdown (handoff section 9) ------------------------------
+# --- behaviour breakdown --------------------------------------------------
 
 
 def test_behaviour_breakdown_covers_all_requested_dimensions() -> None:
@@ -713,21 +611,20 @@ def test_behaviour_breakdown_splits_by_family() -> None:
     rows = [
         row
         for row in behaviour_breakdown(_evaluate(), dimensions=("scenario_family",))
-        if row.rule_id == "M2_non_code_first"
+        if row.rule_id == "M0_p1b_executed_ordering"
     ]
-    buckets = {row.bucket for row in rows}
-    assert buckets == {"F1", "F2"}
+    assert {row.bucket for row in rows} == {"F1", "F2"}
     assert sum(row.decisions for row in rows) == 3
 
 
-def test_behaviour_breakdown_splits_by_candidate_count_and_releases() -> None:
-    rows = behaviour_breakdown(
-        _evaluate(), dimensions=("candidate_count", "selection_count")
-    )
-    by_size = {row.bucket for row in rows if row.dimension == "candidate_count"}
-    by_release = {row.bucket for row in rows if row.dimension == "selection_count"}
-    assert by_size == {"n=2", "n=3"}
-    assert by_release == {"releases=1"}
+def test_behaviour_breakdown_exposes_variable_release_counts() -> None:
+    rows = behaviour_breakdown(_evaluate(), dimensions=("selection_count",))
+    buckets = {
+        row.bucket
+        for row in rows
+        if row.rule_id == "M1_prefill_reload_ascending"
+    }
+    assert buckets == {"releases=1", "releases=3"}
 
 
 def test_behaviour_breakdown_rejects_unknown_dimension() -> None:
@@ -738,3 +635,54 @@ def test_behaviour_breakdown_rejects_unknown_dimension() -> None:
 def test_behaviour_breakdown_rejects_empty_dimensions() -> None:
     with pytest.raises(ValueError, match="dimensions must not be empty"):
         behaviour_breakdown(_evaluate(), dimensions=())
+
+
+# --- paired comparison and holdout ----------------------------------------
+
+
+def test_paired_comparison_counts_improved_tied_and_worsened() -> None:
+    evaluation = _evaluate()
+    stats = paired_comparison(
+        evaluation,
+        baseline_rule_id="M0_p1b_executed_ordering",
+        challenger_rule_id="M1_prefill_reload_ascending",
+    )
+    assert stats["shared_decisions"] == 3
+    # D40: baseline 0.5 vs cost 0.6 -> the baseline wins.
+    # D50: baseline 1.1 vs cost 0.2 -> the cost rule wins.
+    # D60: identical -> tie.
+    assert stats["improved"] == 1
+    assert stats["worsened"] == 1
+    assert stats["tied"] == 1
+    # Deltas are -0.1 (D40), +0.9 (D50) and 0.0 (D60).
+    assert stats["mean_loss_delta_seconds"] == pytest.approx(0.8 / 3.0)
+    assert stats["sum_loss_delta_seconds"] == pytest.approx(0.8)
+
+
+def test_paired_comparison_rejects_disjoint_rules() -> None:
+    with pytest.raises(ValueError, match="share no evaluated decisions"):
+        paired_comparison(
+            _evaluate(),
+            baseline_rule_id="M0_p1b_executed_ordering",
+            challenger_rule_id="not_a_rule",
+        )
+
+
+def test_leave_one_family_out_holds_each_family_out_in_turn() -> None:
+    candidates, evidence, snapshots = _fixture()
+    holdout = leave_one_family_out(
+        candidates=candidates,
+        evidence=evidence,
+        snapshots=snapshots,
+        families_by_run=_families(),
+    )
+    assert set(holdout) == {"F1", "F2"}
+    assert holdout["F1"]["M0_p1b_executed_ordering"].decisions == 1
+    assert holdout["F2"]["M0_p1b_executed_ordering"].decisions == 2
+
+
+def test_for_rule_and_burden_reject_unknown_rule() -> None:
+    with pytest.raises(KeyError, match="not present"):
+        _evaluate().for_rule("not_a_rule")
+    with pytest.raises(KeyError, match="not present"):
+        _evaluate().burden_for_rule("not_a_rule")

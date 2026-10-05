@@ -37,6 +37,13 @@ from kvopt.profiling.analysis import (
 from kvopt.profiling.datasets import DecisionCandidateRow
 from kvopt.profiling.loss_views import CandidateLossEvidenceRow
 
+from .replay import (
+    DecisionSnapshot,
+    ReplayOutcome,
+    RuleStrategy,
+    candidate_key,
+    replay_decision,
+)
 from .rules import CANDIDATE_RULES, CandidateRule
 
 #: The canonical loss view authorized for offline method design.
@@ -72,6 +79,12 @@ class RuleDecisionOutcome:
     normalized_regret: float
     selected_is_hindsight_best: bool
     candidate_loss_tied: bool
+    target: int = 0
+    """The shared ``required_blocks`` target this decision had to satisfy."""
+    satisfied: bool = True
+    """False when the rule was exhausted before reaching the target."""
+    eligible_blocks_initial: int = 0
+    eligible_blocks_final: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,6 +100,28 @@ class RuleAggregate:
     mean_absolute_regret: float
     mean_normalized_regret: float
     tie_rate: float
+
+
+@dataclass(frozen=True, slots=True)
+class ReleaseBurdenRow:
+    """How many releases a rule needs to satisfy the shared target.
+
+    Release count is a first-class outcome under the real pressure constraint:
+    two rules can reach the same ``required_blocks`` with different numbers of
+    releases, and released entries are what incur proxy loss.
+    """
+
+    rule_id: str
+    decisions: int
+    mean_target: float
+    mean_releases: float
+    mean_releases_vs_baseline: float
+    saturated_decisions: int
+    """Decisions where the rule needed more releases than the baseline."""
+    frugal_decisions: int
+    """Decisions where the rule needed fewer releases than the baseline."""
+    unsatisfied_decisions: int = 0
+    """Decisions where the rule was exhausted before reaching the target."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -148,17 +183,6 @@ class BehaviourBreakdown:
 
 
 @dataclass(frozen=True, slots=True)
-class BaselineReproduction:
-    """Check that a re-derived rule matches the canonical executed selection."""
-
-    rule_id: str
-    shared_decisions: int
-    matching_decisions: int
-    match_rate: float | None
-    missing_native_lru_position: int
-
-
-@dataclass(frozen=True, slots=True)
 class RuleEvaluation:
     """Full offline evaluation result for one loss view."""
 
@@ -169,12 +193,20 @@ class RuleEvaluation:
     aggregates: tuple[RuleAggregate, ...]
     outcomes: tuple[RuleDecisionOutcome, ...]
     degeneracy: tuple[DegeneracyAuditRow, ...]
+    release_burden: tuple[ReleaseBurdenRow, ...] = ()
+    unsatisfied_decisions: int = 0
 
     def for_rule(self, rule_id: str) -> RuleAggregate:
         for aggregate in self.aggregates:
             if aggregate.rule_id == rule_id:
                 return aggregate
         raise KeyError(f"rule {rule_id!r} not present in evaluation")
+
+    def burden_for_rule(self, rule_id: str) -> ReleaseBurdenRow:
+        for row in self.release_burden:
+            if row.rule_id == rule_id:
+                return row
+        raise KeyError(f"rule {rule_id!r} not present in release burden")
 
 
 def _usable_evidence(
@@ -212,19 +244,24 @@ def evaluate_rules(
     *,
     candidates: Sequence[DecisionCandidateRow],
     evidence: Sequence[CandidateLossEvidenceRow],
+    snapshots: Sequence[DecisionSnapshot],
     canonical_regret: Sequence[DecisionRegretRow] = (),
     families_by_run: dict[str, str | None] | None = None,
     rules: Sequence[CandidateRule] = CANDIDATE_RULES,
     loss_view: str = CANONICAL_LOSS_VIEW,
     included_runs: frozenset[str] | None = None,
 ) -> RuleEvaluation:
-    """Evaluate every rule on the decisions where ``loss_view`` is complete.
+    """Evaluate every rule under the real pressure constraint.
 
-    A decision participates only when it has at least two candidates with
-    available loss under ``loss_view`` and the executed baseline selected at
-    least one of them. The number of released candidates is held equal to the
-    executed baseline, so the comparison isolates *which* candidates are
-    released rather than *how many*.
+    Each rule replays the frozen forced-release loop against the **same**
+    ``required_blocks`` target: surviving entries are re-ranked every iteration
+    and the eligible set is recomputed from block ownership after each release.
+    Release count is therefore an outcome, not an input.
+
+    A decision participates only when every candidate has evidence under
+    ``loss_view`` and a raw snapshot is available. A rule that cannot reach the
+    target even after releasing every entry is recorded as unsatisfied and
+    excluded from the regret aggregates, never silently accepted.
     """
     if isinstance(candidates, (str, bytes)) or not isinstance(candidates, Sequence):
         raise TypeError("candidates must be an ordered sequence")
@@ -235,19 +272,26 @@ def evaluate_rules(
     executed = _executed_selection(candidates)
     canonical = _canonical_regret(canonical_regret)
     family_lookup = families_by_run or {}
+    snapshot_by_decision: dict[tuple[str, int], DecisionSnapshot] = {
+        (snapshot.run_id, snapshot.decision_event_index): snapshot
+        for snapshot in snapshots
+    }
 
     by_decision: dict[tuple[str, int], list[DecisionCandidateRow]] = defaultdict(list)
     for row in candidates:
         by_decision[(row.run_id, row.decision_event_index)].append(row)
 
+    strategies = [RuleStrategy(rule) for rule in rules]
     outcomes: dict[str, list[RuleDecisionOutcome]] = defaultdict(list)
+    replays: dict[str, list[ReplayOutcome]] = defaultdict(list)
     selections: dict[str, dict[tuple[str, int], tuple[tuple[str, str], ...]]] = defaultdict(dict)
     evaluated = 0
     skipped = 0
+    unsatisfied = 0
     available_candidate_total = 0
 
     for decision_key in sorted(grouped_losses):
-        run_id, _decision_event_index = decision_key
+        run_id, decision_event_index = decision_key
         if included_runs is not None and run_id not in included_runs:
             continue
         losses = grouped_losses[decision_key]
@@ -261,38 +305,44 @@ def evaluate_rules(
             # and break the "never coerce missingness" rule.
             skipped += 1
             continue
-        selected_available = {identity for identity in executed[decision_key] if identity in losses}
-        selection_count = len(selected_available)
-        if selection_count < 1:
+        snapshot = snapshot_by_decision.get(decision_key)
+        if snapshot is None or not executed[decision_key]:
             skipped += 1
             continue
 
         evaluated += 1
         available_candidate_total += len(group)
-        for rule in rules:
-            chosen = rule.selection(group, selection_count)
-            selections[rule.rule_id][decision_key] = chosen
+        rows_by_key = {candidate_key(row): row for row in group}
+        for strategy in strategies:
+            replay_outcome = replay_decision(snapshot, strategy, rows_by_key)
+            replays[strategy.strategy_id].append(replay_outcome)
+            chosen = replay_outcome.released
+            selections[strategy.strategy_id][decision_key] = chosen
+            if not replay_outcome.satisfied:
+                unsatisfied += 1
+                continue
+            selected_set = set(chosen)
             loss_rows = [
                 CandidateLossRow(
                     run_id=run_id,
-                    decision_event_index=decision_key[1],
+                    decision_event_index=decision_event_index,
                     program_id=row.program_id,
                     prefix_id=row.prefix_id,
                     loss_view=loss_view,
                     loss=losses[_identity(row)],
-                    selected=_identity(row) in set(chosen),
+                    selected=_identity(row) in selected_set,
                 )
                 for row in group
             ]
             regret_row = build_decision_regret_table(loss_rows)[0]
-            outcomes[rule.rule_id].append(
+            outcomes[strategy.strategy_id].append(
                 RuleDecisionOutcome(
-                    rule_id=rule.rule_id,
+                    rule_id=strategy.strategy_id,
                     run_id=run_id,
-                    decision_event_index=decision_key[1],
+                    decision_event_index=decision_event_index,
                     scenario_family_id=family_lookup.get(run_id),
                     candidate_count=len(group),
-                    selection_count=selection_count,
+                    selection_count=len(chosen),
                     loss_view=loss_view,
                     selected_identities=chosen,
                     selected_loss=regret_row.selected_loss,
@@ -301,6 +351,10 @@ def evaluate_rules(
                     normalized_regret=regret_row.normalized_regret,
                     selected_is_hindsight_best=regret_row.selected_is_hindsight_best,
                     candidate_loss_tied=len({losses[_identity(row)] for row in group}) == 1,
+                    target=replay_outcome.target,
+                    satisfied=replay_outcome.satisfied,
+                    eligible_blocks_initial=replay_outcome.eligible_blocks_initial,
+                    eligible_blocks_final=replay_outcome.eligible_blocks_final,
                 )
             )
 
@@ -317,7 +371,65 @@ def evaluate_rules(
             outcome for rule in rules for outcome in outcomes[rule.rule_id]
         ),
         degeneracy=_rank_identity(selections, rules, canonical=canonical),
+        release_burden=_release_burden(rules, replays, executed),
+        unsatisfied_decisions=unsatisfied,
     )
+
+
+def _release_burden(
+    rules: Sequence[CandidateRule],
+    replays: dict[str, list[ReplayOutcome]],
+    executed: dict[tuple[str, int], set[tuple[str, str]]],
+) -> tuple[ReleaseBurdenRow, ...]:
+    """Summarize how many releases each rule needs for the shared target.
+
+    The reference is the **observed** baseline release count from the artifacts,
+    not a replayed one, so the comparison is against what the runtime actually
+    did.
+    """
+    baseline_counts = {key: len(value) for key, value in executed.items()}
+    rows: list[ReleaseBurdenRow] = []
+    for rule in rules:
+        rule_replays = replays.get(rule.rule_id, [])
+        if not rule_replays:
+            continue
+        deltas: list[float] = []
+        saturated = 0
+        frugal = 0
+        unsatisfied = 0
+        for replay_outcome in rule_replays:
+            if not replay_outcome.satisfied:
+                unsatisfied += 1
+            baseline = baseline_counts.get(
+                (replay_outcome.run_id, replay_outcome.decision_event_index)
+            )
+            if baseline is None:
+                continue
+            delta = len(replay_outcome.released) - baseline
+            deltas.append(float(delta))
+            if delta > 0:
+                saturated += 1
+            elif delta < 0:
+                frugal += 1
+        if not deltas:
+            continue
+        rows.append(
+            ReleaseBurdenRow(
+                rule_id=rule.rule_id,
+                decisions=len(rule_replays),
+                mean_target=statistics.fmean(
+                    item.target for item in rule_replays
+                ),
+                mean_releases=statistics.fmean(
+                    len(item.released) for item in rule_replays
+                ),
+                mean_releases_vs_baseline=statistics.fmean(deltas),
+                saturated_decisions=saturated,
+                frugal_decisions=frugal,
+                unsatisfied_decisions=unsatisfied,
+            )
+        )
+    return tuple(rows)
 
 
 def _aggregate(
@@ -389,47 +501,6 @@ def _rank_identity(
     return tuple(rows)
 
 
-def reproduce_executed_baseline(
-    *,
-    candidates: Sequence[DecisionCandidateRow],
-    execution_rule: CandidateRule,
-    decision_keys: Iterable[tuple[str, int]],
-) -> BaselineReproduction:
-    """Verify the evaluator re-derives the canonical executed selection.
-
-    This is a self-check on the harness, not a research result. It confirms
-    that :data:`~kvopt.costaware.rules.CANDIDATE_RULES` rule
-    ``M0_p1b_executed_ordering`` reproduces the persisted P1B release set.
-    """
-    by_decision: dict[tuple[str, int], list[DecisionCandidateRow]] = defaultdict(list)
-    for row in candidates:
-        by_decision[(row.run_id, row.decision_event_index)].append(row)
-
-    shared = 0
-    matching = 0
-    missing_position = 0
-    for key in decision_keys:
-        group = by_decision.get(key)
-        if not group:
-            continue
-        executed = {_identity(row) for row in group if row.selected}
-        if not executed:
-            continue
-        shared += 1
-        if any(row.decision_native_lru_position is None for row in group):
-            missing_position += 1
-        rederived = set(execution_rule.selection(group, len(executed)))
-        if rederived == executed:
-            matching += 1
-    return BaselineReproduction(
-        rule_id=execution_rule.rule_id,
-        shared_decisions=shared,
-        matching_decisions=matching,
-        match_rate=(matching / shared) if shared else None,
-        missing_native_lru_position=missing_position,
-    )
-
-
 def paired_comparison(
     evaluation: RuleEvaluation, *, baseline_rule_id: str, challenger_rule_id: str
 ) -> dict[str, float | int]:
@@ -475,6 +546,7 @@ def leave_one_family_out(
     *,
     candidates: Sequence[DecisionCandidateRow],
     evidence: Sequence[CandidateLossEvidenceRow],
+    snapshots: Sequence[DecisionSnapshot],
     families_by_run: dict[str, str | None],
     rules: Sequence[CandidateRule] = CANDIDATE_RULES,
     loss_view: str = CANONICAL_LOSS_VIEW,
@@ -489,6 +561,7 @@ def leave_one_family_out(
         evaluation = evaluate_rules(
             candidates=candidates,
             evidence=evidence,
+            snapshots=snapshots,
             families_by_run=families_by_run,
             rules=rules,
             loss_view=loss_view,
@@ -560,15 +633,22 @@ def denominator_diagnostic(
 
         inversions = 0
         pairs = 0
+        skipped = 0
         for left in range(len(group)):
             for right in range(left + 1, len(group)):
                 pairs += 1
+                if math.isclose(
+                    ratios[left], ratios[right], rel_tol=1e-9, abs_tol=1e-12
+                ):
+                    # Near-equal ratios are a tie, not a reordering. Comparing raw
+                    # floats here would report spurious inversions from rounding.
+                    skipped += 1
+                    continue
                 cost_order = costs[left] - costs[right]
                 ratio_order = ratios[left] - ratios[right]
-                if cost_order == 0.0 or ratio_order == 0.0:
-                    continue
                 if (cost_order > 0) != (ratio_order > 0):
                     inversions += 1
+        del skipped
 
         rows.append(
             DenominatorDiagnosticRow(
