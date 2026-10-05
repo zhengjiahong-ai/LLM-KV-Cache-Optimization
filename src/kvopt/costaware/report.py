@@ -27,6 +27,7 @@ from kvopt.profiling.pipeline import (
 
 from .offline_eval import (
     CANONICAL_LOSS_VIEW,
+    PressureFeasibleAggregate,
     ReleaseBurdenRow,
     RuleAggregate,
     ablation_table,
@@ -158,6 +159,48 @@ def build_offline_report(
                 _burden_payload(row) for row in evaluation.release_burden
             ],
         },
+        # Kept separate from the canonical M6 comparator on purpose: they answer
+        # different questions and must never be merged into one field.
+        "pressure_feasible_oracle": {
+            "role": "M4 method-selection metric",
+            "definition": (
+                "among release sets satisfying the same required_blocks target: "
+                "minimise total canonical proxy loss, then released entry count, "
+                "then stable identity order"
+            ),
+            "search": "exact subset enumeration",
+            "decisions": [
+                {
+                    "run_id": row.run_id,
+                    "decision_event_index": row.decision_event_index,
+                    "target": row.target,
+                    "candidate_count": row.candidate_count,
+                    "feasible_set_count": row.feasible_set_count,
+                    "oracle_released": [list(key) for key in row.oracle_released],
+                    "oracle_loss": row.oracle_loss,
+                    "oracle_entry_count": row.oracle_entry_count,
+                    "worst_feasible_loss": row.worst_feasible_loss,
+                    "loss_choices_matter": row.loss_choices_matter,
+                    "unreachable": row.unreachable,
+                }
+                for row in evaluation.oracle_rows
+            ],
+            "aggregates": [
+                _feasible_aggregate_payload(aggregate)
+                for aggregate in evaluation.pressure_feasible_aggregates
+            ],
+        },
+        "canonical_m6_comparator": {
+            "role": "provenance and sensitivity only",
+            "definition": (
+                "size-matched lowest-loss hindsight from "
+                "build_decision_regret_table; does not check pressure feasibility"
+            ),
+            "note": (
+                "unchanged canonical M6 code; reported separately from the "
+                "pressure-feasible oracle"
+            ),
+        },
         "paired_vs_executed_baseline": paired,
         "degeneracy": [
             {
@@ -217,6 +260,23 @@ def _burden_payload(row: ReleaseBurdenRow) -> dict[str, object]:
         "saturated_decisions": row.saturated_decisions,
         "frugal_decisions": row.frugal_decisions,
         "unsatisfied_decisions": row.unsatisfied_decisions,
+    }
+
+
+def _feasible_aggregate_payload(
+    aggregate: PressureFeasibleAggregate,
+) -> dict[str, object]:
+    return {
+        "rule_id": aggregate.rule_id,
+        "decisions": aggregate.decisions,
+        "loss_choices_matter_decisions": (
+            aggregate.loss_choices_matter_decisions
+        ),
+        "misselection_rate": aggregate.misselection_rate,
+        "mean_absolute_regret": aggregate.mean_absolute_regret,
+        "mean_normalized_regret": aggregate.mean_normalized_regret,
+        "oracle_best_rate": aggregate.oracle_best_rate,
+        "mean_entry_count_delta": aggregate.mean_entry_count_delta,
     }
 
 
@@ -317,6 +377,52 @@ def render_text(report: dict[str, object]) -> str:
             f"{burden['unsatisfied_decisions']:6d}"
         )
     emit("  frugal = fewer releases than the observed baseline; satur = more")
+    emit()
+
+    oracle = report["pressure_feasible_oracle"]  # type: ignore[index]
+    emit(line)
+    emit("PRESSURE-FEASIBLE ORACLE  (M4 method-selection metric)")
+    emit("  exact search over subsets that satisfy the same required_blocks")
+    emit("  order: least total proxy loss, then fewest entries, then identity")
+    emit(line)
+    emit(
+        f"  decisions with an oracle : {len(oracle['decisions'])}"  # type: ignore[arg-type]
+    )
+    header = (
+        f"  {'run / event':46s} {'target':>6s} {'n':>3s} {'feas':>5s} "
+        f"{'oracle':>9s} {'worst':>9s} {'matters':>8s}"
+    )
+    emit(header)
+    emit("  " + "-" * (len(header) - 2))
+    for row in oracle["decisions"]:  # type: ignore[union-attr]
+        label = f"{row['run_id']} ev{row['decision_event_index']}"
+        emit(
+            f"  {label:46s} {row['target']:6d} {row['candidate_count']:3d} "
+            f"{row['feasible_set_count']:5d} "
+            f"{_fmt(row['oracle_loss']):>9s} "
+            f"{_fmt(row['worst_feasible_loss']):>9s} "
+            f"{row['loss_choices_matter']!s:>8s}"
+        )
+    emit()
+    header = (
+        f"  {'rule':38s} {'dec':>4s} {'matters':>8s} {'misrate':>8s} "
+        f"{'mean_abs':>10s} {'mean_norm':>10s} {'entryΔ':>7s}"
+    )
+    emit(header)
+    emit("  " + "-" * (len(header) - 2))
+    for aggregate in oracle["aggregates"]:  # type: ignore[union-attr]
+        emit(
+            f"  {aggregate['rule_id']:38s} {aggregate['decisions']:4d} "
+            f"{aggregate['loss_choices_matter_decisions']:8d} "
+            f"{_fmt(aggregate['misselection_rate'], 3):>8s} "
+            f"{_fmt(aggregate['mean_absolute_regret']):>10s} "
+            f"{_fmt(aggregate['mean_normalized_regret']):>10s} "
+            f"{_fmt(aggregate['mean_entry_count_delta'], 2):>7s}"
+        )
+    emit("  entryΔ = released entries minus the oracle's; positive = less efficient")
+    emit()
+    emit("  canonical M6 regret above is size-matched and does NOT check")
+    emit("  pressure feasibility; it is retained for provenance only")
     emit()
 
     paired = report["paired_vs_executed_baseline"]

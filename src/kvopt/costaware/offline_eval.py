@@ -37,6 +37,12 @@ from kvopt.profiling.analysis import (
 from kvopt.profiling.datasets import DecisionCandidateRow
 from kvopt.profiling.loss_views import CandidateLossEvidenceRow
 
+from .feasible_oracle import (
+    FeasibleOracleRow,
+    PressureFeasibleRegretRow,
+    build_feasible_oracle,
+    pressure_feasible_regret,
+)
 from .replay import (
     DecisionSnapshot,
     ReplayOutcome,
@@ -125,6 +131,25 @@ class ReleaseBurdenRow:
 
 
 @dataclass(frozen=True, slots=True)
+class PressureFeasibleAggregate:
+    """Per-rule summary against the pressure-feasible oracle.
+
+    This is the M4 method-selection metric. The canonical M6 size-matched
+    regret is retained separately for provenance and sensitivity.
+    """
+
+    rule_id: str
+    decisions: int
+    loss_choices_matter_decisions: int
+    misselection_rate: float | None
+    mean_absolute_regret: float
+    mean_normalized_regret: float
+    oracle_best_rate: float
+    mean_entry_count_delta: float
+    """Released entries minus the oracle's; positive means less efficient."""
+
+
+@dataclass(frozen=True, slots=True)
 class DegeneracyAuditRow:
     """Rank-identity audit between one rule pair over shared decisions."""
 
@@ -195,12 +220,23 @@ class RuleEvaluation:
     degeneracy: tuple[DegeneracyAuditRow, ...]
     release_burden: tuple[ReleaseBurdenRow, ...] = ()
     unsatisfied_decisions: int = 0
+    oracle_rows: tuple[FeasibleOracleRow, ...] = ()
+    feasible_regret_rows: tuple[PressureFeasibleRegretRow, ...] = ()
+    pressure_feasible_aggregates: tuple[PressureFeasibleAggregate, ...] = ()
 
     def for_rule(self, rule_id: str) -> RuleAggregate:
         for aggregate in self.aggregates:
             if aggregate.rule_id == rule_id:
                 return aggregate
         raise KeyError(f"rule {rule_id!r} not present in evaluation")
+
+    def feasible_for_rule(self, rule_id: str) -> PressureFeasibleAggregate:
+        for aggregate in self.pressure_feasible_aggregates:
+            if aggregate.rule_id == rule_id:
+                return aggregate
+        raise KeyError(
+            f"rule {rule_id!r} not present in the pressure-feasible aggregates"
+        )
 
     def burden_for_rule(self, rule_id: str) -> ReleaseBurdenRow:
         for row in self.release_burden:
@@ -361,6 +397,19 @@ def evaluate_rules(
     aggregates = tuple(
         _aggregate(rule, outcomes[rule.rule_id]) for rule in rules
     )
+    oracle_losses = _oracle_loss_map(grouped_losses)
+    oracle_rows = build_feasible_oracle(
+        snapshots,
+        oracle_losses,
+        loss_view=loss_view,
+        included_runs=included_runs,
+    )
+    feasible_rows = pressure_feasible_regret(
+        oracle_rows=oracle_rows,
+        selections=selections,
+        losses=oracle_losses,
+        loss_view=loss_view,
+    )
     return RuleEvaluation(
         loss_view=loss_view,
         evaluated_decisions=evaluated,
@@ -373,7 +422,72 @@ def evaluate_rules(
         degeneracy=_rank_identity(selections, rules, canonical=canonical),
         release_burden=_release_burden(rules, replays, executed),
         unsatisfied_decisions=unsatisfied,
+        oracle_rows=oracle_rows,
+        feasible_regret_rows=feasible_rows,
+        pressure_feasible_aggregates=_feasible_aggregates(
+            rules, oracle_rows, feasible_rows
+        ),
     )
+
+
+def _oracle_loss_map(
+    grouped_losses: dict[tuple[str, int], dict[tuple[str, str], float]],
+) -> dict[tuple[str, int, tuple[str, str]], float]:
+    """Re-key candidate losses to ``(run_id, decision_event_index, identity)``."""
+    return {
+        (run_id, decision_event_index, identity): loss
+        for (run_id, decision_event_index), losses in grouped_losses.items()
+        for identity, loss in losses.items()
+    }
+
+
+def _feasible_aggregates(
+    rules: Sequence[CandidateRule],
+    oracle_rows: Sequence[FeasibleOracleRow],
+    feasible_rows: Sequence[PressureFeasibleRegretRow],
+) -> tuple[PressureFeasibleAggregate, ...]:
+    """Aggregate each rule's distance from the feasibility-aware optimum."""
+    matters = {
+        (row.run_id, row.decision_event_index): row.loss_choices_matter
+        for row in oracle_rows
+        if not row.unreachable
+    }
+    grouped: dict[str, list[PressureFeasibleRegretRow]] = defaultdict(list)
+    for row in feasible_rows:
+        grouped[row.rule_id].append(row)
+
+    aggregates: list[PressureFeasibleAggregate] = []
+    for rule in rules:
+        rows = grouped.get(rule.rule_id, [])
+        if not rows:
+            continue
+        decidable = [
+            row
+            for row in rows
+            if matters.get((row.run_id, row.decision_event_index), False)
+        ]
+        worse = [row for row in decidable if not row.selected_is_oracle_best]
+        aggregates.append(
+            PressureFeasibleAggregate(
+                rule_id=rule.rule_id,
+                decisions=len(rows),
+                loss_choices_matter_decisions=len(decidable),
+                misselection_rate=(len(worse) / len(decidable)) if decidable else None,
+                mean_absolute_regret=statistics.fmean(
+                    row.absolute_regret for row in rows
+                ),
+                mean_normalized_regret=statistics.fmean(
+                    row.normalized_regret for row in rows
+                ),
+                oracle_best_rate=(
+                    sum(1 for row in rows if row.selected_is_oracle_best) / len(rows)
+                ),
+                mean_entry_count_delta=statistics.fmean(
+                    row.entry_count_delta for row in rows
+                ),
+            )
+        )
+    return tuple(aggregates)
 
 
 def _release_burden(

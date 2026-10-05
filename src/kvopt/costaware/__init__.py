@@ -11,12 +11,20 @@ Authority:
   implementation.
 """
 
+from .feasible_oracle import (
+    MAX_EXACT_CANDIDATES,
+    FeasibleOracleRow,
+    PressureFeasibleRegretRow,
+    build_feasible_oracle,
+    pressure_feasible_regret,
+)
 from .offline_eval import (
     ABLATION_PAIRS,
     AblationRow,
     BehaviourBreakdown,
     DegeneracyAuditRow,
     DenominatorDiagnosticRow,
+    PressureFeasibleAggregate,
     ReleaseBurdenRow,
     RuleAggregate,
     RuleDecisionOutcome,
@@ -55,6 +63,7 @@ __all__ = [
     "CANDIDATE_RULES",
     "DECISION_TIME_FEATURES",
     "FORBIDDEN_FEATURES",
+    "MAX_EXACT_CANDIDATES",
     "AblationRow",
     "BehaviourBreakdown",
     "CandidateRule",
@@ -62,6 +71,9 @@ __all__ = [
     "DegeneracyAuditRow",
     "DenominatorDiagnosticRow",
     "ExecutedP1BStrategy",
+    "FeasibleOracleRow",
+    "PressureFeasibleAggregate",
+    "PressureFeasibleRegretRow",
     "QueueBlock",
     "ReleaseBurdenRow",
     "ReleaseStrategy",
@@ -75,11 +87,13 @@ __all__ = [
     "ablation_table",
     "all_rule_strategies",
     "behaviour_breakdown",
+    "build_feasible_oracle",
     "candidate_key",
     "denominator_diagnostic",
     "evaluate_rules",
     "fallback_key",
     "load_decision_snapshots",
+    "pressure_feasible_regret",
     "replay_decision",
     "rule_by_id",
     "validate_replay_fidelity",
