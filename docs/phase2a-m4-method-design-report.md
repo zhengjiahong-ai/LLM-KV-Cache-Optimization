@@ -16,13 +16,14 @@ M1 未授权：冻结或合并最终运行时 Cost-Aware 实现。
 | 项目 | 位置 | 性质 |
 | --- | --- | --- |
 | 决策时规则集（M0–M3） | `src/kvopt/costaware/rules.py` | 离线分析，纯决策时特征 |
+| **压力循环 replay 引擎** | `src/kvopt/costaware/replay.py` | 离线分析，忠实重放冻结的释放循环 |
 | 离线评估器 | `src/kvopt/costaware/offline_eval.py` | 离线分析，复用 canonical regret |
-| 单元测试（含多释放、回退、复杂度 51 项） | `tests/test_costaware_rules.py`、`tests/test_costaware_offline_eval.py` | 已提交 |
-| 本地实验运行器 | `local/cost_aware_local_experiment.py` | **不入库**（`.gitignore` 已忽略 `local/`） |
-| 本地探针（4 个） | `local/probe_*.py` | **不入库** |
+| **入库可复现入口** | `src/kvopt/costaware/report.py` + `cli.py` | 已入库；见 §26 的运行方式 |
+| 单元测试（85 项） | `tests/test_costaware_{rules,replay,offline_eval,report}.py` | 已提交 |
+| 本地探针 | `local/probe_*.py`、`local/cost_aware_local_experiment.py` | **不入库**（`.gitignore` 已忽略 `local/`） |
 | `.gitignore` | 新增 `local/` 条目 | 声明本地工作区不入评审 |
 
-本地运行器**不需要 vLLM、GPU 或模型下载**。它只重放已持久化的决策 artifact，因此可在任意机器上给出快速反馈回路。
+入库入口**不需要 vLLM、GPU 或模型下载**：它只重放已持久化的决策 artifact。`local/` 只是同一代码路径的薄封装，不再是唯一可复现的运行方式。
 
 ## 2. 评估器设计
 
@@ -34,9 +35,27 @@ M1 未授权：冻结或合并最终运行时 Cost-Aware 实现。
 
 > 规则 regret 与 canonical 的已执行 P1B regret **直接可比**，而不是两套算法之间的比较。
 
-### 2.2 固定释放数量
+⚠️ **一个必须声明的限定**：`build_decision_regret_table` 的 hindsight 是**同数量**的（以损失最小的一组同规模候选为最优），**不检查该集合是否真能解开压力**。在释放数量会变化的 replay 语义下，这意味着 regret 是「给定释放了同样多个」的诊断，而不是可执行的 oracle。因此跨规则比较应主要看**总代理损失**（越低越好，因为所有规则满足同一个 target），regret 只作次要诊断。
 
-每个决策中被释放的候选数量固定等于**已执行基线的数量**。这样比较隔离的是「释放哪些」而不是「释放几个」，正是研究问题本身（RQ1）。
+### 2.2 释放数量是**结果**，不是输入（前版错误已修正）
+
+⚠️ **本节描述前版评估器的错误做法，保留作为记录。**
+
+前版把「基线释放了 N 个条目」当作约束，让替代规则也释放恰好 N 个。**这不是运行时面对的约束。** 冻结的 Phase 1B 循环是：
+
+```text
+while eligible_blocks < required_blocks:
+    对仍然受保护的条目重新排序
+    释放排序最低的那一个
+    重算这次释放使多少块变为可用
+```
+
+因此：
+
+1. 不同条目解开的块数不同，所以满足**同一个 target** 可能需要**不同数量的释放**；
+2. **共享所有权**下，边际可用集合会随前面释放过谁而变化 —— 所以 `initially_reclaimable_block_count` **不可独立相加**（见 §2.5）。
+
+由 replay 得到的正确语义是：**给定同一个 `required_blocks`，按规则排序逐个重放释放，动态重算可用块数，直到满足同一个 target。** 释放数量随后是**结果**。
 
 ### 2.3 不静默近似缺失
 
@@ -52,6 +71,49 @@ M1 未授权：冻结或合并最终运行时 Cost-Aware 实现。
 - 读取任何未在 `DECISION_TIME_FEATURES` 中声明的字段。
 
 因此「不小心把未来标签写进规则」在**构造期**就失败，而不是靠事后审查。
+
+### 2.5 压力循环 replay（本轮修正的核心）
+
+`src/kvopt/costaware/replay.py` 从原始 `FORCED_RELEASE_DECISION` 载荷重建每个决策，并重放真实约束。
+
+### 2.5.1 块可用性语义（逐字照搬冻结实现）
+
+```text
+未哈希的空闲块                -> 始终可用
+已哈希的空闲块                -> 仅当「不存在仍受保护的所有者」时可用
+```
+
+一个所有者在其条目被释放后不再受保护。本决策之前已失去保护的条目（观察到的 `ordinary_expired_entries`）从一开始就不进入所有者集合，对应冻结循环里 `released_keys` 被预置为这些条目的做法。
+
+### 2.5.2 为什么不能简单累加
+
+共享所有权下，同一个条目解开的块数**取决于它之前释放了谁**：
+
+```text
+条目 a 拥有块 {1,2}，条目 b 拥有块 {2,3}
+单独释放 b      -> 只能解开 {3}
+先释放 a 再释放 b -> 解开 {2,3}
+```
+
+因此 `initially_reclaimable_block_ids`（冻结实现计算的初始边际）**不能**用于推断多次释放后的累计效果。replay 每次都从所有权重新计算。
+
+### 2.5.3 保真度是验证出来的，不是假定的
+
+`validate_replay_fidelity()` 对照原始 artifact 检查三件事：
+
+| 检查项 | 在仓库内 3 个 M6 exemplar 上的结果 |
+| --- | --- |
+| 释放集合 | **3/3 = 1.0** |
+| 释放**顺序** | **3/3 = 1.0** |
+| 每个条目的 `initially_reclaimable_block_ids` | **11/11 = 1.0** |
+
+第三项独立于任何策略，单独验证了所有权与可用性模型。入库入口把这三个比率放在报告最前面，**保真度不为 1.0 时任何 regret 数字都不可信**。
+
+### 2.5.4 该修正的影响
+
+修正前后结论发生**实质变化**。例：被否决的边际分母规则在固定数量语义下误选率为 1.000，在 replay 语义下为 0.333，且它平均只需 **1.00** 次释放，而观测基线需要 **2.00** 次（3 个决策中 2 个更省）。
+
+⇒ 它的表面优势是**释放数量效应**，而固定数量比较在结构上无法表示这一点。这一发现直接改变了 §6.5 对它的处理。
 
 ## 3. 规则集（依 handoff §8 的 M0–M3 家族）
 
@@ -69,30 +131,30 @@ M1 未授权：冻结或合并最终运行时 Cost-Aware 实现。
 
 `M3_size_score_only` 与 `M3_non_code_then_size_score` 是刻意设计的一对，用于回答 handoff §10 的「表面收益是否只来自 tool-type 指示变量」。
 
-## 4. 自检：评估器是否可信
+## 4. 自检：replay 是否忠实
 
-在仓库内已有的 3 个真实 M6 exemplar 上：
+自检现在由 **replay 保真度**承担（旧的固定数量自检函数已删除，因为它假定了一个错误约束）。在仓库内已有的 3 个真实 M6 exemplar 上：
 
 ```text
 decisions compared        : 3
-exact match               : 3
-match rate                : 1.0000
-decisions missing LRU pos : 0
+release SET match rate    : 1.0000
+release ORDER match rate  : 1.0000
+marginal blocks match rate: 1.0000  (11 fields)
 ```
 
-即 `M0_p1b_executed_ordering` **100% 复现了已执行的 P1B 释放集合**。
+即冻结的 P1B 排序在 replay 下**精确复现了观察到的决策**：集合、顺序、以及每个条目的 `initially_reclaimable_block_ids` 全部一致。
 
-这是对评估器本身的验证，不是研究结果。它证明：规则 API、集合选择、标记与 canonical regret 链路三者一致。
+这是对判定器本身的验证，不是研究结果。它证明：所有权模型、可用性语义、重排循环与 canonical regret 链路四者一致。第三项独立于任何策略，因此它单独验证了块可用性模型。
 
 ## 5. 已验证运行的结果（附重要偏差警告）
 
-在 3 个已提交 exemplar 上运行全部 9 条规则：
+在 3 个已提交 exemplar 上运行全部 9 条规则（**replay 语义**）：
 
 ```text
 evaluated decisions : 3
 skipped decisions   : 0
+unsatisfied         : 0
 candidates scored   : 11
-non-tied decisions  : 3
 ```
 
 ### 5.0 指标定义（与 M6 对齐）
@@ -105,21 +167,25 @@ non-tied decisions  : 3
 
 ⓘ 这两个概念在实现初期被混淆过（把 `non_tied` 当作「本规则失手」），
 会**隐藏「有 headroom 但规则未取」的决策**。已修正，并由
-`test_multi_release_holds_count_and_picks_the_cheapest_pair` 等测试锁定。
+`tests/test_costaware_offline_eval.py` 的多释放用例锁定。
 
 ### 5.1 汇总表
 
-| 规则 | 平均归一化 regret | 平均绝对 regret | 对比基线：更好/更差/平 |
-| --- | ---: | ---: | --- |
-| `M1_marginal_cost_per_reclaimable` | 0.626172 | 0.083003 | 2 / 0 / 1 |
-| `M2_non_code_first` | 0.713574 | 0.103181 | 1 / 0 / 2 |
-| `M3_non_code_then_small_prefill` | 0.713574 | 0.103181 | 1 / 0 / 2 |
-| `M3_non_code_then_size_score` | 0.713574 | 0.103181 | 1 / 0 / 2 |
-| `M0_p1b_executed_ordering` | 0.792135 | 0.132757 | 基线 |
-| `M1_prefill_reload_ascending` | 0.792135 | 0.132757 | 0 / 0 / 3 |
-| `M1_block_count_ascending` | 0.792135 | 0.132757 | 0 / 0 / 3 |
-| `M1_reclaimable_ascending` | 0.792135 | 0.132757 | 0 / 0 / 3 |
-| `M3_size_score_only` | 0.792135 | 0.132757 | 0 / 0 / 3 |
+| 规则 | 平均归一化 regret | 平均绝对 regret | 误选率 | 平均释放数 | 对比基线：更好/更差/平 |
+| --- | ---: | ---: | ---: | ---: | --- |
+| `M1_marginal_cost_per_reclaimable` | **0.333333** | 0.057019 | **0.333** | **1.00** | 2 / 0 / 1 |
+| `M2_non_code_first` | 0.713574 | 0.103181 | 1.000 | 2.00 | 1 / 0 / 2 |
+| `M3_non_code_then_small_prefill` | 0.713574 | 0.103181 | 1.000 | 2.00 | 1 / 0 / 2 |
+| `M3_non_code_then_size_score` | 0.713574 | 0.103181 | 1.000 | 2.00 | 1 / 0 / 2 |
+| `M0_p1b_executed_ordering` | 0.792135 | 0.132757 | 1.000 | 2.00 | 基线 |
+| `M1_prefill_reload_ascending` | 0.792135 | 0.132757 | 1.000 | 2.00 | 0 / 0 / 3 |
+| `M1_block_count_ascending` | 0.792135 | 0.132757 | 1.000 | 2.00 | 0 / 0 / 3 |
+| `M1_reclaimable_ascending` | 0.792135 | 0.132757 | 1.000 | 2.00 | 0 / 0 / 3 |
+| `M3_size_score_only` | 0.792135 | 0.132757 | 1.000 | 2.00 | 0 / 0 / 3 |
+
+ⓘ **与修正前对比**：在固定数量语义下边际分母规则的误选率是 1.000、平均归一化 regret 是 0.626172；在 replay 语义下误选率降为 0.333、平均归一化 regret 降为 0.333333，且平均只需 **1.00** 次释放（基线 2.00）。
+
+⇒ 这正是 §2.2 所述语义错误的影响：它在结构上看不到「用更少释放满足同一 target」这一维度，因而**低估**了该规则。
 
 ### 5.2 警告：该样本被刻意偏差化，数字不得引用为效应量
 
@@ -155,9 +221,15 @@ non-tied decisions  : 3
    但这是 3 个决策、每族 1 个 run 的结果，**不构成稳定性证据**。真正的族留出检验
    需要完整 campaign 的 18 个场景 / 6 个族（见 §11）。
 
-## 6. 退化审计（handoff §10）
+## 6. 退化审计（handoff §10）—— **样本级证据**
 
 Handoff §10 要求重新检验请求级退化，而非假设其不存在。结果如下。
+
+> ⚠️ **证据级别声明（必读）**：本节全部观察建立在本仓库内可得的 **3 个决策 / 11 个候选**上，且这 3 个 exemplar 是 M6 **按构造挑选的高 regret 代表性样例**，**仅含 seed-101**。
+>
+> 因此以下内容应读作 **exemplar-level evidence suggests …**（样本级证据提示），**而不是**已验证机制或最终结论。它们是有价值的诊断假设，需在完整 canonical bundle（54 runs / 60 decisions / 174 candidates / 6 families / 3 seeds）上重新验证后，才能升格为机制陈述。
+>
+> 本节此前曾使用「已验证机制」「否证 block-level 路径」等表述，**已降级**。
 
 ### 6.1 观察：size/recompute 簇与基线排序同构
 
@@ -177,7 +249,7 @@ M1_block_count_ascending == M3_size_score_only            over 3 decisions
 
 M6 的 ρ≈0.205 是**秩关联**证据，而秩关联可以完全落在基线排序的方向上而不产生分歧。**关联显著 ≠ 决策可分歧。**
 
-### 6.2 修正：6.1 的成因**不是**线性成本退化
+### 6.2 修正：6.1 的成因**不是**线性成本退化（样本内测量）
 
 本节记录一次被自己证伪的解释，因为它是本报告最重要的方法学修正。
 
@@ -192,7 +264,9 @@ Pearson(deadline, PrefillReload) over 11 candidates : 0.4517
 
 只有 **1/3** 的决策同序，相关系数仅 **0.45**。线性成本退化论证在本样本上**不成立**。
 
-### 6.3 已验证的真实机理：损失由返回窗口主导，成本规则对此全盲
+### 6.3 样本级证据提示的机理：损失可能由返回窗口主导，成本规则对此全盲
+
+> 措辞已降级：本节是 **exemplar-level evidence suggests**，不是已验证机制。
 
 canonical 代理损失**不是纯成本**：
 
@@ -218,9 +292,9 @@ $$
 
 `f6` 最能说明问题：三个候选的 `PrefillReload` 全等于 `0.171057`、`block_count` 全等于 `32` —— **成本特征在结构上无法区分任何东西**，唯一差别是 deadline 与是否返回。
 
-**机理陈述**：在 canonical 代理下，判别维度是**复用/返回窗口**，不是成本。任何纯成本规则都无法改善，与成本曲线形状无关。
+**样本级机理假设**：在本样本的 canonical 代理下，判别维度可能是**复用/返回窗口**，而不是成本。假如这成立，任何纯成本规则都无法改善，**与成本曲线形状无关**。
 
-这一结论之所以重要，是因为它**否证了「只要测到非线性 $C(r)$ 就能让成本规则生效」这一路径**：即便 `C(r)` 非线性，只要损失由返回窗口主导，成本规则依然无效。
+假如该假设在完整数据上成立，它的意义是：它**削弱**了「只要测到非线性 $C(r)$ 就能让成本规则生效」这一路径。注意这里用「削弱」而非「否证」：3 个高 regret exemplar 不足以否证一条路径。
 
 ### 6.4 该机理与既有证据的关系
 
@@ -228,15 +302,26 @@ $$
 - 与 M6 的信号门禁一致：`next_tool_type=code` 是唯一从**不同语义维度**通过的特征，也是本样本上唯一能打破同构的。
 - ⚠️ **仍不得作为结论引用**：3 个 exemplar 是 M6 按构造挑选的高 regret 样例，任何在其中发现的规律都被系统性筛选过。Handoff §13 明确禁止仅凭样本内代理 regret 改善来论证实现。该机理需在完整 54-run / 60 决策上验证（§11 Q1/Q5）。
 
-### 6.5 边际分母规则（handoff §10 明令）
+### 6.5 边际分母规则（handoff §10 明令）—— 修正后的新解释
 
-`M1_marginal_cost_per_reclaimable` 是本样本上唯一大幅改善的规则（2/3 更好）。但：
+在**固定数量**语义下，`M1_marginal_cost_per_reclaimable` 是本样本上唯一大幅改善的规则（2/3 更好），当时只能猜测它「只是打破了同构」。
 
-- 它在 2026-09-24 的 spike 中已被**分析否决**（拒绝释放共保护条目、规划开销退化）；
-- handoff §10 明确要求：「Do not resurrect the previously rejected marginal-block denominator without new evidence」；
-- 它在 3 个高 regret 样例上改善，**可能只是打破了 6.1 的同构**，而非抓住了真实损失结构。
+在**修正后的 replay 语义**下，解释变得可用测量支撑，而且**不同**：
 
-因此：**该规则不作为候选方法提出。** 它留在规则集中仅作为退化审计项，其异常表现登记为需在完整 canonical 数据上复核的未决问题（§11 Q2）。
+| 指标 | 观测基线 | 边际分母规则 |
+| --- | ---: | ---: |
+| 平均释放次数 | 2.00 | **1.00** |
+| 相对基线的平均释放数差 | 0 | **−1.00** |
+| 更省释放的决策数 | — | **2 / 3** |
+| 误选率 | 1.000 | 0.333 |
+
+即：它满足**同一个** `required_blocks` 时只需 **1 次**释放，而基线需要 **2 次**。释放的条目正是产生代理损失的条目，所以**更少释放 = 更低总损失**。结合 §6.6 的分母测量（分母与成本单调同向但非成比例，相除后破坏成本序），可以得出一个不再依赖猜测的结论：
+
+> 该规则的表面优势主要是一个**释放数量效应**：它优先选中那些能一次解开更多块的条目（即「每单位成本解开块数」最高者），而不是因为更好地度量了成本。
+
+因此：**该规则仍不作为候选方法提出。** 理由与之前不同——不是「可能是假象」，而是「它的机制不是成本信号」。它留在规则集中仅作为退化审计项。
+
+⚠️ 但这里出现了一个**新的、更重要的开放性**：释放数量本身就是一个可优化维度。如果某条规则能持续用更少释放满足同一 target，那它的价值就不在于「成本感知」而在于「解开效率」。这需要在完整数据上判定，且可能需要重新考虑它是否应该被排除（§11 Q2/Q7）。
 
 ### 6.6 §10 子问题 c：分母是否抵消了成本信号（已测）
 
@@ -267,7 +352,7 @@ cost-vs-ratio rank inversions          : 11/16 comparable pairs (69%)
 > 它是因为**放弃了成本序**，去探索一个不同的候选。
 > 因此它不能被描述为成本感知方法的候选，其收益也不能被归因于成本信号。
 
-**结论：§10 子问题 c 已回答，且答案支持排除该规则。** 这与 §10 的禁令一致（「Do not resurrect the previously rejected marginal-block denominator without new evidence」）——现在有了新证据，而证据指出应排除。
+**结论：§10 子问题 c 已回答——是，分母破坏了成本序。** 这为 §6.5 的机制解释提供了支撑：该规则的收益不能归因于成本信号。但它**不再单独构成排除理由**，因为 replay 语义显示它的优势主要来自释放数量效益（§6.5、§7.5）。是否应排除它，取决于 Q7。
 
 ## 7. §9 要求的行为分解与消融
 
@@ -284,37 +369,47 @@ cost-vs-ratio rank inversions          : 11/16 comparable pairs (69%)
 | size 簇：成本 alone vs 三者平均 | **1.000** | 0.792135 | 0.792135 |
 | tool 指示：关闭 vs 开启（成本为主） | 0.667 | 0.713574 | 0.792135 |
 | tool 指示：关闭 vs 开启（分数为主） | 0.667 | 0.713574 | 0.792135 |
-| 分母：成本 alone vs 成本/可回收 | **0.333** | 0.626172 | 0.792135 |
+| 分母：成本 alone vs 成本/可回收 | **0.333** | **0.333333** | 0.792135 |
 
 两点：
 
 1. **size 簇的三个特征完全互换**（同一率 1.000，regret 差为 0）。这不是「冗余」的统计陈述，而是**在任何测试决策上不产生任何不同选择**。切换其中任何一个都不会有任何效果。
-2. **只有 tool 指示（0.667）与分母（0.333）真正改变了选择。** 分母改变得最多，而 §6.6 已证明它改变的方式是**放弃成本序**。
+2. **只有 tool 指示（0.667）与分母（0.333）真正改变了选择。** 分母改变得最多，而且在 replay 语义下其 regret 改善（0.333）远大于固定数量下的测值（0.626）—— 因为后者的语义根本看不到「用更少释放满足同一 target」。
 
-这同时回答了 §10 子问题 d：**表观收益并非只来自 tool 指示变量**，但也不是来自 size 簇，而是来自分母对成本序的破坏。
+这同时回答了 §10 子问题 d（表观收益是否只来自 tool 指示变量）：**否。** tool 指示确实改变了选择（同一率 0.667），但分母改变得更多（0.333）且改善更大。不过 §6.5 已说明分母的机制是释放数量效应，而非成本信号，因此这两个都不是已验证的「成本感知」收益。
 
 ### 7.2 按场景族的行为
 
+平均归一化 regret（每个族包含 1 个 run）：
+
 | 规则 | F1 | F4 | F6 |
 | --- | ---: | ---: | ---: |
-| `M0_p1b_executed_ordering`（基线） | 0.735684 | 0.640721 | **1.000000** |
+| `M0_p1b_executed_ordering`（基线） | 0.735684 | 0.640721 | 1.000000 |
 | `M1_block_count_ascending` | 0.735684 | 0.640721 | 1.000000 |
-| `M1_marginal_cost_per_reclaimable` | 0.439259 | 0.439259 | **1.000000** |
+| `M1_marginal_cost_per_reclaimable` | **0.000000** | **0.000000** | **1.000000** |
 
-F6 是 `M1_marginal_cost_per_reclaimable` 唯一**没有**改善的族（1.000000 = 完全错）。F6 正是三个候选成本特征**全等**的那个决策 —— 在那里任何成本类排序都无法分辨，而分母规则也不例外。
+在 replay 语义下，边际分母规则的面貌变得非常锐利：它在 **F1 与 F4 上完全正确（0.0）**，而在 **F6 上完全错（1.0）**。
+
+原因能在数据里直接看到：F1 与 F4 的 `required_blocks` 都可以被**一次**释放满足（见 §7.5），而 F6 的三个候选成本特征**全等**（`PrefillReload` 均为 `0.171057`、`block_count` 均为 32），在那里任何成本类排序都无法分辨，分母规则也不例外。
+
+⇒ 样本级提示：该规则的收益与失败都取决于「能否用更少释放满足 target」，而不是取决于成本排序的优劣。
 
 ### 7.3 按候选集规模与释放数的行为
+
+平均归一化 regret：
 
 | 规则 | n=3 | n=5 | releases=1 | releases=2 | releases=3 |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | `M0_p1b_executed_ordering` | 0.820361 | 0.735684 | 1.000000 | 0.640721 | 0.735684 |
-| `M1_marginal_cost_per_reclaimable` | 0.719629 | 0.439259 | 1.000000 | 0.439259 | — |
+| `M1_marginal_cost_per_reclaimable` | — | — | **0.333333** | — | — |
+
+边际分母规则**只在 `releases=1` 出现**（它的每次决策都只用一次释放），而基线横跨 1–3 次。这正是 §6.5 所述释放数量效应的直接体现：两者的 `releases=1` 桶不可直接比较，因为其中的决策集合不同。
 
 三点：
 
-1. **多释放行为已分离报告**（`releases=1/2/3`），不再合并。
-2. 所有非平局决策的误选率均为 **1.000** —— 在这个样本上**没有任何一条被评估的规则达到 hindsight 最优**。改善是 regret 的**减少**，不是消除。
-3. `releases=1` 的 regret 为 1.000000 且误选率 1.000 —— 单释放决策上全员全错，与上表 F6 是同一个决策。
+1. **多释放行为已分离报告**（`releases=1/2/3`），不再合并。这直接回应了 handoff §9 对 multi-release 行为的要求。
+2. **size 簇的每一条规则（包括基线）在所有维度上给出完全相同的数字。** 这不是巧合，而是 §6.1 同构的直接后果：它们的选择集逐决策一致。
+3. **基线在 `releases=1` 上 regret 为 1.000000**，即单释放决策上完全错 —— 与上表 F6 是同一个决策。
 
 ### 7.4 跨 seed 的排序稳定性：**不可评估**
 
@@ -331,7 +426,22 @@ curated-evidence/exemplars/ 仅含 seed-101
 
 依 §3，特征只有经过**独立正式 campaign**复核方向、效应量阈值、族一致性与 seed 一致性之后，才可称为 `RUNTIME_STABLE`。这不在当前授权范围内。
 
-### 7.5 结论冻结声明
+### 7.5 释放负担（replay 语义下新增的维度）
+
+在修正后的语义下，**释放数量本身成为可报告的结果**。评估器为每条规则给出：
+
+| 字段 | 含义 |
+| --- | --- |
+| `mean_releases` | 平均需要多少次释放才能满足共享 target |
+| `mean_releases_vs_baseline` | 相对**观测基线**的平均释放数差（负 = 更省） |
+| `frugal_decisions` | 比基线释放更少的决策数 |
+| `saturated_decisions` | 比基线释放更多的决策数 |
+
+本样本上的结果：size 簇全部规则与基线**完全一致**（`mean_releases` 2.00，差 0，更省 0 / 更饱和 0）；只有 `next_tool_type` 与边际分母规则改变了释放次数，其中边际分母规则平均只需 **1.00** 次（差 **−1.00**，2 个决策更省）。
+
+这一维度的重要性：释放的条目正是产生代理损失的条目，因此**在满足同一 target 的前提下，更少的释放直接意味着更低的总损失**。前版固定数量比较把这一维度完全遮蔽了。
+
+### 7.6 结论冻结声明
 
 §9 要求：
 
@@ -441,58 +551,80 @@ Block-level / partial-prefix（草案 B1）**未被本报告请求**，因为 ha
 | Q4 | 是否存在能超越 entry-level 的 block-level 收益？ | 未决 —— handoff §11 的四个前置问题 |
 | Q5 | §6.3 的「返回窗口主导」机理在 60 个决策上是否成立？ | 未决 —— 同上；并检查不同族是否给出不同机理 |
 | Q6 | §7.1 的 size 簇完全互换（同一率 1.000）在 60 个决策上是否成立？ | 未决 —— 若成立，则三个 `PROXY_SUPPORTED` 尺寸特征应被视为**一个**特征，而非三个独立信号 |
+| Q7 | §6.5 的**释放数量效应**在 60 个决策上是否可复现？若可复现，「每单位成本解开块数」是否应被当作一个正当的优化目标（而不是被当作成本信号的伪装而排除）？ | 未决 —— 同上；这可能需要修正 §6.5 的排除结论 |
+| Q8 | §2.1 声明的 regret 局限（hindsight 为**同数量**且不检查可行性）是否影响主结论？ | 未决 —— 若影响，需在评估层单独构造可行性感知的 oracle（**不得**修改 canonical M6 代码） |
 
-前六项**都不需要新观测**，只需要把外部证据包传进来。
+前八项**都不需要新观测**，只需要把外部证据包传进来。
 
 ## 12. 局限
 
-- **没有提出候选方法。** Handoff §13 第 1 项要求“提出的规则”，而 §14 要求的是能胜出的设计。本报告交付的是评估器、规则集与诊断，**尚未收敛到一条可提交评审的规则**。这是最主要的遗留缺口，且可能受 §6.3 机理制约（见 Q5）。
-- **原始样本量极小（3 个决策）。** §6 的全部观察都建立在这 3 个决策上。
+- **没有提出候选方法。** Handoff §13 第 1 项要求“提出的规则”，而 §14 要求的是能胜出的设计。本报告交付的是 replay 引擎、评估器、规则集与诊断，**尚未收敛到一条可提交评审的规则**。这是最主要的遗留缺口，且有双重制约：§6.3 的样本级机理假设，以及 §6.5 新出现的「释放数量是否本身就是一个目标」的开放问题。
+- **机制结论均为样本级。** §6 全部内容来自 **3 个决策 / 11 个候选 / 仅 seed-101**，且这 3 个 exemplar 是 M6 **按构造挑选的高 regret 样例**。任何在其中发现的规律都被系统性筛选过，不能作为机制陈述或效应量引用。
+- **regret 是同数量且非可行的。** §2.1 已声明：hindsight 只取损失最小的同规模集合，不检查是否能解开压力。跨规则比较应以总代理损失为主。
 - **证据为代理级别。** canonical 损失视角 `planned_return_weighted_prefill_proxy` 是 trace 派生的规划代理，不是实测重计算、TTL 或 serving 影响。依 handoff §3，除 `PROXY_SUPPORTED` 外不得作更强声明。
-- **已运行样本为 3 个刻意偏差的高 regret exemplar**，不能支撑效应量，见 §5.2。
 - **无运行时验证。** 无 vLLM 进程、无 GPU、无延迟数据。运行时可复制性（runtime replication）按 canonical 记录仍为 `false`。
 - **未拟合任何模型。** 依 handoff §8，未对 60 个受控决策拟合高容量模型。
 - **未做新颖性核查**（§13 第 11 项），需 M2 的相关工作输入。
-- **仓库既有测试失败。** 全量套件在干净 `origin/main` 上即有 12 项失败（`test_continuum_logging`、`test_continuum_vllm_observation_runner`、`test_phase2a_m6_*`），已核实与本次改动无关；属 M1/M6 范围。
+- **仓库既有测试失败。** 全量套件在干净 `origin/main` 上即有失败（`test_continuum_vllm_observation_runner` 6 项、`test_phase2a_m6_*` 5 项），已核实与本次改动无关；属 M1/M6 范围。
 
 ## 13. 复现
 
-在已有原始 run 的任意机器上（无需 vLLM）：
+**入库入口（推荐，无需 vLLM / GPU / 模型下载）：**
 
 ```bash
-python local/cost_aware_local_experiment.py
+python -m kvopt.costaware.cli --artifact-root <raw run dir>
+```
+
+安装后也可用控制台脚本（`pyproject.toml` 的 `[project.scripts]`）：
+
+```bash
+kvopt-m4-offline --artifact-root <raw run dir> --output report.json
 ```
 
 在完整 canonical 数据上（需先按 `docs/experiments/phase2a-m6-formal-v5/README.md` 取得外部证据包）：
 
 ```bash
-python local/cost_aware_local_experiment.py \
+python -m kvopt.costaware.cli \
   --artifact-root <extracted>/phase2a-formal-v5-final \
-  --formal
+  --formal \
+  --output report.json
 ```
 
 限定规则或视角：
 
 ```bash
-python local/cost_aware_local_experiment.py --rules M2_non_code_first
-python local/cost_aware_local_experiment.py --loss-view observed_recomputed_tokens
+python -m kvopt.costaware.cli --rules M2_non_code_first
+python -m kvopt.costaware.cli --loss-view observed_recomputed_tokens
 ```
 
-输出：控制台报告 + `local/output/local_report.json`。
+输出：控制台报告；加上 `--output <path>` 会额外写入完整 JSON 报告。
+
+`local/cost_aware_local_experiment.py` 只是同一代码路径的薄封装（默认为仓库内 exemplar，输出到 `local/output/`），**不再是唯一可复现的运行方式**。
 
 ## 14. 可追溯性
 
 | 章节 | 来源 |
 | --- | --- |
-| §1, §13 | `src/kvopt/costaware/`、`local/cost_aware_local_experiment.py`、`.gitignore` |
+| §1, §13 | `src/kvopt/costaware/`、`pyproject.toml` 的 `[project.scripts]`、`.gitignore` |
+| §2.1 | `src/kvopt/profiling/analysis.py` 的 `build_decision_regret_table` |
+| §2.5 | `src/kvopt/costaware/replay.py`；`tests/test_costaware_replay.py` |
 | §2, §3 | `src/kvopt/costaware/offline_eval.py`、`rules.py`；`docs/phase2a-m4-method-design-input.md` §8/§9/§10 |
-| §4, §5 | 本地运行输出（`local/output/local_report.json`）；自检 3/3 |
+| §4, §5 | 入库 CLI 报告（`python -m kvopt.costaware.cli`）的 REPLAY FIDELITY 与 EVALUATION 段 |
 | §5.0 | `src/kvopt/costaware/offline_eval.py` 的 `candidate_loss_tied` 与 `_aggregate` |
 | §5.2 | `docs/experiments/phase2a-m6-formal/README.md`（exemplars 为高 regret 样例） |
-| §5.3 | 本地运行的 `leave_one_family_out` 输出 |
-| §6.1 | 本地运行的退化审计段 |
-| §6.2 | 本地 `local/probe_deadline_vs_cost.py` 输出（1/3、r=0.4517） |
-| §6.3 | 本地 `local/probe_loss_mechanism.py` 与 `cost_aware_local_experiment.py` 的 LOSS MECHANISM 段 |
+| §5.3 | 入库 CLI 报告的 LEAVE-ONE-FAMILY-OUT 段 |
+| §6.1 | 入库 CLI 报告的 DEGENERACY 段 |
+| §6.2 | `local/probe_deadline_vs_cost.py` 输出（1/3、r=0.4517） |
+| §6.3 | `local/probe_loss_mechanism.py` 输出 |
+| §6.5, §7.5 | 入库 CLI 报告的 RELEASE BURDEN 段（`ReleaseBurdenRow`） |
+| §6.6 | `offline_eval.denominator_diagnostic()`；入库 CLI 报告的 DENOMINATOR DIAGNOSTIC 段 |
+| §7.1 | `offline_eval.ablation_table()` 与 `ABLATION_PAIRS` |
+| §7.2–7.3 | `offline_eval.behaviour_breakdown()`；入库 CLI 报告的对应段 |
+| §7.4 | `docs/experiments/phase2a-m6-formal/README.md`（exemplars 仅含 seed-101） |
+| §8 | `local/probe_rule_complexity.py` 输出；`tests/test_costaware_rules.py::test_size_score_prepare_does_not_rescan_per_candidate` |
+| §9 | `src/kvopt/costaware/rules.py` 模块 docstring 与 `fallback_key()`；四个回退测试 |
+| §10 | `docs/policy-adapter-design.md`；`src/kvopt/runtime/vllm/types.py`；`docs/phase2a-m4-method-design-input.md` §5/§11 |
+| §11, §12 | `docs/phase2a-m4-method-design-input.md` §3/§7/§9/§11/§13 |
 | §6.4 | 2026-09-24 spike（`origin/feature/cost-aware-forced-unpin-spike`）；`docs/phase2a-m6-formal-results.md` |
 | §6.5 | `docs/phase2a-m4-method-design-input.md` §10 |
 | §6.6 | `offline_eval.denominator_diagnostic()`；本地运行的 DENOMINATOR DIAGNOSTIC 段 |
@@ -510,9 +642,9 @@ python local/cost_aware_local_experiment.py --loss-view observed_recomputed_toke
 本地探针脚本（均不入库，`.gitignore` 已忽略 `local/`）：
 
 ```text
-local/cost_aware_local_experiment.py    主实验运行器
-local/probe_multi_release_and_scale.py  多释放正确性与规模
-local/probe_deadline_vs_cost.py         §6.2 的证伪测量
-local/probe_loss_mechanism.py           §6.3 的逐候选机理诊断
-local/probe_rule_complexity.py          §8 的分规则复杂度
+local/cost_aware_local_experiment.py   入库 CLI 的薄封装（不再是主实现）
+local/probe_replay_fidelity.py         §2.5.3 的保真度与释放数量对比
+local/probe_deadline_vs_cost.py        §6.2 的证伪测量
+local/probe_loss_mechanism.py          §6.3 的逐候选机理诊断
+local/probe_rule_complexity.py         §8 的分规则复杂度
 ```
