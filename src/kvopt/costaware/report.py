@@ -30,8 +30,10 @@ from .offline_eval import (
     PressureFeasibleAggregate,
     ReleaseBurdenRow,
     RuleAggregate,
+    RuleEvaluation,
     ablation_table,
     behaviour_breakdown,
+    cluster_paired_comparison,
     denominator_diagnostic,
     evaluate_rules,
     leave_one_family_out,
@@ -98,12 +100,21 @@ def build_offline_report(
     )
 
     paired: dict[str, dict[str, float | int]] = {}
+    cluster_paired: dict[str, dict[str, float | int]] = {}
     if any(rule.rule_id == EXECUTED_BASELINE_RULE_ID for rule in rules):
         for rule in rules:
             if rule.rule_id == EXECUTED_BASELINE_RULE_ID:
                 continue
             try:
                 paired[rule.rule_id] = paired_comparison(
+                    evaluation,
+                    baseline_rule_id=EXECUTED_BASELINE_RULE_ID,
+                    challenger_rule_id=rule.rule_id,
+                )
+            except ValueError:
+                continue
+            try:
+                cluster_paired[rule.rule_id] = cluster_paired_comparison(
                     evaluation,
                     baseline_rule_id=EXECUTED_BASELINE_RULE_ID,
                     challenger_rule_id=rule.rule_id,
@@ -202,12 +213,25 @@ def build_offline_report(
                 "size-matched lowest-loss hindsight from "
                 "build_decision_regret_table; does not check pressure feasibility"
             ),
+            # The M6-aligned numbers, surfaced where a reviewer looks for them so
+            # the canonical non-tied / misselection rate has exactly one home and
+            # is never quoted from the M4 diagnostic denominator.
+            "baseline_canonical_summary": _canonical_summary_payload(
+                evaluation, EXECUTED_BASELINE_RULE_ID
+            ),
             "note": (
                 "unchanged canonical M6 code; reported separately from the "
-                "pressure-feasible oracle so the two denominators never compete"
+                "pressure-feasible oracle so the two denominators never compete; "
+                "the M4 diagnostic denominator lives in "
+                "evaluation.aggregates[*].loss_discriminating_decisions and must "
+                "not be quoted as canonical non_tied"
             ),
         },
         "paired_vs_executed_baseline": paired,
+        # Q10: the same paired test on the effective sample. Raw counts sum to
+        # 60 decision rows; cluster counts sum to the cluster count. Both are
+        # published because neither is a substitute for the other.
+        "paired_vs_executed_baseline_cluster_level": cluster_paired,
         "degeneracy": [
             {
                 "rule_a": row.rule_a,
@@ -255,6 +279,17 @@ def build_offline_report(
             "clusters_identical_across_seeds": (
                 evaluation.clusters_identical_across_seeds
             ),
+            # Q10 asks specifically for the unique decision-pattern count: two
+            # clusters with the same candidate loss multiset pose the same
+            # decision problem, so a deterministic rule cannot behave differently
+            # on them and they are not separate evidence.
+            "unique_decision_pattern_count": (
+                evaluation.unique_decision_pattern_count
+            ),
+            "decision_patterns": [
+                {"losses": list(pattern), "cluster_count": count}
+                for pattern, count in evaluation.decision_pattern_counts
+            ],
             "decisions": [
                 {
                     "scenario_group": row.scenario_group,
@@ -263,10 +298,41 @@ def build_offline_report(
                     "loss_profile_identical_across_seeds": (
                         row.loss_profile_identical_across_seeds
                     ),
+                    "decision_pattern": list(row.decision_pattern),
                 }
                 for row in evaluation.clusters
             ],
         },
+    }
+
+
+def _canonical_summary_payload(
+    evaluation: RuleEvaluation, rule_id: str
+) -> dict[str, object] | None:
+    """The canonical M6-aligned numbers for one rule, or ``None`` if absent.
+
+    Q9 requires that the canonical non-tied / misselection rate has exactly one
+    home. Surfacing it inside ``canonical_m6_comparator`` keeps a reviewer from
+    quoting the M4 diagnostic denominator as if it were the canonical figure.
+    """
+    try:
+        aggregate = evaluation.for_rule(rule_id)
+    except KeyError:
+        return None
+    return {
+        "rule_id": aggregate.rule_id,
+        "canonical_applicable_decisions": (
+            aggregate.canonical_applicable_decisions
+        ),
+        "canonical_non_tied_decisions": (
+            aggregate.canonical_non_tied_decisions
+        ),
+        "canonical_positive_regret_decisions": (
+            aggregate.canonical_positive_regret_decisions
+        ),
+        "canonical_misselection_rate": aggregate.canonical_misselection_rate,
+        "mean_absolute_regret": aggregate.mean_absolute_regret,
+        "mean_normalized_regret": aggregate.mean_normalized_regret,
     }
 
 
@@ -524,11 +590,36 @@ def render_text(report: dict[str, object]) -> str:
             f"{clusters['clusters_identical_across_seeds']} / "
             f"{clusters['effective_cluster_count']}"
         )
+        emit(
+            f"  unique decision-pattern count: "
+            f"{clusters['unique_decision_pattern_count']}"
+        )
+        emit("  a pattern is the candidate loss multiset; two clusters with the")
+        emit("  same pattern pose the SAME problem, so a deterministic rule")
+        emit("  cannot act differently on them and they are not separate evidence")
+        for pattern in clusters["decision_patterns"]:  # type: ignore[union-attr]
+            losses = ", ".join(f"{value:.6g}" for value in pattern["losses"])
+            emit(f"    [{losses}] x {pattern['cluster_count']} clusters")
         emit("  seeds are near-replicas under the planned proxy, so raw row")
         emit("  counts overstate independent evidence; quote both views")
         emit()
     emit("  canonical M6 regret above is size-matched and does NOT check")
     emit("  pressure feasibility; it is retained for provenance only")
+    canonical = report.get("canonical_m6_comparator")  # type: ignore[union-attr]
+    if canonical:
+        summary = canonical.get("baseline_canonical_summary")  # type: ignore[union-attr]
+        if summary:
+            emit()
+            emit("  canonical M6 comparator, executed baseline (the numbers to")
+            emit("  quote next to M6; NOT the M4 diagnostic denominator):")
+            emit(
+                f"    applicable={summary['canonical_applicable_decisions']}  "
+                f"non_tied={summary['canonical_non_tied_decisions']}  "
+                f"positive_regret="
+                f"{summary['canonical_positive_regret_decisions']}  "
+                f"misselection_rate="
+                f"{_fmt(summary['canonical_misselection_rate'], 4)}"
+            )
     emit()
 
     paired = report["paired_vs_executed_baseline"]
@@ -550,6 +641,31 @@ def render_text(report: dict[str, object]) -> str:
                 f"{_fmt(stats['mean_loss_delta_seconds']):>13s}"
             )
         emit("  positive mean delta = the challenger releases a cheaper total set")
+        emit()
+
+    cluster_paired = report.get(  # type: ignore[union-attr]
+        "paired_vs_executed_baseline_cluster_level"
+    )
+    if cluster_paired:
+        emit(line)
+        emit("PAIRED COMPARISON, CLUSTER LEVEL (same test, seeds collapsed)")
+        emit("  each (scenario group, decision position) counted once (Q10)")
+        emit(line)
+        header = (
+            f"  {'challenger':38s} {'shared':>6s} {'better':>6s} "
+            f"{'worse':>6s} {'tied':>5s} {'mean_delta_s':>13s}"
+        )
+        emit(header)
+        emit("  " + "-" * (len(header) - 2))
+        for rule_id, stats in cluster_paired.items():  # type: ignore[union-attr]
+            emit(
+                f"  {rule_id:38s} {stats['shared_clusters']:6d} "
+                f"{stats['improved']:6d} {stats['worsened']:6d} "
+                f"{stats['tied']:5d} "
+                f"{_fmt(stats['mean_loss_delta_seconds']):>13s}"
+            )
+        emit("  quote this next to the raw view; the raw counts are inflated by")
+        emit("  seed replicas and must not be read as the number of trials")
         emit()
 
     emit(line)

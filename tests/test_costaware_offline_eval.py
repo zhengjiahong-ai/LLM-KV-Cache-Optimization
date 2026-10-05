@@ -9,6 +9,8 @@ from kvopt.costaware.offline_eval import (
     CANONICAL_LOSS_VIEW,
     ablation_table,
     behaviour_breakdown,
+    cluster_paired_comparison,
+    decision_pattern_counts,
     denominator_diagnostic,
     evaluate_rules,
     leave_one_family_out,
@@ -459,6 +461,137 @@ def test_scenario_clusters_merge_seed_replicas_of_one_scenario() -> None:
     assert rows[0].scenario_group == "sc-1"
     assert rows[0].seed_count == 2
     assert rows[0].loss_profile_identical_across_seeds is True
+
+
+def test_decision_patterns_dedupe_clusters_with_the_same_problem() -> None:
+    """Q10: the unique decision-pattern count is the tightest sample size.
+
+    Two *different* scenarios that present the same candidate loss multiset pose
+    the same decision problem, so a deterministic rule cannot act differently on
+    them. They must therefore not be counted as separate evidence.
+    """
+    entries = {"pg-a": (0,), "pg-b": (1,)}
+    rows = scenario_clusters(
+        (
+            _snapshot(
+                run_id="sc-1-seed-101",
+                decision_event_index=7,
+                entries=entries,
+                required_blocks=1,
+                observed_selected=("pg-a",),
+            ),
+            _snapshot(
+                run_id="sc-2-seed-101",
+                decision_event_index=9,
+                entries=entries,
+                required_blocks=1,
+                observed_selected=("pg-a",),
+            ),
+            _snapshot(
+                run_id="sc-3-seed-101",
+                decision_event_index=9,
+                entries=entries,
+                required_blocks=1,
+                observed_selected=("pg-a",),
+            ),
+        ),
+        {
+            ("sc-1-seed-101", 7, ("pg-a", _PREFIX)): 0.5,
+            ("sc-1-seed-101", 7, ("pg-b", _PREFIX)): 0.1,
+            ("sc-2-seed-101", 9, ("pg-a", _PREFIX)): 0.5,
+            ("sc-2-seed-101", 9, ("pg-b", _PREFIX)): 0.1,
+            ("sc-3-seed-101", 9, ("pg-a", _PREFIX)): 0.5,
+            ("sc-3-seed-101", 9, ("pg-b", _PREFIX)): 0.1,
+        },
+    )
+    assert len(rows) == 3
+    assert all(row.decision_pattern == (0.1, 0.5) for row in rows)
+    counts = decision_pattern_counts(rows)
+    assert counts == (((0.1, 0.5), 3),)
+    assert len(counts) == 1
+
+
+def test_cluster_paired_comparison_counts_each_cluster_once() -> None:
+    """The cluster-level test must not be inflated by seed replicas."""
+    snapshots = tuple(
+        _snapshot(
+            run_id=f"sc-1-seed-{seed}",
+            decision_event_index=7,
+            entries={"pg-a": tuple(range(40)), "pg-b": tuple(range(40, 48))},
+            required_blocks=40,
+            observed_selected=("pg-a",),
+        )
+        for seed in (101, 211, 307)
+    )
+    candidates = tuple(
+        row
+        for seed in (101, 211, 307)
+        for row in (
+            _row(
+                run_id=f"sc-1-seed-{seed}",
+                decision_event_index=7,
+                program_id="pg-a",
+                selected=True,
+                block_ids=tuple(range(40)),
+                prefill_reload_seconds=0.5,
+                retention_deadline_timestamp=100.0,
+                decision_native_lru_position=0,
+            ),
+            _row(
+                run_id=f"sc-1-seed-{seed}",
+                decision_event_index=7,
+                program_id="pg-b",
+                selected=False,
+                block_ids=tuple(range(40, 48)),
+                prefill_reload_seconds=0.1,
+                retention_deadline_timestamp=200.0,
+                decision_native_lru_position=1,
+            ),
+        )
+    )
+    losses = {
+        (f"sc-1-seed-{seed}", 7, program): loss
+        for seed in (101, 211, 307)
+        for program, loss in (("pg-a", 0.5), ("pg-b", 0.1))
+    }
+    evidence = tuple(
+        _evidence(
+            run_id=run_id,
+            decision_event_index=7,
+            program_id=program,
+            loss=loss,
+        )
+        for (run_id, _, program), loss in losses.items()
+    )
+    evaluation = evaluate_rules(
+        candidates=candidates,
+        evidence=evidence,
+        snapshots=snapshots,
+    )
+    assert evaluation.effective_cluster_count == 1
+    assert evaluation.unique_decision_pattern_count == 1
+    raw = paired_comparison(
+        evaluation,
+        baseline_rule_id="M0_p1b_executed_ordering",
+        challenger_rule_id="M1_prefill_reload_ascending",
+    )
+    # Raw view counts all three seed replicas.
+    assert raw["shared_decisions"] == 3
+    clustered = cluster_paired_comparison(
+        evaluation,
+        baseline_rule_id="M0_p1b_executed_ordering",
+        challenger_rule_id="M1_prefill_reload_ascending",
+    )
+    # Cluster view counts the one real decision problem once.
+    assert clustered["shared_clusters"] == 1
+    assert (
+        clustered["improved"] + clustered["worsened"] + clustered["tied"]
+        == clustered["shared_clusters"]
+    )
+    # Releasing pg-a alone already satisfies the target, so the cheap-first rule
+    # is forced onto a second release and pays more than the baseline here.
+    assert clustered["worsened"] == 1
+    assert clustered["mean_loss_delta_seconds"] == pytest.approx(-0.1)
 
 
 def test_totals_loss_is_the_primary_cross_rule_comparator() -> None:

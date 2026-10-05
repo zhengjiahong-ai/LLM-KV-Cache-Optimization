@@ -286,6 +286,22 @@ class RuleEvaluation:
             if cluster.loss_profile_identical_across_seeds
         )
 
+    @property
+    def decision_pattern_counts(self) -> tuple[tuple[tuple[float, ...], int], ...]:
+        """Cluster occurrences per identical decision problem (Q10)."""
+        return decision_pattern_counts(self.clusters)
+
+    @property
+    def unique_decision_pattern_count(self) -> int:
+        """Distinct decision problems actually posed, the tightest sample size.
+
+        Q10 asks for this explicitly. It is at most ``effective_cluster_count``
+        and is smaller whenever two scenarios present the same candidate loss
+        multiset, which means a deterministic rule cannot behave differently on
+        them and they carry no separate evidence.
+        """
+        return len(self.decision_pattern_counts)
+
     def for_rule(self, rule_id: str) -> RuleAggregate:
         for aggregate in self.aggregates:
             if aggregate.rule_id == rule_id:
@@ -743,6 +759,15 @@ class ScenarioClusterRow:
     decision_event_index: int
     seed_count: int
     loss_profile_identical_across_seeds: bool
+    decision_pattern: tuple[float, ...] = ()
+    """Sorted canonical loss multiset of the decision's candidate set.
+
+    Two clusters with the same pattern pose the *same* decision problem: the
+    rule sees the same number of candidates with the same loss multiset, so any
+    deterministic rule must behave identically. This is what allows the report
+    to state the unique decision-pattern count required by Q10, which is
+    smaller than the cluster count.
+    """
 
 
 def scenario_clusters(
@@ -771,16 +796,36 @@ def scenario_clusters(
     rows: list[ScenarioClusterRow] = []
     for key in sorted(grouped):
         run_ids = grouped[key]
-        row_profiles = profiles.get(key, set())
+        row_profiles = sorted(profiles.get(key, set()))
         rows.append(
             ScenarioClusterRow(
                 scenario_group=key[0],
                 decision_event_index=key[1],
                 seed_count=len(run_ids),
                 loss_profile_identical_across_seeds=len(row_profiles) <= 1,
+                decision_pattern=(row_profiles[0] if row_profiles else ()),
             )
         )
     return tuple(rows)
+
+
+def decision_pattern_counts(
+    clusters: Sequence[ScenarioClusterRow],
+) -> tuple[tuple[tuple[float, ...], int], ...]:
+    """Count clusters that pose each identical decision problem (Q10).
+
+    Keyed by the loss multiset rather than by scenario identity: two different
+    scenarios with the same candidate losses present the same decision problem,
+    so they are not independent evidence about a rule. Returned in descending
+    frequency, then by pattern, so the largest multiplicities come first.
+    """
+    counts: dict[tuple[float, ...], int] = defaultdict(int)
+    for cluster in clusters:
+        if cluster.decision_pattern:
+            counts[cluster.decision_pattern] += 1
+    return tuple(
+        sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+    )
 
 
 def _scenario_group(run_id: str) -> str:
@@ -855,6 +900,63 @@ def paired_comparison(
             worse += 1
     return {
         "shared_decisions": len(shared),
+        "improved": improved,
+        "worsened": worse,
+        "tied": tied,
+        "mean_loss_delta_seconds": statistics.fmean(deltas),
+        "median_loss_delta_seconds": statistics.median(deltas),
+        "sum_loss_delta_seconds": sum(deltas),
+    }
+
+
+def cluster_paired_comparison(
+    evaluation: RuleEvaluation,
+    *,
+    baseline_rule_id: str,
+    challenger_rule_id: str,
+) -> dict[str, float | int]:
+    """Paired comparison that counts each scenario cluster exactly once (Q10).
+
+    The raw comparison counts decision rows, which double-counts the seed
+    replicas. Here every ``(scenario group, decision position)`` cluster is
+    averaged over its seeds first and then paired, so the reported counts sum to
+    the cluster count and cannot be inflated by duplicate seeds. Both views are
+    published; neither replaces the other.
+    """
+    if not evaluation.clusters:
+        raise ValueError("evaluation carries no scenario clusters")
+
+    def per_cluster(rule_id: str) -> dict[tuple[str, int], list[float]]:
+        grouped: dict[tuple[str, int], list[float]] = defaultdict(list)
+        for row in evaluation.outcomes:
+            if row.rule_id != rule_id:
+                continue
+            grouped[
+                (_scenario_group(row.run_id), row.decision_event_index)
+            ].append(row.selected_loss)
+        return grouped
+
+    baseline = per_cluster(baseline_rule_id)
+    challenger = per_cluster(challenger_rule_id)
+    shared = sorted(set(baseline).intersection(challenger))
+    if not shared:
+        raise ValueError("rules share no evaluated clusters")
+
+    improved = worse = tied = 0
+    deltas: list[float] = []
+    for key in shared:
+        delta = statistics.fmean(baseline[key]) - statistics.fmean(
+            challenger[key]
+        )
+        deltas.append(delta)
+        if math.isclose(delta, 0.0, abs_tol=1e-12):
+            tied += 1
+        elif delta > 0:
+            improved += 1
+        else:
+            worse += 1
+    return {
+        "shared_clusters": len(shared),
         "improved": improved,
         "worsened": worse,
         "tied": tied,

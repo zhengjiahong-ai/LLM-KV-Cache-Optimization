@@ -13,10 +13,10 @@
 | 裁定 | 内容 | 落地位置 |
 | --- | --- | --- |
 | **Q9** | canonical 指标完全复用 M6 平局口径（唯一 hindsight 最优集合）；M4 的 39/24 改名为诊断量；feasible 主指标不再依赖自造的「non-tied misselection rate」，zero-regret 即无损失 | §4.2、§5.0、§5.1b、§6.7 |
-| **Q10** | 新增 scenario-cluster / 有效样本量汇总（`(scenario group, decision position)` 聚类）；paired 结论双视图；**不重跑 raw campaign** | §5.2.1 |
+| **Q10** | 新增 scenario-cluster / 有效样本量汇总（`(scenario group, decision position)` 聚类）+ **unique decision-pattern count**；paired 结论双视图（raw 与 cluster-level）；**不重跑 raw campaign** | §5.2.1 |
 | **Q11** | 主报告指标顺序冻结：mean/median abs regret → paired delta → better/worse/tied → zero-regret rate → normalized regret（secondary） | §5.0、§5.1、§6.7 |
 
-代码侧同步（`src/kvopt/costaware/`）：`RuleAggregate` 拆为 canonical 与诊断两组字段；`PressureFeasibleAggregate` 改为 Q11 指标集；新增 `scenario_clusters()` 与 `RuleEvaluation.effective_cluster_count`；报告 schema 升为 `phase2a.m4.offline_report.v2`。
+代码侧同步（`src/kvopt/costaware/`）：`RuleAggregate` 拆为 canonical 与诊断两组字段；`PressureFeasibleAggregate` 改为 Q11 指标集；新增 `scenario_clusters()` / `decision_pattern_counts()` / `cluster_paired_comparison()` 与 `RuleEvaluation.effective_cluster_count` / `unique_decision_pattern_count`；`canonical_m6_comparator` 直接携带基线 canonical 数字；报告 schema 升为 `phase2a.m4.offline_report.v2`。
 
 授权依据与边界：
 
@@ -35,9 +35,9 @@ M1 未授权：冻结或合并最终运行时 Cost-Aware 实现，包括 block-l
 | **压力循环 replay 引擎** | `src/kvopt/costaware/replay.py` | 离线分析，忠实重放冻结的释放循环 |
 | **feasibility-aware oracle** | `src/kvopt/costaware/feasible_oracle.py` | 离线分析，精确枚举可行释放集合 |
 | 离线评估器 | `src/kvopt/costaware/offline_eval.py` | 离线分析，两套 comparator 分离输出；Q9 双分母（canonical M6 + M4 诊断）与 Q11 冻结指标顺序 |
-| **scenario-cluster 有效样本汇总** | `offline_eval.scenario_clusters()` + `RuleEvaluation.effective_cluster_count` | 离线分析，Q10：seed 近似重复下的有效样本量 |
+| **scenario-cluster 有效样本汇总** | `offline_eval.scenario_clusters()` / `decision_pattern_counts()` / `cluster_paired_comparison()` + `RuleEvaluation.effective_cluster_count` / `unique_decision_pattern_count` | 离线分析，Q10：60 → 20 簇 → 9 个 unique decision pattern |
 | **入库可复现入口** | `src/kvopt/costaware/report.py` + `cli.py` | 已入库；见 §13 的运行方式（report schema v2） |
-| 单元测试（118 项） | `tests/test_costaware_{rules,replay,feasible_oracle,offline_eval,report}.py` | 已提交 |
+| 单元测试（123 项） | `tests/test_costaware_{rules,replay,feasible_oracle,offline_eval,report}.py` | 已提交 |
 | 本地探针 | `local/probe_*.py`、`local/cost_aware_local_experiment.py` | **不入库**（`.gitignore` 已忽略 `local/`） |
 | `.gitignore` | 新增 `local/` 条目 | 声明本地工作区不入评审 |
 
@@ -374,27 +374,44 @@ canonical（size-matched，M6 对齐）侧的字段定义见 §4.2：主用 `can
 
 第三轮评审裁定：报告必须给出 **scenario-cluster / decision-pattern level summary**，并且**不重跑 raw campaign**。
 
-聚类键为 `(scenario group, decision position)`，其中 scenario group = `run_id` 去掉 `-seed-NNN` 后缀。同一 scenario 的三个 seed 在对应决策位置上聚成一簇。
+聚类键为 `(scenario group, decision position)`，其中 scenario group = `run_id` 去掉 `-seed-NNN` 后缀。同一 scenario 的三个 seed 在对应决策位置上聚成一簇。**decision pattern** 定义为该决策的候选损失多重集（升序）。
 
 ```text
 raw decision rows                                    : 60
 effective cluster decisions                          : 20
 clusters with identical loss profile across seeds    : 20 / 20
+unique decision-pattern count                        : 9
 ```
 
-**两项含义：**
+**unique decision-pattern count = 9**，这是 Q10 明确要求的量，也是**最紧的样本量上界**。理由：两个簇若候选损失多重集相同，它们提出的是**同一个决策问题**，任何确定性规则在其上不可能表现不同，因此它们不构成独立证据。簇频次分布：
 
-1. **60 个决策行不是 60 个独立观测。** 簇级有效样本量为 **20**。原因与 §6.3 的机理一致：canonical 损失由**预先设计**的场景时序 / 前缀 / 返回窗口决定，代理损失对 runtime seed 不敏感，因此三个 seed 实际上是同一 scenario 的近似重复。
-2. **20/20 簇在三个 seed 上损失画像逐位相同。** 这不是「跨 seed 稳定」的正面证据 —— 恰恰相反，它说明**本轮 campaign 的 seed 维度不携带独立信息**，任何「跨 seed 稳定性检验」在此数据上都是空命题（§5.4 / §7.4 同一结论）。
+```text
+[0.0887301, 0.0887301]                  x 5 clusters
+[0.0497546, 0.0887301, 0.171057]        x 3 clusters
+[0, 0, 0.0497546, 0.0497546, 0.0887301] x 2 clusters
+[0, 0, 0.0887301]                       x 2 clusters
+[0, 0.0497546, 0.0887301]               x 2 clusters
+[0.0887301, 0.0887301, 0.0887301]       x 2 clusters
+[0.0887301, 0.171057]                   x 2 clusters
+[0, 0.0497546, 0.0887301, 0.171057]     x 1 cluster
+[0, 0.171057, 0.171057]                 x 1 cluster
+```
 
-**因此所有 paired rule 结论都同时报告两个视图：**
+⇒ **样本量收缩链：60 → 20 → 9。** 60 是行数、20 是场景簇数、9 才是真正互不相同的决策问题数。例如模式 `{0.0887301, 0.0887301}`（两个候选、损失相同、无 headroom）单独占了 15 行，在三种口径下分别是 15 / 5 / 1。
 
-| 视图 | 样本单位 | 说明 |
-| --- | ---: | --- |
-| raw 60-decision | 60 | 与 M6 canonical 数字可直接对齐；但把 seed 重复计为独立证据 |
-| cluster-level | 20 | 有效样本；**不夸大**显著性 |
+**这一收缩不改变任何结论，但彻底决定了「不能给区间估计」**：任何基于 60 的置信区间会高估精度约 6.7 倍，即使基于 20 也高估约 2.2 倍。因此本报告**一律不给出置信区间或 bootstrap**。
 
-本报告的主结论**在两个视图下都不变**：size 簇 0/0/60（簇级 0/0/20）完全同构；tool 规则 3/0/57（簇级 1/0/19）；`M1_marginal_cost_per_reclaimable` 18/18/24（簇级 6/6/8）。给出簇级视图的目的不是改变结论，而是**如实标注证据有多少个独立单位**：任何基于 60 的置信区间或 bootstrap 都会高估精度，报告中一律不给出此类区间。
+**paired rule 结论现在双视图都由入库代码给出**（`paired_comparison` 与 `cluster_paired_comparison`，CLI 输出 `PAIRED COMPARISON` 与 `PAIRED COMPARISON, CLUSTER LEVEL` 两段）：
+
+| 规则 | raw 60-decision（更好/更差/平） | cluster-level（20 簇） |
+| --- | --- | --- |
+| size 簇（4 条规则） | 0 / 0 / 60 | 0 / 0 / 20 |
+| `M2_non_code_first`（+2 条 M3） | 3 / 0 / 57 | 1 / 0 / 19 |
+| `M1_marginal_cost_per_reclaimable` | 18 / 18 / 24 | 6 / 6 / 8 |
+
+每簇先对三个 seed 取均值再配对，因此簇级计数之和等于簇数，不会被重复 seed 放大。**主结论在两个视图下都不变**。
+
+⚠️ M1 要求的「unique decision-pattern count」是我在首版 v2 中漏掉的量（当时只报了簇数 20）。现已补齐并加入测试锁定。
 
 ### 5.3 族级行为（handoff §9，Q3 的核心证据）
 
@@ -440,7 +457,7 @@ handoff §3 要求 seed 一致性。本报告测得一个**方法学上重要的
 后果：
 
 1. **「跨 seed 稳定」在本 campaign 上是空命题** —— 没有变异可供稳定；
-2. **有效独立样本约为 20 个场景决策**，而非 60；
+2. **有效独立样本为 20 个场景簇，其中仅 9 个 unique decision pattern**，而非 60（§5.2.1）；
 3. 任何「在 3 个 seed 上稳定」的声明都应视为**未获证据**。
 
 M6 的 gate 在数值上满足「≥3 seeds represented」，但该满足不带来统计效力。**已由第三轮评审裁定（Q10），并已在 §5.2.1 落地：报告必须同时给出 scenario-cluster / 有效样本量视图，且不重跑 raw campaign。** 结论：gate 项的**数值**照旧有效，但**不得**被引用为独立证据；主结论一律双视图报告。
@@ -473,6 +490,7 @@ NOT RUNTIME IMPLEMENTATION.
 
 - ✅ headroom 存在：基线 feasible mean abs regret `0.041225`、zero-regret rate 仅 `0.600`，即 24/60 个决策基线未达可行最优；
 - ✅ 被评估的 9 条**简单在线规则**中，没有一条在完整 campaign 上带来可泛化的实质改善；
+- ✅ 有效独立样本量比原始行数小得多：**60 行 → 20 个场景簇 → 9 个 unique decision pattern**（§5.2.1）；
 - ❌ **不是**「所有 entry-level Cost-Aware 策略都不可能有改善」——本报告只否证了**当前这批简单假设**（成本序、尺寸序、tool 指示），且全部在**同一份代理损失视图**上；
 - ❌ **不是**「应该去实现运行时策略」——恰恰相反，下一阶段是**修订假设 / 扩充证据**，而不是实现。
 
@@ -864,7 +882,7 @@ Block-level / partial-prefix（草案 B1）**未被本报告请求**，因为 ha
 | Q7 | 释放数量效应是否构成收益？ | **已答（§6.5、§7.5）：不构成。** 只有边际分母规则改变释放数（6/60），但它**净损失为负**。前版「释放更少 = 总损失更低」的假设**被推翻** |
 | Q8 | regret 的同数量、非可行局限是否影响主结论？ | **已解决（§2.6）** —— feasibility-aware oracle 已实现并与 canonical M6 comparator 分离报告 |
 | **Q9** | **本报告的 `non_tied`/`strictly_worse`（39/24）与 M6 报告（27/12）口径不一致** | **已解决（§4.2）** —— 第三轮评审裁定 canonical 指标完全复用 M6 定义（唯一 hindsight 最优集合），实测得到 **60 / 27 / 12 / 44.44%**，与 M6 逐位一致；M4 自己的 39/24 集合保留但改名为诊断量 `loss_discriminating_decisions` / `positive_regret_decisions`；**不再用 39/24 与 M6 的 misselection rate 并列竞争**。另裁定：feasible oracle 一律以 absolute regret / paired delta / B/W/T 为主指标，**zero-regret 即视为没有损失** |
-| **Q10** | **seed 维度近似重复，如何影响「3 seeds」的 gate 证据效力？** | **已解决（§5.2.1）** —— 裁定为 analysis-level correction（**不重跑 raw campaign**）：按 `(scenario group, decision position)` 聚类，报告 unique decision-pattern count，paired 结论同时报告 raw 60-decision 与 cluster-level 两个视图。实测：**60 行 → 20 个有效簇，20/20 簇跨 seed 损失剖面完全相同** |
+| **Q10** | **seed 维度近似重复，如何影响「3 seeds」的 gate 证据效力？** | **已解决（§5.2.1）** —— 裁定为 analysis-level correction（**不重跑 raw campaign**）：按 `(scenario group, decision position)` 聚类，报告 unique decision-pattern count，paired 结论同时报告 raw 60-decision 与 cluster-level 两个视图。实测：**60 行 → 20 个有效簇 → 9 个 unique decision pattern**，20/20 簇跨 seed 损失剖面完全相同 |
 | **Q11** | **feasible 归一化 regret 因 24 个 `oracle_loss==0` 决策而近似二值** | **已解决（§5.0、§6.7）** —— 主报告顺序已冻结：mean/median absolute regret → paired selected-loss delta → better/worse/tied → zero-regret rate → **normalized regret 降为 secondary / sensitivity**；不再发明新的 normalization |
 
 **Q1/Q2/Q3/Q6/Q7 已由完整数据回答；Q8 已实现；Q9/Q10/Q11 已由第三轮评审裁定并已落入代码与文档（§5.6 为项目级结论）。仅 Q4/Q5 待定。**
@@ -874,7 +892,7 @@ Block-level / partial-prefix（草案 B1）**未被本报告请求**，因为 ha
 - **没有提出候选方法 —— 而且现在有证据表明当前规则集内不存在。** Handoff §13 第 1 项要求「提出的规则」，§14 要求「能胜出的设计」。完整数据给出的结论是：**9 条被评估的决策时规则中，没有一条带来实质改善。** size 簇与基线完全同构（Q1）、边际分母规则净负面（Q2）、tool 信号只在单一族有效（Q3）。这是本报告最重要的交付——一个**有完整数据支撑的否定结果**。
 - **regret 是同数量且非可行的。** §2.1 已声明；M4 方法选择已改用 feasibility-aware oracle（§2.6），canonical M6 comparator 保留为 provenance。
 - **`non_tied` 两种口径已分开（Q9 已解决）。** canonical 口径（`canonical_*`）完全复用 M6 定义（唯一 hindsight 最优集合）且要求释放数与观察一致，基线得 27/12/44.44%；M4 自己的 39/24 降为诊断量 `loss_discriminating_*`，不再与 M6 并列竞争。两种口径下的 regret 数值（`mean_absolute_regret`、`mean_normalized_regret`）本来就逐位相同。
-- **seed 维度近似重复（Q10 已解决）。** 有效独立样本为 **20 个 scenario 簇**，而非 60（§5.2.1）；20/20 簇在三个 seed 上损失画像逐位相同。「跨 seed 稳定」在本 campaign 上不构成独立证据，gate 项的数值有效但不得引用为独立证据。所有 paired 结论已同时给出 raw 60 与 cluster-level 两个视图。
+- **seed 维度近似重复（Q10 已解决）。** 有效独立样本为 **20 个 scenario 簇**、其中仅 **9 个 unique decision pattern**，而非 60（§5.2.1）；20/20 簇在三个 seed 上损失画像逐位相同。「跨 seed 稳定」在本 campaign 上不构成独立证据，gate 项的数值有效但不得引用为独立证据。所有 paired 结论已同时给出 raw 60 与 cluster-level 两个视图（后者由入库代码计算）。
 - **结论的解释边界。** 固有否定结论是「**当前这 9 条简单在线规则在当前代理损失视图下不可泛化**」，不是「所有 entry-level Cost-Aware 策略都不可能有效」。本案尚未覆盖：独立工作负载抽样、更丰富的候选集 / 返回行为、真正随机的生命周期、真实并发与队列、实测重计算 token / APC 结果，以及 `next_tool_type` 之外的复用与生命周期信号（§5.6 H1）。
 - **证据为代理级别。** `planned_return_weighted_prefill_proxy` 是 trace 派生的规划代理，不是实测重计算、TTL 或 serving 影响。依 handoff §3，**`PROXY_SUPPORTED` 不得升格为 `RUNTIME_STABLE`**，且本 campaign 尚无独立正式重跑。
 - **无运行时验证。** 无 vLLM 进程、无 GPU、无实测延迟。canonical 记录的 runtime replication 仍为 `false`。
@@ -928,9 +946,9 @@ python -m kvopt.costaware.cli --loss-view observed_recomputed_tokens
 | §2, §3 | `src/kvopt/costaware/offline_eval.py`、`rules.py`；`docs/phase2a-m4-method-design-input.md` §8/§9/§10 |
 | §4, §5 | 入库 CLI 报告（`python -m kvopt.costaware.cli`）的 REPLAY FIDELITY 与 EVALUATION 段 |
 | §5.0 | `src/kvopt/costaware/offline_eval.py` 的 `candidate_loss_tied`、`_aggregate` 与 `_feasible_aggregates`（Q9/Q11 冻结指标顺序） |
-| §4.2, §5.2.1, §5.6 | `offline_eval.RuleAggregate` / `scenario_clusters()` / `RuleEvaluation.effective_cluster_count`；`tests/test_costaware_offline_eval.py` 的 canonical 与 cluster 测试 |
-| §5.1, §5.1b | 入库 CLI 报告的 EVALUATION 与 PRESSURE-FEASIBLE ORACLE 段 |
-| §5.2.1 | `offline_eval.scenario_clusters()`；入库 CLI 报告的 SCENARIO CLUSTERS 段
+| §4.2, §5.2.1, §5.6 | `offline_eval.RuleAggregate` / `scenario_clusters()` / `decision_pattern_counts()` / `cluster_paired_comparison()` / `RuleEvaluation.unique_decision_pattern_count`；`tests/test_costaware_offline_eval.py` 的 canonical、pattern 与 cluster-paired 测试 |
+| §5.1, §5.1b | 入库 CLI 报告的 EVALUATION、PRESSURE-FEASIBLE ORACLE 与 canonical M6 baseline 段 |
+| §5.2.1 | `offline_eval.scenario_clusters()` 与 `cluster_paired_comparison()`；入库 CLI 报告的 SCENARIO CLUSTERS 与 PAIRED COMPARISON, CLUSTER LEVEL 段 |
 | §5.2 | `docs/experiments/phase2a-m6-formal/README.md`（exemplars 为高 regret 样例） |
 | §5.3 | 入库 CLI 报告的 LEAVE-ONE-FAMILY-OUT 段 |
 | §6.1 | 入库 CLI 报告的 DEGENERACY 段 |

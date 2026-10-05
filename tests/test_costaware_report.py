@@ -166,6 +166,58 @@ def test_report_publishes_the_effective_cluster_sample() -> None:
         assert row["seed_count"] >= 1
 
 
+def test_report_publishes_the_unique_decision_pattern_count() -> None:
+    """Q10 asks for the distinct decision problems, not only the cluster count."""
+    report = build_offline_report(_EXEMPLARS)
+    clusters = report["scenario_clusters"]
+    unique = clusters["unique_decision_pattern_count"]
+    assert 0 < unique <= clusters["effective_cluster_count"]
+    # Every distinct pattern is listed exactly once, with its multiplicity.
+    patterns = clusters["decision_patterns"]
+    assert len(patterns) == unique
+    assert sum(row["cluster_count"] for row in patterns) <= clusters[
+        "effective_cluster_count"
+    ]
+    assert len({tuple(row["losses"]) for row in patterns}) == unique
+    for row in clusters["decisions"]:
+        assert tuple(row["decision_pattern"]) in {
+            tuple(pattern["losses"]) for pattern in patterns
+        }
+
+
+def test_report_publishes_both_paired_views() -> None:
+    """Q10: raw and cluster-level paired results must both be reported."""
+    report = build_offline_report(_EXEMPLARS)
+    raw = report["paired_vs_executed_baseline"]
+    clustered = report["paired_vs_executed_baseline_cluster_level"]
+    assert raw and clustered
+    assert set(raw) == set(clustered)
+    clusters = report["scenario_clusters"]
+    for rule_id, stats in clustered.items():
+        assert stats["shared_clusters"] <= clusters["effective_cluster_count"]
+        assert (
+            stats["improved"] + stats["worsened"] + stats["tied"]
+            == stats["shared_clusters"]
+        )
+        assert raw[rule_id]["shared_decisions"] >= stats["shared_clusters"]
+
+
+def test_report_surfaces_the_canonical_baseline_numbers() -> None:
+    """Q9: the M6-aligned numbers have exactly one home in the report."""
+    report = build_offline_report(_EXEMPLARS)
+    summary = report["canonical_m6_comparator"]["baseline_canonical_summary"]
+    assert summary is not None
+    assert summary["rule_id"] == EXECUTED_BASELINE_RULE_ID
+    assert summary["canonical_non_tied_decisions"] <= summary[
+        "canonical_applicable_decisions"
+    ]
+    assert summary["canonical_positive_regret_decisions"] <= summary[
+        "canonical_non_tied_decisions"
+    ]
+    # The diagnostic denominator must stay out of the canonical section.
+    assert "loss_discriminating_decisions" not in summary
+
+
 def test_cli_writes_a_json_report(tmp_path: Path) -> None:
     output = tmp_path / "report.json"
     exit_code = main(
