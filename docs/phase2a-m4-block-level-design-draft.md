@@ -4,6 +4,15 @@
 
 ## 0. 门禁姿态（请先阅读）
 
+> **状态更新（2026-10-05）**：本文件的「预设计草案 — 非授权设计」定位已过期。
+> `docs/phase2a-m4-method-design-input.md`（main，PR #29）已正式授权 **M4 方法设计与离线评估**，
+> 但**仍未授权**运行时实现。
+>
+> M4 当前的正式交付物是 `docs/phase2a-m4-method-design-report.md`。
+> 本文件作为 block-level 路线的**历史预设计**保留，并且**未被正式请求**：
+> handoff §7 明确 B1 partial-prefix retention 未获批准，§11 列出四个待解决的前置问题。
+> 阅读时请把下文中的「不能实现」理解为「实现尚未获授权」，而非「已被否决」。
+
 本文档是一份**设计空间收敛与证据承接记录**，既不是已批准的设计，也不是实现授权。
 
 依据 `docs/phase2a-empirical-gap-gate.md`：

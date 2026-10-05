@@ -17,8 +17,9 @@ M1 未授权：冻结或合并最终运行时 Cost-Aware 实现。
 | --- | --- | --- |
 | 决策时规则集（M0–M3） | `src/kvopt/costaware/rules.py` | 离线分析，纯决策时特征 |
 | 离线评估器 | `src/kvopt/costaware/offline_eval.py` | 离线分析，复用 canonical regret |
-| 单元测试（37 项） | `tests/test_costaware_rules.py`、`tests/test_costaware_offline_eval.py` | 已提交 |
+| 单元测试（含多释放、回退、复杂度 51 项） | `tests/test_costaware_rules.py`、`tests/test_costaware_offline_eval.py` | 已提交 |
 | 本地实验运行器 | `local/cost_aware_local_experiment.py` | **不入库**（`.gitignore` 已忽略 `local/`） |
+| 本地探针（4 个） | `local/probe_*.py` | **不入库** |
 | `.gitignore` | 新增 `local/` 条目 | 声明本地工作区不入评审 |
 
 本地运行器**不需要 vLLM、GPU 或模型下载**。它只重放已持久化的决策 artifact，因此可在任意机器上给出快速反馈回路。
@@ -91,7 +92,22 @@ decisions missing LRU pos : 0
 evaluated decisions : 3
 skipped decisions   : 0
 candidates scored   : 11
+non-tied decisions  : 3
 ```
+
+### 5.0 指标定义（与 M6 对齐）
+
+- `non_tied_decisions`：**决策内候选损失不完全相同**，即选择会影响结果的决策数。
+  它刻画「该决策有无 headroom」，与「本规则是否抓住」无关。
+- `strictly_worse_decisions`：本规则的选择未落在 canonical 最优集合内的决策数。
+- `misselection_rate` = `strictly_worse / non_tied`，即 M6 的 non-tied misselection rate。
+- `tie_rate`：全部候选损失相同的决策占比。
+
+ⓘ 这两个概念在实现初期被混淆过（把 `non_tied` 当作「本规则失手」），
+会**隐藏「有 headroom 但规则未取」的决策**。已修正，并由
+`test_multi_release_holds_count_and_picks_the_cheapest_pair` 等测试锁定。
+
+### 5.1 汇总表
 
 | 规则 | 平均归一化 regret | 平均绝对 regret | 对比基线：更好/更差/平 |
 | --- | ---: | ---: | --- |
@@ -105,7 +121,7 @@ candidates scored   : 11
 | `M1_reclaimable_ascending` | 0.792135 | 0.132757 | 0 / 0 / 3 |
 | `M3_size_score_only` | 0.792135 | 0.132757 | 0 / 0 / 3 |
 
-### 5.1 警告：该样本被刻意偏差化，数字不得引用为效应量
+### 5.2 警告：该样本被刻意偏差化，数字不得引用为效应量
 
 这 3 个 exemplar 是 M6 **特意挑选的高 regret 样例**（见 `docs/phase2a-m6-formal/README.md`：`exemplars/` 为 "three representative high-regret runs"）。
 
@@ -115,17 +131,40 @@ candidates scored   : 11
 - 3 个决策无法支撑任何统计结论；
 - 上述数字只能作为**仪器可用性证据**（instrument check），不能作为方法效果证据。
 
-**结论：本报告不宣称任何效应量。** 有效评估必须在完整 canonical bundle 上运行（见 §8）。
+**结论：本报告不宣称任何效应量。** 有效评估必须在完整 canonical bundle 上运行（见 §10）。
 
-## 6. 退化审计（本次最强的观察）
+### 5.3 族留出（leave-one-family-out）
+
+评估器已实现族级留出（handoff §9）。在这个 3 决策样本上，每个族只含 1 个 run，
+因此留出某族后的 `mean_normalized_regret` 如下（来自本地运行的
+`leave_one_family_out`）：
+
+| 规则 | 留出 F1 | 留出 F4 | 留出 F6 |
+| --- | ---: | ---: | ---: |
+| `M0_p1b_executed_ordering` | 0.820361 | 0.867842 | 0.688203 |
+| `M1_prefill_reload_ascending` | 0.820361 | 0.867842 | 0.688203 |
+| `M1_block_count_ascending` | 0.820361 | 0.867842 | 0.688203 |
+| `M1_marginal_cost_per_reclaimable` | 0.719629 | 0.719629 | 0.439259 |
+| `M2_non_code_first` | 0.820361 | 0.750000 | 0.570361 |
+| `M3_non_code_then_size_score` | 0.820361 | 0.750000 | 0.570361 |
+
+两点谨慎解读：
+
+1. 所有规则在**每一个**留出配置下都保持正归一化 regret，即**没有规则能消除 headroom**。
+2. 规则间的相对次序在三个留出配置下一致（边际分母规则最低，size 簇与基线并列最高）。
+   但这是 3 个决策、每族 1 个 run 的结果，**不构成稳定性证据**。真正的族留出检验
+   需要完整 campaign 的 18 个场景 / 6 个族（见 §10）。
+
+## 6. 退化审计（handoff §10）
 
 Handoff §10 要求重新检验请求级退化，而非假设其不存在。结果如下。
 
-### 6.1 size/recompute 簇与基线排序同构
+### 6.1 观察：size/recompute 簇与基线排序同构
 
 ```text
 M0_p1b_executed_ordering == M1_prefill_reload_ascending   over 3 decisions
 M0_p1b_executed_ordering == M1_block_count_ascending      over 3 decisions
+M0_p1b_executed_ordering == M1_reclaimable_ascending      over 3 decisions
 M0_p1b_executed_ordering == M3_size_score_only            over 3 decisions
 M1_prefill_reload_ascending == M1_block_count_ascending   over 3 decisions
 M1_prefill_reload_ascending == M1_reclaimable_ascending   over 3 decisions
@@ -134,13 +173,62 @@ M1_block_count_ascending == M3_size_score_only            over 3 decisions
 
 **整个 size/recompute 簇（PrefillReload、block_count、reclaimable）与已执行的 P1B 排序在全部 3 个决策上完全同构，配对比较为 0 更好 / 0 更差 / 3 平。**
 
-这与历史 spike 的线性成本退化论证一致：在这些决策上，`C_recompute / Blocks` 近似常数，deadline 排序与尺寸排序给出同一顺序。
+也就是说：**handoff §2 表中四个 `PROXY_SUPPORTED` 特征里的三个（size 簇）在本样本上没有产生任何与基线不同的选择。** 只有 `next_tool_type` 打破了同构。
 
-也就是说：**handoff §2 表中四个 PROXY_SUPPORTED 特征里的三个（size 簇）在本样本上没有产生任何与基线不同的选择。** 只有 `next_tool_type` 打破了同构。
+M6 的 ρ≈0.205 是**秩关联**证据，而秩关联可以完全落在基线排序的方向上而不产生分歧。**关联显著 ≠ 决策可分歧。**
 
-这一点的意义：M6 的 rho≈0.205 是**秩关联**证据，而秩关联可以与基线排序同向而不产生分歧。关联显著 ≠ 决策可分歧。
+### 6.2 修正：6.1 的成因**不是**线性成本退化
 
-### 6.2 边际分母规则的异常表现必须在完整数据上复核
+本节记录一次被自己证伪的解释，因为它是本报告最重要的方法学修正。
+
+**曾提出的解释（已证伪）**：spike 的线性成本论证认为 `C_recompute / Blocks` 近似常数，因此 deadline 排序与尺寸排序一致。本文档初版沿用了这一解释。
+
+**证伪**：对 3 个决策逐候选比较「PrefillReload 序」与「retention deadline 序」：
+
+```text
+decisions where cost-order == deadline-order : 1/3
+Pearson(deadline, PrefillReload) over 11 candidates : 0.4517
+```
+
+只有 **1/3** 的决策同序，相关系数仅 **0.45**。线性成本退化论证在本样本上**不成立**。
+
+### 6.3 已验证的真实机理：损失由返回窗口主导，成本规则对此全盲
+
+canonical 代理损失**不是纯成本**：
+
+$$
+\text{loss} = \begin{cases} \text{PrefillReload} & \text{若规划在 horizon 内返回} \\ 0 & \text{否则} \end{cases}
+$$
+
+对三个决策逐候选展开（本地诊断输出）：
+
+| 决策 | 候选数 | 基线释放数 | 最优集中零损失候选数 | **最高成本候选的损失为 0** |
+| --- | ---: | ---: | ---: | :---: |
+| `f1-five-contention-deep-seed-101` event 64 | 5 | 3 | 2 / 3 | **是** |
+| `f4-deep-multi-release-seed-101` event 40 | 3 | 2 | 1 / 2 | **是** |
+| `f6-shared-ownership-audit-seed-101` event 40 | 3 | 1 | 1 / 1 | **是** |
+
+**三个决策中，损失为 0（即规划不返回）的候选恰好都是 PrefillReload 最高的那个。**
+
+于是：
+
+- P1B（最早 deadline 优先）挑走了「会返回」的候选 → 有 regret；
+- M1（成本升序优先）也挑走最便宜的 = 同样「会返回」的 → **同一个错误**；
+- 两者因此同构，原因是**它们读同一类信号**，不是因为成本曲线退化。
+
+`f6` 最能说明问题：三个候选的 `PrefillReload` 全等于 `0.171057`、`block_count` 全等于 `32` —— **成本特征在结构上无法区分任何东西**，唯一差别是 deadline 与是否返回。
+
+**机理陈述**：在 canonical 代理下，判别维度是**复用/返回窗口**，不是成本。任何纯成本规则都无法改善，与成本曲线形状无关。
+
+这一结论之所以重要，是因为它**否证了「只要测到非线性 $C(r)$ 就能让成本规则生效」这一路径**：即便 `C(r)` 非线性，只要损失由返回窗口主导，成本规则依然无效。
+
+### 6.4 该机理与既有证据的关系
+
+- 与 spike 的 F.2（「TTL 层本身就是 cost-aware 过滤器」）方向一致，但**机制不同**：F.2 说的是保护池被同质化，这里说的是**损失函数本身由返回窗口主导**。
+- 与 M6 的信号门禁一致：`next_tool_type=code` 是唯一从**不同语义维度**通过的特征，也是本样本上唯一能打破同构的。
+- ⚠️ **仍不得作为结论引用**：3 个 exemplar 是 M6 按构造挑选的高 regret 样例，任何在其中发现的规律都被系统性筛选过。Handoff §13 明确禁止仅凭样本内代理 regret 改善来论证实现。该机理需在完整 54-run / 60 决策上验证（§10 Q1/Q5）。
+
+### 6.5 边际分母规则（handoff §10 明令）
 
 `M1_marginal_cost_per_reclaimable` 是本样本上唯一大幅改善的规则（2/3 更好）。但：
 
@@ -148,19 +236,82 @@ M1_block_count_ascending == M3_size_score_only            over 3 decisions
 - handoff §10 明确要求：「Do not resurrect the previously rejected marginal-block denominator without new evidence」；
 - 它在 3 个高 regret 样例上改善，**可能只是打破了 6.1 的同构**，而非抓住了真实损失结构。
 
-因此：**该规则不作为候选方法提出。** 它留在规则集中仅作为退化审计项，其异常表现登记为需在完整 canonical 数据上复核的未决问题（§8 Q2）。
+因此：**该规则不作为候选方法提出。** 它留在规则集中仅作为退化审计项，其异常表现登记为需在完整 canonical 数据上复核的未决问题（§10 Q2）。
 
-## 7. 最小运行时接口需求（handoff §14 要求）
+## 7. 复杂度与开销（handoff §13 第 8 项）
+
+### 7.1 排序复杂度为 O(n log n)
+
+每条规则的排序复杂度为 **O(n log n)**，其中 n 为单次决策的候选数，另加 O(n) 预处理（仅归一化分数规则需要）。
+
+实现中曾有**两处静默的 O(n²)**，均已修正并被测试锁定：
+
+| 缺陷 | 位置 | 修正 |
+| --- | --- | --- |
+| 归一化在排序键内计算 → 每次比较都重扫全部候选 | `M3_size_score_only`、`M3_non_code_then_size_score` | 引入 `prepare` 钩子，每决策预计算一次 |
+| 预计算内**逐候选**重算每个特征的 min/max → 仍是 O(n²) | 同上 | 改为每特征单次求界 |
+
+### 7.2 实测（本地纯 Python 离线分析）
+
+`local/probe_rule_complexity.py` 的输出，单位微秒/决策：
+
+| 规则 | n=4 | n=16 | n=64 | n=256 | 增长（4→256） |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `M0_p1b_executed_ordering` | 1.60 | 4.00 | 20.60 | 53.10 | 33.2x |
+| `M1_prefill_reload_ascending` | 2.00 | 3.10 | 10.50 | 39.80 | 19.9x |
+| `M1_marginal_cost_per_reclaimable` | 1.70 | 4.70 | 16.40 | 63.70 | 37.5x |
+| `M2_non_code_first` | 1.50 | 4.30 | 17.30 | 71.80 | 47.9x |
+| `M3_size_score_only` | 5.00 | 15.30 | 55.50 | 227.10 | **45.4x** |
+| `M3_non_code_then_size_score` | 5.40 | 16.90 | 65.80 | 272.80 | **50.5x** |
+
+参考值：候选数增长 **64x**；O(n²) 参考增长 **4096x**；O(n log n) 预期远低于 4096x。
+
+修正前，size 分数规则在 n=256 时为 **12192.50 µs**（增长 **1385.5x**，介于线性与二次之间）。修正后为 **227.10 µs**，即 **54 倍提速**，增长 45.4x，与 O(n log n) 一致。
+
+### 7.3 重要限定
+
+- 上述是**纯 Python 离线分析**开销，**不是运行时策略开销**，不得作为运行时数字引用。
+- 真实 campaign 的候选集仅 **2–5**（M4 handoff §1），该区间内单次排序成本为**微秒量级**。
+- 运行时复杂度/开销的正式界定属于 §13 第 8 项，需在 M1 评审的接口设计阶段完成，本报告只界定规则层的排序复杂度。
+
+## 8. 回退排序（handoff §13 第 7 项）
+
+当规则无法区分两个候选时，解析遵循固定的、已文档化的阶梯：
+
+```text
+第 1 级  规则主键（该规则声明使用的决策时特征）
+第 2 级  稳定逻辑身份 (program_id, prefix_id)
+         —— 恒定可用、确定性，保证全序
+第 3 级  仅冻结 P1B 规则：未知的 decision_native_lru_position (None) 排最后
+         —— 保守解读：位置未知视为「最近使用」，即最贵，故推迟而非猜测
+```
+
+`fallback_key()` 公开了第 2 级，便于调用方复现评估器的确切回退，而非自行推导。
+
+**阶梯明确不做的事**：
+
+1. **不为非 P1B 规则回退到 LRU 新近度。** 否则每条成本规则会被静默变成它正在被比较的基线，令比较失去意义；
+2. **不回退到任何未来衍生标签**；
+3. **不回退到输入顺序**。否则结果将取决于 artifact 的枚举次序，破坏可复现性。
+
+由测试锁定：`test_ordering_is_total_when_every_feature_is_identical`（第 2 级能被触发）、
+`test_ordering_does_not_depend_on_input_order`（第 3 条禁令）、
+`test_p1b_rule_sorts_unknown_lru_position_last`（第 3 级）、
+`test_non_p1b_rules_ignore_the_lru_position_capability`。
+
+**一个有意义的副产品**：entry-level 规则（M1/M2/M3）**完全不读取** `decision_native_lru_position`，因此不受该能力在 M6 信号分析中未通过的影响。这也是它们比 P1B 基线更少依赖脆弱观测的原因。
+
+## 9. 最小运行时接口需求（handoff §14 要求）
 
 这是本节的核心结论，也是与之前 block-level 草案不同的地方。
 
-### 7.1 胜出家族只需要**零新增观测**
+### 9.1 胜出家族只需要**零新增观测**
 
 M1/M2/M3 家族用到的全部字段（`prefill_reload_seconds`、`block_count`、`initially_reclaimable_block_count`、`next_tool_type`）**已经存在于 `FORCED_RELEASE_DECISION` 载荷中**，即已在正式 campaign 中被采集。
 
 因此不需要新的运行时观测缝。这与 handoff §9「M1 may decide whether an additional safe decision-time observation is justified」是相容的：**对 entry-level 家族而言，答案是不需要。**
 
-### 7.2 但需要一次接口扩展才能到达策略边界
+### 9.2 但需要一次接口扩展才能到达策略边界
 
 运行时策略边界 `EvictionPolicyAdapter.select_victims(candidates, context)` 目前只拿到：
 
@@ -175,11 +326,11 @@ EvictionContext:   required_blocks, free_blocks, total_blocks, timestamp
 
 这比 block-level 草案 §6 的请求窄得多：它不需要前缀内位置索引，也不需要 block → owner 映射。
 
-### 7.3 尚未请求
+### 9.3 尚未请求
 
 Block-level / partial-prefix（草案 B1）**未被本报告请求**，因为 handoff §7 明确它未被批准，且 §11 的四个前置问题（真实 `C(r)` 曲线、部分 APC 语义、接口可用性、超越 entry-level 的离线收益）尚未解决。
 
-## 8. 未决问题
+## 10. 未决问题
 
 | 编号 | 问题 | 解决方式 |
 | --- | --- | --- |
@@ -187,19 +338,22 @@ Block-level / partial-prefix（草案 B1）**未被本报告请求**，因为 ha
 | Q2 | `M1_marginal_cost_per_reclaimable` 的改善是真实结构还是打破同构的副作用？ | 同上，并按族分层报告 |
 | Q3 | `next_tool_type=code` 的收益在 family-held-out 下是否稳定？ | 同上；本仓库已实现 leave-one-family-out |
 | Q4 | 是否存在能超越 entry-level 的 block-level 收益？ | handoff §11 的四个前置问题 |
+| Q5 | §6.3 的「返回窗口主导」机理在 60 个决策上是否成立？ | 同上；并检查不同族是否给出不同机理 |
 
-三项均**不需要新观测**，只需要把外部证据包传进来。
+前三项**不需要新观测**，只需要把外部证据包传进来。
 
-## 9. 局限
+## 11. 局限
 
+- **没有提出候选方法。** Handoff §13 第 1 项要求“提出的规则”，而 §14 要求的是能胜出的设计。本报告交付的是评估器、规则集与诊断，**尚未收敛到一条可提交评审的规则**。这是最主要的遗留缺口，且可能受 §6.3 机理制约（见 Q5）。
+- **原始样本量极小（3 个决策）。** §6 的全部观察都建立在这 3 个决策上。
 - **证据为代理级别。** canonical 损失视角 `planned_return_weighted_prefill_proxy` 是 trace 派生的规划代理，不是实测重计算、TTL 或 serving 影响。依 handoff §3，除 `PROXY_SUPPORTED` 外不得作更强声明。
-- **已运行样本为 3 个刻意偏差的高 regret exemplar**，不能支撑效应量。
+- **已运行样本为 3 个刻意偏差的高 regret exemplar**，不能支撑效应量，见 §5.2。
 - **无运行时验证。** 无 vLLM 进程、无 GPU、无延迟数据。运行时可复制性（runtime replication）按 canonical 记录仍为 `false`。
 - **未拟合任何模型。** 依 handoff §8，未对 60 个受控决策拟合高容量模型。
-- **退化审计的样本量极小**（3 决策），6.1 的结论需要在完整数据上确认。
+- **未做新颖性核查**（§13 第 11 项），需 M2 的相关工作输入。
 - **仓库既有测试失败。** 全量套件在干净 `origin/main` 上即有 12 项失败（`test_continuum_logging`、`test_continuum_vllm_observation_runner`、`test_phase2a_m6_*`），已核实与本次改动无关；属 M1/M6 范围。
 
-## 10. 复现
+## 12. 复现
 
 在已有原始 run 的任意机器上（无需 vLLM）：
 
@@ -224,18 +378,35 @@ python local/cost_aware_local_experiment.py --loss-view observed_recomputed_toke
 
 输出：控制台报告 + `local/output/local_report.json`。
 
-## 11. 可追溯性
+## 13. 可追溯性
 
 | 章节 | 来源 |
 | --- | --- |
-| §1, §10 | `src/kvopt/costaware/`、`local/cost_aware_local_experiment.py`、`.gitignore` |
+| §1, §12 | `src/kvopt/costaware/`、`local/cost_aware_local_experiment.py`、`.gitignore` |
 | §2, §3 | `src/kvopt/costaware/offline_eval.py`、`rules.py`；`docs/phase2a-m4-method-design-input.md` §8/§9/§10 |
-| §4, §5 | 本地运行输出（`local/output/local_report.json`） |
-| §5.1 | `docs/experiments/phase2a-m6-formal/README.md`（exemplars 为高 regret 样例） |
+| §4, §5 | 本地运行输出（`local/output/local_report.json`）；自检 3/3 |
+| §5.0 | `src/kvopt/costaware/offline_eval.py` 的 `candidate_loss_tied` 与 `_aggregate` |
+| §5.2 | `docs/experiments/phase2a-m6-formal/README.md`（exemplars 为高 regret 样例） |
+| §5.3 | 本地运行的 `leave_one_family_out` 输出 |
 | §6.1 | 本地运行的退化审计段 |
-| §6.2 | `docs/phase2a-m4-method-design-input.md` §10；2026-09-24 spike（`origin/feature/cost-aware-forced-unpin-spike`） |
-| §7 | `docs/policy-adapter-design.md`；`src/kvopt/runtime/vllm/types.py`；`docs/phase2a-m4-method-design-input.md` §5/§11 |
-| §8, §9 | `docs/phase2a-m4-method-design-input.md` §3/§7/§11/§13 |
+| §6.2 | 本地 `local/probe_deadline_vs_cost.py` 输出（1/3、r=0.4517） |
+| §6.3 | 本地 `local/probe_loss_mechanism.py` 与 `cost_aware_local_experiment.py` 的 LOSS MECHANISM 段 |
+| §6.4 | 2026-09-24 spike（`origin/feature/cost-aware-forced-unpin-spike`）；`docs/phase2a-m6-formal-results.md` |
+| §6.5 | `docs/phase2a-m4-method-design-input.md` §10 |
+| §7 | `local/probe_rule_complexity.py` 输出；`tests/test_costaware_rules.py::test_size_score_prepare_does_not_rescan_per_candidate` |
+| §8 | `src/kvopt/costaware/rules.py` 模块 docstring 与 `fallback_key()`；四个回退测试 |
+| §9 | `docs/policy-adapter-design.md`；`src/kvopt/runtime/vllm/types.py`；`docs/phase2a-m4-method-design-input.md` §5/§11 |
+| §10, §11 | `docs/phase2a-m4-method-design-input.md` §3/§7/§11/§13 |
 
 相关：`docs/phase2a-m4-block-level-design-draft.md`（block-level 预设计，未被本报告请求）、
 `docs/phase2a-m4-gate-contract-gap-audit.md`（门禁—契约差距审计）。
+
+本地探针脚本（均不入库，`.gitignore` 已忽略 `local/`）：
+
+```text
+local/cost_aware_local_experiment.py    主实验运行器
+local/probe_multi_release_and_scale.py  多释放正确性与规模
+local/probe_deadline_vs_cost.py         §6.2 的证伪测量
+local/probe_loss_mechanism.py           §6.3 的逐候选机理诊断
+local/probe_rule_complexity.py          §7 的分规则复杂度
+```
