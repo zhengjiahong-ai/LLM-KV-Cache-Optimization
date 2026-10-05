@@ -17,9 +17,10 @@ M1 未授权：冻结或合并最终运行时 Cost-Aware 实现。
 | --- | --- | --- |
 | 决策时规则集（M0–M3） | `src/kvopt/costaware/rules.py` | 离线分析，纯决策时特征 |
 | **压力循环 replay 引擎** | `src/kvopt/costaware/replay.py` | 离线分析，忠实重放冻结的释放循环 |
-| 离线评估器 | `src/kvopt/costaware/offline_eval.py` | 离线分析，复用 canonical regret |
-| **入库可复现入口** | `src/kvopt/costaware/report.py` + `cli.py` | 已入库；见 §26 的运行方式 |
-| 单元测试（85 项） | `tests/test_costaware_{rules,replay,offline_eval,report}.py` | 已提交 |
+| **feasibility-aware oracle** | `src/kvopt/costaware/feasible_oracle.py` | 离线分析，精确枚举可行释放集合 |
+| 离线评估器 | `src/kvopt/costaware/offline_eval.py` | 离线分析，两套 comparator 分离输出 |
+| **入库可复现入口** | `src/kvopt/costaware/report.py` + `cli.py` | 已入库；见 §13 的运行方式 |
+| 单元测试（111 项） | `tests/test_costaware_{rules,replay,feasible_oracle,offline_eval,report}.py` | 已提交 |
 | 本地探针 | `local/probe_*.py`、`local/cost_aware_local_experiment.py` | **不入库**（`.gitignore` 已忽略 `local/`） |
 | `.gitignore` | 新增 `local/` 条目 | 声明本地工作区不入评审 |
 
@@ -114,6 +115,56 @@ while eligible_blocks < required_blocks:
 修正前后结论发生**实质变化**。例：被否决的边际分母规则在固定数量语义下误选率为 1.000，在 replay 语义下为 0.333，且它平均只需 **1.00** 次释放，而观测基线需要 **2.00** 次（3 个决策中 2 个更省）。
 
 ⇒ 它的表面优势是**释放数量效应**，而固定数量比较在结构上无法表示这一点。这一发现直接改变了 §6.5 对它的处理。
+
+### 2.6 feasibility-aware hindsight oracle（M1 裁定的 Q8）
+
+#### 2.6.1 为什么必须新增第二个 comparator
+
+`build_decision_regret_table`（canonical M6）选的是**损失最小的同规模集合**，**不检查该集合能否解开压力**。在释放数量固定时这是合理的比较对象；但释放数量现在是结果，所以它不再适合作为方法选择的主指标。
+
+M1 裁定：**在 evaluator 层新增 feasibility-aware oracle；不修改 canonical M6 代码。** 已按此实现于 `src/kvopt/costaware/feasible_oracle.py`，两套指标**分离报告，绝不合并成同一字段**。
+
+#### 2.6.2 定义
+
+对每个决策与损失视角，在**所有能满足同一个 `required_blocks` target 的释放集合**中：
+
+```text
+primary    最小化总 canonical 代理损失
+secondary  最小化释放条目数          （仅在损失平局时）
+tertiary   稳定逻辑身份序            （确定性）
+```
+
+搜索是**精确枚举**（穷举子集）。正式 campaign 每决策仅 2–5 个候选，因此无需近似；超过 `MAX_EXACT_CANDIDATES = 16` 时**显式报错而非静默近似**，因为一个悄悄改变的 comparator 会污染全部下游比较。
+
+#### 2.6.3 为什么子集枚举等价于循环结果
+
+冻结循环在释放序列的**首个**满足 target 的前缀处停止，所以其释放集合总是可行的。反过来，对任何可行集合 $S$，$S$ 的某个排列会让循环停在某个前缀 $P \subseteq S$，且因为代理损失非负，有 $\text{loss}(P) \le \text{loss}(S)$ 与 $|P| \le |S|$。
+
+⇒ 可行集合上的字典序最优必然由一个循环**实际能产生**的集合取得，所以枚举可行子集与枚举释放序列得到同一最优，而代价低得多。
+
+#### 2.6.4 在仓库内 exemplar 上的结果
+
+| 决策 | 目标 | 候选数 | 可行集合数 | oracle 损失 | 最差可行损失 | 选择影响结果 |
+| --- | ---: | ---: | ---: | ---: | ---: | :---: |
+| f1 ev64 | 32 | 5 | 27 | **0.000000** | 0.188239 | 是 |
+| f4 ev40 | 32 | 3 | 5 | **0.000000** | 0.138485 | 是 |
+| f6 ev40 | 16 | 3 | 7 | **0.000000** | 0.342114 | 是 |
+
+**三个决策的 oracle 损失全为 0，且 oracle 都只需释放 1 个条目。**
+
+含义：每个决策都存在**单个零损失条目**即可满足压力 —— 即释放一个不返回（因此代理损失为 0）的候选就够了。
+
+两个 comparator 的对比因此变得很锐利：
+
+| 规则 | canonical M6 平均归一化 regret | **feasible oracle 平均归一化 regret** | feasible 条目数差 |
+| --- | ---: | ---: | ---: |
+| `M0_p1b_executed_ordering`（基线） | 0.792135 | **1.000000** | **+1.00** |
+| `M1_prefill_reload_ascending` | 0.792135 | 1.000000 | +1.00 |
+| `M1_marginal_cost_per_reclaimable` | 0.333333 | **0.333333** | **0.00** |
+
+**feasible comparator 严格得多**：基线在它下面的归一化 regret 是 **1.000**（因为 oracle 损失为 0，归一化后即为 1），而 canonical 只给出 0.792。
+
+⚠️ **同样受 §6 的样本级限定约束**：3 个决策 / 11 个候选 / 仅 seed-101，且为 M6 按构造挑选的高 regret 样例。这些数字是**诊断假设**，不是结果。它们之所以重要，是因为它们给出了明确的、可在完整数据上检验的预测：**若「存在单个零损失可行释放」在 60 个决策上普遍成立，那么基线的可行 regret 会显著高于 canonical 所暗示的水平。**
 
 ## 3. 规则集（依 handoff §8 的 M0–M3 家族）
 
@@ -552,7 +603,7 @@ Block-level / partial-prefix（草案 B1）**未被本报告请求**，因为 ha
 | Q5 | §6.3 的「返回窗口主导」机理在 60 个决策上是否成立？ | 未决 —— 同上；并检查不同族是否给出不同机理 |
 | Q6 | §7.1 的 size 簇完全互换（同一率 1.000）在 60 个决策上是否成立？ | 未决 —— 若成立，则三个 `PROXY_SUPPORTED` 尺寸特征应被视为**一个**特征，而非三个独立信号 |
 | Q7 | §6.5 的**释放数量效应**在 60 个决策上是否可复现？若可复现，「每单位成本解开块数」是否应被当作一个正当的优化目标（而不是被当作成本信号的伪装而排除）？ | 未决 —— 同上；这可能需要修正 §6.5 的排除结论 |
-| Q8 | §2.1 声明的 regret 局限（hindsight 为**同数量**且不检查可行性）是否影响主结论？ | 未决 —— 若影响，需在评估层单独构造可行性感知的 oracle（**不得**修改 canonical M6 代码） |
+| Q8 | §2.1 声明的 regret 局限（hindsight 为**同数量**且不检查可行性）是否影响主结论？ | **已解决（§2.6）**：按 M1 裁定实现了 feasibility-aware oracle。canonical M6 继续保留为 provenance/sensitivity，M4 方法选择改用 feasible oracle。剩余问题：oracle 的结论（零损失单条目普遍存在）需在 60 个决策上验证 |
 
 前八项**都不需要新观测**，只需要把外部证据包传进来。
 
@@ -608,6 +659,7 @@ python -m kvopt.costaware.cli --loss-view observed_recomputed_tokens
 | §1, §13 | `src/kvopt/costaware/`、`pyproject.toml` 的 `[project.scripts]`、`.gitignore` |
 | §2.1 | `src/kvopt/profiling/analysis.py` 的 `build_decision_regret_table` |
 | §2.5 | `src/kvopt/costaware/replay.py`；`tests/test_costaware_replay.py` |
+| §2.6 | `src/kvopt/costaware/feasible_oracle.py`；`tests/test_costaware_feasible_oracle.py`；入库 CLI 的 PRESSURE-FEASIBLE ORACLE 段 |
 | §2, §3 | `src/kvopt/costaware/offline_eval.py`、`rules.py`；`docs/phase2a-m4-method-design-input.md` §8/§9/§10 |
 | §4, §5 | 入库 CLI 报告（`python -m kvopt.costaware.cli`）的 REPLAY FIDELITY 与 EVALUATION 段 |
 | §5.0 | `src/kvopt/costaware/offline_eval.py` 的 `candidate_loss_tied` 与 `_aggregate` |
