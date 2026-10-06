@@ -13,6 +13,7 @@ dependencies = []
 kvopt-profile-derive = "kvopt.profiling.cli:main"
 kvopt-formal-campaign = "kvopt.workload.phase2_formal:main"
 kvopt-formal-run = "kvopt.workload.phase2_formal_runner:main"
+kvopt-m4-offline = "kvopt.costaware.cli:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=7", "ruff>=0.5"]

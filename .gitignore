@@ -15,3 +15,7 @@ results/*
 data/
 artifacts/
 profiles/
+
+# Local-only development scratch space. Deliberately not reviewed or shared:
+# see local/cost_aware_local_experiment.py for the M4 offline feedback loop.
+local/
