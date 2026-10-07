@@ -400,6 +400,7 @@ class RulePreregistration:
     direction: str
     tie_break: str
     fallback: str
+    boundary: str
     primary_metric: str
     frozen_at: str
     frozen_commit: str
@@ -412,6 +413,7 @@ class RulePreregistration:
             "direction",
             "tie_break",
             "fallback",
+            "boundary",
             "primary_metric",
             "frozen_at",
             "frozen_commit",
@@ -435,6 +437,7 @@ class RulePreregistration:
             "direction": self.direction,
             "tie_break": self.tie_break,
             "fallback": self.fallback,
+            "boundary": self.boundary,
             "primary_metric": self.primary_metric,
             "frozen_at": self.frozen_at,
             "frozen_commit": self.frozen_commit,

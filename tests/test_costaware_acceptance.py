@@ -110,6 +110,7 @@ def _preregistration(
         direction="ascending",
         tie_break="identity",
         fallback="frozen baseline ordering",
+        boundary="forced-release candidate sets only",
         primary_metric=metric,
         frozen_at="2026-10-07",
         frozen_commit="0" * 40,
@@ -379,6 +380,24 @@ def test_preregistration_rejects_blank_fields() -> None:
             direction="ascending",
             tie_break="   ",
             fallback="baseline",
+            boundary="forced-release candidate sets only",
+            primary_metric=PRIMARY_METRIC_PROXY_LOSS,
+            frozen_at="2026-10-07",
+            frozen_commit="0" * 40,
+        )
+
+
+def test_preregistration_requires_a_stated_boundary() -> None:
+    """M1 requires the applicability boundary to be frozen, not implied."""
+    with pytest.raises(ValueError, match="boundary"):
+        RulePreregistration(
+            rule_id=_CHALLENGER,
+            family="H1",
+            formula="ascending",
+            direction="ascending",
+            tie_break="identity",
+            fallback="baseline",
+            boundary="",
             primary_metric=PRIMARY_METRIC_PROXY_LOSS,
             frozen_at="2026-10-07",
             frozen_commit="0" * 40,
@@ -394,6 +413,7 @@ def test_preregistration_rejects_an_unknown_primary_metric() -> None:
             direction="ascending",
             tie_break="identity",
             fallback="baseline",
+            boundary="forced-release candidate sets only",
             primary_metric="whatever_looks_best_today",
             frozen_at="2026-10-07",
             frozen_commit="0" * 40,
