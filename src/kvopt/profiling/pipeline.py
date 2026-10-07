@@ -62,6 +62,7 @@ from .request_outcomes import RequestOutcomeRow, build_request_outcomes_table
 from .signals import (
     SignalAssociationRow,
     SignalEvaluationRow,
+    SignalFeatureCoverageRow,
     SignalRunMetadata,
     SignalSupportRow,
     build_signal_analysis_tables,
@@ -141,6 +142,7 @@ class DerivedDatasetBundle:
     signal_associations: tuple[SignalAssociationRow, ...]
     signal_support: tuple[SignalSupportRow, ...]
     signal_evaluation: SignalEvaluationRow
+    signal_feature_coverage: tuple[SignalFeatureCoverageRow, ...]
     run_prevalence: tuple[RunPrevalenceRow, ...]
     prevalence_summary: tuple[PrevalenceSummaryRow, ...]
     empirical_gap_report: EmpiricalGapReport
@@ -541,6 +543,7 @@ def build_derived_dataset_bundle(
         decision_regret=loss_views.decision_regret,
         signal_support=signal_tables.support,
         signal_evaluation=signal_tables.evaluation,
+        signal_feature_coverage=signal_tables.feature_coverage,
         capabilities=tuple(
             CapabilityFinding(
                 run_id=row.run_id,
@@ -577,6 +580,7 @@ def build_derived_dataset_bundle(
         signal_associations=signal_tables.associations,
         signal_support=signal_tables.support,
         signal_evaluation=signal_tables.evaluation,
+        signal_feature_coverage=signal_tables.feature_coverage,
         run_prevalence=prevalence.runs,
         prevalence_summary=prevalence.summary,
         empirical_gap_report=gap_report,
@@ -632,6 +636,7 @@ def write_derived_dataset_bundle(
         "signal_associations": bundle.signal_associations,
         "signal_support": bundle.signal_support,
         "signal_evaluation": (bundle.signal_evaluation,),
+        "signal_feature_coverage": bundle.signal_feature_coverage,
         "run_prevalence": bundle.run_prevalence,
         "prevalence_summary": bundle.prevalence_summary,
         "empirical_gap_report": (bundle.empirical_gap_report,),
@@ -651,7 +656,7 @@ def write_derived_dataset_bundle(
     )
 
     manifest = {
-        "schema_version": "phase2a.derived.v2",
+        "schema_version": "phase2a.derived.v3",
         "analysis_provenance": _analysis_provenance(),
         "source_run_ids": [row.run_id for row in bundle.runs],
         "row_counts": {name: len(rows) for name, rows in tables.items()},

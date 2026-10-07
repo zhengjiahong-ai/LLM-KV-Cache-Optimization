@@ -228,3 +228,64 @@ def test_signal_analysis_preserves_insufficient_coverage() -> None:
 
     assert tables.evaluation.status == "INSUFFICIENT_COVERAGE"
     assert tables.evaluation.online_signal_supported is None
+
+
+def test_signal_analysis_reports_feature_missingness_per_decision() -> None:
+    metadata = (
+        SignalRunMetadata("run-complete", "family-1", 1),
+        SignalRunMetadata("run-missing", "family-2", 2),
+    )
+    candidates = (
+        replace(
+            _candidate("run-complete", "a", 1),
+            decision_native_lru_position=1,
+        ),
+        replace(
+            _candidate("run-complete", "b", 3),
+            decision_native_lru_position=2,
+        ),
+        _candidate("run-missing", "a", 1),
+        replace(
+            _candidate("run-missing", "b", 3),
+            decision_native_lru_position=2,
+        ),
+    )
+    losses = (
+        _loss("run-complete", "a", 1.0),
+        _loss("run-complete", "b", 3.0),
+        _loss("run-missing", "a", 1.0),
+        _loss("run-missing", "b", 3.0),
+    )
+
+    tables = build_signal_analysis_tables(candidates, losses, metadata)
+    coverage = next(
+        row
+        for row in tables.feature_coverage
+        if row.loss_view == "proxy"
+        and row.feature == "decision_native_lru_position"
+    )
+
+    assert coverage.decision_count == 2
+    assert coverage.evaluated_decision_count == 1
+    assert coverage.skipped_decision_count == 1
+    assert coverage.skipped_reason == "feature_unobserved"
+    assert (
+        coverage.evaluated_decision_count
+        + coverage.skipped_decision_count
+        == coverage.decision_count
+    )
+
+
+def test_signal_feature_coverage_reconciles_every_feature() -> None:
+    tables = build_signal_analysis_tables(
+        (_candidate("run-1", "a", 1), _candidate("run-1", "b", 3)),
+        (_loss("run-1", "a", 1.0), _loss("run-1", "b", 3.0)),
+        (SignalRunMetadata("run-1", "family-1", 1),),
+    )
+
+    assert tables.feature_coverage
+    assert all(
+        row.evaluated_decision_count + row.skipped_decision_count
+        == row.decision_count
+        for row in tables.feature_coverage
+    )

@@ -163,7 +163,7 @@ def test_pipeline_builds_and_writes_small_smoke_bundle(tmp_path: Path) -> None:
     manifest = json.loads(
         (output_dir / "manifest.json").read_text(encoding="utf-8")
     )
-    assert manifest["schema_version"] == "phase2a.derived.v2"
+    assert manifest["schema_version"] == "phase2a.derived.v3"
     assert manifest["analysis_provenance"]["entry_point"] == (
         "kvopt.profiling.cli"
     )
@@ -180,8 +180,9 @@ def test_pipeline_builds_and_writes_small_smoke_bundle(tmp_path: Path) -> None:
     pack = json.loads(
         (output_dir / "method_support_pack.json").read_text(encoding="utf-8")
     )
-    assert pack["schema_version"] == "phase2a.method-support.v2"
-    assert len(tuple(output_dir.glob("*.jsonl"))) == 26
+    assert pack["schema_version"] == "phase2a.method-support.v3"
+    assert manifest["row_counts"]["signal_feature_coverage"] == 0
+    assert len(tuple(output_dir.glob("*.jsonl"))) == 27
     assert (SMOKE_RUN / "run.json").read_text(encoding="utf-8") == raw_manifest_before
 
 
