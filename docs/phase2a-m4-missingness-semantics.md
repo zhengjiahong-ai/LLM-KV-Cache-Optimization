@@ -130,7 +130,7 @@ All three were verified in the repository, not inferred.
 | # | Defect | Location | Status |
 | --- | --- | --- | --- |
 | (a) | Missing loss crashed the signal analysis instead of being handled | `src/kvopt/profiling/signals.py` (`_normalized_ranks` over an unfiltered list) | **Closed at the source** — the `CandidateLossRow` boundary now makes a non-finite loss unconstructible, so the crash is unreachable |
-| (b) | Feature missingness was silently skipped with no coverage record | `src/kvopt/profiling/signals.py` (`continue` on any `None`) | **Open — needs M6.** Semantics specified in §6; recording coverage changes the signal tables' schema and is M6-owned |
+| (b) | Feature missingness was silently skipped with no coverage record | `src/kvopt/profiling/signals.py` (`continue` on any `None`) | **Closed in this PR by a spec only.** The change is a schema addition to M6's signal tables, so it is tracked as a **separate M6 issue** (`local/M6_ISSUE_feature_missingness_coverage.md`) to be completed **before the H1 campaign materializes**. Semantics are frozen in §6 |
 | (c) | Every exclusion cause collapsed into one `skipped_decisions` counter; a fully-unavailable decision was invisible | `src/kvopt/costaware/offline_eval.py` | **Closed** — per-reason codes, missing-candidate counts, capability strings (§3, §4) |
 
 On (c), the specific invisibility: the loop iterated only decisions that had at
@@ -152,8 +152,8 @@ missing feature -> skip that feature x decision only, and record coverage
 Rationale: a feature gap costs one cell of the signal table; a loss gap
 invalidates the whole decision's ranking.
 
-⚠️ **Open item (defect (b))**: the signal analysis currently skips such cells
-without recording how many were skipped. The required addition is a coverage
+⚠️ **Tracked separately (defect (b))**: the signal analysis currently skips such
+cells without recording how many were skipped. The required addition is a coverage
 record per `(feature, loss_view)`:
 
 ```text
@@ -162,7 +162,11 @@ skipped_decision_count
 skipped_reason   (e.g. feature_unobserved)
 ```
 
-This is a schema addition to M6's signal tables and requires M6 sign-off.
+This is a schema addition to M6's signal tables. Per the M1 ruling it is **not**
+part of this change set; it is issued as a standalone M6 task
+(`local/M6_ISSUE_feature_missingness_coverage.md`) and must land **before the H1
+campaign materializes**, so no later analysis has to reinterpret a silent skip.
+The frozen semantics in this document are the contract that task implements.
 
 ---
 

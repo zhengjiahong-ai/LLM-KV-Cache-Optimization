@@ -38,12 +38,36 @@ LEVEL_PROXY_CANDIDATE = "PROXY_CANDIDATE"
 LEVEL_RUNTIME_CANDIDATE = "RUNTIME_CANDIDATE"
 LEVEL_IMPLEMENTATION_ELIGIBLE = "IMPLEMENTATION_ELIGIBLE"
 
-#: Primary metric names. The metric decides which level a rule is eligible for.
-PRIMARY_METRIC_PROXY_LOSS = "cluster_mean_proxy_loss"
-PRIMARY_METRIC_RECOMPUTED_TOKENS = "cluster_mean_recomputed_prefill_tokens"
+# --- statistical units -----------------------------------------------------
+
+#: The unit every Level A/B claim and bootstrap is computed on (M1 ruling
+#: 2026-10-07). One scenario draw is one independently designed workload; two
+#: decisions inside it share that workload and are not independent evidence.
+SCOPE_SCENARIO_DRAW = "independent_scenario_draw"
+
+#: Retained for diagnosis only. Never used for the holdout floor or the CI.
+SCOPE_DECISION_CLUSTER = "decision_position_cluster"
+
+# --- metric tiers ----------------------------------------------------------
+
+#: Which evidence tier a verdict was computed on. The tier is selected from the
+#: evidence that actually exists; the metric itself is read from the frozen
+#: preregistration, so it cannot be chosen after a result is known.
+TIER_PROXY = "proxy"
+TIER_RUNTIME = "runtime"
+
+#: The frozen loss views backing each tier. ``runtime`` is the direct recompute
+#: observation M1 approved; ``proxy`` is the planned-timing proxy the discovery
+#: campaign used.
+PROXY_LOSS_VIEW = "planned_return_weighted_prefill_proxy"
+RUNTIME_LOSS_VIEW = "observed_recomputed_tokens"
+
+#: Retained so existing imports keep working; prefer PROXY_LOSS_VIEW.
+PRIMARY_METRIC_PROXY_LOSS = PROXY_LOSS_VIEW
+PRIMARY_METRIC_RECOMPUTED_TOKENS = RUNTIME_LOSS_VIEW
 
 #: The six formal scenarios defined by M6. A holdout that does not cover all of
-#: them cannot support a method claim, however many clusters it contains.
+#: them cannot support a method claim, however many draws it contains.
 FORMAL_FAMILIES = ("F1", "F2", "F3", "F4", "F5", "F6")
 
 
@@ -51,7 +75,8 @@ FORMAL_FAMILIES = ("F1", "F2", "F3", "F4", "F5", "F6")
 class AcceptanceCriteria:
     """The frozen protocol. Change requires a new M1 ruling, not an edit here."""
 
-    minimum_clusters: int = 30
+    minimum_scenario_draws: int = 30
+    """Holdout floor, counted in independent scenario draws (M1 ruling)."""
     required_families: tuple[str, ...] = FORMAL_FAMILIES
     family_agreement_minimum: float = 2.0 / 3.0
     bootstrap_iterations: int = 10_000
@@ -61,7 +86,8 @@ class AcceptanceCriteria:
     def as_payload(self) -> dict[str, object]:
         """Serializable form, so a report records the protocol it applied."""
         return {
-            "minimum_clusters": self.minimum_clusters,
+            "statistical_unit": SCOPE_SCENARIO_DRAW,
+            "minimum_scenario_draws": self.minimum_scenario_draws,
             "required_families": list(self.required_families),
             "family_agreement_minimum": self.family_agreement_minimum,
             "bootstrap_iterations": self.bootstrap_iterations,
@@ -71,11 +97,36 @@ class AcceptanceCriteria:
 
 
 @dataclass(frozen=True, slots=True)
-class ClusterPairedDelta:
-    """One cluster's paired loss difference: baseline minus challenger.
+class ScenarioPairedDelta:
+    """One **independent scenario draw**'s paired difference.
 
-    Positive means the challenger released a cheaper set. The cluster is the
-    unit of resampling, so each appears exactly once regardless of seed count.
+    ``delta = baseline_loss - challenger_loss``, so **positive means the
+    challenger improved**. This sign convention is frozen: every table in every
+    report must state it, because the reverse convention appears in the probe
+    scripts and mixing them inverts conclusions.
+
+    Construction order is deliberate: seeds are averaged inside a decision
+    position, positions are then averaged inside the scenario. The result is one
+    observation per independent workload, which is the unit M1 fixed.
+    """
+
+    scenario_group: str
+    scenario_family_id: str | None
+    decision_positions: int
+    seed_repeats: int
+    baseline_loss: float
+    challenger_loss: float
+    delta: float
+
+
+@dataclass(frozen=True, slots=True)
+class ClusterPairedDelta:
+    """One decision-position cluster's paired difference. **Diagnostic only.**
+
+    Same sign convention as :class:`ScenarioPairedDelta`. Retained because it
+    localises *where* inside a scenario a difference arises, but it is not the
+    unit the holdout floor or the confidence interval uses: several clusters in
+    one scenario share that scenario's workload.
     """
 
     scenario_group: str
@@ -86,18 +137,16 @@ class ClusterPairedDelta:
     delta: float
 
 
-def cluster_paired_deltas(
+def _paired_per_unit(
     evaluation: RuleEvaluation,
-    *,
     baseline_rule_id: str,
     challenger_rule_id: str,
-) -> tuple[ClusterPairedDelta, ...]:
-    """Per-cluster paired deltas, seeds averaged inside each cluster.
-
-    This exposes the individual observations the protocol resamples. Averaging
-    inside the cluster first is what stops repeated seeds from inflating the
-    sample, and it keeps the paired counts summing to the cluster count.
-    """
+) -> tuple[
+    dict[tuple[str, int], list[float]],
+    dict[tuple[str, int], list[float]],
+    dict[tuple[str, int], str | None],
+]:
+    """Collect losses for both rules keyed by ``(scenario group, position)``."""
     losses: dict[str, dict[tuple[str, int], list[float]]] = {
         baseline_rule_id: {},
         challenger_rule_id: {},
@@ -111,13 +160,26 @@ def cluster_paired_deltas(
         bucket.setdefault(key, []).append(row.selected_loss)
         if key not in families or families[key] is None:
             families[key] = row.scenario_family_id
+    return losses[baseline_rule_id], losses[challenger_rule_id], families
 
-    baseline = losses[baseline_rule_id]
-    challenger = losses[challenger_rule_id]
+
+def cluster_paired_deltas(
+    evaluation: RuleEvaluation,
+    *,
+    baseline_rule_id: str,
+    challenger_rule_id: str,
+) -> tuple[ClusterPairedDelta, ...]:
+    """Per decision-position cluster deltas, seeds averaged inside each.
+
+    **Diagnostic view.** See :func:`scenario_paired_deltas` for the unit that
+    Level A/B actually tests.
+    """
+    baseline, challenger, families = _paired_per_unit(
+        evaluation, baseline_rule_id, challenger_rule_id
+    )
     shared = sorted(set(baseline).intersection(challenger))
     if not shared:
         raise ValueError("rules share no evaluated clusters")
-
     deltas: list[ClusterPairedDelta] = []
     for key in shared:
         baseline_loss = statistics.fmean(baseline[key])
@@ -135,11 +197,77 @@ def cluster_paired_deltas(
     return tuple(deltas)
 
 
-@dataclass(frozen=True, slots=True)
-class ClusterPairedResult:
-    """Cluster-level paired summary with a bootstrap interval."""
+def scenario_paired_deltas(
+    evaluation: RuleEvaluation,
+    *,
+    baseline_rule_id: str,
+    challenger_rule_id: str,
+) -> tuple[ScenarioPairedDelta, ...]:
+    """Per **independent scenario draw** deltas: the unit M1 fixed.
 
-    clusters: int
+    Aggregation order, which is the whole point of this function:
+
+    1. average the seed repeats inside each decision position;
+    2. average those position means inside each scenario group.
+
+    Only step 2's output is resampled. Two decisions in the same scenario share
+    that scenario's workload, so treating them as separate observations would
+    overstate the evidence -- on the discovery campaign that inflation is 20
+    clusters against 18 real draws.
+    """
+    baseline, challenger, families = _paired_per_unit(
+        evaluation, baseline_rule_id, challenger_rule_id
+    )
+    shared = sorted(set(baseline).intersection(challenger))
+    if not shared:
+        raise ValueError("rules share no evaluated scenarios")
+
+    per_scenario: dict[str, dict[str, object]] = {}
+    for key in shared:
+        group = key[0]
+        entry = per_scenario.setdefault(
+            group,
+            {"baseline": [], "challenger": [], "seeds": 0},
+        )
+        entry["baseline"].append(statistics.fmean(baseline[key]))
+        entry["challenger"].append(statistics.fmean(challenger[key]))
+        entry["seeds"] = max(int(entry["seeds"]), len(baseline[key]))
+
+    deltas: list[ScenarioPairedDelta] = []
+    for group in sorted(per_scenario):
+        entry = per_scenario[group]
+        baseline_position_means = entry["baseline"]
+        challenger_position_means = entry["challenger"]
+        baseline_loss = statistics.fmean(baseline_position_means)
+        challenger_loss = statistics.fmean(challenger_position_means)
+        family = next(
+            (
+                families[key]
+                for key in shared
+                if key[0] == group and families.get(key)
+            ),
+            None,
+        )
+        deltas.append(
+            ScenarioPairedDelta(
+                scenario_group=group,
+                scenario_family_id=family,
+                decision_positions=len(baseline_position_means),
+                seed_repeats=int(entry["seeds"]),
+                baseline_loss=baseline_loss,
+                challenger_loss=challenger_loss,
+                delta=baseline_loss - challenger_loss,
+            )
+        )
+    return tuple(deltas)
+
+
+@dataclass(frozen=True, slots=True)
+class PairedResult:
+    """Paired summary with a bootstrap interval over the resampled unit."""
+
+    scope: str
+    units: int
     improved: int
     worsened: int
     tied: int
@@ -175,16 +303,17 @@ def _percentile(ordered: Sequence[float], quantile: float) -> float:
     return ordered[lower] * (1.0 - weight) + ordered[upper] * weight
 
 
-def bootstrap_cluster_ci(
+def bootstrap_ci(
     deltas: Sequence[float], criteria: AcceptanceCriteria
 ) -> tuple[float, float]:
-    """Percentile bootstrap interval for the mean delta, resampling clusters.
+    """Percentile bootstrap interval for the mean, resampling the given units.
 
-    The seed is part of the frozen protocol, so the interval is reproducible
-    rather than re-drawn until it looks favourable.
+    Callers must pass unit-level values (one per independent scenario draw for
+    any Level A/B claim). The seed is part of the frozen protocol, so the
+    interval is reproducible rather than re-drawn until it looks favourable.
     """
     if not deltas:
-        raise ValueError("bootstrap requires at least one cluster")
+        raise ValueError("bootstrap requires at least one unit")
     rng = random.Random(criteria.bootstrap_seed)
     count = len(deltas)
     means: list[float] = []
@@ -196,19 +325,27 @@ def bootstrap_cluster_ci(
     return _percentile(means, tail), _percentile(means, 1.0 - tail)
 
 
-def cluster_paired_result(
-    deltas: Sequence[ClusterPairedDelta], criteria: AcceptanceCriteria
-) -> ClusterPairedResult:
-    """Summarize cluster deltas under the frozen protocol."""
+def paired_result(
+    deltas: Sequence[ScenarioPairedDelta] | Sequence[ClusterPairedDelta],
+    criteria: AcceptanceCriteria,
+    *,
+    scope: str = SCOPE_SCENARIO_DRAW,
+) -> PairedResult:
+    """Summarize one unit's deltas under the frozen protocol.
+
+    ``scope`` records which unit was passed, so a payload can never present a
+    diagnostic decision-position view as if it were the draw-level result.
+    """
     if not deltas:
-        raise ValueError("at least one cluster is required")
+        raise ValueError("at least one unit is required")
     values = [row.delta for row in deltas]
     improved = sum(1 for value in values if value > 0.0)
     worsened = sum(1 for value in values if value < 0.0)
     tied = len(values) - improved - worsened
-    ci_lower, ci_upper = bootstrap_cluster_ci(values, criteria)
-    return ClusterPairedResult(
-        clusters=len(values),
+    ci_lower, ci_upper = bootstrap_ci(values, criteria)
+    return PairedResult(
+        scope=scope,
+        units=len(values),
         improved=improved,
         worsened=worsened,
         tied=tied,
@@ -224,7 +361,12 @@ def cluster_paired_result(
 
 @dataclass(frozen=True, slots=True)
 class FamilyDirection:
-    """Per-family cluster-level mean delta and the agreement rate across them."""
+    """Per-family mean delta and the agreement rate across families.
+
+    Means use the same frozen sign convention: **positive = challenger
+    improved**. A reader must be able to compare this table with the paired
+    table without flipping signs.
+    """
 
     per_family: tuple[tuple[str, int, float], ...]
     agreeing_families: int
@@ -272,26 +414,28 @@ def family_direction_agreement(
 class HoldoutAdequacy:
     """Whether the holdout can support a method claim at all."""
 
-    clusters: int
-    minimum_clusters: int
+    scope: str
+    units: int
+    minimum_units: int
     families_present: tuple[str, ...]
     families_missing: tuple[str, ...]
 
     @property
     def adequate(self) -> bool:
-        return (
-            self.clusters >= self.minimum_clusters
-            and not self.families_missing
-        )
+        return self.units >= self.minimum_units and not self.families_missing
 
 
 def holdout_adequacy(
-    deltas: Sequence[ClusterPairedDelta],
+    deltas: Sequence[ScenarioPairedDelta],
     criteria: AcceptanceCriteria,
     *,
     families_present: Sequence[str] | None = None,
 ) -> HoldoutAdequacy:
-    """Check the frozen minimum: enough clusters, and every formal family.
+    """Check the frozen minimum: enough **scenario draws**, and every family.
+
+    The unit is the independent scenario draw. Decision-position clusters are
+    deliberately not accepted here, because several clusters inside one scenario
+    share that scenario's workload and would inflate the count.
 
     Below the threshold a result may only be labelled diagnostic, however
     favourable its numbers look.
@@ -304,8 +448,9 @@ def holdout_adequacy(
         present = set(families_present)
     required = set(criteria.required_families)
     return HoldoutAdequacy(
-        clusters=len(deltas),
-        minimum_clusters=criteria.minimum_clusters,
+        scope=SCOPE_SCENARIO_DRAW,
+        units=len(deltas),
+        minimum_units=criteria.minimum_scenario_draws,
         families_present=tuple(sorted(present)),
         families_missing=tuple(sorted(required - present)),
     )
@@ -392,6 +537,13 @@ class RulePreregistration:
     Every field is an attestation by the author that it was fixed in advance.
     The record is data precisely so it can be committed and quoted later: the
     protocol is unenforceable if the frozen form lives only in prose.
+
+    **Both tiers are frozen now.** A record that named only a proxy metric would
+    force a runtime-metric run to be judged as Level A, and naming the runtime
+    metric later -- once the data is visible -- is exactly the post-hoc move the
+    protocol exists to prevent. The evaluator therefore selects a tier from the
+    evidence that exists and reads the metric for that tier from here; the
+    caller never names a metric.
     """
 
     rule_id: str
@@ -401,7 +553,8 @@ class RulePreregistration:
     tie_break: str
     fallback: str
     boundary: str
-    primary_metric: str
+    proxy_primary_metric: str
+    runtime_primary_metric: str
     frozen_at: str
     frozen_commit: str
 
@@ -414,20 +567,32 @@ class RulePreregistration:
             "tie_break",
             "fallback",
             "boundary",
-            "primary_metric",
+            "proxy_primary_metric",
+            "runtime_primary_metric",
             "frozen_at",
             "frozen_commit",
         ):
             value = getattr(self, name)
             if not isinstance(value, str) or not value.strip():
                 raise ValueError(f"preregistration field {name} must be set")
-        if self.primary_metric not in {
-            PRIMARY_METRIC_PROXY_LOSS,
-            PRIMARY_METRIC_RECOMPUTED_TOKENS,
-        }:
+        if self.proxy_primary_metric != PROXY_LOSS_VIEW:
             raise ValueError(
-                f"unsupported primary metric: {self.primary_metric!r}"
+                f"unsupported proxy metric: {self.proxy_primary_metric!r}; "
+                f"the frozen proxy loss view is {PROXY_LOSS_VIEW!r}"
             )
+        if self.runtime_primary_metric != RUNTIME_LOSS_VIEW:
+            raise ValueError(
+                f"unsupported runtime metric: {self.runtime_primary_metric!r}; "
+                f"the frozen runtime loss view is {RUNTIME_LOSS_VIEW!r}"
+            )
+
+    def metric_for_tier(self, tier: str) -> str:
+        """Return the metric frozen for ``tier``; never a caller choice."""
+        if tier == TIER_PROXY:
+            return self.proxy_primary_metric
+        if tier == TIER_RUNTIME:
+            return self.runtime_primary_metric
+        raise ValueError(f"unknown metric tier: {tier!r}")
 
     def as_payload(self) -> dict[str, object]:
         return {
@@ -438,10 +603,53 @@ class RulePreregistration:
             "tie_break": self.tie_break,
             "fallback": self.fallback,
             "boundary": self.boundary,
-            "primary_metric": self.primary_metric,
+            # Both tiers are published so a reader can see that Level B was
+            # frozen in advance rather than named after the data arrived.
+            "metrics": {
+                TIER_PROXY: self.proxy_primary_metric,
+                TIER_RUNTIME: self.runtime_primary_metric,
+            },
             "frozen_at": self.frozen_at,
             "frozen_commit": self.frozen_commit,
         }
+
+
+def select_metric_tier(
+    preregistration: RulePreregistration,
+    *,
+    runtime_evaluation: RuleEvaluation | None = None,
+    proxy_evaluation: RuleEvaluation | None = None,
+) -> tuple[str, str]:
+    """Choose the frozen metric for the tier the evidence actually supports.
+
+    Selection is driven by **what data exists**, not by which metric looks
+    better: runtime evidence present means the runtime tier is mandatory, and
+    the metric then comes from the frozen record. The chosen evaluation must be
+    computed on exactly the frozen loss view for its tier, so a caller cannot
+    slip in a different view under the same tier name.
+    """
+    if runtime_evaluation is not None:
+        tier = TIER_RUNTIME
+        metric = preregistration.metric_for_tier(tier)
+        if runtime_evaluation.loss_view != metric:
+            raise ValueError(
+                f"runtime evidence must be computed on {metric!r}, got "
+                f"{runtime_evaluation.loss_view!r}"
+            )
+        return tier, metric
+    if proxy_evaluation is None:
+        raise ValueError(
+            "no evaluation supplied: pass proxy_evaluation and/or "
+            "runtime_evaluation"
+        )
+    tier = TIER_PROXY
+    metric = preregistration.metric_for_tier(tier)
+    if proxy_evaluation.loss_view != metric:
+        raise ValueError(
+            f"proxy evidence must be computed on {metric!r}, got "
+            f"{proxy_evaluation.loss_view!r}"
+        )
+    return tier, metric
 
 
 @dataclass(frozen=True, slots=True)
@@ -471,9 +679,11 @@ class AcceptanceVerdict:
     rule_id: str
     baseline_rule_id: str
     level: str
+    evidence_tier: str
     primary_metric: str
     holdout: HoldoutAdequacy
-    paired: ClusterPairedResult
+    paired: PairedResult
+    diagnostic_paired: PairedResult | None
     family: FamilyDirection
     latency: LatencyCheck | None
     checks: tuple[tuple[str, bool], ...]
@@ -495,18 +705,26 @@ class AcceptanceVerdict:
             "baseline_rule_id": self.baseline_rule_id,
             "level": self.level,
             "accepted": self.accepted,
+            "evidence_tier": self.evidence_tier,
+            "statistical_unit": SCOPE_SCENARIO_DRAW,
             "primary_metric": self.primary_metric,
+            "sign_convention": (
+                "delta = baseline_loss - challenger_loss; positive = the "
+                "challenger improved"
+            ),
             "checks": {name: passed for name, passed in self.checks},
             "failures": list(self.failures),
             "holdout": {
-                "clusters": self.holdout.clusters,
-                "minimum_clusters": self.holdout.minimum_clusters,
+                "scope": self.holdout.scope,
+                "units": self.holdout.units,
+                "minimum_units": self.holdout.minimum_units,
                 "families_present": list(self.holdout.families_present),
                 "families_missing": list(self.holdout.families_missing),
                 "adequate": self.holdout.adequate,
             },
-            "cluster_paired": {
-                "clusters": self.paired.clusters,
+            "paired": {
+                "scope": self.paired.scope,
+                "units": self.paired.units,
                 "improved": self.paired.improved,
                 "worsened": self.paired.worsened,
                 "tied": self.paired.tied,
@@ -518,9 +736,22 @@ class AcceptanceVerdict:
                 "bootstrap_iterations": self.paired.bootstrap_iterations,
                 "bootstrap_seed": self.paired.bootstrap_seed,
             },
+            # Reported for localisation only. Never the unit of the CI or floor.
+            "paired_diagnostic_decision_position": (
+                None
+                if self.diagnostic_paired is None
+                else {
+                    "scope": self.diagnostic_paired.scope,
+                    "units": self.diagnostic_paired.units,
+                    "improved": self.diagnostic_paired.improved,
+                    "worsened": self.diagnostic_paired.worsened,
+                    "tied": self.diagnostic_paired.tied,
+                    "mean_delta": self.diagnostic_paired.mean_delta,
+                }
+            ),
             "family_direction": {
                 "per_family": [
-                    {"family": family, "clusters": count, "mean_delta": mean}
+                    {"family": family, "units": count, "mean_delta": mean}
                     for family, count, mean in self.family.per_family
                 ],
                 "agreeing_families": self.family.agreeing_families,
@@ -545,10 +776,11 @@ class AcceptanceVerdict:
 
 
 def evaluate_acceptance(
-    evaluation: RuleEvaluation,
     *,
     preregistration: RulePreregistration,
     baseline_rule_id: str,
+    proxy_evaluation: RuleEvaluation | None = None,
+    runtime_evaluation: RuleEvaluation | None = None,
     criteria: AcceptanceCriteria | None = None,
     epsilon_latency: LatencyEpsilon | None = None,
     baseline_latency_mean: float | None = None,
@@ -557,22 +789,43 @@ def evaluate_acceptance(
 ) -> AcceptanceVerdict:
     """Apply the frozen protocol and return the level the rule has earned.
 
-    The primary metric comes from the preregistration, not from the caller, so
-    the metric cannot be swapped after a result is known. ``epsilon_latency``
-    must be calibrated separately from baseline repeats; the margin is never
-    chosen here.
+    The caller supplies **evidence**, never a metric. Both tier metrics are read
+    from the frozen preregistration, and the tier is selected from the evidence
+    that exists: runtime evidence present forces the runtime tier. That is what
+    makes a post-hoc metric swap impossible once data is visible.
+
+    ``epsilon_latency`` must be calibrated separately from baseline repeats; the
+    margin is never chosen here.
     """
     resolved = criteria or AcceptanceCriteria()
     challenger_rule_id = preregistration.rule_id
+    tier, metric = select_metric_tier(
+        preregistration,
+        runtime_evaluation=runtime_evaluation,
+        proxy_evaluation=proxy_evaluation,
+    )
+    evaluation = (
+        runtime_evaluation if tier == TIER_RUNTIME else proxy_evaluation
+    )
+    assert evaluation is not None  # guaranteed by select_metric_tier
 
-    deltas = cluster_paired_deltas(
+    deltas = scenario_paired_deltas(
         evaluation,
         baseline_rule_id=baseline_rule_id,
         challenger_rule_id=challenger_rule_id,
     )
-    paired = cluster_paired_result(deltas, resolved)
+    paired = paired_result(deltas, resolved, scope=SCOPE_SCENARIO_DRAW)
     family = family_direction_agreement(deltas, resolved)
     holdout = holdout_adequacy(deltas, resolved)
+    diagnostic_paired = paired_result(
+        cluster_paired_deltas(
+            evaluation,
+            baseline_rule_id=baseline_rule_id,
+            challenger_rule_id=challenger_rule_id,
+        ),
+        resolved,
+        scope=SCOPE_DECISION_CLUSTER,
+    )
 
     latency: LatencyCheck | None = None
     if (
@@ -588,16 +841,14 @@ def evaluate_acceptance(
 
     checks: list[tuple[str, bool]] = [
         ("holdout_adequate", holdout.adequate),
-        ("cluster_mean_improvement_positive", paired.mean_delta > 0.0),
-        ("cluster_ci_lower_bound_positive", paired.ci_lower_above_zero),
-        ("better_decisions_outnumber_worse", paired.better_than_worse),
+        ("scenario_mean_improvement_positive", paired.mean_delta > 0.0),
+        ("scenario_ci_lower_bound_positive", paired.ci_lower_above_zero),
+        ("better_draws_outnumber_worse", paired.better_than_worse),
         ("family_direction_agreement", family.satisfied),
     ]
 
-    is_runtime_metric = (
-        preregistration.primary_metric == PRIMARY_METRIC_RECOMPUTED_TOKENS
-    )
-    if is_runtime_metric:
+    is_runtime_tier = tier == TIER_RUNTIME
+    if is_runtime_tier:
         # Serving latency must not regress beyond the calibrated margin.
         checks.append(
             ("latency_non_inferior", latency is not None and latency.non_inferior)
@@ -611,7 +862,7 @@ def evaluate_acceptance(
         level = LEVEL_DIAGNOSTIC_ONLY
     elif failures:
         level = LEVEL_NOT_ACCEPTED
-    elif is_runtime_metric:
+    elif is_runtime_tier:
         level = LEVEL_RUNTIME_CANDIDATE
     else:
         level = LEVEL_PROXY_CANDIDATE
@@ -627,9 +878,11 @@ def evaluate_acceptance(
         rule_id=challenger_rule_id,
         baseline_rule_id=baseline_rule_id,
         level=level,
-        primary_metric=preregistration.primary_metric,
+        evidence_tier=tier,
+        primary_metric=metric,
         holdout=holdout,
         paired=paired,
+        diagnostic_paired=diagnostic_paired,
         family=family,
         latency=latency,
         checks=tuple(checks),

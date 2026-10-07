@@ -16,7 +16,8 @@ Nothing here evaluates a rule or reads a label.
 from __future__ import annotations
 
 from .acceptance import (
-    PRIMARY_METRIC_PROXY_LOSS,
+    PROXY_LOSS_VIEW,
+    RUNTIME_LOSS_VIEW,
     RulePreregistration,
 )
 from .rules import H1_R1_REVERSE_DEADLINE_ID
@@ -25,22 +26,27 @@ from .rules import H1_R1_REVERSE_DEADLINE_ID
 #: does not match the reviewed commit is not the frozen record.
 H1_FREEZE_DATE = "2026-10-07"
 
-#: H1-R1: reverse retention-deadline ordering.
+#: H1-R1: reverse the baseline's primary deadline preference.
 #:
 #: Formula     release the candidate with the LARGEST
-#:             ``retention_deadline_timestamp`` first -- the exact negation of
-#:             the frozen Phase 1B primary key.
+#:             ``retention_deadline_timestamp`` first -- inverting the PRIMARY
+#:             (deadline) term of the frozen release ordering.
+#:             NOTE: only the primary term is inverted. The frozen key's middle
+#:             term (min native rank over newly eligible) is dynamic and is NOT
+#:             inverted, so this is not a literal reversal of the frozen loop.
 #: Tie-break   stable logical identity ``(program_id, prefix_id)``, applied by
 #:             the standard rule ladder. NOTE: untested on the discovery data,
 #:             where deadlines are tied in 0 of 60 decisions.
 #: Fallback    the frozen baseline ordering, never a fabricated value.
+#: Metrics     BOTH tiers are frozen now, so a runtime-metric holdout cannot be
+#:             judged as Level A and the metric cannot be named after the data.
 H1_R1_PREREGISTRATION = RulePreregistration(
     rule_id=H1_R1_REVERSE_DEADLINE_ID,
     family="H1",
     formula=(
         "release the candidate with the LARGEST retention_deadline_timestamp "
-        "first: descending on retention_deadline_timestamp, equivalently "
-        "negating the frozen Phase 1B primary key"
+        "first: descending on retention_deadline_timestamp, which inverts the "
+        "primary deadline term of the frozen release ordering"
     ),
     direction="descending on retention_deadline_timestamp",
     tie_break=(
@@ -58,13 +64,14 @@ H1_R1_PREREGISTRATION = RulePreregistration(
         "only, under the frozen TTL estimator. This is a DERIVED signal: "
         "retention_deadline_timestamp = decision_timestamp + ttl_seconds and "
         "ttl_seconds is the output of the frozen estimator, so the rule inverts "
-        "the baseline's own keep decision rather than reading an independent "
-        "observation. It does not apply if the TTL estimator, its history "
-        "thresholds, or its inputs change; any such change requires the rule to "
-        "be re-derived and re-preregistered. It was discovered on the canonical "
-        "campaign, so that campaign can never serve as its holdout."
+        "the baseline's own deadline preference rather than reading an "
+        "independent observation. It does not apply if the TTL estimator, its "
+        "history thresholds, or its inputs change; any such change requires the "
+        "rule to be re-derived and re-preregistered. It was discovered on the "
+        "canonical campaign, so that campaign can never serve as its holdout."
     ),
-    primary_metric=PRIMARY_METRIC_PROXY_LOSS,
+    proxy_primary_metric=PROXY_LOSS_VIEW,
+    runtime_primary_metric=RUNTIME_LOSS_VIEW,
     frozen_at=H1_FREEZE_DATE,
     frozen_commit="72c462b",
 )

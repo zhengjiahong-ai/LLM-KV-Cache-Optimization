@@ -132,7 +132,7 @@ def build_offline_report(
     )
 
     return {
-        "schema_version": "phase2a.m4.offline_report.v2",
+        "schema_version": "phase2a.m4.offline_report.v3",
         "artifact_root": str(root),
         "formal_campaign": formal,
         "loss_view": loss_view,

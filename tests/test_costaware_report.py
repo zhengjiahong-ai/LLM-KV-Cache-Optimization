@@ -225,7 +225,7 @@ def test_cli_writes_a_json_report(tmp_path: Path) -> None:
     )
     assert exit_code == 0
     payload = json.loads(output.read_text(encoding="utf-8"))
-    assert payload["schema_version"] == "phase2a.m4.offline_report.v2"
+    assert payload["schema_version"] == "phase2a.m4.offline_report.v3"
     assert payload["replay_fidelity"]["release_set_match_rate"] == pytest.approx(1.0)
 
 

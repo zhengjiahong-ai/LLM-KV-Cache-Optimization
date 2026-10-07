@@ -26,10 +26,23 @@ a new block victim score
 any change to BlockPool ownership
 ```
 
-**Criteria below are frozen before measurement.** They are stated as PASS / FAIL
-so that a negative outcome is reportable rather than reinterpreted. If a
-measurement cannot reach a verdict, the outcome is `INCONCLUSIVE` and B1 stays
-closed — an inconclusive probe is not a weak yes.
+**The comparison shape is frozen before measurement; the numeric thresholds are
+not.** Each condition is stated as PASS / FAIL / INCONCLUSIVE so a negative
+outcome is reportable rather than reinterpreted, and `INCONCLUSIVE` is never
+treated as a weak yes.
+
+```text
+frozen now   : the shape of every comparison, the controls, the grid design,
+               the observation priority, and the requirement that tolerances
+               come from measured jitter
+NOT frozen   : the exact pass thresholds (a fraction, an R^2-style improvement,
+               a confidence level). These are frozen by M6 + M4 AFTER the
+               measurable resolution is known and BEFORE any verdict is read.
+```
+
+Rationale, from the M1 ruling: a threshold proposed by M4 with no basis in
+measurement resolution is not a frozen criterion, it is a placeholder. Freezing a
+round number in advance is how an unfalsifiable criterion gets written.
 
 ---
 
@@ -65,6 +78,13 @@ Any FAIL ⇒ B1 remains closed. Any INCONCLUSIVE ⇒ B1 remains closed.
 | M3 | Block position (leading vs trailing) changes the **realized** recompute outcome | PASS |
 | M4 | Block-level choice has headroom that entry-level ordering cannot express | PASS |
 
+Each PASS requires its condition's **threshold to have been frozen first** from
+the measured resolution (§3.2, §5.2, §6.2). A verdict read before its threshold is
+frozen is not a verdict.
+
+M2's controls are already fully specified and need no threshold calibration, so
+it is the only condition that can be judged immediately.
+
 ---
 
 ## 3. M1 — real `C(r)` curve
@@ -72,8 +92,7 @@ Any FAIL ⇒ B1 remains closed. Any INCONCLUSIVE ⇒ B1 remains closed.
 ### 3.1 What to measure
 
 `C(r)` = realized prefill/reload cost for a reusable-prefix span of `r` tokens,
-measured as `TTFT_MISS − TTFT_HIT` on the compliant runtime, over a grid that
-must **include the long-context region**.
+over a grid that must **include the long-context region**.
 
 ```text
 required grid: r in {16, 32, 64, 128, 256, 512, 1024, 2048,
@@ -87,7 +106,34 @@ same short grid cannot answer this question. The predicted cross-over for
 Qwen2.5-0.5B (`P ≈ 0.5B`, `d = 896`, `L = 24`) is `N* ≈ 23k` tokens, where the
 `2N²dL` attention term catches the `2NP` linear term.
 
-### 3.2 Frozen verdict rule
+#### Observation priority (M1 ruling)
+
+`TTFT_MISS − TTFT_HIT` is a **contaminated** estimator: it folds admission,
+queueing and scheduling into a quantity meant to represent prefill work. The
+preference order is therefore:
+
+```text
+1  isolated native prefill/reload elapsed time            <- preferred, if directly observable
+2  controlled TTFT miss/hit delta                          <- fallback, with contamination controlled
+```
+
+If TTFT deltas are used, the report **must** state that admission / queue state
+was held equivalent across the miss and hit measurements, or else label the
+result **sensitivity only**. A TTFT delta measured with uncontrolled queueing
+cannot be the primary input to the M1 verdict.
+
+### 3.2 Verdict shape (frozen) — thresholds NOT yet frozen
+
+**The protocol is frozen; the numeric thresholds are not.** The boundary values
+below were proposed by M4 and have **no** basis in measurement resolution or
+jitter, so they cannot be called frozen. M1 requires:
+
+```text
+shape / comparison protocol   : frozen now (this document)
+exact pass thresholds         : frozen AFTER M6 confirms the grid and the
+                                measurable resolution, and DERIVED from the
+                                measured baseline jitter
+```
 
 Fit three nested models to the measured curve by least squares over the grid:
 
@@ -97,17 +143,31 @@ L1  affine                    C(r) = a + beta * r
 L2  quadratic                 C(r) = a + beta * r + gamma * r^2
 ```
 
-```text
-PASS         L2 improves the fit over L1 by R^2 gain >= 0.02 AND gamma > 0
-             with a bootstrap 95% CI excluding 0
-             (i.e. measurable convexity in the measured range)
+The **shape** of the decision, frozen now:
 
-FAIL         L0 or L1 is adequate across the whole grid:
-             L2 R^2 gain < 0.02, or gamma not distinguishable from 0
+```text
+PASS         L2 fits the measured curve materially better than L1 on the
+             long-context region AND its convexity term is positive and
+             distinguishable from zero at the frozen confidence level
+
+FAIL         L0 or L1 is adequate across the whole grid: convexity is either
+             absent or below the resolution the measurement can support
 
 INCONCLUSIVE the grid does not span a region where the fit is interpretable,
-             or measurement variance is large enough to swamp the R^2 gain
+             or the jitter is large enough to swamp the improvement
 ```
+
+TBD before measurement by M6 + M4 together:
+
+- the material-improvement statistic and its critical value, expressed in the
+  measured resolution rather than a round number such as `R^2 >= 0.02`;
+- the confidence level and resampling scheme for `gamma`;
+- the exact per-point repeat count that makes the jitter small enough to resolve
+  the effect.
+
+⚠️ A round threshold chosen in advance is how an unfalsifiable criterion gets
+written. The number must come **from** the measurement's resolution, not be
+compared against it.
 
 If **FAIL**, the practical consequence is recorded as: block-level cost structure
 collapses to `Δk = βB` for every `k` (design draft §4 property 2), i.e. the model
@@ -187,13 +247,13 @@ trailing eviction  (blocks n-j+1 .. n)
 leading eviction   (blocks 1 .. j)
 ```
 
-### 5.2 Frozen verdict rule
+### 5.2 Verdict shape (frozen) — thresholds NOT yet frozen
 
 ```text
 PASS         leading eviction costs strictly more realized recompute than
-             trailing eviction, for the same j, in >= 2/3 of the tested
+             trailing eviction, for the same j, in a majority of the tested
              (prefix, j) combinations, with the difference exceeding the
-             measurement jitter
+             measured jitter
 
 FAIL         the two are indistinguishable within jitter across the tested
              combinations
@@ -202,8 +262,12 @@ INCONCLUSIVE results are directionally mixed without a clean majority, or the
              jitter exceeds the effect
 ```
 
-The 2/3 threshold mirrors the family-agreement convention already used in the
-acceptance protocol, so the probe and the rule protocol speak the same language.
+⚠️ **The "majority" threshold is deliberately not a number here.** An earlier
+draft used `>= 2/3`, borrowing the family-agreement convention, but that value
+was M4's invention and has no basis in this measurement's resolution. The exact
+fraction is frozen by M6 + M4 **before** measurement, once the jitter is known,
+and must be justified by the number of combinations that the jitter allows to be
+resolved at all.
 
 ---
 
@@ -221,12 +285,12 @@ Best entry-level achievable loss  (releasing j blocks from the entry)
 Best block-level achievable loss  (choosing which j blocks)
 ```
 
-### 6.2 Frozen verdict rule
+### 6.2 Verdict shape (frozen) — thresholds NOT yet frozen
 
 ```text
-PASS         for >= 2/3 of tested (prefix, j) combinations,
+PASS         for a majority of tested (prefix, j) combinations,
              best_block_level_loss < best_entry_level_loss,
-             with the gap exceeding measurement jitter
+             with the gap exceeding the measured jitter
 
 FAIL         the two coincide within jitter for every combination tested
              (position carries no exploitable information at block level
@@ -235,6 +299,9 @@ FAIL         the two coincide within jitter for every combination tested
 INCONCLUSIVE the cross-entry aggregation question (design draft §9.3) is
              undefined, so the comparison cannot be stated fairly
 ```
+
+⚠️ Same caveat as §5.2: the majority fraction is M4's proposal, not an approved
+number, and is frozen from the measured resolution before measurement.
 
 ⚠️ **Known open dependency**: comparing a large prefix's 3-block suffix against a
 complete small prefix is not yet well-defined (design draft §9.3). If M4 cannot

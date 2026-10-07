@@ -10,8 +10,10 @@ from __future__ import annotations
 import pytest
 
 from kvopt.costaware.acceptance import (
-    PRIMARY_METRIC_PROXY_LOSS,
-    PRIMARY_METRIC_RECOMPUTED_TOKENS,
+    PROXY_LOSS_VIEW,
+    RUNTIME_LOSS_VIEW,
+    TIER_PROXY,
+    TIER_RUNTIME,
 )
 from kvopt.costaware.preregistrations import (
     H1_FREEZE_DATE,
@@ -166,21 +168,34 @@ def test_record_freezes_every_required_field() -> None:
         "tie_break",
         "fallback",
         "boundary",
-        "primary_metric",
         "frozen_at",
         "frozen_commit",
     ):
         assert isinstance(payload[field], str)
         assert payload[field].strip()
+    # And both metric tiers, which are frozen together rather than one per run.
+    assert set(payload["metrics"]) == {TIER_PROXY, TIER_RUNTIME}
+    for metric in payload["metrics"].values():
+        assert isinstance(metric, str) and metric.strip()
 
 
-def test_record_declares_the_frozen_primary_metric() -> None:
-    assert H1_R1_PREREGISTRATION.primary_metric == PRIMARY_METRIC_PROXY_LOSS
-    # A proxy-primary hypothesis cannot be upgraded to a runtime claim without a
-    # new preregistration naming the runtime metric.
-    assert H1_R1_PREREGISTRATION.primary_metric != (
-        PRIMARY_METRIC_RECOMPUTED_TOKENS
+def test_record_declares_both_frozen_metric_tiers() -> None:
+    """Both tiers are frozen now, so a runtime holdout cannot be judged as A."""
+    assert H1_R1_PREREGISTRATION.proxy_primary_metric == PROXY_LOSS_VIEW
+    assert H1_R1_PREREGISTRATION.runtime_primary_metric == RUNTIME_LOSS_VIEW
+    payload = H1_R1_PREREGISTRATION.as_payload()
+    assert payload["metrics"][TIER_PROXY] == PROXY_LOSS_VIEW
+    assert payload["metrics"][TIER_RUNTIME] == RUNTIME_LOSS_VIEW
+
+
+def test_metric_for_tier_returns_the_frozen_metric_only() -> None:
+    assert H1_R1_PREREGISTRATION.metric_for_tier(TIER_PROXY) == PROXY_LOSS_VIEW
+    assert (
+        H1_R1_PREREGISTRATION.metric_for_tier(TIER_RUNTIME)
+        == RUNTIME_LOSS_VIEW
     )
+    with pytest.raises(ValueError, match="unknown metric tier"):
+        H1_R1_PREREGISTRATION.metric_for_tier("whatever_is_best")
 
 
 def test_record_is_anchored_to_a_freeze_date_and_commit() -> None:
@@ -195,6 +210,17 @@ def test_record_states_the_derived_signal_caveat() -> None:
     assert "ttl" in boundary
     # And that the discovery campaign can never be its holdout.
     assert "holdout" in boundary
+
+
+def test_record_wording_does_not_overclaim_a_full_inversion() -> None:
+    """Only the primary deadline term is inverted, never the whole frozen key."""
+    combined = (
+        H1_R1_PREREGISTRATION.formula + " " + H1_R1_PREREGISTRATION.boundary
+    ).lower()
+    assert "primary" in combined
+    # The unqualified phrasing M1 rejected must not reappear.
+    assert "invert the baseline's own keep decision" not in combined
+    assert "exact negation of the frozen phase 1b primary key" not in combined
 
 
 def test_record_states_the_fallback_is_the_frozen_baseline() -> None:

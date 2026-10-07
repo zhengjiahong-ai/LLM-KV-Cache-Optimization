@@ -2,7 +2,8 @@
 
 Status: **SUBMITTED FOR M1 REVIEW** (ruling item 1, 2026-10-07)
 Requester: M4
-Recipients: M5 (workload definition), M6 (campaign execution), M1 (approval)
+Recipients: M1 (approval), M6 (formal campaign and analysis), M5 (substrate only)
+Authority for ownership: `docs/phase2a-m6-formal-profiling-plan.md`
 Blocking: any rule-level claim about entry-level information, including `H1_R1`
 
 ---
@@ -115,7 +116,7 @@ from "the TTL estimator orders by cost".
 
 | Requirement | Value | Reason |
 | --- | --- | --- |
-| **Independent scenarios** | **≥ 40** | Must yield ≥ 30 clusters with margin, after the collapses in §1.1 |
+| **Independent scenarios** | **≥ 40** | Must yield ≥ 30 **independent scenario draws** with margin, after the collapses in §1.1 |
 | **Scenarios per family** | **≥ 6** | Six families must each support a family-level mean; 3 is too few |
 | **Decisions per scenario** | 1–2 | More decisions in one scenario do **not** add independence |
 | **Seeds** | 3 | Retained for runtime-noise estimation only; explicitly **not** counted as independent samples |
@@ -196,14 +197,33 @@ the rule set is frozen.
 
 ## 4. Ownership
 
+Ownership follows `docs/phase2a-m6-formal-profiling-plan.md` §1, which is the
+authoritative task definition for this stage: **M6 owns scenario generation,
+workload/scenario test writing, profiling and data collection, derived-dataset
+construction, and statistical analysis.** M5 owns the reusable substrate. An
+earlier draft of this document assigned scenario design to M5, which is the wrong
+split.
+
 | Item | Owner |
 | --- | --- |
-| Scenario distribution design, dimension coverage (§2.2) | **M5** |
-| Campaign execution, sealed holdout custody | **M6** |
-| Observation seam implementation (§2.4) | **M6** (M5 only if a raw seam is missing) |
+| Independent workload / scenario **distribution design** (§2.1–§2.3) | **M6** |
+| Scenario generator and formal campaign | **M6** |
+| Campaign execution | **M6** |
+| Sealed holdout custody | **M6** |
+| Derived runtime outcomes (recompute / APC labels) and statistics | **M6** |
+| Reusable workload / benchmark substrate | **M5** |
+| Filling a missing **raw** observation seam or provider | **M5 / M1 runtime-integration side** |
+| Observation-seam **collection, joins, derived labels** (§2.4) | **M6** |
 | Baseline repeat runs (§2.5) | **M6** |
-| Approval of the observation semantics and of H1 execution | **M1** |
-| Hypotheses, preregistration, analysis, verdicts | **M4** |
+| Formal rule analysis and verdicts | **M4** |
+| Approval of observation semantics and H1 execution | **M1** |
+
+M5 is deliberately not in the analysis path: M5 provides substrate and a raw
+seam if one is genuinely missing, and does **not** perform formal rule analysis.
+An earlier draft listed the seam under "M6" wholesale; the correct split is that
+the **raw native fact** side is a substrate/runtime-integration concern (M5/M1)
+while **collection, joins, derived recompute/APC labels and formal analysis** are
+M6's.
 
 ---
 
@@ -226,10 +246,11 @@ that is a legitimate outcome to report.
 | Current campaign reclassified DISCOVERY / CHARACTERIZATION DATA | M1 ruling, item 1 |
 | Narrow cache/recompute seam approved, raw facts only | M1 ruling, item 2 |
 | Evidence priority: recompute tokens → cached prefix → latency → counters | M1 ruling, item 2 |
-| ≥ 30 clusters, all 6 families; seeds are noise only | M1 ruling, item 4 |
+| ≥ 30 independent scenario draws, all 6 families; seeds are noise only | M1 ruling, items 4 and the 2026-10-07 unit correction |
 | `epsilon_latency` from baseline repeats | M1 ruling, item 4 |
 | Cluster / unique-pattern counts | `offline_eval.scenario_clusters`, report §5.2.1 |
 | Three-level cost, four-level loss, constant eta/queue_delay | local probe over the canonical derived bundle (method: distinct-value count over `candidate_loss_evidence` and `decision_candidates`) |
 | TTL benefit mechanism | `src/kvopt/continuum/ttl.py::_choose_empirical_ttl` |
 | Measured cost grid | `docs/experiments/phase1b-continuum/final-report.md` §3 |
-| Workload responsibilities | `docs/team-responsibilities.md` (M5) |
+| Workload responsibilities | `docs/phase2a-m6-formal-profiling-plan.md` §1 (authoritative for this stage) |
+| Owner charters | `docs/team-responsibilities.md` (coarser; used only where the profiling plan is silent) |

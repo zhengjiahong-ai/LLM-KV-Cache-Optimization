@@ -1,13 +1,13 @@
 # Phase 2A M4 — Rule Acceptance Protocol (executable)
 
-Status: **FROZEN by M1 (2026-10-07, ruling item 4)**, implemented as code
+Status: **FROZEN by M1 (2026-10-07)**, implemented as code
 Owner: M4
 Implementation: `src/kvopt/costaware/acceptance.py`
 Tests: `tests/test_costaware_acceptance.py`
 
-This document records the frozen protocol and states exactly which part of it is
-now enforced by code. The protocol was frozen *before* any holdout existed, so
-that the acceptance metric cannot be re-chosen after a result is seen.
+The protocol was frozen *before* any holdout existed, so the acceptance metric
+cannot be re-chosen after a result is seen. This document records the frozen
+protocol and states exactly which part of it is enforced by code.
 
 ---
 
@@ -23,48 +23,86 @@ Rule acceptance is governed by this protocol, separately.
 
 ---
 
-## 1. The statistical unit
+## 1. The statistical unit: one independent scenario draw
 
 ```text
 seed repetition  -> runtime noise / reproducibility only, NOT an independent sample
-statistical unit -> independent workload/scenario decision cluster
+decision position inside one scenario -> NOT an independent sample
+statistical unit -> one independent scenario draw
 ```
 
-A cluster is `(scenario group, decision position)`, where the scenario group is
-the `run_id` with its `-seed-NNN` suffix removed. Seeds inside a cluster are
-**averaged first**, then the cluster is paired. This is what keeps the paired
-counts summing to the cluster count instead of inflating with duplicate seeds.
+**A scenario is one independently designed workload.** Two decisions inside it
+share that workload, so they are not two observations.
 
-Enforced by `cluster_paired_deltas()`; seeds cannot inflate the sample.
+Aggregation order, which is the whole point:
+
+```text
+1. average the seed repeats inside each decision position;
+2. average those position means inside each scenario;
+3. resample and pair at the scenario level.
+```
+
+Only step 3's output counts. Reversing steps 1 and 2 would weight a
+position with more seeds more heavily; skipping step 2 would count one workload
+twice.
+
+Enforced by `scenario_paired_deltas()`. The decision-position view survives as
+`cluster_paired_deltas()`, marked `SCOPE_DECISION_CLUSTER`, **diagnostic only** —
+it localises *where* inside a scenario a difference arises, and is never the unit
+of the floor or the interval. Every result payload carries its `scope` string so a
+diagnostic view can never be presented as the draw-level result.
+
+### 1.1 What this changed on the discovery campaign
+
+| View | Units |
+| --- | ---: |
+| Raw decision rows | 60 |
+| Decision-position clusters (diagnostic) | 20 |
+| **Independent scenario draws (the unit)** | **18** |
+| Unique decision patterns | 9 |
+
+The correction is not cosmetic: two scenarios contribute two decisions each, so
+the cluster view double-counts them. Measured on the canonical campaign the same
+comparison reads:
+
+```text
+scenario-draw level : 8 improved / 3 worsened / 7 tied   mean +0.016086
+decision-position   : 8 improved / 5 worsened / 7 tied   mean +0.014797
+```
+
+Same direction, different counts and mean — the draw-level view is the honest one.
 
 ---
 
 ## 2. Holdout minimum (hard pre-condition)
 
 ```text
->= 30 independent decision clusters
+>= 30 independent scenario draws
 covering all 6 formal families (F1..F6)
 ```
 
-Below the floor, the result may only be labelled **`DIAGNOSTIC_ONLY`** — however
+Below the floor the result may only be labelled **`DIAGNOSTIC_ONLY`** — however
 favourable its numbers look. `Gate PASS` does not lift this.
 
-Enforced by `holdout_adequacy()`. In the verdict, an inadequate holdout is
-checked **first** and produces `DIAGNOSTIC_ONLY` rather than `NOT_ACCEPTED`,
-because "not enough data" is a different statement from "the rule lost".
+Enforced by `holdout_adequacy()`, which accepts **scenario draws only**; passing
+the diagnostic cluster view is a type-level impossibility for a caller that uses
+the documented entry point. In the verdict, an inadequate holdout is checked
+**first** and produces `DIAGNOSTIC_ONLY` rather than `NOT_ACCEPTED`, because "not
+enough data" is a different statement from "the rule lost".
 
 ---
 
 ## 3. Freeze-before-holdout requirement
 
-Before the final holdout materializes, all five must be frozen:
+Before the final holdout materializes, all of the following must be frozen:
 
 ```text
 formula
 direction
 tie-break
 fallback
-acceptance metrics
+applicability boundary
+acceptance metrics (BOTH tiers, see Section 4)
 ```
 
 Enforced by `RulePreregistration`, a required, validated record:
@@ -77,42 +115,71 @@ Enforced by `RulePreregistration`, a required, validated record:
 | `direction` | Ascending / descending per component |
 | `tie_break` | Complete tie-break rule |
 | `fallback` | Ordering used when a field is unavailable |
-| `primary_metric` | Which metric decides the level (§4) |
-| `frozen_at` | Date of the freeze |
-| `frozen_commit` | Commit the freeze is anchored to |
+| `boundary` | Where the rule does and does not apply |
+| `proxy_primary_metric` | Frozen metric for the proxy tier |
+| `runtime_primary_metric` | Frozen metric for the runtime tier |
+| `frozen_at` / `frozen_commit` | Anchor of the freeze |
 
-Blank fields and an unknown `primary_metric` are rejected at construction, so an
-unfrozen rule cannot be evaluated. `evaluate_acceptance()` takes the primary
-metric **from the preregistration**, never from the caller — that is the
-mechanism that stops a metric swap after a result is known.
+Blank fields and unknown metrics are rejected at construction, so an unfrozen
+rule cannot be evaluated.
 
 ---
 
-## 4. Levels
+## 4. Metric tiers: both are frozen now
+
+A record that named only a proxy metric would force a runtime-metric campaign to
+be judged as Level A. Naming the runtime metric *later* — once the data is
+visible — is exactly the post-hoc move the protocol exists to prevent. So **both
+tiers are frozen together**:
+
+```text
+proxy_primary_metric   = planned_return_weighted_prefill_proxy
+runtime_primary_metric = observed_recomputed_tokens
+```
+
+### 4.1 How the tier is selected
+
+```text
+runtime evidence supplied  -> runtime tier is mandatory, metric = frozen runtime metric
+otherwise                  -> proxy tier,              metric = frozen proxy metric
+```
+
+Selection is driven by **what data exists**, never by which metric looks better.
+The caller supplies evidence; the metric comes from the frozen record. Enforced by
+`select_metric_tier()`, which additionally rejects an evaluation whose
+`loss_view` is not exactly the frozen metric for its tier — so a different view
+cannot be slipped in under a tier name.
+
+⚠️ **Consequence:** once a campaign produces runtime recompute observations, the
+runtime tier is forced and the rule is judged on `observed_recomputed_tokens`.
+There is no path by which a strong proxy result can be reported as Level B, and
+none by which a weak runtime result can be reported as Level A.
+
+---
+
+## 5. Levels
 
 ### Level A — `PROXY_CANDIDATE`
 
-Applies when only a proxy outcome is available. All four conditions must hold:
+Proxy tier only. All four conditions must hold:
 
 ```text
-cluster-level paired mean loss improvement > 0
-cluster-level 95% CI lower bound > 0
-better decisions > worse decisions
+scenario-draw paired mean loss improvement > 0
+scenario-draw 95% CI lower bound > 0
+better draws > worse draws
 family improvement direction agreement >= 2/3
 ```
 
-⇒ authorizes the label `PROXY_CANDIDATE` **only**. It does not authorize any
-runtime claim.
+⇒ authorizes the label `PROXY_CANDIDATE` **only**. No runtime claim.
 
 ### Level B — `RUNTIME_CANDIDATE`
 
-Applies when direct recompute observation is available. The primary metric
-becomes `actual recomputed_prefill_tokens`, with the same four conditions:
+Runtime tier, judged on the frozen `runtime_primary_metric`, same four conditions:
 
 ```text
-cluster-level paired mean recompute reduction > 0
-95% cluster-level CI lower bound > 0
-better > worse
+scenario-draw paired mean recompute reduction > 0
+95% scenario-draw CI lower bound > 0
+better draws > worse draws
 family direction agreement >= 2/3
 ```
 
@@ -139,12 +206,12 @@ authorization for a real runtime implementation.
 
 ---
 
-## 5. The confidence interval
+## 6. The confidence interval
 
-A **percentile bootstrap over clusters**, not over rows:
+A **percentile bootstrap over scenario draws**:
 
 ```text
-resampling unit : cluster
+resampling unit : one independent scenario draw
 iterations      : 10_000
 confidence      : 95%
 seed            : 20261007   (frozen)
@@ -154,12 +221,13 @@ The seed is part of the frozen protocol so the interval is reproducible and
 cannot be re-drawn until it looks favourable. `AcceptanceCriteria.bootstrap_seed`
 is recorded in the verdict payload alongside every interval.
 
-Because the resampling unit is the cluster, a 60-row campaign with 20 clusters
-yields an interval whose width reflects **20** observations, not 60.
+Because the resampling unit is the draw, a 60-row campaign with 18 independent
+scenarios yields an interval whose width reflects **18** observations — not 60,
+and not the 20 of the diagnostic view.
 
 ---
 
-## 6. Latency non-inferiority margin (`epsilon_latency`)
+## 7. Latency non-inferiority margin (`epsilon_latency`)
 
 The margin **must not be chosen by hand**. It is calibrated from
 baseline-vs-baseline repeated-run jitter:
@@ -172,27 +240,30 @@ output : epsilon_latency, frozen before the holdout
 
 Rationale: two *identical* baseline runs already differ by this much, so a
 challenger inside that band has demonstrated nothing worse than run-to-run noise.
-Deriving the margin this way removes the degrees of freedom that a hand-picked
+Deriving the margin this way removes the degrees of freedom a hand-picked
 "5% / 10%" would leave open.
 
 Enforced by `calibrate_latency_epsilon()` (rejects fewer than 3 repeats and
-non-finite values) and applied by `latency_non_inferior()`. The margin is an
-input to the check and is **not adjustable** inside it.
+non-finite values) and applied by `latency_non_inferior()`. The margin is an input
+to the check and is **not adjustable** inside it.
 
-⚠️ **This requires calibration data that does not exist yet** — it is a data
-request to M6 (§8). Until it exists, Level B cannot be awarded, and the protocol
-correctly returns `NOT_ACCEPTED` for a runtime-metric rule with no latency check.
+⚠️ **This requires calibration data that does not exist yet** — a data request to
+M6 (§9). Until it exists, Level B cannot be awarded, and the protocol correctly
+returns `NOT_ACCEPTED` for a runtime-tier rule with no latency check.
 
 ---
 
-## 7. What the code guarantees
+## 8. What the code guarantees
 
 | Guarantee | Enforced by |
 | --- | --- |
-| Seeds never inflate the sample | `cluster_paired_deltas` averages inside a cluster |
-| Paired counts sum to the cluster count | same |
+| A second decision in one scenario is not a second sample | `scenario_paired_deltas` averages positions inside the scenario |
+| Seeds never inflate the sample | same, seeds averaged first |
+| The floor counts draws, not rows or clusters | `holdout_adequacy` takes `ScenarioPairedDelta` only |
+| A diagnostic view is labelled as such | `scope` field on every result and payload |
 | The interval is reproducible | frozen `bootstrap_seed`, recorded in the payload |
-| The metric cannot be swapped post-hoc | `primary_metric` comes from the preregistration |
+| The metric cannot be swapped post-hoc | `select_metric_tier` reads it from the record |
+| Runtime evidence cannot be judged as Level A | runtime tier is forced when supplied |
 | A small holdout cannot yield a candidate label | adequacy checked before any level |
 | A rule that loses only in one family is still allowed | 2/3 threshold, tested both ways |
 | A rule that loses in half the families is blocked | tested |
@@ -200,96 +271,94 @@ correctly returns `NOT_ACCEPTED` for a runtime-metric rule with no latency check
 | Level C cannot be self-declared | requires `ImplementationAttestation` |
 | The applied protocol is recorded | `AcceptanceVerdict.as_payload()` → `criteria` |
 
-The verdict payload embeds the criteria it applied, so a report or a PR cannot
-quote a result without also quoting the protocol that produced it.
+The verdict payload embeds the criteria it applied and the `sign_convention`,
+so a report cannot quote a result without also quoting the protocol and the sign
+meaning.
 
 ---
 
-## 8. Out of scope / open
+## 9. Out of scope / open
 
 | Item | Status |
 | --- | --- |
 | `epsilon_latency` calibration data (baseline repeats) | **Requested from M6** — does not exist yet |
-| Direct recompute observation (Level B primary metric) | **Blocked on the observation seam** M1 approved |
-| Holdout with ≥ 30 clusters over 6 families | **Blocked on H1's independent workload draw** |
-| CLI wiring of the protocol | Deferred — lands with the H1-R1 registration (ruling item 5/2) |
+| Direct recompute observation (runtime tier metric) | **Blocked on the observation seam** M1 approved |
+| Holdout with ≥ 30 draws over 6 families | **Blocked on H1's independent workload draw** |
+| CLI wiring of the protocol | Deferred — lands with the H1-R1 registration |
 
 ### Why the current campaign cannot produce a candidate label
 
-Measured on the canonical campaign:
-
 ```text
-clusters                : 20      (floor is 30)
-families present        : 6/6     ✓
+independent scenario draws : 18      (floor is 30)
+families present           : 6/6     ✓
 ```
 
-⇒ any verdict computed on this data is `DIAGNOSTIC_ONLY`. The campaign is now
+⇒ any verdict computed on this data is `DIAGNOSTIC_ONLY`. The campaign is
 classified as **DISCOVERY / CHARACTERIZATION DATA** and must never serve as the
 final holdout for a rule discovered on it.
 
 ---
 
-## 9. Worked example (canonical campaign)
+## 10. Worked examples (canonical campaign)
 
-Both examples use the frozen defaults (`bootstrap_iterations=10000`,
-`bootstrap_seed=20261007`). They are useful demonstrations that the protocol
-reproduces, mechanically, conclusions the report previously had to argue in prose.
+Both use the frozen defaults (`bootstrap_iterations=10000`, `bootstrap_seed=20261007`)
+and the scenario-draw unit.
 
-### 9.1 `M2_non_code_first` — looks positive, fails three checks
-
-```text
-level        : DIAGNOSTIC_ONLY
-accepted     : False
-clusters     : 20   (improved/worsened/tied = 1 / 0 / 19)
-mean_delta   : +0.004437   CI [+0.000000, +0.013310]
-family       : 1/6 agreeing, rate 0.167   (minimum 0.667)
-failures     : holdout_adequate,
-               cluster_ci_lower_bound_positive,
-               family_direction_agreement
-```
-
-The CI lower bound lands exactly on `0.000000`, so the improvement is not
-distinguishable from noise at this sample size — and the family-agreement check
-independently catches the family-memorization the report §5.3 flagged
-qualitatively.
-
-### 9.2 `M1_marginal_cost_per_reclaimable` — fails every check
+### 10.1 `H1_R1_reverse_deadline`
 
 ```text
-level        : DIAGNOSTIC_ONLY
-accepted     : False
-clusters     : 20   (improved/worsened/tied = 6 / 6 / 8)
-mean_delta   : -0.002308  CI [-0.039328, +0.035570]
-family       : 3/6 agreeing, rate 0.500   (minimum 0.667)
-failures     : holdout_adequate,
-               cluster_mean_improvement_positive,
-               cluster_ci_lower_bound_positive,
-               better_decisions_outnumber_worse,
-               family_direction_agreement
+tier          : proxy   (metric planned_return_weighted_prefill_proxy)
+level         : DIAGNOSTIC_ONLY
+units         : 18       (improved/worsened/tied = 8 / 3 / 7)
+mean_delta    : +0.016086      CI [-0.022461, +0.055409]
+family        : 5/6 agreeing, rate 0.833
+diagnostic    : 20 decision-position clusters, 8 / 5 / 7
+failures      : holdout_adequate, scenario_ci_lower_bound_positive
 ```
 
-Equal better/worse counts, a negative mean, an interval spanning zero, and only
-half the families agreeing — the same verdict the report reached by pairing
-analysis, now reached by the frozen protocol without re-deriving it.
+The interval spans zero at 18 draws, so even the best-looking hypothesis on the
+discovery data is not distinguishable from noise. The diagnostic row is shown
+alongside precisely so the two units are not confused.
 
-⚠️ In **both** cases the label is `DIAGNOSTIC_ONLY` rather than `NOT_ACCEPTED`,
-because the holdout floor of 30 clusters is not met. That distinction is
+### 10.2 `M2_non_code_first`
+
+```text
+level         : DIAGNOSTIC_ONLY
+failures      : holdout_adequate, scenario_ci_lower_bound_positive,
+                family_direction_agreement
+```
+
+### 10.3 `M1_marginal_cost_per_reclaimable`
+
+```text
+level         : DIAGNOSTIC_ONLY
+failures      : holdout_adequate, scenario_mean_improvement_positive,
+                scenario_ci_lower_bound_positive, better_draws_outnumber_worse,
+                family_direction_agreement
+```
+
+⚠️ In all three cases the label is `DIAGNOSTIC_ONLY` rather than
+`NOT_ACCEPTED`, because the 30-draw floor is not met. That distinction is
 deliberate: "not enough data to judge" is a different statement from "the rule
 lost", and the protocol must not silently upgrade the first into the second.
 
 ---
 
-## 10. Traceability
+## 11. Traceability
 
 | Statement | Source |
 | --- | --- |
-| Cluster is the statistical unit; seeds are noise only | M1 ruling, item 4 |
-| ≥ 30 clusters over all 6 families, else diagnostic | M1 ruling, item 4 |
-| Freeze formula/direction/tie-break/fallback/metrics pre-holdout | M1 ruling, item 4 |
-| Level A four conditions | M1 ruling, item 4 |
-| Level B primary metric + latency non-inferiority | M1 ruling, item 4 |
-| `epsilon_latency` from baseline-vs-baseline jitter, not hand-picked | M1 ruling, item 4 |
-| Level C = B + interface/novelty/overhead reviews | M1 ruling, item 4 |
-| `Gate PASS != Rule Accepted` | M1 ruling, item 4 opening |
-| Gate is not a rule selector | M1 ruling, item 3 |
-| Cluster definition | `offline_eval.scenario_group`, report §5.2.1 |
+| Unit = independent scenario draw; seeds and positions are not samples | M1 ruling, 2026-10-07 |
+| Aggregation order: seeds → positions → scenario | M1 ruling |
+| Decision-position view retained as diagnostic only | M1 ruling |
+| ≥ 30 scenario draws over all 6 families, else diagnostic | M1 ruling |
+| **Both** tier metrics frozen before the holdout | M1 ruling |
+| Tier chosen from available evidence, not by the caller | M1 ruling |
+| Freeze formula/direction/tie-break/fallback/boundary/metrics | M1 ruling |
+| Level A four conditions | M1 ruling |
+| Level B metric + latency non-inferiority | M1 ruling |
+| `epsilon_latency` from baseline-vs-baseline jitter, not hand-picked | M1 ruling |
+| Level C = B + interface/novelty/overhead reviews | M1 ruling |
+| `Gate PASS != Rule Accepted` | M1 ruling |
+| Gate is not a rule selector | M1 ruling |
+| 18 draws / 20 clusters on the discovery campaign | `H1 evidence request` §1.1, `offline_eval.scenario_clusters` |

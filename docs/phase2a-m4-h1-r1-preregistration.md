@@ -34,11 +34,13 @@ and as a frozen record in `PREREGISTRATIONS`
 
 | Element | Frozen value |
 | --- | --- |
-| **Formula** | Release the candidate with the **largest** `retention_deadline_timestamp` first: descending on `retention_deadline_timestamp`, equivalently negating the frozen Phase 1B **primary** key |
+| **Formula** | Release the candidate with the **largest** `retention_deadline_timestamp` first: descending on `retention_deadline_timestamp`, which **inverts the primary deadline term** of the frozen release ordering |
 | **Direction** | Descending on `retention_deadline_timestamp` |
 | **Tie-break** | Stable logical identity `(program_id, prefix_id)`, applied by the standard rule ladder |
 | **Fallback** | The frozen baseline ordering; never a fabricated value |
-| **Primary metric** | `cluster_mean_proxy_loss` (Level A) |
+| **Proxy metric (Level A)** | `planned_return_weighted_prefill_proxy` |
+| **Runtime metric (Level B)** | `observed_recomputed_tokens` |
+| **Statistically tested at** | one **independent scenario draw** (not a decision row, not a decision-position cluster) |
 | **Boundary** | Forced-release candidate sets of ≥ 2 logical retention entries, under the frozen TTL estimator |
 
 ### 2.1 Two exactness caveats, stated rather than implied
@@ -67,32 +69,83 @@ Measured on the canonical campaign. **These numbers may not be cited as
 effectiveness evidence** — they are why the hypothesis is worth testing, nothing
 more.
 
-| View | Baseline | H1-R1 |
-| --- | ---: | ---: |
-| Cluster-level paired, better / worse / tied | — | **24 / 15 / 21** |
-| Mean paired loss delta | — | **+0.014797 s** |
-| Cluster-level paired (20 clusters) | — | 8 / 5 / 7 |
-| Feasible-oracle mean absolute regret | 0.041225 | **0.026428** |
-| Feasible zero-regret rate | 0.600 | **0.750** |
-| Mean entry count delta vs oracle | +0.15 | **+0.00** |
-| Canonical mean normalized regret | 0.368820 | **0.154498** |
-| Canonical misselection rate | 0.4444 | **0.625 (worse)** |
+**Sign convention, used by every row of this table:**
 
-Per-family mean loss delta: F1 −0.0223, **F2 +0.0238 (worse)**, F3 −0.0166,
-F4 −0.0362, F5 −0.0166, F6 −0.0140 → **5 of 6 families improve**.
+```text
+delta = baseline_loss - challenger_loss      positive = the challenger improved
+```
 
-Three honest observations about this table:
+**Unit labels are explicit, because the two views give different numbers:** the
+`raw` view counts decision rows, the `scenario-draw` view is the one the
+acceptance protocol tests, and the `decision-position` view is diagnostic only.
 
-1. **15 of 60 decisions regress.** It is not a clean win.
-2. **The two comparators disagree in direction.** The canonical size-matched
+| View | Unit | Baseline | H1-R1 |
+| --- | --- | ---: | ---: |
+| paired counts, **raw** | 60 decision rows | — | **24 / 15 / 21** |
+| paired mean delta (**+ = better**) | scenario draws | — | **+0.014797 s** |
+| paired counts, **scenario-draw (the protocol's unit)** | 18 draws | — | 8 / 3 / 7 |
+| paired counts, **decision-position (diagnostic only)** | 20 clusters | — | 8 / 5 / 7 |
+| Feasible-oracle mean absolute regret | — | 0.041225 | **0.026428** |
+| Feasible zero-regret rate | — | 0.600 | **0.750** |
+| Mean entry count delta vs oracle | — | +0.15 | **+0.00** |
+| Canonical mean normalized regret | — | 0.368820 | **0.154498** |
+| Canonical misselection rate | — | 0.4444 | **0.625 (worse)** |
+
+**Per-family table, same sign convention** (`delta = baseline − challenger`, so
+**negative = the challenger is WORSE**, **positive = the challenger is better**):
+
+| Family | Mean delta (+ = H1-R1 better) | |
+| --- | ---: | --- |
+| F1 | **+0.0223** | better |
+| F2 | **−0.0238** | **WORSE** ← the dissenting family |
+| F3 | **+0.0166** | better |
+| F4 | **+0.0362** | better |
+| F5 | **+0.0166** | better |
+| F6 | **+0.0140** | better |
+
+<details>
+<summary>Derivation of the per-family signs (they were reported with the wrong polarity in an earlier draft)</summary>
+
+The probe printed per-family means as `challenger − baseline`, which is the
+**opposite** polarity to the paired delta the protocol reports. Re-expressed in
+the protocol's convention the signs flip, and the family-agreement count
+follows:
+
+```text
+probe output (challenger - baseline)   protocol convention (baseline - challenger)
+F1 -0.022312  (looked better)   ->     F1 +0.022312  better
+F2 +0.023849  (looked worse)    ->     F2 -0.023849  WORSE
+F3 -0.016585  (looked better)   ->     F3 +0.016585  better
+F4 -0.036222  (looked better)   ->     F4 +0.036222  better
+F5 -0.016585  (looked better)   ->     F5 +0.016585  better
+F6 -0.014039  (looked better)   ->     F6 +0.014039  better
+```
+
+⇒ **5 of 6 families improve and F2 is the dissenting family**, which is what the
+family-agreement check is actually testing. The earlier draft said "F2 worse" in
+prose while displaying a positive number, i.e. it mixed the two conventions.
+
+</details>
+
+⚠️ **Two views, two answers.** At the raw 60-row view the rule wins on 24 rows
+against 15; at the protocol's 18-draw view it wins on 8 against 3, and the 95%
+interval spans zero. The raw numbers are the more flattering ones and must not be
+quoted without the unit label.
+
+Five honest observations about this table:
+
+1. **The draw-level interval spans zero** (see `docs/phase2a-m4-rule-acceptance-protocol.md` §10.1). At 18 draws this rule is not distinguishable from noise.
+2. **15 of 60 rows regress.** It is not a clean win at any unit.
+3. **The two comparators disagree in direction.** The canonical size-matched
    comparator calls it *worse* (misselection 0.625 vs 0.4444) while the
-   feasibility-aware comparator calls it much better. This is exactly the
-   divergence the report already documented for the marginal-denominator rule,
-   and it is unresolved here too.
-3. **The effect is not a monotone ranking effect.** Within-decision
+   feasibility-aware comparator calls it much better. This divergence is
+   unresolved here too.
+4. **The effect is not a monotone ranking effect.** Within-decision
    `spearman(deadline, loss)` averages **−0.005** (15 positive, 24 negative,
    n=39). The gain lives in the extremes of the candidate set, not in a
    consistent per-candidate direction.
+5. **One of six families dissents.** The family-agreement check passes at 5/6,
+   but a single dissenting family at 18 draws is thin evidence.
 
 ---
 
@@ -144,10 +197,12 @@ distinguished from the obvious cost-reversal. Measured:
 reverse-deadline and prefill_reload-descending select the SAME set in 27 / 60 decisions
 ```
 
-| Rule | Feasible mean abs regret | paired (b/w/t) | mean delta |
+| Rule | Feasible mean abs regret | paired raw (b/w/t) | mean delta (+ = better) |
 | --- | ---: | --- | ---: |
 | `H1_R1_reverse_deadline` | **0.026428** | 24 / 15 / 21 | **+0.014797** |
 | `prefill_reload` **descending** | 0.043534 | 18 / 18 / 24 | **−0.002308** |
+
+(Counts are in the **raw 60-row** view, matching the pairing that produced them.)
 
 ⇒ They agree on only 27/60 decisions, and plain cost-descending is **worse**, not
 better. So the hypothesis is **not** a restatement of an inverted cost rule; the
@@ -166,10 +221,15 @@ legitimate — it matters for what the result would mean.**
 - The **`cost` ↔ `deadline` coupling (+0.938) is entirely a property of the
   frozen TTL estimator**, not of any serving system. The estimator sorts by cost
   because `benefit ∝ prefill_reload`.
-- Therefore H1-R1 is best described as **"invert the baseline's own keep
-  decision"**. That is a legitimate and auditable online rule — it reads only
-  decision-time fields and no future label — but it is not "a discovered serving
-  truth about deadlines".
+- Therefore H1-R1 is best described as **"reverse the baseline's primary deadline
+  preference"** — equivalently, **"invert the primary deadline term of the
+  frozen release ordering"**. Note the qualifier: only the **primary** (deadline)
+  term is inverted. The frozen key's middle term is the dynamic "min native rank
+  over newly eligible", which is recomputed against the currently released set
+  and is **not** inverted, so this is not a literal reversal of the frozen loop.
+  It is a legitimate and auditable online rule — it reads only decision-time
+  fields and no future label — but it is not "a discovered serving truth about
+  deadlines".
 - Whether the gain **transfers** depends on whether a new workload reproduces
   the same interaction: the same cost-driven TTL ordering, the same tool
   component, and the same relation between the TTL model's expected benefit and
@@ -201,8 +261,9 @@ in-sample selection.
 Independently, the campaign fails the acceptance protocol's sample floor anyway:
 
 ```text
-clusters         : 20      (floor is 30)
-families present : 6 / 6   ✓
+independent scenario draws : 18      (floor is 30)
+decision-position clusters : 20      (diagnostic only)
+families present           : 6 / 6   ✓
 ```
 
 ⇒ Any verdict computed here is `DIAGNOSTIC_ONLY` by construction. See
@@ -214,16 +275,22 @@ families present : 6 / 6   ✓
 
 | Requirement | Reason |
 | --- | --- |
-| **≥ 30 independent decision clusters** | Frozen holdout floor |
+| **≥ 30 independent scenario draws** | Frozen holdout floor; draws, not rows and not decision positions |
 | **All 6 formal families (F1–F6)** | Family direction agreement ≥ 2/3 is unjudgeable otherwise |
-| **Independent workload draw** | The discovery campaign's seeds are near-replicas (60 rows → 20 clusters → **9 unique decision patterns**) |
+| **Independent workload draw** | The discovery campaign's seeds are near-replicas (60 rows → 20 clusters → 18 draws → **9 unique decision patterns**) |
 | **Variation in `eta` / `queue_delay`** | Currently zero within-decision spread, so the TTL `benefit` term is degenerate (§4.3) |
 | **Different return-time distributions** | The tool component of the ordering depends on them (§4.3) |
 | **Baseline-vs-baseline repeat measurements** | Required to calibrate `epsilon_latency` for Level B; see §7 |
 
-The rule, its formula, direction, tie-break, fallback and primary metric are
-**frozen as of this document**. If the holdout is judged on a different metric,
-that is a new preregistration, not an edit to this one.
+⚠️ **Both tier metrics are already frozen** (`planned_return_weighted_prefill_proxy`
+for Level A, `observed_recomputed_tokens` for Level B). If the campaign produces
+runtime recompute observations, the runtime tier is **mandatory** and this rule is
+judged on the runtime metric — there is no path by which a good proxy result is
+reported as Level B, or a weak runtime result as Level A.
+
+The rule, its formula, direction, tie-break, fallback, boundary and both tier
+metrics are **frozen as of this document**. Judging the holdout on a different
+metric is a new preregistration, not an edit to this one.
 
 ---
 
@@ -232,15 +299,15 @@ that is a new preregistration, not an edit to this one.
 Strictly by the frozen acceptance protocol, applied unchanged:
 
 ```text
-Level A (proxy outcome):
-  cluster-level paired mean loss improvement > 0
-  cluster-level 95% CI lower bound > 0
-  better decisions > worse decisions
+Level A (proxy tier):
+  scenario-draw paired mean loss improvement > 0
+  scenario-draw 95% CI lower bound > 0
+  better draws > worse draws
   family improvement direction agreement >= 2/3
   -> earns PROXY_CANDIDATE only; no runtime claim
 
-Level B (if direct recompute observation is available):
-  same four conditions on actual recomputed_prefill_tokens
+Level B (runtime tier, when direct recompute observation is available):
+  same four conditions judged on observed_recomputed_tokens
   + TTFT / serving latency no material regression
 ```
 
