@@ -221,6 +221,25 @@ def test_event_sink_rejects_malformed_events_without_advancing_index(tmp_path: P
     assert _records(tmp_path / "events.jsonl")[0]["event_index"] == 0
 
 
+def test_event_sink_preserves_native_request_identity_in_envelope(
+    tmp_path: Path,
+) -> None:
+    with JsonlExperimentEventSink(tmp_path / "events.jsonl", "test") as sink:
+        sink.emit(
+            ExperimentEvent.create(
+                event_type="VLLM_NATIVE_REQUEST_OBSERVATION",
+                timestamp=1.0,
+                clock_domain="engine_core_monotonic",
+                source="test",
+                native_request_id="native-1",
+            )
+        )
+
+    assert _records(tmp_path / "events.jsonl")[0]["native_request_id"] == (
+        "native-1"
+    )
+
+
 def test_trace_rejects_duplicate_program_identity(tmp_path: Path) -> None:
     raw = json.loads(TRACE.read_text(encoding="utf-8"))
     raw["programs"].append(raw["programs"][0])
@@ -412,6 +431,50 @@ def test_runner_explicitly_marks_undeclared_backend_capabilities_unavailable(
     assert availability["native_block_content_identity"] == {
         "status": "UNAVAILABLE",
         "reason": "backend did not declare this capability",
+    }
+
+
+def test_runner_persists_final_data_driven_backend_capabilities(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    class DynamicBackend:
+        def __init__(self, _config, _sink):
+            self.forced_release_count = 0
+            self.observation_capabilities = {
+                "recomputed_prefill_tokens": {
+                    "status": "UNAVAILABLE",
+                    "reason": "no completed observation",
+                }
+            }
+
+        def execute(self, request):
+            self.observation_capabilities["recomputed_prefill_tokens"] = {
+                "status": "AVAILABLE",
+                "reason": "direct native evidence observed",
+            }
+            if request.kind == "pressure":
+                self.forced_release_count += 1
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(
+        "kvopt.workload.phase2_runner._load_factory",
+        lambda _reference: DynamicBackend,
+    )
+    output = run_phase2(
+        CONFIG,
+        output_root=tmp_path,
+        run_id="dynamic-capability",
+    )
+    manifest = json.loads((output / "run.json").read_text(encoding="utf-8"))
+
+    assert manifest["observation_availability"][
+        "recomputed_prefill_tokens"
+    ] == {
+        "status": "AVAILABLE",
+        "reason": "direct native evidence observed",
     }
 
 

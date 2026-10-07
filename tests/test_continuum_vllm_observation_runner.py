@@ -10,6 +10,7 @@ from types import SimpleNamespace
 import pytest
 
 from kvopt.continuum import ProgramIdentity, RequestIdentity
+from scripts.spikes import phase2_minimal_observability_metal as phase2_backend
 from scripts.spikes import run_continuum_vllm_observation as runner_module
 from scripts.spikes.continuum_vllm_scenarios import (
     SCENARIO_NAMES,
@@ -754,6 +755,67 @@ def test_native_recorder_copies_free_queue_without_retaining_native_objects() ->
         }
     ]
     assert "Node" not in repr(records)
+
+
+def test_request_apc_hash_record_preserves_native_order() -> None:
+    record = runner_module._request_apc_hash_record(
+        SimpleNamespace(block_hashes=[b"first", b"second"])
+    )
+
+    assert record == {
+        "availability": "AVAILABLE",
+        "native_apc_block_hashes": [b"first".hex(), b"second".hex()],
+        "reason": None,
+    }
+
+
+def test_latest_native_apc_hash_chain_uses_matching_request() -> None:
+    observations = [
+        {
+            "request_blocks": [
+                {
+                    "request_id": "native-other",
+                    "native_apc_hash_chain": {
+                        "availability": "AVAILABLE",
+                        "native_apc_block_hashes": ["aa"],
+                    },
+                },
+                {
+                    "request_id": "native-target",
+                    "native_apc_hash_chain": {
+                        "availability": "AVAILABLE",
+                        "native_apc_block_hashes": ["01", "02"],
+                    },
+                },
+            ]
+        }
+    ]
+
+    assert phase2_backend._latest_native_apc_hash_chain(
+        observations,
+        "native-target",
+    ) == ("01", "02")
+
+
+def test_request_hashes_match_group_qualified_cache_keys() -> None:
+    request_hashes = ("01" * 32, "02" * 32)
+    cache_keys = (
+        bytes.fromhex(request_hashes[0]) + (0).to_bytes(4, "big"),
+        bytes.fromhex(request_hashes[1]) + (0).to_bytes(4, "big"),
+    )
+
+    assert phase2_backend._validate_native_hash_views(
+        request_hashes,
+        cache_keys,
+    ) == request_hashes
+
+
+def test_request_hash_mismatch_rejects_snapshot_provenance() -> None:
+    with pytest.raises(RuntimeError, match="does not match"):
+        phase2_backend._validate_native_hash_views(
+            ("01" * 32,),
+            (bytes.fromhex("02" * 32) + (0).to_bytes(4, "big"),),
+        )
 
 
 def test_runtime_identity_accepts_pinned_metal_profile() -> None:

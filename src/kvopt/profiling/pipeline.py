@@ -59,6 +59,10 @@ from .prevalence import (
     build_prevalence_tables,
 )
 from .request_outcomes import RequestOutcomeRow, build_request_outcomes_table
+from .runtime_evidence import (
+    RequestRuntimeEvidenceRow,
+    build_request_runtime_evidence_table,
+)
 from .signals import (
     SignalAssociationRow,
     SignalEvaluationRow,
@@ -122,6 +126,7 @@ class DerivedDatasetBundle:
     logical_releases: tuple[LogicalReleaseRow, ...]
     physical_evictions: tuple[PhysicalEvictionRow, ...]
     request_outcomes: tuple[RequestOutcomeRow, ...]
+    request_runtime_evidence: tuple[RequestRuntimeEvidenceRow, ...]
     decision_outcomes: tuple[DecisionOutcomeRow, ...]
     horizon_sensitivity: tuple[HorizonSensitivityRow, ...]
     horizon_sensitivity_summary: tuple[HorizonSensitivitySummaryRow, ...]
@@ -390,6 +395,7 @@ def build_derived_dataset_bundle(
     logical_releases = build_logical_releases_table(raw_runs)
     physical_evictions = build_physical_evictions_table(raw_runs)
     request_outcomes = build_request_outcomes_table(raw_runs)
+    request_runtime_evidence = build_request_runtime_evidence_table(raw_runs)
     decision_outcomes = build_decision_outcomes_table(raw_runs)
     horizon_sensitivity, horizon_sensitivity_summary = (
         build_horizon_sensitivity_tables(decision_outcomes)
@@ -397,6 +403,7 @@ def build_derived_dataset_bundle(
     loss_views = build_loss_view_tables(
         decision_tables.candidates,
         decision_outcomes,
+        request_runtime_evidence,
     )
     decision_validity = _build_decision_validity(
         raw_runs,
@@ -563,6 +570,7 @@ def build_derived_dataset_bundle(
         logical_releases=logical_releases,
         physical_evictions=physical_evictions,
         request_outcomes=request_outcomes,
+        request_runtime_evidence=request_runtime_evidence,
         decision_outcomes=decision_outcomes,
         horizon_sensitivity=horizon_sensitivity,
         horizon_sensitivity_summary=horizon_sensitivity_summary,
@@ -617,6 +625,7 @@ def write_derived_dataset_bundle(
         "logical_releases": bundle.logical_releases,
         "physical_evictions": bundle.physical_evictions,
         "request_outcomes": bundle.request_outcomes,
+        "request_runtime_evidence": bundle.request_runtime_evidence,
         "decision_outcomes": bundle.decision_outcomes,
         "horizon_sensitivity": bundle.horizon_sensitivity,
         "horizon_sensitivity_summary": bundle.horizon_sensitivity_summary,
@@ -656,7 +665,7 @@ def write_derived_dataset_bundle(
     )
 
     manifest = {
-        "schema_version": "phase2a.derived.v3",
+        "schema_version": "phase2a.derived.v4",
         "analysis_provenance": _analysis_provenance(),
         "source_run_ids": [row.run_id for row in bundle.runs],
         "row_counts": {name: len(rows) for name, rows in tables.items()},

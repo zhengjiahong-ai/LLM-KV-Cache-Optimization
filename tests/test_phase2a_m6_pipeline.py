@@ -135,9 +135,10 @@ def test_pipeline_builds_and_writes_small_smoke_bundle(tmp_path: Path) -> None:
             "logical_releases",
             "physical_evictions",
             "request_outcomes",
+            "request_runtime_evidence",
             "decision_outcomes",
         )
-    ) == (1, 1, 1, 1, 0, 4, 1)
+    ) == (1, 1, 1, 1, 0, 4, 4, 1)
     validity = bundle.run_validity[0]
     assert not validity.valid_for_candidate_analysis
     assert validity.invalid_reasons == ("no_multi_candidate_decision",)
@@ -163,13 +164,14 @@ def test_pipeline_builds_and_writes_small_smoke_bundle(tmp_path: Path) -> None:
     manifest = json.loads(
         (output_dir / "manifest.json").read_text(encoding="utf-8")
     )
-    assert manifest["schema_version"] == "phase2a.derived.v3"
+    assert manifest["schema_version"] == "phase2a.derived.v4"
     assert manifest["analysis_provenance"]["entry_point"] == (
         "kvopt.profiling.cli"
     )
     assert "git_sha" in manifest["analysis_provenance"]
     assert "git_dirty" in manifest["analysis_provenance"]
     assert manifest["row_counts"]["request_outcomes"] == 4
+    assert manifest["row_counts"]["request_runtime_evidence"] == 4
     assert manifest["analysis_parameters"]["bootstrap_seed"] == 0
     assert manifest["analysis_parameters"]["canonical_loss_view"] == (
         "planned_return_weighted_prefill_proxy"
@@ -182,7 +184,7 @@ def test_pipeline_builds_and_writes_small_smoke_bundle(tmp_path: Path) -> None:
     )
     assert pack["schema_version"] == "phase2a.method-support.v3"
     assert manifest["row_counts"]["signal_feature_coverage"] == 0
-    assert len(tuple(output_dir.glob("*.jsonl"))) == 27
+    assert len(tuple(output_dir.glob("*.jsonl"))) == 28
     assert (SMOKE_RUN / "run.json").read_text(encoding="utf-8") == raw_manifest_before
 
 

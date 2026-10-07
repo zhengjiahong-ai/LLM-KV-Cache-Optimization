@@ -210,6 +210,58 @@ def _pressure_token_ids(request: PlannedRequest, *, vocabulary_size: int, token_
     return tuple((base + index * 29) % vocabulary_size for index in range(token_count))
 
 
+def _latest_native_apc_hash_chain(
+    observations: list[dict[str, object]],
+    native_request_id: str,
+) -> tuple[str, ...] | None:
+    for observation in reversed(observations):
+        request_records = observation.get("request_blocks")
+        if not isinstance(request_records, list):
+            continue
+        for request_record in request_records:
+            if (
+                not isinstance(request_record, Mapping)
+                or request_record.get("request_id") != native_request_id
+            ):
+                continue
+            chain = request_record.get("native_apc_hash_chain")
+            if not isinstance(chain, Mapping) or chain.get("availability") != "AVAILABLE":
+                continue
+            hashes = chain.get("native_apc_block_hashes")
+            if not isinstance(hashes, list) or not all(
+                isinstance(value, str) and value for value in hashes
+            ):
+                continue
+            return tuple(hashes)
+    return None
+
+
+def _validate_native_hash_views(
+    request_hashes: tuple[str, ...] | None,
+    cache_keys: tuple[bytes, ...],
+) -> tuple[str, ...]:
+    """Validate request BlockHash values against group-qualified cache keys."""
+
+    if request_hashes is None or len(request_hashes) != len(cache_keys):
+        raise RuntimeError(
+            "native request hash chain and cache-key chain do not align"
+        )
+    for position, (request_hash, cache_key) in enumerate(
+        zip(request_hashes, cache_keys, strict=True)
+    ):
+        try:
+            request_bytes = bytes.fromhex(request_hash)
+        except ValueError as error:
+            raise RuntimeError(
+                f"native request hash {position} is not hexadecimal"
+            ) from error
+        if len(cache_key) < 5 or cache_key[:-4] != request_bytes:
+            raise RuntimeError(
+                "native request hash does not match its group-qualified cache key"
+            )
+    return request_hashes
+
+
 class _CountingForcedReleaseObserver:
     def __init__(self, sink: ExperimentEventSink) -> None:
         self._delegate = ExperimentForcedReleaseObserver(sink)
@@ -420,6 +472,8 @@ class MinimalMetalObservabilityBackend:
             "num_gpu_blocks_override": block_override,
             "max_model_len": max_model_len,
             "max_num_batched_tokens": max_model_len,
+            "disable_log_stats": False,
+            "prefix_caching_hash_algo": "sha256",
         }
         self._llm = LLM(**llm_kwargs)
         self._sampling_params = SamplingParams(
@@ -462,6 +516,10 @@ class MinimalMetalObservabilityBackend:
         self._started_programs: set[str] = set()
         self._pending_tool_gaps: dict[str, str] = {}
         self._closed = False
+        self._level_b_request_count = 0
+        self._level_b_raw_complete = True
+        self._level_b_first_token_complete = True
+        self._level_b_scheduler_timing_complete = True
         self._run_start_timestamp = float(self._clock.now())
         self.observation_capabilities = {
             "runtime_identity": {
@@ -502,19 +560,19 @@ class MinimalMetalObservabilityBackend:
             },
             "native_apc_hit_miss": {
                 "status": "UNAVAILABLE",
-                "reason": "current approved backend boundary has no stable per-request APC hit/miss event",
+                "reason": "no request-scoped native observation has completed",
             },
             "recomputed_prefill_tokens": {
                 "status": "UNAVAILABLE",
-                "reason": "current approved backend boundary has no direct recomputation-token event",
+                "reason": "no native hash/cached-token evidence has completed",
             },
             "native_first_token_timestamp": {
                 "status": "UNAVAILABLE",
-                "reason": "wait_for_completion does not expose a first-token timestamp",
+                "reason": "no native request metrics have completed",
             },
             "native_scheduler_admission_timestamp": {
                 "status": "UNAVAILABLE",
-                "reason": "REQUEST_ADMITTED is a logical retention boundary, not native scheduler timing",
+                "reason": "no native request metrics have completed",
             },
             "hardware_counters": {
                 "status": "UNAVAILABLE",
@@ -543,6 +601,59 @@ class MinimalMetalObservabilityBackend:
                 },
             )
         )
+
+    def _update_level_b_capabilities(
+        self,
+        *,
+        raw_complete: bool,
+        first_token_complete: bool,
+        scheduler_timing_complete: bool,
+    ) -> None:
+        self._level_b_request_count += 1
+        self._level_b_raw_complete &= raw_complete
+        self._level_b_first_token_complete &= first_token_complete
+        self._level_b_scheduler_timing_complete &= scheduler_timing_complete
+
+        raw_status = "AVAILABLE" if self._level_b_raw_complete else "UNAVAILABLE"
+        raw_reason = (
+            "all completed requests exposed native prompt, APC hash, and cached-token facts"
+            if self._level_b_raw_complete
+            else "one or more requests lacked native prompt, APC hash, or cached-token facts"
+        )
+        self.observation_capabilities["native_apc_hit_miss"] = {
+            "status": raw_status,
+            "reason": raw_reason,
+        }
+        self.observation_capabilities["recomputed_prefill_tokens"] = {
+            "status": raw_status,
+            "reason": raw_reason,
+        }
+        self.observation_capabilities["native_first_token_timestamp"] = {
+            "status": (
+                "AVAILABLE"
+                if self._level_b_first_token_complete
+                else "UNAVAILABLE"
+            ),
+            "reason": (
+                "all completed requests exposed EngineCore first-token timestamps"
+                if self._level_b_first_token_complete
+                else "one or more requests lacked EngineCore first-token timestamps"
+            ),
+        }
+        self.observation_capabilities[
+            "native_scheduler_admission_timestamp"
+        ] = {
+            "status": (
+                "AVAILABLE"
+                if self._level_b_scheduler_timing_complete
+                else "UNAVAILABLE"
+            ),
+            "reason": (
+                "all completed requests exposed EngineCore queued and first-scheduled timestamps"
+                if self._level_b_scheduler_timing_complete
+                else "one or more requests lacked EngineCore queued or first-scheduled timestamps"
+            ),
+        }
 
     @property
     def forced_release_count(self) -> int:
@@ -671,6 +782,87 @@ class MinimalMetalObservabilityBackend:
             len(tuple(getattr(completion, "token_ids", ())))
             for completion in completions
         )
+        prompt_token_ids = getattr(output, "prompt_token_ids", None)
+        native_prompt_tokens = (
+            len(prompt_token_ids)
+            if isinstance(prompt_token_ids, (list, tuple))
+            else None
+        )
+        raw_cached_tokens = getattr(output, "num_cached_tokens", None)
+        native_cached_prefix_tokens = (
+            raw_cached_tokens
+            if isinstance(raw_cached_tokens, int)
+            and not isinstance(raw_cached_tokens, bool)
+            and raw_cached_tokens >= 0
+            else None
+        )
+        metrics = getattr(output, "metrics", None)
+
+        def metric_timestamp(name: str) -> float | None:
+            value = None if metrics is None else getattr(metrics, name, None)
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                return None
+            result = float(value)
+            return result if math.isfinite(result) and result > 0 else None
+
+        native_queued = metric_timestamp("queued_ts")
+        native_scheduled = metric_timestamp("scheduled_ts")
+        native_first_token = metric_timestamp("first_token_ts")
+        native_hashes = _latest_native_apc_hash_chain(
+            self._native_observations,
+            native_id,
+        )
+        native_event_timestamp = next(
+            (
+                value
+                for value in (
+                    native_first_token,
+                    native_scheduled,
+                    native_queued,
+                )
+                if value is not None
+            ),
+            0.0,
+        )
+        self._update_level_b_capabilities(
+            raw_complete=(
+                native_prompt_tokens is not None
+                and native_cached_prefix_tokens is not None
+                and native_hashes is not None
+            ),
+            first_token_complete=native_first_token is not None,
+            scheduler_timing_complete=(
+                native_queued is not None and native_scheduled is not None
+            ),
+        )
+        self._sink.emit(
+            ExperimentEvent.create(
+                event_type="VLLM_NATIVE_REQUEST_OBSERVATION",
+                timestamp=native_event_timestamp,
+                clock_domain="engine_core_monotonic",
+                source="phase2.minimal_metal",
+                native_request_id=native_id,
+                program_id=ProgramIdentity(request.program_id),
+                request_id=RequestIdentity(request.request_id),
+                payload={
+                    "native_prompt_tokens": native_prompt_tokens,
+                    "native_cached_prefix_tokens": (
+                        native_cached_prefix_tokens
+                    ),
+                    "native_apc_block_hashes": (
+                        None if native_hashes is None else native_hashes
+                    ),
+                    "native_hash_block_size": _BLOCK_SIZE,
+                    "native_hash_process_id": str(os.getpid()),
+                    "native_hash_function": "sha256",
+                    "native_queued_timestamp": native_queued,
+                    "native_scheduler_admission_timestamp": (
+                        native_scheduled
+                    ),
+                    "native_first_token_timestamp": native_first_token,
+                },
+            )
+        )
         finished_at = float(self._clock.now())
         self._sink.emit(
             ExperimentEvent.create(
@@ -697,10 +889,17 @@ class MinimalMetalObservabilityBackend:
         *,
         expected_token_count: int,
     ) -> tuple[PrefixIdentity, int, tuple[BlockIdentity, ...]]:
-        prefix_value, token_count, block_ids, _hashes = self._coherent_snapshot(
+        prefix_value, token_count, block_ids, hashes = self._coherent_snapshot(
             self._native_observations,
             native_id,
             expected_token_count=expected_token_count,
+        )
+        request_hashes = _validate_native_hash_views(
+            _latest_native_apc_hash_chain(
+                self._native_observations,
+                native_id,
+            ),
+            hashes,
         )
         prefix = PrefixIdentity(prefix_value)
         blocks = tuple(BlockIdentity(block_id) for block_id in block_ids)
@@ -716,6 +915,14 @@ class MinimalMetalObservabilityBackend:
                 payload={
                     "reusable_token_count": token_count,
                     "block_ids": tuple(block.block_id for block in blocks),
+                    "ordered_native_hashes": request_hashes,
+                    "ordered_native_cache_keys": tuple(
+                        native_hash.hex() for native_hash in hashes
+                    ),
+                    "hash_num_tokens": token_count,
+                    "native_hash_block_size": _BLOCK_SIZE,
+                    "native_hash_process_id": str(os.getpid()),
+                    "native_hash_function": "sha256",
                 },
             )
         )

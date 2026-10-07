@@ -1,21 +1,25 @@
 {
-  "formal_collection_authorized": false,
+  "formal_h1_outcome_execution_authorized": false,
   "join_identity": ["run_id", "request_id", "program_id"],
   "latency_calibration": {
     "epsilon_rule": "max_absolute_deviation_from_baseline_mean",
     "freeze_before_holdout_outcomes": true,
     "identical_baseline_repeats": 5,
-    "primary_metric": "native_e2e_seconds",
+    "primary_metric": "backend_service_e2e_seconds",
     "supporting_metrics": [
       "native_queue_delay_seconds",
-      "native_ttft_seconds"
+      "native_prefill_to_first_token_seconds"
     ]
   },
   "raw_event": {
     "direct_payload_fields": [
-      "eligible_prefix_tokens",
+      "native_prompt_tokens",
       "native_cached_prefix_tokens",
-      "actual_prefill_tokens",
+      "native_apc_block_hashes",
+      "native_hash_block_size",
+      "native_hash_process_id",
+      "native_hash_function",
+      "native_queued_timestamp",
       "native_scheduler_admission_timestamp",
       "native_first_token_timestamp"
     ],
@@ -29,6 +33,6 @@
     "native_first_token_timestamp",
     "native_scheduler_admission_timestamp"
   ],
-  "schema_version": "phase2a.level_b_collection_design.v1",
-  "status": "AWAITING_M1_M5_SEAM_REVIEW"
+  "schema_version": "phase2a.level_b_collection_design.v2",
+  "status": "AUTHORIZED_FOR_SEAM_VALIDATION"
 }

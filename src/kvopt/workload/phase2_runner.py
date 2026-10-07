@@ -359,6 +359,19 @@ def run_phase2(
             except Exception as error:
                 manifest["status"] = "failed"
                 manifest["failure_reason"] = f"backend close: {type(error).__name__}: {error}"
+            try:
+                manifest["observation_availability"] = (
+                    _normalize_backend_capabilities(
+                        backend,
+                        manifest["observation_availability"],
+                    )
+                )
+            except Exception as error:
+                manifest["status"] = "failed"
+                manifest["failure_reason"] = (
+                    "final capability validation: "
+                    f"{type(error).__name__}: {error}"
+                )
         if writer is not None:
             manifest["persisted_forced_release_event_count"] = writer.forced_release_count
             manifest["event_count"] = writer.event_count
