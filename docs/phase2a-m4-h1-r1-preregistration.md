@@ -82,7 +82,7 @@ acceptance protocol tests, and the `decision-position` view is diagnostic only.
 | View | Unit | Baseline | H1-R1 |
 | --- | --- | ---: | ---: |
 | paired counts, **raw** | 60 decision rows | — | **24 / 15 / 21** |
-| paired mean delta (**+ = better**) | scenario draws | — | **+0.014797 s** |
+| paired mean delta (**+ = better**) | scenario draws | — | **+0.016086 s** |
 | paired counts, **scenario-draw (the protocol's unit)** | 18 draws | — | 8 / 3 / 7 |
 | paired counts, **decision-position (diagnostic only)** | 20 clusters | — | 8 / 5 / 7 |
 | Feasible-oracle mean absolute regret | — | 0.041225 | **0.026428** |
