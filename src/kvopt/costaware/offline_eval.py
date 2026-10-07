@@ -1001,7 +1001,7 @@ def scenario_clusters(
     grouped: dict[tuple[str, int], list[str]] = defaultdict(list)
     profiles: dict[tuple[str, int], set[tuple[float, ...]]] = defaultdict(set)
     for snapshot in snapshots:
-        group = _scenario_group(snapshot.run_id)
+        group = scenario_group(snapshot.run_id)
         key = (group, snapshot.decision_event_index)
         grouped[key].append(snapshot.run_id)
         values = []
@@ -1051,8 +1051,12 @@ def decision_pattern_counts(
     )
 
 
-def _scenario_group(run_id: str) -> str:
-    """Strip the ``-seed-NNN`` suffix so the three seeds share one group."""
+def scenario_group(run_id: str) -> str:
+    """Strip the ``-seed-NNN`` suffix so the three seeds share one group.
+
+    Public because the scenario group is part of the cluster contract: both the
+    cluster summary and the acceptance protocol count clusters, not rows.
+    """
     marker = "-seed-"
     index = run_id.rfind(marker)
     return run_id[:index] if index > 0 else run_id
@@ -1155,7 +1159,7 @@ def cluster_paired_comparison(
             if row.rule_id != rule_id:
                 continue
             grouped[
-                (_scenario_group(row.run_id), row.decision_event_index)
+                (scenario_group(row.run_id), row.decision_event_index)
             ].append(row.selected_loss)
         return grouped
 
