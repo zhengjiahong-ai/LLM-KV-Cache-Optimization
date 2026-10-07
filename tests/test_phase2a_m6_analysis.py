@@ -6,6 +6,43 @@ from kvopt.profiling.analysis import (
     build_decision_regret_table,
 )
 from kvopt.profiling.datasets import DecisionCandidateRow
+from kvopt.profiling.ingestion import ArtifactValidationError
+
+
+def _loss_row(**overrides: object) -> CandidateLossRow:
+    values: dict[str, object] = {
+        "run_id": "run-1",
+        "decision_event_index": 10,
+        "program_id": "a",
+        "prefix_id": "prefix-a",
+        "loss_view": "proxy",
+        "loss": 1.0,
+        "selected": True,
+    }
+    values.update(overrides)
+    return CandidateLossRow(**values)  # type: ignore[arg-type]
+
+
+def test_candidate_loss_row_rejects_a_missing_loss() -> None:
+    """Missingness is the absence of a row, never a sentinel inside one.
+
+    This boundary is what keeps a non-finite loss from reaching a ranking or a
+    regret comparison. Coercing to zero, to a proxy, or to another loss view is
+    forbidden, so the type refuses to carry the value at all.
+    """
+    with pytest.raises(ArtifactValidationError, match="absence of a"):
+        _loss_row(loss=None)
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_candidate_loss_row_rejects_non_finite_loss(value: float) -> None:
+    with pytest.raises(ArtifactValidationError, match="finite"):
+        _loss_row(loss=value)
+
+
+def test_candidate_loss_row_accepts_a_finite_loss() -> None:
+    assert _loss_row(loss=0.0).loss == 0.0
+    assert _loss_row(loss=0.25).loss == 0.25
 
 
 def _candidate(

@@ -389,11 +389,57 @@ CANDIDATE_RULES: tuple[CandidateRule, ...] = (
 
 _RULES_BY_ID = {rule.rule_id: rule for rule in CANDIDATE_RULES}
 
+# --- H1 preregistered rules (separate from the frozen M0-M3 study) ----------
+
+#: Rule id of the first H1 preregistered hypothesis.
+H1_R1_REVERSE_DEADLINE_ID = "H1_R1_reverse_deadline"
+
+
+def _reverse_deadline_key(
+    context: RuleKeyContext, candidate: DecisionCandidateRow
+) -> tuple[object, ...]:
+    """Latest retention deadline first; the ladder appends stable identity.
+
+    This is the exact negation of the frozen Phase 1B primary key. It is a
+    *derived* signal: ``retention_deadline_timestamp = decision_timestamp +
+    ttl_seconds`` and ``ttl_seconds`` is the output of the frozen TTL estimator,
+    so this rule inverts the baseline's own keep decision rather than reading an
+    independent observation. See
+    ``docs/phase2a-m4-h1-r1-preregistration.md``.
+    """
+    del context
+    return (-candidate.retention_deadline_timestamp,)
+
+
+#: Preregistered H1 hypotheses. Deliberately **not** part of
+#: :data:`CANDIDATE_RULES`: the M0-M3 study is closed and its published numbers
+#: must stay reproducible, and H1 is not a retune of those nine rules.
+PREREGISTERED_H1_RULES: tuple[CandidateRule, ...] = (
+    CandidateRule(
+        rule_id=H1_R1_REVERSE_DEADLINE_ID,
+        family="H1",
+        description=(
+            "H1-R1 reverse-retention-deadline ordering: release the candidate "
+            "with the LATEST retention deadline first, i.e. the exact reverse "
+            "of the frozen Phase 1B primary key. Registered as a POST-HOC "
+            "DISCOVERY HYPOTHESIS found on the canonical campaign; it must be "
+            "judged only on a new independent holdout."
+        ),
+        features=("retention_deadline_timestamp",),
+        key=_reverse_deadline_key,
+    ),
+)
+
+_ALL_RULES_BY_ID = {
+    rule.rule_id: rule
+    for rule in (*CANDIDATE_RULES, *PREREGISTERED_H1_RULES)
+}
+
 
 def rule_by_id(rule_id: str) -> CandidateRule:
-    """Look up a registered rule by identifier."""
+    """Look up a registered rule by identifier, including H1 hypotheses."""
     try:
-        return _RULES_BY_ID[rule_id]
+        return _ALL_RULES_BY_ID[rule_id]
     except KeyError as error:
-        known = ", ".join(sorted(_RULES_BY_ID))
+        known = ", ".join(sorted(_ALL_RULES_BY_ID))
         raise KeyError(f"unknown rule_id {rule_id!r}; known rules: {known}") from error
