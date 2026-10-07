@@ -67,6 +67,7 @@ def _native_payload(
         "native_queued_timestamp": 10.0,
         "native_scheduler_admission_timestamp": 10.2,
         "native_first_token_timestamp": 10.8,
+        "isolated_native_prefill_elapsed_seconds": 0.55,
     }
 
 
@@ -216,6 +217,8 @@ def test_engine_core_timing_and_backend_e2e_keep_distinct_clocks() -> None:
 
     assert row.native_queue_delay_seconds == pytest.approx(0.2)
     assert row.native_prefill_to_first_token_seconds == pytest.approx(0.6)
+    assert row.isolated_native_prefill_elapsed_seconds == pytest.approx(0.55)
+    assert row.isolated_native_prefill_elapsed_status == "available"
     assert row.backend_service_e2e_seconds == pytest.approx(1.5)
 
 
@@ -250,6 +253,28 @@ def test_missing_native_timestamps_do_not_hide_token_evidence() -> None:
     assert row.observed_recomputed_tokens == 0
     assert row.native_queue_delay_status == "missing_landmark"
     assert row.native_prefill_to_first_token_status == "missing_landmark"
+
+
+def test_missing_isolated_prefill_is_explicitly_unavailable() -> None:
+    event = _native_event(1, prompt=49, cached=0)
+    payload = event["payload"]
+    assert isinstance(payload, dict)
+    payload.pop("isolated_native_prefill_elapsed_seconds")
+
+    row = _table(event)
+
+    assert row.isolated_native_prefill_elapsed_seconds is None
+    assert row.isolated_native_prefill_elapsed_status == "missing_observation"
+
+
+def test_non_positive_isolated_prefill_is_rejected() -> None:
+    event = _native_event(1, prompt=49, cached=0)
+    payload = event["payload"]
+    assert isinstance(payload, dict)
+    payload["isolated_native_prefill_elapsed_seconds"] = 0.0
+
+    with pytest.raises(ArtifactValidationError, match="must be positive"):
+        _table(event)
 
 
 def test_missing_native_observation_preserves_explicit_missingness() -> None:

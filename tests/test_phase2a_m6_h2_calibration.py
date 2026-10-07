@@ -57,6 +57,7 @@ def test_h2_pilot_configs_fit_each_requested_context(tmp_path: Path) -> None:
         assert not config["backend_options"][
             "capture_terminal_prefix_snapshot"
         ]
+        assert config["backend_options"]["isolated_native_prefill_timing"]
         assert len(trace.requests) == 1
         assert not trace.pressure_stages
 

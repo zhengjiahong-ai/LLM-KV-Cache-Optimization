@@ -99,6 +99,8 @@ def _runtime_evidence(*, recomputed_tokens: int) -> RequestRuntimeEvidenceRow:
         native_queue_delay_status="available",
         native_prefill_to_first_token_seconds=0.3,
         native_prefill_to_first_token_status="available",
+        isolated_native_prefill_elapsed_seconds=0.25,
+        isolated_native_prefill_elapsed_status="available",
         backend_submission_timestamp=2.0,
         backend_completion_timestamp=2.5,
         backend_service_e2e_seconds=0.5,

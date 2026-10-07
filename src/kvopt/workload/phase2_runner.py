@@ -74,6 +74,7 @@ REQUIRED_OBSERVATION_CAPABILITIES = (
     "recomputed_prefill_tokens",
     "native_first_token_timestamp",
     "native_scheduler_admission_timestamp",
+    "isolated_native_prefill_elapsed_seconds",
     "hardware_counters",
 )
 

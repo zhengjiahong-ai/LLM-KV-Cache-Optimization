@@ -26,6 +26,7 @@ The payload contains only native facts:
 | `native_queued_timestamp` | `RequestOutput.metrics.queued_ts` | Final request output | Timing-only unavailable if metrics omit it |
 | `native_scheduler_admission_timestamp` | `RequestOutput.metrics.scheduled_ts` | Final request output | Timing-only unavailable if metrics omit it |
 | `native_first_token_timestamp` | `RequestOutput.metrics.first_token_ts` | Final request output | Timing-only unavailable if metrics omit it |
+| `isolated_native_prefill_elapsed_seconds` | Profiling-only Metal prefill submit/synchronize boundary | H2-only timing hook | Unavailable unless isolated timing mode is explicitly enabled |
 
 Prior `VLLM_PREFIX_SNAPSHOT` events retain `ordered_native_hashes`,
 `ordered_native_cache_keys`, `hash_num_tokens`, `block_ids`, block size,

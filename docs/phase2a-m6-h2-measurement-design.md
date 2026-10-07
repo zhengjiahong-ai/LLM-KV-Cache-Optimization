@@ -1,15 +1,17 @@
 # Phase 2A M6 H2 Measurement Bring-up Design
 
-Status: **CALIBRATION PILOT AUTHORIZED — NO FORMAL VERDICT AUTHORIZED**
+Status: **ISOLATED-SEAM VALIDATION PENDING — FORMAL MEASUREMENT LOCKED**
 
 This is the M6 execution design for
 `docs/phase2a-m4-h2-measurement-protocol.md`. It prepares measurement and
 calibration only. It does not implement B1, define a block victim score, or
 authorize a formal H2 verdict.
 
-M1 authorized the calibration pilot after the Level-B S1-S5 seam validation
-passed. This changes only the pilot execution gate: formal H2 measurement,
-numeric verdict thresholds, and B1 remain locked.
+M1/M4 accepted the first sensitivity-timing pilot, froze nine formal measured
+repetitions and the exact decision rules, and required a profiling-only isolated
+native prefill seam. The exact rules now live in
+`configs/phase2/h2-formal-freeze-spec.json`. Formal H2 measurement, verdict
+computation, and B1 remain locked.
 
 The machine-readable plan is
 `configs/phase2/h2-measurement-design.json`.
@@ -28,9 +30,10 @@ The pilot determines:
 - whether 5, 7, or 9 formal repetitions are required;
 - the smallest pairwise effect distinguishable from jitter.
 
-The formal repeat count and numeric PASS thresholds remain null until M6 and M4
-review these calibration results. They must then be frozen before any formal
-verdict is read.
+The first pilot used scheduler-admission-to-first-token timing and remains
+sensitivity only. The formal repeat count is now frozen at nine. A new
+eight-point calibration must validate the isolated seam and derive `delta_M1`
+before any formal outcome is materialized.
 
 ## 2. M1 — real C(r)
 
@@ -47,10 +50,11 @@ at least a 32768-token context. If the reviewed model cannot safely admit this
 grid, the plan must be revised before measurement; points must not be silently
 dropped afterward.
 
-The primary observation is isolated native prefill/reload elapsed time. A
-controlled TTFT miss–hit delta is retained only as sensitivity unless admission
-and queue state are proven equivalent. The later analysis fits the frozen L0,
-L1, and L2 model shapes from the M4 protocol.
+The primary observation is `isolated_native_prefill_elapsed_seconds`. It is
+collected only when `backend_options.isolated_native_prefill_timing` is true.
+The profiling hook synchronizes the submitted Metal prefill forward before
+sampling; normal H1 serving keeps the option disabled. Admission-to-first-token
+timing remains sensitivity only.
 
 ## 3. M2 — partial-prefix APC
 
@@ -74,10 +78,10 @@ runtime controls.
 
 ## 5. M4 — block-level extra headroom
 
-The same `(prefix, j)` grid compares best entry-level achievable loss against
-best block-level achievable loss. The cross-entry aggregation rule is still an
-open dependency: if M4 cannot state it fairly before measurement, this condition
-is `INCONCLUSIVE`; M6 must not invent an aggregation from observed results.
+The same `(prefix, j)` grid uses the frozen single-prefix comparator: actual
+recomputation from logical entry release plus native LRU versus the controlled
+trailing-j offline mechanism oracle. Cross-entry aggregation is outside H2 and
+must not be invented from the outcomes.
 
 ## 6. Freeze boundary
 
@@ -85,9 +89,9 @@ Before formal measurement, the calibration report must commit:
 
 1. the usable grid and its context-limit evidence;
 2. the selected repeat count;
-3. measured noise floors and effect resolution;
-4. exact numeric thresholds agreed with M4;
+3. the isolated-seam calibration and derived `delta_M1`;
+4. the already-frozen M1/M2/M3/M4 decision rules;
 5. model, tokenizer, backend, and code hashes.
 
-Until that record exists, all four numeric verdict thresholds are unset,
-formal measurement is unauthorized, and B1 remains locked.
+Until that final record exists and is reviewed, formal measurement is
+unauthorized and B1 remains locked.

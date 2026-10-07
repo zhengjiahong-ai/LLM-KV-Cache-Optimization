@@ -60,6 +60,8 @@ class RequestRuntimeEvidenceRow:
     native_queue_delay_status: str
     native_prefill_to_first_token_seconds: float | None
     native_prefill_to_first_token_status: str
+    isolated_native_prefill_elapsed_seconds: float | None
+    isolated_native_prefill_elapsed_status: str
     backend_submission_timestamp: float | None
     backend_completion_timestamp: float | None
     backend_service_e2e_seconds: float | None
@@ -124,6 +126,19 @@ def _optional_timestamp(
 ) -> float | None:
     value = payload.get(key)
     return None if value is None else _timestamp(value, key)
+
+
+def _optional_positive_duration(
+    payload: Mapping[str, object],
+    key: str,
+) -> tuple[float | None, str]:
+    value = payload.get(key)
+    if value is None:
+        return None, "missing_observation"
+    result = _timestamp(value, key)
+    if result <= 0:
+        raise ArtifactValidationError(f"{key} must be positive")
+    return result, "available"
 
 
 def _native_hash(value: object, field_name: str) -> str:
@@ -438,6 +453,8 @@ def _missing_row(
         native_queue_delay_status="missing_landmark",
         native_prefill_to_first_token_seconds=None,
         native_prefill_to_first_token_status="missing_landmark",
+        isolated_native_prefill_elapsed_seconds=None,
+        isolated_native_prefill_elapsed_status="missing_observation",
         backend_submission_timestamp=(
             None if submission is None else submission.timestamp
         ),
@@ -576,6 +593,10 @@ def build_request_runtime_evidence_table(
                 prefill_status,
             ) = _native_timing(payload, clock_domain)
             e2e, e2e_status = _duration(submission, completion)
+            isolated_prefill, isolated_prefill_status = _optional_positive_duration(
+                payload,
+                "isolated_native_prefill_elapsed_seconds",
+            )
 
             rows.append(
                 RequestRuntimeEvidenceRow(
@@ -628,6 +649,8 @@ def build_request_runtime_evidence_table(
                     native_queue_delay_status=queue_status,
                     native_prefill_to_first_token_seconds=prefill_to_first,
                     native_prefill_to_first_token_status=prefill_status,
+                    isolated_native_prefill_elapsed_seconds=isolated_prefill,
+                    isolated_native_prefill_elapsed_status=isolated_prefill_status,
                     backend_submission_timestamp=(
                         None if submission is None else submission.timestamp
                     ),

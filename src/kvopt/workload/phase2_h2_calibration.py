@@ -60,6 +60,7 @@ def _config(
     options["pressure_stage_prompt_tokens"] = {}
     options["execute_planned_timing"] = False
     options["capture_terminal_prefix_snapshot"] = False
+    options["isolated_native_prefill_timing"] = True
     return config
 
 

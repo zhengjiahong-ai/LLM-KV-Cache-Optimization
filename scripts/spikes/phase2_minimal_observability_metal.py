@@ -47,6 +47,7 @@ from kvopt.profiling.experiment_events import (
     ExperimentForcedReleaseObserver,
 )
 from kvopt.runtime.vllm.observer import install_retention_hook
+from kvopt.runtime.vllm.prefill_timing import IsolatedPrefillTimingHook
 from kvopt.runtime.vllm.retention_integration import RetentionRuntimeIntegration
 from kvopt.workload.phase2 import PlannedRequest
 
@@ -344,6 +345,16 @@ class MinimalMetalObservabilityBackend:
         if not isinstance(timing, bool):
             raise TypeError("backend_options.execute_planned_timing must be bool")
         self._execute_planned_timing = timing
+        isolated_prefill_timing = options.get(
+            "isolated_native_prefill_timing", False
+        )
+        if not isinstance(isolated_prefill_timing, bool):
+            raise TypeError(
+                "backend_options.isolated_native_prefill_timing must be bool"
+            )
+        self._isolated_prefill_timing_enabled = isolated_prefill_timing
+        self._isolated_prefill_timings: dict[str, float] = {}
+        self._isolated_prefill_timing_hook: IsolatedPrefillTimingHook | None = None
         terminal_snapshot = options.get("capture_terminal_prefix_snapshot", True)
         if not isinstance(terminal_snapshot, bool):
             raise TypeError(
@@ -409,6 +420,7 @@ class MinimalMetalObservabilityBackend:
             from vllm.v1.core.kv_cache_utils import FreeKVCacheBlockQueue
             from vllm.v1.core.sched.scheduler import Scheduler
             from vllm_metal import MetalPlatform, get_config
+            from vllm_metal.v1.model_runner import MetalModelRunner
         except ImportError as error:
             raise RuntimeError(
                 "minimal real-runtime test requires the pinned vLLM/Metal environment"
@@ -484,6 +496,13 @@ class MinimalMetalObservabilityBackend:
             "prefix_caching_hash_algo": "sha256",
         }
         self._llm = LLM(**llm_kwargs)
+        if self._isolated_prefill_timing_enabled:
+            self._isolated_prefill_timing_hook = IsolatedPrefillTimingHook(
+                MetalModelRunner,
+                mx.eval,
+                self._record_isolated_prefill_timing,
+            )
+            self._isolated_prefill_timing_hook.__enter__()
         self._sampling_params = SamplingParams(
             max_tokens=max_new_tokens,
             temperature=float(config["generation"]["temperature"]),  # type: ignore[index]
@@ -528,6 +547,7 @@ class MinimalMetalObservabilityBackend:
         self._level_b_raw_complete = True
         self._level_b_first_token_complete = True
         self._level_b_scheduler_timing_complete = True
+        self._isolated_prefill_timing_complete = True
         self._run_start_timestamp = float(self._clock.now())
         self.observation_capabilities = {
             "runtime_identity": {
@@ -582,6 +602,14 @@ class MinimalMetalObservabilityBackend:
                 "status": "UNAVAILABLE",
                 "reason": "no native request metrics have completed",
             },
+            "isolated_native_prefill_elapsed_seconds": {
+                "status": "UNAVAILABLE",
+                "reason": (
+                    "profiling-only isolated prefill timing has not completed"
+                    if self._isolated_prefill_timing_enabled
+                    else "profiling-only isolated prefill timing is disabled"
+                ),
+            },
             "hardware_counters": {
                 "status": "UNAVAILABLE",
                 "reason": "device counters are intentionally outside the low-configuration Metal backend",
@@ -616,11 +644,13 @@ class MinimalMetalObservabilityBackend:
         raw_complete: bool,
         first_token_complete: bool,
         scheduler_timing_complete: bool,
+        isolated_prefill_complete: bool,
     ) -> None:
         self._level_b_request_count += 1
         self._level_b_raw_complete &= raw_complete
         self._level_b_first_token_complete &= first_token_complete
         self._level_b_scheduler_timing_complete &= scheduler_timing_complete
+        self._isolated_prefill_timing_complete &= isolated_prefill_complete
 
         raw_status = "AVAILABLE" if self._level_b_raw_complete else "UNAVAILABLE"
         raw_reason = (
@@ -662,6 +692,29 @@ class MinimalMetalObservabilityBackend:
                 else "one or more requests lacked EngineCore queued or first-scheduled timestamps"
             ),
         }
+        self.observation_capabilities[
+            "isolated_native_prefill_elapsed_seconds"
+        ] = {
+            "status": (
+                "AVAILABLE"
+                if self._isolated_prefill_timing_complete
+                else "UNAVAILABLE"
+            ),
+            "reason": (
+                "all completed requests exposed profiling-only synchronized prefill timing"
+                if self._isolated_prefill_timing_complete
+                else "one or more requests lacked profiling-only synchronized prefill timing"
+            ),
+        }
+
+    def _record_isolated_prefill_timing(
+        self,
+        native_request_id: str,
+        elapsed_seconds: float,
+    ) -> None:
+        if native_request_id in self._isolated_prefill_timings:
+            raise RuntimeError("duplicate isolated prefill timing observation")
+        self._isolated_prefill_timings[native_request_id] = elapsed_seconds
 
     @property
     def forced_release_count(self) -> int:
@@ -816,6 +869,10 @@ class MinimalMetalObservabilityBackend:
         native_queued = metric_timestamp("queued_ts")
         native_scheduled = metric_timestamp("scheduled_ts")
         native_first_token = metric_timestamp("first_token_ts")
+        isolated_native_prefill = self._isolated_prefill_timings.pop(
+            native_id,
+            None,
+        )
         native_hashes = _latest_native_apc_hash_chain(
             self._native_observations,
             native_id,
@@ -841,6 +898,10 @@ class MinimalMetalObservabilityBackend:
             first_token_complete=native_first_token is not None,
             scheduler_timing_complete=(
                 native_queued is not None and native_scheduled is not None
+            ),
+            isolated_prefill_complete=(
+                self._isolated_prefill_timing_enabled
+                and isolated_native_prefill is not None
             ),
         )
         self._sink.emit(
@@ -868,6 +929,9 @@ class MinimalMetalObservabilityBackend:
                         native_scheduled
                     ),
                     "native_first_token_timestamp": native_first_token,
+                    "isolated_native_prefill_elapsed_seconds": (
+                        isolated_native_prefill
+                    ),
                 },
             )
         )
@@ -1075,10 +1139,14 @@ class MinimalMetalObservabilityBackend:
         try:
             self._observation_hooks.__exit__(None, None, None)
         finally:
-            engine = getattr(self._llm, "llm_engine", None)
-            shutdown = getattr(engine, "shutdown", None)
-            if callable(shutdown):
-                shutdown()
+            try:
+                if self._isolated_prefill_timing_hook is not None:
+                    self._isolated_prefill_timing_hook.__exit__(None, None, None)
+            finally:
+                engine = getattr(self._llm, "llm_engine", None)
+                shutdown = getattr(engine, "shutdown", None)
+                if callable(shutdown):
+                    shutdown()
 
 
 def build_phase2_metal_observability_backend(
