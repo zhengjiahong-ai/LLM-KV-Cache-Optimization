@@ -5,7 +5,9 @@ import pytest
 
 from kvopt.workload.phase2_h2_design import (
     H2MeasurementDesignError,
+    load_h2_formal_freeze_spec,
     load_h2_measurement_design,
+    validate_h2_formal_freeze_spec,
     validate_h2_measurement_design,
 )
 
@@ -15,6 +17,7 @@ DESIGN = (
     / "phase2"
     / "h2-measurement-design.json"
 )
+FREEZE_SPEC = DESIGN.with_name("h2-formal-freeze-spec.json")
 
 
 def test_h2_design_covers_long_context_and_partial_prefix_controls() -> None:
@@ -66,3 +69,38 @@ def test_h2_design_rejects_threshold_chosen_before_calibration() -> None:
 
     with pytest.raises(H2MeasurementDesignError, match="must be null"):
         validate_h2_measurement_design(invalid)
+
+
+def test_h2_formal_freeze_spec_records_reviewed_rules_but_stays_locked() -> None:
+    spec = load_h2_formal_freeze_spec(FREEZE_SPEC)
+
+    assert spec["formal_measured_repeats"] == 9
+    assert spec["isolated_seam_calibration"]["delta_M1_seconds"] is None
+    assert spec["m2_partial_prefix_rule"]["token_tolerance"] == 0
+    assert spec["m3_position_rule"]["supporting_repeats_required"] == 8
+    assert spec["m4_headroom_rule"]["supporting_cells_required"] == 10
+    assert not spec["formal_measurement_authorized"]
+    assert not spec["formal_verdict_authorized"]
+    assert not spec["b1_method_or_implementation_authorized"]
+
+
+def test_h2_formal_freeze_rejects_premature_delta_or_authority() -> None:
+    spec = load_h2_formal_freeze_spec(FREEZE_SPEC)
+    with_delta = copy.deepcopy(spec)
+    with_delta["isolated_seam_calibration"]["delta_M1_seconds"] = 0.01
+    with pytest.raises(H2MeasurementDesignError, match="await isolated"):
+        validate_h2_formal_freeze_spec(with_delta)
+
+    authorized = copy.deepcopy(spec)
+    authorized["formal_measurement_authorized"] = True
+    with pytest.raises(H2MeasurementDesignError, match="must remain false"):
+        validate_h2_formal_freeze_spec(authorized)
+
+
+def test_h2_formal_freeze_rejects_changed_reproducibility_rule() -> None:
+    spec = load_h2_formal_freeze_spec(FREEZE_SPEC)
+    invalid = copy.deepcopy(spec)
+    invalid["m3_position_rule"]["supporting_repeats_required"] = 7
+
+    with pytest.raises(H2MeasurementDesignError, match="8-of-9"):
+        validate_h2_formal_freeze_spec(invalid)

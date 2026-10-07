@@ -1,0 +1,65 @@
+{
+  "b1_method_or_implementation_authorized": false,
+  "complete_prefix_token_grid": [
+    16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 12288,
+    16384, 20480, 24576, 26624, 28672, 30720
+  ],
+  "formal_measured_repeats": 9,
+  "formal_measurement_authorized": false,
+  "formal_verdict_authorized": false,
+  "isolated_seam_calibration": {
+    "bootstrap_iterations": 10000,
+    "bootstrap_resample_size": 9,
+    "bootstrap_seed": 20261007,
+    "bootstrap_statistic": "median",
+    "confirmatory_prefix_token_grid": [
+      8192, 12288, 16384, 20480, 24576, 26624, 28672, 30720
+    ],
+    "delta_M1_definition": "max_r(q95(abs(bootstrap_median_9 - calibration_median_r)))",
+    "delta_M1_seconds": null,
+    "measured_repeats": 5,
+    "outcome_model_fitting_authorized": false,
+    "primary_observation": "isolated_native_prefill_elapsed_seconds",
+    "warmup_repeats": 2
+  },
+  "m1_curvature_rule": {
+    "bootstrap_iterations": 10000,
+    "bootstrap_seed": 20261007,
+    "confirmatory_region_min_tokens": 8192,
+    "cross_validation": "leave_one_prefix_point_out",
+    "delta_fit": "LOPO_CV_RMSE_L1_minus_LOPO_CV_RMSE_L2",
+    "fail": "q95_delta_fit_le_0_or_q95_gamma_le_0",
+    "inconclusive": "otherwise_including_positive_delta_fit_at_or_below_delta_M1",
+    "models": ["linear_no_intercept", "affine", "quadratic"],
+    "pass": "delta_fit_gt_delta_M1_and_q05_delta_fit_gt_0_and_q05_gamma_gt_0"
+  },
+  "m2_partial_prefix_rule": {
+    "block_size_tokens": 16,
+    "fresh_suffix_tokens": 1,
+    "no_eviction_full_hit_control": true,
+    "prefix_blocks": 64,
+    "retained_leading_blocks": [0, 16, 32, 48, 64],
+    "token_tolerance": 0
+  },
+  "m3_position_rule": {
+    "cell_definition": "4_prefix_sizes_x_3_equal_evicted_block_counts",
+    "repeats_per_cell": 9,
+    "resolved_effect_tokens": 16,
+    "supporting_cells_required": 10,
+    "supporting_repeats_required": 8,
+    "total_cells": 12
+  },
+  "m4_headroom_rule": {
+    "block_path": "controlled_trailing_j_offline_mechanism_oracle",
+    "comparator": "single_prefix_native_lru_entry_path_vs_controlled_trailing_j_oracle",
+    "entry_path": "logical_entry_release_then_native_lru_physical_selection",
+    "repeats_per_cell": 9,
+    "resolved_effect_tokens": 16,
+    "supporting_cells_required": 10,
+    "supporting_repeats_required": 8,
+    "total_cells": 12
+  },
+  "reviewed_branch_head": "aa4fc736d39fd53dfa37c1113bc502e590ee72a8",
+  "schema_version": "phase2a.h2_formal_freeze_spec.v1",
+  "status": "RULES_FROZEN_PENDING_ISOLATED_CALIBRATION"
+}

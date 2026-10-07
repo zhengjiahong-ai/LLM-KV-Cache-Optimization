@@ -23,6 +23,11 @@ REQUIRED_COST_GRID = {
     20480,
     24576,
 }
+FROZEN_COST_GRID = (
+    16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 12288,
+    16384, 20480, 24576, 26624, 28672, 30720,
+)
+FROZEN_CONFIRMATORY_GRID = (8192, 12288, 16384, 20480, 24576, 26624, 28672, 30720)
 
 
 class H2MeasurementDesignError(ValueError):
@@ -52,6 +57,16 @@ def load_h2_measurement_design(path: str | Path) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise H2MeasurementDesignError("H2 measurement design must be an object")
     validate_h2_measurement_design(payload)
+    return payload
+
+
+def load_h2_formal_freeze_spec(path: str | Path) -> dict[str, Any]:
+    """Load frozen decision rules that still prohibit formal measurement."""
+
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise H2MeasurementDesignError("H2 formal freeze spec must be an object")
+    validate_h2_formal_freeze_spec(payload)
     return payload
 
 
@@ -142,3 +157,70 @@ def validate_h2_measurement_design(design: Mapping[str, Any]) -> None:
         raise H2MeasurementDesignError(
             "numeric threshold values must be null before calibration"
         )
+
+
+def validate_h2_formal_freeze_spec(spec: Mapping[str, Any]) -> None:
+    """Enforce the M1/M4 rules without prematurely authorizing outcomes."""
+
+    if spec.get("schema_version") != "phase2a.h2_formal_freeze_spec.v1":
+        raise H2MeasurementDesignError("unsupported H2 formal freeze spec schema")
+    if spec.get("status") != "RULES_FROZEN_PENDING_ISOLATED_CALIBRATION":
+        raise H2MeasurementDesignError("H2 rule freeze has the wrong status")
+    for key in (
+        "formal_measurement_authorized",
+        "formal_verdict_authorized",
+        "b1_method_or_implementation_authorized",
+    ):
+        if spec.get(key) is not False:
+            raise H2MeasurementDesignError(f"{key} must remain false")
+    if spec.get("formal_measured_repeats") != 9:
+        raise H2MeasurementDesignError("formal repeat count must be exactly 9")
+    if _integer_list(spec, "complete_prefix_token_grid") != list(FROZEN_COST_GRID):
+        raise H2MeasurementDesignError("formal C(r) grid does not match the freeze")
+
+    calibration = _mapping(spec, "isolated_seam_calibration")
+    if _integer_list(calibration, "confirmatory_prefix_token_grid") != list(
+        FROZEN_CONFIRMATORY_GRID
+    ):
+        raise H2MeasurementDesignError("isolated calibration grid is not frozen")
+    if calibration.get("warmup_repeats") != 2 or calibration.get(
+        "measured_repeats"
+    ) != 5:
+        raise H2MeasurementDesignError("isolated calibration requires 2 + 5 repeats")
+    if calibration.get("bootstrap_iterations") != 10_000:
+        raise H2MeasurementDesignError("M1 calibration requires 10000 bootstraps")
+    if calibration.get("bootstrap_seed") != 20_261_007:
+        raise H2MeasurementDesignError("M1 bootstrap seed is not frozen")
+    if calibration.get("delta_M1_seconds") is not None:
+        raise H2MeasurementDesignError("delta_M1 must await isolated calibration")
+
+    m1 = _mapping(spec, "m1_curvature_rule")
+    if m1.get("cross_validation") != "leave_one_prefix_point_out":
+        raise H2MeasurementDesignError("M1 must use LOPO cross validation")
+    if m1.get("bootstrap_iterations") != 10_000 or m1.get(
+        "bootstrap_seed"
+    ) != 20_261_007:
+        raise H2MeasurementDesignError("M1 formal bootstrap is not frozen")
+
+    m2 = _mapping(spec, "m2_partial_prefix_rule")
+    if m2.get("token_tolerance") != 0:
+        raise H2MeasurementDesignError("M2 token tolerance must be zero")
+    if _integer_list(m2, "retained_leading_blocks") != [0, 16, 32, 48, 64]:
+        raise H2MeasurementDesignError("M2 retained-prefix grid is not frozen")
+
+    for name in ("m3_position_rule", "m4_headroom_rule"):
+        rule = _mapping(spec, name)
+        if rule.get("resolved_effect_tokens") != 16:
+            raise H2MeasurementDesignError(f"{name} effect must be 16 tokens")
+        if rule.get("supporting_repeats_required") != 8 or rule.get(
+            "repeats_per_cell"
+        ) != 9:
+            raise H2MeasurementDesignError(f"{name} must use the 8-of-9 rule")
+        if rule.get("supporting_cells_required") != 10 or rule.get(
+            "total_cells"
+        ) != 12:
+            raise H2MeasurementDesignError(f"{name} must use the 10-of-12 rule")
+    if _mapping(spec, "m4_headroom_rule").get("comparator") != (
+        "single_prefix_native_lru_entry_path_vs_controlled_trailing_j_oracle"
+    ):
+        raise H2MeasurementDesignError("M4 single-prefix comparator is not frozen")
