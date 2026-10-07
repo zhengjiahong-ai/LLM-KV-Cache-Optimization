@@ -170,6 +170,10 @@ def build_offline_report(
                 _burden_payload(row) for row in evaluation.release_burden
             ],
         },
+        # Missingness is reported, never coerced. A decision enters the evaluated
+        # set only when EVERY candidate has usable evidence for the loss view, so
+        # the excluded set and its reasons are evidence in their own right.
+        "missingness": _missingness_payload(evaluation),
         # Kept separate from the canonical M6 comparator on purpose: they answer
         # different questions and must never be merged into one field.
         "pressure_feasible_oracle": {
@@ -368,6 +372,44 @@ def _aggregate_payload(aggregate: RuleAggregate) -> dict[str, object]:
     }
 
 
+def _missingness_payload(evaluation: RuleEvaluation) -> dict[str, object] | None:
+    """Serialize the missingness audit trail.
+
+    Explicitly distinguishes "this decision could not be ranked" from "this run
+    was filtered out by a scope decision", and reports the capability/reason
+    strings that M1 requires alongside the counts. Never substitutes a number.
+    """
+    summary = evaluation.missingness
+    if summary is None:
+        return None
+    return {
+        "policy": (
+            "a decision enters the evaluated set only when every candidate has "
+            "usable evidence for the loss view; missingness is reported, and is "
+            "never coerced to zero, to a proxy, or to another loss view"
+        ),
+        "loss_view": summary.loss_view,
+        "decisions_seen": summary.decisions_seen,
+        "decisions_evaluated": summary.decisions_evaluated,
+        "decisions_excluded": summary.decisions_excluded,
+        "decisions_filtered_out": summary.decisions_filtered_out,
+        "excluded_by_reason": dict(summary.excluded_by_reason),
+        "missing_candidate_total": summary.missing_candidate_total,
+        "unavailable_reasons": dict(summary.unavailable_reasons),
+        "excluded_decisions": [
+            {
+                "run_id": row.run_id,
+                "decision_event_index": row.decision_event_index,
+                "reason": row.reason,
+                "candidate_count": row.candidate_count,
+                "missing_candidate_count": row.missing_candidate_count,
+                "unavailable_reasons": list(row.unavailable_reasons),
+            }
+            for row in evaluation.exclusions
+        ],
+    }
+
+
 def _burden_payload(row: ReleaseBurdenRow) -> dict[str, object]:
     return {
         "rule_id": row.rule_id,
@@ -498,6 +540,33 @@ def render_text(report: dict[str, object]) -> str:
     emit("  C-* = canonical M6 tie definition (unique hindsight-best set); use")
     emit("        C-nontied / C-misrate whenever the numbers sit next to M6")
     emit()
+
+    missingness = report.get("missingness")  # type: ignore[union-attr]
+    if missingness:
+        emit(line)
+        emit("MISSINGNESS (reported, never coerced)")
+        emit(line)
+        emit(
+            f"  decisions seen / evaluated / excluded : "
+            f"{missingness['decisions_seen']} / "
+            f"{missingness['decisions_evaluated']} / "
+            f"{missingness['decisions_excluded']}"
+        )
+        emit(
+            f"  filtered out by scope (not missing)   : "
+            f"{missingness['decisions_filtered_out']}"
+        )
+        emit(
+            f"  missing candidate rows                : "
+            f"{missingness['missing_candidate_total']}"
+        )
+        for reason, count in missingness["excluded_by_reason"].items():  # type: ignore[union-attr]
+            emit(f"    excluded {reason:34s} {count:4d}")
+        for reason, count in missingness["unavailable_reasons"].items():  # type: ignore[union-attr]
+            emit(f"    unavailable {reason:31s} {count:4d}")
+        emit("  a decision enters only when EVERY candidate has usable evidence,")
+        emit("  so a subset is never ranked against a full hindsight best")
+        emit()
 
     emit(line)
     emit("RELEASE BURDEN (releases needed for the shared required_blocks target)")

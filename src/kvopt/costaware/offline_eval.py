@@ -250,6 +250,63 @@ class BehaviourBreakdown:
     mean_normalized_regret: float
 
 
+#: Stable machine-readable reason codes for a decision that never entered the
+#: evaluated set. Frozen: downstream tooling and the report quote these strings.
+EXCLUSION_TOO_FEW_CANDIDATES = "too_few_candidates"
+EXCLUSION_CANDIDATE_EVIDENCE_MISSING = "candidate_evidence_missing"
+EXCLUSION_DECISION_SNAPSHOT_MISSING = "decision_snapshot_missing"
+EXCLUSION_EXECUTED_SELECTION_MISSING = "executed_selection_missing"
+EXCLUSION_NO_EVIDENCE_FOR_VIEW = "no_evidence_for_loss_view"
+
+
+@dataclass(frozen=True, slots=True)
+class DecisionExclusion:
+    """One decision that could not enter the evaluated set, and exactly why.
+
+    Missingness must be *reported*, not merely tolerated. Previously every cause
+    collapsed into a single ``skipped_decisions`` counter, so a decision that
+    lost one candidate's evidence was indistinguishable from a decision with no
+    snapshot at all, and a decision whose evidence was entirely unavailable was
+    invisible. Each cause now carries its own code, its candidate counts, and
+    the capability/reason strings reported by the evidence rows.
+    """
+
+    run_id: str
+    decision_event_index: int
+    reason: str
+    candidate_count: int
+    missing_candidate_count: int
+    unavailable_reasons: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class MissingnessSummary:
+    """Audit trail for what the evaluated set excludes and why.
+
+    The evaluated set must be complete per decision: a decision enters only when
+    *every* candidate has usable evidence for the loss view, because evaluating
+    a subset would silently understate the hindsight best and break the
+    never-coerce-missingness rule.
+    """
+
+    loss_view: str
+    decisions_seen: int
+    decisions_evaluated: int
+    decisions_excluded: int
+    decisions_filtered_out: int
+    excluded_by_reason: tuple[tuple[str, int], ...]
+    missing_candidate_total: int
+    unavailable_reasons: tuple[tuple[str, int], ...]
+
+    def reason_count(self, reason: str) -> int:
+        """Exclusion count for one reason code, ``0`` when absent."""
+        return dict(self.excluded_by_reason).get(reason, 0)
+
+    def unavailable_reason_count(self, reason: str) -> int:
+        """Decision count for one evidence capability/reason code."""
+        return dict(self.unavailable_reasons).get(reason, 0)
+
+
 @dataclass(frozen=True, slots=True)
 class RuleEvaluation:
     """Full offline evaluation result for one loss view."""
@@ -267,6 +324,8 @@ class RuleEvaluation:
     feasible_regret_rows: tuple[PressureFeasibleRegretRow, ...] = ()
     pressure_feasible_aggregates: tuple[PressureFeasibleAggregate, ...] = ()
     clusters: tuple[ScenarioClusterRow, ...] = ()
+    exclusions: tuple[DecisionExclusion, ...] = ()
+    missingness: MissingnessSummary | None = None
 
     @property
     def effective_cluster_count(self) -> int:
@@ -338,6 +397,29 @@ def _usable_evidence(
     return grouped
 
 
+def _evidence_index(
+    evidence: Iterable[CandidateLossEvidenceRow], loss_view: str
+) -> dict[tuple[str, int], tuple[CandidateLossEvidenceRow, ...]]:
+    """Index *every* evidence row for one view, available or not.
+
+    ``_usable_evidence`` keeps only what can be ranked, which means a decision
+    whose evidence is entirely unavailable never appears there at all — and so
+    could not be reported as missing. This index exists so the missingness audit
+    can account for those decisions instead of losing them silently.
+    """
+    grouped: dict[tuple[str, int], list[CandidateLossEvidenceRow]] = defaultdict(list)
+    for row in evidence:
+        if row.loss_view != loss_view:
+            continue
+        grouped[(row.run_id, row.decision_event_index)].append(row)
+    return {key: tuple(rows) for key, rows in grouped.items()}
+
+
+def _is_missing_evidence(row: CandidateLossEvidenceRow) -> bool:
+    """True when a row cannot contribute a ranking value."""
+    return row.availability != "available" or row.loss is None
+
+
 def _executed_selection(
     candidates: Iterable[DecisionCandidateRow],
 ) -> dict[tuple[str, int], set[tuple[str, str]]]:
@@ -383,6 +465,7 @@ def evaluate_rules(
         raise TypeError("evidence must be an ordered sequence")
 
     grouped_losses = _usable_evidence(evidence, loss_view)
+    evidence_by_decision = _evidence_index(evidence, loss_view)
     executed = _executed_selection(candidates)
     canonical = _canonical_regret(canonical_regret)
     family_lookup = families_by_run or {}
@@ -403,13 +486,78 @@ def evaluate_rules(
     skipped = 0
     unsatisfied = 0
     available_candidate_total = 0
+    exclusions: list[DecisionExclusion] = []
+    filtered_out = 0
 
-    for decision_key in sorted(grouped_losses):
+    def _exclusion(
+        run_id: str,
+        decision_event_index: int,
+        reason: str,
+        candidate_count: int,
+        missing_candidate_count: int,
+        unavailable_reasons: tuple[str, ...],
+    ) -> DecisionExclusion:
+        return DecisionExclusion(
+            run_id=run_id,
+            decision_event_index=decision_event_index,
+            reason=reason,
+            candidate_count=candidate_count,
+            missing_candidate_count=missing_candidate_count,
+            unavailable_reasons=unavailable_reasons,
+        )
+
+    # Iterate every decision the view has evidence for, not just the rankable
+    # ones, so a decision that is entirely unavailable is reported rather than
+    # dropped without trace.
+    seen_decisions = sorted(
+        set(evidence_by_decision).union(grouped_losses)
+    )
+    for decision_key in seen_decisions:
         run_id, decision_event_index = decision_key
+        evidence_rows = evidence_by_decision.get(decision_key, ())
+        missing_rows = [
+            row for row in evidence_rows if _is_missing_evidence(row)
+        ]
+        missing_reasons = tuple(
+            sorted(
+                {
+                    row.unavailable_reason
+                    for row in missing_rows
+                    if row.unavailable_reason
+                }
+            )
+        )
+        candidate_count = len(by_decision.get(decision_key, ()))
+
         if included_runs is not None and run_id not in included_runs:
+            # A holdout filter is a scope decision, not missingness.
+            filtered_out += 1
             continue
-        losses = grouped_losses[decision_key]
+        losses = grouped_losses.get(decision_key, {})
+        if not losses:
+            exclusions.append(
+                _exclusion(
+                    run_id,
+                    decision_event_index,
+                    EXCLUSION_NO_EVIDENCE_FOR_VIEW,
+                    candidate_count,
+                    candidate_count,
+                    missing_reasons,
+                )
+            )
+            skipped += 1
+            continue
         if len(losses) < 2:
+            exclusions.append(
+                _exclusion(
+                    run_id,
+                    decision_event_index,
+                    EXCLUSION_TOO_FEW_CANDIDATES,
+                    candidate_count,
+                    len(missing_rows),
+                    missing_reasons,
+                )
+            )
             skipped += 1
             continue
         group = list(by_decision.get(decision_key, ()))
@@ -417,10 +565,43 @@ def evaluate_rules(
             # Comparable only when every candidate has evidence for this view.
             # Evaluating a subset would silently understate the hindsight best
             # and break the "never coerce missingness" rule.
+            exclusions.append(
+                _exclusion(
+                    run_id,
+                    decision_event_index,
+                    EXCLUSION_CANDIDATE_EVIDENCE_MISSING,
+                    len(group),
+                    max(len(group) - len(losses), len(missing_rows)),
+                    missing_reasons,
+                )
+            )
             skipped += 1
             continue
         snapshot = snapshot_by_decision.get(decision_key)
-        if snapshot is None or not executed[decision_key]:
+        if snapshot is None:
+            exclusions.append(
+                _exclusion(
+                    run_id,
+                    decision_event_index,
+                    EXCLUSION_DECISION_SNAPSHOT_MISSING,
+                    len(group),
+                    len(missing_rows),
+                    missing_reasons,
+                )
+            )
+            skipped += 1
+            continue
+        if not executed[decision_key]:
+            exclusions.append(
+                _exclusion(
+                    run_id,
+                    decision_event_index,
+                    EXCLUSION_EXECUTED_SELECTION_MISSING,
+                    len(group),
+                    len(missing_rows),
+                    missing_reasons,
+                )
+            )
             skipped += 1
             continue
 
@@ -516,6 +697,48 @@ def evaluate_rules(
             ],
             oracle_losses,
         ),
+        exclusions=tuple(exclusions),
+        missingness=_missingness_summary(
+            loss_view=loss_view,
+            decisions_seen=len(seen_decisions),
+            decisions_evaluated=evaluated,
+            exclusions=exclusions,
+            decisions_filtered_out=filtered_out,
+        ),
+    )
+
+
+def _missingness_summary(
+    *,
+    loss_view: str,
+    decisions_seen: int,
+    decisions_evaluated: int,
+    exclusions: Sequence[DecisionExclusion],
+    decisions_filtered_out: int,
+) -> MissingnessSummary:
+    """Collapse the per-decision exclusions into an auditable summary.
+
+    ``decisions_excluded`` counts only decisions the *view* could not supply;
+    holdout filtering is reported separately because excluding a run from a
+    held-out family is a scope decision, not missing evidence.
+    """
+    by_reason: dict[str, int] = defaultdict(int)
+    by_unavailable: dict[str, int] = defaultdict(int)
+    missing_candidates = 0
+    for exclusion in exclusions:
+        by_reason[exclusion.reason] += 1
+        missing_candidates += exclusion.missing_candidate_count
+        for reason in exclusion.unavailable_reasons:
+            by_unavailable[reason] += 1
+    return MissingnessSummary(
+        loss_view=loss_view,
+        decisions_seen=decisions_seen,
+        decisions_evaluated=decisions_evaluated,
+        decisions_excluded=len(exclusions),
+        decisions_filtered_out=decisions_filtered_out,
+        excluded_by_reason=tuple(sorted(by_reason.items())),
+        missing_candidate_total=missing_candidates,
+        unavailable_reasons=tuple(sorted(by_unavailable.items())),
     )
 
 

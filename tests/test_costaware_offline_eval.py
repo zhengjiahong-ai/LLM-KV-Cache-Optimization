@@ -7,6 +7,10 @@ import pytest
 from kvopt.costaware.offline_eval import (
     ABLATION_PAIRS,
     CANONICAL_LOSS_VIEW,
+    EXCLUSION_CANDIDATE_EVIDENCE_MISSING,
+    EXCLUSION_DECISION_SNAPSHOT_MISSING,
+    EXCLUSION_NO_EVIDENCE_FOR_VIEW,
+    EXCLUSION_TOO_FEW_CANDIDATES,
     ablation_table,
     behaviour_breakdown,
     cluster_paired_comparison,
@@ -683,6 +687,161 @@ def test_missing_snapshot_skips_the_decision() -> None:
     )
     assert evaluation.evaluated_decisions == 1
     assert evaluation.skipped_decisions == 2
+
+
+# --- missingness semantics (M1 ruling, 2026-10-07) -------------------------
+
+
+def test_missing_candidate_evidence_records_its_own_reason_and_count() -> None:
+    """A lost candidate is distinguishable from a lost snapshot.
+
+    Previously every cause shared one counter, so a decision short of one
+    candidate's evidence looked identical to a decision with no snapshot.
+    """
+    candidates, evidence, snapshots = _fixture()
+    partially_masked = tuple(
+        _evidence(
+            run_id=row.run_id,
+            decision_event_index=row.decision_event_index,
+            program_id=row.program_id,
+            loss=None,
+            availability="unavailable",
+        )
+        if row.decision_event_index == 40 and row.program_id == "pg-b"
+        else row
+        for row in evidence
+    )
+    evaluation = evaluate_rules(
+        candidates=candidates,
+        evidence=partially_masked,
+        snapshots=snapshots,
+        families_by_run=_families(),
+    )
+    summary = evaluation.missingness
+    assert summary is not None
+    assert summary.decisions_excluded == 1
+    assert summary.reason_count(EXCLUSION_CANDIDATE_EVIDENCE_MISSING) == 1
+    assert summary.reason_count(EXCLUSION_DECISION_SNAPSHOT_MISSING) == 0
+    (exclusion,) = evaluation.exclusions
+    assert exclusion.run_id == "run-1"
+    assert exclusion.decision_event_index == 40
+    assert exclusion.candidate_count == 3
+    assert exclusion.missing_candidate_count == 1
+    assert exclusion.unavailable_reasons == ("test_missing",)
+    assert summary.missing_candidate_total == 1
+    assert summary.unavailable_reason_count("test_missing") == 1
+
+
+def test_fully_unavailable_decision_is_reported_not_invisible() -> None:
+    """A decision with no usable evidence must be counted, not silently absent.
+
+    The old code iterated only decisions that had *some* usable evidence, so a
+    decision whose evidence was entirely unavailable produced no skip record at
+    all and could not be audited.
+    """
+    candidates, evidence, snapshots = _fixture()
+    masked = tuple(
+        _evidence(
+            run_id=row.run_id,
+            decision_event_index=row.decision_event_index,
+            program_id=row.program_id,
+            loss=None,
+            availability="unavailable",
+        )
+        for row in evidence
+    )
+    evaluation = evaluate_rules(
+        candidates=candidates, evidence=masked, snapshots=snapshots
+    )
+    summary = evaluation.missingness
+    assert summary is not None
+    assert summary.decisions_seen == 3
+    assert summary.decisions_evaluated == 0
+    assert summary.decisions_excluded == 3
+    assert summary.reason_count(EXCLUSION_NO_EVIDENCE_FOR_VIEW) == 3
+    assert len(evaluation.exclusions) == 3
+    # Still no coercion anywhere.
+    assert evaluation.available_candidates == 0
+    assert all(aggregate.decisions == 0 for aggregate in evaluation.aggregates)
+
+
+def test_holdout_filter_is_reported_separately_from_missingness() -> None:
+    """Excluding a held-out run is a scope decision, not missing evidence."""
+    evaluation = _evaluate(included_runs=frozenset({"run-2"}))
+    summary = evaluation.missingness
+    assert summary is not None
+    assert summary.decisions_filtered_out == 2
+    assert summary.decisions_excluded == 0
+    assert evaluation.exclusions == ()
+    assert summary.decisions_seen == evaluation.evaluated_decisions + (
+        summary.decisions_excluded + summary.decisions_filtered_out
+    )
+
+
+def test_missing_snapshot_records_its_own_reason_code() -> None:
+    candidates, evidence, snapshots = _fixture()
+    evaluation = evaluate_rules(
+        candidates=candidates,
+        evidence=evidence,
+        snapshots=snapshots[:1],
+        families_by_run=_families(),
+    )
+    summary = evaluation.missingness
+    assert summary is not None
+    assert summary.reason_count(EXCLUSION_DECISION_SNAPSHOT_MISSING) == 2
+    assert summary.reason_count(EXCLUSION_CANDIDATE_EVIDENCE_MISSING) == 0
+
+
+def test_trimmed_candidate_set_is_reported_as_too_few_candidates() -> None:
+    candidates, evidence, snapshots = _fixture()
+    trimmed = tuple(
+        row
+        for row in evidence
+        if not (row.decision_event_index == 60 and row.program_id == "pg-f")
+    )
+    evaluation = evaluate_rules(
+        candidates=candidates,
+        evidence=trimmed,
+        snapshots=snapshots,
+        families_by_run=_families(),
+    )
+    summary = evaluation.missingness
+    assert summary is not None
+    assert summary.reason_count(EXCLUSION_TOO_FEW_CANDIDATES) == 1
+    assert evaluation.evaluated_decisions == 2
+    assert evaluation.skipped_decisions == 1
+
+
+def test_missingness_summary_accounts_for_every_seen_decision() -> None:
+    """seen == evaluated + excluded + filtered_out, always."""
+    candidates, evidence, snapshots = _fixture()
+    partially_masked = tuple(
+        _evidence(
+            run_id=row.run_id,
+            decision_event_index=row.decision_event_index,
+            program_id=row.program_id,
+            loss=None,
+            availability="unavailable",
+        )
+        if row.decision_event_index == 40 and row.program_id == "pg-b"
+        else row
+        for row in evidence
+    )
+    evaluation = evaluate_rules(
+        candidates=candidates,
+        evidence=partially_masked,
+        snapshots=snapshots,
+        families_by_run=_families(),
+        included_runs=frozenset({"run-1", "run-2"}),
+    )
+    summary = evaluation.missingness
+    assert summary is not None
+    assert summary.decisions_seen == (
+        summary.decisions_evaluated
+        + summary.decisions_excluded
+        + summary.decisions_filtered_out
+    )
+    assert summary.loss_view == CANONICAL_LOSS_VIEW
 
 
 def test_non_canonical_loss_view_is_ignored() -> None:

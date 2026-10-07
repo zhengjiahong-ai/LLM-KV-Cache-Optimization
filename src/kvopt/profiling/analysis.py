@@ -27,7 +27,17 @@ class CandidateFeatureSpreadRow:
 
 @dataclass(frozen=True, slots=True)
 class CandidateLossRow:
-    """Explicit offline loss for one candidate under one named loss view."""
+    """Explicit offline loss for one candidate under one named loss view.
+
+    ``loss`` is a finite float **by construction**. Missingness is represented
+    by the *absence* of a row, never by a sentinel value inside one. The three
+    coercions ``None -> 0``, ``None -> proxy`` and ``None -> another loss view``
+    are forbidden by the frozen missingness semantics, so this boundary refuses
+    to carry a non-finite value at all rather than letting it travel downstream
+    and corrupt a ranking or a regret comparison.
+
+    See ``docs/phase2a-m4-missingness-semantics.md``.
+    """
 
     run_id: str
     decision_event_index: int
@@ -36,6 +46,18 @@ class CandidateLossRow:
     loss_view: str
     loss: float
     selected: bool
+
+    def __post_init__(self) -> None:
+        if isinstance(self.loss, bool) or not isinstance(self.loss, (int, float)):
+            raise ArtifactValidationError(
+                "loss must be a finite float; a missing loss is the absence of "
+                "a CandidateLossRow, never a sentinel value in one"
+            )
+        if not math.isfinite(float(self.loss)):
+            raise ArtifactValidationError(
+                "loss must be finite; a missing loss is the absence of a "
+                "CandidateLossRow, never a sentinel value in one"
+            )
 
 
 @dataclass(frozen=True, slots=True)
