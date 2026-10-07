@@ -1005,6 +1005,61 @@ def test_coherent_prefix_snapshot_uses_last_cumulative_hash_length() -> None:
     )
 
 
+def test_coherent_prefix_snapshot_accepts_h2_long_context() -> None:
+    complete_blocks = [
+        {
+            "block_id": index,
+            "ref_count": 1,
+            "native_hash_hex": f"{index:064x}",
+            "hash_num_tokens": index * 16,
+            "cache_group_id": 0,
+            "is_null": False,
+        }
+        for index in range(1, 65)
+    ]
+    observation = {
+        "request_blocks": [{
+            "request_id": "native-long",
+            "availability": "AVAILABLE",
+            "block_groups": [complete_blocks],
+        }]
+    }
+
+    _, token_count, block_ids, hashes = _coherent_child_request_snapshot(
+        (observation,),
+        "native-long",
+        expected_token_count=1024,
+    )
+
+    assert token_count == 1024
+    assert len(block_ids) == 64
+    assert len(hashes) == 64
+
+
+def test_snapshot_rejection_with_no_complete_block_is_diagnostic() -> None:
+    observation = {
+        "request_blocks": [{
+            "request_id": "native-empty",
+            "availability": "AVAILABLE",
+            "block_groups": [[{
+                "block_id": 1,
+                "ref_count": 1,
+                "native_hash_hex": None,
+                "hash_num_tokens": None,
+                "cache_group_id": 0,
+                "is_null": False,
+            }]],
+        }]
+    }
+
+    with pytest.raises(ValidationExecutionError, match="no_complete_hashed"):
+        _coherent_child_request_snapshot(
+            (observation,),
+            "native-empty",
+            expected_token_count=1024,
+        )
+
+
 def test_qualified_target_and_pressure_inputs_use_frozen_lengths() -> None:
     target = _qualified_target_token_ids(TARGET_TOKEN_COUNT, 151_936)
     first_pressure = _qualified_pressure_token_ids(0, 151_936)

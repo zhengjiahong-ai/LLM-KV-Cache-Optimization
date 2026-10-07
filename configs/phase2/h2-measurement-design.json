@@ -1,5 +1,6 @@
 {
   "b1_method_or_implementation_authorized": false,
+  "calibration_pilot_authorized": true,
   "calibration": {
     "dispersion_outputs": [
       "median_seconds",
@@ -26,6 +27,7 @@
     "same_model_and_tokenizer_revision": true
   },
   "formal_measurement_authorized": false,
+  "formal_verdict_authorized": false,
   "m1_cost_curve": {
     "fallback_observation": "controlled_ttft_miss_minus_hit_sensitivity",
     "fitted_models": [
@@ -86,5 +88,5 @@
     "status": "UNFROZEN_PENDING_CALIBRATION"
   },
   "schema_version": "phase2a.h2_measurement_design.v1",
-  "status": "CALIBRATION_PLAN_AWAITING_REVIEW"
+  "status": "CALIBRATION_PILOT_AUTHORIZED"
 }

@@ -1,11 +1,15 @@
 # Phase 2A M6 H2 Measurement Bring-up Design
 
-Status: **CALIBRATION PLAN AWAITING REVIEW — NO FORMAL VERDICT AUTHORIZED**
+Status: **CALIBRATION PILOT AUTHORIZED — NO FORMAL VERDICT AUTHORIZED**
 
 This is the M6 execution design for
 `docs/phase2a-m4-h2-measurement-protocol.md`. It prepares measurement and
 calibration only. It does not implement B1, define a block victim score, or
 authorize a formal H2 verdict.
+
+M1 authorized the calibration pilot after the Level-B S1-S5 seam validation
+passed. This changes only the pilot execution gate: formal H2 measurement,
+numeric verdict thresholds, and B1 remain locked.
 
 The machine-readable plan is
 `configs/phase2/h2-measurement-design.json`.

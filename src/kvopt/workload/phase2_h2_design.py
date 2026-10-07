@@ -60,12 +60,16 @@ def validate_h2_measurement_design(design: Mapping[str, Any]) -> None:
 
     if design.get("schema_version") != "phase2a.h2_measurement_design.v1":
         raise H2MeasurementDesignError("unsupported H2 measurement design schema")
-    if design.get("status") != "CALIBRATION_PLAN_AWAITING_REVIEW":
-        raise H2MeasurementDesignError("H2 design must await calibration review")
+    if design.get("status") != "CALIBRATION_PILOT_AUTHORIZED":
+        raise H2MeasurementDesignError("H2 calibration pilot must be authorized")
+    if design.get("calibration_pilot_authorized") is not True:
+        raise H2MeasurementDesignError("H2 calibration pilot authorization is missing")
     if design.get("formal_measurement_authorized") is not False:
         raise H2MeasurementDesignError(
             "review-stage H2 design must not authorize formal measurement"
         )
+    if design.get("formal_verdict_authorized") is not False:
+        raise H2MeasurementDesignError("H2 formal verdict must remain locked")
     if design.get("b1_method_or_implementation_authorized") is not False:
         raise H2MeasurementDesignError("H2 measurement must not authorize B1")
 

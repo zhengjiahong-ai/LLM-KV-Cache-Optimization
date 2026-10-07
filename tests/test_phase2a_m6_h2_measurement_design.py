@@ -45,6 +45,8 @@ def test_h2_design_keeps_thresholds_and_b1_locked() -> None:
         if key != "status"
     )
     assert not design["formal_measurement_authorized"]
+    assert design["calibration_pilot_authorized"]
+    assert not design["formal_verdict_authorized"]
     assert not design["b1_method_or_implementation_authorized"]
 
 

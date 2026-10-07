@@ -106,8 +106,10 @@ def _program_prefix_sizes(options: Mapping[str, object]) -> dict[str, int]:
             value,
             f"backend_options.program_prefix_tokens[{program_id!r}]",
         )
-        if size not in {128, 256, 512}:
-            raise ValueError("profiling prefix size must be one of 128, 256, 512")
+        if not 16 <= size <= 30_720:
+            raise ValueError(
+                "profiling prefix size must be between 16 and 30720 tokens"
+            )
         if size % _BLOCK_SIZE != 0:
             raise ValueError("profiling prefix size must align to the KV block size")
         sizes[program_id] = size
@@ -342,6 +344,12 @@ class MinimalMetalObservabilityBackend:
         if not isinstance(timing, bool):
             raise TypeError("backend_options.execute_planned_timing must be bool")
         self._execute_planned_timing = timing
+        terminal_snapshot = options.get("capture_terminal_prefix_snapshot", True)
+        if not isinstance(terminal_snapshot, bool):
+            raise TypeError(
+                "backend_options.capture_terminal_prefix_snapshot must be bool"
+            )
+        self._capture_terminal_prefix_snapshot = terminal_snapshot
         block_override = _positive_int(
             config["cache"]["block_override"],  # type: ignore[index]
             "config.cache.block_override",
@@ -957,6 +965,17 @@ class MinimalMetalObservabilityBackend:
         # accepted), not a claim of native scheduler-admission timestamp.
         self._runtime.handle(RequestAdmitted(program, logical_request, submitted_at))
         finished_at = self._complete(request, native_id, external_id)
+        if request.is_terminal and not self._capture_terminal_prefix_snapshot:
+            self._runtime.handle(
+                TurnFinished(
+                    program,
+                    logical_request,
+                    finished_at,
+                    is_terminal=True,
+                )
+            )
+            self._runtime.handle(ProgramCompleted(program, finished_at))
+            return
         prefix, token_count, blocks = self._prefix_snapshot(
             request,
             native_id,
