@@ -1,10 +1,16 @@
 # Phase 2A M6 H1 Independent Campaign Design
 
-Status: **AWAITING M1 REVIEW — HOLDOUT MATERIALIZATION IS NOT AUTHORIZED**
+Status: **REVIEW ARTIFACT — SUPERSEDED FOR SCENARIO MATERIALIZATION AUTHORITY**
 
 This document specifies the H1 independent campaign before any sealed scenario
 or outcome is materialized. The machine-readable companion is
 `configs/phase2/h1-independent-campaign-design.json`.
+
+M1/M4 subsequently approved this immutable distribution at reviewed commit
+`aa4fc736d39fd53dfa37c1113bc502e590ee72a8`, subject to exact-count validator
+corrections. Scenario materialization authority is recorded separately in
+`configs/phase2/h1-scenario-materialization-freeze.json`; this review artifact
+is intentionally not mutated. Runtime outcome execution remains unauthorized.
 
 ## 1. Statistical design
 
@@ -55,7 +61,7 @@ contains no scenario list, sampler seed, trace, config, runtime observation, or
 outcome. M6 keeps custody of the eventual holdout; M4 must not receive outcome
 artifacts before the rule and acceptance inputs are frozen.
 
-After M1 approves the distribution, M6 may use a committed sampler seed to
+After M1 approves the distribution, M6 may use the committed sampler seed to
 generate a private scenario manifest without executing it. Before any outcome
 is produced, a freeze record must contain SHA-256 commitments for:
 
@@ -93,8 +99,7 @@ return, or logical release.
 
 ## 5. Review boundary
 
-This task package asks M1 to review the distribution, family conditioning,
-corner-case quotas, capability gates, and sealing procedure. It does **not** ask
-for permission to execute the final holdout. Any requested distribution change
-must be made before the materialization authorization and recorded in the next
-design version.
+The distribution review is complete. The separate freeze record authorizes
+generation, validation, hashing, and sealing of exactly 42 scenario
+specifications with exactly 7 draws per family. It does **not** authorize final
+holdout execution or outcome materialization.

@@ -6,7 +6,9 @@ import pytest
 from kvopt.workload.phase2_h1_design import (
     H1CampaignDesignError,
     load_h1_campaign_design,
+    load_h1_materialization_freeze,
     validate_h1_campaign_design,
+    validate_h1_materialization_freeze,
 )
 
 DESIGN = (
@@ -15,6 +17,7 @@ DESIGN = (
     / "phase2"
     / "h1-independent-campaign-design.json"
 )
+FREEZE = DESIGN.with_name("h1-scenario-materialization-freeze.json")
 
 
 def test_h1_design_has_independent_family_draws_and_runtime_repeats() -> None:
@@ -43,7 +46,7 @@ def test_h1_design_covers_required_variation() -> None:
     design = load_h1_campaign_design(DESIGN)
     distributions = design["predeclared_distributions"]
 
-    assert set(range(2, 7)).issubset(distributions["candidate_count"]["values"])
+    assert set(range(2, 8)).issubset(distributions["candidate_count"]["values"])
     assert {16, 32, 128, 256, 512}.issubset(
         distributions["prefix_tokens"]["values"]
     )
@@ -76,3 +79,56 @@ def test_h1_design_rejects_premature_materialization_authority() -> None:
         match="must not authorize outcome materialization",
     ):
         validate_h1_campaign_design(invalid)
+
+
+@pytest.mark.parametrize(
+    ("draw_count", "family_quotas"),
+    [
+        (40, {family: 6 for family in ("F1", "F2", "F3", "F4", "F5", "F6")}),
+        (41, {"F1": 7, "F2": 7, "F3": 7, "F4": 7, "F5": 7, "F6": 6}),
+        (42, {"F1": 8, "F2": 7, "F3": 7, "F4": 7, "F5": 7, "F6": 6}),
+    ],
+)
+def test_h1_design_rejects_non_frozen_draw_allocation(
+    draw_count: int,
+    family_quotas: dict[str, int],
+) -> None:
+    design = load_h1_campaign_design(DESIGN)
+    invalid = copy.deepcopy(design)
+    invalid["independent_scenario_draw_count"] = draw_count
+    invalid["family_draw_quotas"] = family_quotas
+
+    with pytest.raises(H1CampaignDesignError, match="exactly"):
+        validate_h1_campaign_design(invalid)
+
+
+def test_h1_design_requires_candidate_count_seven() -> None:
+    design = load_h1_campaign_design(DESIGN)
+    invalid = copy.deepcopy(design)
+    distribution = invalid["predeclared_distributions"]["candidate_count"]
+    index = distribution["values"].index(7)
+    distribution["values"].pop(index)
+    distribution["weights"].pop(index)
+
+    with pytest.raises(H1CampaignDesignError, match="2 through 7"):
+        validate_h1_campaign_design(invalid)
+
+
+def test_h1_materialization_freeze_binds_approved_distribution() -> None:
+    freeze = load_h1_materialization_freeze(FREEZE, DESIGN)
+
+    assert freeze["expected_draw_count"] == 42
+    assert freeze["family_quotas"] == {
+        family: 7 for family in ("F1", "F2", "F3", "F4", "F5", "F6")
+    }
+    assert freeze["sampler_seed"] == 20261007
+    assert freeze["outcome_execution_authorized"] is False
+
+
+def test_h1_materialization_freeze_rejects_outcome_authority() -> None:
+    freeze = load_h1_materialization_freeze(FREEZE, DESIGN)
+    invalid = copy.deepcopy(freeze)
+    invalid["outcome_execution_authorized"] = True
+
+    with pytest.raises(H1CampaignDesignError, match="must not authorize"):
+        validate_h1_materialization_freeze(invalid)

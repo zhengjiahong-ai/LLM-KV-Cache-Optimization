@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
 H1_FAMILIES = ("F1", "F2", "F3", "F4", "F5", "F6")
-MINIMUM_INDEPENDENT_DRAWS = 40
-MINIMUM_DRAWS_PER_FAMILY = 6
+FROZEN_INDEPENDENT_DRAWS = 42
+FROZEN_DRAWS_PER_FAMILY = 7
+REQUIRED_CANDIDATE_COUNT_SUPPORT = set(range(2, 8))
 REQUIRED_PREFIX_TOKEN_SUPPORT = {16, 32, 128, 256, 512}
 REQUIRED_RETURN_BEHAVIORS = {
     "early_within_horizon",
@@ -39,6 +41,27 @@ def load_h1_campaign_design(path: str | Path) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise H1CampaignDesignError("H1 campaign design must be a JSON object")
     validate_h1_campaign_design(payload)
+    return payload
+
+
+def load_h1_materialization_freeze(
+    path: str | Path,
+    distribution_path: str | Path,
+) -> dict[str, Any]:
+    """Load an immutable authorization record and bind it to its distribution."""
+
+    freeze_path = Path(path)
+    distribution_path = Path(distribution_path)
+    payload = json.loads(freeze_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise H1CampaignDesignError("H1 materialization freeze must be an object")
+    validate_h1_materialization_freeze(payload)
+    actual_sha = hashlib.sha256(distribution_path.read_bytes()).hexdigest()
+    if payload["distribution_manifest_sha256"] != actual_sha:
+        raise H1CampaignDesignError(
+            "materialization freeze distribution hash does not match"
+        )
+    load_h1_campaign_design(distribution_path)
     return payload
 
 
@@ -106,18 +129,14 @@ def validate_h1_campaign_design(design: Mapping[str, Any]) -> None:
     quotas = _require_mapping(design, "family_draw_quotas")
     if set(quotas) != set(H1_FAMILIES):
         raise H1CampaignDesignError("family quotas must cover exactly F1-F6")
-    if any(
-        not isinstance(quotas[family], int)
-        or quotas[family] < MINIMUM_DRAWS_PER_FAMILY
-        for family in H1_FAMILIES
-    ):
+    if any(quotas[family] != FROZEN_DRAWS_PER_FAMILY for family in H1_FAMILIES):
         raise H1CampaignDesignError(
-            f"every family requires at least {MINIMUM_DRAWS_PER_FAMILY} draws"
+            f"every family requires exactly {FROZEN_DRAWS_PER_FAMILY} draws"
         )
     draw_count = design.get("independent_scenario_draw_count")
-    if not isinstance(draw_count, int) or draw_count < MINIMUM_INDEPENDENT_DRAWS:
+    if draw_count != FROZEN_INDEPENDENT_DRAWS:
         raise H1CampaignDesignError(
-            f"campaign requires at least {MINIMUM_INDEPENDENT_DRAWS} draws"
+            f"campaign requires exactly {FROZEN_INDEPENDENT_DRAWS} draws"
         )
     if draw_count != sum(quotas.values()):
         raise H1CampaignDesignError("draw count must equal the family quota sum")
@@ -137,9 +156,9 @@ def validate_h1_campaign_design(design: Mapping[str, Any]) -> None:
     candidate_counts = set(
         _distribution_values(distributions, "candidate_count")
     )
-    if not set(range(2, 7)).issubset(candidate_counts):
+    if not REQUIRED_CANDIDATE_COUNT_SUPPORT.issubset(candidate_counts):
         raise H1CampaignDesignError(
-            "candidate count distribution must cover 2 through 6"
+            "candidate count distribution must cover 2 through 7"
         )
     prefix_tokens = set(_distribution_values(distributions, "prefix_tokens"))
     if not REQUIRED_PREFIX_TOKEN_SUPPORT.issubset(prefix_tokens):
@@ -202,3 +221,45 @@ def validate_h1_campaign_design(design: Mapping[str, Any]) -> None:
         raise H1CampaignDesignError(
             "Level-B observation readiness must gate outcome materialization"
         )
+
+
+def validate_h1_materialization_freeze(freeze: Mapping[str, Any]) -> None:
+    """Validate approval to materialize scenarios, never runtime outcomes."""
+
+    if freeze.get("schema_version") != (
+        "phase2a.h1_scenario_materialization_freeze.v1"
+    ):
+        raise H1CampaignDesignError("unsupported H1 materialization freeze schema")
+    if freeze.get("status") != "SCENARIO_MATERIALIZATION_AUTHORIZED":
+        raise H1CampaignDesignError(
+            "freeze must authorize scenario materialization"
+        )
+    if freeze.get("m1_authorization_status") != "APPROVED_WITH_MINOR_FIXES":
+        raise H1CampaignDesignError("freeze must record the M1 authorization")
+    if freeze.get("outcome_execution_authorized") is not False:
+        raise H1CampaignDesignError("freeze must not authorize outcome execution")
+    if freeze.get("expected_draw_count") != FROZEN_INDEPENDENT_DRAWS:
+        raise H1CampaignDesignError("freeze must require exactly 42 draws")
+    quotas = _require_mapping(freeze, "family_quotas")
+    if set(quotas) != set(H1_FAMILIES) or any(
+        quotas[family] != FROZEN_DRAWS_PER_FAMILY for family in H1_FAMILIES
+    ):
+        raise H1CampaignDesignError("freeze must require exactly 7 draws per family")
+    if not isinstance(freeze.get("sampler_seed"), int):
+        raise H1CampaignDesignError("freeze sampler_seed must be an integer")
+    if freeze.get("structural_uniqueness_required") is not True:
+        raise H1CampaignDesignError("freeze must require structural uniqueness")
+    corner_quotas = _require_mapping(freeze, "minimum_corner_case_draws")
+    required_corner_quotas = {
+        "multi_release": 4,
+        "near_horizon": 4,
+        "no_return_within_trace": 3,
+        "repeated_pressure": 4,
+        "shared_prefix": 4,
+    }
+    if dict(corner_quotas) != required_corner_quotas:
+        raise H1CampaignDesignError("freeze corner-case quotas do not match approval")
+    for key in ("distribution_manifest_sha256", "approved_distribution_commit"):
+        value = freeze.get(key)
+        if not isinstance(value, str) or not value:
+            raise H1CampaignDesignError(f"freeze {key} must be non-empty text")
