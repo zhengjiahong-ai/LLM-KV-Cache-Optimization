@@ -17,6 +17,7 @@ from .phase2_h2_mechanism import (
 )
 
 _CELLS = ((512, 1), (512, 4), (512, 16))
+_PRESSURE_BLOCKS = 32
 
 
 def _entry_trace(probe_id: str) -> Phase2Trace:
@@ -89,17 +90,17 @@ def _entry_config(
     options = config["backend_options"]
     assert isinstance(cache, dict) and isinstance(pressure, dict) and isinstance(options, dict)
     prefix_blocks = prefix_tokens // 16
-    cache["block_override"] = prefix_blocks + 1
+    cache["block_override"] = prefix_blocks + _PRESSURE_BLOCKS + 1 - evicted_blocks
     pressure.update(
-        required_blocks=evicted_blocks,
+        required_blocks=_PRESSURE_BLOCKS,
         initial_shortage_blocks=evicted_blocks,
         safety_ceiling=1,
-        stage_required_blocks=[evicted_blocks],
+        stage_required_blocks=[_PRESSURE_BLOCKS],
     )
     options.update(
         program_prefix_tokens={probe_id: prefix_tokens},
-        pressure_prompt_tokens=evicted_blocks * 16,
-        pressure_stage_prompt_tokens={"m4-pressure": evicted_blocks * 16},
+        pressure_prompt_tokens=_PRESSURE_BLOCKS * 16,
+        pressure_stage_prompt_tokens={"m4-pressure": _PRESSURE_BLOCKS * 16},
         execute_planned_timing=False,
         capture_terminal_prefix_snapshot=False,
         isolated_native_prefill_timing=False,

@@ -30,6 +30,10 @@ def test_headroom_validation_is_small_non_formal_and_paired(tmp_path: Path) -> N
         assert config["h2_measurement"]["validation_only"]
         if probe["arm"] == "entry":
             assert config["pressure"]["initial_shortage_blocks"] == probe["evicted_blocks"]
+            assert config["pressure"]["required_blocks"] == 32
+            assert config["cache"]["block_override"] == (
+                probe["prefix_tokens"] // 16 + 32 + 1 - probe["evicted_blocks"]
+            )
             assert config["backend_options"]["h2_native_prefix_interventions"] == {}
             assert not config["backend_options"]["h2_native_mechanism_only"]
         else:
