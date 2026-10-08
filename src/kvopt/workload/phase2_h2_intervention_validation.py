@@ -17,20 +17,30 @@ from .phase2_h2_mechanism import (
 _PROBES = (
     {
         "probe_id": "h2v-no-eviction",
+        "prefix_tokens": 512,
         "position": None,
         "evicted_blocks": 0,
         "expected_cached_prefix_tokens": 512,
     },
     {
         "probe_id": "h2v-trailing-j4",
+        "prefix_tokens": 512,
         "position": "trailing",
         "evicted_blocks": 4,
         "expected_cached_prefix_tokens": 448,
     },
     {
         "probe_id": "h2v-leading-j4",
+        "prefix_tokens": 512,
         "position": "leading",
         "evicted_blocks": 4,
+        "expected_cached_prefix_tokens": 0,
+    },
+    {
+        "probe_id": "h2v-r1024-full-evict",
+        "prefix_tokens": 1024,
+        "position": "trailing",
+        "evicted_blocks": 64,
         "expected_cached_prefix_tokens": 0,
     },
 )
@@ -47,13 +57,14 @@ def materialize_h2_intervention_validation(
     for frozen in _PROBES:
         probe_id = frozen["probe_id"]
         assert isinstance(probe_id, str)
+        prefix_tokens = int(frozen["prefix_tokens"])
         trace_name = f"{probe_id}.trace.json"
         config_name = f"{probe_id}.config.json"
-        trace = _trace(probe_id, 512).to_dict()
+        trace = _trace(probe_id, prefix_tokens).to_dict()
         config = _mechanism_config(
             authorization,
             probe_id=probe_id,
-            prefix_tokens=512,
+            prefix_tokens=prefix_tokens,
             trace_name=trace_name,
             position=frozen["position"],  # type: ignore[arg-type]
             count=int(frozen["evicted_blocks"]),
@@ -71,7 +82,6 @@ def materialize_h2_intervention_validation(
         probes.append(
             {
                 **frozen,
-                "prefix_tokens": 512,
                 "config": config_name,
                 "runtime_config_sha256": _canonical_sha(config),
                 "config_file_sha256": hashlib.sha256(
@@ -90,7 +100,7 @@ def materialize_h2_intervention_validation(
         "formal_measurement": False,
         "formal_verdict": False,
         "b1_authorized": False,
-        "planned_run_count": 3,
+        "planned_run_count": 4,
         "probes": probes,
     }
     path = output / "campaign.json"

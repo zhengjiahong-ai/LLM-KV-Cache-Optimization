@@ -179,6 +179,7 @@ def _mechanism_config(
     options["program_prefix_tokens"] = {probe_id: prefix_tokens}
     options["capture_terminal_prefix_snapshot"] = False
     options["isolated_native_prefill_timing"] = False
+    options["h2_native_mechanism_only"] = True
     options["h2_native_prefix_interventions"] = (
         {}
         if position is None

@@ -45,6 +45,7 @@ from kvopt.profiling.experiment_events import (
     ExperimentEvent,
     ExperimentEventSink,
     ExperimentForcedReleaseObserver,
+    experiment_event_from_lifecycle,
 )
 from kvopt.runtime.vllm.h2_intervention import (
     NativeBlockPoolCapture,
@@ -393,6 +394,10 @@ class MinimalMetalObservabilityBackend:
                 "backend_options.capture_terminal_prefix_snapshot must be bool"
             )
         self._capture_terminal_prefix_snapshot = terminal_snapshot
+        mechanism_only = options.get("h2_native_mechanism_only", False)
+        if not isinstance(mechanism_only, bool):
+            raise TypeError("backend_options.h2_native_mechanism_only must be bool")
+        self._h2_native_mechanism_only = mechanism_only
         self._h2_interventions = _h2_native_prefix_interventions(options)
         self._applied_h2_interventions: set[str] = set()
         if self._h2_interventions and config.get("campaign_kind") not in {
@@ -401,6 +406,13 @@ class MinimalMetalObservabilityBackend:
         }:
             raise ValueError(
                 "native H2 interventions are restricted to H2 measurement campaigns"
+            )
+        if self._h2_native_mechanism_only and config.get("campaign_kind") not in {
+            "h2_formal_measurement",
+            "h2_intervention_validation",
+        }:
+            raise ValueError(
+                "native H2 mechanism-only mode is restricted to H2 campaigns"
             )
         block_override = _positive_int(
             config["cache"]["block_override"],  # type: ignore[index]
@@ -678,6 +690,7 @@ class MinimalMetalObservabilityBackend:
                     "h2_native_prefix_intervention_count": len(
                         self._h2_interventions
                     ),
+                    "h2_native_mechanism_only": self._h2_native_mechanism_only,
                     "gpu_memory_utilization": gpu_memory_utilization,
                 },
             )
@@ -1090,20 +1103,26 @@ class MinimalMetalObservabilityBackend:
             )
         )
 
+    def _handle_lifecycle(self, event: object) -> None:
+        if self._h2_native_mechanism_only:
+            self._sink.emit(experiment_event_from_lifecycle(event))
+            return
+        self._runtime.handle(event)
+
     def _execute_turn(self, request: PlannedRequest) -> None:
         self._wait_for_planned_arrival(request)
         program = ProgramIdentity(request.program_id)
         logical_request = RequestIdentity(request.request_id)
         now = float(self._clock.now())
         if request.program_id not in self._started_programs:
-            self._runtime.handle(ProgramStarted(program, now))
+            self._handle_lifecycle(ProgramStarted(program, now))
             self._started_programs.add(request.program_id)
 
         pending_tool = self._pending_tool_gaps.pop(request.program_id, None)
         if pending_tool is not None:
-            self._runtime.handle(ToolGapEnded(program, pending_tool, now))
+            self._handle_lifecycle(ToolGapEnded(program, pending_tool, now))
 
-        self._runtime.handle(RequestArrived(program, logical_request, now))
+        self._handle_lifecycle(RequestArrived(program, logical_request, now))
         prefix_tokens = self._prefix_tokens_for(request)
         token_ids = _turn_token_ids(
             request,
@@ -1117,10 +1136,10 @@ class MinimalMetalObservabilityBackend:
         )
         # This is the framework's logical admission boundary (engine enqueue
         # accepted), not a claim of native scheduler-admission timestamp.
-        self._runtime.handle(RequestAdmitted(program, logical_request, submitted_at))
+        self._handle_lifecycle(RequestAdmitted(program, logical_request, submitted_at))
         finished_at = self._complete(request, native_id, external_id)
         if request.is_terminal and not self._capture_terminal_prefix_snapshot:
-            self._runtime.handle(
+            self._handle_lifecycle(
                 TurnFinished(
                     program,
                     logical_request,
@@ -1128,7 +1147,7 @@ class MinimalMetalObservabilityBackend:
                     is_terminal=True,
                 )
             )
-            self._runtime.handle(ProgramCompleted(program, finished_at))
+            self._handle_lifecycle(ProgramCompleted(program, finished_at))
             return
         prefix, token_count, blocks, block_ids, cache_keys = self._prefix_snapshot(
             request,
@@ -1137,7 +1156,7 @@ class MinimalMetalObservabilityBackend:
         )
 
         if request.is_terminal:
-            self._runtime.handle(
+            self._handle_lifecycle(
                 TurnFinished(
                     program,
                     logical_request,
@@ -1145,19 +1164,20 @@ class MinimalMetalObservabilityBackend:
                     is_terminal=True,
                 )
             )
-            self._runtime.handle(ProgramCompleted(program, finished_at))
+            self._handle_lifecycle(ProgramCompleted(program, finished_at))
             return
 
-        self._runtime.record_prefill_context_token_count(
-            PrefillContextTokenCountRecord(
-                program_id=program,
-                request_id=logical_request,
-                prefix_id=prefix,
-                token_count=token_count,
-                provenance=InputProvenance(InputSource.OBSERVED),
+        if not self._h2_native_mechanism_only:
+            self._runtime.record_prefill_context_token_count(
+                PrefillContextTokenCountRecord(
+                    program_id=program,
+                    request_id=logical_request,
+                    prefix_id=prefix,
+                    token_count=token_count,
+                    provenance=InputProvenance(InputSource.OBSERVED),
+                )
             )
-        )
-        self._runtime.handle(
+        self._handle_lifecycle(
             BlocksObserved(
                 program,
                 logical_request,
@@ -1172,7 +1192,7 @@ class MinimalMetalObservabilityBackend:
             block_ids,
             cache_keys,
         )
-        self._runtime.handle(
+        self._handle_lifecycle(
             TurnFinished(
                 program,
                 logical_request,
@@ -1184,9 +1204,9 @@ class MinimalMetalObservabilityBackend:
         followup_id = RequestIdentity(
             f"{request.program_id}:turn:{request.turn_index + 1}"
         )
-        self._runtime.handle(FollowupWaiting(program, followup_id, finished_at))
+        self._handle_lifecycle(FollowupWaiting(program, followup_id, finished_at))
         assert request.next_tool_type is not None
-        self._runtime.handle(
+        self._handle_lifecycle(
             ToolGapStarted(program, request.next_tool_type, finished_at)
         )
         self._pending_tool_gaps[request.program_id] = request.next_tool_type

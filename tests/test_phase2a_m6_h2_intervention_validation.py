@@ -26,16 +26,17 @@ def test_h2_intervention_validation_is_small_and_non_formal(tmp_path: Path) -> N
     )
     campaign = json.loads(campaign_path.read_text(encoding="utf-8"))
 
-    assert campaign["planned_run_count"] == 3
+    assert campaign["planned_run_count"] == 4
     assert not campaign["formal_measurement"]
     assert not campaign["formal_verdict"]
     assert [
         probe["expected_cached_prefix_tokens"] for probe in campaign["probes"]
-    ] == [512, 448, 0]
+    ] == [512, 448, 0, 0]
     assert [probe["position"] for probe in campaign["probes"]] == [
         None,
         "trailing",
         "leading",
+        "trailing",
     ]
     for probe in campaign["probes"]:
         config = json.loads(

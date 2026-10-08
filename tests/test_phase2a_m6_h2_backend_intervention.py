@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from kvopt.continuum import PrefixIdentity
+from kvopt.continuum import PrefixIdentity, ProgramIdentity, ProgramStarted
 from kvopt.runtime.vllm.h2_intervention import NativeBlockPoolCapture
 from kvopt.workload.phase2 import PlannedRequest
 from scripts.spikes.phase2_minimal_observability_metal import (
@@ -81,3 +81,20 @@ def test_h2_backend_applies_intervention_and_emits_auditable_event() -> None:
     assert backend._applied_h2_interventions == {"probe:turn:1"}
     assert emitted[0].event_type == "H2_NATIVE_PREFIX_INTERVENTION"
     assert emitted[0].payload.to_dict()["selected_positions"] == [0, 1]
+
+
+def test_h2_mechanism_only_emits_lifecycle_without_ttl_runtime() -> None:
+    emitted = []
+    backend = MinimalMetalObservabilityBackend.__new__(
+        MinimalMetalObservabilityBackend
+    )
+    backend._h2_native_mechanism_only = True
+    backend._sink = SimpleNamespace(emit=emitted.append)
+    backend._runtime = SimpleNamespace(
+        handle=lambda _event: pytest.fail("mechanism-only path called TTL runtime")
+    )
+
+    backend._handle_lifecycle(ProgramStarted(ProgramIdentity("probe"), 1.0))
+
+    assert emitted[0].event_type == "PROGRAM_STARTED"
+    assert emitted[0].program_id == ProgramIdentity("probe")

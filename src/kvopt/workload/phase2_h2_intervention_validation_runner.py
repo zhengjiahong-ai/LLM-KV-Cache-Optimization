@@ -67,7 +67,7 @@ def execute_h2_intervention_validation(
         raise ValueError("intervention validation authorization hash mismatch")
     probes = campaign.get("probes")
     if not isinstance(probes, list) or len(probes) != len(_PROBES):
-        raise ValueError("intervention validation requires exactly three probes")
+        raise ValueError("intervention validation requires the frozen probe set")
     campaign_dir = campaign_path.parent
     selected: list[tuple[Path, dict[str, object]]] = []
     for probe, frozen in zip(probes, _PROBES, strict=True):
@@ -85,7 +85,7 @@ def execute_h2_intervention_validation(
         expected_config = _mechanism_config(
             authorization,
             probe_id=probe_id,
-            prefix_tokens=512,
+            prefix_tokens=int(probe["prefix_tokens"]),
             trace_name=f"{probe_id}.trace.json",
             position=probe["position"],  # type: ignore[arg-type]
             count=int(probe["evicted_blocks"]),
@@ -107,7 +107,7 @@ def execute_h2_intervention_validation(
             raise ValueError("intervention validation trace hash mismatch")
         if json.loads(trace_path.read_text(encoding="utf-8")) != _trace(
             probe_id,
-            512,
+            int(probe["prefix_tokens"]),
         ).to_dict():
             raise ValueError("intervention validation trace differs from design")
         selected.append((config_path, probe))
