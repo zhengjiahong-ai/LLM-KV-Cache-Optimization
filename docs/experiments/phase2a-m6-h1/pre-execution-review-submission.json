@@ -1,0 +1,95 @@
+{
+  "authorization_request": {
+    "formal_h1_outcome_execution": false,
+    "requested_decisions": [
+      "Confirm whether the frozen 24-token support must be replaced by an aligned value and rematerialized under a new seal.",
+      "Specify the authorized runtime mechanism for per-candidate eta and queue delay, shared ownership, repeated pressure, and multi-release semantics.",
+      "Confirm the evidence tier when no authorized challenger runtime-policy switch exists."
+    ],
+    "status": "BLOCKED_PENDING_M1_RUNTIME_COMPILATION_AND_EVIDENCE_TIER_RULING"
+  },
+  "baseline_epsilon": {
+    "audit_path": "docs/experiments/phase2a-m6-h1/baseline-epsilon-audit.json",
+    "audit_sha256": "20875488eba6d3a8e03cc0b90bc8fd3d209cd88d582378d0056986205e40c9df",
+    "epsilon_latency_seconds": 0.008793766604503617,
+    "native_full_hit_repeats": 5,
+    "outcome": "PASS",
+    "raw_report_path": "artifacts/phase2a-h1-identical-baseline-runs-v1/baseline-calibration-report.json",
+    "raw_report_sha256": "bfb19daae7a4f8ceebb1ae4191aeadec09fd50b65bf19d98137da8dfa074df89"
+  },
+  "feature_missingness": {
+    "contract_sha256": "6911b404e275593ef7aa59c848b2dd955330bdbf8d7776b408493546f9cacbc3",
+    "implementation_sha256": "ccd2a70a2a82b7228f63de38af84bf87c4c0453cd08f2de7c8d87ccbf9255f84",
+    "issue": 34,
+    "status": "IMPLEMENTED_AND_TESTED",
+    "test_sha256": "2bf301cbe2e188c04fd5184c20f63c54a31fb3fe44c2bae6c29e17e24b9ee2d4"
+  },
+  "formal_h1_outcome_execution_authorized": false,
+  "level_b_seam": {
+    "formal_h1_evidence": false,
+    "status": "PASS",
+    "summary_path": "docs/experiments/phase2a-m6-level-b/seam-validation-summary.json",
+    "summary_sha256": "57efe17891e269163182ba163eba467ca286453963ed0cea0acd8004d978f0ef"
+  },
+  "runtime_feasibility_audit": {
+    "blocking_findings": [
+      {
+        "affected_scenario_count": 7,
+        "finding": "The frozen distribution includes 24-token prefixes, while the pinned backend requires prefix sizes to be divisible by its 16-token KV block size.",
+        "scenario_ids": [
+          "h1-f1-draw-04",
+          "h1-f4-draw-03",
+          "h1-f4-draw-06",
+          "h1-f5-draw-04",
+          "h1-f5-draw-06",
+          "h1-f6-draw-01",
+          "h1-f6-draw-03"
+        ]
+      },
+      {
+        "finding": "The sealed abstract scenarios encode per-candidate eta and queue delay, shared ownership, repeated pressure, multi-release, concurrency, and lifecycle variation, but no reviewed compiler currently maps all fields to executable Phase 2 traces/configuration without fallback."
+      },
+      {
+        "finding": "The native observation seam measures executed baseline requests, but no authorized H1 challenger runtime-policy switch exists; counterfactual challenger recomputation must not be fabricated from baseline or planned-return data."
+      }
+    ],
+    "outcome": "NOT_EXECUTABLE_WITHOUT_RULING",
+    "policy_switch_implemented": false
+  },
+  "rule_and_protocol_bindings": {
+    "acceptance_implementation_sha256": "1e24949da326c1e5db154674461c9fd53ae5aa804938e708f471d6d710bc8438",
+    "acceptance_protocol_sha256": "ee8d3fdde625c9c6fe50ce56e0d208116fc2118679c7548980438fbd922c2598",
+    "preregistration_implementation_sha256": "a28d6c8b8ad06391b12f6e303452677253868cfafba19c549fe6a9822af830d0",
+    "rule_id": "H1_R1_reverse_deadline",
+    "rule_implementation_sha256": "7772446ea61b0705b3d7df61a895175210eaeb57112e9795167d966107b52a9d"
+  },
+  "scenario_seal": {
+    "corner_case_counts": {
+      "multi_release": 31,
+      "near_horizon": 29,
+      "no_return_within_trace": 16,
+      "repeated_pressure": 15,
+      "shared_prefix": 8
+    },
+    "distribution_manifest_sha256": "e4d1adf1bcdf60428605e77e24e91ad9a830ad9f64d0f333abe48afa766fbba2",
+    "family_draws": {
+      "F1": 7,
+      "F2": 7,
+      "F3": 7,
+      "F4": 7,
+      "F5": 7,
+      "F6": 7
+    },
+    "materialization_freeze_sha256": "cf52dd5385513de22a9e5996d3728eeffb59f54bc81c68dd6c8104cd44055e92",
+    "runtime_seeds": [101, 211, 307],
+    "runtime_seeds_are_independent_samples": false,
+    "sampler_seed": 20261007,
+    "scenario_count": 42,
+    "scenario_manifest_sha256": "047dadce1ba1ccb8b7d45d4539e04132c6fb2b3ff567770f3a591b1e93cda527",
+    "seal_sha256": "8cbb30edd82a8ca8ba0ab4c9642567799e8022f4eaf3288ce5135a29a5c3ab76",
+    "structurally_unique_count": 42
+  },
+  "schema_version": "phase2a.h1_pre_execution_review_submission.v1",
+  "source_commit": "480cb5abd015491938a1a94a15ca37a4cc159adc",
+  "submission_scope": "PRE_EXECUTION_ONLY"
+}
