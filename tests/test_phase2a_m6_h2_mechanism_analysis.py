@@ -11,6 +11,10 @@ HANDOFF = (
     Path(__file__).parents[1]
     / "docs/experiments/phase2a-m6-h2/formal-m2-m3-evidence-handoff.json"
 )
+VERDICT = (
+    Path(__file__).parents[1]
+    / "docs/experiments/phase2a-m6-h2/formal-m2-m3-verdict.json"
+)
 
 
 def test_m2_exact_native_token_rule_produces_pending_review_pass() -> None:
@@ -99,3 +103,15 @@ def test_formal_m2_m3_handoff_keeps_archive_out_of_git() -> None:
     assert handoff["handling"]["raw_artifacts_modified"] is False
     assert handoff["security_scan"]["credential_value_matches"] == 0
     assert handoff["authorization_state"]["formal_verdict_authorized"] is False
+
+
+def test_formal_m2_m3_verdict_binds_the_reviewed_seal() -> None:
+    verdict = json.loads(VERDICT.read_text(encoding="utf-8"))
+
+    assert verdict["status"] == {"M2": "PASS", "M3": "PASS"}
+    assert verdict["review_record"]["scope"] == "sealed H2 M2/M3 evidence only"
+    assert verdict["evidence_bindings"]["seal_sha256"] == (
+        "fc81472ee086692835efdbae178850f4497c2cb8f1e866894e9a4a1716097fb4"
+    )
+    assert verdict["authorization_state"]["remaining_measurements"] == ["M1", "M4"]
+    assert verdict["authorization_state"]["b1_authorized"] is False

@@ -1,0 +1,30 @@
+{
+  "authorization_state": {
+    "b1_authorized": false,
+    "formal_h2_verdict_complete": false,
+    "remaining_measurements": [
+      "M1",
+      "M4"
+    ]
+  },
+  "evidence_bindings": {
+    "evidence_archive_sha256": "63d2d197b3a46d26a8705a0c612aa97238a6f05c3f85cb9810f81a81a04346fe",
+    "evidence_handoff_sha256": "8efb85978eb7ffc975a99f251e09464763ba0046490ac1bf9b72bb8f036784a4",
+    "m2_outcome_sha256": "b0f36a90b1c056b4abfece47483fd789af8170303c84eb4563fbdd92ef97b6a3",
+    "m3_outcome_sha256": "568aad9bd6a4a544203d524e7c337c96480a35306b9ad33ddcd5cc8db5b8ee15",
+    "provenance_sha256": "cd59643cb96175edec39f86843bf1d4c669011fd3b2eef20ce93199c5e149891",
+    "review_submission_sha256": "ff0f609011ceb8e9fc3bf22606d3352c7e38feb3af1139dbaf1c892511d97cd1",
+    "seal_sha256": "fc81472ee086692835efdbae178850f4497c2cb8f1e866894e9a4a1716097fb4"
+  },
+  "review_record": {
+    "recorded_at": "2026-10-08",
+    "review_authority": "M1/M4",
+    "source": "project-owner supplied formal review disposition",
+    "scope": "sealed H2 M2/M3 evidence only"
+  },
+  "schema_version": "phase2a.h2_formal_m2_m3_verdict.v1",
+  "status": {
+    "M2": "PASS",
+    "M3": "PASS"
+  }
+}
