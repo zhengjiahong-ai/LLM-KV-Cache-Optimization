@@ -46,6 +46,10 @@ from kvopt.profiling.experiment_events import (
     ExperimentEventSink,
     ExperimentForcedReleaseObserver,
 )
+from kvopt.runtime.vllm.h2_intervention import (
+    NativeBlockPoolCapture,
+    invalidate_prefix_positions,
+)
 from kvopt.runtime.vllm.observer import install_retention_hook
 from kvopt.runtime.vllm.prefill_timing import IsolatedPrefillTimingHook
 from kvopt.runtime.vllm.retention_integration import RetentionRuntimeIntegration
@@ -161,6 +165,34 @@ def _pressure_stage_sizes(options: Mapping[str, object]) -> dict[str, int]:
             )
         sizes[stage_id] = size
     return sizes
+
+
+def _h2_native_prefix_interventions(
+    options: Mapping[str, object],
+) -> dict[str, tuple[str, int]]:
+    raw = options.get("h2_native_prefix_interventions", {})
+    if not isinstance(raw, Mapping):
+        raise TypeError(
+            "backend_options.h2_native_prefix_interventions must be an object"
+        )
+    interventions: dict[str, tuple[str, int]] = {}
+    for request_id, value in raw.items():
+        if not isinstance(request_id, str) or not request_id.strip():
+            raise ValueError("H2 intervention keys must be non-empty request IDs")
+        if not isinstance(value, Mapping):
+            raise TypeError(f"H2 intervention {request_id!r} must be an object")
+        if set(value) != {"position", "count"}:
+            raise ValueError(
+                f"H2 intervention {request_id!r} must contain only position and count"
+            )
+        position = value["position"]
+        count = value["count"]
+        if position not in {"leading", "trailing"}:
+            raise ValueError("H2 intervention position must be leading or trailing")
+        if isinstance(count, bool) or not isinstance(count, int) or count < 0:
+            raise ValueError("H2 intervention count must be a non-negative integer")
+        interventions[request_id] = (position, count)
+    return interventions
 
 
 def _required_max_model_len(
@@ -361,6 +393,15 @@ class MinimalMetalObservabilityBackend:
                 "backend_options.capture_terminal_prefix_snapshot must be bool"
             )
         self._capture_terminal_prefix_snapshot = terminal_snapshot
+        self._h2_interventions = _h2_native_prefix_interventions(options)
+        self._applied_h2_interventions: set[str] = set()
+        if self._h2_interventions and config.get("campaign_kind") not in {
+            "h2_formal_measurement",
+            "h2_intervention_validation",
+        }:
+            raise ValueError(
+                "native H2 interventions are restricted to H2 measurement campaigns"
+            )
         block_override = _positive_int(
             config["cache"]["block_override"],  # type: ignore[index]
             "config.cache.block_override",
@@ -523,10 +564,11 @@ class MinimalMetalObservabilityBackend:
             self._registry,
             self._native_observations.append,
         )
+        self._native_pool_capture = NativeBlockPoolCapture(recorder)
         bindings = observation_helpers.build_vllm_hook_bindings(Scheduler, BlockPool)
         self._observation_hooks = observation_helpers.ObservationHookSet(
             bindings,
-            recorder,
+            self._native_pool_capture,
             enabled=True,
         )
         self._observation_hooks.__enter__()
@@ -633,6 +675,9 @@ class MinimalMetalObservabilityBackend:
                     "pressure_prompt_tokens": self._pressure_tokens,
                     "pressure_stage_prompt_tokens": self._pressure_stage_tokens,
                     "execute_planned_timing": self._execute_planned_timing,
+                    "h2_native_prefix_intervention_count": len(
+                        self._h2_interventions
+                    ),
                     "gpu_memory_utilization": gpu_memory_utilization,
                 },
             )
@@ -960,7 +1005,13 @@ class MinimalMetalObservabilityBackend:
         native_id: str,
         *,
         expected_token_count: int,
-    ) -> tuple[PrefixIdentity, int, tuple[BlockIdentity, ...]]:
+    ) -> tuple[
+        PrefixIdentity,
+        int,
+        tuple[BlockIdentity, ...],
+        tuple[int, ...],
+        tuple[bytes, ...],
+    ]:
         prefix_value, token_count, block_ids, hashes = self._coherent_snapshot(
             self._native_observations,
             native_id,
@@ -998,7 +1049,46 @@ class MinimalMetalObservabilityBackend:
                 },
             )
         )
-        return prefix, token_count, blocks
+        return prefix, token_count, blocks, tuple(block_ids), tuple(hashes)
+
+    def _apply_h2_intervention(
+        self,
+        request: PlannedRequest,
+        prefix: PrefixIdentity,
+        block_ids: tuple[int, ...],
+        cache_keys: tuple[bytes, ...],
+    ) -> None:
+        spec = self._h2_interventions.get(request.request_id)
+        if spec is None:
+            return
+        if request.request_id in self._applied_h2_interventions:
+            raise RuntimeError("H2 native prefix intervention was applied twice")
+        if request.is_terminal:
+            raise ValueError("H2 native prefix intervention requires a return request")
+        pool = self._native_pool_capture.pool
+        if pool is None:
+            raise RuntimeError("native BlockPool was not observed before H2 intervention")
+        position, count = spec
+        result = invalidate_prefix_positions(
+            pool,
+            block_ids,
+            cache_keys,
+            position=position,
+            count=count,
+        )
+        self._applied_h2_interventions.add(request.request_id)
+        self._sink.emit(
+            ExperimentEvent.create(
+                event_type="H2_NATIVE_PREFIX_INTERVENTION",
+                timestamp=self._clock.now(),
+                clock_domain="system_monotonic",
+                source="phase2.minimal_metal",
+                program_id=ProgramIdentity(request.program_id),
+                request_id=RequestIdentity(request.request_id),
+                prefix_id=prefix,
+                payload=result,
+            )
+        )
 
     def _execute_turn(self, request: PlannedRequest) -> None:
         self._wait_for_planned_arrival(request)
@@ -1040,7 +1130,7 @@ class MinimalMetalObservabilityBackend:
             )
             self._runtime.handle(ProgramCompleted(program, finished_at))
             return
-        prefix, token_count, blocks = self._prefix_snapshot(
+        prefix, token_count, blocks, block_ids, cache_keys = self._prefix_snapshot(
             request,
             native_id,
             expected_token_count=prefix_tokens,
@@ -1075,6 +1165,12 @@ class MinimalMetalObservabilityBackend:
                 blocks,
                 finished_at,
             )
+        )
+        self._apply_h2_intervention(
+            request,
+            prefix,
+            block_ids,
+            cache_keys,
         )
         self._runtime.handle(
             TurnFinished(
