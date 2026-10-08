@@ -13,6 +13,10 @@ from kvopt.workload.phase2_h2_intervention_validation_runner import (
 AUTHORIZATION = (
     Path(__file__).parents[1] / "configs/phase2/h2-measurement-authorization.json"
 )
+AUDIT = (
+    Path(__file__).parents[1]
+    / "docs/experiments/phase2a-m6-h2/native-intervention-validation.json"
+)
 
 
 def test_h2_intervention_validation_is_small_and_non_formal(tmp_path: Path) -> None:
@@ -62,3 +66,21 @@ def test_h2_intervention_validation_rejects_changed_config(
             tmp_path / "runs",
         )
     assert not (tmp_path / "runs").exists()
+
+
+def test_h2_intervention_validation_audit_preserves_non_formal_scope() -> None:
+    audit = json.loads(AUDIT.read_text(encoding="utf-8"))
+
+    assert audit["outcome"] == "PASS"
+    assert audit["successful_run_count"] == 3
+    assert audit["authorization_state"] == {
+        "b1_authorized": False,
+        "formal_measurement": False,
+        "formal_verdict": False,
+    }
+    assert [probe["observed_cached_prefix_tokens"] for probe in audit["probes"]] == [
+        512,
+        448,
+        0,
+    ]
+    assert all(len(probe["events_sha256"]) == 64 for probe in audit["probes"])
