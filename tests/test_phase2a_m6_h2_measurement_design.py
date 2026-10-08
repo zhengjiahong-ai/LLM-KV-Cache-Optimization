@@ -5,8 +5,10 @@ import pytest
 
 from kvopt.workload.phase2_h2_design import (
     H2MeasurementDesignError,
+    load_h2_final_freeze_record,
     load_h2_formal_freeze_spec,
     load_h2_measurement_design,
+    validate_h2_final_freeze_record,
     validate_h2_formal_freeze_spec,
     validate_h2_measurement_design,
 )
@@ -18,6 +20,7 @@ DESIGN = (
     / "h2-measurement-design.json"
 )
 FREEZE_SPEC = DESIGN.with_name("h2-formal-freeze-spec.json")
+FINAL_FREEZE = DESIGN.with_name("h2-final-freeze-record.json")
 
 
 def test_h2_design_covers_long_context_and_partial_prefix_controls() -> None:
@@ -104,3 +107,27 @@ def test_h2_formal_freeze_rejects_changed_reproducibility_rule() -> None:
 
     with pytest.raises(H2MeasurementDesignError, match="8-of-9"):
         validate_h2_formal_freeze_spec(invalid)
+
+
+def test_h2_final_freeze_records_delta_but_awaits_review() -> None:
+    record = load_h2_final_freeze_record(
+        FINAL_FREEZE,
+        freeze_spec_path=FREEZE_SPEC,
+    )
+
+    assert record["delta_M1_seconds"] == pytest.approx(0.19029591700382298)
+    assert record["formal_measured_repeats"] == 9
+    assert record["calibration_run_count"] == 56
+    assert record["calibration_measured_run_count"] == 40
+    assert not record["formal_measurement_authorized"]
+    assert not record["formal_verdict_authorized"]
+    assert not record["b1_method_or_implementation_authorized"]
+
+
+def test_h2_final_freeze_rejects_premature_authority() -> None:
+    record = load_h2_final_freeze_record(FINAL_FREEZE)
+    invalid = copy.deepcopy(record)
+    invalid["formal_measurement_authorized"] = True
+
+    with pytest.raises(H2MeasurementDesignError, match="must remain false"):
+        validate_h2_final_freeze_record(invalid)

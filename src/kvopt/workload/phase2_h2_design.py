@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Mapping
 from pathlib import Path
@@ -67,6 +68,31 @@ def load_h2_formal_freeze_spec(path: str | Path) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise H2MeasurementDesignError("H2 formal freeze spec must be an object")
     validate_h2_formal_freeze_spec(payload)
+    return payload
+
+
+def load_h2_final_freeze_record(
+    path: str | Path,
+    *,
+    freeze_spec_path: str | Path | None = None,
+    calibration_report_path: str | Path | None = None,
+) -> dict[str, Any]:
+    """Load the final-review record and optionally verify its bound artifacts."""
+
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise H2MeasurementDesignError("H2 final freeze record must be an object")
+    validate_h2_final_freeze_record(payload)
+    bindings = (
+        (freeze_spec_path, "formal_freeze_spec_sha256"),
+        (calibration_report_path, "isolated_calibration_report_sha256"),
+    )
+    for artifact_path, hash_key in bindings:
+        if artifact_path is None:
+            continue
+        actual = hashlib.sha256(Path(artifact_path).read_bytes()).hexdigest()
+        if payload[hash_key] != actual:
+            raise H2MeasurementDesignError(f"{hash_key} does not match artifact")
     return payload
 
 
@@ -224,3 +250,51 @@ def validate_h2_formal_freeze_spec(spec: Mapping[str, Any]) -> None:
         "single_prefix_native_lru_entry_path_vs_controlled_trailing_j_oracle"
     ):
         raise H2MeasurementDesignError("M4 single-prefix comparator is not frozen")
+
+
+def validate_h2_final_freeze_record(record: Mapping[str, Any]) -> None:
+    """Validate calibration closure while retaining the final review gate."""
+
+    if record.get("schema_version") != "phase2a.h2_final_freeze_record.v1":
+        raise H2MeasurementDesignError("unsupported H2 final freeze record schema")
+    if record.get("status") != "AWAITING_M1_M4_FINAL_REVIEW":
+        raise H2MeasurementDesignError("H2 final freeze record must await review")
+    for key in (
+        "formal_measurement_authorized",
+        "formal_verdict_authorized",
+        "b1_method_or_implementation_authorized",
+    ):
+        if record.get(key) is not False:
+            raise H2MeasurementDesignError(f"{key} must remain false before review")
+    if record.get("formal_measured_repeats") != 9:
+        raise H2MeasurementDesignError("final freeze must retain nine repeats")
+    delta = record.get("delta_M1_seconds")
+    if (
+        isinstance(delta, bool)
+        or not isinstance(delta, (int, float))
+        or not 0 < float(delta) < 1
+    ):
+        raise H2MeasurementDesignError("delta_M1_seconds must be in (0, 1)")
+    if record.get("primary_observation") != (
+        "isolated_native_prefill_elapsed_seconds"
+    ):
+        raise H2MeasurementDesignError("final freeze has the wrong primary observation")
+    if record.get("calibration_run_count") != 56:
+        raise H2MeasurementDesignError("final freeze requires all 56 calibration runs")
+    if record.get("calibration_measured_run_count") != 40:
+        raise H2MeasurementDesignError("final freeze requires 40 measured runs")
+    if record.get("calibration_git_dirty") is not False:
+        raise H2MeasurementDesignError("final freeze requires a clean calibration")
+    for key in (
+        "formal_freeze_spec_sha256",
+        "isolated_calibration_campaign_sha256",
+        "isolated_calibration_execution_sha256",
+        "isolated_calibration_report_sha256",
+        "calibration_code_git_sha",
+        "vllm_metal_source_commit",
+        "model_revision",
+        "tokenizer_revision",
+    ):
+        value = record.get(key)
+        if not isinstance(value, str) or not value:
+            raise H2MeasurementDesignError(f"{key} must be non-empty text")
