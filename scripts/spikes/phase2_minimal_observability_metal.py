@@ -10,9 +10,11 @@ from __future__ import annotations
 
 import hashlib
 import importlib
+import json
 import math
 import os
 import time
+from bisect import bisect_right
 from collections.abc import Mapping
 from importlib.metadata import version as distribution_version
 from pathlib import Path
@@ -41,6 +43,7 @@ from kvopt.continuum import (
     TurnFinished,
 )
 from kvopt.continuum.composition import build_runtime_from_config
+from kvopt.continuum.runtime import build_runtime
 from kvopt.profiling.experiment_events import (
     ExperimentEvent,
     ExperimentEventSink,
@@ -58,6 +61,67 @@ from kvopt.workload.phase2 import PlannedRequest
 
 _TARGET_PREFIX_TOKENS = 256
 _PRESSURE_TOKENS = 512
+
+
+class _H2M4MeasuredPrefillProvider:
+    """M1-backed TTL input used only to execute the frozen M4 entry path."""
+
+    def __init__(self, token_counts: tuple[int, ...], seconds: tuple[float, ...]) -> None:
+        self._token_counts = token_counts
+        self._seconds = seconds
+
+    def estimate(self, token_count: int) -> tuple[float, InputProvenance]:
+        if token_count < self._token_counts[0] or token_count > self._token_counts[-1]:
+            raise ValueError("H2 M4 token count is outside the measured M1 grid")
+        index = bisect_right(self._token_counts, token_count)
+        if index and self._token_counts[index - 1] == token_count:
+            seconds = self._seconds[index - 1]
+        else:
+            lower = index - 1
+            upper = index
+            fraction = (
+                (token_count - self._token_counts[lower])
+                / (self._token_counts[upper] - self._token_counts[lower])
+            )
+            seconds = self._seconds[lower] + fraction * (
+                self._seconds[upper] - self._seconds[lower]
+            )
+        return seconds, InputProvenance(
+            InputSource.APPROXIMATED,
+            "formal H2 M1 isolated native-prefill median curve",
+        )
+
+
+def _h2_m4_prefill_provider(
+    options: Mapping[str, object],
+) -> _H2M4MeasuredPrefillProvider | None:
+    raw_path = options.get("h2_m4_prefill_curve_path")
+    raw_sha = options.get("h2_m4_prefill_curve_sha256")
+    if raw_path is None and raw_sha is None:
+        return None
+    if not isinstance(raw_path, str) or not raw_path or not isinstance(raw_sha, str):
+        raise TypeError("H2 M4 prefill curve path and SHA-256 must be non-empty text")
+    path = _resolve_repo_path(raw_path, "backend_options.h2_m4_prefill_curve_path")
+    if hashlib.sha256(path.read_bytes()).hexdigest() != raw_sha:
+        raise ValueError("H2 M4 prefill curve SHA-256 mismatch")
+    outcome = json.loads(path.read_text(encoding="utf-8"))
+    if (
+        outcome.get("schema_version") != "phase2a.h2_formal_m1_outcome.v1"
+        or outcome.get("primary_observation") != "isolated_native_prefill_elapsed_seconds"
+        or outcome.get("candidate_outcome") != "PASS_PENDING_REVIEW"
+    ):
+        raise ValueError("H2 M4 requires the sealed formal M1 candidate outcome")
+    points = outcome.get("point_summaries")
+    if not isinstance(points, list) or len(points) != 17:
+        raise ValueError("H2 M4 prefill curve must contain the frozen 17-point grid")
+    tokens = tuple(point["prefix_tokens"] for point in points)
+    seconds = tuple(
+        float(point["isolated_native_prefill"]["median_seconds"])
+        for point in points
+    )
+    return _H2M4MeasuredPrefillProvider(tokens, seconds)
+
+
 _BLOCK_SIZE = 16
 _DEFAULT_BLOCK_OVERRIDE = 64
 _DEFAULT_MAX_MODEL_LEN = _PRESSURE_TOKENS + _BLOCK_SIZE
@@ -378,6 +442,11 @@ class MinimalMetalObservabilityBackend:
         if not isinstance(timing, bool):
             raise TypeError("backend_options.execute_planned_timing must be bool")
         self._execute_planned_timing = timing
+        h2_m4_prefill_provider = _h2_m4_prefill_provider(options)
+        if h2_m4_prefill_provider is not None and config.get("campaign_kind") != (
+            "h2_formal_measurement"
+        ):
+            raise ValueError("H2 M4 measured prefill curve is restricted to formal H2")
         isolated_prefill_timing = options.get(
             "isolated_native_prefill_timing", False
         )
@@ -451,10 +520,19 @@ class MinimalMetalObservabilityBackend:
             prefill_profile_path=str(profile_path),
             prefill_profile_version="v1",
         )
-        self._runtime = build_runtime_from_config(
-            config=continuum_config,
-            clock=self._clock,
-            experiment_event_sink=sink,
+        self._runtime = (
+            build_runtime(
+                clock=self._clock,
+                prefill_reload_provider=h2_m4_prefill_provider,
+                default_ttl_seconds=30.0,
+                experiment_event_sink=sink,
+            )
+            if h2_m4_prefill_provider is not None
+            else build_runtime_from_config(
+                config=continuum_config,
+                clock=self._clock,
+                experiment_event_sink=sink,
+            )
         )
         self._forced_release_observer = _CountingForcedReleaseObserver(sink)
         self._retention_integration = _ObservedRetentionIntegration(
@@ -691,6 +769,7 @@ class MinimalMetalObservabilityBackend:
                         self._h2_interventions
                     ),
                     "h2_native_mechanism_only": self._h2_native_mechanism_only,
+                    "h2_m4_prefill_curve_bound": h2_m4_prefill_provider is not None,
                     "gpu_memory_utilization": gpu_memory_utilization,
                 },
             )

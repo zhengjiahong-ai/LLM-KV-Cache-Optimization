@@ -17,6 +17,8 @@ from .phase2_h2_mechanism import (
 
 _PREFIX_GRID = (512, 2048, 8192, 24576)
 _EVICTION_GRID = (1, 4, 16)
+_M1_OUTCOME_PATH = "artifacts/phase2a-h2-formal-m1-outcome-v1/m1-outcome.json"
+_M1_OUTCOME_SHA256 = "5261a1616efe31c0d80a1ef28fb76e765e68072fb403720b7f4247f5323036df"
 
 
 def _runs(probe_id: str) -> list[dict[str, object]]:
@@ -57,6 +59,10 @@ def materialize_formal_m4(authorization_path: Path, output: Path) -> Path:
                         authorization, probe_id, prefix_tokens, evicted_blocks, trace_name
                     )
                     config["campaign_kind"] = "h2_formal_measurement"
+                    options = config["backend_options"]
+                    assert isinstance(options, dict)
+                    options["h2_m4_prefill_curve_path"] = _M1_OUTCOME_PATH
+                    options["h2_m4_prefill_curve_sha256"] = _M1_OUTCOME_SHA256
                     config["h2_measurement"] = {
                         **config["h2_measurement"],
                         "formal_measurement": True,

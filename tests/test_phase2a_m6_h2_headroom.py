@@ -31,3 +31,6 @@ def test_formal_m4_materializes_frozen_grid_and_repeats(tmp_path: Path) -> None:
             "warmup", "warmup", *("measured" for _ in range(9))
         ]
         assert {run["repeat_index"] for run in probe["runs"] if run["role"] == "measured"} == set(range(1, 10))
+        config = json.loads((campaign_path.parent / probe["config"]).read_text())
+        if probe["arm"] == "entry":
+            assert len(config["backend_options"]["h2_m4_prefill_curve_sha256"]) == 64

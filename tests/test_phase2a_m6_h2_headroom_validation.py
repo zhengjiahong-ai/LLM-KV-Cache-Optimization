@@ -4,6 +4,22 @@ from pathlib import Path
 from kvopt.workload.phase2_h2_headroom_validation import (
     materialize_h2_headroom_validation,
 )
+from scripts.spikes.phase2_minimal_observability_metal import (
+    _H2M4MeasuredPrefillProvider,
+)
+
+
+def test_h2_m4_measured_prefill_provider_interpolates_without_extrapolation() -> None:
+    provider = _H2M4MeasuredPrefillProvider((512, 2048), (0.05, 0.2))
+
+    exact, exact_provenance = provider.estimate(2048)
+    interpolated, _ = provider.estimate(1024)
+
+    assert exact == 0.2
+    assert interpolated == 0.1
+    assert exact_provenance.reason == (
+        "formal H2 M1 isolated native-prefill median curve"
+    )
 
 
 def test_headroom_validation_is_small_non_formal_and_paired(tmp_path: Path) -> None:
