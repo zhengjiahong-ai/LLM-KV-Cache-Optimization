@@ -2,6 +2,15 @@
 
 Status: **RULES FROZEN — ISOLATED-SEAM CALIBRATION STILL REQUIRED**
 
+Historical status: the calibration above has since completed. Its numeric
+resolution and evidence hashes are bound in
+`configs/phase2/h2-final-freeze-record.json`. Independent numeric reproduction
+passed using the 40 committed measurements in
+`docs/experiments/phase2a-m6-h2/isolated-calibration-numeric-audit.json`.
+`configs/phase2/h2-final-authorization-submission.json` records the subsequent
+submission for M1/M4 authorization. The earlier machine-readable rule spec is
+preserved byte-for-byte so its reviewed SHA-256 remains valid.
+
 This document records the exact M1/M4 ruling without overwriting the earlier
 calibration-stage design. Its machine-readable companion is
 `configs/phase2/h2-formal-freeze-spec.json`.
