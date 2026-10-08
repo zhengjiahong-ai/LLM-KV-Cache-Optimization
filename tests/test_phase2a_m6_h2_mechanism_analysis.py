@@ -7,6 +7,10 @@ SUBMISSION = (
     Path(__file__).parents[1]
     / "docs/experiments/phase2a-m6-h2/formal-m2-m3-review-submission.json"
 )
+HANDOFF = (
+    Path(__file__).parents[1]
+    / "docs/experiments/phase2a-m6-h2/formal-m2-m3-evidence-handoff.json"
+)
 
 
 def test_m2_exact_native_token_rule_produces_pending_review_pass() -> None:
@@ -84,3 +88,14 @@ def test_formal_m2_m3_submission_remains_pending_review() -> None:
         for key, value in submission["sealed_bundle"].items()
         if key.endswith("_sha256")
     )
+
+
+def test_formal_m2_m3_handoff_keeps_archive_out_of_git() -> None:
+    handoff = json.loads(HANDOFF.read_text(encoding="utf-8"))
+
+    assert handoff["archive"]["entry_count"] == 1737
+    assert len(handoff["archive"]["sha256"]) == 64
+    assert handoff["handling"]["archive_committed_to_git"] is False
+    assert handoff["handling"]["raw_artifacts_modified"] is False
+    assert handoff["security_scan"]["credential_value_matches"] == 0
+    assert handoff["authorization_state"]["formal_verdict_authorized"] is False
