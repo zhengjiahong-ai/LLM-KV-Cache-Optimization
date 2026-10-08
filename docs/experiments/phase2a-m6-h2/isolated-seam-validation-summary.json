@@ -1,0 +1,17 @@
+{
+  "code_git_dirty": false,
+  "code_git_sha": "bfba4eb39c8375e9503f887f7292cd33e512f5b9",
+  "events_jsonl_sha256": "1422340da4a28c7e0dbb23cb9b1e68189a36578fd5ecebfd012801f9866d75cf",
+  "formal_measurement": false,
+  "formal_verdict": false,
+  "native_prefill_to_first_token_seconds": 1.6676082909980323,
+  "native_queue_delay_seconds": 0.00013616700016427785,
+  "outcome": "PASS",
+  "prefix_tokens": 8192,
+  "primary_capability_status": "AVAILABLE",
+  "primary_observation": "isolated_native_prefill_elapsed_seconds",
+  "primary_observation_seconds": 1.626144458001363,
+  "run_id": "r8192-isolated-seam-validation",
+  "run_manifest_sha256": "c70de5216416dd1244802fe9892c78f77f2ee126b868b2a0c1a1228c3e658f0b",
+  "schema_version": "phase2a.h2_isolated_seam_validation_summary.v1"
+}

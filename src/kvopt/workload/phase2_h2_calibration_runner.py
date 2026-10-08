@@ -30,9 +30,11 @@ def _now() -> str:
 
 def _load_campaign(path: Path) -> dict[str, object]:
     value = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(value, dict) or value.get("schema_version") != (
-        "phase2a.h2_calibration_pilot.v1"
-    ):
+    supported_schemas = {
+        "phase2a.h2_calibration_pilot.v1",
+        "phase2a.h2_isolated_seam_calibration.v1",
+    }
+    if not isinstance(value, dict) or value.get("schema_version") not in supported_schemas:
         raise ValueError("unsupported H2 calibration campaign")
     if value.get("formal_measurement") is not False:
         raise ValueError("calibration campaign must not be formal measurement")

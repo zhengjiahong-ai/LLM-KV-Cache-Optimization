@@ -4,6 +4,9 @@ from pathlib import Path
 import pytest
 
 from kvopt.profiling.h2_calibration import _dispersion
+from kvopt.profiling.h2_isolated_calibration import (
+    bootstrap_median_resolution,
+)
 from kvopt.workload.phase2 import load_phase2_trace
 from kvopt.workload.phase2_h2_calibration import (
     materialize_h2_calibration_pilot,
@@ -11,10 +14,14 @@ from kvopt.workload.phase2_h2_calibration import (
 from kvopt.workload.phase2_h2_calibration_runner import (
     execute_h2_calibration_pilot,
 )
+from kvopt.workload.phase2_h2_isolated_calibration import (
+    materialize_h2_isolated_calibration,
+)
 
 ROOT = Path(__file__).parents[1]
 DESIGN = ROOT / "configs" / "phase2" / "h2-measurement-design.json"
 BASE_CONFIG = ROOT / "configs" / "phase2" / "metal-observability-config.json"
+FREEZE_SPEC = ROOT / "configs" / "phase2" / "h2-formal-freeze-spec.json"
 
 
 def test_h2_pilot_materializes_frozen_grid_without_verdict(
@@ -110,3 +117,58 @@ def test_calibration_dispersion_uses_median_center() -> None:
     assert summary["median_seconds"] == pytest.approx(1.2)
     assert summary["median_absolute_deviation_seconds"] == pytest.approx(0.1)
     assert summary["maximum_absolute_deviation_seconds"] == pytest.approx(2.8)
+
+
+def test_isolated_calibration_materializes_only_frozen_eight_points(
+    tmp_path: Path,
+) -> None:
+    manifest_path = materialize_h2_isolated_calibration(
+        FREEZE_SPEC,
+        BASE_CONFIG,
+        tmp_path / "isolated",
+    )
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+    assert manifest["schema_version"] == (
+        "phase2a.h2_isolated_seam_calibration.v1"
+    )
+    assert [point["prefix_tokens"] for point in manifest["points"]] == [
+        8192,
+        12288,
+        16384,
+        20480,
+        24576,
+        26624,
+        28672,
+        30720,
+    ]
+    assert manifest["warmup_repeats_per_point"] == 2
+    assert manifest["measured_repeats_per_point"] == 5
+    assert manifest["planned_run_count"] == 56
+    assert not manifest["formal_measurement"]
+    assert not manifest["formal_verdict"]
+    for point in manifest["points"]:
+        config = json.loads(
+            (manifest_path.parent / point["config"]).read_text(encoding="utf-8")
+        )
+        assert config["backend_options"]["isolated_native_prefill_timing"]
+
+
+def test_bootstrap_median_resolution_is_deterministic() -> None:
+    values = [1.0, 1.1, 1.2, 1.3, 1.4]
+
+    first = bootstrap_median_resolution(
+        values,
+        iterations=10_000,
+        resample_size=9,
+        seed=20_261_007,
+    )
+    second = bootstrap_median_resolution(
+        values,
+        iterations=10_000,
+        resample_size=9,
+        seed=20_261_007,
+    )
+
+    assert first == second
+    assert first == pytest.approx(0.1)

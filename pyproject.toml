@@ -18,6 +18,8 @@ kvopt-level-b-seam-report = "kvopt.profiling.level_b_validation:main"
 kvopt-h2-calibration-generate = "kvopt.workload.phase2_h2_calibration:main"
 kvopt-h2-calibration-run = "kvopt.workload.phase2_h2_calibration_runner:main"
 kvopt-h2-calibration-report = "kvopt.profiling.h2_calibration:main"
+kvopt-h2-isolated-calibration-generate = "kvopt.workload.phase2_h2_isolated_calibration:main"
+kvopt-h2-isolated-calibration-report = "kvopt.profiling.h2_isolated_calibration:main"
 kvopt-m4-offline = "kvopt.costaware.cli:main"
 
 [project.optional-dependencies]
