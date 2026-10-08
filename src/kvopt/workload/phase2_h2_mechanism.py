@@ -162,10 +162,11 @@ def _mechanism_config(
     trace_name: str,
     position: str | None,
     count: int,
+    campaign_kind: str = "h2_formal_measurement",
 ) -> dict[str, object]:
     config = _authorized_base_config(authorization, prefix_tokens)
     config["trace"] = trace_name
-    config["campaign_kind"] = "h2_formal_measurement"
+    config["campaign_kind"] = campaign_kind
     config["h2_measurement"] = {
         "probe_id": probe_id,
         "prefix_tokens": prefix_tokens,

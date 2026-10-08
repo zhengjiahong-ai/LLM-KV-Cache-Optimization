@@ -1,0 +1,64 @@
+import json
+from pathlib import Path
+
+import pytest
+
+from kvopt.workload.phase2_h2_intervention_validation import (
+    materialize_h2_intervention_validation,
+)
+from kvopt.workload.phase2_h2_intervention_validation_runner import (
+    execute_h2_intervention_validation,
+)
+
+AUTHORIZATION = (
+    Path(__file__).parents[1] / "configs/phase2/h2-measurement-authorization.json"
+)
+
+
+def test_h2_intervention_validation_is_small_and_non_formal(tmp_path: Path) -> None:
+    campaign_path = materialize_h2_intervention_validation(
+        AUTHORIZATION,
+        tmp_path / "validation",
+    )
+    campaign = json.loads(campaign_path.read_text(encoding="utf-8"))
+
+    assert campaign["planned_run_count"] == 3
+    assert not campaign["formal_measurement"]
+    assert not campaign["formal_verdict"]
+    assert [
+        probe["expected_cached_prefix_tokens"] for probe in campaign["probes"]
+    ] == [512, 448, 0]
+    assert [probe["position"] for probe in campaign["probes"]] == [
+        None,
+        "trailing",
+        "leading",
+    ]
+    for probe in campaign["probes"]:
+        config = json.loads(
+            (campaign_path.parent / probe["config"]).read_text(encoding="utf-8")
+        )
+        assert config["campaign_kind"] == "h2_intervention_validation"
+        assert not config["backend_options"]["isolated_native_prefill_timing"]
+
+
+def test_h2_intervention_validation_rejects_changed_config(
+    tmp_path: Path,
+) -> None:
+    campaign_path = materialize_h2_intervention_validation(
+        AUTHORIZATION,
+        tmp_path / "validation",
+    )
+    config_path = campaign_path.parent / "h2v-leading-j4.config.json"
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    config["backend_options"]["h2_native_prefix_interventions"][
+        "h2v-leading-j4:turn:1"
+    ]["count"] = 1
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="config hash mismatch"):
+        execute_h2_intervention_validation(
+            campaign_path,
+            AUTHORIZATION,
+            tmp_path / "runs",
+        )
+    assert not (tmp_path / "runs").exists()
