@@ -1,4 +1,12 @@
+import json
+from pathlib import Path
+
 from kvopt.profiling.h2_mechanism import _m2_outcome, _m3_outcome
+
+SUBMISSION = (
+    Path(__file__).parents[1]
+    / "docs/experiments/phase2a-m6-h2/formal-m2-m3-review-submission.json"
+)
 
 
 def test_m2_exact_native_token_rule_produces_pending_review_pass() -> None:
@@ -55,3 +63,24 @@ def test_m3_frozen_position_rule_produces_pending_review_pass() -> None:
     assert outcome["no_resolved_effect_cell_count"] == 0
     assert all(cell["supporting_repetition_count"] == 9 for cell in outcome["cell_results"])
     assert not outcome["formal_verdict_authorized"]
+
+
+def test_formal_m2_m3_submission_remains_pending_review() -> None:
+    submission = json.loads(SUBMISSION.read_text(encoding="utf-8"))
+
+    assert submission["review_state"] == "PENDING_M1_M4_FORMAL_VERDICT_REVIEW"
+    assert submission["candidate_outcomes"]["M2"]["candidate_outcome"] == (
+        "PASS_PENDING_REVIEW"
+    )
+    assert submission["candidate_outcomes"]["M3"]["supporting_cell_count"] == 12
+    assert submission["excluded_infrastructure_attempts"]["count"] == 2
+    assert submission["authorization_state"] == {
+        "b1_authorized": False,
+        "formal_measurement": True,
+        "formal_verdict_authorized": False,
+    }
+    assert all(
+        len(value) == 64
+        for key, value in submission["sealed_bundle"].items()
+        if key.endswith("_sha256")
+    )
