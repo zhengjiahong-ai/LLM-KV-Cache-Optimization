@@ -17,6 +17,10 @@ AUDIT = (
     Path(__file__).parents[1]
     / "docs/experiments/phase2a-m6-h2/native-intervention-validation.json"
 )
+AUDIT_V2 = (
+    Path(__file__).parents[1]
+    / "docs/experiments/phase2a-m6-h2/native-intervention-validation-v2.json"
+)
 
 
 def test_h2_intervention_validation_is_small_and_non_formal(tmp_path: Path) -> None:
@@ -85,3 +89,17 @@ def test_h2_intervention_validation_audit_preserves_non_formal_scope() -> None:
         0,
     ]
     assert all(len(probe["events_sha256"]) == 64 for probe in audit["probes"])
+
+
+def test_h2_intervention_validation_v2_binds_long_context_fix() -> None:
+    audit = json.loads(AUDIT_V2.read_text(encoding="utf-8"))
+
+    assert audit["outcome"] == "PASS"
+    assert audit["successful_run_count"] == 4
+    assert audit["authorization_state"]["formal_measurement"] is False
+    assert audit["prior_formal_attempt"]["disposition"].endswith("DO_NOT_RESUME")
+    long_context = [
+        probe for probe in audit["probes"] if probe["prefix_tokens"] == 1024
+    ]
+    assert len(long_context) == 1
+    assert long_context[0]["observed_cached_prefix_tokens"] == 0

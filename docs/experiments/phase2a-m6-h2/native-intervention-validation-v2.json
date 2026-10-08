@@ -1,0 +1,65 @@
+{
+  "authorization_state": {
+    "b1_authorized": false,
+    "formal_measurement": false,
+    "formal_verdict": false
+  },
+  "campaign": {
+    "path": "artifacts/phase2a-h2-intervention-validation-campaign-v2/campaign.json",
+    "sha256": "17db6aa588dfd9d2d827301dd6b0e2dc77857173e54cee93549e0dce9fba918c"
+  },
+  "execution_summary": {
+    "path": "artifacts/phase2a-h2-intervention-validation-runs-v2/intervention-validation-212796963ba9.json",
+    "sha256": "80d6085df4dbc396e01d15b7624d953ebb5ec002ce1fa8e2afb72b8adcf4c804"
+  },
+  "git_sha": "886f6681f4bc6c4ff58400fedf9e4fc107f3d13b",
+  "outcome": "PASS",
+  "prior_formal_attempt": {
+    "disposition": "DIAGNOSTIC_FAILED_RUN_PRESERVED_DO_NOT_RESUME",
+    "failure_reason": "The generic Continuum TTL proxy rejected a 1024-token prefix outside its frozen 16-512 token profile after native invalidation had already succeeded.",
+    "path": "artifacts/phase2a-h2-formal-m2-m3-runs-v1/m2-k0-warmup-1/run.json",
+    "run_id": "m2-k0-warmup-1",
+    "sha256": "86f0f5b03cb8313f923b347c6b7589e9bac660c06eea497d538e64c38dca01ce"
+  },
+  "probes": [
+    {
+      "events_sha256": "29709c89b00918d0e862ebca6b935aab2db3316e2fe0670d69f383d31e7e82cd",
+      "expected_cached_prefix_tokens": 512,
+      "intervention": "none",
+      "observed_cached_prefix_tokens": 512,
+      "prefix_tokens": 512,
+      "run_id": "h2v-no-eviction",
+      "run_manifest_sha256": "74335c6fab06be0355da7f10d256d1f1067d9e5d49e862e16032871334d42603"
+    },
+    {
+      "events_sha256": "91314e16591aefa7acac20661655abc3f70d74d98549d3a8cf2cdb44280b0a65",
+      "expected_cached_prefix_tokens": 448,
+      "intervention": "trailing_4_blocks",
+      "observed_cached_prefix_tokens": 448,
+      "prefix_tokens": 512,
+      "run_id": "h2v-trailing-j4",
+      "run_manifest_sha256": "d14a01ce112d2d150dd9a5543c633ae2d113d5a677d6efa797a0032d0226dd8d"
+    },
+    {
+      "events_sha256": "2aa8ecf3e93e4c85dce04d96bc68948e9f8e99e6345dc559e30d573ba6b0a7d2",
+      "expected_cached_prefix_tokens": 0,
+      "intervention": "leading_4_blocks",
+      "observed_cached_prefix_tokens": 0,
+      "prefix_tokens": 512,
+      "run_id": "h2v-leading-j4",
+      "run_manifest_sha256": "d19d06c743ba11036f4d2bde5824e002fb998f13ccf26a75b6ac4a6123cf6e53"
+    },
+    {
+      "events_sha256": "09b4ef91697bddb4d101420c769fdd44de8d5c1e6de302b0bd6fec95203902f5",
+      "expected_cached_prefix_tokens": 0,
+      "intervention": "trailing_64_blocks",
+      "observed_cached_prefix_tokens": 0,
+      "prefix_tokens": 1024,
+      "run_id": "h2v-r1024-full-evict",
+      "run_manifest_sha256": "b3f802fdd08f36e318c522455677e4d4c3786c4b5d9adbb7010d87964bcfdd84"
+    }
+  ],
+  "schema_version": "phase2a.h2_native_intervention_validation_audit.v2",
+  "semantic_conclusion": "The direct native APC observations reproduce the 512/448/0 position semantics and the 1024-token full-eviction probe succeeds in mechanism-only mode without consulting the unrelated frozen TTL proxy. This validates the corrected execution seam only; it is not a formal H2 verdict.",
+  "successful_run_count": 4
+}
