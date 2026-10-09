@@ -113,6 +113,7 @@ class ExperimentEvent:
     timestamp: float
     clock_domain: str
     source: str
+    native_request_id: str | None = None
     program_id: ProgramIdentity | None = None
     request_id: RequestIdentity | None = None
     prefix_id: PrefixIdentity | None = None
@@ -127,6 +128,15 @@ class ExperimentEvent:
             self, "clock_domain", _require_non_empty_text(self.clock_domain, "clock_domain")
         )
         object.__setattr__(self, "source", _require_non_empty_text(self.source, "source"))
+        if self.native_request_id is not None:
+            object.__setattr__(
+                self,
+                "native_request_id",
+                _require_non_empty_text(
+                    self.native_request_id,
+                    "native_request_id",
+                ),
+            )
         if self.program_id is not None and not isinstance(
             self.program_id, ProgramIdentity
         ):
@@ -150,6 +160,7 @@ class ExperimentEvent:
         timestamp: float,
         clock_domain: str,
         source: str,
+        native_request_id: str | None = None,
         program_id: ProgramIdentity | None = None,
         request_id: RequestIdentity | None = None,
         prefix_id: PrefixIdentity | None = None,
@@ -163,6 +174,7 @@ class ExperimentEvent:
             timestamp=timestamp,
             clock_domain=clock_domain,
             source=source,
+            native_request_id=native_request_id,
             program_id=program_id,
             request_id=request_id,
             prefix_id=prefix_id,

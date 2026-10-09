@@ -1,0 +1,33 @@
+{
+  "accepted_attempt": {
+    "campaign_manifest_sha256": "cf2f0bf4c9d02f5bb10c4e7a4991bb5121cd1b66fffdbb31e7ca6b68cd226478",
+    "execution_summary_sha256": "8eda28d51885b33ef873d0fcfc06258768880115c77e41954354eb34b92d4254",
+    "fidelity_report_sha256": "312ed938bd81351161d68f175d421d1e8c94d9c05f63e5697b61e6986a79483b",
+    "fixture_results": [
+      {"decision_count": 2, "fixture_id": "h1-fixture-exclusive-repeated", "outcome": "PASS"},
+      {"decision_count": 1, "fixture_id": "h1-fixture-shared-censored", "outcome": "PASS"}
+    ],
+    "overall_outcome": "PASS",
+    "version": "v4"
+  },
+  "challenger_runtime_policy_switch_authorized": false,
+  "checks": [
+    "forced_release_decisions_present",
+    "all_compiled_candidates_observed",
+    "baseline_replay_uses_earliest_deadline",
+    "native_request_evidence_available",
+    "level_a_metric_unchanged",
+    "no_challenger_policy_switch"
+  ],
+  "compiler_sha256": "58d8b53872fa2ac9a42b97790da56e11b3b14b8a10c61d12e5d282a43d872050",
+  "excluded_attempts": [
+    {"campaign_manifest_sha256": "762c8019e24d15ef5fb3a1810808d8f365696fe8377d26f8793d19edfc961536", "fidelity_report_sha256": "e2dc6237e9ae93edaf09918eedaa712fec5d0d4e29f1703a9c0b0195ab18a888", "reason": "second repeated-pressure stage coincided with a terminal return", "version": "v1"},
+    {"campaign_manifest_sha256": "b15a86a03c25ef718bf13c740d4be03a4c0d9ed30c08d91a0b3ea3ae1828c88c", "fidelity_report_sha256": "e2dc6237e9ae93edaf09918eedaa712fec5d0d4e29f1703a9c0b0195ab18a888", "reason": "equal second-stage demand was satisfied from ordinary reclaimable blocks", "version": "v2"},
+    {"campaign_manifest_sha256": "2d0a180111024d29cc26d8e439df2d4d87b2f667a8f5791a9a53d46e04455f7a", "fidelity_report_sha256": "e2dc6237e9ae93edaf09918eedaa712fec5d0d4e29f1703a9c0b0195ab18a888", "reason": "24-block second-stage demand remained below the ordinary-reclaimable boundary", "version": "v3"}
+  ],
+  "formal_h1_outcome_execution_authorized": false,
+  "profiler_sha256": "62854543f120ef75c2da396ccd45b509af9c5d25577c2dad5effcf768d1fc9ec",
+  "runner_sha256": "150163753ac5e125c26ec60a1ac4224fe2f67e03cf7c53cc451135df1115ab6b",
+  "schema_version": "phase2a.h1_compiler_fidelity_audit.v1",
+  "source_commit": "b57e2bdebf2b5466af5d6be4d617b5de251cc9e0"
+}

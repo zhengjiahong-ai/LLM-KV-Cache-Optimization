@@ -29,6 +29,7 @@ from kvopt.runtime.vllm.continuum_observation import (
     FreeQueueSnapshot,
     NativeBlockSnapshot,
     RequestBlockSnapshot,
+    encode_native_hash,
     snapshot_block,
     snapshot_free_queue,
     snapshot_request_blocks,
@@ -700,6 +701,42 @@ def _request_record(snapshot: RequestBlockSnapshot) -> dict[str, object]:
     }
 
 
+def _request_apc_hash_record(request: object | None) -> dict[str, object]:
+    if request is None:
+        return {
+            "availability": "UNAVAILABLE",
+            "native_apc_block_hashes": [],
+            "reason": "native request object is unavailable",
+        }
+    try:
+        raw_hashes = request.block_hashes  # type: ignore[attr-defined]
+    except AttributeError:
+        return {
+            "availability": "UNAVAILABLE",
+            "native_apc_block_hashes": [],
+            "reason": "native request does not expose block_hashes",
+        }
+    if not isinstance(raw_hashes, Sequence):
+        return {
+            "availability": "UNAVAILABLE",
+            "native_apc_block_hashes": [],
+            "reason": "native request block_hashes is not an ordered sequence",
+        }
+    try:
+        hashes = [encode_native_hash(value) for value in raw_hashes]
+    except (TypeError, ValueError) as error:
+        return {
+            "availability": "UNAVAILABLE",
+            "native_apc_block_hashes": [],
+            "reason": str(error),
+        }
+    return {
+        "availability": "AVAILABLE",
+        "native_apc_block_hashes": hashes,
+        "reason": None,
+    }
+
+
 class NativeObservationRecorder:
     """Synchronously copy audited native state into JSON-compatible records."""
 
@@ -755,15 +792,22 @@ class NativeObservationRecorder:
                 if program_id is None:
                     unmapped_request_ids.append(request_id)
                     continue
-                request_records.append(
-                    _request_record(
-                        snapshot_request_blocks(
-                            manager,
-                            request_id=RequestIdentity(request_id),
-                            program_id=program_id,
-                        )
+                request_record = _request_record(
+                    snapshot_request_blocks(
+                        manager,
+                        request_id=RequestIdentity(request_id),
+                        program_id=program_id,
                     )
                 )
+                native_request = getattr(
+                    context.receiver,
+                    "requests",
+                    {},
+                ).get(request_id)
+                request_record["native_apc_hash_chain"] = (
+                    _request_apc_hash_record(native_request)
+                )
+                request_records.append(request_record)
             record["request_blocks"] = request_records
             record["unmapped_request_ids"] = unmapped_request_ids
 

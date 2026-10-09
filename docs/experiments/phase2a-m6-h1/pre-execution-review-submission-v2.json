@@ -1,0 +1,62 @@
+{
+  "authorization_state": {
+    "challenger_runtime_policy_switch_authorized": false,
+    "formal_h1_outcome_execution_authorized": false,
+    "requested_next_action": "M1_M4_REVIEW_AND_SEPARATE_FORMAL_EXECUTION_AUTHORIZATION",
+    "status": "PRE_EXECUTION_RESUBMITTED"
+  },
+  "baseline_epsilon": {
+    "audit_path": "docs/experiments/phase2a-m6-h1/baseline-epsilon-audit.json",
+    "audit_sha256": "20875488eba6d3a8e03cc0b90bc8fd3d209cd88d582378d0056986205e40c9df",
+    "epsilon_latency_seconds": 0.008793766604503617,
+    "runtime_configuration_changed_since_calibration": false,
+    "status": "FROZEN"
+  },
+  "compiler_fidelity": {
+    "accepted_version": "v4",
+    "audit_path": "docs/experiments/phase2a-m6-h1/compiler-fidelity-audit.json",
+    "audit_sha256": "8edfc1540cdced9ae8c3a4d9c0af965ffcb422a740796fbed0309a1fa1ab6402",
+    "excluded_versions_preserved": ["v1", "v2", "v3"],
+    "fixture_count": 2,
+    "outcome": "PASS"
+  },
+  "issue_34_integration": {
+    "branch": "feature/phase2a-m6-h1-h2-data-prep",
+    "implementation_sha256": "ccd2a70a2a82b7228f63de38af84bf87c4c0453cd08f2de7c8d87ccbf9255f84",
+    "main_commit_observed": "05d71ee7d3864ed19c926d8488f75b3c7318a1b8",
+    "merged_to_main": false,
+    "required_resolution": "merge_and_close_issue_or_M1_approve_explicit_experiment_baseline_binding",
+    "status": "PENDING_INTEGRATION_GATE",
+    "test_sha256": "2bf301cbe2e188c04fd5184c20f63c54a31fb3fe44c2bae6c29e17e24b9ee2d4"
+  },
+  "level_a_contract": {
+    "path": "docs/experiments/phase2a-m6-h1/level-a-evidence-generation-contract.json",
+    "sha256": "f7ee77cb1d71eca4c23bc0c3a957334136e1bfd94af726cde474ef3af57bce75",
+    "primary_metric": "planned_return_weighted_prefill_proxy",
+    "runtime_policy_switch_authorized": false,
+    "verdict_ceiling": "PROXY_CANDIDATE"
+  },
+  "rule_and_acceptance_bindings": {
+    "acceptance_implementation_sha256": "1e24949da326c1e5db154674461c9fd53ae5aa804938e708f471d6d710bc8438",
+    "acceptance_protocol_sha256": "ee8d3fdde625c9c6fe50ce56e0d208116fc2118679c7548980438fbd922c2598",
+    "preregistration_implementation_sha256": "a28d6c8b8ad06391b12f6e303452677253868cfafba19c549fe6a9822af830d0",
+    "rule_id": "H1_R1_reverse_deadline",
+    "rule_implementation_sha256": "7772446ea61b0705b3d7df61a895175210eaeb57112e9795167d966107b52a9d"
+  },
+  "scenario_revision": {
+    "alignment_tokens": 16,
+    "distribution_manifest_sha256": "4fab76445b55974883265645b15d51f423c067558692089af029605d59248169",
+    "family_draws": {"F1": 7, "F2": 7, "F3": 7, "F4": 7, "F5": 7, "F6": 7},
+    "freeze_sha256": "aea1e5d85ebf77ecff9aa8c496d97c0cdec32f34729d9241d5fda3bb7a7467bf",
+    "old_v1_preserved": true,
+    "prefix_24_present": false,
+    "sampler_seed": 20261007,
+    "scenario_count": 42,
+    "scenario_manifest_sha256": "3354895be0c737f5a5957f1fa9b95f62b706acd922b77278eda19f5ce1a08567",
+    "scenario_seal_sha256": "54cb0a0e73017af69649f9a28d5c2eccc851fb000e2b31bf6e46f128501b540b",
+    "structurally_unique_count": 42
+  },
+  "schema_version": "phase2a.h1_pre_execution_review_submission.v2",
+  "source_commit": "b57e2bdebf2b5466af5d6be4d617b5de251cc9e0",
+  "submission_scope": "PRE_EXECUTION_ONLY"
+}

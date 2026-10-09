@@ -1,0 +1,27 @@
+{
+  "approved_distribution_commit": "aa4fc736d39fd53dfa37c1113bc502e590ee72a8",
+  "distribution_manifest": "configs/phase2/h1-independent-campaign-design.json",
+  "distribution_manifest_sha256": "e4d1adf1bcdf60428605e77e24e91ad9a830ad9f64d0f333abe48afa766fbba2",
+  "expected_draw_count": 42,
+  "family_quotas": {
+    "F1": 7,
+    "F2": 7,
+    "F3": 7,
+    "F4": 7,
+    "F5": 7,
+    "F6": 7
+  },
+  "m1_authorization_status": "APPROVED_WITH_MINOR_FIXES",
+  "minimum_corner_case_draws": {
+    "multi_release": 4,
+    "near_horizon": 4,
+    "no_return_within_trace": 3,
+    "repeated_pressure": 4,
+    "shared_prefix": 4
+  },
+  "outcome_execution_authorized": false,
+  "sampler_seed": 20261007,
+  "schema_version": "phase2a.h1_scenario_materialization_freeze.v1",
+  "status": "SCENARIO_MATERIALIZATION_AUTHORIZED",
+  "structural_uniqueness_required": true
+}

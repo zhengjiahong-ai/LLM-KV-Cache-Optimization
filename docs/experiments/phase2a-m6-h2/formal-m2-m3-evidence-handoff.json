@@ -1,0 +1,41 @@
+{
+  "archive": {
+    "entry_count": 1737,
+    "path": "artifacts/phase2a-h2-m2-m3-evidence-d8f96ea.tar.gz",
+    "sha256": "63d2d197b3a46d26a8705a0c612aa97238a6f05c3f85cb9810f81a81a04346fe",
+    "size_bytes": 35646018
+  },
+  "authorization_state": {
+    "b1_authorized": false,
+    "formal_measurement": true,
+    "formal_verdict_authorized": false
+  },
+  "contents": {
+    "campaign": "artifacts/phase2a-h2-formal-m2-m3-campaign-v2",
+    "formal_runs": "artifacts/phase2a-h2-formal-m2-m3-runs-v2",
+    "outcome_bundle": "artifacts/phase2a-h2-formal-m2-m3-outcome-v1",
+    "review_submission": "docs/experiments/phase2a-m6-h2/formal-m2-m3-review-submission.json",
+    "runtime_validation_audit": "docs/experiments/phase2a-m6-h2/native-intervention-validation-v2.json"
+  },
+  "handling": {
+    "archive_committed_to_git": false,
+    "launcher_logs_included": false,
+    "local_absolute_paths_retained": true,
+    "raw_artifacts_modified": false,
+    "transfer_channel": "AGREE_SEPARATELY_WITH_M1_OR_PROJECT_TEAM"
+  },
+  "review_entry_point": "artifacts/phase2a-h2-formal-m2-m3-outcome-v1/seal.json",
+  "schema_version": "phase2a.h2_formal_m2_m3_evidence_handoff.v1",
+  "security_scan": {
+    "credential_field_patterns": [
+      "api_key",
+      "access_token",
+      "hf_token",
+      "password",
+      "client_secret",
+      "private_key"
+    ],
+    "credential_value_matches": 0,
+    "scope_excluded_launcher_logs": true
+  }
+}

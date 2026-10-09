@@ -10,6 +10,7 @@ from .analysis import CandidateLossRow, DecisionRegretRow, build_decision_regret
 from .datasets import DecisionCandidateRow
 from .decision_outcomes import DecisionOutcomeRow
 from .ingestion import ArtifactValidationError
+from .runtime_evidence import RequestRuntimeEvidenceRow
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,7 +165,32 @@ def _physical_evidence(
 
 def _recompute_evidence(
     candidate: DecisionCandidateRow,
+    outcome: DecisionOutcomeRow,
+    runtime_by_request: dict[tuple[str, str], RequestRuntimeEvidenceRow],
 ) -> CandidateLossEvidenceRow:
+    loss: float | None = None
+    availability = "unavailable"
+    source_event_indexes = [candidate.decision_event_index]
+    if not candidate.selected:
+        reason = "unselected_counterfactual_not_observed"
+    elif outcome.return_request_id is None:
+        reason = "return_request_not_observed"
+    else:
+        runtime = runtime_by_request.get(
+            (candidate.run_id, outcome.return_request_id)
+        )
+        if runtime is None:
+            reason = "return_request_runtime_observation_missing"
+        elif runtime.observed_recomputed_tokens is None:
+            reason = runtime.unavailable_reason or "recompute_tokens_unavailable"
+            if runtime.observation_event_index is not None:
+                source_event_indexes.append(runtime.observation_event_index)
+        else:
+            loss = float(runtime.observed_recomputed_tokens)
+            availability = "available"
+            reason = None
+            if runtime.observation_event_index is not None:
+                source_event_indexes.append(runtime.observation_event_index)
     return CandidateLossEvidenceRow(
         run_id=candidate.run_id,
         decision_event_index=candidate.decision_event_index,
@@ -174,10 +200,10 @@ def _recompute_evidence(
         loss_view=_RECOMPUTE,
         evidence_kind="direct_runtime_observation",
         unit="tokens",
-        loss=None,
-        availability="unavailable",
-        unavailable_reason="recompute_token_observation_not_recorded",
-        source_event_indexes=(candidate.decision_event_index,),
+        loss=loss,
+        availability=availability,
+        unavailable_reason=reason,
+        source_event_indexes=tuple(source_event_indexes),
     )
 
 
@@ -238,11 +264,20 @@ def _gate_loss_views(
 def build_loss_view_tables(
     candidates: Iterable[DecisionCandidateRow],
     outcomes: Iterable[DecisionOutcomeRow],
+    runtime_evidence: Iterable[RequestRuntimeEvidenceRow] = (),
 ) -> LossViewTables:
     """Build distinct proxy, physical, and recompute evidence views."""
 
     candidate_rows = tuple(candidates)
     outcome_rows = tuple(outcomes)
+    runtime_by_request: dict[tuple[str, str], RequestRuntimeEvidenceRow] = {}
+    for runtime in runtime_evidence:
+        key = (runtime.run_id, runtime.request_id)
+        if key in runtime_by_request:
+            raise ArtifactValidationError(
+                f"duplicate request runtime evidence key: {key}"
+            )
+        runtime_by_request[key] = runtime
     outcomes_by_key: dict[tuple[str, int, str, str], DecisionOutcomeRow] = {}
     for outcome in outcome_rows:
         key = _candidate_key(outcome)
@@ -293,7 +328,11 @@ def build_loss_view_tables(
                     horizon_status=outcome.observed_return_horizon_status,
                 ),
                 _physical_evidence(candidate, outcome),
-                _recompute_evidence(candidate),
+                _recompute_evidence(
+                    candidate,
+                    outcome,
+                    runtime_by_request,
+                ),
             )
         )
 

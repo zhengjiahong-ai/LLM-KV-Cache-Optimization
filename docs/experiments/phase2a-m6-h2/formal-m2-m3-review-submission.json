@@ -1,0 +1,47 @@
+{
+  "authorization_state": {
+    "b1_authorized": false,
+    "formal_measurement": true,
+    "formal_verdict_authorized": false
+  },
+  "candidate_outcomes": {
+    "M2": {
+      "candidate_outcome": "PASS_PENDING_REVIEW",
+      "controls_valid": true,
+      "exact_probe_count": 6,
+      "measured_repetition_count": 54,
+      "partial_prefix_variants_valid": true
+    },
+    "M3": {
+      "candidate_outcome": "PASS_PENDING_REVIEW",
+      "measured_pair_count": 108,
+      "no_resolved_effect_cell_count": 0,
+      "supporting_cell_count": 12,
+      "supporting_cells_required": 10,
+      "supporting_repetitions_per_cell": 9,
+      "supporting_repetitions_required": 8,
+      "total_cell_count": 12
+    }
+  },
+  "excluded_infrastructure_attempts": {
+    "count": 2,
+    "criterion": "pre-observation SSL connection failure with event_count equal to zero",
+    "included_in_formal_statistics": false
+  },
+  "measurement_provenance": {
+    "analysis_git_sha": "db86d5156db8a36c126906a0f6ce038058763c51",
+    "measurement_git_sha": "6c947ff29a6ab7f8a38a5e4af05991be393e199c",
+    "measured_row_count": 270,
+    "validated_run_count": 330
+  },
+  "review_request": "M1/M4 should verify the sealed file hashes, frozen-rule application, direct native-token semantics, and the exclusion of two zero-event SSL initialization attempts before issuing any formal M2/M3 verdict.",
+  "review_state": "PENDING_M1_M4_FORMAL_VERDICT_REVIEW",
+  "schema_version": "phase2a.h2_formal_m2_m3_review_submission.v1",
+  "sealed_bundle": {
+    "m2_outcome_sha256": "b0f36a90b1c056b4abfece47483fd789af8170303c84eb4563fbdd92ef97b6a3",
+    "m3_outcome_sha256": "568aad9bd6a4a544203d524e7c337c96480a35306b9ad33ddcd5cc8db5b8ee15",
+    "path": "artifacts/phase2a-h2-formal-m2-m3-outcome-v1",
+    "provenance_sha256": "cd59643cb96175edec39f86843bf1d4c669011fd3b2eef20ce93199c5e149891",
+    "seal_sha256": "fc81472ee086692835efdbae178850f4497c2cb8f1e866894e9a4a1716097fb4"
+  }
+}

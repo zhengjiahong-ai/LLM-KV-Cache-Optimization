@@ -1,0 +1,30 @@
+{
+  "archive": {
+    "entry_count": 3798,
+    "path": "artifacts/phase2a-h2-final-evidence-c34a172.tar.gz",
+    "sha256": "0ef7207b2baabca0fc77e2a1eef01ce272b2cb2e611fe7f0b6a5a2f556f2a5a7",
+    "size_bytes": 72866748
+  },
+  "contents": {
+    "excluded_m4_v1_attempt": "artifacts/phase2a-h2-formal-m4-runs-v1",
+    "m1_campaign": "artifacts/phase2a-h2-formal-m1-campaign-v1",
+    "m1_outcome": "artifacts/phase2a-h2-formal-m1-outcome-v1",
+    "m1_raw_runs": "artifacts/phase2a-h2-formal-m1-runs-v1",
+    "m2_m3_evidence_archive": "artifacts/phase2a-h2-m2-m3-evidence-d8f96ea.tar.gz",
+    "m2_m3_outcome": "artifacts/phase2a-h2-formal-m2-m3-outcome-v1",
+    "m4_campaign": "artifacts/phase2a-h2-formal-m4-campaign-v2",
+    "m4_comparator_validation": "artifacts/phase2a-h2-m4-comparator-validation-runs-v2",
+    "m4_outcome": "artifacts/phase2a-h2-formal-m4-outcome-v1",
+    "m4_raw_runs": "artifacts/phase2a-h2-formal-m4-runs-v2"
+  },
+  "handling": {
+    "archive_committed_to_git": false,
+    "raw_artifacts_modified": false,
+    "transfer_channel": "AGREE_SEPARATELY_WITH_M1_OR_PROJECT_TEAM"
+  },
+  "review_entry_point": {
+    "path": "docs/experiments/phase2a-m6-h2/final-remaining-measurements-review-submission.json",
+    "sha256": "5e4fa083b49dc5ce9e7285443a34457a2d03103b6ce59d7b648daa4227674812"
+  },
+  "schema_version": "phase2a.h2_final_evidence_handoff.v1"
+}

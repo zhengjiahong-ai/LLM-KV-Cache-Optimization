@@ -1524,7 +1524,7 @@ def _coherent_child_request_snapshot(
                 block.get("native_hash_hex")
                 for block in blocks
             )
-            if prefix is None or not 16 <= token_count <= 512:
+            if prefix is None or not 16 <= token_count <= 30_720:
                 continue
             if expected_token_count is not None and token_count != expected_token_count:
                 continue
@@ -1625,8 +1625,12 @@ def _snapshot_rejection_diagnostics(
                 )
                 if len(block_ids) != len(set(block_ids)):
                     reasons.append("duplicate_block_ids")
-                token_count = valid_prefix_blocks[-1].get("hash_num_tokens", 0)
-                if not 16 <= token_count <= 512:
+                token_count = (
+                    valid_prefix_blocks[-1].get("hash_num_tokens", 0)
+                    if valid_prefix_blocks
+                    else 0
+                )
+                if not 16 <= token_count <= 30_720:
                     reasons.append(f"reusable_token_count_out_of_range actual={token_count}")
                 if expected_token_count is not None and token_count != expected_token_count:
                     reasons.append(

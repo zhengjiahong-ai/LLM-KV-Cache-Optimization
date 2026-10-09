@@ -1,0 +1,88 @@
+{
+  "b1_method_or_implementation_authorized": false,
+  "backend_factory": "scripts.spikes.phase2_minimal_observability_metal:build_phase2_metal_observability_backend",
+  "backend_revision": "phase2a-minimal-metal-observability-v1",
+  "bootstrap_iterations": 10000,
+  "bootstrap_resample_size": 9,
+  "bootstrap_seed": 20261007,
+  "calibration_code_git_sha": "8e42b098bc13922f33018dce982b015a74832984",
+  "calibration_git_dirty": false,
+  "calibration_measured_run_count": 40,
+  "calibration_run_count": 56,
+  "delta_M1_seconds": 0.19029591700382298,
+  "execution_configurations": [
+    {
+      "config_file_sha256": "d47600423d5f330a02603eaf6110693e5e4873f47af25c67acab675855fcb33b",
+      "prefix_tokens": 8192,
+      "runtime_config_sha256": "6418bf380584e3b64959a761bf16795ad38b5cf165b01c79675e6a7ca2c20be6",
+      "trace_sha256": "c93dae065aecdd5cec796b3e3b55913ecf741c59d5967f583a44e3d89ec245d3"
+    },
+    {
+      "config_file_sha256": "bd4efc6e3d1a365b59eafd2d6ad4fbc0485fb9263a1619ce7ae59b54c60276bd",
+      "prefix_tokens": 12288,
+      "runtime_config_sha256": "e5c713c56734daf591688b15d668dcc7ee096fd47b5edaf21b6692b07e1b0cbf",
+      "trace_sha256": "28e38f4552ab0e67844fc441cfd97d6197d0d025246ce85a683686236cbd19f0"
+    },
+    {
+      "config_file_sha256": "34027a4587c39c4aea0d165c8fc665ab3cb23603e80274cb3b7f472d4392bc49",
+      "prefix_tokens": 16384,
+      "runtime_config_sha256": "08697fbf825ac778a3871df54eb2c19484a86db58f5091c23a78e372bd9ebe4a",
+      "trace_sha256": "fffa13938200769b87c17c54d5382d7c87547e46bbe714bdb5b8d700ab006873"
+    },
+    {
+      "config_file_sha256": "92c55126961c7f9cc0e67d5d690baf351b822873d0d57a08fbf3608cc28801be",
+      "prefix_tokens": 20480,
+      "runtime_config_sha256": "f90608d6931bff9cedc95a4c89b33c5db03b7e851c15230e2a72dc00097fa6e4",
+      "trace_sha256": "fc6506594d3ca1cf05f1c309d42877a6c27d676bf55b407af1e6a3102705a6f2"
+    },
+    {
+      "config_file_sha256": "10b62413926edc8c251e14490e015bbbef5caffb64303d985b5378ec632ea0d9",
+      "prefix_tokens": 24576,
+      "runtime_config_sha256": "b7b2150ac61decad8b9d5827baf130c39a6488961a1945006d4428c78cde608a",
+      "trace_sha256": "4e450058cb7b28880dc63be57556d4c3971265f958eb179d06f5ace121145ab0"
+    },
+    {
+      "config_file_sha256": "5afed6c29eca8d39f79f79ca8532ca801e77d29cb777736f81879c9565bc5989",
+      "prefix_tokens": 26624,
+      "runtime_config_sha256": "e65231f235630b5830c5fe3a515a53b12cc01663b90217e91951b14a60e35dac",
+      "trace_sha256": "192ca49d27a45d2179d92d1b5056e2a2de7cae9e7722a0337f42da8c9a41fb2c"
+    },
+    {
+      "config_file_sha256": "4fa59e26a9324bd4ed6bef507c2d0e727c458b6cef5e2984c2daf3b229f9386d",
+      "prefix_tokens": 28672,
+      "runtime_config_sha256": "2e8c08797f43bc260fa22258414668535616ecd1cde04086504f586760c93292",
+      "trace_sha256": "4de1f47c874114229741dd9647f3b2f62a938290645c9540eef73455772460a3"
+    },
+    {
+      "config_file_sha256": "6fb01a8ec26ce81ee9e32cd3ebbcef7a6a2ae7b6e9408258ed3f4639bf312e89",
+      "prefix_tokens": 30720,
+      "runtime_config_sha256": "49abc79eb6b9cb2fdaabb6a87e21b891fc07579f888fcce187c370b0b68634b0",
+      "trace_sha256": "1027e48f5ee663f9f257a9c815ff03103ca4cb3019435e7372cddeb2237808ab"
+    }
+  ],
+  "final_freeze_record_sha256": "18bf8cadce3b09cf944607b4955015286bd1f06fda49b21742755f03c5bafa48",
+  "formal_freeze_spec_sha256": "79f2e8a662841f70a5578f6ef8f684799de530d137b1421d9606fe81e9131833",
+  "formal_measured_repeats": 9,
+  "formal_measurement_authorized": false,
+  "formal_verdict_authorized": false,
+  "independent_verifier_sha256": "94a2e8620d8c33f87a83510bfdc69a0348a6629619b55cbb243c73226a5542cc",
+  "isolated_calibration_campaign_sha256": "bbb069d76dbc75a40aa7f2679b7f3f253b8245ac5e73d071c4b076b27ccc689f",
+  "isolated_calibration_execution_sha256": "24d31cebaf5eefc004bb41937bb732994f42c57a3105adb36e081eeb49116e88",
+  "isolated_calibration_report_sha256": "8d67d1152b1a796b95c16b078b1b4d2a4a3b15641e7a57b002711d4603176225",
+  "measurement_semantics": "synchronized_native_forward_execution_excludes_sampling_and_request_e2e",
+  "model_name": "Qwen/Qwen2.5-0.5B-Instruct",
+  "model_revision": "7ae557604adf67be50417f59c2c2f167def9a775",
+  "numeric_audit_sha256": "52702a77d12c3b39e08a2e5d598d344b75965ad7de28e4dfa1c3adb3d4523cec",
+  "numeric_reproduction": "PASS",
+  "platform": "macOS-26.5.1-arm64-arm-64bit",
+  "primary_observation": "isolated_native_prefill_elapsed_seconds",
+  "reviewed_head": "e9fb56a0061705925ff917f7e388997accddef83",
+  "schema_version": "phase2a.h2_final_authorization_submission.v1",
+  "status": "NUMERIC_AUDIT_PASSED_AWAITING_M1_M4_AUTHORIZATION",
+  "tokenizer_name": "Qwen/Qwen2.5-0.5B-Instruct",
+  "tokenizer_revision": "7ae557604adf67be50417f59c2c2f167def9a775",
+  "vllm_distribution_version": "0.27.1+cpu",
+  "vllm_metal_distribution_version": "0.3.0",
+  "vllm_metal_source_commit": "a8b7e75c412aedcefe26ac3ab98d2a76e3e166fb",
+  "vllm_metal_source_worktree_clean": true
+}

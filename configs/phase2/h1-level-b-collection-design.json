@@ -1,0 +1,38 @@
+{
+  "formal_h1_outcome_execution_authorized": false,
+  "join_identity": ["run_id", "request_id", "program_id"],
+  "latency_calibration": {
+    "epsilon_rule": "max_absolute_deviation_from_baseline_mean",
+    "freeze_before_holdout_outcomes": true,
+    "identical_baseline_repeats": 5,
+    "primary_metric": "backend_service_e2e_seconds",
+    "supporting_metrics": [
+      "native_queue_delay_seconds",
+      "native_prefill_to_first_token_seconds"
+    ]
+  },
+  "raw_event": {
+    "direct_payload_fields": [
+      "native_prompt_tokens",
+      "native_cached_prefix_tokens",
+      "native_apc_block_hashes",
+      "native_hash_block_size",
+      "native_hash_process_id",
+      "native_hash_function",
+      "native_queued_timestamp",
+      "native_scheduler_admission_timestamp",
+      "native_first_token_timestamp"
+    ],
+    "event_type": "VLLM_NATIVE_REQUEST_OBSERVATION",
+    "maximum_events_per_request": 1,
+    "schema_version": "phase2.event.v1"
+  },
+  "required_capabilities": [
+    "native_apc_hit_miss",
+    "recomputed_prefill_tokens",
+    "native_first_token_timestamp",
+    "native_scheduler_admission_timestamp"
+  ],
+  "schema_version": "phase2a.level_b_collection_design.v2",
+  "status": "AUTHORIZED_FOR_SEAM_VALIDATION"
+}

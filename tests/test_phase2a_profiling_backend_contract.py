@@ -29,14 +29,14 @@ def test_expected_block_budget_matches_controlled_scarcity_rule() -> None:
     ) == 69
 
 
-def test_program_prefix_sizes_accept_only_measured_points() -> None:
+def test_program_prefix_sizes_accept_h2_grid_points_only_when_aligned() -> None:
     assert _program_prefix_sizes({
-        "program_prefix_tokens": {"agent-a": 128, "agent-b": 512}
-    }) == {"agent-a": 128, "agent-b": 512}
+        "program_prefix_tokens": {"agent-a": 192, "agent-b": 30_720}
+    }) == {"agent-a": 192, "agent-b": 30_720}
 
-    with pytest.raises(ValueError, match="one of 128, 256, 512"):
+    with pytest.raises(ValueError, match="align to the KV block size"):
         _program_prefix_sizes({
-            "program_prefix_tokens": {"agent-a": 192}
+            "program_prefix_tokens": {"agent-a": 191}
         })
 
 

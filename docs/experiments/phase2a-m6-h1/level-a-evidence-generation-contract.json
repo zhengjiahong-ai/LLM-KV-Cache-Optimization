@@ -1,0 +1,42 @@
+{
+  "acceptance": {
+    "bootstrap_iterations": 10000,
+    "bootstrap_seed": 20261007,
+    "family_agreement_minimum": 0.6666666666666666,
+    "minimum_valid_independent_scenarios": 30,
+    "required_families": ["F1", "F2", "F3", "F4", "F5", "F6"],
+    "rule_change_authorized": false,
+    "statistical_unit": "independent_scenario_draw"
+  },
+  "aggregation_order": [
+    "average runtime seeds within each decision position",
+    "average decision positions within each independent scenario draw",
+    "bootstrap independent scenario draws"
+  ],
+  "baseline": {
+    "decision_source": "actual continuum-baseline forced-release decisions",
+    "native_observation_use": ["capability validation", "baseline decision provenance", "request timing diagnostics"],
+    "rule": "frozen continuum baseline earliest-retention-deadline ordering"
+  },
+  "challenger": {
+    "evaluation_mode": "offline replay over the exact observed decision candidate set",
+    "rule_id": "H1_R1_reverse_deadline",
+    "runtime_policy_switch_authorized": false
+  },
+  "evidence_boundary": {
+    "controlled_inputs": ["compiled prefix size", "planned request and pressure arrival", "tool and lifecycle pattern", "ownership pattern", "pressure pattern"],
+    "forbidden_challenger_outputs": ["counterfactual observed_recomputed_tokens", "counterfactual native APC outcome", "counterfactual runtime latency"],
+    "native_observations_are_not_counterfactual_labels": true,
+    "trace_derived_proxy_inputs": ["planned pressure anchor", "planned return offset", "planned return within analysis horizon", "prefill reload profile"]
+  },
+  "evidence_tier": "LEVEL_A_PROXY_FIRST",
+  "formal_h1_outcome_execution_authorized": false,
+  "missingness": {
+    "fabrication_permitted": false,
+    "governing_contract": "docs/phase2a-m4-missingness-semantics.md",
+    "unavailable_evidence_action": "record explicit reason and apply the frozen exclusion/fallback boundary"
+  },
+  "primary_metric": "planned_return_weighted_prefill_proxy",
+  "schema_version": "phase2a.h1_level_a_evidence_generation_contract.v1",
+  "verdict_ceiling": "PROXY_CANDIDATE"
+}

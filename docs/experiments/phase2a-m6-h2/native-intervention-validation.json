@@ -1,0 +1,46 @@
+{
+  "authorization_state": {
+    "b1_authorized": false,
+    "formal_measurement": false,
+    "formal_verdict": false
+  },
+  "campaign": {
+    "path": "artifacts/phase2a-h2-intervention-validation-campaign-v1/campaign.json",
+    "sha256": "131d266d0c5db9ca1b3edcf59a84aba491dfcee30889aef536e905a5a79e163f"
+  },
+  "execution_summary": {
+    "path": "artifacts/phase2a-h2-intervention-validation-runs-v1/intervention-validation-11b3d050774e.json",
+    "sha256": "f6b927d450ea706ebe555cb6c86f34a5151c818b7829abf4197da730d7167606"
+  },
+  "git_sha": "713617cf68f3019b0933b28b317689aed9c8f93a",
+  "outcome": "PASS",
+  "probes": [
+    {
+      "events_sha256": "c89e992895ca245e14be216b6529353085a13f537df44da81937033c9da51509",
+      "expected_cached_prefix_tokens": 512,
+      "intervention": "none",
+      "observed_cached_prefix_tokens": 512,
+      "run_id": "h2v-no-eviction",
+      "run_manifest_sha256": "be8929b1e0cf9fdb2b94d3732d5722de3f34499b15fecbce385d795a97571860"
+    },
+    {
+      "events_sha256": "290cd3d05e483f1c7a5c442d8ccaaa9ee46c8479cd728016d47e4b2ee792004a",
+      "expected_cached_prefix_tokens": 448,
+      "intervention": "trailing_4_blocks",
+      "observed_cached_prefix_tokens": 448,
+      "run_id": "h2v-trailing-j4",
+      "run_manifest_sha256": "1882f3b97a5af87858732e5b70a49c3de36065f356d8b0484bf65b146655296a"
+    },
+    {
+      "events_sha256": "d6011236421c4b2ca219bda463e307a576d149019fe0c34b59d59a78c6d9d842",
+      "expected_cached_prefix_tokens": 0,
+      "intervention": "leading_4_blocks",
+      "observed_cached_prefix_tokens": 0,
+      "run_id": "h2v-leading-j4",
+      "run_manifest_sha256": "90a4696c67bdb37d2743f45fa3967ba377b0f2b5ac147c7b43e48c8ad14a8ebf"
+    }
+  ],
+  "schema_version": "phase2a.h2_native_intervention_validation_audit.v1",
+  "semantic_conclusion": "The pinned native APC runtime preserves the 448-token leading contiguous prefix after trailing four-block invalidation and reports a zero-token hit after leading four-block invalidation. This validates the M2/M3 intervention and direct-observation seam only; it is not a formal H2 verdict.",
+  "successful_run_count": 3
+}

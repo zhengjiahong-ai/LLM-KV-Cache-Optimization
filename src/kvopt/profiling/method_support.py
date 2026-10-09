@@ -7,7 +7,11 @@ from dataclasses import dataclass
 from .analysis import DecisionRegretRow
 from .gate import EmpiricalGapReport
 from .prevalence import PrevalenceSummaryRow
-from .signals import SignalEvaluationRow, SignalSupportRow
+from .signals import (
+    SignalEvaluationRow,
+    SignalFeatureCoverageRow,
+    SignalSupportRow,
+)
 from .statistics import (
     CandidateHeterogeneitySummaryRow,
     LossHeterogeneitySummaryRow,
@@ -114,6 +118,7 @@ class MethodSupportPack:
     high_regret_examples: tuple[HighRegretExample, ...]
     signal_evaluation_status: str
     signals: tuple[SignalFinding, ...]
+    signal_feature_coverage: tuple[SignalFeatureCoverageRow, ...]
     constraints: MethodConstraints
     source_tables: tuple[str, ...]
 
@@ -139,6 +144,7 @@ def build_method_support_pack(
     decision_regret: tuple[DecisionRegretRow, ...],
     signal_support: tuple[SignalSupportRow, ...],
     signal_evaluation: SignalEvaluationRow,
+    signal_feature_coverage: tuple[SignalFeatureCoverageRow, ...],
     capabilities: tuple[CapabilityFinding, ...],
     direct_loss_views: tuple[str, ...],
     gate_report: EmpiricalGapReport,
@@ -254,7 +260,7 @@ def build_method_support_pack(
     )
 
     return MethodSupportPack(
-        schema_version="phase2a.method-support.v2",
+        schema_version="phase2a.method-support.v3",
         formal_campaign=formal_campaign,
         gate_outcome=gate_report.overall_outcome,
         prevalence=PrevalenceFinding(
@@ -303,6 +309,7 @@ def build_method_support_pack(
         ),
         signal_evaluation_status=signal_evaluation.status,
         signals=signals,
+        signal_feature_coverage=signal_feature_coverage,
         constraints=MethodConstraints(
             safe_online_features=(
                 "block_count",
@@ -357,6 +364,7 @@ def build_method_support_pack(
             "horizon_sensitivity.jsonl",
             "horizon_sensitivity_summary.jsonl",
             "signal_associations.jsonl",
+            "signal_feature_coverage.jsonl",
             "capabilities.jsonl",
             "empirical_gap_report.jsonl",
         ),

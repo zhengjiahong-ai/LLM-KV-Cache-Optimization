@@ -33,6 +33,8 @@ class JsonlExperimentEventSink:
         }
         if event.program_id is not None:
             record["program_id"] = event.program_id.value
+        if event.native_request_id is not None:
+            record["native_request_id"] = event.native_request_id
         if event.request_id is not None:
             record["request_id"] = event.request_id.value
         if event.prefix_id is not None:

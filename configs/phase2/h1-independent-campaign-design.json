@@ -1,0 +1,150 @@
+{
+  "campaign_id": "phase2a-h1-independent-holdout-v1",
+  "family_draw_quotas": {
+    "F1": 7,
+    "F2": 7,
+    "F3": 7,
+    "F4": 7,
+    "F5": 7,
+    "F6": 7
+  },
+  "family_focus": {
+    "F1": [
+      "candidate_count",
+      "homogeneous_vs_heterogeneous_candidates"
+    ],
+    "F2": [
+      "prefix_tokens",
+      "recompute_cost_spread"
+    ],
+    "F3": [
+      "return_behavior",
+      "tool_and_lifecycle_pattern"
+    ],
+    "F4": [
+      "pressure_depth",
+      "multi_release",
+      "repeated_pressure"
+    ],
+    "F5": [
+      "concurrency_pattern",
+      "queue_delay",
+      "eta"
+    ],
+    "F6": [
+      "shared_ownership",
+      "prefix_evolution",
+      "block_slot_reuse"
+    ]
+  },
+  "independent_scenario_draw_count": 42,
+  "outcome_materialization_authorized": false,
+  "outcome_materialization_gates": [
+    "ISSUE_34_FEATURE_MISSINGNESS_MERGED",
+    "LEVEL_B_OBSERVATION_SEAM_READY",
+    "BASELINE_EPSILON_LATENCY_FROZEN",
+    "RULE_AND_ACCEPTANCE_PROTOCOL_HASHED",
+    "SEALED_SCENARIO_MANIFEST"
+  ],
+  "predeclared_distributions": {
+    "candidate_count": {
+      "values": [2, 3, 4, 5, 6, 7],
+      "weights": [2, 3, 3, 3, 2, 1]
+    },
+    "concurrency_pattern": {
+      "values": [
+        "serialized",
+        "staggered_overlap",
+        "burst_overlap",
+        "sustained_queue"
+      ],
+      "weights": [1, 3, 3, 2]
+    },
+    "eta": {
+      "values": [0.25, 0.5, 1.0, 2.0, 4.0],
+      "weights": [1, 2, 3, 2, 1]
+    },
+    "lifecycle_pattern": {
+      "values": [
+        "single_tool_return",
+        "multi_tool_return",
+        "terminal_after_return",
+        "nonreturning_branch"
+      ],
+      "weights": [3, 2, 2, 1]
+    },
+    "ownership_pattern": {
+      "values": ["exclusive", "shared_prefix"],
+      "weights": [4, 1]
+    },
+    "prefix_tokens": {
+      "values": [16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512],
+      "weights": [1, 1, 1, 1, 2, 2, 3, 2, 3, 2, 2]
+    },
+    "pressure_pattern": {
+      "values": [
+        "single_shallow",
+        "single_deep_multi_release",
+        "repeated_pressure"
+      ],
+      "weights": [3, 3, 2]
+    },
+    "queue_delay_seconds": {
+      "values": [0.0, 0.025, 0.1, 0.5, 2.0],
+      "weights": [3, 2, 3, 2, 1]
+    },
+    "return_behavior": {
+      "values": [
+        "early_within_horizon",
+        "near_horizon",
+        "late_outside_horizon",
+        "no_return_within_trace"
+      ],
+      "weights": [3, 2, 2, 1]
+    },
+    "tool_type": {
+      "values": ["search", "database", "code"],
+      "weights": [1, 1, 1]
+    }
+  },
+  "sampling_constraints": {
+    "decisions_per_scenario": [1, 2],
+    "eta_and_queue_delay_sampled_per_candidate": true,
+    "family_focus_is_conditioning_not_a_fixed_template": true,
+    "minimum_corner_case_draws": {
+      "multi_release": 4,
+      "near_horizon": 4,
+      "no_return_within_trace": 3,
+      "repeated_pressure": 4,
+      "shared_prefix": 4
+    },
+    "scenario_draws_must_be_structurally_unique": true
+  },
+  "runtime_repetitions": {
+    "purpose": "runtime_noise_and_reproducibility_only",
+    "seeds": [101, 211, 307]
+  },
+  "schema_version": "phase2a.h1_campaign_design.v1",
+  "scenario_materialization_authorized": false,
+  "scenario_materialization_gates": [
+    "M1_DESIGN_APPROVAL"
+  ],
+  "statistical_unit": {
+    "name": "independent_scenario_draw",
+    "runtime_seed_counts_as_sample": false
+  },
+  "status": "AWAITING_M1_REVIEW",
+  "freeze_protocol": {
+    "holdout_custodian": "M6",
+    "outcomes_hidden_until_freeze": true,
+    "required_frozen_inputs": [
+      "distribution_manifest_sha256",
+      "scenario_manifest_sha256",
+      "rule_implementation_sha256",
+      "acceptance_protocol_sha256",
+      "epsilon_latency_calibration_sha256"
+    ],
+    "rule_id": "H1_R1_reverse_deadline",
+    "scenario_manifest_visibility_before_freeze": "M1_AND_M6_ONLY"
+  }
+}

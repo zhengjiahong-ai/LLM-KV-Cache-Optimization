@@ -1,0 +1,92 @@
+{
+  "b1_method_or_implementation_authorized": false,
+  "calibration_pilot_authorized": true,
+  "calibration": {
+    "dispersion_outputs": [
+      "median_seconds",
+      "median_absolute_deviation_seconds",
+      "minimum_seconds",
+      "maximum_seconds"
+    ],
+    "formal_repeat_count": null,
+    "pilot_repeats_per_point": 5,
+    "repeat_count_candidates_after_pilot": [5, 7, 9],
+    "resolution_outputs": [
+      "per_point_noise_floor_seconds",
+      "pairwise_effect_resolution_seconds"
+    ],
+    "warmup_repeats_per_point": 2
+  },
+  "common_controls": {
+    "concurrency": 1,
+    "deterministic_generation": true,
+    "generated_tokens": 1,
+    "isolated_process": true,
+    "queue_state": "empty_before_each_measurement",
+    "same_backend_family": true,
+    "same_model_and_tokenizer_revision": true
+  },
+  "formal_measurement_authorized": false,
+  "formal_verdict_authorized": false,
+  "m1_cost_curve": {
+    "fallback_observation": "controlled_ttft_miss_minus_hit_sensitivity",
+    "fitted_models": [
+      "linear_no_intercept",
+      "affine",
+      "quadratic"
+    ],
+    "minimum_model_context_tokens": 32768,
+    "prefix_token_grid": [
+      16,
+      32,
+      64,
+      128,
+      256,
+      512,
+      1024,
+      2048,
+      4096,
+      8192,
+      12288,
+      16384,
+      20480,
+      24576,
+      26624,
+      28672,
+      30720
+    ],
+    "primary_observation": "isolated_native_prefill_elapsed_seconds"
+  },
+  "m2_partial_prefix_apc": {
+    "block_size_tokens": 16,
+    "direct_observations": [
+      "native_cached_prefix_tokens",
+      "recomputed_prefill_tokens"
+    ],
+    "no_eviction_rerequest_control": true,
+    "prefix_blocks": 64,
+    "retained_leading_blocks": [0, 16, 32, 48, 64]
+  },
+  "m3_position_effect": {
+    "equal_evicted_block_counts": [1, 4, 16],
+    "positions": ["leading", "trailing"],
+    "prefix_token_grid": [512, 2048, 8192, 24576],
+    "primary_observation": "recomputed_prefill_tokens"
+  },
+  "m4_extra_headroom": {
+    "comparison": "best_entry_level_loss_vs_best_block_level_loss",
+    "equal_evicted_block_counts": [1, 4, 16],
+    "prefix_token_grid": [512, 2048, 8192, 24576],
+    "unresolved_cross_entry_aggregation_yields": "INCONCLUSIVE"
+  },
+  "numeric_thresholds": {
+    "m1_fit_improvement": null,
+    "m1_gamma_confidence": null,
+    "m2_token_tolerance": null,
+    "m3_resolved_majority_fraction": null,
+    "m4_resolved_majority_fraction": null,
+    "status": "UNFROZEN_PENDING_CALIBRATION"
+  },
+  "schema_version": "phase2a.h2_measurement_design.v1",
+  "status": "CALIBRATION_PILOT_AUTHORIZED"
+}

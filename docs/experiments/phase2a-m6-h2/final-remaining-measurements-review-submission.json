@@ -1,0 +1,75 @@
+{
+  "authorization_state": {
+    "b1_authorized": false,
+    "formal_measurement_authorized": true,
+    "formal_verdict_pending_m1_m4_review": true
+  },
+  "candidate_status_summary": {
+    "M1": "PASS_PENDING_REVIEW",
+    "M2": "PASS",
+    "M3": "PASS",
+    "M4": "FAIL_PENDING_REVIEW",
+    "aggregate_consequence": "NOT_ALL_FOUR_PASS_B1_REMAINS_CLOSED"
+  },
+  "excluded_attempts": [
+    {
+      "formal_statistics_included": false,
+      "path": "artifacts/phase2a-h2-formal-m4-runs-v1",
+      "reason": "legacy Phase 1B prefill profile ended at 512 tokens; the first 2048-token entry arm failed before pressure with token_count outside the supported profile range",
+      "status_counts": {
+        "failed": 1,
+        "success": 66
+      }
+    }
+  ],
+  "m1": {
+    "bootstrap_iterations": 10000,
+    "bootstrap_q05_delta_fit_seconds": 0.4407016205465621,
+    "bootstrap_q05_gamma_seconds_per_token_squared": 8.880469562324345e-09,
+    "candidate_outcome": "PASS_PENDING_REVIEW",
+    "delta_M1_seconds": 0.19029591700382298,
+    "formal_run_count": 187,
+    "measured_repeat_count": 153,
+    "observed_delta_fit_seconds": 0.4633704393588016,
+    "primary_observation": "isolated_native_prefill_elapsed_seconds",
+    "sealed_evidence": {
+      "bootstrap_distribution_sha256": "eceb2afb09c0d8417458b7e31776dfe2ac29a508d0fc0adc2a31f2c2a8273e26",
+      "outcome_sha256": "5261a1616efe31c0d80a1ef28fb76e765e68072fb403720b7f4247f5323036df",
+      "provenance_sha256": "92c97b1f1854be27f5542bed8313892bc7e5317185c3c7ab6f4904465cfbe46b",
+      "seal_path": "artifacts/phase2a-h2-formal-m1-outcome-v1/seal.json",
+      "seal_sha256": "144d0b5a9870c117d8280a55b37f8ba75089b11ead67b641d55d1ef793046302"
+    }
+  },
+  "m2_m3": {
+    "formal_verdict_binding_path": "docs/experiments/phase2a-m6-h2/formal-m2-m3-verdict.json",
+    "formal_verdict_binding_sha256": "0d7a5d42799e42dab4baca4538ba7f21903af93d64830906a508eace223a0874",
+    "m2_status": "PASS",
+    "m3_status": "PASS",
+    "sealed_evidence_sha256": "fc81472ee086692835efdbae178850f4497c2cb8f1e866894e9a4a1716097fb4"
+  },
+  "m4": {
+    "candidate_outcome": "FAIL_PENDING_REVIEW",
+    "comparator_validation_sha256": "2231b9f2fc76f6ae7bb76f4087270cb10e7e8c1e806d91a5f4cbdb1a54524651",
+    "formal_run_count": 264,
+    "measured_pair_count": 108,
+    "no_resolved_headroom_cell_count": 12,
+    "scope": "single_prefix_controlled_mechanism_headroom_only",
+    "sealed_evidence": {
+      "measured_rows_sha256": "804f3ff7a3ce103eccde5136c7ff381e484a81f1633d5f9dc6add37ecfe529f7",
+      "outcome_sha256": "57777eede6ba8fb794a98cb061e130ae0c3281eb62b6cd49ee5c1454ae2bdadf",
+      "provenance_sha256": "34a89c3790d1b98a2cc0f02305949ca291a3bc9aac945f3c847725994a5f9d63",
+      "seal_path": "artifacts/phase2a-h2-formal-m4-outcome-v1/seal.json",
+      "seal_sha256": "d4c0a12ffe67dbf7e057428f98ed4240f7028a3e4166582736803b241fea7914"
+    },
+    "supporting_cell_count": 0
+  },
+  "provenance": {
+    "authorization_sha256": "ac52451bdc5e53858baa6c0ca99b4ecd008ed3e0d0c1128a2fcdf37825c4fa5f",
+    "m1_analysis_git_sha": "b6e9bb269aacff5e8d8b74e9511cbd6021d7430e",
+    "m1_measurement_git_sha": "b6e9bb269aacff5e8d8b74e9511cbd6021d7430e",
+    "m4_analysis_git_sha": "c34a17214132e69a7cf5c69358ff3479afdabf62",
+    "m4_measurement_git_sha": "4227c17a5db71c8c2aec074fd7923f8018b16e2b"
+  },
+  "review_request": "M1/M4 should independently verify the sealed hashes, recompute M1 bootstrap and M4 paired cells from raw evidence, issue formal M1/M4 verdicts, and confirm that M4 FAIL keeps B1 closed.",
+  "schema_version": "phase2a.h2_final_remaining_measurements_review_submission.v1"
+}

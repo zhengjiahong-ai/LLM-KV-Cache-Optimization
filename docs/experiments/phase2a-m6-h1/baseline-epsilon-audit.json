@@ -1,0 +1,56 @@
+{
+  "baseline_mean_seconds": 0.015014733397401869,
+  "baseline_repeat_count": 5,
+  "campaign_manifest_sha256": "af73f9824448c16f88c3df489a8f935451cb23fb8d50d4010090d16a06132878",
+  "epsilon_latency_seconds": 0.008793766604503617,
+  "epsilon_rule": "max_absolute_deviation_from_baseline_mean",
+  "execution_summary_sha256": "a79671141e6fd9aea4793975711aaffa0f479fdd930317cd1d06160629428af5",
+  "formal_h1_outcome_execution_authorized": false,
+  "level_b_native_evidence_check": "PASS",
+  "observations": [
+    {
+      "apc_outcome": "FULL_HIT",
+      "backend_service_e2e_seconds": 0.008754499998758547,
+      "native_cached_prefix_tokens": 256,
+      "observed_recomputed_tokens": 0,
+      "run_id": "h1-identical-baseline-1",
+      "run_manifest_sha256": "f3ace48e08c9ce8b4d12b937f03d975381b390cac9df10e5a0d52baf3e2a66fc"
+    },
+    {
+      "apc_outcome": "FULL_HIT",
+      "backend_service_e2e_seconds": 0.020579459000146016,
+      "native_cached_prefix_tokens": 256,
+      "observed_recomputed_tokens": 0,
+      "run_id": "h1-identical-baseline-2",
+      "run_manifest_sha256": "95aad67d434856e9671f56207813e9bfaf4b5bc01c8c72a37c80cd3f355cfa15"
+    },
+    {
+      "apc_outcome": "FULL_HIT",
+      "backend_service_e2e_seconds": 0.008528916994691826,
+      "native_cached_prefix_tokens": 256,
+      "observed_recomputed_tokens": 0,
+      "run_id": "h1-identical-baseline-3",
+      "run_manifest_sha256": "a15d7c50e8e3779260b431784d7e4e91339665c03eab21cc8c037c5ee020c7a7"
+    },
+    {
+      "apc_outcome": "FULL_HIT",
+      "backend_service_e2e_seconds": 0.01340229099150747,
+      "native_cached_prefix_tokens": 256,
+      "observed_recomputed_tokens": 0,
+      "run_id": "h1-identical-baseline-4",
+      "run_manifest_sha256": "ddafd835e5dcab798982f4daa0bc2236fac7e81034fc7ac7f5d004fbbcd3503a"
+    },
+    {
+      "apc_outcome": "FULL_HIT",
+      "backend_service_e2e_seconds": 0.023808500001905486,
+      "native_cached_prefix_tokens": 256,
+      "observed_recomputed_tokens": 0,
+      "run_id": "h1-identical-baseline-5",
+      "run_manifest_sha256": "fb9ac5edc399edfcebb526de92157981de886ad5f6cc646f24efab92847d29b5"
+    }
+  ],
+  "primary_metric": "backend_service_e2e_seconds",
+  "raw_report_sha256": "bfb19daae7a4f8ceebb1ae4191aeadec09fd50b65bf19d98137da8dfa074df89",
+  "schema_version": "phase2a.h1_latency_baseline_audit.v1",
+  "source_commit": "480cb5abd015491938a1a94a15ca37a4cc159adc"
+}

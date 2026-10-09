@@ -11,10 +11,11 @@ def test_method_support_pack_preserves_constraints_and_traceability(
     )
     pack = bundle.method_support_pack
 
-    assert pack.schema_version == "phase2a.method-support.v2"
+    assert pack.schema_version == "phase2a.method-support.v3"
     assert pack.gate_outcome == "INSUFFICIENT-EVENTS"
     assert "normalized_regret" in pack.constraints.future_only_forbidden_online
     assert "decision_native_lru_position" in pack.constraints.safe_online_features
     assert "horizon_sensitivity.jsonl" in pack.source_tables
+    assert "signal_feature_coverage.jsonl" in pack.source_tables
     assert "decisions.jsonl" in pack.source_tables
     assert pack.constraints.unavailable_capabilities

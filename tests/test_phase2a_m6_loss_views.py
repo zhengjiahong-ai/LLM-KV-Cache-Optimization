@@ -3,6 +3,7 @@ from dataclasses import replace
 from kvopt.profiling.datasets import DecisionCandidateRow
 from kvopt.profiling.decision_outcomes import DecisionOutcomeRow
 from kvopt.profiling.loss_views import build_loss_view_tables
+from kvopt.profiling.runtime_evidence import RequestRuntimeEvidenceRow
 
 
 def _candidate(program_id: str, *, selected: bool) -> DecisionCandidateRow:
@@ -69,6 +70,44 @@ def _outcome(program_id: str, *, selected: bool) -> DecisionOutcomeRow:
     )
 
 
+def _runtime_evidence(*, recomputed_tokens: int) -> RequestRuntimeEvidenceRow:
+    return RequestRuntimeEvidenceRow(
+        run_id="run-1",
+        request_id="return-a",
+        program_id="a",
+        kind="turn",
+        observation_event_index=30,
+        native_request_id="native-return-a",
+        availability="AVAILABLE",
+        unavailable_reason=None,
+        native_prompt_tokens=33,
+        native_cached_prefix_tokens=32 - recomputed_tokens,
+        native_apc_block_hashes=("01" * 32, "02" * 32),
+        native_hash_block_size=16,
+        native_hash_process_id="engine-1",
+        native_hash_function="sha256",
+        eligible_prefix_tokens=32,
+        actual_prefill_tokens=1 + recomputed_tokens,
+        observed_recomputed_tokens=recomputed_tokens,
+        apc_outcome="FULL_HIT" if recomputed_tokens == 0 else "PARTIAL_HIT",
+        invariant_status="valid",
+        native_clock_domain="engine_core_monotonic",
+        native_queued_timestamp=1.0,
+        native_scheduler_admission_timestamp=1.1,
+        native_first_token_timestamp=1.4,
+        native_queue_delay_seconds=0.1,
+        native_queue_delay_status="available",
+        native_prefill_to_first_token_seconds=0.3,
+        native_prefill_to_first_token_status="available",
+        isolated_native_prefill_elapsed_seconds=0.25,
+        isolated_native_prefill_elapsed_status="available",
+        backend_submission_timestamp=2.0,
+        backend_completion_timestamp=2.5,
+        backend_service_e2e_seconds=0.5,
+        backend_service_e2e_status="available",
+    )
+
+
 def test_loss_views_only_send_fully_comparable_proxy_to_regret() -> None:
     tables = build_loss_view_tables(
         (_candidate("a", selected=True), _candidate("b", selected=False)),
@@ -113,7 +152,30 @@ def test_loss_views_preserve_physical_and_recompute_missingness() -> None:
         == "unselected_counterfactual_not_observed"
     )
     assert recompute.loss is None
-    assert recompute.unavailable_reason == "recompute_token_observation_not_recorded"
+    assert recompute.unavailable_reason == (
+        "return_request_runtime_observation_missing"
+    )
+
+
+def test_selected_return_uses_direct_runtime_recompute_evidence() -> None:
+    tables = build_loss_view_tables(
+        (_candidate("a", selected=True), _candidate("b", selected=False)),
+        (_outcome("a", selected=True), _outcome("b", selected=False)),
+        (_runtime_evidence(recomputed_tokens=16),),
+    )
+    recompute = {
+        row.program_id: row
+        for row in tables.evidence
+        if row.loss_view == "observed_recomputed_tokens"
+    }
+
+    assert recompute["a"].loss == 16.0
+    assert recompute["a"].availability == "available"
+    assert recompute["a"].source_event_indexes == (10, 30)
+    assert recompute["b"].loss is None
+    assert recompute["b"].unavailable_reason == (
+        "unselected_counterfactual_not_observed"
+    )
 
 
 def test_ambiguous_block_reuse_is_not_treated_as_physical_loss() -> None:

@@ -69,12 +69,25 @@ class SignalEvaluationRow:
 
 
 @dataclass(frozen=True, slots=True)
+class SignalFeatureCoverageRow:
+    """Auditable feature availability for one loss view."""
+
+    loss_view: str
+    feature: str
+    decision_count: int
+    evaluated_decision_count: int
+    skipped_decision_count: int
+    skipped_reason: str | None
+
+
+@dataclass(frozen=True, slots=True)
 class SignalAnalysisTables:
     """Association details, per-feature support, and overall evaluation."""
 
     associations: tuple[SignalAssociationRow, ...]
     support: tuple[SignalSupportRow, ...]
     evaluation: SignalEvaluationRow
+    feature_coverage: tuple[SignalFeatureCoverageRow, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -255,6 +268,9 @@ def build_signal_analysis_tables(
 
     observations: list[_RankObservation] = []
     signal_keys: set[tuple[str, str]] = set()
+    coverage_counts: dict[tuple[str, str], list[int]] = defaultdict(
+        lambda: [0, 0]
+    )
     for (run_id, event_index, loss_view), losses in sorted(loss_groups.items()):
         metadata = metadata_by_run.get(run_id)
         if metadata is None:
@@ -274,14 +290,20 @@ def build_signal_analysis_tables(
             (loss_view, feature) for feature in _ONLINE_FEATURES
         )
         loss_values = [row.loss for row in losses]
-        if len(set(loss_values)) < 2:
-            continue
-        loss_ranks = _normalized_ranks(loss_values)
+        loss_has_spread = len(set(loss_values)) >= 2
+        loss_ranks = (
+            _normalized_ranks(loss_values) if loss_has_spread else ()
+        )
         for feature in _ONLINE_FEATURES:
             feature_values = [
                 _feature_value(row, feature) for row in decision_candidates
             ]
+            coverage = coverage_counts[(loss_view, feature)]
             if any(value is None for value in feature_values):
+                coverage[1] += 1
+                continue
+            coverage[0] += 1
+            if not loss_has_spread:
                 continue
             numeric_feature_values = [
                 value for value in feature_values if value is not None
@@ -414,4 +436,19 @@ def build_signal_analysis_tables(
         associations=tuple(associations),
         support=tuple(support_rows),
         evaluation=evaluation,
+        feature_coverage=tuple(
+            SignalFeatureCoverageRow(
+                loss_view=loss_view,
+                feature=feature,
+                decision_count=evaluated + skipped,
+                evaluated_decision_count=evaluated,
+                skipped_decision_count=skipped,
+                skipped_reason=(
+                    "feature_unobserved" if skipped else None
+                ),
+            )
+            for (loss_view, feature), (evaluated, skipped) in sorted(
+                coverage_counts.items()
+            )
+        ),
     )
