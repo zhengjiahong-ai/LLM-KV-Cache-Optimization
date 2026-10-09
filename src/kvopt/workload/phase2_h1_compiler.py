@@ -164,8 +164,10 @@ def compile_h1_scenario(
         )
 
     stages = 2 if scenario.get("repeated_pressure") is True else 1
+    # Keep repeated pressure ahead of the earliest return/cleanup boundary so
+    # that the second stage cannot silently lose every protected candidate.
     pressure_offsets = [
-        pressure_offset + index * max(0.25, horizon * 0.25) for index in range(stages)
+        pressure_offset + index * max(0.25, horizon * 0.125) for index in range(stages)
     ]
     pressure_blocks = max(1, math.ceil(sum(prefix_sizes.values()) / BLOCK_SIZE / 2))
     if scenario.get("multi_release") is not True:
