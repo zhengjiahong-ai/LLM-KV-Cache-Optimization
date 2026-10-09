@@ -32,6 +32,7 @@ class LoadedFormalCampaign:
     manifest_path: Path
     seeds: tuple[int, ...]
     scenarios: tuple[FormalCampaignScenario, ...]
+    required_execution_commit: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,8 +114,7 @@ def run_phase2_isolated(
         if detail:
             detail = f": {detail[-1000:]}"
         raise RuntimeError(
-            f"isolated run exited with code {completed.returncode} "
-            f"without run.json{detail}"
+            f"isolated run exited with code {completed.returncode} without run.json{detail}"
         )
     return run_dir
 
@@ -212,12 +212,48 @@ def load_formal_campaign(path: str | Path) -> LoadedFormalCampaign:
         raise ValueError("campaign repetition declaration does not match seeds")
     if value.get("planned_run_count") != expected_runs:
         raise ValueError("campaign planned_run_count is inconsistent")
+    required_commit = value.get("execution_code_commit")
+    if required_commit is not None:
+        if re.fullmatch(r"[0-9a-f]{40}", _text(required_commit, "execution_code_commit")) is None:
+            raise ValueError("execution_code_commit must be a full Git SHA")
+        if value.get("requires_clean_execution_worktree") is not True:
+            raise ValueError("bound formal campaign must require a clean worktree")
+        if value.get("formal_h1_outcome_execution_authorized") is not True:
+            raise ValueError("bound H1 campaign must record formal authorization")
+        if value.get("challenger_runtime_policy_switch_authorized") is not False:
+            raise ValueError("H1 challenger runtime policy switch must remain disabled")
     return LoadedFormalCampaign(
         campaign_id=campaign_id,
         manifest_path=manifest_path,
         seeds=tuple(seeds),
         scenarios=tuple(scenarios),
+        required_execution_commit=(required_commit if isinstance(required_commit, str) else None),
     )
+
+
+def _require_bound_clean_checkout(campaign: LoadedFormalCampaign) -> None:
+    required = campaign.required_execution_commit
+    if required is None:
+        return
+    root = Path(__file__).resolve().parents[3]
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        capture_output=True,
+        check=True,
+        text=True,
+    ).stdout.strip()
+    if head != required:
+        raise ValueError(f"formal campaign requires execution commit {required}, got {head}")
+    status = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=root,
+        capture_output=True,
+        check=True,
+        text=True,
+    ).stdout
+    if status.strip():
+        raise ValueError("formal campaign requires a clean execution worktree")
 
 
 def _selected_runs(
@@ -326,6 +362,7 @@ def execute_formal_campaign(
     """Execute selected formal runs and preserve every terminal result."""
 
     campaign = load_formal_campaign(campaign_path)
+    _require_bound_clean_checkout(campaign)
     selected = _selected_runs(
         campaign,
         None if family_ids is None else set(family_ids),
@@ -340,9 +377,7 @@ def execute_formal_campaign(
         if (output / f"{scenario.scenario_id}-seed-{seed}").exists()
     ]
     if collisions and not resume:
-        raise FileExistsError(
-            f"formal run output already exists: {collisions[0]}"
-        )
+        raise FileExistsError(f"formal run output already exists: {collisions[0]}")
 
     started_at = _now()
     results: list[FormalRunResult] = []
@@ -350,9 +385,7 @@ def execute_formal_campaign(
         run_id = f"{scenario.scenario_id}-seed-{seed}"
         run_dir = output / run_id
         if run_dir.exists():
-            results.append(
-                _existing_result(run_id, scenario, seed, run_dir)
-            )
+            results.append(_existing_result(run_id, scenario, seed, run_dir))
             continue
 
         temp_path: Path | None = None
@@ -401,9 +434,7 @@ def execute_formal_campaign(
         schema_version="phase2a.formal_execution.v1",
         campaign_id=campaign.campaign_id,
         campaign_manifest=str(campaign.manifest_path),
-        campaign_manifest_sha256=hashlib.sha256(
-            campaign.manifest_path.read_bytes()
-        ).hexdigest(),
+        campaign_manifest_sha256=hashlib.sha256(campaign.manifest_path.read_bytes()).hexdigest(),
         started_at_utc=started_at,
         ended_at_utc=_now(),
         resume=resume,

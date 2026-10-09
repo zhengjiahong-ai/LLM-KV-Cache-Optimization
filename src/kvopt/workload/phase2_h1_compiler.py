@@ -41,7 +41,10 @@ def _program_id(index: int) -> str:
 
 
 def compile_h1_scenario(
-    scenario: Mapping[str, Any], base_config: Mapping[str, Any]
+    scenario: Mapping[str, Any],
+    base_config: Mapping[str, Any],
+    *,
+    formal_h1_outcome_execution_authorized: bool = False,
 ) -> tuple[dict[str, object], Phase2Trace, dict[str, object]]:
     """Compile one scenario and emit a field-level evidence contract."""
     scenario_id = scenario.get("scenario_id")
@@ -203,7 +206,11 @@ def compile_h1_scenario(
         {
             "trace": f"{scenario_id}.trace.json",
             "seed": 101,
-            "campaign_kind": "h1_compiler_fidelity_validation",
+            "campaign_kind": (
+                "formal_h1_level_a"
+                if formal_h1_outcome_execution_authorized
+                else "h1_compiler_fidelity_validation"
+            ),
             "profiling_scenario_id": scenario_id,
             "profiling_scenario_family": family_id,
             "analysis_horizon_seconds": horizon,
@@ -243,7 +250,7 @@ def compile_h1_scenario(
         "schema_version": "phase2a.h1_compiler_evidence_contract.v1",
         "scenario_id": scenario_id,
         "family_id": family_id,
-        "formal_h1_outcome_execution_authorized": False,
+        "formal_h1_outcome_execution_authorized": (formal_h1_outcome_execution_authorized),
         "challenger_runtime_policy_switch_authorized": False,
         "evidence_tier": "LEVEL_A_PROXY_FIRST",
         "primary_metric": "planned_return_weighted_prefill_proxy",

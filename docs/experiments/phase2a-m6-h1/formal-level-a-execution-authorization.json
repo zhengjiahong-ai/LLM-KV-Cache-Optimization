@@ -1,0 +1,20 @@
+{
+  "authorized_campaign_id": "phase2a-h1-independent-holdout-v2",
+  "authorized_planned_run_count": 126,
+  "challenger": {
+    "evaluation_mode": "offline",
+    "rule_id": "H1_R1_reverse_deadline",
+    "runtime_policy_switch_authorized": false
+  },
+  "evidence_tier": "LEVEL_A_PROXY_FIRST",
+  "family_draws": {"F1": 7, "F2": 7, "F3": 7, "F4": 7, "F5": 7, "F6": 7},
+  "formal_h1_outcome_execution_authorized": true,
+  "primary_metric": "planned_return_weighted_prefill_proxy",
+  "review_decision": "PRE_EXECUTION_ACCEPTED_LEVEL_A_FORMAL_EXECUTION_AUTHORIZED",
+  "reviewed_commit": "d95390eb1c47c1fbe3a488472b713ae604b711d5",
+  "runtime_seeds": [101, 211, 307],
+  "scenario_manifest_sha256": "3354895be0c737f5a5957f1fa9b95f62b706acd922b77278eda19f5ce1a08567",
+  "scenario_seal_sha256": "54cb0a0e73017af69649f9a28d5c2eccc851fb000e2b31bf6e46f128501b540b",
+  "schema_version": "phase2a.h1_formal_level_a_execution_authorization.v1",
+  "verdict_ceiling": "PROXY_CANDIDATE"
+}
