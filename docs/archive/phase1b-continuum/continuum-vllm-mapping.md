@@ -29,8 +29,12 @@ fields: `request_id`, `client_index`, `arrival_time`, `priority`, `status`,
 `trace_headers`, `cache_salt`, and `resumable`. It also retains
 `prompt_token_ids`, `_all_token_ids`, `_output_token_ids`, `num_tokens`,
 `num_computed_tokens`, `num_in_flight_tokens`, `num_preemptions`, and
-`block_hashes`. There is no native `session_id`, `program_id`, tool ID, or
-tool-gap timestamp in `Request`.
+`block_hashes`. The private token lists are exposed as public read-only
+views: `output_token_ids` and `all_token_ids` (`ConstantList` wrappers of
+`_output_token_ids` / `_all_token_ids`, the same underlying storage — the
+source `vllm-continuum` `ToolCallEstimator` reads the public
+`request.output_token_ids`). There is no native `session_id`, `program_id`,
+tool ID, or tool-gap timestamp in `Request`.
 
 ### Running, waiting, and admission order
 
