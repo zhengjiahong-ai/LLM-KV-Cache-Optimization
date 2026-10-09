@@ -28,9 +28,9 @@ def test_compiler_maps_every_axis_without_authorizing_outcomes() -> None:
     assert contracts[1]["trace_derived_proxy_inputs"]["eta"] == 1.0
 
 
-def test_repeated_pressure_precedes_fixture_return() -> None:
+def test_repeated_pressure_precedes_fixture_return_and_increases_demand() -> None:
     base = json.loads(BASE_CONFIG.read_text())
-    _config, trace, evidence = compile_h1_scenario(non_holdout_fixtures()[0], base)
+    config, trace, evidence = compile_h1_scenario(non_holdout_fixtures()[0], base)
 
     assert len(trace.pressure_stages) == 2
     second_pressure = trace.pressure_stages[1].planned_arrival_offset_seconds
@@ -39,6 +39,8 @@ def test_repeated_pressure_precedes_fixture_return() -> None:
     )
     assert second_pressure < first_return
     assert evidence["pressure_contract"]["stage_count"] == 2
+    assert evidence["pressure_contract"]["stage_required_blocks"] == [12, 24]
+    assert config["pressure"]["stage_required_blocks"] == [12, 24]
 
 
 def test_non_holdout_campaign_round_trips_all_traces(tmp_path: Path) -> None:

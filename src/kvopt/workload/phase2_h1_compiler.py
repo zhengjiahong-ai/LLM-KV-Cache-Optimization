@@ -172,6 +172,7 @@ def compile_h1_scenario(
     pressure_blocks = max(1, math.ceil(sum(prefix_sizes.values()) / BLOCK_SIZE / 2))
     if scenario.get("multi_release") is not True:
         pressure_blocks = max(1, min(pressure_blocks, min(prefix_sizes.values()) // BLOCK_SIZE))
+    stage_blocks = [pressure_blocks * (index + 1) for index in range(stages)]
     trace = Phase2Trace(
         trace_id=f"phase2a-h1-compiled-{scenario_id}-v1",
         requests=tuple(requests),
@@ -221,7 +222,7 @@ def compile_h1_scenario(
             "required_blocks": pressure_blocks,
             "initial_shortage_blocks": initial_shortage,
             "safety_ceiling": max(3, len(candidates)),
-            "stage_required_blocks": [pressure_blocks] * stages,
+            "stage_required_blocks": stage_blocks,
         }
     )
     options.update(
@@ -229,7 +230,8 @@ def compile_h1_scenario(
             "program_prefix_tokens": prefix_sizes,
             "pressure_prompt_tokens": pressure_blocks * BLOCK_SIZE,
             "pressure_stage_prompt_tokens": {
-                f"h1-pressure-{index + 1}": pressure_blocks * BLOCK_SIZE for index in range(stages)
+                f"h1-pressure-{index + 1}": blocks * BLOCK_SIZE
+                for index, blocks in enumerate(stage_blocks)
             },
             "execute_planned_timing": True,
         }
@@ -267,6 +269,7 @@ def compile_h1_scenario(
         "pressure_contract": {
             "pattern": scenario["pressure_pattern"],
             "stage_count": stages,
+            "stage_required_blocks": stage_blocks,
             "multi_release_required": scenario["multi_release"],
             "forced_release_decision_required_per_stage": True,
         },
