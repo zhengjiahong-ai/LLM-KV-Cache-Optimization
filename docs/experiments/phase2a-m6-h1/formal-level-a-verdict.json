@@ -1,0 +1,42 @@
+{
+  "authorization_state": {
+    "challenger_runtime_policy_switch_authorized": false,
+    "formal_h1_experiment_closed": true,
+    "further_h1_r1_experiment_authorized": false,
+    "level_b_runtime_validation_authorized": false
+  },
+  "decision": {
+    "campaign_disposition": "H1_CAMPAIGN_ACCEPTED_EXPERIMENT_CLOSED",
+    "formal_rule_verdict": "DIAGNOSTIC_ONLY",
+    "h1_r1_promoted_to_proxy_candidate": false,
+    "interpretation": "The completed campaign is accepted as a research delivery, while H1-R1 is not accepted as a method candidate. The frozen threshold remains unchanged.",
+    "negative_exploration_evidence_retained": true,
+    "supplemental_runs_required": false
+  },
+  "evidence_bindings": {
+    "evidence_archive_sha256": "af5be5bd56a172f7945f12712289708aa55cda01f1b8c05a2bc3215b14c90af7",
+    "evidence_handoff_sha256": "ffebe24fc5fcc02b926d3a19b518092536f4a9caaf231e42f4988abb65a587d0",
+    "formal_analysis_sha256": "f51dbe67535c4d050ef20ab0e92794e0f5944e67d1015fc007c4fe9608d1b912",
+    "review_submission_sha256": "8349c0cbba7c00cb863bf54952fe3a470823a29ac65cd0cef0fa70812e495a9d",
+    "sealed_outcome_sha256": "da004c52e02105e4ffb366e7a5e1c1800bcad0c4e6542ecb5070011628e902a0"
+  },
+  "review_record": {
+    "campaign_runs_completed": 126,
+    "families_covered": [
+      "F1",
+      "F2",
+      "F3",
+      "F4",
+      "F5",
+      "F6"
+    ],
+    "failed_and_excluded_records_preserved": true,
+    "paired_evaluable_independent_scenarios": 29,
+    "preregistered_minimum_scenarios": 30,
+    "recorded_at": "2026-10-09",
+    "review_authority": "M1/M4",
+    "reviewed_commit": "e6bf74f",
+    "source": "project-owner supplied final independent review disposition"
+  },
+  "schema_version": "phase2a.h1_formal_level_a_verdict.v1"
+}
