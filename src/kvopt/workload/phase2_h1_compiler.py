@@ -172,7 +172,18 @@ def compile_h1_scenario(
     pressure_blocks = max(1, math.ceil(sum(prefix_sizes.values()) / BLOCK_SIZE / 2))
     if scenario.get("multi_release") is not True:
         pressure_blocks = max(1, min(pressure_blocks, min(prefix_sizes.values()) // BLOCK_SIZE))
-    stage_blocks = [pressure_blocks * (index + 1) for index in range(stages)]
+    initial_shortage = min(
+        pressure_blocks,
+        max(1, len(candidates) if scenario.get("multi_release") else 1),
+    )
+    total_candidate_blocks = sum(value // BLOCK_SIZE for value in prefix_sizes.values())
+    block_override = total_candidate_blocks + pressure_blocks + 1 - initial_shortage
+    stage_blocks = [pressure_blocks]
+    if stages == 2:
+        # Stage 1 can leave both its own blocks and a selected candidate in the
+        # ordinary LRU pool. Approach cache capacity at stage 2 so a surviving
+        # protected entry is needed again, without requesting more than fits.
+        stage_blocks.append(block_override - 1)
     trace = Phase2Trace(
         trace_id=f"phase2a-h1-compiled-{scenario_id}-v1",
         requests=tuple(requests),
@@ -207,16 +218,8 @@ def compile_h1_scenario(
         or not isinstance(options, dict)
     ):
         raise TypeError("base config cache, pressure, and backend_options must be objects")
-    initial_shortage = min(
-        pressure_blocks, max(1, len(candidates) if scenario.get("multi_release") else 1)
-    )
     cache["block_size"] = BLOCK_SIZE
-    cache["block_override"] = (
-        sum(value // BLOCK_SIZE for value in prefix_sizes.values())
-        + pressure_blocks
-        + 1
-        - initial_shortage
-    )
+    cache["block_override"] = block_override
     pressure.update(
         {
             "required_blocks": pressure_blocks,
