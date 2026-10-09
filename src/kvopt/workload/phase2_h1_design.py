@@ -58,9 +58,7 @@ def load_h1_materialization_freeze(
     validate_h1_materialization_freeze(payload)
     actual_sha = hashlib.sha256(distribution_path.read_bytes()).hexdigest()
     if payload["distribution_manifest_sha256"] != actual_sha:
-        raise H1CampaignDesignError(
-            "materialization freeze distribution hash does not match"
-        )
+        raise H1CampaignDesignError("materialization freeze distribution hash does not match")
     load_h1_campaign_design(distribution_path)
     return payload
 
@@ -91,38 +89,47 @@ def _distribution_values(
             f"distribution {name} must have equally sized values and weights"
         )
     if any(not isinstance(weight, int) or weight <= 0 for weight in weights):
-        raise H1CampaignDesignError(
-            f"distribution {name} weights must be positive integers"
-        )
+        raise H1CampaignDesignError(f"distribution {name} weights must be positive integers")
     return values
 
 
 def validate_h1_campaign_design(design: Mapping[str, Any]) -> None:
     """Validate counts, variation, and the freeze-before-materialization guard."""
 
-    if design.get("schema_version") != "phase2a.h1_campaign_design.v1":
+    schema = design.get("schema_version")
+    if schema not in {
+        "phase2a.h1_campaign_design.v1",
+        "phase2a.h1_campaign_design.v2",
+    }:
         raise H1CampaignDesignError("unsupported H1 campaign design schema")
-    if design.get("status") != "AWAITING_M1_REVIEW":
-        raise H1CampaignDesignError("review-stage design must await M1 review")
-    if design.get("scenario_materialization_authorized") is not False:
-        raise H1CampaignDesignError(
-            "review-stage design must not authorize scenario materialization"
+    if schema == "phase2a.h1_campaign_design.v1":
+        if design.get("status") != "AWAITING_M1_REVIEW":
+            raise H1CampaignDesignError("review-stage design must await M1 review")
+        if design.get("scenario_materialization_authorized") is not False:
+            raise H1CampaignDesignError(
+                "review-stage design must not authorize scenario materialization"
+            )
+    else:
+        if design.get("status") != "ALIGNMENT_REVISION_APPROVED_FOR_REMATERIALIZATION":
+            raise H1CampaignDesignError("v2 design must record D1 approval")
+        if design.get("scenario_materialization_authorized") is not True:
+            raise H1CampaignDesignError("v2 design must authorize rematerialization")
+        alignment = _require_mapping(design, "sampling_constraints").get(
+            "runtime_block_alignment_tokens"
         )
+        if alignment != 16:
+            raise H1CampaignDesignError("v2 design must freeze 16-token alignment")
     if design.get("outcome_materialization_authorized") is not False:
         raise H1CampaignDesignError(
             "review-stage design must not authorize outcome materialization"
         )
     for forbidden_key in ("scenarios", "outcomes", "scenario_draw_seed"):
         if forbidden_key in design:
-            raise H1CampaignDesignError(
-                f"review-stage design must not contain {forbidden_key}"
-            )
+            raise H1CampaignDesignError(f"review-stage design must not contain {forbidden_key}")
 
     sampling_unit = _require_mapping(design, "statistical_unit")
     if sampling_unit.get("name") != "independent_scenario_draw":
-        raise H1CampaignDesignError(
-            "statistical unit must be an independent scenario draw"
-        )
+        raise H1CampaignDesignError("statistical unit must be an independent scenario draw")
     if sampling_unit.get("runtime_seed_counts_as_sample") is not False:
         raise H1CampaignDesignError("runtime seeds must not count as samples")
 
@@ -135,50 +142,34 @@ def validate_h1_campaign_design(design: Mapping[str, Any]) -> None:
         )
     draw_count = design.get("independent_scenario_draw_count")
     if draw_count != FROZEN_INDEPENDENT_DRAWS:
-        raise H1CampaignDesignError(
-            f"campaign requires exactly {FROZEN_INDEPENDENT_DRAWS} draws"
-        )
+        raise H1CampaignDesignError(f"campaign requires exactly {FROZEN_INDEPENDENT_DRAWS} draws")
     if draw_count != sum(quotas.values()):
         raise H1CampaignDesignError("draw count must equal the family quota sum")
 
     repetitions = _require_mapping(design, "runtime_repetitions")
     seeds = _require_sequence(repetitions, "seeds")
     if len(seeds) < 3 or len(seeds) != len(set(seeds)):
-        raise H1CampaignDesignError(
-            "runtime repetitions require at least three unique seeds"
-        )
+        raise H1CampaignDesignError("runtime repetitions require at least three unique seeds")
     if repetitions.get("purpose") != "runtime_noise_and_reproducibility_only":
-        raise H1CampaignDesignError(
-            "runtime seed purpose must exclude statistical independence"
-        )
+        raise H1CampaignDesignError("runtime seed purpose must exclude statistical independence")
 
     distributions = _require_mapping(design, "predeclared_distributions")
-    candidate_counts = set(
-        _distribution_values(distributions, "candidate_count")
-    )
+    candidate_counts = set(_distribution_values(distributions, "candidate_count"))
     if not REQUIRED_CANDIDATE_COUNT_SUPPORT.issubset(candidate_counts):
-        raise H1CampaignDesignError(
-            "candidate count distribution must cover 2 through 7"
-        )
+        raise H1CampaignDesignError("candidate count distribution must cover 2 through 7")
     prefix_tokens = set(_distribution_values(distributions, "prefix_tokens"))
     if not REQUIRED_PREFIX_TOKEN_SUPPORT.issubset(prefix_tokens):
-        raise H1CampaignDesignError(
-            "prefix distribution is missing required token support"
-        )
+        raise H1CampaignDesignError("prefix distribution is missing required token support")
     if not REQUIRED_RETURN_BEHAVIORS.issubset(
         set(_distribution_values(distributions, "return_behavior"))
     ):
-        raise H1CampaignDesignError(
-            "return distribution is missing a required behavior"
-        )
+        raise H1CampaignDesignError("return distribution is missing a required behavior")
     eta_values = set(_distribution_values(distributions, "eta"))
     if len(eta_values) < 3 or eta_values == {1}:
         raise H1CampaignDesignError("eta requires meaningful variation")
     queue_delays = set(_distribution_values(distributions, "queue_delay_seconds"))
     if 0 not in queue_delays or not any(delay > 0 for delay in queue_delays):
-        raise H1CampaignDesignError(
-            "queue delay must include both zero and positive support"
-        )
+        raise H1CampaignDesignError("queue delay must include both zero and positive support")
     if not REQUIRED_PRESSURE_PATTERNS.issubset(
         set(_distribution_values(distributions, "pressure_pattern"))
     ):
@@ -205,18 +196,17 @@ def validate_h1_campaign_design(design: Mapping[str, Any]) -> None:
     }.issubset(required_inputs):
         raise H1CampaignDesignError("freeze protocol is missing required hashes")
 
-    scenario_gates = _require_sequence(
-        design, "scenario_materialization_gates"
+    scenario_gates = _require_sequence(design, "scenario_materialization_gates")
+    expected_scenario_gate = (
+        "M1_DESIGN_APPROVAL"
+        if schema == "phase2a.h1_campaign_design.v1"
+        else "M1_PRE_EXECUTION_REVIEW_2026-10-09_D1"
     )
-    if "M1_DESIGN_APPROVAL" not in scenario_gates:
-        raise H1CampaignDesignError(
-            "M1 approval must gate scenario materialization"
-        )
+    if expected_scenario_gate not in scenario_gates:
+        raise H1CampaignDesignError("M1 approval must gate scenario materialization")
     outcome_gates = _require_sequence(design, "outcome_materialization_gates")
     if "SEALED_SCENARIO_MANIFEST" not in outcome_gates:
-        raise H1CampaignDesignError(
-            "a sealed scenario manifest must gate outcome materialization"
-        )
+        raise H1CampaignDesignError("a sealed scenario manifest must gate outcome materialization")
     if "LEVEL_B_OBSERVATION_SEAM_READY" not in outcome_gates:
         raise H1CampaignDesignError(
             "Level-B observation readiness must gate outcome materialization"
@@ -226,16 +216,22 @@ def validate_h1_campaign_design(design: Mapping[str, Any]) -> None:
 def validate_h1_materialization_freeze(freeze: Mapping[str, Any]) -> None:
     """Validate approval to materialize scenarios, never runtime outcomes."""
 
-    if freeze.get("schema_version") != (
-        "phase2a.h1_scenario_materialization_freeze.v1"
-    ):
+    schema = freeze.get("schema_version")
+    if schema not in {
+        "phase2a.h1_scenario_materialization_freeze.v1",
+        "phase2a.h1_scenario_materialization_freeze.v2",
+    }:
         raise H1CampaignDesignError("unsupported H1 materialization freeze schema")
-    if freeze.get("status") != "SCENARIO_MATERIALIZATION_AUTHORIZED":
-        raise H1CampaignDesignError(
-            "freeze must authorize scenario materialization"
-        )
-    if freeze.get("m1_authorization_status") != "APPROVED_WITH_MINOR_FIXES":
-        raise H1CampaignDesignError("freeze must record the M1 authorization")
+    if schema == "phase2a.h1_scenario_materialization_freeze.v1":
+        if freeze.get("status") != "SCENARIO_MATERIALIZATION_AUTHORIZED":
+            raise H1CampaignDesignError("freeze must authorize scenario materialization")
+        if freeze.get("m1_authorization_status") != "APPROVED_WITH_MINOR_FIXES":
+            raise H1CampaignDesignError("freeze must record the M1 authorization")
+    else:
+        if freeze.get("status") != "ALIGNMENT_REVISION_REMATERIALIZATION_AUTHORIZED":
+            raise H1CampaignDesignError("v2 freeze must record D1 authorization")
+        if freeze.get("runtime_block_alignment_tokens") != 16:
+            raise H1CampaignDesignError("v2 freeze must require 16-token alignment")
     if freeze.get("outcome_execution_authorized") is not False:
         raise H1CampaignDesignError("freeze must not authorize outcome execution")
     if freeze.get("expected_draw_count") != FROZEN_INDEPENDENT_DRAWS:
@@ -259,7 +255,12 @@ def validate_h1_materialization_freeze(freeze: Mapping[str, Any]) -> None:
     }
     if dict(corner_quotas) != required_corner_quotas:
         raise H1CampaignDesignError("freeze corner-case quotas do not match approval")
-    for key in ("distribution_manifest_sha256", "approved_distribution_commit"):
+    required_identity = (
+        ("distribution_manifest_sha256", "approved_distribution_commit")
+        if schema == "phase2a.h1_scenario_materialization_freeze.v1"
+        else ("distribution_manifest_sha256", "reviewed_pre_execution_commit")
+    )
+    for key in required_identity:
         value = freeze.get(key)
         if not isinstance(value, str) or not value:
             raise H1CampaignDesignError(f"freeze {key} must be non-empty text")

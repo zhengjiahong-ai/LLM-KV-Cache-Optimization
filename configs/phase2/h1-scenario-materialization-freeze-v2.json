@@ -1,0 +1,30 @@
+{
+  "alignment_revision_authorization": "M1_PRE_EXECUTION_REVIEW_2026-10-09_D1",
+  "distribution_manifest": "configs/phase2/h1-independent-campaign-design-v2.json",
+  "distribution_manifest_sha256": "4fab76445b55974883265645b15d51f423c067558692089af029605d59248169",
+  "expected_draw_count": 42,
+  "family_quotas": {
+    "F1": 7,
+    "F2": 7,
+    "F3": 7,
+    "F4": 7,
+    "F5": 7,
+    "F6": 7
+  },
+  "formal_h1_outcome_execution_authorized": false,
+  "minimum_corner_case_draws": {
+    "multi_release": 4,
+    "near_horizon": 4,
+    "no_return_within_trace": 3,
+    "repeated_pressure": 4,
+    "shared_prefix": 4
+  },
+  "outcome_execution_authorized": false,
+  "reviewed_pre_execution_commit": "408cd512182c08e606938b752c52e9dab5ff1ea1",
+  "runtime_block_alignment_tokens": 16,
+  "sampler_seed": 20261007,
+  "schema_version": "phase2a.h1_scenario_materialization_freeze.v2",
+  "status": "ALIGNMENT_REVISION_REMATERIALIZATION_AUTHORIZED",
+  "structural_uniqueness_required": true,
+  "supersedes": "configs/phase2/h1-scenario-materialization-freeze.json"
+}

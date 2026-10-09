@@ -49,3 +49,24 @@ def test_h1_materializer_meets_corner_quotas_and_candidate_variation(tmp_path: P
         assert len({row["eta"] for row in scenario["candidates"]}) >= 2
         assert len({row["queue_delay_seconds"] for row in scenario["candidates"]}) >= 2
         assert scenario["runtime_seeds"] == [101, 211, 307]
+
+
+def test_v2_rematerializes_all_aligned_scenarios_under_d1(tmp_path: Path) -> None:
+    root = Path(__file__).parents[1]
+    seal = materialize_h1_scenarios(
+        root / "configs/phase2/h1-independent-campaign-design-v2.json",
+        root / "configs/phase2/h1-scenario-materialization-freeze-v2.json",
+        tmp_path / "holdout-v2",
+    )
+    manifest = json.loads((seal.parent / "scenario-manifest.json").read_text())
+
+    assert manifest["schema_version"] == "phase2a.h1_sealed_scenario_manifest.v2"
+    assert manifest["validation"]["runtime_block_alignment_tokens"] == 16
+    assert manifest["validation"]["runtime_block_alignment_valid"] is True
+    assert len(manifest["scenarios"]) == 42
+    assert all(
+        candidate["prefix_tokens"] % 16 == 0
+        for scenario in manifest["scenarios"]
+        for candidate in scenario["candidates"]
+    )
+    assert not json.loads(seal.read_text())["outcome_execution_authorized"]

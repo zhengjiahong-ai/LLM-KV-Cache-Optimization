@@ -160,6 +160,9 @@ def validate_materialized_scenarios(
             raise ValueError("H1 scenario lacks per-candidate queue-delay variation")
         if row.get("runtime_seeds") != [101, 211, 307]:
             raise ValueError("H1 runtime seeds differ from the frozen repetitions")
+        alignment = int(freeze.get("runtime_block_alignment_tokens", 1))
+        if any(int(candidate["prefix_tokens"]) % alignment for candidate in candidates):
+            raise ValueError("H1 scenario prefix is not runtime-block aligned")
     quotas = {
         "multi_release": sum(bool(row["multi_release"]) for row in scenarios),
         "near_horizon": sum(
@@ -186,6 +189,8 @@ def validate_materialized_scenarios(
         "corner_case_counts": quotas,
         "runtime_run_count_after_authorization": 126,
         "runtime_seeds_are_independent_samples": False,
+        "runtime_block_alignment_tokens": int(freeze.get("runtime_block_alignment_tokens", 1)),
+        "runtime_block_alignment_valid": True,
     }
 
 
@@ -212,8 +217,9 @@ def materialize_h1_scenarios(design_path: Path, freeze_path: Path, output: Path)
             else:
                 raise RuntimeError("failed to draw a structurally unique H1 scenario")
     validation = validate_materialized_scenarios(scenarios, freeze)
+    revision = "v2" if design["schema_version"] == "phase2a.h1_campaign_design.v2" else "v1"
     manifest = {
-        "schema_version": "phase2a.h1_sealed_scenario_manifest.v1",
+        "schema_version": f"phase2a.h1_sealed_scenario_manifest.{revision}",
         "campaign_id": design["campaign_id"],
         "sampler_seed": freeze["sampler_seed"],
         "distribution_manifest_sha256": _sha(design_path),
@@ -230,7 +236,7 @@ def materialize_h1_scenarios(design_path: Path, freeze_path: Path, output: Path)
     manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
     root = Path(__file__).resolve().parents[3]
     seal = {
-        "schema_version": "phase2a.h1_scenario_seal.v1",
+        "schema_version": f"phase2a.h1_scenario_seal.{revision}",
         "campaign_id": design["campaign_id"],
         "scenario_manifest_sha256": _sha(manifest_path),
         "distribution_manifest_sha256": _sha(design_path),

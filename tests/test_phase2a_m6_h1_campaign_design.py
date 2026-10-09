@@ -11,13 +11,22 @@ from kvopt.workload.phase2_h1_design import (
     validate_h1_materialization_freeze,
 )
 
-DESIGN = (
-    Path(__file__).parents[1]
-    / "configs"
-    / "phase2"
-    / "h1-independent-campaign-design.json"
-)
+DESIGN = Path(__file__).parents[1] / "configs" / "phase2" / "h1-independent-campaign-design.json"
 FREEZE = DESIGN.with_name("h1-scenario-materialization-freeze.json")
+
+
+def test_d1_alignment_revision_is_accepted_and_bound() -> None:
+    design = DESIGN.with_name("h1-independent-campaign-design-v2.json")
+    freeze = DESIGN.with_name("h1-scenario-materialization-freeze-v2.json")
+
+    loaded = load_h1_campaign_design(design)
+    bound = load_h1_materialization_freeze(freeze, design)
+
+    prefix = loaded["predeclared_distributions"]["prefix_tokens"]
+    assert 24 not in prefix["values"]
+    assert prefix["weights"][prefix["values"].index(32)] == 2
+    assert bound["runtime_block_alignment_tokens"] == 16
+    assert bound["outcome_execution_authorized"] is False
 
 
 def test_h1_design_has_independent_family_draws_and_runtime_repeats() -> None:
@@ -47,15 +56,10 @@ def test_h1_design_covers_required_variation() -> None:
     distributions = design["predeclared_distributions"]
 
     assert set(range(2, 8)).issubset(distributions["candidate_count"]["values"])
-    assert {16, 32, 128, 256, 512}.issubset(
-        distributions["prefix_tokens"]["values"]
-    )
+    assert {16, 32, 128, 256, 512}.issubset(distributions["prefix_tokens"]["values"])
     assert len(distributions["eta"]["values"]) >= 3
     assert 0 in distributions["queue_delay_seconds"]["values"]
-    assert any(
-        value > 0
-        for value in distributions["queue_delay_seconds"]["values"]
-    )
+    assert any(value > 0 for value in distributions["queue_delay_seconds"]["values"])
     assert "shared_prefix" in distributions["ownership_pattern"]["values"]
     assert "repeated_pressure" in distributions["pressure_pattern"]["values"]
 
@@ -118,9 +122,7 @@ def test_h1_materialization_freeze_binds_approved_distribution() -> None:
     freeze = load_h1_materialization_freeze(FREEZE, DESIGN)
 
     assert freeze["expected_draw_count"] == 42
-    assert freeze["family_quotas"] == {
-        family: 7 for family in ("F1", "F2", "F3", "F4", "F5", "F6")
-    }
+    assert freeze["family_quotas"] == {family: 7 for family in ("F1", "F2", "F3", "F4", "F5", "F6")}
     assert freeze["sampler_seed"] == 20261007
     assert freeze["outcome_execution_authorized"] is False
 
