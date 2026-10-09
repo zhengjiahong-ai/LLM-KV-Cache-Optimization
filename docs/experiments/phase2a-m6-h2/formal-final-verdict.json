@@ -1,0 +1,73 @@
+{
+  "schema_version": "phase2a.h2_final_independent_verdict.v1",
+  "review_recorded_at": "2026-10-09",
+  "review_scope": "independent_raw_evidence_recomputation_and_project_phase_closeout",
+  "review_disposition": "H2_REVIEW_COMPLETED",
+  "frozen_measurement_verdicts": {
+    "M1": {
+      "status": "PASS",
+      "primary_observation": "isolated_native_prefill_elapsed_seconds",
+      "measured_repeats_per_point": 9,
+      "bootstrap_iterations": 10000,
+      "bootstrap_seed": 20261007,
+      "delta_M1_seconds": 0.19029591700382298,
+      "observed_delta_fit_seconds": 0.46337043935881883,
+      "bootstrap_q05_delta_fit_seconds": 0.4407016205465704,
+      "bootstrap_q05_gamma_seconds_per_token_squared": 8.880469562324095e-9
+    },
+    "M2": {
+      "status": "PASS",
+      "basis": "previously_formally_reviewed_and_sealed"
+    },
+    "M3": {
+      "status": "PASS",
+      "basis": "previously_formally_reviewed_and_sealed"
+    },
+    "M4": {
+      "status": "FAIL",
+      "comparator_scope": "single_prefix_controlled_mechanism_headroom_only",
+      "cells": 12,
+      "measured_pairs_per_cell": 9,
+      "measured_pairs": 108,
+      "supporting_cells": 0,
+      "no_resolved_headroom_cells": 12,
+      "pairwise_headroom_tokens": 0
+    }
+  },
+  "aggregate": {
+    "all_four_pass": false,
+    "b1_method_design_unlocked": false,
+    "b1_runtime_implementation_authorized": false,
+    "b1_status": "LOCKED",
+    "h2_measurement_campaign_closed": true,
+    "no_selective_reruns_authorized": true
+  },
+  "evidence_bindings": {
+    "evidence_archive_path": "artifacts/phase2a-h2-final-evidence-c34a172.tar.gz",
+    "evidence_archive_sha256": "0ef7207b2baabca0fc77e2a1eef01ce272b2cb2e611fe7f0b6a5a2f556f2a5a7",
+    "review_submission_path": "docs/experiments/phase2a-m6-h2/final-remaining-measurements-review-submission.json",
+    "review_submission_sha256": "5e4fa083b49dc5ce9e7285443a34457a2d03103b6ce59d7b648daa4227674812",
+    "evidence_handoff_path": "docs/experiments/phase2a-m6-h2/final-evidence-handoff.json",
+    "m2_m3_formal_verdict_path": "docs/experiments/phase2a-m6-h2/formal-m2-m3-verdict.json",
+    "m2_m3_formal_verdict_sha256": "0d7a5d42799e42dab4baca4538ba7f21903af93d64830906a508eace223a0874",
+    "independent_review_report_sha256": "5d233dd05fac69a0c4d6f26000ef5f619838106ead060a56d2335df61d663848",
+    "independent_review_verdict_sha256": "8a09bbd855b9efed0616ad5e29238f095a3ac0faa003be3d1dcb0a404973a47d",
+    "measurement_submission_commit": "26caefc76a38f202b0de86ab13db2dbe8b6086c3"
+  },
+  "integrity": {
+    "m1_run_count": 187,
+    "m1_measured_run_count": 153,
+    "m4_run_count": 264,
+    "m4_measured_pair_count": 108,
+    "m1_m4_raw_run_and_event_hash_chains_verified": true,
+    "m4_v1_diagnostics_excluded_from_formal_v2_statistics": true,
+    "independent_bootstrap_recomputed": true,
+    "independent_m4_pairwise_recomputed": true
+  },
+  "interpretation_boundary": [
+    "M4 FAIL applies to the frozen single-prefix controlled comparator; no claim about every possible block-level or multi-entry policy.",
+    "M1 nonlinear isolated prefill cost does not establish a runtime service-level win for a cost-aware eviction policy.",
+    "The separate M1/M4 organizational signoff, if required by governance, is not impersonated by this evidence review record.",
+    "Frozen outcome seal files and raw runs are not edited."
+  ]
+}
