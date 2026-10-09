@@ -1,0 +1,74 @@
+{
+  "authorization_state": {
+    "challenger_runtime_policy_switch_authorized": false,
+    "formal_level_a_execution_authorized": true,
+    "formal_verdict_pending_m1_m4_review": true,
+    "level_b_runtime_claim_authorized": false
+  },
+  "candidate_conclusion": {
+    "accepted": false,
+    "candidate_outcome": "DIAGNOSTIC_ONLY",
+    "reason": "Only 29 independent scenario draws supplied paired baseline/challenger evidence, below the frozen minimum of 30. The observed direction also failed every frozen acceptance check.",
+    "verdict_ceiling": "PROXY_CANDIDATE"
+  },
+  "execution": {
+    "failed_run_count": 30,
+    "failed_scenarios_preserved": true,
+    "formal_execution_summary": "artifacts/phase2a-h1-formal-level-a-runs-v1/formal-execution-12a1d85c5ebd.json",
+    "formal_execution_summary_sha256": "a9c8909f5971d1e7cb4f2fed51fd5030940752fa1501679adc236b6c95283ce6",
+    "invalid_independent_scenario_count": 10,
+    "planned_run_count": 126,
+    "successful_run_count": 96,
+    "valid_complete_seed_triad_scenario_count": 32
+  },
+  "fidelity_and_missingness": {
+    "decisions_compared_for_replay": 120,
+    "decisions_evaluated": 114,
+    "decisions_excluded": 6,
+    "excluded_by_reason": {
+      "too_few_candidates": 6
+    },
+    "initial_reclaimable_matches": 471,
+    "missing_candidate_total": 0,
+    "release_sequence_matches": 120,
+    "release_set_matches": 120,
+    "runtime_valid_but_not_paired_evaluable_scenarios": [
+      "h1-f1-draw-05",
+      "h1-f3-draw-04",
+      "h1-f5-draw-01"
+    ]
+  },
+  "frozen_bindings": {
+    "authorization_sha256": "fc478eca706b2a4d39bd03d8c51673483ed027ac7d8b183d81c7475359333747",
+    "baseline_epsilon_audit_sha256": "20875488eba6d3a8e03cc0b90bc8fd3d209cd88d582378d0056986205e40c9df",
+    "campaign_sha256": "2c7ee26c6a21f33bd6ab11001261c098ea6b7f954168559220ef735b617793c4",
+    "level_a_contract_sha256": "f7ee77cb1d71eca4c23bc0c3a957334136e1bfd94af726cde474ef3af57bce75",
+    "level_b_seam_validation_report_sha256": "1d6082bb5f3915d1ee7d226dc7f924ba5b8fe9f905a1ceeb6ab7196a000d2229",
+    "scenario_seal_sha256": "54cb0a0e73017af69649f9a28d5c2eccc851fb000e2b31bf6e46f128501b540b"
+  },
+  "paired_level_a_result": {
+    "better_scenarios": 13,
+    "bootstrap_iterations": 10000,
+    "bootstrap_seed": 20261007,
+    "ci_95": [
+      -0.03580353525786637,
+      0.017812089996253742
+    ],
+    "family_direction_agreement": "3/6",
+    "mean_delta": -0.008328804890493039,
+    "paired_evaluable_independent_scenarios": 29,
+    "primary_metric": "planned_return_weighted_prefill_proxy",
+    "sign_convention": "baseline_loss - challenger_loss; positive favors the challenger",
+    "tied_scenarios": 2,
+    "worse_scenarios": 14
+  },
+  "review_request": "M1/M4 should verify all hashes, reproduce scenario validity and missingness classification from the preserved 126 attempts, recompute the frozen 10000-bootstrap Level-A paired evaluation, and issue the formal H1-R1 verdict. No Level-B or runtime-policy claim is requested.",
+  "schema_version": "phase2a.h1_formal_level_a_review_submission.v1",
+  "sealed_outcome": {
+    "analysis_git_sha": "2804382",
+    "analysis_sha256": "f51dbe67535c4d050ef20ab0e92794e0f5944e67d1015fc007c4fe9608d1b912",
+    "seal_path": "artifacts/phase2a-h1-formal-level-a-outcome-v1/seal.json",
+    "seal_sha256": "da004c52e02105e4ffb366e7a5e1c1800bcad0c4e6542ecb5070011628e902a0",
+    "sealing_tool_git_sha": "e3a02fd"
+  }
+}

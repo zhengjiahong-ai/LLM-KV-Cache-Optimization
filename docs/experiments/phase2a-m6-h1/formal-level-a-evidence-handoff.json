@@ -1,0 +1,32 @@
+{
+  "archive": {
+    "entry_count": 1174,
+    "path": "artifacts/phase2a-h1-level-a-evidence-e3a02fd.tar.gz",
+    "sha256": "af5be5bd56a172f7945f12712289708aa55cda01f1b8c05a2bc3215b14c90af7",
+    "size_bytes": 3123160
+  },
+  "contents": {
+    "baseline_epsilon_campaign_and_runs": [
+      "artifacts/phase2a-h1-identical-baseline-campaign-v1",
+      "artifacts/phase2a-h1-identical-baseline-runs-v1"
+    ],
+    "formal_analysis": "artifacts/phase2a-h1-formal-level-a-analysis-v1",
+    "formal_campaign": "artifacts/phase2a-h1-formal-level-a-campaign-v1",
+    "formal_derived_datasets": "artifacts/phase2a-h1-formal-level-a-derived-v1",
+    "formal_outcome": "artifacts/phase2a-h1-formal-level-a-outcome-v1",
+    "formal_raw_runs_and_failures": "artifacts/phase2a-h1-formal-level-a-runs-v1",
+    "level_b_seam_validation": "artifacts/phase2a-level-b-seam-validation-runs-v3",
+    "scenario_manifest_and_seal": "artifacts/phase2a-h1-independent-scenarios-v2"
+  },
+  "handling": {
+    "archive_committed_to_git": false,
+    "failed_attempts_removed": false,
+    "raw_artifacts_modified": false,
+    "transfer_channel": "AGREE_SEPARATELY_WITH_M1_OR_PROJECT_TEAM"
+  },
+  "review_entry_point": {
+    "path": "docs/experiments/phase2a-m6-h1/formal-level-a-review-submission.json",
+    "sha256": "8349c0cbba7c00cb863bf54952fe3a470823a29ac65cd0cef0fa70812e495a9d"
+  },
+  "schema_version": "phase2a.h1_formal_level_a_evidence_handoff.v1"
+}
