@@ -194,6 +194,17 @@ no_selective_reruns_authorized      : true
 | 无选择性补跑 | ✅ 两个裁定均记录 `no_selective_reruns_authorized` |
 | 原始运行与封存文件未被编辑 | ✅ H2 裁定明列 |
 
+### 3.4 交付到 M4 工作区的证据包（本地，不入库）
+
+| 包 | 内容 | 规模 |
+| --- | --- | --- |
+| `local/phase2a-h1-level-a-evidence-e3a02fd/` | 42 个 sealed scenario、campaign、54+ runs、canonical derived bundle、Level-A analysis、identical-baseline 重复、Level-B seam 验证 | 22.28 MB / 1212 文件 |
+| `local/phase2a-h2-final-evidence-c34a172/` | M1 campaign 与 outcome（17 个 r 点的 native 曲线）、M2/M3 outcome、M4 campaign/outcome、comparator validation | 115.97 MB / 3386 文件 |
+
+两个包均在 `.gitignore` 覆盖的 `local/` 下，未进入版本库。
+
+**M4 对其使用方式的声明**：M4 只将其用于**描述性特征刻画**（见 §4 与 `docs/phase2a-m4-method-opportunity-audit.md` §1），**未**用它检验任何规则，**未**产出任何验收指标。是否允许以**诊断**目的继续使用，仍在等待 M1 裁定（审计文档 G3）。
+
 ---
 
 ## 4. M4 H1 evidence request 的处置

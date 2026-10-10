@@ -2,273 +2,331 @@
 
 Status: **AUDIT ONLY — no method proposed, no campaign requested, no implementation authorized**
 Author: M4
-Date: 2026-10-10
+Date: 2026-10-10 (**rev.2** — revised against the released H1/H2 evidence bundles)
 Baseline: `origin/main` @ `9a0cdff`
+Corpora: H1 Level-A bundle `phase2a-h1-level-a-evidence-e3a02fd`; H2 bundle `phase2a-h2-final-evidence-c34a172`
+
+> **rev.2 说明**：rev.1 在拿到 H1/H2 原始证据包之前写成，其**首选假设（HYP-A）现已被数据否证**。
+> 本文档保留否证过程，因为它本身是本阶段最有价值的产物之一：它证明前置可证伪性检查可以在
+> **不跑任何 campaign** 的前提下淘汰一个方向。
 
 ---
 
 ## 0. 范围与约束
 
-本审计回答 M1 提出的核心问题：
+回答 M1 的核心问题：
 
 > 已有证据证明了哪些 decision-time 信息具有意义？这些信息是否可能在**多 entry 竞争**条件下带来相对 Continuum baseline 的增量收益？
-
-**约束（不越界）：**
 
 | 项 | 保持不变 |
 | --- | --- |
 | 研究主线 | Cost-Aware KV Cache **Eviction / Victim Selection** |
 | 决策粒度 | **logical retention entry** |
-| 不重定位为 | TTL estimator optimization / scheduler optimization / physical block-level eviction |
+| 不重定位为 | TTL estimator / scheduler / physical block-level eviction |
 | 不提出 | 完整算法、评分公式冻结、工程实现 |
 | 不请求 | 新的 formal campaign、新的观测缝 |
 
-**分类纪律。** 本文严格区分三类陈述，并在每一节标注：
-
-```text
-[事实]      已由封存证据或实现代码确立
-[推断]      由事实推出的机制解释，尚未作为方法价值被验证
-[假设]      待检验的研究假设，未经实验
-```
-
-⚠️ 任何标注为 `[假设]` 的内容**都不是结论**。
+**分类纪律**：每条陈述标注 `[事实]` / `[推断]` / `[假设]`。`[假设]` 一律不是结论。
 
 ---
 
-## 1. 证据来源与两条语料
+## 1. 数据基础
 
-本审计引用**两条不同语料**，必须分开读，因为它们的退化维度不同。
+| 语料 | 规模 | 用于本审计的用途 |
+| --- | --- | --- |
+| **H1 Level-A derived** | 471 candidate rows / 120 decisions / 1884 loss rows | 特征结构与损失分解 |
+| **H2 M1 outcome** | 17 个 r 点 × 9 次重复的 native isolated 曲线 | 真实 $C(r)$ 形状 |
+| Discovery corpus（M6 v5） | 54 runs / 60 decisions | 弱先验，已被 §3.2 降级 |
 
-| 语料 | 规模 | 状态 | 关键退化 |
-| --- | --- | --- | --- |
-| **Discovery corpus**（Phase 2A M6 v5） | 54 runs / 60 decisions / 174 candidates | **已被 M1 归类为 DISCOVERY / CHARACTERIZATION DATA** | 成本仅 3 个取值；`eta` 与 `queue_delay` 全 campaign 各仅 1 个取值 |
-| **H1 corpus**（独立 campaign） | 42 sealed draws（每族 7）→ 29 paired evaluable | **已闭合并封存** | 运行损耗 42→29；仅检验了 H1-R1 一条规则 |
-
-**Discovery corpus 的定向结论不得直接沿用** —— §2.2 给出一条直接证据说明为什么。
+**复核方法（可复现）**：本文档每个数字由 `local/probe_h1_*.py`、`local/probe_h2_*.py` 计算，均为**描述性统计** —— 不评估任何规则、不产出任何验收指标。读取语料做**特征刻画**与「用该语料检验假设」是两件事；本审计只做前者。
 
 ---
 
-## 2. 已验证事实
+## 2. 决定性结构事实
 
-### 2.1 `[事实]` canonical loss 的结构
+### 2.1 `[事实]` canonical loss 的确切形式
 
-读取 `src/kvopt/profiling/loss_views.py::_return_weighted_prefill_evidence`：
+`src/kvopt/profiling/loss_views.py::_return_weighted_prefill_evidence`：
 
 ```python
 loss = candidate.prefill_reload_seconds if returned_within_horizon else 0.0
 ```
 
-即 canonical proxy loss 是**两个因子之积**：
+⇒ **`loss = I[在 horizon 内返回] × C(prefix 长度)`**。经 H1 数据直接验证：proxy 视图中每个 `block_count` 下 loss ∈ `{0, C(r)}` 两个值，无第三值。
 
-```text
-loss = [该 entry 的 prefix 在 horizon 内被再次使用]  ×  C(prefix 长度)
-```
+### 2.2 `[事实]` 成本维度**完全可观测**，且决策内严格有序
 
-这条是**结构性事实**，不是实验结果。它限定了任何规则的可改进空间：
+H1 的 471 行候选数据：
 
-> 规则只能通过「释放更可能**不**在 horizon 内返回的 entry」或「释放 $C(r)$ 更小的 entry」来降低 loss。
-
-### 2.2 `[事实]` H1-R1 未复现，且**方向与 discovery corpus 相反**
-
-| 语料 | 单位 | mean Δ（正 = 挑战者更好） | better/worse/tied |
-| --- | --- | ---: | --- |
-| Discovery corpus | raw 60 行 | **+0.014797** | 24 / 15 / 21 |
-| Discovery corpus | 18 draws | +0.016086 | 8 / 3 / 7 |
-| **H1 corpus** | **29 draws** | **−0.008328804890493039** | **13 / 14 / 2** |
-| H1 corpus | CI | `[−0.035804, +0.017812]` | family 3/6 |
-
-⇒ **符号翻转。** 同一条规则在两个语料上方向相反。
-
-这条的意义超出「H1-R1 失败」本身：
-
-> **discovery corpus 上的定向发现不具可迁移性。**
-> 凡建立在该语料方向性结果之上的推断，都必须降级为「待重验」。
-
-### 2.3 `[事实]` 真实 prefill 成本是非线性的
-
-H2-M1 **PASS**。观测量为 `isolated_native_prefill_elapsed_seconds`（同步 native forward 执行，**非**端到端延迟）：
-
-```text
-每点重复 9 次；10,000 bootstrap，seed 20261007
-delta_M1        = 0.19029591700382298 s
-拟合增量         = 0.46337043935881883 s，q05 = 0.4407016205465704
-gamma q05       = 8.880469562324095e-9 s/token²   （> 0）
-```
-
-⇒ **成本曲线在实测区间内确有曲率。** 这是 M1 层面的机制事实。
-
-### 2.4 `[事实]` partial-prefix APC 语义成立
-
-H2-M2 **PASS**：6 个 exact probe、54 次重复、对照有效。保留前导连续区间 + 淘汰尾部 ⇒ **仅后缀重计算**。
-
-### 2.5 `[事实]` 淘汰位置改变**实际**重计算结果
-
-H2-M3 **PASS**：**12/12 单元全部支持**，108 个 measured pair，每单元 9 次重复，无未解效应单元。
-
-⇒ leading 与 trailing 在相同块数下代价不同。位置确实携带信息。
-
-### 2.6 `[事实]` 单前缀受控比较中**不存在** block-level 额外 headroom
-
-H2-M4 **FAIL**：12 单元、108 对、supporting cells = **0**、resolved headroom cells = **0**、**pairwise headroom = 0 tokens**。
-
-M6 已冻结其适用边界：
-
-> 仅适用于**冻结的 single-prefix controlled comparator**；不构成对所有 block-level 或多 entry 策略的否定。
-
-### 2.7 `[事实]` 冻结基线的释放键
-
-```text
-_release_sort_key = (retention_deadline_timestamp,
-                     min native LRU rank over NEWLY ELIGIBLE,
-                     identity)
-```
-
-三个分量的性质：
-
-| 分量 | 语义 | 与成本的关系 |
-| --- | --- | --- |
-| `deadline` | TTL 估计器输出（`timestamp + ttl_seconds`） | **间接**编码成本：discovery corpus 上 `prefill_reload ↔ deadline` = +0.938 |
-| `min native LRU rank over newly eligible` | **新近度**摘要 | **与成本无关** |
-| `identity` | 确定性 tie-break | 无 |
-
-⇒ **基线的中间项是一个纯粹的新近度量，不含任何成本语义。** 这是基线中**最不 cost-aware 的部分**，且在本阶段**从未被挑战**（H1-R1 只反转了第一项）。
-
-### 2.8 `[事实]` 基线在 H1 语料上可被忠实重放
-
-H1 fidelity：release **set** 120/120、release **sequence** 120/120、marginal `initially_reclaimable` 471 字段匹配；6 个决策以 `too_few_candidates` 排除；**missing candidate = 0**。
-
-⇒ 离线规则研究的基础设施是可靠的（这条支撑 §5 的离线前置检查可行性）。
-
-### 2.9 `[事实｜discovery corpus，已被 §2.2 降级]` 早期定向结果
-
-| 规则 | discovery corpus 结果 |
+| 关系 | 结果 |
 | --- | --- |
-| size 簇（`prefill` / `block_count` / `initially_reclaimable`） | 与基线**逐决策同构**（0/0/60），消融同一率 1.000 |
-| `M1_marginal_cost_per_reclaimable` | **净负面** 18/18/24，mean Δ = −0.002308 |
-| `M2_non_code_first` | 零回归但收益**仅在 F1 一族**（族记忆化） |
+| `initially_reclaimable_block_count == block_count` | **471/471（100%）** |
+| 决策内 `spearman(block_count, prefill_reload_seconds)` | **+1.0000，99/99 决策精确为 1** |
+| 固定 `block_count` 下 relief 是否变化 | **完全不变化** |
 
-⚠️ 这三条是 discovery corpus 事实。因 §2.2 已证明该语料的方向性不迁移，它们**只能作为弱先验**，不能作为排除依据。
+⇒ **成本维度在决策内是一个可完美观测的单变量（`block_count`）**，不需要任何推断。
+
+### 2.3 `[事实]` `relief` 不提供**任何**独立于成本的信号
+
+因为 `relief ≡ block_count`（100%），而 `cost` 在决策内是 `block_count` 的严格单调函数，所以
+
+```text
+cost / relief = C(block_count) / block_count
+```
+
+**是 `block_count` 的单变量函数**，不可能携带成本与容量之外的第二个信号。
+
+### 2.4 `[事实]` 真实 native $C(r)$ 的形状
+
+H2 M1，17 个 r 点，每点 9 次重复（取 median）：
+
+| 区间 | `C/r` 行为 |
+| --- | --- |
+| r = 16 → 1024 | **单调下降**，1220.5e-6 → 90.5e-6 |
+| r = 1024 | **最小值**（90.5e-6） |
+| r = 2048 → 30720 | **单调上升**，100.5e-6 → 295.1e-6 |
+| 全域离散度 | **13.49×** |
+
+⇒ 真实的「每 token 平均成本」是一条**单起伏的 U 形曲线**，最低点在 **r ≈ 1024**。这比「二次非线性」更具体，且**在 16–1024 区间是单调的**。
+
+### 2.5 `[事实]` baseline 的主键几乎不携带损失信息
+
+**直接计数（无任何统计假设）：** 在 75 个可判别决策中，按 deadline 能否分开「返回 vs 不返回」的候选：
+
+```text
+返回候选 deadline 更晚 : 37
+返回候选 deadline 更早 : 38
+```
+
+⇒ **baseline 的主键在判别上与抛硬币无差别。**
+
+**相关系数（我独立复算的 raw pooled Spearman）：**
+
+| 关系 | ρ | n |
+| --- | ---: | ---: |
+| `retention_deadline_timestamp` ↔ proxy loss | **+0.1376** | 471 |
+| `retention_deadline_timestamp` ↔ runtime loss | **−0.0178** | 207 |
+| `block_count` ↔ proxy loss | +0.5207 | 471 |
+| `block_count` ↔ runtime loss | +0.5794 | 207 |
+
+⚠️ **口径说明（重要）**：M6 的 `signal_support.jsonl` 报告的是**另一套统计量**，数值不同
+（deadline/proxy 为 +0.0585，block_count/proxy 为 0.5999，block_count/runtime 为 1.0000）。
+读实现 `src/kvopt/profiling/signals.py` 得出的口径是：**决策内平均秩归一化到 [0,1] 后 pooled 求 Pearson**，
+并丢弃损失恒定的决策与含缺失特征的决策。我按此重建，**7 项中有 2 项精确吻合**（deadline 在 proxy 视图的
+两个方向），其余落在同一区间但不逐位一致 —— 说明 M6 还含了额外的分组/样本过滤（其 runtime 视图仅
+`evaluable_family_count = 4`）。
+
+⇒ 本审计**不声称复现** M6 的统计量。两种口径在**符号与相对大小上一致**：
+`block_count` 明显具信息量，`deadline` 接近零。你引用时应标明是哪个口径。
+
+**对 H1-R1 的机械解释**：反转一个在两种口径下都接近零的特征不可能产生收益。H1-R1 的失败不是方向选错，
+而是**该特征本身几乎不含信息**。
+
+### 2.6 `[事实]` 损失离散度的来源分解
+
+H1，120 个决策：
+
+| 来源 | 决策数 | 占比 |
+| --- | ---: | ---: |
+| 仅成本变化（返回因子恒定） | 39 | 32.5% |
+| 仅返回因子变化（成本恒定） | 21 | 17.5% |
+| 两者都变 | 54 | 45.0% |
+| 损失恒定 | 6 | 5.0% |
+
+返回因子在 **75/120（62.5%）** 决策中具有判别力。
+
+### 2.7 `[事实]` runtime 视图存在**部分重计算**
+
+`observed_recomputed_tokens` 视图下 `loss == 16 × block_count` 仅 **159/207（76.8%）** 成立。48 行（23.2%）中 loss **小于** prefix 全长，例如 `block_count=24` 时 loss 可为 48（全长为 384）。
+
+且**同一 `block_count` 可对应多个 loss**：`block_count=16` → `{32, 48, 64, 80, 96, 256}`。
+
+⇒ 实际重算量**不是**前缀长度的确定函数；存在**部分命中**（与 H2-M2 PASS 一致）。
+
+### 2.8 `[事实]` 可用决策时特征的判别力
+
+下表引自 H1 derived bundle 的 `signal_support.jsonl`（M6 产出），口径见 §2.5 的说明 ——
+它是**决策内排序一致性**的度量，不是跨决策的原始相关。
+
+| 特征 | ρ | 族一致 | 判定 |
+| --- | ---: | ---: | --- |
+| `block_count` / `initially_reclaimable` / `prefill_reload` | 0.5999 | 1.000 | PROXY_SUPPORTED（三者等价，见 §2.3） |
+| `next_tool_type=database` | **+0.2283** | 0.833 | PROXY_SUPPORTED |
+| `next_tool_type=search` | −0.1532 | 0.833 | NOT_SUPPORTED |
+| `next_tool_type=code` | −0.0569 | 0.500 | NOT_SUPPORTED |
+| `retention_deadline_timestamp` | +0.0585 | 0.667 | NOT_SUPPORTED |
+| `decision_native_lru_position` | +0.0585 | 0.667 | NOT_SUPPORTED |
+| `elapsed_since_ttl_decision_seconds` | −0.0585 | 0.667 | NOT_SUPPORTED |
+| `eta` / `queue_delay` / `waiting_followup` | — | — | coverage 不足（见 §2.9） |
+
+**除成本维度外，唯一有正向判别力的特征是 `next_tool_type=database`，ρ = 0.228。**
+在我的 raw pooled 口径下它也为正，而三个 tool 指示在 proxy 视图下分别
+`database` +0.23 / `search` −0.15 / `code` −0.06 — 即**只有一个 tool 类别带信息**。
+
+⚠️ `next_tool_type=code` 在 discovery corpus 上是唯一 supported 的生命周期信号（收益且仅在 F1 一族）。
+**它在本语料上 NOT_SUPPORTED。** 这是「定向发现不可迁移」的第二次独立实例（§3.2）。
+
+### 2.9 `[事实]` H1 的设计意图有两个维度**未被落实**
+
+H1 campaign 设计声明 *"Eta and queue delay are sampled per candidate so the campaign can contain within-decision variation"*。但 H1 derived 数据实测：
+
+```text
+eta            corpus-distinct = 1 (1.0)，决策内 distinct 上限 = 1
+queue_delay_t  corpus-distinct = 1 (0.0)，决策内 distinct 上限 = 1
+```
+
+⇒ **这两个退化维度在 H1 中依然退化。** H1 修正了成本分辨率（3 → 10 个取值）与返回行为，但**未**修正 TTL `benefit` 项的退化。
 
 ---
 
-## 3. 已被**排除**或**削弱**的方向
+## 3. 已被排除或削弱的命题
 
-| 方向 | 状态 | 依据 |
+### 3.1 `[事实]` 已排除
+
+| 方向 | 依据 |
+| --- | --- |
+| **反转 / 取反 baseline 排序** | H1-R1 在独立语料上全部冻结判据未通过；§2.5 给出机械原因（主键 ρ≈0） |
+| **「成本归一化容量效率」作为独立信号**（原 HYP-A） | §2.3：`relief ≡ block_count`、`cost` 是 `block_count` 的单调函数 ⇒ `cost/relief` 是**单变量函数**，非双信号组合 |
+| **容量效率排序在 runtime 视图有意义** | §2.7：runtime 视图下「每块释放成本」恒为 16 token/block，**对所有 entry 相同** ⇒ 效率排序在该视图无定义 |
+| **block-level partial-prefix retention（B1）** | H2-M4 FAIL，冻结 single-prefix 比较器下 pairwise headroom = 0 |
+
+### 3.2 `[事实]` 定向发现不可迁移（第二次独立实例）
+
+| 规则 / 信号 | Discovery corpus | H1 corpus |
 | --- | --- | --- |
-| **反转 / 取反基线排序** | **排除** | H1-R1 在独立语料上符号翻转且全部冻结判据未通过（§2.2） |
-| **纯成本量级排序**（如按 `prefill_reload` 升序） | **强削弱** | discovery corpus 上与基线逐决策同构（§2.9）；且 §2.7 表明基线已近似成本序 |
-| **尺寸 / 占用类特征作为判别维度** | **强削弱** | discovery corpus 消融同一率 1.000（§2.9） |
-| **marginal cost per reclaimable** | **削弱，未排除** | discovery corpus 净负面；但该语料成本仅 3 个取值、`eta`/`queue_delay` 恒定，**使该检验本身信息量很低**。在修正了这两个退化维度的语料上**未被检验** |
-| **单特征单调键作为规则形态** | **接近穷尽** | 上述三条组合覆盖了 discovery corpus 上大部分单维方向 |
-| **block-level partial-prefix retention（B1）** | **LOCKED** | H2-M4 FAIL，在冻结比较器下无额外 headroom（§2.6） |
+| reverse-deadline | mean Δ **+0.014797** | mean Δ **−0.008329** |
+| `next_tool_type=code` | PROXY_SUPPORTED，收益仅在 F1 | **NOT_SUPPORTED**（ρ=−0.057） |
+| 唯一 supported 生命周期信号 | `code` | **`database`** |
 
-**一处必须澄清的边界：** §2.6 的 FAIL **不排除**「多 entry / 共享所有权 / 复杂压力条件下存在其他优化空间」—— M6 已明示该边界。B1 被锁的是**那条特定路线**，不是「block 位置信息永无价值」；§2.5 反而证明位置信息是**真实存在**的。
+⇒ **同一信号在两个语料上都换了方向或消失。** 这使 discovery corpus 的任何方向性结论都不能作为先验。
+
+### 3.3 `[推断]` 「为什么没有简单规则能赢」的机制解释
+
+§2.1–§2.8 合起来给出完整解释：
+
+```text
+proxy loss = I[返回] × C(prefix 长度)
+```
+
+- **成本因子** → 在决策内是**精确可观测**的：`cost` 与 `block_count` 的决策内秩一致率是 **99/99 精确为 1**（§2.2）。不需要推断，也没有推断空间。
+- **损失本身并不能由 `block_count` 决定**：同一 `block_count` 可对应至多 6 个不同 loss（§2.7），因为返回/实现因子在变。
+- **返回因子** → 唯一需要**预测**的部分；而**没有任何可用特征能较好预测它**（最强为 `next_tool_type=database`，ρ = 0.228；baseline 的 deadline 是抛硬币，§2.5）。
+
+⇒ **决策瓶颈被定位为一个具体变量：horizon 内返回指示器（或其对等的实现因子）。**
+
+这也解释为何 H1-R1（动 deadline）、size 簇（动成本序）、tool 指示（生命周期代理）都无法给出稳健收益：**它们都在动已经可观测的成本侧，或在使用判别力极弱的返回代理。**
 
 ---
 
 ## 4. 仍存在的、尚未验证的优化机会
 
-以下每条都给出：**基线实际怎么做** → **差在哪里**。这就是「与 Continuum baseline 的真正区别」。
+### 4.1 `[推断]` 机会一：跨 entry 前缀重叠导致的**实际**重算减少（**重整后的首选**）
 
-### 4.1 `[推断]` 机会一：基线把「回收多少容量」当作新近度问题
+- **数据依据（§2.7）**：runtime 视图下 23.2% 行 `loss < prefix 全长`，且同一 `block_count` 可对应至多 6 个不同 loss。说明**淘汰一个 entry 后实际需要重算的量小于它的前缀长度**。
+- **机制**：若某 entry 的前缀与「仍被保留/仍被缓存」的另一 entry 重叠，则该 entry 返回时只需重算未被覆盖的后缀。此时**淘汰哪个 entry** 会改变实际重算量 —— 而**这一量在 baseline 中完全不可见**。
+- **与 baseline 的真正区别**：baseline 键为 `(deadline, min native LRU rank over newly eligible, identity)`，三项**全部不含跨 entry 重叠信息**。
+- **与 §3.1 已排除项的区别**：这不是成本归一化，也不是位置效应的**单前缀**版本（H2-M4 已 FAIL）；它是**跨 entry**、依赖**保留集合**的效应 —— H2-M4 的冻结比较器是 **single-prefix**，**未覆盖**该情形。
 
-- **基线做法**：用 `min native LRU rank over newly eligible` 在同等 deadline 下排序。
-- **差在哪里**：该分量是**新近度**（哪块最旧），不是**收益**（这次释放能腾出多少容量、代价多少）。基线**从未把 loss 与 relief 联系起来**。
-- **为何现在值得看**：§2.3 证明 $C(r)$ 有曲率 ⇒ 每多释放一块的边际成本**依赖位置与长度**，不同 entry 的「单位容量代价」可以显著不同。若成本是线性的，这个量对所有 entry 相同，该项无意义。
-- **为何尚未验证**：H1-R1 只动第一项；§2.9 的 marginal-cost 检验发生在**成本只有 3 个取值**的语料上，几乎无法区分。
+### 4.2 `[推断]` 机会二：返回因子判别力提升（瓶颈所在）
 
-### 4.2 `[推断]` 机会二：loss 的返回因子在竞争中被隐性处理
+- **数据依据（§2.6、§2.8）**：返回因子在 62.5% 决策中可判别，但**现有特征对其判别力上限仅 ρ = 0.228**。
+- **关键**：这不是「换一个排序键」，而是「**现有决策时信息集是否含足够的返回信息**」。
+- **越界警告**：任何改变 `ttl_seconds` 计算的方案属 TTL estimator optimization，**超出主线**，不得以此名义提出。
 
-- **基线做法**：返回倾向只通过 `deadline` 隐式进入 —— 而 deadline 是**单条 entry 的标量**，来自 `P(return ≤ t)·benefit − t` 的独立最优化。
-- **差在哪里**：§2.1 的 loss 含**返回因子**，而基线在**多个 entry 之间**没有对返回可能性做**相对比较**。它比较的是各自的 deadline，而不是各自「谁更可能不返回」。
-- **边界警告**：此方向**极易**滑向 TTL estimator optimization。必须严格限定为「在压力下选择受害者」，**不改变 `ttl_seconds` 的计算**。若某做法会改变 TTL 估计，即越界。
-- **为何尚未验证**：discovery corpus 上唯一可用的生命周期信号 `next_tool_type=code` 的收益只在单族出现（§2.9），且该语料 `eta`/`queue_delay` 恒定。
+### 4.3 `[事实]` 机会三：共享所有权 —— **本语料无法表达**
 
-### 4.3 `[推断]` 机会三：共享所有权未被当作决策变量
+- §2.2：`relief == block_count` 在 **471/471（100%）** 行成立，**包含 F6「共享所有权」场景**。
+- ⇒ 本语料任何候选 entry 的**全部块**在被释放时立即可回收。**部分可回收性在数据中不存在**，因此「多所有者块」不可作为决策变量。
+- ⇒ 这不是「未检验」，而是「**当前数据未表达，故不可检验**」。要检验它，需一个 `relief < block_count` 存在的语料。
 
-- **基线做法**：每次释放一个 entry；对块是否被**多个 entry** 共同拥有没有概念。
-- **差在哪里**：释放一个被多 entry 共享的块，**一次**即可同时降低多个 owner 的复用能力 —— 这是单 entry 视角看不到的聚合代价。基线对此完全不可见。
-- **状态**：H1 的 F6 **作为场景维度**覆盖了 shared ownership，但**没有任何规则把它作为决策变量**。因此这是三者中**最接近「完全未检验」**的一条。
-- **已知约束**：绝不可触碰 `ref_cnt`；所有权信息只能停留在策略内部。
+### 4.4 机会与基线差异总览（rev.2）
 
-### 4.4 机会与基线差异总览
-
-| 机会 | 基线实际使用的量 | 基线**未**使用的量 | 是否与 §2.2 的失败同源 |
+| 机会 | baseline 实际使用 | baseline **未**使用 | 数据是否支持其存在 |
 | --- | --- | --- | --- |
-| 一：容量归一化代价 | `min native LRU rank`（新近度） | relief 量 × $C(r)$ 的单位代价 | **否** —— 换了决策变量，不是符号翻转 |
-| 二：返回因子的相对比较 | 单 entry 的 `deadline` 标量 | 竞争 entry 之间的返回倾向对比 | **否** —— 但需严防越界成 TTL 优化 |
-| 三：共享所有权聚合 | 无 | 共享块的跨 owner 聚合代价 | **否** —— 基线完全未表达 |
+| 一：跨 entry 重叠的实际重算 | 无跨 entry 信息 | 保留集合与候选前缀的重叠 | ✅ §2.7（23.2% 行 loss < 全长） |
+| 二：返回因子判别力 | 单 entry `deadline`（ρ≈0.14） | 更强的返回预测 | ✅ §2.6/§2.8（瓶颈所在，上限 0.228） |
+| 三：共享所有权聚合 | 无 | 多所有者块集合 | ❌ **数据未表达**（§2.2/§4.3） |
+| ~~原 HYP-A：成本/容量效率~~ | — | — | ❌ **已排除**（§3.1） |
 
 ---
 
-## 5. 最值得进一步验证的假设
+## 5. 假设与被否证记录
 
-按「机制依据强度 × 可证伪性 × 与基线差异清晰度」排序。**以下两条均为 `[假设]`，未经任何实验。**
+### 5.1 `[已否证]` 原 HYP-A：容量归一化的边际释放排序
 
-### 5.1 HYP-A（首选）：容量归一化的边际释放排序
+**rev.1 原话**：「按每 entry 释放后新增可用容量对预期重计算损失的比值排序，优于按 (deadline, native LRU rank) 排序」。
 
-```text
-[假设] 在满足同一压力目标的前提下，按「每个 entry 释放后能新增的可用容量」
-       对「预期重计算损失」的比值排序，优于按 (deadline, native LRU rank) 排序。
-```
+**否证过程（全部为前置检查，未跑任何 campaign）：**
 
-**与基线的真正区别**：基线在同等 deadline 下用**新近度** tie-break；本假设用**单位容量代价**。基线从不把 loss 与 relief 关联。
-
-**为何不是 H1-R1 的翻版**：H1-R1 是对同一变量（`deadline`）取反 —— 一个保序变换的符号翻转。本假设**更换决策变量**，且**专门利用 §2.3 的非线性**：若 $C(r)$ 线性，则 `C(r)/blocks` 对每个 entry 相同，该规则退化为成本序，可预测为 null。
-
-**可能否定它的观测（先做便宜的）：**
-
-| # | 观测 | 若成立则 |
+| 检查 | 结果 | 结论 |
 | --- | --- | --- |
-| F-A1 | 决策内各 entry 的 `newly_eligible_block_count` 几乎无离差 | 比值退化为每一项相同的常数 ⇒ 与成本序同构 ⇒ **预期 null** |
-| F-A2 | 决策内实现到的 $C(r)$ 取值分辨不足（类似 discovery corpus 的 3 个取值） | 单位代价无法区分 entry ⇒ **预期 null** |
-| F-A3 | 独立语料上 family agreement < 2/3 | 族记忆化 ⇒ **否决** |
-| F-A4 | 独立语料上 mean Δ ≤ 0 且 95% CI 含 0（≥30 draws） | **否决** |
+| `relief` 是否独立于 `block_count`？ | 471/471 相等 | ❌ 不独立 |
+| 决策内 `cost` 与 `block_count` 是否可分离？ | ρ = 1.0000 精确，99/99 | ❌ 不可分离 |
+| 真实 $C(r)$ 在 H1 用量区间（r=16–512）内 `C/r` 是否单调？ | **单调下降** | ❌ 物理上等价于尺寸序 |
+| 表观非单调来自何处？ | 10 点 proxy 表的局部突起（r=48–128） | ❌ 是**代理表假象**，非物理效应 |
+| 该方向在 runtime 视图是否有意义？ | 每块成本恒为 16 | ❌ 无定义 |
 
-⚠️ **必须同时记录的弱先验**：`M1_marginal_cost_per_reclaimable` 在 discovery corpus 上是净负面的（§2.9）。本假设是**在修正了该语料两个退化维度之后的重述**，不是新想法。诚实的说法是：「一个已知的弱先验，但其原始检验信息量很低」。
+**结论**：原 HYP-A **不是双信号组合**，而是**由代理成本表离散化假象驱动的单特征重排序**，物理上等价于尺寸排序。**应从后续考虑中移除。**
 
-### 5.2 HYP-B（次选）：竞争条件下的返回因子相对比较
+⚠️ 附带发现：proxy 成本表与 native 实测在共用 r 点上比值范围为 **0.303 – 2.051**（r=512 时 proxy 高 3.3×，r=16 时低 2×）。二者测量边界不同（TTFT 差 vs isolated forward），**不可互换**。这会影响任何以 proxy 成本形状为基础的推理。
+
+### 5.2 `[假设]` HYP-B（保留）：跨 entry 重叠的实际重算
 
 ```text
-[假设] 在多个 entry 竞争时，用可在线获得的返回倾向代理，
-       偏好释放「更不可能在 horizon 内被复用」的 entry，同时受成本约束。
-       不改变 TTL 估计器本身。
+[假设] 在满足同一压力目标时，偏好淘汰「其前缀被保留集合覆盖最多」的 entry，
+       可降低实际重计算量，优于只按 (deadline, native LRU rank) 排序。
 ```
 
-**与基线的真正区别**：基线的返回信息被封进**单 entry 标量** `deadline`，条目之间比较的是 deadline；本假设要求比较**返回倾向本身**。
-
-**越界警告（必须写进任何后续 preregistration）**：若某实现会改变 `ttl_seconds`，则它属于 TTL estimator optimization，**超出本研究主线**，不得以此名义提出。
+**与基线的真正区别**：基线三项键**全部**不含跨 entry 重叠信息。
 
 **可能否定它的观测：**
 
 | # | 观测 | 若成立则 |
 | --- | --- | --- |
-| F-B1 | 决策内各 entry 的返回标志几乎恒定 | 该因子无法区分 entry ⇒ **预期 null**（可离线先查） |
-| F-B2 | 任何可在线字段对返回标志的判别力都不优于 `deadline` 单独 | 无增量信息 ⇒ **否决**（可离线先查） |
-| F-B3 | 需要改动 TTL 估计器才能取得收益 | **越界**，退回主线外 |
-| F-B4 | family agreement < 2/3 或 CI 含 0 | **否决** |
+| F-C1 | §2.7 的 48 行 `loss < 全长` 全部来自**单 entry 内部**的部分命中，与其它 entry 的保留无关 | 无跨 entry 机制 ⇒ **否决** |
+| F-C2 | 决策内候选的「净重叠」无离差 | 无区分度 ⇒ **预期 null** |
+| F-C3 | 需**已观测**的保留集合（事后变量）才能计算 | **不可在线实现** ⇒ 否决（越界） |
+| F-C4 | 独立语料上 family agreement < 2/3 或 CI 含 0 | **否决** |
 
-### 5.3 若两者都被否定
+### 5.3 `[假设]` HYP-C（保留，瓶颈导向）：返回因子判别力
 
-则本阶段的正确读法是：**在 logical-entry 粒度、当前 decision-time 信息集与当前 loss 定义下，相对 Continuum baseline 的增量空间未被找到。**
+```text
+[假设] 存在某个可在线获得的组合，对 horizon 内返回指示器的判别力显著高于当前
+       上限 ρ = 0.228；且据此排序可带来相对 baseline 的增量收益。
+       不改变 TTL 估计器。
+```
 
-此时应当**明确记录为负面结果**，而不是继续在同一信息集上改进规则形态。是否需要新的决策时信号（新一轮观测缝）应由 M1 裁定，而不是由 M4 自行扩张。
+**可能否定它的观测：**
+
+| # | 观测 | 若成立则 |
+| --- | --- | --- |
+| F-D1 | 现有 12 个特征的任意简单组合判别力仍 ≤ 0.228（可在已解封语料上做**诊断**） | 信息集不足 ⇒ **否决当前信息集**，需新观测缝 |
+| F-D2 | 仅 `next_tool_type=database` 达标且收益限于单族 | 族记忆化 ⇒ **否决** |
+| F-D3 | 需改动 `ttl_seconds` | **越界**，退回主线外 |
+
+### 5.4 若 HYP-B 与 HYP-C 都被否定
+
+则本阶段的正确读法是：
+
+> **在 logical-entry 粒度、当前 12 个 decision-time 特征、当前 proxy loss 定义下，
+> 相对 Continuum baseline 的增量空间未被找到；瓶颈已定位为 horizon 内返回／实现因子，
+> 而当前信息集对其最强判别力仅为 ρ = 0.228。**
+
+此时合理结论是**需要新的决策时观测**（而非新的规则形态）。是否值得开辟新观测缝应由 M1 裁定。
 
 ---
 
-## 6. 建议的下一步（不含新实验）
+## 6. 建议的下一步
 
-按最小成本、最强约束排序。**全部为离线或文档动作。**
-
-| # | 动作 | 产物 | 前置裁定 |
+| # | 动作 | 产物 | 前置 |
 | --- | --- | --- | --- |
-| S1 | 把本文档作为方向评审材料交 M1 | 本文 | — |
-| S2 | 对 HYP-A 做**可证伪性前置检查**：测量决策内 `newly_eligible_block_count` 的离差，以及可实现到的 $C(r)$ 区分度 | 一份 scoping 备忘 | **需 M1 裁定 G3**（能否以**诊断**目的读取已解封语料） |
-| S3 | 对 HYP-B 做**代理可用性前置检查**：候选在线字段对返回标志的判别力 vs `deadline` | 同上 | 同 S2 |
-| S4 | 仅在 S2/S3 显示假设**可证伪**时，才preregister 一条规则（冻结 formula / direction / tie-break / fallback / boundary / 双层 metric） | preregistration 记录 | 需 M1 批准研究方向 |
-| S5 | 若需要新语料：由 M1 裁定语料来源（新 sealed 语料 vs 复用条件） | — | **需 M1 裁定 G1** |
+| S1 | 交本文档给 M1 作为方向评审 | 本文 | — |
+| S2 | **F-C1 检查**：判定 §2.7 的 `loss < 全长` 行是否与跨 entry 保留相关 | scoping 备忘 | **需 M1 裁定 G3** |
+| S3 | **F-D1 检查**：现有特征组合对返回指示器的判别力上限 | 同上 | 同 S2 |
+| S4 | 仅在 S2/S3 显示方向可证伪时，preregister 一条规则 | preregistration 记录 | 需 M1 批准方向 |
+| S5 | 若需新语料 / 新观测缝，由 M1 裁定来源 | — | **需 M1 裁定 G1** |
 
-⛔ 本审计**不**请求新的 formal campaign，**不**请求新的观测缝，**不**授权任何 runtime policy。
+⛔ 本审计**不**请求新 formal campaign、**不**请求新观测缝、**不**授权任何 runtime policy。
 
 ---
 
@@ -276,10 +334,11 @@ H1 fidelity：release **set** 120/120、release **sequence** 120/120、marginal 
 
 | # | 事项 | 影响 |
 | --- | --- | --- |
-| G1 | H1 的 42 个 sealed scenario 是否可用于**新**假设？ | 决定 S4/S5 是否需要新语料。若复用，须预先声明多重比较处置 |
-| G2 | 新假设是否沿用同一冻结 acceptance 协议与既有绑定（`epsilon_latency` 等） | 决定 preregistration 的绑定字段 |
-| G3 | M4 能否以**诊断**（非假设检验）目的读取已解封语料 | 决定 S2/S3 能否启动。这是**最关键的解锁项** —— 没有它，HYP-A 与 HYP-B 的证伪性无法在投入任何 campaign 之前评估 |
-| G4 | 本文档提出的三个机会是否属于「Cost-Aware victim selection」主线 | 防止选题漂移；特别是机会二存在滑向 TTL 优化的风险 |
+| G1 | H1 的 42 个 sealed scenario 能否用于**新**假设 | 决定 S4/S5 是否需新语料；若复用须预先声明多重比较处置 |
+| G2 | 新假设是否沿用同一冻结 acceptance 协议与既有绑定 | 决定 preregistration 字段 |
+| G3 | M4 能否以**诊断**（非假设检验）目的读取已解封语料 | **最关键解锁项**；S2/S3 均依赖它 |
+| G4 | §4.1 / §4.2 是否属于「Cost-Aware victim selection」主线 | 防止选题漂移（尤其 §4.2 有滑向 TTL 优化的风险） |
+| **G5** | **H1 设计声明的 `eta`/`queue_delay` 逐候选采样未在数据中落实（§2.9）** | 若 H1 被再次引用，需记录该维度实际未生效；也影响「H1 已修正退化维度」这一说法 |
 
 ---
 
@@ -287,15 +346,21 @@ H1 fidelity：release **set** 120/120、release **sequence** 120/120、marginal 
 
 | 陈述 | 来源 |
 | --- | --- |
-| loss = 返回标志 × `prefill_reload_seconds` | `src/kvopt/profiling/loss_views.py::_return_weighted_prefill_evidence` |
-| 冻结释放键与其中间项语义 | `src/kvopt/continuum/pressure.py::_release_sort_key` |
-| H1-R1 数字、fidelity、missingness | `docs/experiments/phase2a-m6-h1/formal-level-a-review-submission.json` |
-| H1 裁定与授权状态 | `docs/experiments/phase2a-m6-h1/formal-level-a-verdict.json` |
-| H2 M1/M2/M3/M4 结论与数值 | `docs/experiments/phase2a-m6-h2/formal-final-verdict.json` |
-| M2/M3 量级 | `docs/experiments/phase2a-m6-h2/formal-m2-m3-review-submission.json` |
-| M1 观测边界（isolated native forward） | `docs/experiments/phase2a-m6-h2/README.md` |
-| H1 语料维度设计（42 draws、每族 7、预声明变异） | `docs/phase2a-m6-h1-independent-campaign-design.md` |
-| discovery corpus 的定向结果（size 簇同构、marginal 净负面、tool 仅 F1） | `docs/phase2a-m4-method-design-report.md` §5–§7 |
-| discovery corpus 的退化维度（成本 3 个取值、loss 4 个取值、`eta`/`queue_delay` 各 1 个取值、9 个 unique decision pattern） | `docs/phase2a-m4-h1-evidence-request.md` §1.1–§1.4；`docs/phase2a-m4-rule-acceptance-protocol.md` §1.1 |
-| acceptance 协议（单位、门槛、双层 metric） | `docs/phase2a-m4-rule-acceptance-protocol.md` |
+| `loss = I[返回] × C(prefix)` | `src/kvopt/profiling/loss_views.py::_return_weighted_prefill_evidence`；H1 derived `candidate_loss_evidence.jsonl` |
+| `relief ≡ block_count`（471/471） | H1 derived `decision_candidates.jsonl`（`local/probe_h1_cost_vs_relief.py`） |
+| 决策内 `spearman(block_count, cost) = 1.0`（99/99） | 同上（`local/probe_h1_hypa_collapse.py`） |
+| 真实 $C(r)$ U 形，最小值 r≈1024，离散 13.49× | H2 `raw-observations.json`（`local/probe_h2_cost_curve_shape.py`） |
+| proxy 表 vs native 比值 0.303–2.051 | 同上 |
+| raw pooled `deadline` ρ = +0.1376 / −0.0178；判别 37/38 | H1 derived（`local/probe_h1_decisive_identities.py`） |
+| 损失分解 32.5 / 17.5 / 45.0 / 5.0 | 同上（`local/probe_h1_loss_structure.py`） |
+| runtime `loss < 全长` 48/207；同一 `block_count` → 最多 6 个 loss | `local/probe_h1_decisive_identities.py` |
+| M6 信号表（ρ、族一致、SUPPORTED） | H1 derived `signal_support.jsonl`、`signal_evaluation.jsonl`（M6 产出） |
+| M6 ρ 的口径推导与部分复现（7 项中 2 项精确吻合） | `src/kvopt/profiling/signals.py`（`_normalized_ranks`、`_association`）；`local/probe_h1_signal_rho_definition.py` |
+| `eta` / `queue_delay` 仍退化 | H1 derived `decision_candidates.jsonl`（`local/probe_h1_corpus_characterisation.py`） |
+| H1 设计声明的逐候选采样 | `docs/phase2a-m6-h1-independent-campaign-design.md` §2 |
+| H1-R1 两个语料的 mean Δ | `docs/experiments/phase2a-m6-h1/formal-level-a-review-submission.json`；`docs/phase2a-m4-method-design-report.md` §5 |
+| H2 M1/M2/M3/M4 结论 | `docs/experiments/phase2a-m6-h2/formal-final-verdict.json` |
+| 冻结释放键 | `src/kvopt/continuum/pressure.py::_release_sort_key` |
 | 阶段裁定与封存链 | `docs/phase2a-h1-h2-closeout-verdict-record.md` |
+
+**复核脚本**（`local/`，不入库）：`probe_h1_corpus_characterisation.py`、`probe_h1_cost_vs_relief.py`、`probe_h1_hypa_collapse.py`、`probe_h1_loss_structure.py`、`probe_h1_decisive_identities.py`、`probe_h2_cost_curve_shape.py`、`probe_h1_signal_rho_definition.py`。
