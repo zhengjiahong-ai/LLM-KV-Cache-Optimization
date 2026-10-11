@@ -216,29 +216,52 @@ M4 于 2026-10-07 提交的 `docs/phase2a-m4-h1-evidence-request.md` 请求已�
 | ≥40 独立 scenario、每族 ≥6 | ✅ 42 个（每族 7）已生成并封存 |
 | 独立性来自新 scenario 而非更多 seed | ✅ 42 个结构唯一的 scenario；seed 仅用于噪声估计 |
 | 全成本分辨率（16–512 含中间值） | ✅ 设计冻结支持集 16–512 含 16/32/128/256/512 与中间尺寸 |
-| `eta` / `queue_delay` 变化 | ✅ eta 在 1 两侧采样、queue delay 0–2 s，**且逐候选采样**（可能产生决策内变异） |
+| `eta` / `queue_delay` 变化 | ⚠️ **部分**：抽象设计已声明逐候选采样（eta 在 1 两侧、queue delay 0–2 s），但 native 决策字段实测**未落实** —— 二者在交付数据中分别恒为 1.0 / 0.0。见下方限制说明 |
 | 共享所有权 / 多次释放 / 重复压力 | ✅ 列入预声明变异与 corner-case 配额 |
 | 窄观测缝（raw native facts） | ✅ Level-B seam 审计 S1–S5 已 hash 绑定；本轮走 Level-A proxy-first 路径 |
 | ≥3 次 baseline 重复以标定 `epsilon_latency` | ✅ 5 次相同 native 全命中重复 ⇒ `epsilon_latency = 0.008793766604503617 s` |
 | sealed holdout | ✅ 场景清单在结果执行前封存 |
 | feature-missingness coverage | ✅ issue #34 实现并测试；正式 campaign 上 `missing_candidates = 0` |
 
-⇒ **该请求无需再跟进，标记为 FULFILLED / SUPERSEDED。**
+⇒ **除一项限制外，该请求已满足；标记为 FULFILLED / SUPERSEDED。**
+
+### 4.1 该请求的一项未落实项（H1 实验限制，按 G5 记录）
+
+M4 原请求包含「`eta` 与 `queue_delay` **跨决策变化，最好决策内也有变化**」。H1 campaign 设计文档
+（`docs/phase2a-m6-h1-independent-campaign-design.md` §2）声明了逐候选采样：
+
+> *"Eta and queue delay are sampled per candidate so the campaign can contain within-decision variation."*
+
+但 native 决策字段实测**未落实**：
+
+```text
+eta            corpus-distinct = 1  (恒为 1.0)，决策内 distinct 上限 = 1
+queue_delay_t  corpus-distinct = 1  (恒为 0.0)，决策内 distinct 上限 = 1
+```
+
+⇒ **抽象设计层面的已声明、native 运行时层面的逐候选变化未实现。**
+
+**因此「H1 已修正 discovery corpus 的退化维度」这一说法只对成本成立**（成本分辨率确实从 3 个取值提升到 10 个），
+**对 TTL `benefit` 项不成立**：`benefit = queue_delay · eta + prefill_reload` 在 H1 中仍退化为 `prefill_reload` 单项。
+
+按 **G5**：本条记录为**本轮 H1 的实验限制**，**不因此重开 H1**，也不再向 M6 追加测量。
 
 ---
 
-## 5. 仍未获裁定的治理事项
+## 5. 治理事项：G1–G5 已由 M1 裁定
 
-以下不属于本次裁定范围，需 M1 明确后才能开展。**本记录不预设结论。**
+以下五项原为本记录提出待裁定事项，**M1 已在 PR #36 review 中下达裁定**。此处记录裁定内容以实现可追溯，**不再为待办**。
 
-| # | 事项 | 为何需要裁定 |
-| --- | --- | --- |
-| G1 | **H1 的 42 个 sealed scenario 能否用于新假设？** | H1-R1 的结果已被观察并封存。若以同一语料评估**新**假设，即为 in-sample 选择。要么需要新的 sealed 语料，要么需要 M1 明确裁定复用条件与多重比较处置 |
-| G2 | 新假设的 acceptance 是否仍用同一冻结协议 | 协议本身未变，但 `epsilon_latency`、family 门槛等绑定是否需要重签 |
-| G3 | M4 能否以**诊断**目的读取已解封语料 | 例如测量 marginal relief 的决策内离差以判断某假设是否可证伪。这与「用该语料检验假设」是不同用途，但需 M1 划定 |
+| # | M1 裁定 |
+| --- | --- |
+| **G1** | 已解封 H1 语料可用于探索 / 特征诊断，但**不可作为由该语料启发的新假设的独立验证集** |
+| **G2** | 可以延续统计框架；新假设**须重新 preregister**，不能自动继承旧 campaign 的独立性、阈值绑定或实验授权 |
+| **G3** | **允许** M4 继续做**非验收性的描述性诊断**（含 F-C1 / F-D1 可证伪性检查）；结果须标 exploratory，不能据以授予候选方法资格 |
+| **G4** | Cross-entry / retention-set-dependent victim selection 属于 logical-entry cost-aware 主线；返回因子研究仅在**服务于 victim selection 且不改变 TTL estimator** 时属于主线 |
+| **G5** | 记录 `eta` / `queue_delay` native 退化为本轮 H1 的**实验限制**（见 §4.1）；**不因此重开 H1** |
 
-⛔ **本阶段不向 M6 提出新的正式测量任务，也不授权新的 runtime policy implementation。**
-上述三项若需动作，均在 M1 完成下一轮研究方向裁定**之后**。
+⛔ 即便 G3 已放行，**本阶段仍不向 M6 提出新的正式测量任务，也不授权任何 runtime policy implementation**。
+描述性诊断的产物只能标 exploratory，不产生方法资格。
 
 ---
 
