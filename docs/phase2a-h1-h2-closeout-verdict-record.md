@@ -9,7 +9,7 @@ Baseline: `origin/main` @ `9a0cdff`（PR #35 已合并 H1/H2 证据与最终裁�
 
 1. 以可追溯方式固定 H1 与 H2 的最终裁定及其封存绑定；
 2. 严格区分 **campaign acceptance / rule acceptance / method authorization** 三层；
-3. 记录证据保全清单与**仍未获裁定**的治理事项。
+3. 记录证据保全清单与**已获裁定**的治理事项。
 
 ---
 
@@ -203,7 +203,7 @@ no_selective_reruns_authorized      : true
 
 两个包均在 `.gitignore` 覆盖的 `local/` 下，未进入版本库。
 
-**M4 对其使用方式的声明**：M4 只将其用于**描述性特征刻画**（见 §4 与 `docs/phase2a-m4-method-opportunity-audit.md` §1），**未**用它检验任何规则，**未**产出任何验收指标。是否允许以**诊断**目的继续使用，仍在等待 M1 裁定（审计文档 G3）。
+**M4 对其使用方式的声明**：M4 只将其用于**描述性特征刻画**（见 §4 与 `docs/phase2a-m4-method-opportunity-audit.md` §1），**未**用它检验任何规则，**未**产出任何验收指标。M1 已按 G3 批准以**非验收性的描述性诊断**目的继续使用（见 §5）；诊断产物必须标记为 exploratory，不得据此授予方法候选资格。
 
 ---
 
