@@ -124,6 +124,67 @@ class FidelityGateResult:
         return asdict(self)
 
 
+@dataclass(frozen=True, slots=True)
+class HistoryObservation:
+    eta: float
+    eta_provenance_source: str
+    eta_provenance_reason: str | None
+    eta_history_sample_count: int
+    queue_delay_history_sample_count: int
+    queue_delay_t_seconds: float
+    native_queue_duration_seconds: float | None
+    sampled_candidate_targets_present: bool = False
+
+
+def build_history_gate(
+    observation: HistoryObservation,
+    *,
+    require_observed_eta: bool,
+    require_eligible_queue_history: bool,
+    source_event_indices: Sequence[int],
+    runtime_identity: Mapping[str, object],
+) -> FidelityGateResult:
+    """Evaluate frozen history provenance without manufacturing variation."""
+    status = STATUS_PASS
+    reason = "runtime values follow the frozen eligible history sources"
+    if (
+        observation.sampled_candidate_targets_present
+        and observation.eta_history_sample_count == 0
+        and observation.queue_delay_history_sample_count == 0
+    ):
+        status = STATUS_NOT_DEMONSTRATED
+        reason = (
+            "scenario targets exist but no eligible runtime history supports "
+            "native signal variation"
+        )
+    elif require_observed_eta and observation.eta_provenance_source != "OBSERVED":
+        status = STATUS_NOT_DEMONSTRATED
+        reason = "eta remained a cold-start approximation rather than observed history"
+    elif (
+        require_eligible_queue_history
+        and observation.queue_delay_history_sample_count == 0
+    ):
+        status = STATUS_NOT_OBSERVABLE
+        reason = (
+            "native queue timing does not qualify as an "
+            "EvictedRequestQueueDelayRecord"
+        )
+    return FidelityGateResult(
+        gate="G-HISTORY",
+        requested={
+            "observed_eta": require_observed_eta,
+            "eligible_queue_history": require_eligible_queue_history,
+        },
+        observed=asdict(observation),
+        status=status,
+        source_event_indices=tuple(source_event_indices),
+        scope="frozen_continuum_history_inputs",
+        runtime_identity=runtime_identity,
+        reason=reason,
+        clock_domain=None,
+    )
+
+
 class FidelityPreflightError(ValueError):
     """The fixture cannot legally make its requested runtime claims."""
 

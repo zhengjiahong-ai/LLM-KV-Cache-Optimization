@@ -574,12 +574,18 @@ class MinimalMetalObservabilityBackend:
                 prefill_reload_provider=h2_m4_prefill_provider,
                 default_ttl_seconds=30.0,
                 experiment_event_sink=sink,
+                history_observation_enabled=(
+                    self._phase2b_content_keys is not None
+                ),
             )
             if h2_m4_prefill_provider is not None
             else build_runtime_from_config(
                 config=continuum_config,
                 clock=self._clock,
                 experiment_event_sink=sink,
+                history_observation_enabled=(
+                    self._phase2b_content_keys is not None
+                ),
             )
         )
         self._forced_release_observer = _CountingForcedReleaseObserver(sink)
@@ -1166,6 +1172,19 @@ class MinimalMetalObservabilityBackend:
                 },
             )
         )
+        if (
+            self._phase2b_content_keys is not None
+            and native_queued is not None
+            and native_scheduled is not None
+            and request.kind == "turn"
+        ):
+            self._runtime.record_native_queue_observation(
+                program_id=ProgramIdentity(request.program_id),
+                request_id=RequestIdentity(request.request_id),
+                queued_timestamp=native_queued,
+                scheduled_timestamp=native_scheduled,
+                clock_domain="engine_core_monotonic",
+            )
         finished_at = float(self._clock.now())
         self._sink.emit(
             ExperimentEvent.create(
