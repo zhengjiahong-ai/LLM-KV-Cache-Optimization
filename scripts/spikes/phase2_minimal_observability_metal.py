@@ -58,6 +58,12 @@ from kvopt.runtime.vllm.observer import install_retention_hook
 from kvopt.runtime.vllm.prefill_timing import IsolatedPrefillTimingHook
 from kvopt.runtime.vllm.retention_integration import RetentionRuntimeIntegration
 from kvopt.workload.phase2 import PlannedRequest
+from kvopt.workload.phase2b_fidelity import (
+    PREFIX_GENERATOR_VERSION,
+    phase2b_turn_token_ids,
+    token_ids_sha256,
+    validate_distinct_content_keys,
+)
 
 _TARGET_PREFIX_TOKENS = 256
 _PRESSURE_TOKENS = 512
@@ -184,6 +190,34 @@ def _program_prefix_sizes(options: Mapping[str, object]) -> dict[str, int]:
             raise ValueError("profiling prefix size must align to the KV block size")
         sizes[program_id] = size
     return sizes
+
+
+def _phase2b_content_keys(options: Mapping[str, object]) -> dict[str, str] | None:
+    enabled = options.get("phase2b_fidelity_mode", False)
+    if not isinstance(enabled, bool):
+        raise TypeError("backend_options.phase2b_fidelity_mode must be bool")
+    raw = options.get("prefix_content_key_by_program")
+    generator = options.get("prefix_generator_version")
+    if not enabled:
+        if raw is not None or generator is not None:
+            raise ValueError("Phase 2B content fields require phase2b_fidelity_mode")
+        return None
+    if generator != PREFIX_GENERATOR_VERSION:
+        raise ValueError(
+            f"prefix_generator_version must be {PREFIX_GENERATOR_VERSION}"
+        )
+    if "ownership_group_by_program" in options:
+        raise ValueError("ownership_group_by_program cannot define content identity")
+    if not isinstance(raw, Mapping) or not raw:
+        raise ValueError("prefix_content_key_by_program must be a non-empty object")
+    parsed: dict[str, str] = {}
+    for program_id, content_key in raw.items():
+        if not isinstance(program_id, str) or not program_id.strip():
+            raise ValueError("content-key mapping requires non-empty program IDs")
+        if not isinstance(content_key, str) or not content_key.strip():
+            raise ValueError("content-key mapping requires non-empty content keys")
+        parsed[program_id] = content_key
+    return parsed
 
 
 def _expected_profiling_block_override(
@@ -433,6 +467,14 @@ class MinimalMetalObservabilityBackend:
             "backend_options.target_prefix_tokens",
         )
         self._program_prefix_tokens = _program_prefix_sizes(options)
+        self._phase2b_content_keys = _phase2b_content_keys(options)
+        if self._phase2b_content_keys is not None and (
+            set(self._phase2b_content_keys) != set(self._program_prefix_tokens)
+        ):
+            raise ValueError(
+                "Phase 2B content keys and program_prefix_tokens must cover "
+                "the same programs"
+            )
         self._pressure_tokens = _positive_int(
             options.get("pressure_prompt_tokens", _PRESSURE_TOKENS),
             "backend_options.pressure_prompt_tokens",
@@ -646,6 +688,12 @@ class MinimalMetalObservabilityBackend:
             raise RuntimeError("tokenizer did not expose vocabulary size") from error
         if self._vocabulary_size <= 40_000:
             raise RuntimeError("tokenizer vocabulary is too small for qualified token patterns")
+        if self._phase2b_content_keys is not None:
+            validate_distinct_content_keys(
+                tuple(self._phase2b_content_keys.values()),
+                vocabulary_size=self._vocabulary_size,
+                block_size=_BLOCK_SIZE,
+            )
 
         self._registry = observation_helpers.ProgramRequestRegistry()
         self._external_ids = observation_helpers._external_request_ids_for_internal
@@ -762,6 +810,12 @@ class MinimalMetalObservabilityBackend:
                     "block_size": _BLOCK_SIZE,
                     "target_prefix_tokens": self._prefix_tokens,
                     "program_prefix_tokens": self._program_prefix_tokens,
+                    "phase2b_fidelity_mode": self._phase2b_content_keys is not None,
+                    "prefix_generator_version": (
+                        PREFIX_GENERATOR_VERSION
+                        if self._phase2b_content_keys is not None
+                        else None
+                    ),
                     "pressure_prompt_tokens": self._pressure_tokens,
                     "pressure_stage_prompt_tokens": self._pressure_stage_tokens,
                     "execute_planned_timing": self._execute_planned_timing,
@@ -901,6 +955,27 @@ class MinimalMetalObservabilityBackend:
         *,
         reusable_prefix_tokens: int | None = None,
     ) -> None:
+        payload: dict[str, object] = {
+            "kind": request.kind,
+            "token_count": len(token_ids),
+            "reusable_prefix_token_count": reusable_prefix_tokens,
+            "materialization": "deterministic_token_ids",
+        }
+        if self._phase2b_content_keys is not None and request.kind == "turn":
+            payload.update(
+                {
+                    "prefix_content_key": self._phase2b_content_keys[
+                        request.program_id
+                    ],
+                    "prefix_generator_version": PREFIX_GENERATOR_VERSION,
+                    "submitted_token_ids_sha256": token_ids_sha256(token_ids),
+                    "submitted_prefix_token_ids_sha256": token_ids_sha256(
+                        token_ids[: reusable_prefix_tokens]
+                    ),
+                    "suffix_token_count": len(token_ids)
+                    - int(reusable_prefix_tokens or 0),
+                }
+            )
         self._sink.emit(
             ExperimentEvent.create(
                 event_type="BACKEND_INPUT_MATERIALIZED",
@@ -909,12 +984,7 @@ class MinimalMetalObservabilityBackend:
                 source="phase2.minimal_metal",
                 program_id=ProgramIdentity(request.program_id),
                 request_id=RequestIdentity(request.request_id),
-                payload={
-                    "kind": request.kind,
-                    "token_count": len(token_ids),
-                    "reusable_prefix_token_count": reusable_prefix_tokens,
-                    "materialization": "deterministic_token_ids",
-                },
+                payload=payload,
             )
         )
 
@@ -1203,10 +1273,19 @@ class MinimalMetalObservabilityBackend:
 
         self._handle_lifecycle(RequestArrived(program, logical_request, now))
         prefix_tokens = self._prefix_tokens_for(request)
-        token_ids = _turn_token_ids(
-            request,
-            vocabulary_size=self._vocabulary_size,
-            prefix_tokens=prefix_tokens,
+        token_ids = (
+            phase2b_turn_token_ids(
+                request,
+                content_key=self._phase2b_content_keys[request.program_id],
+                vocabulary_size=self._vocabulary_size,
+                prefix_tokens=prefix_tokens,
+            )
+            if self._phase2b_content_keys is not None
+            else _turn_token_ids(
+                request,
+                vocabulary_size=self._vocabulary_size,
+                prefix_tokens=prefix_tokens,
+            )
         )
         native_id, external_id, submitted_at = self._enqueue(
             request,

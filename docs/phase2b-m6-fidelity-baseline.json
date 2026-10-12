@@ -1,0 +1,27 @@
+{
+  "baseline": {
+    "branch": "main",
+    "git_sha": "b89323b",
+    "recorded_at": "2026-10-12",
+    "test_command": "python -m pytest -q tests/test_phase2_substrate.py tests/test_phase2a_m6_h1_compiler.py tests/test_phase2a_m6_h1_fidelity.py tests/test_phase2a_profiling_backend_contract.py tests/test_phase2a_m6_runtime_evidence.py",
+    "test_result": "48 passed"
+  },
+  "historical_assets": {
+    "allowed_mutation": false,
+    "protected_patterns": [
+      "artifacts/phase2a-*",
+      "docs/experiments/phase2a-*",
+      "sealed manifests and verdict records"
+    ]
+  },
+  "known_preexisting_lint_findings": {
+    "count": 6,
+    "scope": [
+      "src/kvopt/workload/phase2.py",
+      "src/kvopt/workload/phase2_runner.py"
+    ],
+    "task_policy": "Do not weaken lint or expand the repair solely to clean unrelated legacy findings."
+  },
+  "run_kind": "NON_HOLDOUT_FIDELITY_REPAIR",
+  "schema_version": "phase2b.fidelity_baseline.v1"
+}
