@@ -52,6 +52,7 @@ def run_phase2b_fidelity(
     contract = load_fidelity_contract(contract_path)
     output = Path(output_root).resolve() / run_id
     output.mkdir(parents=True, exist_ok=False)
+    _write_json(output / "config.json", config)
     _write_json(output / "trace.json", trace.to_dict())
     (output / "replay.jsonl").touch()
     manifest: dict[str, object] = {

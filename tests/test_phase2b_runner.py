@@ -130,3 +130,4 @@ def test_phase2b_runner_separates_execution_from_pending_native_gates(
     assert result["gates"][0]["gate"] == "G-INFLIGHT"
     assert result["gates"][0]["status"] == "PASS"
     assert backend.closed is True
+    assert json.loads((output / "config.json").read_text(encoding="utf-8")) == config
