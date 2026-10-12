@@ -41,11 +41,13 @@ def package_phase2b_evidence(
     repository: Path,
     artifact_root: Path,
     archive_path: Path,
+    primary_run_id: str,
+    legacy_regression_path: Path,
 ) -> tuple[Path, Path]:
     repository = repository.resolve()
     artifact_root = artifact_root.resolve()
     archive_path = archive_path.resolve()
-    relative_files = [
+    diagnostic_files = [
         Path("phase2b-fidelity-smoke-v1/run.json"),
         Path("phase2b-fidelity-smoke-v1/events.jsonl"),
         Path("phase2b-fidelity-smoke-v1/replay.jsonl"),
@@ -59,10 +61,22 @@ def package_phase2b_evidence(
         Path("phase2b-fidelity-smoke-v2/fidelity-audit.json"),
         Path("phase2b-fidelity-smoke-v2/fidelity-audit-final.json"),
     ]
+    primary = Path(primary_run_id)
+    primary_files = [
+        primary / "config.json",
+        primary / "run.json",
+        primary / "trace.json",
+        primary / "events.jsonl",
+        primary / "replay.jsonl",
+        primary / "fidelity-result.json",
+        primary / "fidelity-audit.json",
+        primary / "fidelity-audit-final.json",
+    ]
+    relative_files = [*diagnostic_files, *primary_files]
     repository_files = [
         Path("docs/phase2b-m6-experimental-fidelity-repair-spec.md"),
         Path("docs/phase2b-m6-fidelity-baseline.json"),
-        Path("docs/phase2b-m6-legacy-regression.json"),
+        legacy_regression_path.resolve().relative_to(repository),
         Path("configs/phase2/phase2b-fidelity-smoke-config.json"),
         Path("configs/phase2/phase2b-fidelity-smoke-config-v2.json"),
         Path("configs/phase2/phase2b-fidelity-smoke-contract.json"),
@@ -77,7 +91,7 @@ def package_phase2b_evidence(
         raise FileNotFoundError("missing evidence files: " + ", ".join(missing))
 
     final_audit = json.loads(
-        (artifact_root / "phase2b-fidelity-smoke-v2/fidelity-audit-final.json").read_text(
+        (artifact_root / primary / "fidelity-audit-final.json").read_text(
             encoding="utf-8"
         )
     )
@@ -88,6 +102,7 @@ def package_phase2b_evidence(
         "packaging_git_sha": _git_head(),
         "packaging_git_dirty": _git_dirty(),
         "formal_h1_h2_modified": False,
+        "primary_run_id": primary_run_id,
         "gate_statuses": {
             gate["gate"]: gate["status"] for gate in final_audit["gates"]
         },
@@ -122,11 +137,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--repository", type=Path, default=Path.cwd())
     parser.add_argument("--artifact-root", type=Path, required=True)
     parser.add_argument("--archive", type=Path, required=True)
+    parser.add_argument("--primary-run-id", required=True)
+    parser.add_argument("--legacy-regression", type=Path, required=True)
     arguments = parser.parse_args(argv)
     manifest, archive = package_phase2b_evidence(
         repository=arguments.repository,
         artifact_root=arguments.artifact_root,
         archive_path=arguments.archive,
+        primary_run_id=arguments.primary_run_id,
+        legacy_regression_path=arguments.legacy_regression,
     )
     print(f"manifest: {manifest}")
     print(f"archive: {archive}")
