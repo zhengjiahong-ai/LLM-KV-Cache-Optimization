@@ -13,6 +13,8 @@ import importlib
 import json
 import math
 import os
+import signal
+import threading
 import time
 from bisect import bisect_right
 from collections.abc import Mapping
@@ -63,6 +65,10 @@ from kvopt.workload.phase2b_fidelity import (
     phase2b_turn_token_ids,
     token_ids_sha256,
     validate_distinct_content_keys,
+)
+from kvopt.workload.phase2b_fidelity_runner import (
+    RequestCompletion,
+    RequestHandle,
 )
 
 _TARGET_PREFIX_TOKENS = 256
@@ -722,6 +728,9 @@ class MinimalMetalObservabilityBackend:
 
         self._started_programs: set[str] = set()
         self._pending_tool_gaps: dict[str, str] = {}
+        self._phase2b_pending: dict[
+            str, tuple[PlannedRequest, str, int]
+        ] = {}
         self._closed = False
         self._level_b_request_count = 0
         self._level_b_raw_complete = True
@@ -1045,6 +1054,21 @@ class MinimalMetalObservabilityBackend:
         output = outputs[0]
         if getattr(output, "request_id", None) != external_id:
             raise RuntimeError("completion external request ID does not match submission")
+        return self._observe_completed_output(
+            request,
+            native_id,
+            external_id,
+            output,
+        )
+
+    def _observe_completed_output(
+        self,
+        request: PlannedRequest,
+        native_id: str,
+        external_id: str,
+        output: object,
+    ) -> float:
+        """Persist one already-joined native completion and its raw metrics."""
         completions = tuple(getattr(output, "outputs", ()))
         output_token_count = sum(
             len(tuple(getattr(completion, "token_ids", ())))
@@ -1258,8 +1282,7 @@ class MinimalMetalObservabilityBackend:
             return
         self._runtime.handle(event)
 
-    def _execute_turn(self, request: PlannedRequest) -> None:
-        self._wait_for_planned_arrival(request)
+    def _start_turn(self, request: PlannedRequest) -> tuple[str, str, float, int]:
         program = ProgramIdentity(request.program_id)
         logical_request = RequestIdentity(request.request_id)
         now = float(self._clock.now())
@@ -1295,7 +1318,17 @@ class MinimalMetalObservabilityBackend:
         # This is the framework's logical admission boundary (engine enqueue
         # accepted), not a claim of native scheduler-admission timestamp.
         self._handle_lifecycle(RequestAdmitted(program, logical_request, submitted_at))
-        finished_at = self._complete(request, native_id, external_id)
+        return native_id, external_id, submitted_at, prefix_tokens
+
+    def _finish_turn(
+        self,
+        request: PlannedRequest,
+        native_id: str,
+        finished_at: float,
+        prefix_tokens: int,
+    ) -> None:
+        program = ProgramIdentity(request.program_id)
+        logical_request = RequestIdentity(request.request_id)
         if request.is_terminal and not self._capture_terminal_prefix_snapshot:
             self._handle_lifecycle(
                 TurnFinished(
@@ -1369,8 +1402,15 @@ class MinimalMetalObservabilityBackend:
         )
         self._pending_tool_gaps[request.program_id] = request.next_tool_type
 
-    def _execute_pressure(self, request: PlannedRequest) -> None:
+    def _execute_turn(self, request: PlannedRequest) -> None:
         self._wait_for_planned_arrival(request)
+        native_id, external_id, _submitted_at, prefix_tokens = self._start_turn(
+            request
+        )
+        finished_at = self._complete(request, native_id, external_id)
+        self._finish_turn(request, native_id, finished_at, prefix_tokens)
+
+    def _start_pressure(self, request: PlannedRequest) -> tuple[str, str, float]:
         stage_id = request.program_id.removeprefix("pressure:")
         pressure_tokens = self._pressure_stage_tokens.get(
             stage_id,
@@ -1381,8 +1421,9 @@ class MinimalMetalObservabilityBackend:
             vocabulary_size=self._vocabulary_size,
             token_count=pressure_tokens,
         )
-        native_id, external_id, _submitted_at = self._enqueue(request, token_ids)
-        finished_at = self._complete(request, native_id, external_id)
+        return self._enqueue(request, token_ids)
+
+    def _finish_pressure(self, request: PlannedRequest, finished_at: float) -> None:
         self._sink.emit(
             ExperimentEvent.create(
                 event_type="PRESSURE_REQUEST_COMPLETED",
@@ -1398,6 +1439,12 @@ class MinimalMetalObservabilityBackend:
             )
         )
 
+    def _execute_pressure(self, request: PlannedRequest) -> None:
+        self._wait_for_planned_arrival(request)
+        native_id, external_id, _submitted_at = self._start_pressure(request)
+        finished_at = self._complete(request, native_id, external_id)
+        self._finish_pressure(request, finished_at)
+
     def execute(self, request: PlannedRequest) -> None:
         if not isinstance(request, PlannedRequest):
             raise TypeError("request must be PlannedRequest")
@@ -1405,6 +1452,112 @@ class MinimalMetalObservabilityBackend:
             self._execute_pressure(request)
         else:
             self._execute_turn(request)
+
+    def submit(self, request: PlannedRequest) -> RequestHandle:
+        """Enqueue one request without waiting; Phase 2B opt-in only."""
+        if self._phase2b_content_keys is None:
+            raise RuntimeError("submit requires phase2b_fidelity_mode")
+        if self._execute_planned_timing:
+            raise RuntimeError(
+                "Phase 2B runner owns absolute timing; backend timing must be disabled"
+            )
+        if not isinstance(request, PlannedRequest):
+            raise TypeError("request must be PlannedRequest")
+        if request.kind == "pressure":
+            native_id, external_id, submitted_at = self._start_pressure(request)
+            prefix_tokens = 0
+        else:
+            native_id, external_id, submitted_at, prefix_tokens = self._start_turn(
+                request
+            )
+        if external_id in self._phase2b_pending:
+            raise RuntimeError("duplicate pending external request ID")
+        self._phase2b_pending[external_id] = (
+            request,
+            native_id,
+            prefix_tokens,
+        )
+        return RequestHandle(
+            logical_request_id=request.request_id,
+            native_request_id=native_id,
+            external_request_id=external_id,
+            submitted_at=submitted_at,
+        )
+
+    def collect_completed(
+        self, *, until: float | None = None
+    ) -> tuple[RequestCompletion, ...]:
+        """Report no completions without falsely claiming a native poll API.
+
+        Pinned ``LLM.enqueue`` does not start processing, and the public API has
+        no non-blocking poll.  Processing therefore happens only in ``drain``.
+        """
+        del until
+        return ()
+
+    def _wait_for_completion_bounded(self, timeout_seconds: float) -> tuple[object, ...]:
+        if timeout_seconds <= 0:
+            raise ValueError("timeout_seconds must be positive")
+        if threading.current_thread() is not threading.main_thread():
+            raise RuntimeError("bounded Metal drain must run on the main thread")
+
+        def timed_out(_signum: int, _frame: object) -> None:
+            raise TimeoutError("native wait_for_completion exceeded timeout")
+
+        previous = signal.getsignal(signal.SIGALRM)
+        signal.signal(signal.SIGALRM, timed_out)
+        signal.setitimer(signal.ITIMER_REAL, timeout_seconds)
+        try:
+            return tuple(self._llm.wait_for_completion(use_tqdm=False))
+        finally:
+            signal.setitimer(signal.ITIMER_REAL, 0.0)
+            signal.signal(signal.SIGALRM, previous)
+
+    def drain(self, *, timeout_seconds: float) -> tuple[RequestCompletion, ...]:
+        """Process every currently enqueued request and join outputs by ID."""
+        if not self._phase2b_pending:
+            return ()
+        outputs = self._wait_for_completion_bounded(timeout_seconds)
+        rows: list[RequestCompletion] = []
+        for output in outputs:
+            external_id = getattr(output, "request_id", None)
+            if not isinstance(external_id, str):
+                raise TypeError("native completion lacks external request ID")
+            pending = self._phase2b_pending.pop(external_id, None)
+            if pending is None:
+                raise RuntimeError(
+                    f"native completion has no pending request: {external_id}"
+                )
+            request, native_id, prefix_tokens = pending
+            finished_at = self._observe_completed_output(
+                request,
+                native_id,
+                external_id,
+                output,
+            )
+            if request.kind == "pressure":
+                self._finish_pressure(request, finished_at)
+            else:
+                self._finish_turn(
+                    request,
+                    native_id,
+                    finished_at,
+                    prefix_tokens,
+                )
+            rows.append(
+                RequestCompletion(
+                    logical_request_id=request.request_id,
+                    native_request_id=native_id,
+                    external_request_id=external_id,
+                    completed_at=finished_at,
+                )
+            )
+        if self._phase2b_pending:
+            missing = ", ".join(sorted(self._phase2b_pending))
+            raise RuntimeError(
+                f"native drain omitted pending external request IDs: {missing}"
+            )
+        return tuple(rows)
 
     def close(self) -> None:
         if self._closed:
