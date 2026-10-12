@@ -112,3 +112,19 @@ def test_report_uses_raw_events_and_preserves_history_limitation(
     assert statuses["G-PRESSURE"] == "PASS"
     assert statuses["G-TTL-HISTORY"] == "NOT_OBSERVABLE"
     assert statuses["G-LEGACY"] == "NOT_DEMONSTRATED"
+
+    regression = {
+        "schema_version": "phase2b.legacy_regression.v1",
+        "status": "PASS",
+        "tested_git_dirty": False,
+        "passed": 1083,
+        "failed": 0,
+        "smoke_evidence": {"run_git_sha": "a" * 40},
+    }
+    _write_json(tmp_path / "legacy.json", regression)
+    bound = build_fidelity_audit(
+        tmp_path,
+        legacy_regression_path=tmp_path / "legacy.json",
+    )
+    bound_statuses = {gate["gate"]: gate["status"] for gate in bound["gates"]}
+    assert bound_statuses["G-LEGACY"] == "PASS"

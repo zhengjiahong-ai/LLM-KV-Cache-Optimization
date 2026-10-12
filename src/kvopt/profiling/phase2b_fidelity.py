@@ -46,7 +46,11 @@ def _gate(
     )
 
 
-def build_fidelity_audit(run_dir: Path) -> dict[str, object]:
+def build_fidelity_audit(
+    run_dir: Path,
+    *,
+    legacy_regression_path: Path | None = None,
+) -> dict[str, object]:
     manifest = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
     records = _events(run_dir / "events.jsonl")
     initial = json.loads(
@@ -259,12 +263,33 @@ def build_fidelity_audit(run_dir: Path) -> dict[str, object]:
             scope="phase2b_negative_controls",
         )
     )
+    legacy = None
+    if legacy_regression_path is not None:
+        legacy = json.loads(legacy_regression_path.read_text(encoding="utf-8"))
+    legacy_smoke = legacy.get("smoke_evidence") if isinstance(legacy, Mapping) else None
+    legacy_passed = legacy.get("passed") if isinstance(legacy, Mapping) else None
+    legacy_pass = bool(
+        isinstance(legacy, Mapping)
+        and legacy.get("schema_version") == "phase2b.legacy_regression.v1"
+        and legacy.get("status") == "PASS"
+        and legacy.get("tested_git_dirty") is False
+        and isinstance(legacy_passed, int)
+        and not isinstance(legacy_passed, bool)
+        and legacy_passed > 0
+        and legacy.get("failed") == 0
+        and isinstance(legacy_smoke, Mapping)
+        and legacy_smoke.get("run_git_sha") == manifest.get("git_sha")
+    )
     gates.append(
         _gate(
             "G-LEGACY",
-            status=STATUS_NOT_DEMONSTRATED,
-            reason="legacy regression result is bound separately after developer self-test",
-            observed=None,
+            status=STATUS_PASS if legacy_pass else STATUS_NOT_DEMONSTRATED,
+            reason=(
+                "clean full-suite regression record is bound to this smoke revision"
+                if legacy_pass
+                else "matching clean legacy regression evidence was not supplied"
+            ),
+            observed=legacy,
             indices=(),
             runtime=runtime,
             scope="legacy_regression",
@@ -304,9 +329,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-dir", type=Path, required=True)
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--legacy-regression", type=Path)
     arguments = parser.parse_args(argv)
     output = arguments.output or arguments.run_dir / "fidelity-audit.json"
-    report = build_fidelity_audit(arguments.run_dir)
+    report = build_fidelity_audit(
+        arguments.run_dir,
+        legacy_regression_path=arguments.legacy_regression,
+    )
     output.write_text(
         json.dumps(report, indent=2, sort_keys=True, allow_nan=False) + "\n",
         encoding="utf-8",
