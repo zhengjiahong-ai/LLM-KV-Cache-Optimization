@@ -391,6 +391,42 @@ def test_actual_native_cached_eviction_triggers_stale_cleanup_after_native(
     assert integration.eviction_calls == [BlockIdentity(7)]
 
 
+def test_opt_in_hashed_eviction_observer_copies_pre_cleanup_identity(
+    hook_environment,
+) -> None:
+    integration = _FakeIntegration()
+    block = _FakeBlock(7, ref_cnt=0, block_hash=b"content-key")
+    observations = []
+
+    install_retention_hook(
+        mode=RetentionMode.SHADOW,
+        integration=integration,
+        clock=FakeClock(),
+        hashed_eviction_observer=observations.append,
+    )
+
+    assert _FakeBlockPool()._maybe_evict_cached_block(block) is True
+    assert len(observations) == 1
+    assert observations[0].block_id == 7
+    assert observations[0].ref_count_before == 0
+    assert observations[0].hash_removed_after is True
+    assert observations[0].native_cache_key_before
+
+
+def test_legacy_hook_does_not_emit_hashed_eviction_audit(hook_environment) -> None:
+    integration = _FakeIntegration()
+    block = _FakeBlock(7, block_hash=b"content-key")
+
+    install_retention_hook(
+        mode=RetentionMode.SHADOW,
+        integration=integration,
+        clock=FakeClock(),
+    )
+
+    assert _FakeBlockPool()._maybe_evict_cached_block(block) is True
+    assert integration.eviction_calls == [BlockIdentity(7)]
+
+
 def test_non_eviction_does_not_clear_stale_association(hook_environment) -> None:
     integration = _FakeIntegration()
     _FakeBlockPool.behavior = "not_evicted"

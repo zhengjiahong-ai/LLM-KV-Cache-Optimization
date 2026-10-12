@@ -56,7 +56,10 @@ from kvopt.runtime.vllm.h2_intervention import (
     NativeBlockPoolCapture,
     invalidate_prefix_positions,
 )
-from kvopt.runtime.vllm.observer import install_retention_hook
+from kvopt.runtime.vllm.observer import (
+    NativeHashedEvictionObservation,
+    install_retention_hook,
+)
 from kvopt.runtime.vllm.prefill_timing import IsolatedPrefillTimingHook
 from kvopt.runtime.vllm.retention_integration import RetentionRuntimeIntegration
 from kvopt.workload.phase2 import PlannedRequest
@@ -730,6 +733,11 @@ class MinimalMetalObservabilityBackend:
             mode=RetentionMode.CONTROLLED,
             integration=self._retention_integration,
             clock=self._clock,
+            hashed_eviction_observer=(
+                self._observe_phase2b_native_hashed_eviction
+                if self._phase2b_content_keys is not None
+                else None
+            ),
         )
 
         self._started_programs: set[str] = set()
@@ -766,8 +774,16 @@ class MinimalMetalObservabilityBackend:
                 "reason": "native eviction callback is bridged to BLOCK_EVICTED",
             },
             "native_block_content_identity": {
-                "status": "UNAVAILABLE",
-                "reason": "current approved eviction callback does not persist pre-eviction content identity",
+                "status": (
+                    "AVAILABLE"
+                    if self._phase2b_content_keys is not None
+                    else "UNAVAILABLE"
+                ),
+                "reason": (
+                    "Phase 2B read-only hook persists the pre-eviction native hash"
+                    if self._phase2b_content_keys is not None
+                    else "legacy mode does not persist pre-eviction content identity"
+                ),
             },
             "native_block_logical_owners": {
                 "status": "UNAVAILABLE",
@@ -840,6 +856,34 @@ class MinimalMetalObservabilityBackend:
                     "h2_native_mechanism_only": self._h2_native_mechanism_only,
                     "h2_m4_prefill_curve_bound": h2_m4_prefill_provider is not None,
                     "gpu_memory_utilization": gpu_memory_utilization,
+                },
+            )
+        )
+
+    def _observe_phase2b_native_hashed_eviction(
+        self,
+        observation: NativeHashedEvictionObservation,
+    ) -> None:
+        """Persist native hash cleanup without inferring logical ownership."""
+        self._sink.emit(
+            ExperimentEvent.create(
+                event_type="VLLM_NATIVE_HASHED_CACHE_ENTRY_EVICTED",
+                timestamp=self._clock.now(),
+                clock_domain="system_monotonic",
+                source="phase2b.native_block_pool",
+                payload={
+                    "block_id": observation.block_id,
+                    "native_cache_key_before": (
+                        observation.native_cache_key_before
+                    ),
+                    "native_hash_process_id": str(os.getpid()),
+                    "ref_count_before": observation.ref_count_before,
+                    "hash_removed_after": observation.hash_removed_after,
+                    "mechanism": observation.mechanism,
+                    "logical_owner_attribution": None,
+                    "attribution_reason": (
+                        "native hash identity does not prove logical ownership"
+                    ),
                 },
             )
         )

@@ -136,6 +136,18 @@ class HistoryObservation:
     sampled_candidate_targets_present: bool = False
 
 
+@dataclass(frozen=True, slots=True)
+class PressureObservation:
+    """Three-level evidence for a normal native allocation-pressure chain."""
+
+    logical_release_event_indices: tuple[int, ...]
+    native_hashed_eviction_event_indices: tuple[int, ...]
+    subsequent_apc_event_indices: tuple[int, ...]
+    native_cache_keys_before_eviction: tuple[str, ...]
+    hash_cleanup_confirmed: bool
+    subsequent_native_cached_prefix_tokens: int | None
+
+
 def build_history_gate(
     observation: HistoryObservation,
     *,
@@ -179,6 +191,54 @@ def build_history_gate(
         status=status,
         source_event_indices=tuple(source_event_indices),
         scope="frozen_continuum_history_inputs",
+        runtime_identity=runtime_identity,
+        reason=reason,
+        clock_domain=None,
+    )
+
+
+def build_pressure_gate(
+    observation: PressureObservation,
+    *,
+    runtime_identity: Mapping[str, object],
+) -> FidelityGateResult:
+    """Require L1 release, L2 native hash cleanup, and L3 actual APC evidence."""
+    indices = (
+        *observation.logical_release_event_indices,
+        *observation.native_hashed_eviction_event_indices,
+        *observation.subsequent_apc_event_indices,
+    )
+    status = STATUS_PASS
+    reason = "logical release, native hash cleanup, and subsequent APC are distinct"
+    if not observation.logical_release_event_indices:
+        status = STATUS_NOT_DEMONSTRATED
+        reason = "no logical forced-release decision was observed"
+    elif not observation.native_hashed_eviction_event_indices:
+        status = STATUS_NOT_DEMONSTRATED
+        reason = "logical release alone does not demonstrate native hashed eviction"
+    elif not observation.native_cache_keys_before_eviction:
+        status = STATUS_NOT_OBSERVABLE
+        reason = "native eviction was observed without pre-eviction content identity"
+    elif not observation.hash_cleanup_confirmed:
+        status = STATUS_FAIL
+        reason = "native eviction callback did not confirm hash cleanup"
+    elif (
+        not observation.subsequent_apc_event_indices
+        or observation.subsequent_native_cached_prefix_tokens is None
+    ):
+        status = STATUS_NOT_DEMONSTRATED
+        reason = "no subsequent request-scoped native APC observation was joined"
+    return FidelityGateResult(
+        gate="G-PRESSURE",
+        requested={
+            "logical_release": True,
+            "allocation_induced_native_hash_eviction": True,
+            "subsequent_actual_apc_observation": True,
+        },
+        observed=asdict(observation),
+        status=status,
+        source_event_indices=tuple(indices),
+        scope="phase2b_native_pressure_evidence",
         runtime_identity=runtime_identity,
         reason=reason,
         clock_domain=None,
