@@ -64,6 +64,7 @@ from kvopt.runtime.vllm.prefill_timing import IsolatedPrefillTimingHook
 from kvopt.runtime.vllm.retention_integration import RetentionRuntimeIntegration
 from kvopt.workload.phase2 import PlannedRequest
 from kvopt.workload.phase2b_fidelity import (
+    KNOWN_CAPABILITIES,
     PREFIX_GENERATOR_VERSION,
     phase2b_turn_token_ids,
     token_ids_sha256,
@@ -969,6 +970,13 @@ class MinimalMetalObservabilityBackend:
     @property
     def forced_release_count(self) -> int:
         return self._forced_release_observer.count
+
+    @property
+    def phase2b_supported_capabilities(self) -> tuple[str, ...]:
+        """Capabilities implemented by the explicit non-holdout path."""
+        if self._phase2b_content_keys is None:
+            return ()
+        return tuple(sorted(KNOWN_CAPABILITIES))
 
     @property
     def last_selected_block_ids(self) -> tuple[int, ...]:

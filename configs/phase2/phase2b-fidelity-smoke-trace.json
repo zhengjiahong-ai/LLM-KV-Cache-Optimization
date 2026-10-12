@@ -1,0 +1,81 @@
+{
+  "pressure_stages": [
+    {
+      "arrival_offset_seconds": 0.5,
+      "max_requests": 2,
+      "prompt": "Phase 2B allocation pressure",
+      "stage_id": "native-pressure",
+      "stop_on_forced_release": true
+    }
+  ],
+  "requests": [
+    {
+      "is_terminal": false,
+      "next_tool_type": "search",
+      "planned_arrival_offset_seconds": 0.0,
+      "prefix_prompt": "shared-content",
+      "program_id": "shared-a",
+      "prompt": "warm shared content A",
+      "request_id": "shared-a:1",
+      "tool_gap_seconds": 0.5,
+      "turn_index": 1
+    },
+    {
+      "is_terminal": false,
+      "next_tool_type": "search",
+      "planned_arrival_offset_seconds": 0.05,
+      "prefix_prompt": "shared-content",
+      "program_id": "shared-b",
+      "prompt": "warm shared content B",
+      "request_id": "shared-b:1",
+      "tool_gap_seconds": 0.55,
+      "turn_index": 1
+    },
+    {
+      "is_terminal": false,
+      "next_tool_type": "database",
+      "planned_arrival_offset_seconds": 0.1,
+      "prefix_prompt": "distinct-content",
+      "program_id": "distinct-c",
+      "prompt": "warm distinct negative control",
+      "request_id": "distinct-c:1",
+      "tool_gap_seconds": 0.6,
+      "turn_index": 1
+    },
+    {
+      "is_terminal": true,
+      "next_tool_type": null,
+      "planned_arrival_offset_seconds": 1.0,
+      "prefix_prompt": "shared-content",
+      "program_id": "shared-a",
+      "prompt": "observe shared content after pressure",
+      "request_id": "shared-a:2",
+      "tool_gap_seconds": null,
+      "turn_index": 2
+    },
+    {
+      "is_terminal": true,
+      "next_tool_type": null,
+      "planned_arrival_offset_seconds": 1.05,
+      "prefix_prompt": "shared-content",
+      "program_id": "shared-b",
+      "prompt": "observe shared reuse after pressure",
+      "request_id": "shared-b:2",
+      "tool_gap_seconds": null,
+      "turn_index": 2
+    },
+    {
+      "is_terminal": true,
+      "next_tool_type": null,
+      "planned_arrival_offset_seconds": 1.1,
+      "prefix_prompt": "distinct-content",
+      "program_id": "distinct-c",
+      "prompt": "observe distinct negative control after pressure",
+      "request_id": "distinct-c:2",
+      "tool_gap_seconds": null,
+      "turn_index": 2
+    }
+  ],
+  "schema_version": "phase2.trace.v1",
+  "trace_id": "phase2b-non-holdout-fidelity-smoke-v1"
+}

@@ -1,0 +1,17 @@
+{
+  "case_id": "PX-AR-HI-PR-SMOKE",
+  "constraints": {
+    "max_in_flight": 3,
+    "timeout_seconds": 180
+  },
+  "required_capabilities": [
+    "prefix_content_identity",
+    "native_apc_hashes",
+    "true_request_overlap",
+    "native_queue_timestamps",
+    "ttl_history_provenance",
+    "native_hashed_eviction"
+  ],
+  "run_kind": "NON_HOLDOUT_FIDELITY_REPAIR",
+  "schema_version": "phase2b.fidelity_contract.v1"
+}
