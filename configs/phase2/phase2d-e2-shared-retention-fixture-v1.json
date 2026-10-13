@@ -10,7 +10,7 @@
   "block_size_tokens": 16,
   "shared_root_tokens": 128,
   "branch_tokens": 64,
-  "pressure_prompt_tokens": 256,
+  "pressure_prompt_tokens": 320,
   "initial_shortage_blocks": 12,
   "model": {
     "name": "Qwen/Qwen2.5-0.5B-Instruct",

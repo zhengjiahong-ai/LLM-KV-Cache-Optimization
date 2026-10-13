@@ -26,7 +26,7 @@ def test_materializes_bounded_shared_fixture_and_negative_control(tmp_path: Path
     segments = shared["backend_options"]["prefix_segments_by_request"]
     assert segments["e2-a:1"][0] == segments["e2-b:1"][0]
     assert segments["e2-a:1"][1] != segments["e2-b:1"][1]
-    assert shared["cache"]["block_override"] == 29
+    assert shared["cache"]["block_override"] == 33
     assert shared["phase2d_stage"]["expected_shared_protected_blocks"] == 8
     assert shared["phase2d_stage"]["forced_victim"] is None
 
