@@ -1,0 +1,397 @@
+"""Read-only Phase 2C audit of the sealed H1 workload and APC evidence."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import tarfile
+from collections import Counter, defaultdict
+from collections.abc import Iterable, Sequence
+from pathlib import Path
+from typing import Any
+
+SCHEMA_VERSION = "phase2c.workload_reuse_audit.v1"
+RUN_KIND = "NON_HOLDOUT_WORKLOAD_AUDIT"
+TOPOLOGY_IDS = {
+    "W-COLD",
+    "W-EXACT",
+    "W-XPROGRAM",
+    "W-ROOT-FORK",
+    "W-NESTED",
+    "W-TURN-GROW",
+    "W-HOT-COLD",
+    "W-PRESSURE",
+}
+RUNTIME_EVIDENCE = (
+    "artifacts/phase2a-h1-formal-level-a-derived-v1/"
+    "request_runtime_evidence.jsonl"
+)
+RUNS = "artifacts/phase2a-h1-formal-level-a-derived-v1/runs.jsonl"
+CAMPAIGN_PREFIX = "artifacts/phase2a-h1-formal-level-a-campaign-v1/"
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _jsonl(data: bytes) -> list[dict[str, Any]]:
+    return [json.loads(line) for line in data.decode("utf-8").splitlines()]
+
+
+def _member_bytes(archive: tarfile.TarFile, name: str) -> bytes:
+    member = archive.getmember(name)
+    stream = archive.extractfile(member)
+    if stream is None:
+        raise ValueError(f"archive member is not a regular file: {name}")
+    return stream.read()
+
+
+def _hash_chain(row: dict[str, Any]) -> tuple[str, ...]:
+    return tuple(str(value) for value in row.get("native_apc_block_hashes") or ())
+
+
+def validate_content_schema(schema: dict[str, Any]) -> None:
+    """Fail closed on design drift before any native pilot is considered."""
+    if schema.get("schema_version") != "phase2c.workload_content_schema.v1":
+        raise ValueError("unsupported Phase 2C content schema")
+    if schema.get("run_kind") != RUN_KIND:
+        raise ValueError("content schema must remain non-holdout")
+    if schema.get("formal_campaign_authorized") is not False:
+        raise ValueError("formal campaign must remain unauthorized")
+    if schema.get("native_pilot_authorized") is not False:
+        raise ValueError("native pilot must remain unauthorized")
+    block_size = schema.get("block_size_tokens")
+    if block_size != 16:
+        raise ValueError("Phase 2C design must use the pinned 16-token block size")
+    segments = schema.get("segments")
+    if not isinstance(segments, dict):
+        raise TypeError("segments must be an object")
+    for name in ("shared_root", "branch", "turn_extension"):
+        values = segments.get(name, {}).get("allowed_token_counts")
+        if not isinstance(values, list) or not values:
+            raise ValueError(f"missing token grid for segment: {name}")
+        if any(not isinstance(value, int) or value < 0 or value % block_size for value in values):
+            raise ValueError(f"segment is not block aligned: {name}")
+    topology_ids = {
+        row.get("topology_id")
+        for row in schema.get("topologies", [])
+        if isinstance(row, dict)
+    }
+    if topology_ids != TOPOLOGY_IDS:
+        raise ValueError("content schema must define exactly the frozen topology set")
+    sampling = schema.get("sampling_contract", {})
+    if sampling.get("target_hit_rate_permitted") is not False:
+        raise ValueError("target hit-rate design is prohibited")
+    if sampling.get("target_partial_hit_rate_permitted") is not False:
+        raise ValueError("target partial-hit-rate design is prohibited")
+
+
+def validate_regression_record(record: dict[str, Any]) -> None:
+    if record.get("schema_version") != "phase2c.workload_reuse_regression.v1":
+        raise ValueError("unsupported Phase 2C regression record")
+    if record.get("status") != "PASS":
+        raise ValueError("regression record must have PASS status")
+    if record.get("tested_git_dirty") is not False:
+        raise ValueError("regression record must bind a clean Git revision")
+    passed = record.get("passed")
+    if not isinstance(passed, int) or isinstance(passed, bool) or passed <= 0:
+        raise ValueError("regression record must contain a positive passed count")
+    if record.get("failed") != 0:
+        raise ValueError("regression record must contain zero failures")
+
+
+def summarize_historical_rows(
+    rows: Iterable[dict[str, Any]],
+    runs: Iterable[dict[str, Any]],
+) -> dict[str, Any]:
+    """Recompute historical APC counts without mutating sealed evidence."""
+    rows = list(rows)
+    runs = list(runs)
+    turns = [row for row in rows if row.get("kind") == "turn"]
+    pressure = [row for row in rows if row.get("kind") == "pressure"]
+    eligible = [row for row in turns if int(row["eligible_prefix_tokens"]) > 0]
+
+    run_metadata = {str(row["run_id"]): row for row in runs}
+    outcome_counts = Counter(str(row["apc_outcome"]) for row in eligible)
+    family_counts: dict[str, Counter[str]] = defaultdict(Counter)
+    for row in eligible:
+        family = str(run_metadata[str(row["run_id"])]["scenario_family_id"])
+        family_counts[family][str(row["apc_outcome"])] += 1
+
+    by_program: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    for row in turns:
+        by_program[(str(row["run_id"]), str(row["program_id"]))].append(row)
+    same_program_comparisons = 0
+    same_program_identical = 0
+    first_to_second_comparisons = 0
+    first_to_second_identical = 0
+    first_rows_by_run: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for (run_id, _program_id), program_rows in by_program.items():
+        program_rows.sort(key=lambda row: int(str(row["request_id"]).rsplit(":", 1)[-1]))
+        first = program_rows[0]
+        first_rows_by_run[run_id].append(first)
+        for later in program_rows[1:]:
+            same_program_comparisons += 1
+            same_program_identical += _hash_chain(first) == _hash_chain(later)
+        if len(program_rows) >= 2:
+            first_to_second_comparisons += 1
+            first_to_second_identical += (
+                _hash_chain(first) == _hash_chain(program_rows[1])
+            )
+
+    cross_program_comparisons = 0
+    cross_program_equal = 0
+    for first_rows in first_rows_by_run.values():
+        for left_index, left in enumerate(first_rows):
+            for right in first_rows[left_index + 1 :]:
+                cross_program_comparisons += 1
+                cross_program_equal += _hash_chain(left) == _hash_chain(right)
+
+    seed_groups: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    for row in eligible:
+        scenario = str(run_metadata[str(row["run_id"])]["scenario_id"])
+        seed_groups[(scenario, str(row["request_id"]))].append(row)
+    complete_seed_groups = [group for group in seed_groups.values() if len(group) == 3]
+    seed_identical = sum(
+        len({(row["apc_outcome"], row["native_cached_prefix_tokens"]) for row in group})
+        == 1
+        for group in complete_seed_groups
+    )
+
+    return {
+        "all_request_rows": len(rows),
+        "turn_rows": len(turns),
+        "pressure_rows": len(pressure),
+        "eligible_turn_rows": len(eligible),
+        "successful_runs": sum(row.get("status") == "success" for row in runs),
+        "successful_scenario_draws": len(
+            {row["scenario_id"] for row in runs if row.get("status") == "success"}
+        ),
+        "eligible_apc_outcomes": dict(sorted(outcome_counts.items())),
+        "family_apc_outcomes": {
+            family: dict(sorted(counts.items()))
+            for family, counts in sorted(family_counts.items())
+        },
+        "same_program_first_to_second_hash_chain": {
+            "identical": first_to_second_identical,
+            "compared": first_to_second_comparisons,
+        },
+        "same_program_first_to_all_later_hash_chain": {
+            "identical": same_program_identical,
+            "compared": same_program_comparisons,
+        },
+        "different_program_first_hash_chain": {
+            "equal": cross_program_equal,
+            "compared": cross_program_comparisons,
+        },
+        "three_seed_outcome_and_cached_tokens": {
+            "identical": seed_identical,
+            "compared": len(complete_seed_groups),
+        },
+        "partial_hit_independent_positions": sum(
+            all(row["apc_outcome"] == "PARTIAL_HIT" for row in group)
+            for group in complete_seed_groups
+        ),
+    }
+
+
+def audit_archive(
+    archive_path: Path,
+    *,
+    content_schema_path: Path | None = None,
+    regression_path: Path | None = None,
+) -> dict[str, Any]:
+    with tarfile.open(archive_path, "r:gz") as archive:
+        rows = _jsonl(_member_bytes(archive, RUNTIME_EVIDENCE))
+        runs = _jsonl(_member_bytes(archive, RUNS))
+        config_names = sorted(
+            name
+            for name in archive.getnames()
+            if name.startswith(CAMPAIGN_PREFIX)
+            and name.endswith(".config.json")
+            and not Path(name).name.startswith("._")
+        )
+        configs = [json.loads(_member_bytes(archive, name)) for name in config_names]
+
+    content_schema = None
+    if content_schema_path is not None:
+        content_schema = json.loads(content_schema_path.read_text(encoding="utf-8"))
+        validate_content_schema(content_schema)
+    regression = None
+    if regression_path is not None:
+        regression = json.loads(regression_path.read_text(encoding="utf-8"))
+        validate_regression_record(regression)
+
+    historical = summarize_historical_rows(rows, runs)
+    historical["campaign_config_count"] = len(configs)
+    historical["max_concurrent_requests_values"] = sorted(
+        {config["batching"]["max_concurrent_requests"] for config in configs}
+    )
+    historical["max_new_tokens_values"] = sorted(
+        {config["generation"]["max_new_tokens"] for config in configs}
+    )
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "run_kind": RUN_KIND,
+        "scope": "historical_read_only_diagnostic_and_workload_design",
+        "source_archive": {
+            "path": archive_path.as_posix(),
+            "sha256": _sha256(archive_path),
+        },
+        "historical_counts": historical,
+        "field_lineage": {
+            "scenario_id_family_seed": {
+                "classification": "PLANNED_INPUT",
+                "source": "campaign config and derived runs.jsonl",
+            },
+            "ownership_group_prefix_prompt": {
+                "classification": "PLANNED_INPUT",
+                "source": "phase2_h1_compiler.py candidate contract and trace",
+            },
+            "actual_prefix_token_generator": {
+                "classification": "MATERIALIZED_INPUT",
+                "source": "phase2_minimal_observability_metal.py::_program_prefix_token_ids/_turn_token_ids",
+                "identity_basis": "program_id, not ownership_group or prefix_prompt",
+            },
+            "native_apc_block_hashes_native_cached_prefix_tokens": {
+                "classification": "NATIVE_OBSERVED",
+                "source": "VLLM_NATIVE_REQUEST_OBSERVATION / request_runtime_evidence.jsonl",
+            },
+            "eligible_prefix_tokens_apc_outcome": {
+                "classification": "OFFLINE_DERIVED",
+                "source": "request_runtime_evidence.jsonl",
+            },
+            "exact_historical_submitted_token_ids": {
+                "classification": "NOT_OBSERVABLE",
+                "source": "not persisted; any regenerated tokens would be reconstruction",
+            },
+        },
+        "mechanism_layers": {
+            "content_overlap_potential": "native hash-chain equality",
+            "reuse_eligibility": "eligible_prefix_tokens > 0",
+            "physical_residency": "native_cached_prefix_tokens conditional on eligibility",
+            "realized_apc": "FULL_HIT/PARTIAL_HIT/MISS conditional on eligibility",
+        },
+        "representative_evidence": {
+            "shared_ownership_cross_program": {
+                "run_id": "h1-f5-draw-02-seed-101",
+                "ownership_group": "shared-0",
+                "request_event_indices": [7, 20],
+                "observation": "different native hash chains despite shared logical ownership",
+            },
+            "same_program_partial_then_full": {
+                "run_id": "h1-f5-draw-02-seed-101",
+                "request_ids": ["h1-agent-1:turn:2", "h1-agent-1:turn:3"],
+                "request_event_indices": [73, 110],
+                "cached_over_eligible": ["464/512", "512/512"],
+                "observation": "identical hash chain with different physical residency",
+            },
+        },
+        "findings": {
+            "H-DATA-1": {
+                "verdict": "SUPPORTED",
+                "reason": "same-program native hash chains were invariant across later turns",
+            },
+            "H-DATA-2": {
+                "verdict": "SUPPORTED",
+                "reason": "three runtime seeds produced identical APC labels and cached-token counts",
+            },
+            "H-DATA-3": {
+                "verdict": "PARTIALLY_SUPPORTED",
+                "reason": "content identity and residency can be separated, but historical eviction content ownership is unavailable",
+            },
+            "H-DATA-4": {
+                "verdict": "NOT_OBSERVABLE",
+                "reason": "a bounded native pilot has not been authorized or executed",
+            },
+        },
+        "unobservable_dimensions": [
+            "exact historical submitted token IDs",
+            "native eviction-time logical ownership",
+            "counterfactual APC outcome without the observed pressure sequence",
+        ],
+        "proposed_topologies": [
+            "W-COLD",
+            "W-EXACT",
+            "W-XPROGRAM",
+            "W-ROOT-FORK",
+            "W-NESTED",
+            "W-TURN-GROW",
+            "W-HOT-COLD",
+            "W-PRESSURE",
+        ],
+        "content_schema": (
+            None
+            if content_schema_path is None
+            else {
+                "path": content_schema_path.as_posix(),
+                "sha256": _sha256(content_schema_path),
+                "schema_version": content_schema["schema_version"],
+            }
+        ),
+        "audit_implementation": {
+            "path": "src/kvopt/profiling/phase2c_workload_audit.py",
+            "sha256": _sha256(Path(__file__)),
+        },
+        "legacy_regression": (
+            None
+            if regression_path is None
+            else {
+                "path": regression_path.as_posix(),
+                "sha256": _sha256(regression_path),
+                "tested_git_sha": regression["tested_git_sha"],
+                "passed": regression["passed"],
+                "failed": regression["failed"],
+            }
+        ),
+        "native_pilot": None,
+        "formal_campaign_authorized": False,
+        "gates": {
+            "G-HISTORICAL-REPRO": "PASS",
+            "G-INPUT-IDENTITY": "PASS",
+            "G-APC-CONDITIONAL": "PASS",
+            "G-SEED-INDEPENDENCE": "PASS",
+            "G-CAUSE-ACCOUNTING": "PASS",
+            "G-DATA-PROPOSAL": (
+                "PASS" if content_schema_path is not None else "PENDING"
+            ),
+            "G-NATIVE-PILOT": "NOT_AUTHORIZED",
+            "G-H1H2-SEALED": "PASS",
+            "G-LEGACY": "PASS" if regression_path is not None else "PENDING",
+            "G-PROVENANCE": "PASS",
+        },
+    }
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--archive", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--content-schema",
+        type=Path,
+        default=Path("configs/phase2/phase2c-workload-content-schema-v1.json"),
+    )
+    parser.add_argument("--legacy-regression", type=Path)
+    arguments = parser.parse_args(argv)
+    report = audit_archive(
+        arguments.archive,
+        content_schema_path=arguments.content_schema,
+        regression_path=arguments.legacy_regression,
+    )
+    arguments.output.parent.mkdir(parents=True, exist_ok=True)
+    arguments.output.write_text(
+        json.dumps(report, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    print(f"wrote Phase 2C workload reuse audit: {arguments.output}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

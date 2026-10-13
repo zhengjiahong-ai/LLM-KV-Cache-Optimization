@@ -1,0 +1,201 @@
+{
+  "audit_implementation": {
+    "path": "src/kvopt/profiling/phase2c_workload_audit.py",
+    "sha256": "cfc3697e6ddeafdf73648b85e266626ec34ee04c8ce314c0cfa8f0110643f919"
+  },
+  "content_schema": {
+    "path": "configs/phase2/phase2c-workload-content-schema-v1.json",
+    "schema_version": "phase2c.workload_content_schema.v1",
+    "sha256": "8aba497bc498be7d210d432569bf5ae121d831fdad2a4789f98c72afff7553e4"
+  },
+  "field_lineage": {
+    "actual_prefix_token_generator": {
+      "classification": "MATERIALIZED_INPUT",
+      "identity_basis": "program_id, not ownership_group or prefix_prompt",
+      "source": "phase2_minimal_observability_metal.py::_program_prefix_token_ids/_turn_token_ids"
+    },
+    "eligible_prefix_tokens_apc_outcome": {
+      "classification": "OFFLINE_DERIVED",
+      "source": "request_runtime_evidence.jsonl"
+    },
+    "exact_historical_submitted_token_ids": {
+      "classification": "NOT_OBSERVABLE",
+      "source": "not persisted; any regenerated tokens would be reconstruction"
+    },
+    "native_apc_block_hashes_native_cached_prefix_tokens": {
+      "classification": "NATIVE_OBSERVED",
+      "source": "VLLM_NATIVE_REQUEST_OBSERVATION / request_runtime_evidence.jsonl"
+    },
+    "ownership_group_prefix_prompt": {
+      "classification": "PLANNED_INPUT",
+      "source": "phase2_h1_compiler.py candidate contract and trace"
+    },
+    "scenario_id_family_seed": {
+      "classification": "PLANNED_INPUT",
+      "source": "campaign config and derived runs.jsonl"
+    }
+  },
+  "findings": {
+    "H-DATA-1": {
+      "reason": "same-program native hash chains were invariant across later turns",
+      "verdict": "SUPPORTED"
+    },
+    "H-DATA-2": {
+      "reason": "three runtime seeds produced identical APC labels and cached-token counts",
+      "verdict": "SUPPORTED"
+    },
+    "H-DATA-3": {
+      "reason": "content identity and residency can be separated, but historical eviction content ownership is unavailable",
+      "verdict": "PARTIALLY_SUPPORTED"
+    },
+    "H-DATA-4": {
+      "reason": "a bounded native pilot has not been authorized or executed",
+      "verdict": "NOT_OBSERVABLE"
+    }
+  },
+  "formal_campaign_authorized": false,
+  "gates": {
+    "G-APC-CONDITIONAL": "PASS",
+    "G-CAUSE-ACCOUNTING": "PASS",
+    "G-DATA-PROPOSAL": "PASS",
+    "G-H1H2-SEALED": "PASS",
+    "G-HISTORICAL-REPRO": "PASS",
+    "G-INPUT-IDENTITY": "PASS",
+    "G-LEGACY": "PASS",
+    "G-NATIVE-PILOT": "NOT_AUTHORIZED",
+    "G-PROVENANCE": "PASS",
+    "G-SEED-INDEPENDENCE": "PASS"
+  },
+  "historical_counts": {
+    "all_request_rows": 1068,
+    "campaign_config_count": 42,
+    "different_program_first_hash_chain": {
+      "compared": 771,
+      "equal": 0
+    },
+    "eligible_apc_outcomes": {
+      "FULL_HIT": 288,
+      "MISS": 159,
+      "PARTIAL_HIT": 48
+    },
+    "eligible_turn_rows": 495,
+    "family_apc_outcomes": {
+      "F1": {
+        "FULL_HIT": 66,
+        "MISS": 36,
+        "PARTIAL_HIT": 6
+      },
+      "F2": {
+        "FULL_HIT": 39,
+        "MISS": 18,
+        "PARTIAL_HIT": 9
+      },
+      "F3": {
+        "FULL_HIT": 48,
+        "MISS": 12,
+        "PARTIAL_HIT": 12
+      },
+      "F4": {
+        "FULL_HIT": 54,
+        "MISS": 48,
+        "PARTIAL_HIT": 9
+      },
+      "F5": {
+        "FULL_HIT": 60,
+        "MISS": 6,
+        "PARTIAL_HIT": 9
+      },
+      "F6": {
+        "FULL_HIT": 21,
+        "MISS": 39,
+        "PARTIAL_HIT": 3
+      }
+    },
+    "max_concurrent_requests_values": [
+      1
+    ],
+    "max_new_tokens_values": [
+      1
+    ],
+    "partial_hit_independent_positions": 16,
+    "pressure_rows": 165,
+    "same_program_first_to_all_later_hash_chain": {
+      "compared": 495,
+      "identical": 495
+    },
+    "same_program_first_to_second_hash_chain": {
+      "compared": 408,
+      "identical": 408
+    },
+    "successful_runs": 96,
+    "successful_scenario_draws": 32,
+    "three_seed_outcome_and_cached_tokens": {
+      "compared": 165,
+      "identical": 165
+    },
+    "turn_rows": 903
+  },
+  "legacy_regression": {
+    "failed": 0,
+    "passed": 1089,
+    "path": "docs/phase2c-m6-workload-reuse-regression.json",
+    "sha256": "768a5efb959b074ec1723af4dac2a14858375394ecaafad0bd3c4e7456d9fbd5",
+    "tested_git_sha": "d1b20af29d1307f84df13a319a2cb61363b76a9d"
+  },
+  "mechanism_layers": {
+    "content_overlap_potential": "native hash-chain equality",
+    "physical_residency": "native_cached_prefix_tokens conditional on eligibility",
+    "realized_apc": "FULL_HIT/PARTIAL_HIT/MISS conditional on eligibility",
+    "reuse_eligibility": "eligible_prefix_tokens > 0"
+  },
+  "native_pilot": null,
+  "proposed_topologies": [
+    "W-COLD",
+    "W-EXACT",
+    "W-XPROGRAM",
+    "W-ROOT-FORK",
+    "W-NESTED",
+    "W-TURN-GROW",
+    "W-HOT-COLD",
+    "W-PRESSURE"
+  ],
+  "representative_evidence": {
+    "same_program_partial_then_full": {
+      "cached_over_eligible": [
+        "464/512",
+        "512/512"
+      ],
+      "observation": "identical hash chain with different physical residency",
+      "request_event_indices": [
+        73,
+        110
+      ],
+      "request_ids": [
+        "h1-agent-1:turn:2",
+        "h1-agent-1:turn:3"
+      ],
+      "run_id": "h1-f5-draw-02-seed-101"
+    },
+    "shared_ownership_cross_program": {
+      "observation": "different native hash chains despite shared logical ownership",
+      "ownership_group": "shared-0",
+      "request_event_indices": [
+        7,
+        20
+      ],
+      "run_id": "h1-f5-draw-02-seed-101"
+    }
+  },
+  "run_kind": "NON_HOLDOUT_WORKLOAD_AUDIT",
+  "schema_version": "phase2c.workload_reuse_audit.v1",
+  "scope": "historical_read_only_diagnostic_and_workload_design",
+  "source_archive": {
+    "path": "artifacts/phase2a-h1-level-a-evidence-e3a02fd.tar.gz",
+    "sha256": "af5be5bd56a172f7945f12712289708aa55cda01f1b8c05a2bc3215b14c90af7"
+  },
+  "unobservable_dimensions": [
+    "exact historical submitted token IDs",
+    "native eviction-time logical ownership",
+    "counterfactual APC outcome without the observed pressure sequence"
+  ]
+}

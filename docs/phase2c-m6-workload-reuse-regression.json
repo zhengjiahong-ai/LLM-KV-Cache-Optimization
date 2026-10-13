@@ -1,0 +1,18 @@
+{
+  "schema_version": "phase2c.workload_reuse_regression.v1",
+  "status": "PASS",
+  "completed_at_utc": "2026-10-13T07:41:40Z",
+  "command": "/Users/rlymacbook/miniconda3/envs/kvopt-m6/bin/python -m pytest -q",
+  "tested_git_sha": "d1b20af29d1307f84df13a319a2cb61363b76a9d",
+  "tested_git_dirty": false,
+  "passed": 1089,
+  "failed": 0,
+  "coverage": [
+    "full repository Python test suite",
+    "sealed H1/H2 analysis and artifact contracts",
+    "Phase 2B fidelity repair regressions",
+    "Phase 2C historical audit, schema, and provenance controls"
+  ],
+  "experiment_execution": false,
+  "native_pilot_execution": false
+}

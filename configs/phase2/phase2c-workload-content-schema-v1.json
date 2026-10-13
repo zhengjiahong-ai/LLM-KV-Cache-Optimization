@@ -1,0 +1,108 @@
+{
+  "schema_version": "phase2c.workload_content_schema.v1",
+  "run_kind": "NON_HOLDOUT_WORKLOAD_AUDIT",
+  "block_size_tokens": 16,
+  "formal_campaign_authorized": false,
+  "native_pilot_authorized": false,
+  "design_principle": "sample content topology independently from pressure, capacity, timing, and scheduling controls",
+  "segments": {
+    "shared_root": {
+      "allowed_token_counts": [0, 64, 128, 256],
+      "identity_key": "shared_root_content_key",
+      "role": "cross-request or cross-program reusable root"
+    },
+    "branch": {
+      "allowed_token_counts": [0, 32, 64, 128],
+      "identity_key": "branch_content_key",
+      "role": "branch-specific continuation after the shared root"
+    },
+    "turn_extension": {
+      "allowed_token_counts": [0, 16, 32, 64],
+      "identity_key": "turn_extension_content_key",
+      "role": "cumulative context growth preserved in later turns"
+    },
+    "request_suffix": {
+      "allowed_token_counts": [1],
+      "identity_key": "request_id",
+      "role": "request-unique suffix outside the reusable block-aligned prefix"
+    }
+  },
+  "topologies": [
+    {
+      "topology_id": "W-COLD",
+      "relation": "unique content with no prior eligible request",
+      "required_segments": ["shared_root"],
+      "expected_native_relation": "NO_REUSE_ELIGIBLE_PREFIX"
+    },
+    {
+      "topology_id": "W-EXACT",
+      "relation": "two requests submit the same reusable segment sequence",
+      "required_segments": ["shared_root", "branch"],
+      "expected_native_relation": "equal submitted digest and equal full native hash chain"
+    },
+    {
+      "topology_id": "W-XPROGRAM",
+      "relation": "different program IDs submit the same reusable content",
+      "required_segments": ["shared_root", "branch"],
+      "expected_native_relation": "content identity remains equal across program IDs"
+    },
+    {
+      "topology_id": "W-ROOT-FORK",
+      "relation": "requests share a root and diverge into distinct branches",
+      "required_segments": ["shared_root", "branch"],
+      "expected_native_relation": "native LCP ends at the shared-root block boundary"
+    },
+    {
+      "topology_id": "W-NESTED",
+      "relation": "one reusable prefix is a strict block-aligned prefix of another",
+      "required_segments": ["shared_root", "branch"],
+      "expected_native_relation": "short chain equals the leading blocks of the long chain"
+    },
+    {
+      "topology_id": "W-TURN-GROW",
+      "relation": "later turns retain prior reusable content and append cumulative extensions",
+      "required_segments": ["shared_root", "branch", "turn_extension"],
+      "expected_native_relation": "later chain extends rather than replaces the earlier chain"
+    },
+    {
+      "topology_id": "W-HOT-COLD",
+      "relation": "repeated hot content is interleaved with unique cold content",
+      "required_segments": ["shared_root", "branch"],
+      "expected_native_relation": "hot identity is stable while intervening cold identities differ"
+    },
+    {
+      "topology_id": "W-PRESSURE",
+      "relation": "the same content sequence is observed with and without controlled pressure",
+      "required_segments": ["shared_root", "branch"],
+      "expected_native_relation": "content identity is fixed while physical survival may differ"
+    }
+  ],
+  "orthogonal_controls": {
+    "reuse_interval_seconds": [0.0, 0.25, 1.0, 4.0],
+    "interleaving_request_count": [0, 1, 3],
+    "tool_gap_seconds": [0.0, 0.5, 2.0],
+    "max_concurrent_requests": [1, 2, 4],
+    "capacity_regime": ["ample", "near_capacity"],
+    "pressure_regime": ["none", "controlled_native_allocation"]
+  },
+  "materialization_contract": {
+    "content_identity_source": "explicit segment content keys",
+    "program_id_controls_content": false,
+    "ownership_group_proves_content": false,
+    "prompt_string_proves_content": false,
+    "submitted_token_ids_digest_required": true,
+    "native_apc_hash_chain_required": true,
+    "native_cached_prefix_tokens_required": true,
+    "expected_lcp_tokens_required": true,
+    "expected_lcp_blocks_required": true,
+    "collision_check_required": true,
+    "special_token_and_suffix_boundary_recording_required": true,
+    "silent_fallback_permitted": false
+  },
+  "sampling_contract": {
+    "predefined_distribution_required": true,
+    "target_hit_rate_permitted": false,
+    "target_partial_hit_rate_permitted": false,
+    "content_topology_sampled_before_native_outcome": true
+  }
+}
