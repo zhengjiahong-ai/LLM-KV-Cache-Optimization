@@ -19,6 +19,8 @@ def test_pressure_gate_requires_all_three_evidence_levels() -> None:
             native_cache_keys_before_eviction=("sha256:abc",),
             hash_cleanup_confirmed=True,
             subsequent_native_cached_prefix_tokens=0,
+            temporal_order_valid=True,
+            execution_context_joined=True,
         ),
         runtime_identity=_identity(),
     )
@@ -42,3 +44,22 @@ def test_logical_release_alone_never_passes_native_eviction_gate() -> None:
 
     assert result.status == STATUS_NOT_DEMONSTRATED
     assert "logical release alone" in result.reason
+
+
+def test_out_of_order_pressure_evidence_never_passes() -> None:
+    result = build_pressure_gate(
+        PressureObservation(
+            logical_release_event_indices=(12,),
+            native_hashed_eviction_event_indices=(10,),
+            subsequent_apc_event_indices=(15,),
+            native_cache_keys_before_eviction=("sha256:abc",),
+            hash_cleanup_confirmed=True,
+            subsequent_native_cached_prefix_tokens=0,
+            temporal_order_valid=False,
+            execution_context_joined=True,
+        ),
+        runtime_identity=_identity(),
+    )
+
+    assert result.status == STATUS_NOT_DEMONSTRATED
+    assert "release < native eviction < subsequent APC" in result.reason

@@ -85,7 +85,19 @@ def build_fidelity_audit(
         >= 2
         for key in keys
     )
-    prefix_input_pass = shared and len(keys) >= 2 and all(len(values) == 1 for values in keys.values())
+    stable_by_key = all(len(values) == 1 for values in keys.values())
+    digest_by_key = {
+        key: next(iter(values))
+        for key, values in keys.items()
+        if len(values) == 1
+    }
+    distinct_across_keys = len(set(digest_by_key.values())) == len(keys)
+    prefix_input_pass = (
+        shared
+        and len(keys) >= 2
+        and stable_by_key
+        and distinct_across_keys
+    )
     gates: list[FidelityGateResult] = [
         _gate(
             "G-PREFIX-INPUT",
@@ -93,7 +105,7 @@ def build_fidelity_audit(
             reason=(
                 "shared keys materialized identical prefixes and distinct keys differed"
                 if prefix_input_pass
-                else "shared and distinct submitted-prefix controls were incomplete"
+                else "shared-key stability or distinct-key digest separation was incomplete"
             ),
             observed={key: sorted(values) for key, values in sorted(keys.items())},
             indices=[int(row["event_index"]) for row in materialized],
@@ -183,18 +195,50 @@ def build_fidelity_audit(
         (int(row["payload"].get("queue_delay_history_sample_count", 0)) for row in history),
         default=0,
     )
-    history_status = STATUS_PASS if eligible_samples else STATUS_NOT_OBSERVABLE
+    eta_samples = max(
+        (int(row["payload"].get("eta_history_sample_count", 0)) for row in history),
+        default=0,
+    )
+    observed_eta = any(
+        row["payload"].get("eta_provenance_source") == "OBSERVED"
+        and int(row["payload"].get("eta_history_sample_count", 0)) > 0
+        for row in history
+    )
+    first_release_index = min(
+        (int(row["event_index"]) for row in by_type["FORCED_RELEASE_DECISION"]),
+        default=None,
+    )
+    history_precedes_decision = bool(history) and (
+        first_release_index is None
+        or all(int(row["event_index"]) < first_release_index for row in history)
+    )
+    history_pass = bool(
+        observed_eta
+        and eta_samples > 0
+        and eligible_samples > 0
+        and history_precedes_decision
+    )
+    history_status = STATUS_PASS if history_pass else STATUS_NOT_OBSERVABLE
     gates.append(
         _gate(
             "G-TTL-HISTORY",
             status=history_status,
             reason=(
-                "TTL inputs include eligible evicted-request queue history"
-                if eligible_samples
-                else "native queue timing was observed but no eligible EvictedRequestQueueDelayRecord existed"
+                "observed eta and eligible queue history both preceded the decision"
+                if history_pass
+                else "observed eta and eligible pre-decision queue history were not both available"
             ),
             observed={
                 "ttl_decision_count": len(history),
+                "eta": {
+                    "observed": observed_eta,
+                    "history_sample_count": eta_samples,
+                },
+                "eligible_queue_history": {
+                    "sample_count": eligible_samples,
+                    "record_type": "EvictedRequestQueueDelayRecord",
+                },
+                "history_precedes_forced_release_decision": history_precedes_decision,
                 "eligible_queue_history_sample_count": eligible_samples,
                 "native_queue_used_as_ttl_history": any(
                     row["payload"].get("native_queue_duration_used_as_ttl_history") is True
@@ -208,9 +252,41 @@ def build_fidelity_audit(
     )
 
     release = by_type["FORCED_RELEASE_DECISION"]
-    evictions = by_type["VLLM_NATIVE_HASHED_CACHE_ENTRY_EVICTED"]
+    all_evictions = by_type["VLLM_NATIVE_HASHED_CACHE_ENTRY_EVICTED"]
+    release_index = max((int(row["event_index"]) for row in release), default=-1)
+    release_run_ids = {str(row.get("run_id")) for row in release}
+    evictions = [
+        row
+        for row in all_evictions
+        if int(row["event_index"]) > release_index
+        and str(row.get("run_id")) in release_run_ids
+    ]
     last_eviction = max((int(row["event_index"]) for row in evictions), default=-1)
-    subsequent = [row for row in native if int(row["event_index"]) > last_eviction]
+    eviction_process_ids = {
+        str(row["payload"].get("native_hash_process_id"))
+        for row in evictions
+        if row["payload"].get("native_hash_process_id") is not None
+    }
+    subsequent = [
+        row
+        for row in native
+        if int(row["event_index"]) > last_eviction
+        and str(row.get("run_id")) in release_run_ids
+        and str(row["payload"].get("native_hash_process_id"))
+        in eviction_process_ids
+    ]
+    temporal_order_valid = bool(
+        release
+        and evictions
+        and subsequent
+        and release_index < min(int(row["event_index"]) for row in evictions)
+        and last_eviction < min(int(row["event_index"]) for row in subsequent)
+    )
+    execution_context_joined = bool(
+        len(release_run_ids) == 1
+        and len(eviction_process_ids) == 1
+        and subsequent
+    )
     pressure = build_pressure_gate(
         PressureObservation(
             logical_release_event_indices=tuple(int(row["event_index"]) for row in release),
@@ -233,6 +309,9 @@ def build_fidelity_audit(
                     for row in subsequent
                 )
             ),
+            temporal_order_valid=temporal_order_valid,
+            execution_context_joined=execution_context_joined,
+            attribution_scope="layered_temporal_sequence_only",
         ),
         runtime_identity=runtime,
     )

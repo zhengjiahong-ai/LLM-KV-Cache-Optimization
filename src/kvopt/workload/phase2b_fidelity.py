@@ -146,6 +146,9 @@ class PressureObservation:
     native_cache_keys_before_eviction: tuple[str, ...]
     hash_cleanup_confirmed: bool
     subsequent_native_cached_prefix_tokens: int | None
+    temporal_order_valid: bool = False
+    execution_context_joined: bool = False
+    attribution_scope: str = "layered_temporal_sequence_only"
 
 
 def build_history_gate(
@@ -222,6 +225,12 @@ def build_pressure_gate(
     elif not observation.hash_cleanup_confirmed:
         status = STATUS_FAIL
         reason = "native eviction callback did not confirm hash cleanup"
+    elif not observation.temporal_order_valid:
+        status = STATUS_NOT_DEMONSTRATED
+        reason = "evidence did not establish release < native eviction < subsequent APC"
+    elif not observation.execution_context_joined:
+        status = STATUS_NOT_DEMONSTRATED
+        reason = "pressure evidence could not be joined within one execution context"
     elif (
         not observation.subsequent_apc_event_indices
         or observation.subsequent_native_cached_prefix_tokens is None

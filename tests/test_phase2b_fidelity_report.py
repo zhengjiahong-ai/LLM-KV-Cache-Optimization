@@ -72,6 +72,7 @@ def test_report_uses_raw_events_and_preserves_history_limitation(
                     "native_cached_prefix_tokens": cached,
                     "native_queued_timestamp": 1.0,
                     "native_scheduler_admission_timestamp": 2.0,
+                    "native_hash_process_id": "123",
                 },
             }
             for index, program, request, hashes, cached in (
@@ -96,6 +97,7 @@ def test_report_uses_raw_events_and_preserves_history_limitation(
             "payload": {
                 "native_cache_key_before": "h",
                 "hash_removed_after": True,
+                "native_hash_process_id": "123",
             },
         },
     ]
@@ -128,3 +130,38 @@ def test_report_uses_raw_events_and_preserves_history_limitation(
     )
     bound_statuses = {gate["gate"]: gate["status"] for gate in bound["gates"]}
     assert bound_statuses["G-LEGACY"] == "PASS"
+
+
+def test_distinct_content_keys_with_same_digest_do_not_pass(tmp_path: Path) -> None:
+    _write_json(
+        tmp_path / "run.json",
+        {"run_id": "r", "execution_status": "success", "git_sha": "a" * 40},
+    )
+    _write_json(tmp_path / "fidelity-result.json", {"gates": []})
+    events = [
+        {
+            "event_index": index,
+            "event_type": "BACKEND_INPUT_MATERIALIZED",
+            "program_id": program,
+            "request_id": f"{program}:1",
+            "payload": {
+                "kind": "turn",
+                "prefix_content_key": key,
+                "submitted_prefix_token_ids_sha256": "same-digest",
+            },
+        }
+        for index, program, key in (
+            (1, "shared-a", "shared"),
+            (2, "shared-b", "shared"),
+            (3, "distinct-c", "distinct"),
+        )
+    ]
+    (tmp_path / "events.jsonl").write_text(
+        "".join(json.dumps(event) + "\n" for event in events),
+        encoding="utf-8",
+    )
+
+    report = build_fidelity_audit(tmp_path)
+    gates = {gate["gate"]: gate for gate in report["gates"]}
+
+    assert gates["G-PREFIX-INPUT"]["status"] == "NOT_DEMONSTRATED"
