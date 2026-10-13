@@ -1,0 +1,25 @@
+{
+  "completed_at_utc": "2026-10-13T04:35:42Z",
+  "command": "/Users/rlymacbook/miniconda3/envs/kvopt-m6/bin/python -m pytest -q",
+  "coverage": [
+    "full repository Python test suite",
+    "legacy Phase 2 substrate",
+    "Phase 1B validation runner",
+    "sealed H1/H2 analysis and artifact contracts",
+    "Phase 2B positive, negative, ordering, and fail-closed controls"
+  ],
+  "failed": 0,
+  "passed": 1085,
+  "schema_version": "phase2b.legacy_regression.v1",
+  "smoke_evidence": {
+    "config_json_sha256": "94e68ad81656624f1a6efaa9c4794b8f04dc9e9fd84910621c22e270be253840",
+    "events_jsonl_sha256": "c40bbae6c4fac623f405451ef776323869836c7be4e56e0f689f5a37a16bc5e7",
+    "replay_jsonl_sha256": "ad370003b234d61c0a6e6b3369e29ce27a584b3deebfc6d964c74de4921aa757",
+    "run_json_sha256": "f423ec7adfeb77000606be472711222f154f316649505614ca296ee02f5d31ff",
+    "run_path": "artifacts/phase2b-fidelity/phase2b-fidelity-smoke-v3",
+    "run_git_sha": "66f4317f7b6c6b8d06c7c5d95c35744b3feb5a52"
+  },
+  "status": "PASS",
+  "tested_git_dirty": false,
+  "tested_git_sha": "1b7b242717197fcd3273285489b5503c4867a154"
+}

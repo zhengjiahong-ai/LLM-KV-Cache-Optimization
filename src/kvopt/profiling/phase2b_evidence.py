@@ -77,6 +77,11 @@ def package_phase2b_evidence(
         Path("docs/phase2b-m6-experimental-fidelity-repair-spec.md"),
         Path("docs/phase2b-m6-fidelity-baseline.json"),
         legacy_regression_path.resolve().relative_to(repository),
+        Path("src/kvopt/profiling/phase2b_fidelity.py"),
+        Path("src/kvopt/workload/phase2b_fidelity.py"),
+        Path("tests/test_phase2b_fidelity_report.py"),
+        Path("tests/test_phase2b_pressure_fidelity.py"),
+        Path("tests/test_phase2b_history_fidelity.py"),
         Path("configs/phase2/phase2b-fidelity-smoke-config.json"),
         Path("configs/phase2/phase2b-fidelity-smoke-config-v2.json"),
         Path("configs/phase2/phase2b-fidelity-smoke-contract.json"),
@@ -95,12 +100,18 @@ def package_phase2b_evidence(
             encoding="utf-8"
         )
     )
+    primary_run = json.loads(
+        (artifact_root / primary / "run.json").read_text(encoding="utf-8")
+    )
     manifest = {
         "schema_version": "phase2b.fidelity_evidence_handoff.v1",
         "scope": "NON_HOLDOUT_FIDELITY_REPAIR",
         "created_at_utc": datetime.now(UTC).isoformat(),
         "packaging_git_sha": _git_head(),
         "packaging_git_dirty": _git_dirty(),
+        "raw_evidence_git_sha": primary_run.get("git_sha"),
+        "audit_recalculation_git_sha": _git_head(),
+        "raw_evidence_reused_without_gpu_rerun": True,
         "formal_h1_h2_modified": False,
         "primary_run_id": primary_run_id,
         "gate_statuses": {
