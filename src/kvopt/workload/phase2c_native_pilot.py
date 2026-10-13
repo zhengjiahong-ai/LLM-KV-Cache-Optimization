@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
+
+from kvopt.workload.phase2b_fidelity import prefix_content_token_ids
 
 PILOT_RUN_KIND = "NON_HOLDOUT_NATIVE_PILOT"
 PILOT_TOPOLOGIES = {
@@ -18,6 +21,7 @@ PILOT_TOPOLOGIES = {
     "W-HOT-COLD",
     "W-PRESSURE",
 }
+PILOT_PREFIX_GENERATOR_VERSION = "phase2c-segmented-prefix-v1"
 
 
 def _load_object(path: Path) -> dict[str, Any]:
@@ -58,6 +62,37 @@ def expected_segment_lcp_tokens(
             break
         total += left_segment[1]
     return total
+
+
+def segmented_prefix_token_ids(
+    segments: Sequence[tuple[str, int]],
+    *,
+    vocabulary_size: int,
+) -> tuple[int, ...]:
+    """Materialize explicit whole-block content segments in declared order."""
+    token_ids: list[int] = []
+    for content_key, token_count in segments:
+        token_ids.extend(
+            prefix_content_token_ids(
+                f"{PILOT_PREFIX_GENERATOR_VERSION}:{content_key}",
+                vocabulary_size=vocabulary_size,
+                token_count=token_count,
+            )
+        )
+    return tuple(token_ids)
+
+
+def segmented_turn_token_ids(
+    request_id: str,
+    segments: Sequence[tuple[str, int]],
+    *,
+    vocabulary_size: int,
+) -> tuple[int, ...]:
+    """Append the legacy request suffix after the reusable segmented prefix."""
+    prefix = segmented_prefix_token_ids(segments, vocabulary_size=vocabulary_size)
+    digest = hashlib.sha256(f"phase2c-suffix-v1:{request_id}".encode()).digest()
+    suffix_only = (30_000 + int.from_bytes(digest[:4], "big") % 5_000) % vocabulary_size
+    return (*prefix, suffix_only)
 
 
 def validate_pilot_documents(

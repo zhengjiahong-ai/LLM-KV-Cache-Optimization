@@ -6,6 +6,8 @@ import pytest
 
 from kvopt.workload.phase2c_native_pilot import (
     expected_segment_lcp_tokens,
+    segmented_prefix_token_ids,
+    segmented_turn_token_ids,
     validate_pilot_documents,
 )
 
@@ -60,3 +62,23 @@ def test_pilot_rejects_pressure_pair_with_changed_content() -> None:
 
     with pytest.raises(ValueError, match="keep content identity fixed"):
         validate_pilot_documents(authorization, contract, changed)
+
+
+def test_segmented_tokens_express_exact_fork_and_growth_relations() -> None:
+    root = (("root", 32),)
+    left = (("root", 32), ("left", 16))
+    right = (("root", 32), ("right", 16))
+    grown = (("root", 32), ("left", 16), ("turn", 16))
+
+    root_tokens = segmented_prefix_token_ids(root, vocabulary_size=50_000)
+    left_tokens = segmented_prefix_token_ids(left, vocabulary_size=50_000)
+    right_tokens = segmented_prefix_token_ids(right, vocabulary_size=50_000)
+    grown_tokens = segmented_prefix_token_ids(grown, vocabulary_size=50_000)
+
+    assert left_tokens[:32] == root_tokens
+    assert right_tokens[:32] == root_tokens
+    assert left_tokens[32:] != right_tokens[32:]
+    assert grown_tokens[:48] == left_tokens
+    assert segmented_turn_token_ids(
+        "request:1", left, vocabulary_size=50_000
+    )[:48] == left_tokens

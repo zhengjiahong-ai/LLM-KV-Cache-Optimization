@@ -74,6 +74,10 @@ from kvopt.workload.phase2b_fidelity_runner import (
     RequestCompletion,
     RequestHandle,
 )
+from kvopt.workload.phase2c_native_pilot import (
+    PILOT_PREFIX_GENERATOR_VERSION,
+    segmented_turn_token_ids,
+)
 
 _TARGET_PREFIX_TOKENS = 256
 _PRESSURE_TOKENS = 512
@@ -227,6 +231,49 @@ def _phase2b_content_keys(options: Mapping[str, object]) -> dict[str, str] | Non
         if not isinstance(content_key, str) or not content_key.strip():
             raise ValueError("content-key mapping requires non-empty content keys")
         parsed[program_id] = content_key
+    return parsed
+
+
+def _phase2c_request_segments(
+    options: Mapping[str, object],
+) -> dict[str, tuple[tuple[str, int], ...]] | None:
+    enabled = options.get("phase2c_native_pilot_mode", False)
+    if not isinstance(enabled, bool):
+        raise TypeError("backend_options.phase2c_native_pilot_mode must be bool")
+    raw = options.get("prefix_segments_by_request")
+    generator = options.get("phase2c_prefix_generator_version")
+    if not enabled:
+        if raw is not None or generator is not None:
+            raise ValueError("Phase 2C content fields require phase2c_native_pilot_mode")
+        return None
+    if options.get("phase2b_fidelity_mode", False) is not False:
+        raise ValueError("Phase 2B and Phase 2C content modes are mutually exclusive")
+    if generator != PILOT_PREFIX_GENERATOR_VERSION:
+        raise ValueError(
+            f"phase2c_prefix_generator_version must be {PILOT_PREFIX_GENERATOR_VERSION}"
+        )
+    if not isinstance(raw, Mapping) or not raw:
+        raise ValueError("prefix_segments_by_request must be a non-empty object")
+    parsed: dict[str, tuple[tuple[str, int], ...]] = {}
+    for request_id, raw_segments in raw.items():
+        if not isinstance(request_id, str) or not request_id:
+            raise ValueError("segment mapping requires non-empty request IDs")
+        if not isinstance(raw_segments, list) or not raw_segments:
+            raise ValueError("each request must define non-empty segments")
+        segments: list[tuple[str, int]] = []
+        for raw_segment in raw_segments:
+            if (
+                not isinstance(raw_segment, list)
+                or len(raw_segment) != 2
+                or not isinstance(raw_segment[0], str)
+                or not raw_segment[0]
+            ):
+                raise TypeError("Phase 2C segment must be [content key, token count]")
+            tokens = _positive_int(raw_segment[1], "Phase 2C segment token count")
+            if tokens % _BLOCK_SIZE:
+                raise ValueError("Phase 2C reusable segments must be block aligned")
+            segments.append((raw_segment[0], tokens))
+        parsed[request_id] = tuple(segments)
     return parsed
 
 
@@ -478,6 +525,11 @@ class MinimalMetalObservabilityBackend:
         )
         self._program_prefix_tokens = _program_prefix_sizes(options)
         self._phase2b_content_keys = _phase2b_content_keys(options)
+        self._phase2c_request_segments = _phase2c_request_segments(options)
+        self._content_evidence_enabled = (
+            self._phase2b_content_keys is not None
+            or self._phase2c_request_segments is not None
+        )
         if self._phase2b_content_keys is not None and (
             set(self._phase2b_content_keys) != set(self._program_prefix_tokens)
         ):
@@ -579,7 +631,7 @@ class MinimalMetalObservabilityBackend:
                 default_ttl_seconds=30.0,
                 experiment_event_sink=sink,
                 history_observation_enabled=(
-                    self._phase2b_content_keys is not None
+                    self._content_evidence_enabled
                 ),
             )
             if h2_m4_prefill_provider is not None
@@ -588,7 +640,7 @@ class MinimalMetalObservabilityBackend:
                 clock=self._clock,
                 experiment_event_sink=sink,
                 history_observation_enabled=(
-                    self._phase2b_content_keys is not None
+                    self._content_evidence_enabled
                 ),
             )
         )
@@ -710,6 +762,16 @@ class MinimalMetalObservabilityBackend:
                 vocabulary_size=self._vocabulary_size,
                 block_size=_BLOCK_SIZE,
             )
+        if self._phase2c_request_segments is not None:
+            validate_distinct_content_keys(
+                tuple(
+                    f"{PILOT_PREFIX_GENERATOR_VERSION}:{key}"
+                    for segments in self._phase2c_request_segments.values()
+                    for key, _tokens in segments
+                ),
+                vocabulary_size=self._vocabulary_size,
+                block_size=_BLOCK_SIZE,
+            )
 
         self._registry = observation_helpers.ProgramRequestRegistry()
         self._external_ids = observation_helpers._external_request_ids_for_internal
@@ -736,7 +798,7 @@ class MinimalMetalObservabilityBackend:
             clock=self._clock,
             hashed_eviction_observer=(
                 self._observe_phase2b_native_hashed_eviction
-                if self._phase2b_content_keys is not None
+                if self._content_evidence_enabled
                 else None
             ),
         )
@@ -777,12 +839,12 @@ class MinimalMetalObservabilityBackend:
             "native_block_content_identity": {
                 "status": (
                     "AVAILABLE"
-                    if self._phase2b_content_keys is not None
+                    if self._content_evidence_enabled
                     else "UNAVAILABLE"
                 ),
                 "reason": (
                     "Phase 2B read-only hook persists the pre-eviction native hash"
-                    if self._phase2b_content_keys is not None
+                    if self._content_evidence_enabled
                     else "legacy mode does not persist pre-eviction content identity"
                 ),
             },
@@ -843,10 +905,15 @@ class MinimalMetalObservabilityBackend:
                     "target_prefix_tokens": self._prefix_tokens,
                     "program_prefix_tokens": self._program_prefix_tokens,
                     "phase2b_fidelity_mode": self._phase2b_content_keys is not None,
+                    "phase2c_native_pilot_mode": self._phase2c_request_segments is not None,
                     "prefix_generator_version": (
                         PREFIX_GENERATOR_VERSION
                         if self._phase2b_content_keys is not None
-                        else None
+                        else (
+                            PILOT_PREFIX_GENERATOR_VERSION
+                            if self._phase2c_request_segments is not None
+                            else None
+                        )
                     ),
                     "pressure_prompt_tokens": self._pressure_tokens,
                     "pressure_stage_prompt_tokens": self._pressure_stage_tokens,
@@ -1043,6 +1110,22 @@ class MinimalMetalObservabilityBackend:
                     - int(reusable_prefix_tokens or 0),
                 }
             )
+        if self._phase2c_request_segments is not None and request.kind == "turn":
+            segments = self._phase2c_request_segments[request.request_id]
+            payload.update(
+                {
+                    "prefix_segments": [list(segment) for segment in segments],
+                    "prefix_segment_content_keys": [key for key, _tokens in segments],
+                    "prefix_segment_token_counts": [tokens for _key, tokens in segments],
+                    "prefix_generator_version": PILOT_PREFIX_GENERATOR_VERSION,
+                    "submitted_token_ids_sha256": token_ids_sha256(token_ids),
+                    "submitted_prefix_token_ids_sha256": token_ids_sha256(
+                        token_ids[: reusable_prefix_tokens]
+                    ),
+                    "suffix_token_count": len(token_ids)
+                    - int(reusable_prefix_tokens or 0),
+                }
+            )
         self._sink.emit(
             ExperimentEvent.create(
                 event_type="BACKEND_INPUT_MATERIALIZED",
@@ -1225,7 +1308,7 @@ class MinimalMetalObservabilityBackend:
             )
         )
         if (
-            self._phase2b_content_keys is not None
+            self._content_evidence_enabled
             and native_queued is not None
             and native_scheduled is not None
             and request.kind == "turn"
@@ -1367,20 +1450,31 @@ class MinimalMetalObservabilityBackend:
 
         self._handle_lifecycle(RequestArrived(program, logical_request, now))
         prefix_tokens = self._prefix_tokens_for(request)
-        token_ids = (
-            phase2b_turn_token_ids(
+        if self._phase2c_request_segments is not None:
+            segments = self._phase2c_request_segments.get(request.request_id)
+            if segments is None:
+                raise ValueError(
+                    f"missing Phase 2C segments for request {request.request_id}"
+                )
+            prefix_tokens = sum(tokens for _key, tokens in segments)
+            token_ids = segmented_turn_token_ids(
+                request.request_id,
+                segments,
+                vocabulary_size=self._vocabulary_size,
+            )
+        elif self._phase2b_content_keys is not None:
+            token_ids = phase2b_turn_token_ids(
                 request,
                 content_key=self._phase2b_content_keys[request.program_id],
                 vocabulary_size=self._vocabulary_size,
                 prefix_tokens=prefix_tokens,
             )
-            if self._phase2b_content_keys is not None
-            else _turn_token_ids(
+        else:
+            token_ids = _turn_token_ids(
                 request,
                 vocabulary_size=self._vocabulary_size,
                 prefix_tokens=prefix_tokens,
             )
-        )
         native_id, external_id, submitted_at = self._enqueue(
             request,
             token_ids,
@@ -1526,8 +1620,8 @@ class MinimalMetalObservabilityBackend:
 
     def submit(self, request: PlannedRequest) -> RequestHandle:
         """Enqueue one request without waiting; Phase 2B opt-in only."""
-        if self._phase2b_content_keys is None:
-            raise RuntimeError("submit requires phase2b_fidelity_mode")
+        if not self._content_evidence_enabled:
+            raise RuntimeError("submit requires an opt-in fidelity or native-pilot mode")
         if self._execute_planned_timing:
             raise RuntimeError(
                 "Phase 2B runner owns absolute timing; backend timing must be disabled"
