@@ -88,3 +88,31 @@ archive. The next deliverable is a versioned, block-aligned segmented content
 schema covering `W-COLD`, `W-EXACT`, `W-XPROGRAM`, `W-ROOT-FORK`, `W-NESTED`,
 `W-TURN-GROW`, `W-HOT-COLD`, and `W-PRESSURE`. A native pilot remains locked
 until design confirmation; `formal_campaign_authorized` remains `false`.
+
+## Proposed content schema v1
+
+The machine-readable proposal is
+`configs/phase2/phase2c-workload-content-schema-v1.json`. It separates reusable
+content into block-aligned `shared_root`, `branch`, and cumulative
+`turn_extension` segments. A one-token request suffix stays outside the
+reusable boundary. Explicit content keys, rather than program ID, ownership
+labels, or prompt strings, determine submitted tokens.
+
+The eight topology classes specify relationships rather than desired outcomes:
+
+- `W-COLD`: unique content without a prior eligible request;
+- `W-EXACT`: exact repeated reusable content;
+- `W-XPROGRAM`: exact content shared across different program IDs;
+- `W-ROOT-FORK`: shared root followed by distinct branches;
+- `W-NESTED`: a short reusable prefix nested in a longer one;
+- `W-TURN-GROW`: cumulative block-aligned context extensions;
+- `W-HOT-COLD`: stable hot content interleaved with unique cold content;
+- `W-PRESSURE`: fixed content compared under no-pressure and controlled-pressure conditions.
+
+Reuse interval, interleaving, tool gap, concurrency, capacity, and pressure are
+orthogonal controls. Every eventual materialization must record exact submitted
+digest, expected token/block LCP, native hash chain, cached tokens, suffix and
+special-token boundaries, and collision checks. The schema explicitly forbids
+target hit-rate and target partial-hit-rate tuning. Its validator also rejects
+authorization drift, missing topology classes, and non-block-aligned reusable
+segments.

@@ -1,4 +1,14 @@
-from kvopt.profiling.phase2c_workload_audit import summarize_historical_rows
+import json
+from pathlib import Path
+
+import pytest
+
+from kvopt.profiling.phase2c_workload_audit import (
+    summarize_historical_rows,
+    validate_content_schema,
+)
+
+SCHEMA = Path("configs/phase2/phase2c-workload-content-schema-v1.json")
 
 
 def _row(
@@ -58,3 +68,17 @@ def test_summarize_separates_eligibility_identity_and_realized_apc() -> None:
         "identical": 2,
         "compared": 2,
     }
+
+
+def test_content_schema_is_block_aligned_and_keeps_experiment_locked() -> None:
+    schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
+
+    validate_content_schema(schema)
+
+
+def test_content_schema_rejects_hit_rate_target() -> None:
+    schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
+    schema["sampling_contract"]["target_hit_rate_permitted"] = True
+
+    with pytest.raises(ValueError, match="target hit-rate"):
+        validate_content_schema(schema)

@@ -13,6 +13,16 @@ from typing import Any
 
 SCHEMA_VERSION = "phase2c.workload_reuse_audit.v1"
 RUN_KIND = "NON_HOLDOUT_WORKLOAD_AUDIT"
+TOPOLOGY_IDS = {
+    "W-COLD",
+    "W-EXACT",
+    "W-XPROGRAM",
+    "W-ROOT-FORK",
+    "W-NESTED",
+    "W-TURN-GROW",
+    "W-HOT-COLD",
+    "W-PRESSURE",
+}
 RUNTIME_EVIDENCE = (
     "artifacts/phase2a-h1-formal-level-a-derived-v1/"
     "request_runtime_evidence.jsonl"
@@ -43,6 +53,42 @@ def _member_bytes(archive: tarfile.TarFile, name: str) -> bytes:
 
 def _hash_chain(row: dict[str, Any]) -> tuple[str, ...]:
     return tuple(str(value) for value in row.get("native_apc_block_hashes") or ())
+
+
+def validate_content_schema(schema: dict[str, Any]) -> None:
+    """Fail closed on design drift before any native pilot is considered."""
+    if schema.get("schema_version") != "phase2c.workload_content_schema.v1":
+        raise ValueError("unsupported Phase 2C content schema")
+    if schema.get("run_kind") != RUN_KIND:
+        raise ValueError("content schema must remain non-holdout")
+    if schema.get("formal_campaign_authorized") is not False:
+        raise ValueError("formal campaign must remain unauthorized")
+    if schema.get("native_pilot_authorized") is not False:
+        raise ValueError("native pilot must remain unauthorized")
+    block_size = schema.get("block_size_tokens")
+    if block_size != 16:
+        raise ValueError("Phase 2C design must use the pinned 16-token block size")
+    segments = schema.get("segments")
+    if not isinstance(segments, dict):
+        raise TypeError("segments must be an object")
+    for name in ("shared_root", "branch", "turn_extension"):
+        values = segments.get(name, {}).get("allowed_token_counts")
+        if not isinstance(values, list) or not values:
+            raise ValueError(f"missing token grid for segment: {name}")
+        if any(not isinstance(value, int) or value < 0 or value % block_size for value in values):
+            raise ValueError(f"segment is not block aligned: {name}")
+    topology_ids = {
+        row.get("topology_id")
+        for row in schema.get("topologies", [])
+        if isinstance(row, dict)
+    }
+    if topology_ids != TOPOLOGY_IDS:
+        raise ValueError("content schema must define exactly the frozen topology set")
+    sampling = schema.get("sampling_contract", {})
+    if sampling.get("target_hit_rate_permitted") is not False:
+        raise ValueError("target hit-rate design is prohibited")
+    if sampling.get("target_partial_hit_rate_permitted") is not False:
+        raise ValueError("target partial-hit-rate design is prohibited")
 
 
 def summarize_historical_rows(
@@ -140,7 +186,11 @@ def summarize_historical_rows(
     }
 
 
-def audit_archive(archive_path: Path) -> dict[str, Any]:
+def audit_archive(
+    archive_path: Path,
+    *,
+    content_schema_path: Path | None = None,
+) -> dict[str, Any]:
     with tarfile.open(archive_path, "r:gz") as archive:
         rows = _jsonl(_member_bytes(archive, RUNTIME_EVIDENCE))
         runs = _jsonl(_member_bytes(archive, RUNS))
@@ -152,6 +202,11 @@ def audit_archive(archive_path: Path) -> dict[str, Any]:
             and not Path(name).name.startswith("._")
         )
         configs = [json.loads(_member_bytes(archive, name)) for name in config_names]
+
+    content_schema = None
+    if content_schema_path is not None:
+        content_schema = json.loads(content_schema_path.read_text(encoding="utf-8"))
+        validate_content_schema(content_schema)
 
     historical = summarize_historical_rows(rows, runs)
     historical["campaign_config_count"] = len(configs)
@@ -251,6 +306,15 @@ def audit_archive(archive_path: Path) -> dict[str, Any]:
             "W-HOT-COLD",
             "W-PRESSURE",
         ],
+        "content_schema": (
+            None
+            if content_schema_path is None
+            else {
+                "path": content_schema_path.as_posix(),
+                "sha256": _sha256(content_schema_path),
+                "schema_version": content_schema["schema_version"],
+            }
+        ),
         "native_pilot": None,
         "formal_campaign_authorized": False,
         "gates": {
@@ -259,7 +323,9 @@ def audit_archive(archive_path: Path) -> dict[str, Any]:
             "G-APC-CONDITIONAL": "PASS",
             "G-SEED-INDEPENDENCE": "PASS",
             "G-CAUSE-ACCOUNTING": "PASS",
-            "G-DATA-PROPOSAL": "PENDING",
+            "G-DATA-PROPOSAL": (
+                "PASS" if content_schema_path is not None else "PENDING"
+            ),
             "G-NATIVE-PILOT": "NOT_AUTHORIZED",
             "G-H1H2-SEALED": "PASS",
             "G-LEGACY": "PENDING",
@@ -272,8 +338,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--archive", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--content-schema",
+        type=Path,
+        default=Path("configs/phase2/phase2c-workload-content-schema-v1.json"),
+    )
     arguments = parser.parse_args(argv)
-    report = audit_archive(arguments.archive)
+    report = audit_archive(
+        arguments.archive,
+        content_schema_path=arguments.content_schema,
+    )
     arguments.output.parent.mkdir(parents=True, exist_ok=True)
     arguments.output.write_text(
         json.dumps(report, indent=2, sort_keys=True) + "\n",
