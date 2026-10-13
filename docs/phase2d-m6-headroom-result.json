@@ -1,0 +1,84 @@
+{
+  "schema_version": "phase2d.m6_headroom_result.v1",
+  "run_kind": "NON_HOLDOUT_RESEARCH_PILOT",
+  "baseline_main_sha": "d7bad3a",
+  "repository_execution_head": "d682da868f11abb4ee2627da46277a7f503ba0aa",
+  "vllm_metal_source_sha": "a8b7e75c412aedcefe26ac3ab98d2a76e3e166fb",
+  "model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "model_revision": "7ae557604adf67be50417f59c2c2f167def9a775",
+  "final_conclusion": "LOCAL_VICTIM_SELECTION_HEADROOM_OBSERVED",
+  "stages": {
+    "E1": {
+      "gate": "OBSERVED_NO_SHARED_PROTECTED",
+      "valid_decision_count": 2,
+      "candidate_counts": [1, 1],
+      "shared_protected_decision_count": 0,
+      "result_sha256": "7a82bfc6ae6f902cdc815641102802f20b887f7a59c22e4086605ea336855a72"
+    },
+    "E2": {
+      "gate": "PASS",
+      "successful_run_count": 4,
+      "shared_root": {
+        "repeat_count": 2,
+        "candidate_count": 2,
+        "candidate_block_counts": [12, 12],
+        "shared_protected_block_count": 8,
+        "candidate_marginal_relief_blocks": [4, 4]
+      },
+      "distinct_root_control": {
+        "repeat_count": 2,
+        "shared_protected_block_count": 0,
+        "candidate_marginal_relief_blocks": [12, 12]
+      },
+      "gate_sha256": "960ef29abe97dd7c5b2d960a8385a60ba7b923933bdf66fcd3295fd7f7c39d4f",
+      "execution_summary_sha256": "2fa6c282d37664da151857ab31d261e0f381ba2b381a25789d108b9f20efd5de"
+    },
+    "E3": {
+      "gate": "HEADROOM_OBSERVED",
+      "successful_run_count": 8,
+      "valid_pair_count": 4,
+      "intervention_layer": "FIRST_LOGICAL_RETENTION_RELEASE",
+      "native_physical_victim_forced": false,
+      "metric": "native_prompt_tokens - native_cached_prefix_tokens",
+      "pairs": [
+        {"case": "target-a", "repeat": 1, "release_a": 65, "release_b": 1, "delta_a_minus_b": 64},
+        {"case": "target-a", "repeat": 2, "release_a": 65, "release_b": 1, "delta_a_minus_b": 64},
+        {"case": "target-b", "repeat": 1, "release_a": 1, "release_b": 65, "delta_a_minus_b": -64},
+        {"case": "target-b", "repeat": 2, "release_a": 1, "release_b": 65, "delta_a_minus_b": -64}
+      ],
+      "materialization_manifest_sha256": "4d54a1fcb06ffebdf7c13aa771ee5802760a9cec1fd60cfe76213fffe389770a",
+      "gate_sha256": "a2972af479fa31c38bd1dcf74fadc27bfbe21d6462d5e701ddb75343b98dc989",
+      "execution_summary_sha256": "098c4a2326dae7a548a0a3bb7363839075cb9d32851bbd769cf1dcc2c6b642c5"
+    },
+    "E4": {
+      "gate": "TRUE_OVERLAP_DEMONSTRATED",
+      "successful_run_count": 2,
+      "arms": [
+        {"arm": "release-a", "peak_inflight": 2, "scheduler_to_completion_overlap_seconds": 0.4333677499998885},
+        {"arm": "release-b", "peak_inflight": 2, "scheduler_to_completion_overlap_seconds": 0.352154292002524}
+      ],
+      "materialization_manifest_sha256": "db0232e3db77797cfb5d9393d839769bece52597fefef185e3296dd4c8c5f9ac",
+      "gate_sha256": "f5417655e6865da84c21ae30e1aa2e504993153c30fe6227b5afe7da7f7da460"
+    }
+  },
+  "native_execution_accounting": {
+    "successful_e2_runs": 4,
+    "successful_e2_smoke_runs": 1,
+    "successful_e3_smoke_runs": 1,
+    "successful_e3_paired_runs": 8,
+    "successful_e4_smoke_runs": 1,
+    "successful_e4_final_runs": 2,
+    "known_failed_debug_runs": 2,
+    "total_known_new_native_executions": 19,
+    "authorized_ceiling": 48
+  },
+  "boundaries": {
+    "h1_h2_modified": false,
+    "continuum_default_selection_modified": false,
+    "native_cache_ownership_modified": false,
+    "cost_aware_policy_implemented": false,
+    "formal_campaign_executed": false,
+    "online_predictability_demonstrated": false,
+    "policy_benefit_demonstrated": false
+  }
+}
