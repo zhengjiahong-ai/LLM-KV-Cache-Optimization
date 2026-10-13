@@ -31,7 +31,13 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def run_e2(config_path: Path, *, output_root: Path, run_id: str) -> Path:
+def _run_phase2d_stage(
+    config_path: Path,
+    *,
+    output_root: Path,
+    run_id: str,
+    expected_stage: str,
+) -> Path:
     if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,95}", run_id) is None:
         raise ValueError("run_id must be a safe path component")
     config_path = config_path.resolve()
@@ -41,9 +47,9 @@ def run_e2(config_path: Path, *, output_root: Path, run_id: str) -> Path:
     _validate_config(config)
     stage = config.get("phase2d_stage")
     options = config.get("backend_options")
-    if not isinstance(stage, dict) or stage.get("stage") != "E2":
-        raise ValueError("config is not a Phase 2D E2 fixture")
-    if stage.get("forced_victim") is not None:
+    if not isinstance(stage, dict) or stage.get("stage") != expected_stage:
+        raise ValueError(f"config is not a Phase 2D {expected_stage} fixture")
+    if expected_stage == "E2" and stage.get("forced_victim") is not None:
         raise ValueError("E2 must not force a victim")
     if not isinstance(options, dict) or options.get("phase2c_native_pilot_mode") is not True:
         raise ValueError("E2 requires the accepted segmented-content runtime mode")
@@ -55,9 +61,9 @@ def run_e2(config_path: Path, *, output_root: Path, run_id: str) -> Path:
     _write_json(output / "trace.json", trace.to_dict())
     (output / "replay.jsonl").touch()
     manifest: dict[str, object] = {
-        "schema_version": "phase2d.e2_run.v1",
+        "schema_version": f"phase2d.{expected_stage.lower()}_run.v1",
         "run_kind": "NON_HOLDOUT_RESEARCH_PILOT",
-        "stage": "E2",
+        "stage": expected_stage,
         "run_id": run_id,
         "case_id": stage.get("case_id"),
         "repeat": stage.get("repeat"),
@@ -110,6 +116,15 @@ def run_e2(config_path: Path, *, output_root: Path, run_id: str) -> Path:
         manifest["ended_at_utc"] = datetime.now(UTC).isoformat()
         _write_json(output / "run.json", manifest)
     return output
+
+
+def run_e2(config_path: Path, *, output_root: Path, run_id: str) -> Path:
+    return _run_phase2d_stage(
+        config_path,
+        output_root=output_root,
+        run_id=run_id,
+        expected_stage="E2",
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> int:

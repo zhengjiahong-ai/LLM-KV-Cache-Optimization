@@ -9,7 +9,7 @@ from kvopt.continuum.config import RetentionMode
 from kvopt.continuum.pressure import RetentionAwareSelectionCoordinator
 from kvopt.continuum.retention import RetentionManager
 from kvopt.continuum.selection import SelectionPlan
-from kvopt.continuum.types import BlockIdentity
+from kvopt.continuum.types import BlockIdentity, ProgramIdentity
 from kvopt.profiling import ForcedReleaseObserver
 
 from .adapter import NativeLRUAdapter, RetentionAwareLRUAdapter
@@ -31,11 +31,13 @@ class RetentionRuntimeIntegration:
         self,
         manager: RetentionManager,
         forced_release_observer: ForcedReleaseObserver | None = None,
+        diagnostic_first_release_program_id: ProgramIdentity | None = None,
     ) -> None:
         if not isinstance(manager, RetentionManager):
             raise TypeError("manager must be RetentionManager")
         self._manager = manager
         self._forced_release_observer = forced_release_observer
+        self._diagnostic_first_release_program_id = diagnostic_first_release_program_id
 
     def apply_pressure(
         self,
@@ -73,6 +75,9 @@ class RetentionRuntimeIntegration:
             self._manager.planning_snapshots(),
             required_blocks=required_blocks,
             timestamp=timestamp,
+            diagnostic_first_release_program_id=(
+                self._diagnostic_first_release_program_id
+            ),
         )
         adapter = RetentionAwareLRUAdapter(preparation)
         bridge = VLLMEvictionBridge(policy=adapter, total_blocks=len(native_blocks))

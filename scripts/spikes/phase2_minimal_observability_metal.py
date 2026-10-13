@@ -472,12 +472,18 @@ class _ObservedRetentionIntegration:
         runtime: Any,
         clock: SystemMonotonicClock,
         forced_release_observer: _CountingForcedReleaseObserver,
+        diagnostic_first_release_program_id: str | None = None,
     ) -> None:
         self._runtime = runtime
         self._clock = clock
         self._delegate = RetentionRuntimeIntegration(
             runtime.retention,
             forced_release_observer,
+            diagnostic_first_release_program_id=(
+                None
+                if diagnostic_first_release_program_id is None
+                else ProgramIdentity(diagnostic_first_release_program_id)
+            ),
         )
         self.last_selected_block_ids: tuple[int, ...] = ()
 
@@ -573,6 +579,18 @@ class MinimalMetalObservabilityBackend:
         self._h2_native_mechanism_only = mechanism_only
         self._h2_interventions = _h2_native_prefix_interventions(options)
         self._applied_h2_interventions: set[str] = set()
+        diagnostic_release = options.get("phase2d_diagnostic_first_release_program_id")
+        if diagnostic_release is not None and (
+            not isinstance(diagnostic_release, str) or not diagnostic_release.strip()
+        ):
+            raise ValueError(
+                "phase2d_diagnostic_first_release_program_id must be non-empty text"
+            )
+        if diagnostic_release is not None and config.get("campaign_kind") != (
+            "phase2d_non_holdout_research_pilot"
+        ):
+            raise ValueError("Phase 2D diagnostic release is restricted to its pilot")
+        self._phase2d_diagnostic_release_program = diagnostic_release
         if self._h2_interventions and config.get("campaign_kind") not in {
             "h2_formal_measurement",
             "h2_intervention_validation",
@@ -649,6 +667,7 @@ class MinimalMetalObservabilityBackend:
             self._runtime,
             self._clock,
             self._forced_release_observer,
+            self._phase2d_diagnostic_release_program,
         )
 
         try:

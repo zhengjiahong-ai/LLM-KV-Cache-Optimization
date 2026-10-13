@@ -1,7 +1,5 @@
 import pytest
 
-from kvopt.profiling import InMemoryForcedReleaseObserver
-
 from kvopt.continuum import (
     BlockIdentity,
     EligibilityPreparation,
@@ -19,6 +17,7 @@ from kvopt.continuum import (
     TTLInput,
 )
 from kvopt.continuum.pressure import RetentionAwareSelectionCoordinator
+from kvopt.profiling import InMemoryForcedReleaseObserver
 from kvopt.runtime.vllm.adapter import NativeLRUAdapter, RetentionAwareLRUAdapter
 from kvopt.runtime.vllm.types import EvictionCandidate, EvictionContext
 
@@ -208,6 +207,56 @@ def test_pressure_release_order_uses_earlier_deadline_first() -> None:
     assert tuple(
         release.entry_key for release in preparation.pressure_releases
     ) == (_key(earlier_deadline), _key(later_deadline))
+
+
+def test_phase2d_diagnostic_can_select_first_logical_release() -> None:
+    frozen_first = _entry("program-a", "prefix-a", (7,), deadline=4.0)
+    diagnostic_first = _entry("program-b", "prefix-b", (8,), deadline=5.0)
+
+    preparation = RetentionAwareSelectionCoordinator().prepare(
+        [_candidate(7, 0), _candidate(8, 1), _candidate(9, 2, has_block_hash=False)],
+        (frozen_first, diagnostic_first),
+        required_blocks=2,
+        timestamp=1.0,
+        diagnostic_first_release_program_id=diagnostic_first.program_id,
+    )
+
+    assert tuple(
+        release.entry_key for release in preparation.pressure_releases
+    ) == (_key(diagnostic_first),)
+
+
+def test_phase2d_diagnostic_only_changes_first_logical_release() -> None:
+    frozen_first = _entry("program-a", "prefix-a", (7,), deadline=4.0)
+    diagnostic_first = _entry("program-b", "prefix-b", (8,), deadline=5.0)
+
+    preparation = RetentionAwareSelectionCoordinator().prepare(
+        [_candidate(7, 0), _candidate(8, 1)],
+        (frozen_first, diagnostic_first),
+        required_blocks=2,
+        timestamp=1.0,
+        diagnostic_first_release_program_id=diagnostic_first.program_id,
+    )
+
+    assert tuple(
+        release.entry_key for release in preparation.pressure_releases
+    ) == (_key(diagnostic_first), _key(frozen_first))
+
+
+def test_phase2d_diagnostic_rejects_non_candidate_program() -> None:
+    candidate = _entry("program-a", "prefix-a", (7,), deadline=4.0)
+
+    with pytest.raises(
+        ValueError,
+        match="diagnostic release program is not a legal candidate",
+    ):
+        RetentionAwareSelectionCoordinator().prepare(
+            [_candidate(7, 0)],
+            (candidate,),
+            required_blocks=1,
+            timestamp=1.0,
+            diagnostic_first_release_program_id=ProgramIdentity("program-missing"),
+        )
 
 
 def test_pressure_release_order_uses_native_rank_for_equal_deadlines() -> None:
