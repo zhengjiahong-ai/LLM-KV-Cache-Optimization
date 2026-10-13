@@ -87,7 +87,7 @@ def _run_phase2d_stage(
             trace,
             backend,
             seed=int(config["seed"]),
-            max_in_flight=1,
+            max_in_flight=int(config["batching"]["max_concurrent_requests"]),
             timeout_seconds=180.0,
             pressure_safety_ceiling=int(config["pressure"]["safety_ceiling"]),
         )
@@ -98,6 +98,7 @@ def _run_phase2d_stage(
             execution_status="success",
             submission_count=len(result.submissions),
             completion_count=len(result.completions),
+            peak_inflight=result.peak_inflight,
             pressure_attempts=result.pressure_attempts,
         )
     except Exception as error:  # noqa: BLE001 - preserve arbitrary runtime failure
