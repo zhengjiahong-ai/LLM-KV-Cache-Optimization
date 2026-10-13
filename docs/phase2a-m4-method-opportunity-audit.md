@@ -195,6 +195,23 @@ distinct values : 12
 所以它可支持「部分重计算确实存在」，
 但**不可**用作「若淘汰另一个 candidate 则重算量为 X」的依据。
 
+#### 2.7.1 `[事实]` 受控压力配对佐证（Phase 2C，勘误追加）
+
+Phase 2C 原生 pilot 的 `W-PRESSURE` 配对在**同一 native hash 进程内**给出受控对照：
+
+| 臂 | `eligible` | `native_cached` | 结果 |
+| --- | ---: | ---: | --- |
+| 无压力 | 384 | **384** | `FULL_HIT` |
+| 受控原生分配 | 384 | **256** | `PARTIAL_HIT` |
+
+两臂**提交内容相同**，但 native APC 所观察到的缓存驻留量不同。这说明**即使不引入跨 entry 的内容重叠机制，单一前缀也可能因驻留状态不同出现 `PARTIAL_HIT`**。
+
+⇒ 该配对证明「物理驻留」是**一种可行且已观测的部分命中机制**，不证明旧 H1 的 48/207 条部分重计算均由该机制导致。
+§2.7 的「每 reclaimable block 实际重算量 0.6667–16.0000（24× 离散）」仍是旧 H1 的观测事实；其逐条成因和不同因素的贡献**尚未完成因果归因**，不能直接归类为纯驻留 artifact，也不能归类为跨 entry 内容重叠 artifact。
+
+⚠️ 该 pilot 为 `NON_HOLDOUT_NATIVE_PILOT`，`PARTIAL_HIT` 仅 2 例，`MISS = 0`；
+仅支持**拓扑可表达性**，不构成方法或策略证据。见 `docs/phase2a-m4-erratum-post-phase2c-fidelity.md`。
+
 ### 2.8 `[事实]` 可用决策时特征的判别力
 
 下表引自 H1 derived bundle 的 `signal_support.jsonl`（M6 产出），口径见 §2.5 的说明 ——
@@ -231,7 +248,19 @@ eta            corpus-distinct = 1 (1.0)，决策内 distinct 上限 = 1
 queue_delay_t  corpus-distinct = 1 (0.0)，决策内 distinct 上限 = 1
 ```
 
-⇒ **这两个退化维度在 H1 中依然退化。** H1 修正了成本分辨率（3 → 10 个取值）与返回行为，但**未**修正 TTL `benefit` 项的退化。
+⇒ **这两个维度在 H1 中依然退化。** H1 修正了成本分辨率（3 → 10 个取值）与返回行为，但**未**修正 TTL `benefit` 项的退化。
+
+⚠️ **成因修订（勘误，Phase 2B `F-HISTORY`）**：本节的原始表述容易被读成「M6 遗漏了逐候选采样」。
+Phase 2B 保真修复 spec 定位的真实成因是**接线缺口**：
+
+```text
+eta / queue_delay 的逐候选采样值 停留在 trace_derived_proxy_inputs，
+runtime TTL 实际从历史估计器（QueueDelayHistory / CompletedProgramEtaHistory）读取，
+因此采样值未被送达 runtime 决策字段。
+```
+
+⇒ **采样已发生，但未接入 runtime TTL 输入路径**。这是工程接线问题，不是设计遗漏，
+也**不改变** G5 的裁定（记录为本轮 H1 的实验限制，不因此重开 H1）。
 
 ---
 
@@ -268,7 +297,9 @@ runtime 视图下「每块释放成本」恒为 16 token/block ⇒ 效率排序�
 离散度 **24×**。因此**不能**以「每块成本恒定」为依据宣布 runtime 成本效率排序无意义。
 正确表述是：成本效率信号在 runtime 视图**未被测量**（207 条观测只覆盖已执行的基线路径，无未选中 candidate 的反事实值）。
 
-### 3.2 `[事实]` 定向发现不可迁移（第二次独立实例）
+### 3.2 `[事实]` 定向发现**不稳定**（同源重复，非独立验证）
+
+⚠️ **本标题已勘误。** 原题为「定向发现不可迁移（第二次独立实例）」。该措辞**不成立**，理由见本节末。
 
 ⚠️ **跨语料对照必须统一统计单位（M1 review 一致性修订）。** Discovery 的
 `+0.014797` 是 **decision-position 口径**；H1 的 `−0.008329` 是 **scenario-draw 口径**。二者不可直接相减。
@@ -283,7 +314,27 @@ runtime 视图下「每块释放成本」恒为 16 token/block ⇒ 效率排序�
 
 参考（不同单位，不可与 H1 直接比较）：discovery 的 decision-position 口径为 `+0.014797`（20 clusters）。
 
-⇒ **同一信号在两个语料上都换了方向或消失。** 这使 discovery corpus 的方向性结论不能作为先验。
+**观测本身成立：** 同一信号在两个语料上换向或消失（`code` → `database`；reverse-deadline 由正转负）。
+
+⚠️ **论据勘误（必须替换）**：原稿把这一现象称为「**第二次独立实例**」，据此推断「**定向发现不可迁移**」。
+该推断**不成立**。Phase 2C 的 Phase 2B 保真修复 spec 与历史审计共同表明，两份语料**并非两种内容制度**：
+
+```text
+F-PREFIX : 两者均由 _turn_token_ids() -> _program_prefix_token_ids(program_id) 构造内容，
+           均已核实存在于对应提交：
+             git show 6023c66:scripts/spikes/phase2_minimal_observability_metal.py   # discovery
+             git show e3a02fd:scripts/spikes/phase2_minimal_observability_metal.py   # H1
+F-ARRIVAL: 两者均为同步逐请求 execute，从未真实并发
+F-HISTORY: 两者 eta / queue_delay 均退化
+```
+
+⇒ 两份语料在**内容拓扑**上**同为退化**（无跨 program 原生共享），且在并发与 TTL 维度上同样退化。
+因此它们**不是独立对照**，「迁移检验失败」这一读法**缺乏依据**。
+
+**正确表述**：这构成「**同一生成族内的重复中方向不一致**」⇒ 该方向**不稳定**（NOT_REPRODUCIBLE_WITHIN_SAME_GENERATOR_FAMILY），
+而**不是**「跨内容制度不可迁移」。
+
+⚠️ 结论方向**不变**：G1 本来即禁止用 H1 验证其启发的假设，discovery 方向性结论**同样不得作为先验**。
 
 ### 3.3 `[推断]` 与「为何简单规则未获支持」一致的解释
 
@@ -324,12 +375,25 @@ proxy loss = I[返回] × C(prefix 长度)
 **尚未证明的（因果）：**
 
 - 48 行 partial recompute **未被证明**是由**另一个 logical entry 的保留**导致；也可能是该 entry 自身的部分命中。
+  - §2.7.1 在另一组 non-holdout 受控条件下支持「自身驻留可导致部分命中」这一机制的可行性，**不等于已归因旧 H1 的 48 行**。
 - **未被证明**不同 eviction order 会改变该重算量。
 - **直接反证（我实测）**：H1 的 **114 个多候选决策中，候选之间共享 block ID 的为 0 个（0.0%）**。
 
-⚠️ 上述 block-ID 结果**不能单独排除**跨 entry 重叠，因为 `block_id` 是**槽位而非持久内容身份**
-（仓库既有事实），且 APC 复用基于内容哈希。两个前缀可在**内容**上重叠而持有不同 slot id。
-因此正确的表述是：**跨 entry 重叠在本语料中未被观测到，也未证明存在因果机制。**
+⚠️ **本段已勘误（原表述过于宽松）。** 原稿写：「上述 block-ID 结果**不能单独排除**跨 entry 重叠……
+因此正确的表述是：跨 entry 重叠在本语料中**未被观测到**」。
+
+单凭 block ID 或完整 hash 链不等，**均不能单独排除任意局部前缀重叠**。Phase 2C 历史审计及 materializer 代码共同给出以下受检结构事实：
+
+```text
+不同 program 首请求完整 native hash 链 : 0/771 相等  <- 完整链不相等；不能仅据此排除任意局部重叠
+同 program 首 -> 次 hash 链        : 408/408 相同
+同 program 首 -> 所有后续 hash 链   : 495/495 相同   <- 同 program 内容完全恒定
+```
+
+⇒ 根因是 `F-PREFIX`：编译器用 `ownership_group` 复用**逻辑** `prefix_prompt`，
+而 Metal 后端 `_turn_token_ids()` 按 `program_id` 生成真实 token，**忽略了该共享身份**。
+
+**正确表述**：旧 H1 的 `F-PREFIX` 路径**未实现预期的跨 program 共享内容构造**；本轮受检证据也未建立 HYP-B 所需的跨 entry 保留集合覆盖及其因果效果。这里讨论的是**该预期研究前提未被有效实例化/验证**，不是由完整 hash 链的 0/771 比较证明所有可能的局部内容重叠在数学上绝无发生。
 
 **与 baseline 的可能区别**：baseline 键为 `(deadline, min native LRU rank over newly eligible, identity)`，
 三项**均不含跨 entry 重叠信息**。若该机制存在，则确实未被表达。
@@ -347,15 +411,23 @@ proxy loss = I[返回] × C(prefix 长度)
 
 - §2.2：`relief == block_count` 在 **471/471（100%）** 行成立，**包含 F6「共享所有权」场景**。
 - ⇒ 本语料任何候选 entry 的**全部块**在被释放时立即可回收。**部分可回收性在数据中不存在**，因此「多所有者块」不可作为决策变量。
-- ⇒ 这不是「未检验」，而是「**当前数据未表达，故不可检验**」。要检验它，需一个 `relief < block_count` 存在的语料。
+- ⇒ 这不是「未检验」，而是「**当前数据未表达，故不可检验**」。
+
+**根因与前置条件修订（勘误，Phase 2C）**：
+
+- **历史限制**：`F-PREFIX` 使预期的跨 program 共享未落实；在旧 H1 已记录的 471 个候选中，`relief ≡ block_count`。但仅凭这一等式，**不能推定任何 native block 在全部时刻绝无多所有者**；它只说明本轮没有观测到可用于辨别边际释放量的多 owner 决策状态。
+- **新实验基础**：Phase 2C `W-XPROGRAM` 已能令不同 program 提交相同 token 内容并触发 native APC 复用。但这**不等于**在同一决策时刻存在两个**同时有效且受保护的 logical retention entries**，更不等于已验证 `relief < block_count`。
+- **必要的后续核查**：先在同一决策时刻只读证明多个合法 retention entries 关联同一物理 block，并核对释放前后可回收 block 集合及 marginal `relief`。若现有 fixture 未形成这种状态，需另行设计有限的共享保护 fixture；**不能只追加一个 `relief` 数值便宣布机会成立**。
+
+⚠️ **仍属研究可行性判断**：当前 non-holdout pilot 未测量边际 `relief`，亦未证明同时多 entry 保护关系；`cost_aware_policy_authorized: false`。
 
 ### 4.4 机会与基线差异总览（rev.3）
 
 | 机会 | baseline 实际使用 | baseline **未**使用 | 证据等级 |
 | --- | --- | --- | --- |
-| 一：淘汰顺序对实际重算量的影响 | 无跨 entry 信息 | 保留集合与候选前缀的重叠 | **部分重算存在（48/207），但跨 entry 因果机制未知** |
+| 一：淘汰顺序对实际重算量的影响 | 无跨 entry 信息 | 保留集合与候选前缀的重叠 | **部分重算存在（48/207）；自身驻留是已证实可行机制，但旧 H1 逐条成因未知；预期跨 program 共享未实现（§4.1）** |
 | 二：返回因子判别力 | 单 entry `deadline`（关联弱） | 更强的返回预测 | **现有特征对该代理损失关联较弱；未证明这是信息集上限** |
-| 三：共享所有权聚合 | 无 | 多所有者块集合 | **数据未表达，不可检验**（§4.3） |
+| 三：共享所有权聚合 | 无 | 多所有者块集合 | **本语料不可检验（§4.3）；新 schema 支持共享 token，仍需核实同时多 entry 保护及 marginal `relief`** |
 | ~~原 HYP-A：raw `C(r)/relief` 效率~~ | — | — | **未被当前数据支持**（§3.1） |
 
 ---
@@ -395,9 +467,13 @@ proxy loss = I[返回] × C(prefix 长度)
        可降低实际重计算量，优于只按 (deadline, native LRU rank) 排序。
 ```
 
-⚠️ **证据等级：未验证。** 见 §4.1：部分重计算确实存在（事实），但**跨 entry 因果机制未被证明**；
-且 H1 的 114 个多候选决策中候选间共享 block ID 的为 **0**（虽不能单独排除内容重叠，因为
-`block_id` 是槽位而非内容身份）。
+⚠️ **证据等级：本语料不可检验（勘误修订）。** 见 §4.1：部分重计算确实存在（事实），
+但 §2.7.1 只证明**entry 自身驻留可以产生部分命中**，不能充分解释旧 H1 每一条部分重计算；本假设所需的**跨 entry 保留集合覆盖前提**
+在本语料中没有被有效实例化或验证（`F-PREFIX` 未实现预期跨 program 共享；完整 hash 链 0/771 相同本身不足以否定任意局部重叠）。
+原稿的让步「候选间共享 block ID 为 0 ……虽不能单独排除内容重叠」**已删除**：
+在本语料上应直接判定**不可检验**，理由为**设计缺陷而非实验证否**。
+
+⇒ HYP-B **未被否定，也未被支持**；它在未来具备真实内容拓扑的语料上仍可检验。
 
 **与基线的可能区别**：基线三项键**全部**不含跨 entry 重叠信息。
 
@@ -457,6 +533,7 @@ proxy loss = I[返回] × C(prefix 长度)
 | S3 | **F-D1 检查**：现有特征组合与返回指示器的关联水平 | 同上 | ✅ **G3 已批准** |
 | S4 | 仅在 S2/S3 显示方向**值得**时，按 G2 重新 preregister（不自动继承旧绑定） | preregistration 记录 | 需 M1 批准方向 |
 | S5 | 若需新语料 / 新观测缝，由 M1 裁定来源（G1） | — | **需 M1 裁定** |
+| S6 | 勘误：依据 Phase 2C 保真修复修订本审计的 4 处证据等级与 1 处机会前置条件 | `docs/phase2a-m4-erratum-post-phase2c-fidelity.md` | ✅ **已完成**（本分支） |
 
 ⛔ 本审计**不**请求新 formal campaign、**不**请求新观测缝、**不**授权任何 runtime policy。
 
@@ -503,5 +580,11 @@ proxy loss = I[返回] × C(prefix 长度)
 | H2 M1/M2/M3/M4 结论 | `docs/experiments/phase2a-m6-h2/formal-final-verdict.json` |
 | 冻结释放键 | `src/kvopt/continuum/pressure.py::_release_sort_key` |
 | 阶段裁定与封存链 | `docs/phase2a-h1-h2-closeout-verdict-record.md` |
+| `F-PREFIX` 缺陷定位（跨 program 内容不共享） | `docs/phase2b-m6-experimental-fidelity-repair-spec.md` §0.1；`docs/phase2c-m6-workload-reuse-audit.md` |
+| 不同 program 首链 0/771；同 program 408/408、495/495 | `docs/phase2c-m6-workload-reuse-audit.md`（archive SHA-256 `af5be5bd…`） |
+| `F-ARRIVAL` / `F-HISTORY` 同源退化 | `docs/phase2b-m6-experimental-fidelity-repair-spec.md` §0.1 |
+| Phase 2C 受控压力配对 384/384 vs 256/384 | `docs/phase2c-m6-native-pilot-result.json`（`pressure_pair`） |
+| Phase 2C 拓扑与分段 schema | `configs/phase2/phase2c-native-pilot-cases-v1.json`、`phase2c-workload-content-schema-v1.json` |
+| 勘误依据与时序（spec `b6e9f29` 2026-10-12 晚于 rev.3） | `docs/phase2a-m4-erratum-post-phase2c-fidelity.md` |
 
 **复核脚本**（`local/`，不入库）：`probe_h1_corpus_characterisation.py`、`probe_h1_cost_vs_relief.py`、`probe_h1_hypa_collapse.py`、`probe_h1_loss_structure.py`、`probe_h1_decisive_identities.py`、`probe_h2_cost_curve_shape.py`、`probe_h1_signal_rho_definition.py`。

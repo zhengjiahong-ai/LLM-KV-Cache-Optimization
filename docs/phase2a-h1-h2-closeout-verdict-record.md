@@ -118,6 +118,23 @@ supplemental_runs_required  : false
 >
 > ⚠️ 这**不等价于**统计学上已证明该规则无效。
 
+### 1.6 保真度口径澄清（Phase 2C 勘误追加，不改判）
+
+⚠️ **本记录的所有 verdict 不变。** 以下仅为口径澄清，用于防止 §1.2 的数字被误读。
+
+§1.2 的 **`release set` / `release sequence` 120/120** 是 **replay 保真**：
+即在给定 H1 计划下，被冻结基线的释放集合与释放顺序可被逐位重放。
+
+**它不声称内容拓扑保真。** Phase 2B 保真修复 spec 与 Phase 2C 历史审计已确认，
+H1 运行时存在四类缺陷（`F-PREFIX` / `F-ARRIVAL` / `F-HISTORY` / `F-PRESSURE`），
+其中 `F-PREFIX` 意味着**跨 program 原生内容共享从未发生**（不同 program 首请求 hash 链 0/771 相等）。
+
+⇒ 正确读法是：**replay 保真成立，内容拓扑保真不成立**。两者不矛盾，
+且**均不构成本记录任何 verdict 的改判依据**（不重写原始结果、不选择性重跑）。
+
+详见 `docs/phase2b-m6-experimental-fidelity-repair-spec.md` §0.1 与
+`docs/phase2a-m4-erratum-post-phase2c-fidelity.md`。
+
 ---
 
 ## 2. H2 最终裁定
