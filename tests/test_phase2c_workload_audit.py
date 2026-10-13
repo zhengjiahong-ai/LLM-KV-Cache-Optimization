@@ -6,6 +6,7 @@ import pytest
 from kvopt.profiling.phase2c_workload_audit import (
     summarize_historical_rows,
     validate_content_schema,
+    validate_regression_record,
 )
 
 SCHEMA = Path("configs/phase2/phase2c-workload-content-schema-v1.json")
@@ -82,3 +83,19 @@ def test_content_schema_rejects_hit_rate_target() -> None:
 
     with pytest.raises(ValueError, match="target hit-rate"):
         validate_content_schema(schema)
+
+
+def test_regression_record_must_bind_clean_passing_run() -> None:
+    record = {
+        "schema_version": "phase2c.workload_reuse_regression.v1",
+        "status": "PASS",
+        "tested_git_dirty": False,
+        "tested_git_sha": "a" * 40,
+        "passed": 1088,
+        "failed": 0,
+    }
+
+    validate_regression_record(record)
+    record["failed"] = 1
+    with pytest.raises(ValueError, match="zero failures"):
+        validate_regression_record(record)

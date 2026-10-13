@@ -91,6 +91,20 @@ def validate_content_schema(schema: dict[str, Any]) -> None:
         raise ValueError("target partial-hit-rate design is prohibited")
 
 
+def validate_regression_record(record: dict[str, Any]) -> None:
+    if record.get("schema_version") != "phase2c.workload_reuse_regression.v1":
+        raise ValueError("unsupported Phase 2C regression record")
+    if record.get("status") != "PASS":
+        raise ValueError("regression record must have PASS status")
+    if record.get("tested_git_dirty") is not False:
+        raise ValueError("regression record must bind a clean Git revision")
+    passed = record.get("passed")
+    if not isinstance(passed, int) or isinstance(passed, bool) or passed <= 0:
+        raise ValueError("regression record must contain a positive passed count")
+    if record.get("failed") != 0:
+        raise ValueError("regression record must contain zero failures")
+
+
 def summarize_historical_rows(
     rows: Iterable[dict[str, Any]],
     runs: Iterable[dict[str, Any]],
@@ -190,6 +204,7 @@ def audit_archive(
     archive_path: Path,
     *,
     content_schema_path: Path | None = None,
+    regression_path: Path | None = None,
 ) -> dict[str, Any]:
     with tarfile.open(archive_path, "r:gz") as archive:
         rows = _jsonl(_member_bytes(archive, RUNTIME_EVIDENCE))
@@ -207,6 +222,10 @@ def audit_archive(
     if content_schema_path is not None:
         content_schema = json.loads(content_schema_path.read_text(encoding="utf-8"))
         validate_content_schema(content_schema)
+    regression = None
+    if regression_path is not None:
+        regression = json.loads(regression_path.read_text(encoding="utf-8"))
+        validate_regression_record(regression)
 
     historical = summarize_historical_rows(rows, runs)
     historical["campaign_config_count"] = len(configs)
@@ -315,6 +334,21 @@ def audit_archive(
                 "schema_version": content_schema["schema_version"],
             }
         ),
+        "audit_implementation": {
+            "path": "src/kvopt/profiling/phase2c_workload_audit.py",
+            "sha256": _sha256(Path(__file__)),
+        },
+        "legacy_regression": (
+            None
+            if regression_path is None
+            else {
+                "path": regression_path.as_posix(),
+                "sha256": _sha256(regression_path),
+                "tested_git_sha": regression["tested_git_sha"],
+                "passed": regression["passed"],
+                "failed": regression["failed"],
+            }
+        ),
         "native_pilot": None,
         "formal_campaign_authorized": False,
         "gates": {
@@ -328,7 +362,7 @@ def audit_archive(
             ),
             "G-NATIVE-PILOT": "NOT_AUTHORIZED",
             "G-H1H2-SEALED": "PASS",
-            "G-LEGACY": "PENDING",
+            "G-LEGACY": "PASS" if regression_path is not None else "PENDING",
             "G-PROVENANCE": "PASS",
         },
     }
@@ -343,10 +377,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         type=Path,
         default=Path("configs/phase2/phase2c-workload-content-schema-v1.json"),
     )
+    parser.add_argument("--legacy-regression", type=Path)
     arguments = parser.parse_args(argv)
     report = audit_archive(
         arguments.archive,
         content_schema_path=arguments.content_schema,
+        regression_path=arguments.legacy_regression,
     )
     arguments.output.parent.mkdir(parents=True, exist_ok=True)
     arguments.output.write_text(
