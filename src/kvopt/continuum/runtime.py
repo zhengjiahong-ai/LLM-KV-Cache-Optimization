@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import math
+
 from kvopt.profiling.experiment_events import (
+    ExperimentEvent,
     ExperimentEventSink,
     NullExperimentEventSink,
     experiment_event_from_lifecycle,
@@ -62,6 +65,7 @@ class RuntimeCoordinator:
         duration_history_threshold: int,
         queue_delay_window_size: int,
         experiment_event_sink: ExperimentEventSink | None = None,
+        history_observation_enabled: bool = False,
     ) -> None:
         if not isinstance(clock, Clock):
             raise TypeError("clock must implement Clock")
@@ -77,6 +81,9 @@ class RuntimeCoordinator:
             if experiment_event_sink is not None
             else NullExperimentEventSink()
         )
+        if not isinstance(history_observation_enabled, bool):
+            raise TypeError("history_observation_enabled must be bool")
+        self._history_observation_enabled = history_observation_enabled
         self.retention = RetentionManager(clock)
         self.server_gap_history = ServerGapHistory()
         self.external_tool_duration_history = ExternalToolDurationHistory()
@@ -102,6 +109,9 @@ class RuntimeCoordinator:
         ] = {}
         self._program_first_arrivals: dict[
             ProgramIdentity, tuple[RequestIdentity, float]
+        ] = {}
+        self._native_queue_observations: dict[
+            tuple[ProgramIdentity, RequestIdentity], tuple[float, float, str]
         ] = {}
 
     def scheduler_candidates(
@@ -165,6 +175,87 @@ class RuntimeCoordinator:
         self, record: EvictedRequestQueueDelayRecord
     ) -> None:
         self.queue_delay_history.record(record)
+        if self._history_observation_enabled:
+            self._experiment_event_sink.emit(
+                ExperimentEvent.create(
+                    event_type="EVICTED_REQUEST_QUEUE_DELAY_RECORDED",
+                    timestamp=record.admission_timestamp,
+                    clock_domain="continuum_lifecycle",
+                    source="continuum.queue_delay_history",
+                    program_id=record.program_id,
+                    request_id=record.request_id,
+                    payload={
+                        "arrival_timestamp": record.arrival_timestamp,
+                        "admission_timestamp": record.admission_timestamp,
+                        "duration_seconds": record.duration_seconds,
+                        "history_sample_count": len(
+                            self.queue_delay_history.samples()
+                        ),
+                        "history_recent_sample_count": len(
+                            self.queue_delay_history.recent_samples()
+                        ),
+                        "history_mean_seconds": (
+                            self.queue_delay_history.mean_seconds()
+                        ),
+                        "eligibility": "EVICTED_REQUEST_QUEUE_DELAY_RECORD",
+                    },
+                )
+            )
+
+    def record_native_queue_observation(
+        self,
+        *,
+        program_id: ProgramIdentity,
+        request_id: RequestIdentity,
+        queued_timestamp: float,
+        scheduled_timestamp: float,
+        clock_domain: str,
+    ) -> None:
+        """Record raw native queue timing without entering TTL history."""
+        if not self._history_observation_enabled:
+            raise RuntimeError("native queue observation requires opt-in history evidence")
+        if not isinstance(program_id, ProgramIdentity):
+            raise TypeError("program_id must be ProgramIdentity")
+        if not isinstance(request_id, RequestIdentity):
+            raise TypeError("request_id must be RequestIdentity")
+        if not isinstance(clock_domain, str) or not clock_domain.strip():
+            raise ValueError("clock_domain must be non-empty text")
+        if any(
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(float(value))
+            or float(value) < 0
+            for value in (queued_timestamp, scheduled_timestamp)
+        ):
+            raise ValueError("native queue timestamps must be finite and non-negative")
+        queued = float(queued_timestamp)
+        scheduled = float(scheduled_timestamp)
+        if scheduled < queued:
+            raise ValueError("native scheduled timestamp must not precede queued")
+        key = (program_id, request_id)
+        if key in self._native_queue_observations:
+            raise ValueError("native queue observation already recorded")
+        self._native_queue_observations[key] = (queued, scheduled, clock_domain)
+        self._experiment_event_sink.emit(
+            ExperimentEvent.create(
+                event_type="NATIVE_REQUEST_QUEUE_DURATION_OBSERVED",
+                timestamp=scheduled,
+                clock_domain=clock_domain,
+                source="continuum.runtime.native_queue_observation",
+                program_id=program_id,
+                request_id=request_id,
+                payload={
+                    "native_queued_timestamp": queued,
+                    "native_scheduled_timestamp": scheduled,
+                    "native_queue_duration_seconds": scheduled - queued,
+                    "eligible_for_ttl_queue_history": False,
+                    "reason": (
+                        "native scheduler queue duration is not an "
+                        "EvictedRequestQueueDelayRecord"
+                    ),
+                },
+            )
+        )
 
     def handle(self, event: object) -> None:
         if isinstance(event, (ProgramStarted, ProgramCompleted)):
@@ -279,28 +370,71 @@ class RuntimeCoordinator:
         )
         queue_delay_seconds = self.queue_delay_history.mean_seconds()
         eta, eta_provenance = self.eta_history.eta()
-        decision = estimate_ttl(
-            TTLInput(
-                program_id=event.program_id,
-                request_id=event.request_id,
-                prefix_id=observation.prefix_id,
-                decision_timestamp=event.finish_timestamp,
-                next_tool_type=event.next_tool_type,
-                global_server_gap_samples_seconds=global_server_gap_samples,
-                tool_server_gap_samples_seconds=tool_server_gap_samples,
-                queue_delay_t_seconds=queue_delay_seconds,
-                eta=eta,
-                prefill_reload_seconds=prefill_reload_seconds,
-                default_ttl_seconds=self._default_ttl_seconds,
-                server_gap_history_provenance=InputProvenance(InputSource.OBSERVED),
-                queue_delay_provenance=InputProvenance(InputSource.OBSERVED),
-                eta_provenance=eta_provenance,
-                prefill_reload_provenance=prefill_reload_provenance,
-                default_ttl_provenance=InputProvenance(
-                    InputSource.APPROXIMATED,
-                    "configured default TTL",
-                ),
+        native_queue = self._native_queue_observations.pop(
+            (event.program_id, event.request_id), None
+        )
+        ttl_input = TTLInput(
+            program_id=event.program_id,
+            request_id=event.request_id,
+            prefix_id=observation.prefix_id,
+            decision_timestamp=event.finish_timestamp,
+            next_tool_type=event.next_tool_type,
+            global_server_gap_samples_seconds=global_server_gap_samples,
+            tool_server_gap_samples_seconds=tool_server_gap_samples,
+            queue_delay_t_seconds=queue_delay_seconds,
+            eta=eta,
+            prefill_reload_seconds=prefill_reload_seconds,
+            default_ttl_seconds=self._default_ttl_seconds,
+            server_gap_history_provenance=InputProvenance(InputSource.OBSERVED),
+            queue_delay_provenance=InputProvenance(InputSource.OBSERVED),
+            eta_provenance=eta_provenance,
+            prefill_reload_provenance=prefill_reload_provenance,
+            default_ttl_provenance=InputProvenance(
+                InputSource.APPROXIMATED,
+                "configured default TTL",
             ),
+        )
+        if self._history_observation_enabled:
+            self._experiment_event_sink.emit(
+                ExperimentEvent.create(
+                    event_type="TTL_HISTORY_INPUT_OBSERVED",
+                    timestamp=event.finish_timestamp,
+                    clock_domain="continuum_lifecycle",
+                    source="continuum.runtime",
+                    program_id=event.program_id,
+                    request_id=event.request_id,
+                    prefix_id=observation.prefix_id,
+                    payload={
+                        "eta": eta,
+                        "eta_provenance_source": eta_provenance.source.value,
+                        "eta_provenance_reason": eta_provenance.reason,
+                        "eta_history_sample_count": len(
+                            self.eta_history.samples()
+                        ),
+                        "eta_completed_program_count": len(
+                            self.eta_history.completed_programs()
+                        ),
+                        "queue_delay_t_seconds": queue_delay_seconds,
+                        "queue_delay_history_sample_count": len(
+                            self.queue_delay_history.samples()
+                        ),
+                        "queue_delay_history_recent_sample_count": len(
+                            self.queue_delay_history.recent_samples()
+                        ),
+                        "native_queue_duration_seconds": (
+                            None
+                            if native_queue is None
+                            else native_queue[1] - native_queue[0]
+                        ),
+                        "native_queue_clock_domain": (
+                            None if native_queue is None else native_queue[2]
+                        ),
+                        "native_queue_duration_used_as_ttl_history": False,
+                    },
+                )
+            )
+        decision = estimate_ttl(
+            ttl_input,
             duration_history_threshold=self._duration_history_threshold,
         )
         self.retention.upsert(
@@ -322,7 +456,34 @@ class RuntimeCoordinator:
 
     def _handle_terminal_turn(self, event: TurnFinished) -> None:
         turn_count = self._served_turn_counts.get(event.program_id, 0) + 1
+        self._native_queue_observations.pop(
+            (event.program_id, event.request_id), None
+        )
         self.eta_history.record_completed_program(event.program_id, turn_count)
+        if self._history_observation_enabled:
+            eta, provenance = self.eta_history.eta()
+            self._experiment_event_sink.emit(
+                ExperimentEvent.create(
+                    event_type="ETA_HISTORY_PROGRAM_RECORDED",
+                    timestamp=event.finish_timestamp,
+                    clock_domain="continuum_lifecycle",
+                    source="continuum.eta_history",
+                    program_id=event.program_id,
+                    request_id=event.request_id,
+                    payload={
+                        "final_turn_count": turn_count,
+                        "completed_program_count": len(
+                            self.eta_history.completed_programs()
+                        ),
+                        "eta_history_sample_count": len(
+                            self.eta_history.samples()
+                        ),
+                        "eta": eta,
+                        "eta_provenance_source": provenance.source.value,
+                        "eta_provenance_reason": provenance.reason,
+                    },
+                )
+            )
         self.retention.complete_program(event.program_id)
         self._pending_server_gaps.pop(event.program_id, None)
         self._pending_tool_gaps.pop(event.program_id, None)
@@ -349,6 +510,7 @@ def build_runtime(
     duration_history_threshold: int = 100,
     queue_delay_window_size: int | None = None,
     experiment_event_sink: ExperimentEventSink | None = None,
+    history_observation_enabled: bool = False,
 ) -> RuntimeCoordinator:
     """Build the runtime coordinator with explicit runtime inputs."""
     window_size = (
@@ -363,4 +525,5 @@ def build_runtime(
         duration_history_threshold=duration_history_threshold,
         queue_delay_window_size=window_size,
         experiment_event_sink=experiment_event_sink,
+        history_observation_enabled=history_observation_enabled,
     )

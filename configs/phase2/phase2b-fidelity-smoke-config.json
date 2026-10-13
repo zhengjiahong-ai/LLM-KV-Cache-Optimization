@@ -1,0 +1,54 @@
+{
+  "backend_factory": "scripts.spikes.phase2_minimal_observability_metal:build_phase2_metal_observability_backend",
+  "backend_options": {
+    "execute_planned_timing": false,
+    "executor_mode": "submit_collect",
+    "gpu_memory_utilization": 0.8,
+    "phase2b_fidelity_mode": true,
+    "prefill_profile_path": "docs/experiments/phase1b-continuum/artifacts/prefill-reload-profile-formal-20260920T045859Z-6183d106.json",
+    "prefix_content_key_by_program": {
+      "distinct-c": "content-distinct-c",
+      "shared-a": "content-shared-ab",
+      "shared-b": "content-shared-ab"
+    },
+    "prefix_generator_version": "phase2b-prefix-v1",
+    "pressure_prompt_tokens": 512,
+    "program_prefix_tokens": {
+      "distinct-c": 256,
+      "shared-a": 256,
+      "shared-b": 256
+    }
+  },
+  "backend_revision": "phase2b-fidelity-repair-v1",
+  "batching": {
+    "max_concurrent_requests": 3
+  },
+  "cache": {
+    "block_override": 80,
+    "block_size": 16
+  },
+  "fidelity_contract": "phase2b-fidelity-smoke-contract.json",
+  "generation": {
+    "max_new_tokens": 1,
+    "temperature": 0
+  },
+  "model": {
+    "name": "Qwen/Qwen2.5-0.5B-Instruct",
+    "revision": "7ae557604adf67be50417f59c2c2f167def9a775"
+  },
+  "observe": true,
+  "policy": "continuum-baseline",
+  "pressure": {
+    "initial_shortage_blocks": 1,
+    "required_blocks": 32,
+    "safety_ceiling": 2
+  },
+  "runtime_mode": "vllm-metal-observability",
+  "schema_version": "phase2.config.v1",
+  "seed": 20261012,
+  "tokenizer": {
+    "name": "Qwen/Qwen2.5-0.5B-Instruct",
+    "revision": "7ae557604adf67be50417f59c2c2f167def9a775"
+  },
+  "trace": "phase2b-fidelity-smoke-trace.json"
+}

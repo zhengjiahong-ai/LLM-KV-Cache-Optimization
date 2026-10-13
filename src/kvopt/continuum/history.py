@@ -128,6 +128,10 @@ class CompletedProgramEtaHistory:
     def samples(self) -> tuple[tuple[int, int], ...]:
         return tuple(self._pairs)
 
+    def completed_programs(self) -> tuple[tuple[ProgramIdentity, int], ...]:
+        """Read-only provenance for programs that contributed eta samples."""
+        return tuple(self._program_turn_counts.items())
+
     def eta(self) -> tuple[float, InputProvenance]:
         if len(self._pairs) < 2:
             return 1.0, InputProvenance(

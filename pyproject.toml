@@ -21,6 +21,9 @@ kvopt-h2-calibration-report = "kvopt.profiling.h2_calibration:main"
 kvopt-h2-isolated-calibration-generate = "kvopt.workload.phase2_h2_isolated_calibration:main"
 kvopt-h2-isolated-calibration-report = "kvopt.profiling.h2_isolated_calibration:main"
 kvopt-m4-offline = "kvopt.costaware.cli:main"
+kvopt-phase2b-fidelity-run = "kvopt.workload.phase2b_runner:main"
+kvopt-phase2b-fidelity-report = "kvopt.profiling.phase2b_fidelity:main"
+kvopt-phase2b-evidence-pack = "kvopt.profiling.phase2b_evidence:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=7", "ruff>=0.5"]

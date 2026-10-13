@@ -6,7 +6,8 @@ import json
 import math
 import os
 from collections import deque
-from dataclasses import replace
+from collections.abc import Callable
+from dataclasses import dataclass, replace
 from typing import Any
 
 from kvopt.continuum import (
@@ -19,6 +20,18 @@ from kvopt.continuum import (
 
 from .adapter import NativeLRUAdapter
 from .bridge import VLLMEvictionBridge
+from .continuum_observation import encode_native_hash
+
+
+@dataclass(frozen=True, slots=True)
+class NativeHashedEvictionObservation:
+    """Read-only evidence copied around native cached-block cleanup."""
+
+    block_id: int
+    native_cache_key_before: str
+    ref_count_before: int
+    hash_removed_after: bool
+    mechanism: str = "block_pool_maybe_evict_cached_block"
 
 
 def _emit(event: str, **fields: Any) -> None:
@@ -90,7 +103,12 @@ def install_policy_observer(mode: str) -> None:
 
 
 def install_retention_hook(
-    *, mode: RetentionMode, integration: Any, clock: Clock
+    *,
+    mode: RetentionMode,
+    integration: Any,
+    clock: Clock,
+    hashed_eviction_observer: Callable[[NativeHashedEvictionObservation], None]
+    | None = None,
 ) -> None:
     """Install the narrow retention integration hook for one vLLM process.
 
@@ -109,6 +127,10 @@ def install_retention_hook(
         raise TypeError("integration must provide apply_pressure")
     if not callable(getattr(integration, "observe_native_eviction", None)):
         raise TypeError("integration must provide observe_native_eviction")
+    if hashed_eviction_observer is not None and not callable(
+        hashed_eviction_observer
+    ):
+        raise TypeError("hashed_eviction_observer must be callable")
 
     from vllm.v1.core.block_pool import BlockPool
     from vllm.v1.core.kv_cache_utils import FreeKVCacheBlockQueue
@@ -153,9 +175,27 @@ def install_retention_hook(
     original_evict = BlockPool._maybe_evict_cached_block
 
     def retained_evict(pool: Any, block: Any) -> Any:
+        native_hash = getattr(block, "block_hash", None)
+        encoded_hash = (
+            None
+            if native_hash is None or hashed_eviction_observer is None
+            else encode_native_hash(native_hash)
+        )
+        ref_count = getattr(block, "ref_cnt", None)
         result = original_evict(pool, block)
         if result is True:
             integration.observe_native_eviction(BlockIdentity(block.block_id))
+            if encoded_hash is not None and hashed_eviction_observer is not None:
+                if isinstance(ref_count, bool) or not isinstance(ref_count, int):
+                    raise TypeError("native block ref_cnt must be an integer")
+                hashed_eviction_observer(
+                    NativeHashedEvictionObservation(
+                        block_id=block.block_id,
+                        native_cache_key_before=encoded_hash,
+                        ref_count_before=ref_count,
+                        hash_removed_after=getattr(block, "block_hash", None) is None,
+                    )
+                )
         return result
 
     FreeKVCacheBlockQueue.popleft_n = retained_popleft

@@ -19,6 +19,7 @@ def build_runtime_from_config(
     config: ContinuumConfig,
     clock: Clock,
     experiment_event_sink: ExperimentEventSink | None = None,
+    history_observation_enabled: bool = False,
 ) -> RuntimeCoordinator:
     """Compose a profile-backed runtime from explicit deployment inputs."""
     if not isinstance(config, ContinuumConfig):
@@ -46,4 +47,5 @@ def build_runtime_from_config(
         duration_history_threshold=config.duration_history_threshold,
         queue_delay_window_size=config.queue_delay_window_size,
         experiment_event_sink=experiment_event_sink,
+        history_observation_enabled=history_observation_enabled,
     )
