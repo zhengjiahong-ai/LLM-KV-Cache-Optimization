@@ -1,0 +1,32 @@
+{
+  "schema_version": "phase2c.native_pilot_evidence_handoff.v1",
+  "archive": {
+    "path": "artifacts/phase2c-m6-native-pilot-evidence-9f8408e.tar.gz",
+    "sha256": "8d66d1ee84b8144bf1cbdf23a7fdc7fd4b1ed16cb89e929c9424060879b0e3be",
+    "size_bytes": 173553,
+    "entry_count": 199,
+    "committed_to_git": false,
+    "reviewer_access_url": "https://github.com/user-attachments/files/33376929/phase2c-m6-native-pilot-evidence-9f8408e.tar.gz"
+  },
+  "primary_evidence": {
+    "run_root": "artifacts/phase2c-native-pilot-runs-v1",
+    "materialization_root": "artifacts/phase2c-native-pilot-materialized-v2",
+    "execution_git_sha": "9f8408e78ae1e645bfe61ff83f5413f0f5d3c06f",
+    "execution_git_dirty": false,
+    "vllm_metal_source_sha": "a8b7e75c412aedcefe26ac3ab98d2a76e3e166fb"
+  },
+  "review_entry_point": {
+    "path": "docs/phase2c-m6-native-pilot-review-submission.md",
+    "sha256": "6b9da447ad95a8ebe8f74e6f2cb1ea7a40e667eb7b5a5eeaf3399da14b92e6b8"
+  },
+  "machine_result": {
+    "path": "docs/phase2c-m6-native-pilot-result.json",
+    "sha256": "86ea5633575bf64975dc07282615191dee6666f4021acf33e73424503c3123cd"
+  },
+  "handling": {
+    "raw_artifacts_modified": false,
+    "failed_or_excluded_primary_runs": 0,
+    "external_transfer_required": false,
+    "transfer_note": "The reviewer-accessible PR attachment is bound to the exact archive SHA-256; do not repack it."
+  }
+}

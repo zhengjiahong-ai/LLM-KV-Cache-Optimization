@@ -1,0 +1,79 @@
+{
+  "schema_version": "phase2c.native_pilot_review_result.v1",
+  "run_kind": "NON_HOLDOUT_NATIVE_PILOT",
+  "pilot_id": "phase2c-bounded-native-pilot-v1",
+  "execution": {
+    "planned_runs": 18,
+    "successful_runs": 18,
+    "failed_runs": 0,
+    "run_git_sha": "9f8408e78ae1e645bfe61ff83f5413f0f5d3c06f",
+    "run_git_dirty": false,
+    "execution_summary_path": "artifacts/phase2c-native-pilot-runs-v1/execution-summary.json",
+    "execution_summary_sha256": "a888d4e7fb055ea0a23070c4e4c49f9ed0c455ee68c30f2475e186aa3d547383"
+  },
+  "gate_result": {
+    "pass_runs": 18,
+    "fail_runs": 0,
+    "not_demonstrated_runs": 0,
+    "not_observable_runs": 0,
+    "topology_status": {
+      "W-COLD": "PASS",
+      "W-EXACT": "PASS",
+      "W-HOT-COLD": "PASS",
+      "W-NESTED": "PASS",
+      "W-PRESSURE": "PASS",
+      "W-ROOT-FORK": "PASS",
+      "W-TURN-GROW": "PASS",
+      "W-XPROGRAM": "PASS"
+    },
+    "pilot_report_path": "artifacts/phase2c-native-pilot-runs-v1/pilot-report.json",
+    "pilot_report_sha256": "7a19715fff3e665395f5dd45dda5bf375f96b86c6f516c07b13c7409cbd0e3b0"
+  },
+  "apc_outcomes": {
+    "NO_REUSE_ELIGIBLE_PREFIX": 22,
+    "FULL_HIT": 16,
+    "PARTIAL_HIT": 2,
+    "MISS": 0
+  },
+  "pressure_pair": {
+    "no_pressure": {
+      "repeats": 2,
+      "eligible_prefix_tokens": 384,
+      "native_cached_prefix_tokens": 384,
+      "outcome": "FULL_HIT"
+    },
+    "controlled_native_allocation": {
+      "repeats": 2,
+      "eligible_prefix_tokens": 384,
+      "native_cached_prefix_tokens": 256,
+      "outcome": "PARTIAL_HIT",
+      "ordered_release_eviction_return_observed": true,
+      "attribution_scope": "same_process_layered_temporal_sequence_only"
+    }
+  },
+  "bindings": {
+    "authorization_sha256": "720638de570d70847f736be82fb81e3cc6f8fe6a08f8667e186deee72af446df",
+    "contract_sha256": "0a64e970939889d79f1c837ff81194d2bee5e638bb064a48391431f54d75a7c4",
+    "cases_sha256": "5320202468e783bddd140370c16b095ab13c918566d2a7fe1a4346ad3fae55e1",
+    "materialization_manifest_sha256": "406f7a71fa678b8de3f82c6bdd4b4d4b1406c0b74067469bf85a8d99d7340581",
+    "gate_implementation_sha256": "bb3af8cc28b0dfe4094de73344fcb1d7570d09e70863896ece0448c03bac0485",
+    "vllm_metal_source_sha": "a8b7e75c412aedcefe26ac3ab98d2a76e3e166fb"
+  },
+  "runtime": {
+    "hardware": "MacBook Pro Mac17,9; Apple M5 Pro; 24 GB",
+    "vllm": "0.27.1+cpu",
+    "vllm_metal": "0.3.0",
+    "mlx": "0.32.0",
+    "model": "Qwen/Qwen2.5-0.5B-Instruct",
+    "model_revision": "7ae557604adf67be50417f59c2c2f167def9a775"
+  },
+  "research_boundaries": {
+    "formal_campaign": false,
+    "cost_aware_policy": false,
+    "h1_h2_artifacts_modified": false,
+    "continuum_policy_modified": false,
+    "native_cache_internals_modified": false,
+    "method_benefit_claim": false
+  },
+  "review_status": "M1_REVIEW_PENDING"
+}

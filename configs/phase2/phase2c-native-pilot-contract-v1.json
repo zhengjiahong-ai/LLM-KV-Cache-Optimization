@@ -1,0 +1,65 @@
+{
+  "schema_version": "phase2c.native_pilot_contract.v1",
+  "contract_id": "phase2c-bounded-native-workload-pilot-v1",
+  "run_kind": "NON_HOLDOUT_NATIVE_PILOT",
+  "formal_campaign_authorized": false,
+  "cost_aware_policy_authorized": false,
+  "authorization": "phase2c-native-pilot-authorization.json",
+  "content_schema": "phase2c-workload-content-schema-v1.json",
+  "controlled_repeats": 2,
+  "topology_case_ids": [
+    "w-cold",
+    "w-exact",
+    "w-xprogram",
+    "w-root-fork",
+    "w-nested",
+    "w-turn-grow",
+    "w-hot-cold",
+    "w-pressure-none",
+    "w-pressure-native"
+  ],
+  "required_native_evidence": [
+    "submitted_token_ids_sha256",
+    "submitted_reusable_prefix_token_count",
+    "expected_lcp_tokens",
+    "expected_lcp_blocks",
+    "native_apc_block_hashes",
+    "native_cached_prefix_tokens",
+    "native_hash_process_id",
+    "native_request_id",
+    "native_queued_timestamp",
+    "native_scheduler_admission_timestamp"
+  ],
+  "pressure_evidence": [
+    "FORCED_RELEASE_DECISION",
+    "VLLM_NATIVE_HASHED_CACHE_ENTRY_EVICTED",
+    "hash_removed_after",
+    "subsequent VLLM_NATIVE_REQUEST_OBSERVATION"
+  ],
+  "validity_rules": {
+    "first_request_label": "NO_REUSE_ELIGIBLE_PREFIX",
+    "same_native_hash_process_required": true,
+    "submitted_digest_relation_must_match_contract": true,
+    "native_hash_lcp_must_match_expected_blocks": true,
+    "cached_tokens_must_be_block_aligned": true,
+    "cached_tokens_must_not_exceed_eligible_tokens": true,
+    "pressure_order": "logical release < native hashed eviction < subsequent APC",
+    "content_level_eviction_attribution_claimed": false,
+    "failures_preserved": true,
+    "silent_exclusion_permitted": false
+  },
+  "stop_conditions": [
+    "materialized digest differs from the preregistered segment relation",
+    "native hash process changes within a case",
+    "native APC hash chain or cached-prefix observation is missing",
+    "a pressure case cannot establish ordered native eviction evidence",
+    "runtime failure or timeout",
+    "an implementation would require BlockPool/hash/refcount/LRU mutation"
+  ],
+  "acceptance_boundary": {
+    "target_hit_rate": null,
+    "target_partial_hit_rate": null,
+    "pass_definition": "actual native evidence faithfully expresses the preregistered content relation",
+    "allowed_outcomes": ["PASS", "FAIL", "NOT_DEMONSTRATED", "NOT_OBSERVABLE"]
+  }
+}
