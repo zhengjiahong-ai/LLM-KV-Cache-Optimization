@@ -74,7 +74,7 @@ git show e3a02fd:scripts/spikes/phase2_minimal_observability_metal.py   # H1 语
 且在 `F-ARRIVAL` / `F-HISTORY` 上同样退化：
 
 ```text
-不同 program 首请求 native hash 链 : 0/771 相等        <- 跨 program 内容重叠恒为 0
+不同 program 首请求完整 native hash 链 : 0/771 相等  <- 完整链不等，不能据此单独排除局部重叠
 同 program 首 -> 次 hash 链        : 408/408 相同
 同 program 首 -> 所有后续 hash 链   : 495/495 相同
 ```
@@ -98,8 +98,7 @@ git show e3a02fd:scripts/spikes/phase2_minimal_observability_metal.py   # H1 语
 
 两臂**提交内容完全相同**、仅物理驻留不同 ⇒ **partial hit 可由该 entry 自身驻留独立产生**。
 
-⇒ §2.7 的谨慎表述**被强化**（非修改）：§2.7 的「每 reclaimable block 实际重算量 0.6667–16.0000（24× 离散）」
-应读作**驻留 artifact**，**不是**内容重叠 artifact。
+⇒ 此受控配对证明**物理驻留可以造成部分命中**，但不能直接解释旧 H1 的 48/207 条部分重计算或 24× 离散的全部成因。旧 H1 的「每 reclaimable block 实际重算量 0.6667–16.0000」仍是观测事实；其逐候选归因尚不可确定，不应将全部离散定性为单一驻留 artifact 或跨 entry 内容重叠 artifact。
 
 ### 2.3 §2.9 因果措辞 —— 接线缺口，非设计遗漏
 
@@ -115,9 +114,9 @@ git show e3a02fd:scripts/spikes/phase2_minimal_observability_metal.py   # H1 语
 | | 内容 |
 | --- | --- |
 | 原文 | 「上述 block-ID 结果**不能单独排除**跨 entry 重叠……跨 entry 重叠在本语料中**未被观测到**，也未证明存在因果机制」 |
-| 现文 | 「跨 entry 内容重叠在 H1 语料中**被构造排除（structurally precluded）**，不是未被观测到。HYP-B 的前提在本语料中**从未被实例化**」 |
+| 修订后 | 「`F-PREFIX` 未实现预期的跨 program 共享内容构造；HYP-B 所需的跨 entry 保留集合覆盖在旧 H1 中未得到有效实例化或证实。完整 hash 链 0/771 相同不能单独排除任意局部重叠。」 |
 
-**理由**：0/771 是**确定性结构事实**，根因是 `F-PREFIX`。
+**理由**：`F-PREFIX` 的内容构造缺陷来自实现路径；0/771 是完整链身份的观测，**不是排除所有局部前缀重叠的充分证据**。
 
 ⇒ HYP-B 证据等级由「未验证」改为「**本语料不可检验**」，理由为**设计缺陷而非实验证否**。
 
@@ -128,15 +127,13 @@ git show e3a02fd:scripts/spikes/phase2_minimal_observability_metal.py   # H1 语
 | | 内容 |
 | --- | --- |
 | 原文 | 「要检验它，需一个 `relief < block_count` 存在的语料」 |
-| 现文 | 根因为 `F-PREFIX`；新 schema（`W-XPROGRAM`）下**多所有者块在原理上已可表达**，所需改为「在现有 schema 上补一个 `relief` 观测」 |
+| 修订后 | `W-XPROGRAM` 已证明跨 program token/APC 复用可表达，但尚未证明**同时存在多个有效且受保护的 logical retention entries** 指向同一物理块；必须先观测该关系，再测量边际 `relief`。 |
 
-**理由**：§2.2 的 `relief ≡ block_count` 100% 是**构造产物**（块在物理上从不被多所有者持有），
-不是共享所有权的不存在。Phase 2C 分段内容 schema 下 `x-a` / `x-b` 提交同一段内容，
-native APC 复用**同一批块** ⇒ 多所有者块**原理上已可表达**。
+**理由**：旧 H1 的 471/471 `relief ≡ block_count` 表明该语料的受检决策**没有表现出可区分的边际释放量**，不能据此推论所有 native block 在所有时刻都没有多重 owner。Phase 2C `W-XPROGRAM` 已验证共享 token 内容和 APC 复用，但这与同一决策时刻的多 entry retention ownership 是不同层级的事实。
 
-⇒ 这是修复带来的**唯一新增研究入口**，机会三的门槛显著下降。
+⇒ 机会三现在具有更合适的**内容生成基础**，但研究前提仍需只读验证：在同一决策时刻是否有多个受保护的 logical entries 指向同一个物理块，释放其中一个时的 marginal `relief` 是否确实小于 entry 的 `block_count`。若现有 fixture 不表达该状态，仍需有限的新 fixture，而不只是追加一个 `relief` 字段。
 
-⚠️ **仍是可行性判断，不是证据**：pilot **未测量** `relief`，且 `cost_aware_policy_authorized: false`。
+⚠️ **仍是可行性判断，不是收益证据**：pilot 未测量 `relief`，未证明同时多 entry 保护，且 `cost_aware_policy_authorized: false`。
 
 ---
 
