@@ -204,12 +204,10 @@ Phase 2C 原生 pilot 的 `W-PRESSURE` 配对在**同一 native hash 进程内**
 | 无压力 | 384 | **384** | `FULL_HIT` |
 | 受控原生分配 | 384 | **256** | `PARTIAL_HIT` |
 
-两臂**提交内容完全相同**（同一 hash 前缀），仅物理驻留不同 ⇒ **partial hit 可由该 entry 自身的驻留状态独立产生**，
-无需任何跨 entry 机制。
+两臂**提交内容相同**，但 native APC 所观察到的缓存驻留量不同。这说明**即使不引入跨 entry 的内容重叠机制，单一前缀也可能因驻留状态不同出现 `PARTIAL_HIT`**。
 
-⇒ 本条**强化**而非修改 §2.7 的结论：部分重计算存在，且其成因可归于**物理驻留**。
-§2.7 的「每 reclaimable block 实际重算量 0.6667–16.0000（24× 离散）」应读作**驻留 artifact**，
-**不是**内容重叠 artifact。
+⇒ 该配对证明「物理驻留」是**一种可行且已观测的部分命中机制**，不证明旧 H1 的 48/207 条部分重计算均由该机制导致。
+§2.7 的「每 reclaimable block 实际重算量 0.6667–16.0000（24× 离散）」仍是旧 H1 的观测事实；其逐条成因和不同因素的贡献**尚未完成因果归因**，不能直接归类为纯驻留 artifact，也不能归类为跨 entry 内容重叠 artifact。
 
 ⚠️ 该 pilot 为 `NON_HOLDOUT_NATIVE_PILOT`，`PARTIAL_HIT` 仅 2 例，`MISS = 0`；
 仅支持**拓扑可表达性**，不构成方法或策略证据。见 `docs/phase2a-m4-erratum-post-phase2c-fidelity.md`。
@@ -377,17 +375,17 @@ proxy loss = I[返回] × C(prefix 长度)
 **尚未证明的（因果）：**
 
 - 48 行 partial recompute **未被证明**是由**另一个 logical entry 的保留**导致；也可能是该 entry 自身的部分命中。
-  - 该「自身部分命中」分支**已获独立支撑**：§2.7.1 的受控压力配对在内容完全相同、仅驻留不同的条件下产生了 `PARTIAL_HIT`。
+  - §2.7.1 在另一组 non-holdout 受控条件下支持「自身驻留可导致部分命中」这一机制的可行性，**不等于已归因旧 H1 的 48 行**。
 - **未被证明**不同 eviction order 会改变该重算量。
 - **直接反证（我实测）**：H1 的 **114 个多候选决策中，候选之间共享 block ID 的为 0 个（0.0%）**。
 
 ⚠️ **本段已勘误（原表述过于宽松）。** 原稿写：「上述 block-ID 结果**不能单独排除**跨 entry 重叠……
 因此正确的表述是：跨 entry 重叠在本语料中**未被观测到**」。
 
-该让步**不必要**。Phase 2C 历史审计给出的是**确定性结构事实**：
+单凭 block ID 或完整 hash 链不等，**均不能单独排除任意局部前缀重叠**。Phase 2C 历史审计及 materializer 代码共同给出以下受检结构事实：
 
 ```text
-不同 program 首请求 native hash 链 : 0/771 相等     <- 跨 program 内容重叠恒为 0
+不同 program 首请求完整 native hash 链 : 0/771 相等  <- 完整链不相等；不能仅据此排除任意局部重叠
 同 program 首 -> 次 hash 链        : 408/408 相同
 同 program 首 -> 所有后续 hash 链   : 495/495 相同   <- 同 program 内容完全恒定
 ```
@@ -395,8 +393,7 @@ proxy loss = I[返回] × C(prefix 长度)
 ⇒ 根因是 `F-PREFIX`：编译器用 `ownership_group` 复用**逻辑** `prefix_prompt`，
 而 Metal 后端 `_turn_token_ids()` 按 `program_id` 生成真实 token，**忽略了该共享身份**。
 
-**正确表述**：跨 entry 内容重叠在 H1 语料中**被构造排除（structurally precluded）**，
-不是「未被观测到」。HYP-B 的前提在本语料中**从未被实例化**。
+**正确表述**：旧 H1 的 `F-PREFIX` 路径**未实现预期的跨 program 共享内容构造**；本轮受检证据也未建立 HYP-B 所需的跨 entry 保留集合覆盖及其因果效果。这里讨论的是**该预期研究前提未被有效实例化/验证**，不是由完整 hash 链的 0/771 比较证明所有可能的局部内容重叠在数学上绝无发生。
 
 **与 baseline 的可能区别**：baseline 键为 `(deadline, min native LRU rank over newly eligible, identity)`，
 三项**均不含跨 entry 重叠信息**。若该机制存在，则确实未被表达。
@@ -418,21 +415,19 @@ proxy loss = I[返回] × C(prefix 长度)
 
 **根因与前置条件修订（勘误，Phase 2C）**：
 
-- **根因**：同一 `F-PREFIX` 缺陷 —— 共享所有权从未落到真实 token，故任何块在物理上都不被多所有者持有，
-  于是 `relief ≡ block_count` 恒成立。因此 §2.2 的 100% 是**构造产物**，不是共享所有权的不存在。
-- **前置条件已降低**：Phase 2C 的分段内容 schema 下，`W-XPROGRAM` 让 `x-a` / `x-b` **提交同一段内容**，
-  native APC 会复用**同一批块** ⇒ **多所有者块在原理上已可表达**。
-  检验该机会所需的不再是「一个新语料」，而是「在现有 schema 上补一个 `relief` 观测」。
+- **历史限制**：`F-PREFIX` 使预期的跨 program 共享未落实；在旧 H1 已记录的 471 个候选中，`relief ≡ block_count`。但仅凭这一等式，**不能推定任何 native block 在全部时刻绝无多所有者**；它只说明本轮没有观测到可用于辨别边际释放量的多 owner 决策状态。
+- **新实验基础**：Phase 2C `W-XPROGRAM` 已能令不同 program 提交相同 token 内容并触发 native APC 复用。但这**不等于**在同一决策时刻存在两个**同时有效且受保护的 logical retention entries**，更不等于已验证 `relief < block_count`。
+- **必要的后续核查**：先在同一决策时刻只读证明多个合法 retention entries 关联同一物理 block，并核对释放前后可回收 block 集合及 marginal `relief`。若现有 fixture 未形成这种状态，需另行设计有限的共享保护 fixture；**不能只追加一个 `relief` 数值便宣布机会成立**。
 
-⚠️ **仍是可行性判断，不是证据**：pilot **未测量** `relief`，且 `cost_aware_policy_authorized: false`。
+⚠️ **仍属研究可行性判断**：当前 non-holdout pilot 未测量边际 `relief`，亦未证明同时多 entry 保护关系；`cost_aware_policy_authorized: false`。
 
 ### 4.4 机会与基线差异总览（rev.3）
 
 | 机会 | baseline 实际使用 | baseline **未**使用 | 证据等级 |
 | --- | --- | --- | --- |
-| 一：淘汰顺序对实际重算量的影响 | 无跨 entry 信息 | 保留集合与候选前缀的重叠 | **部分重算存在（48/207）且可由自身驻留解释（§2.7.1）；跨 entry 前提在本语料被构造排除（§4.1）** |
+| 一：淘汰顺序对实际重算量的影响 | 无跨 entry 信息 | 保留集合与候选前缀的重叠 | **部分重算存在（48/207）；自身驻留是已证实可行机制，但旧 H1 逐条成因未知；预期跨 program 共享未实现（§4.1）** |
 | 二：返回因子判别力 | 单 entry `deadline`（关联弱） | 更强的返回预测 | **现有特征对该代理损失关联较弱；未证明这是信息集上限** |
-| 三：共享所有权聚合 | 无 | 多所有者块集合 | **本语料不可检验（§4.3）；新 schema 下前置条件已降低，但仍需补 `relief` 观测** |
+| 三：共享所有权聚合 | 无 | 多所有者块集合 | **本语料不可检验（§4.3）；新 schema 支持共享 token，仍需核实同时多 entry 保护及 marginal `relief`** |
 | ~~原 HYP-A：raw `C(r)/relief` 效率~~ | — | — | **未被当前数据支持**（§3.1） |
 
 ---
@@ -473,8 +468,8 @@ proxy loss = I[返回] × C(prefix 长度)
 ```
 
 ⚠️ **证据等级：本语料不可检验（勘误修订）。** 见 §4.1：部分重计算确实存在（事实），
-但该事实**可由 entry 自身驻留充分解释**（§2.7.1）；而本假设所需的**跨 entry 内容重叠前提**
-在本语料中**被构造排除**（不同 program 首请求 hash 链 0/771 相等，根因 `F-PREFIX`）。
+但 §2.7.1 只证明**entry 自身驻留可以产生部分命中**，不能充分解释旧 H1 每一条部分重计算；本假设所需的**跨 entry 保留集合覆盖前提**
+在本语料中没有被有效实例化或验证（`F-PREFIX` 未实现预期跨 program 共享；完整 hash 链 0/771 相同本身不足以否定任意局部重叠）。
 原稿的让步「候选间共享 block ID 为 0 ……虽不能单独排除内容重叠」**已删除**：
 在本语料上应直接判定**不可检验**，理由为**设计缺陷而非实验证否**。
 
