@@ -46,9 +46,7 @@ def materialize_pilot(
             config_name = f"{run_id}.config.json"
             trace_name = f"{run_id}.trace.json"
             requests = case["requests"]
-            prefix_segments = {
-                request["request_id"]: request["segments"] for request in requests
-            }
+            prefix_segments = {request["request_id"]: request["segments"] for request in requests}
             program_sizes: dict[str, int] = {}
             for request in requests:
                 tokens = sum(segment[1] for segment in request["segments"])
@@ -100,6 +98,12 @@ def materialize_pilot(
                 "pressure_stages": pressure_stages,
             }
             pressure_tokens = int(case.get("pressure_prompt_tokens", 512))
+            pressure_blocks = pressure_tokens // int(document["block_size_tokens"])
+            initial_shortage_blocks = 8 if pressure_enabled else 1
+            protected_prefix_blocks = sum(
+                tokens // int(document["block_size_tokens"]) for tokens in program_sizes.values()
+            )
+            block_override = protected_prefix_blocks + pressure_blocks + 1 - initial_shortage_blocks
             config = {
                 "schema_version": "phase2.config.v1",
                 "runtime_mode": "vllm-metal-observability",
@@ -118,11 +122,11 @@ def materialize_pilot(
                 "batching": {"max_concurrent_requests": 1},
                 "cache": {
                     "block_size": document["block_size_tokens"],
-                    "block_override": 49 if pressure_enabled else 128,
+                    "block_override": block_override,
                 },
                 "pressure": {
-                    "initial_shortage_blocks": 8 if pressure_enabled else 1,
-                    "required_blocks": pressure_tokens // 16,
+                    "initial_shortage_blocks": initial_shortage_blocks,
+                    "required_blocks": pressure_blocks,
                     "safety_ceiling": 2,
                 },
                 "backend_options": {

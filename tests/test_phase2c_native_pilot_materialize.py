@@ -30,18 +30,21 @@ def test_materializer_writes_frozen_bounded_matrix(tmp_path: Path) -> None:
     }
 
     grow_config = json.loads(
-        (tmp_path / "pilot" / "w-turn-grow-repeat-1.config.json").read_text(
-            encoding="utf-8"
-        )
+        (tmp_path / "pilot" / "w-turn-grow-repeat-1.config.json").read_text(encoding="utf-8")
     )
     segments = grow_config["backend_options"]["prefix_segments_by_request"]
     assert sum(value[1] for value in segments["grow:1"]) == 160
     assert sum(value[1] for value in segments["grow:2"]) == 192
     assert sum(value[1] for value in segments["grow:3"]) == 224
+    # Runtime requires protected-prefix blocks + pressure-demand blocks,
+    # adjusted by the declared initial shortage.
+    assert grow_config["cache"]["block_override"] == 46
 
     pressure = json.loads(
-        (tmp_path / "pilot" / "w-pressure-native-repeat-1.trace.json").read_text(
-            encoding="utf-8"
-        )
+        (tmp_path / "pilot" / "w-pressure-native-repeat-1.trace.json").read_text(encoding="utf-8")
     )
     assert len(pressure["pressure_stages"]) == 1
+    pressure_config = json.loads(
+        (tmp_path / "pilot" / "w-pressure-native-repeat-1.config.json").read_text(encoding="utf-8")
+    )
+    assert pressure_config["cache"]["block_override"] == 49
