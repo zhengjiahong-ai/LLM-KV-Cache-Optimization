@@ -58,8 +58,11 @@ def materialize_e3(*, fixture_path: Path, output_dir: Path) -> Path:
     runs: list[dict[str, Any]] = []
     for case in fixture["cases"]:
         returns = tuple(str(value) for value in case["return_programs"])
-        if not returns or not set(returns).issubset(program_prefix_tokens):
-            raise ValueError("E3 return_programs must be a non-empty subset of e3-a/e3-b")
+        if set(returns) != set(program_prefix_tokens) or len(returns) != 2:
+            raise ValueError("E3 must terminate both candidate programs exactly once")
+        evaluation_program = str(case["evaluation_program"])
+        if evaluation_program not in program_prefix_tokens:
+            raise ValueError("E3 evaluation_program must be e3-a or e3-b")
         for release_program in program_prefix_tokens:
             arm = f"release-{release_program[-1]}"
             for repeat in range(1, 3):
@@ -154,6 +157,7 @@ def materialize_e3(*, fixture_path: Path, output_dir: Path) -> Path:
                         "repeat": repeat,
                         "forced_first_logical_release_program_id": release_program,
                         "return_programs": list(returns),
+                        "evaluation_program": evaluation_program,
                         "expected_shared_protected_blocks": 8,
                     },
                 }

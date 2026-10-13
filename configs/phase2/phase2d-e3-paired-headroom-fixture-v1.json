@@ -24,12 +24,14 @@
   },
   "cases": [
     {
-      "case_id": "e3-single-return-headroom",
-      "return_programs": ["e3-a"]
+      "case_id": "e3-target-a-headroom",
+      "return_programs": ["e3-a", "e3-b"],
+      "evaluation_program": "e3-a"
     },
     {
-      "case_id": "e3-both-return-control",
-      "return_programs": ["e3-a", "e3-b"]
+      "case_id": "e3-target-b-control",
+      "return_programs": ["e3-b", "e3-a"],
+      "evaluation_program": "e3-b"
     }
   ]
 }

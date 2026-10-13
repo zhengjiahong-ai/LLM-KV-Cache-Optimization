@@ -16,13 +16,14 @@ def test_materializes_balanced_paired_diagnostic_fixture(tmp_path: Path) -> None
     assert len({row["config_sha256"] for row in manifest["runs"]}) == 8
 
     config = json.loads(
-        (tmp_path / "e3" / "e3-single-return-headroom-release-b-repeat-1.config.json").read_text(
+        (tmp_path / "e3" / "e3-target-a-headroom-release-b-repeat-1.config.json").read_text(
             encoding="utf-8"
         )
     )
     assert config["backend_options"]["phase2d_diagnostic_first_release_program_id"] == "e3-b"
     assert config["cache"]["block_override"] == 33
-    assert config["phase2d_stage"]["return_programs"] == ["e3-a"]
+    assert config["phase2d_stage"]["return_programs"] == ["e3-a", "e3-b"]
+    assert config["phase2d_stage"]["evaluation_program"] == "e3-a"
     segments = config["backend_options"]["prefix_segments_by_request"]
     assert segments["e3-a:1"][0] == segments["e3-b:1"][0]
     assert segments["e3-a:1"][1] != segments["e3-b:1"][1]
