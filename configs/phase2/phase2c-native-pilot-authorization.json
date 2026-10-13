@@ -1,0 +1,15 @@
+{
+  "schema_version": "phase2c.native_pilot_authorization.v1",
+  "authorization_status": "AUTHORIZED",
+  "run_kind": "NON_HOLDOUT_NATIVE_PILOT",
+  "authorizer": "M1",
+  "authorization_scope": "bounded native validation of workload content topology only",
+  "audit_pr": 39,
+  "audit_merge_git_sha": "f0fe4f3",
+  "formal_campaign_authorized": false,
+  "cost_aware_policy_authorized": false,
+  "h1_h2_sealed_artifacts_mutable": false,
+  "continuum_ttl_or_scheduler_changes_authorized": false,
+  "native_cache_internal_changes_authorized": false,
+  "ttl_history_gate_upgrade_authorized": false
+}

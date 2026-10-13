@@ -1,0 +1,109 @@
+{
+  "schema_version": "phase2c.native_pilot_cases.v1",
+  "pilot_id": "phase2c-bounded-native-workload-pilot-v1",
+  "run_kind": "NON_HOLDOUT_NATIVE_PILOT",
+  "block_size_tokens": 16,
+  "controlled_repeats": 2,
+  "model": {
+    "name": "Qwen/Qwen2.5-0.5B-Instruct",
+    "revision": "7ae557604adf67be50417f59c2c2f167def9a775"
+  },
+  "runtime": {
+    "backend_factory": "scripts.spikes.phase2_minimal_observability_metal:build_phase2_metal_observability_backend",
+    "executor_mode": "submit_collect",
+    "gpu_memory_utilization": 0.8,
+    "max_new_tokens": 1,
+    "temperature": 0,
+    "timeout_seconds": 180
+  },
+  "cases": [
+    {
+      "case_id": "w-cold",
+      "topology": "W-COLD",
+      "pressure": "none",
+      "requests": [
+        {"request_id": "cold:1", "program_id": "cold", "segments": [["cold-root", 128]], "eligible_prefix_tokens": 0}
+      ]
+    },
+    {
+      "case_id": "w-exact",
+      "topology": "W-EXACT",
+      "pressure": "none",
+      "requests": [
+        {"request_id": "exact:1", "program_id": "exact", "segments": [["exact-root", 128], ["exact-branch", 64]], "eligible_prefix_tokens": 0},
+        {"request_id": "exact:2", "program_id": "exact", "segments": [["exact-root", 128], ["exact-branch", 64]], "eligible_prefix_tokens": 192, "lcp_with": "exact:1"}
+      ]
+    },
+    {
+      "case_id": "w-xprogram",
+      "topology": "W-XPROGRAM",
+      "pressure": "none",
+      "requests": [
+        {"request_id": "x-a:1", "program_id": "x-a", "segments": [["x-root", 128], ["x-shared", 64]], "eligible_prefix_tokens": 0},
+        {"request_id": "x-b:1", "program_id": "x-b", "segments": [["x-root", 128], ["x-shared", 64]], "eligible_prefix_tokens": 192, "lcp_with": "x-a:1"}
+      ]
+    },
+    {
+      "case_id": "w-root-fork",
+      "topology": "W-ROOT-FORK",
+      "pressure": "none",
+      "requests": [
+        {"request_id": "fork-a:1", "program_id": "fork-a", "segments": [["fork-root", 128], ["fork-a", 64]], "eligible_prefix_tokens": 0},
+        {"request_id": "fork-b:1", "program_id": "fork-b", "segments": [["fork-root", 128], ["fork-b", 64]], "eligible_prefix_tokens": 128, "lcp_with": "fork-a:1"}
+      ]
+    },
+    {
+      "case_id": "w-nested",
+      "topology": "W-NESTED",
+      "pressure": "none",
+      "requests": [
+        {"request_id": "nested-short:1", "program_id": "nested-short", "segments": [["nested-root", 128]], "eligible_prefix_tokens": 0},
+        {"request_id": "nested-long:1", "program_id": "nested-long", "segments": [["nested-root", 128], ["nested-long", 64]], "eligible_prefix_tokens": 128, "lcp_with": "nested-short:1"}
+      ]
+    },
+    {
+      "case_id": "w-turn-grow",
+      "topology": "W-TURN-GROW",
+      "pressure": "none",
+      "requests": [
+        {"request_id": "grow:1", "program_id": "grow", "segments": [["grow-root", 128], ["grow-branch", 32]], "eligible_prefix_tokens": 0},
+        {"request_id": "grow:2", "program_id": "grow", "segments": [["grow-root", 128], ["grow-branch", 32], ["grow-turn-1", 32]], "eligible_prefix_tokens": 160, "lcp_with": "grow:1"},
+        {"request_id": "grow:3", "program_id": "grow", "segments": [["grow-root", 128], ["grow-branch", 32], ["grow-turn-1", 32], ["grow-turn-2", 32]], "eligible_prefix_tokens": 192, "lcp_with": "grow:2"}
+      ]
+    },
+    {
+      "case_id": "w-hot-cold",
+      "topology": "W-HOT-COLD",
+      "pressure": "none",
+      "requests": [
+        {"request_id": "hot:1", "program_id": "hot", "segments": [["hot-root", 128], ["hot-branch", 64]], "eligible_prefix_tokens": 0},
+        {"request_id": "cold-a:1", "program_id": "cold-a", "segments": [["cold-a-root", 192]], "eligible_prefix_tokens": 0},
+        {"request_id": "cold-b:1", "program_id": "cold-b", "segments": [["cold-b-root", 192]], "eligible_prefix_tokens": 0},
+        {"request_id": "hot:2", "program_id": "hot", "segments": [["hot-root", 128], ["hot-branch", 64]], "eligible_prefix_tokens": 192, "lcp_with": "hot:1"}
+      ]
+    },
+    {
+      "case_id": "w-pressure-none",
+      "topology": "W-PRESSURE",
+      "pressure": "none",
+      "pair_id": "pressure-pair",
+      "requests": [
+        {"request_id": "pressure-target:1", "program_id": "pressure-target", "segments": [["pressure-root", 256], ["pressure-branch", 128]], "eligible_prefix_tokens": 0},
+        {"request_id": "pressure-target:2", "program_id": "pressure-target", "segments": [["pressure-root", 256], ["pressure-branch", 128]], "eligible_prefix_tokens": 384, "lcp_with": "pressure-target:1"}
+      ]
+    },
+    {
+      "case_id": "w-pressure-native",
+      "topology": "W-PRESSURE",
+      "pressure": "controlled_native_allocation",
+      "pair_id": "pressure-pair",
+      "pressure_prompt_tokens": 512,
+      "requests": [
+        {"request_id": "pressure-target:1", "program_id": "pressure-target", "segments": [["pressure-root", 256], ["pressure-branch", 128]], "eligible_prefix_tokens": 0},
+        {"request_id": "pressure-target:2", "program_id": "pressure-target", "segments": [["pressure-root", 256], ["pressure-branch", 128]], "eligible_prefix_tokens": 384, "lcp_with": "pressure-target:1"}
+      ]
+    }
+  ],
+  "formal_campaign_authorized": false,
+  "cost_aware_policy_authorized": false
+}
