@@ -17,7 +17,7 @@
     "revision": "7ae557604adf67be50417f59c2c2f167def9a775"
   },
   "runtime": {
-    "backend_factory": "scripts.spikes.phase2_minimal_observability_metal:build_backend",
+    "backend_factory": "scripts.spikes.phase2_minimal_observability_metal:build_phase2_metal_observability_backend",
     "gpu_memory_utilization": 0.75,
     "max_new_tokens": 1,
     "temperature": 0.0
