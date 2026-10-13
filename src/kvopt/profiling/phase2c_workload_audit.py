@@ -170,6 +170,54 @@ def audit_archive(archive_path: Path) -> dict[str, Any]:
             "sha256": _sha256(archive_path),
         },
         "historical_counts": historical,
+        "field_lineage": {
+            "scenario_id_family_seed": {
+                "classification": "PLANNED_INPUT",
+                "source": "campaign config and derived runs.jsonl",
+            },
+            "ownership_group_prefix_prompt": {
+                "classification": "PLANNED_INPUT",
+                "source": "phase2_h1_compiler.py candidate contract and trace",
+            },
+            "actual_prefix_token_generator": {
+                "classification": "MATERIALIZED_INPUT",
+                "source": "phase2_minimal_observability_metal.py::_program_prefix_token_ids/_turn_token_ids",
+                "identity_basis": "program_id, not ownership_group or prefix_prompt",
+            },
+            "native_apc_block_hashes_native_cached_prefix_tokens": {
+                "classification": "NATIVE_OBSERVED",
+                "source": "VLLM_NATIVE_REQUEST_OBSERVATION / request_runtime_evidence.jsonl",
+            },
+            "eligible_prefix_tokens_apc_outcome": {
+                "classification": "OFFLINE_DERIVED",
+                "source": "request_runtime_evidence.jsonl",
+            },
+            "exact_historical_submitted_token_ids": {
+                "classification": "NOT_OBSERVABLE",
+                "source": "not persisted; any regenerated tokens would be reconstruction",
+            },
+        },
+        "mechanism_layers": {
+            "content_overlap_potential": "native hash-chain equality",
+            "reuse_eligibility": "eligible_prefix_tokens > 0",
+            "physical_residency": "native_cached_prefix_tokens conditional on eligibility",
+            "realized_apc": "FULL_HIT/PARTIAL_HIT/MISS conditional on eligibility",
+        },
+        "representative_evidence": {
+            "shared_ownership_cross_program": {
+                "run_id": "h1-f5-draw-02-seed-101",
+                "ownership_group": "shared-0",
+                "request_event_indices": [7, 20],
+                "observation": "different native hash chains despite shared logical ownership",
+            },
+            "same_program_partial_then_full": {
+                "run_id": "h1-f5-draw-02-seed-101",
+                "request_ids": ["h1-agent-1:turn:2", "h1-agent-1:turn:3"],
+                "request_event_indices": [73, 110],
+                "cached_over_eligible": ["464/512", "512/512"],
+                "observation": "identical hash chain with different physical residency",
+            },
+        },
         "findings": {
             "H-DATA-1": {
                 "verdict": "SUPPORTED",
@@ -205,6 +253,18 @@ def audit_archive(archive_path: Path) -> dict[str, Any]:
         ],
         "native_pilot": None,
         "formal_campaign_authorized": False,
+        "gates": {
+            "G-HISTORICAL-REPRO": "PASS",
+            "G-INPUT-IDENTITY": "PASS",
+            "G-APC-CONDITIONAL": "PASS",
+            "G-SEED-INDEPENDENCE": "PASS",
+            "G-CAUSE-ACCOUNTING": "PASS",
+            "G-DATA-PROPOSAL": "PENDING",
+            "G-NATIVE-PILOT": "NOT_AUTHORIZED",
+            "G-H1H2-SEALED": "PASS",
+            "G-LEGACY": "PENDING",
+            "G-PROVENANCE": "PASS",
+        },
     }
 
 
