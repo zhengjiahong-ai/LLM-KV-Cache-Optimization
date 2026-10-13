@@ -6,7 +6,7 @@
     "size_bytes": 173553,
     "entry_count": 199,
     "committed_to_git": false,
-    "reviewer_access_url": null
+    "reviewer_access_url": "https://github.com/user-attachments/files/33376929/phase2c-m6-native-pilot-evidence-9f8408e.tar.gz"
   },
   "primary_evidence": {
     "run_root": "artifacts/phase2c-native-pilot-runs-v1",
@@ -26,7 +26,7 @@
   "handling": {
     "raw_artifacts_modified": false,
     "failed_or_excluded_primary_runs": 0,
-    "external_transfer_required": true,
-    "transfer_note": "Upload the exact archive without repacking and replace reviewer_access_url in a later delivery-only commit."
+    "external_transfer_required": false,
+    "transfer_note": "The reviewer-accessible PR attachment is bound to the exact archive SHA-256; do not repack it."
   }
 }
