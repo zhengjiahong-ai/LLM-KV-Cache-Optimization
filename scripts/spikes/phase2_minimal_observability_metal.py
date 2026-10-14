@@ -158,6 +158,21 @@ def _backend_options(config: Mapping[str, object]) -> Mapping[str, object]:
     return value
 
 
+def _retention_mode_for_config(config: Mapping[str, object]) -> RetentionMode:
+    """Select a real baseline while keeping every legacy caller controlled."""
+    policy = config.get("policy")
+    campaign_kind = config.get("campaign_kind")
+    if policy == "native-lru":
+        if campaign_kind != "phase2e_non_holdout_research_discovery":
+            raise ValueError("native-lru baseline is restricted to Phase 2E discovery")
+        return RetentionMode.NATIVE
+    if campaign_kind == "phase2e_non_holdout_research_discovery" and policy != (
+        "continuum-baseline"
+    ):
+        raise ValueError("Phase 2E policy must be native-lru or continuum-baseline")
+    return RetentionMode.CONTROLLED
+
+
 def _positive_int(value: object, field: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value < 1:
         raise ValueError(f"{field} must be a positive integer")
@@ -513,6 +528,7 @@ class MinimalMetalObservabilityBackend:
 
         self._sink = sink
         self._clock = SystemMonotonicClock()
+        self._retention_mode = _retention_mode_for_config(config)
         options = _backend_options(config)
         profile_path = _resolve_repo_path(
             options.get(
@@ -812,7 +828,7 @@ class MinimalMetalObservabilityBackend:
             self._observation_hooks.__exit__(None, None, None)
             raise RuntimeError("real-runtime observability backend requires a fresh process")
         install_retention_hook(
-            mode=RetentionMode.CONTROLLED,
+            mode=self._retention_mode,
             integration=self._retention_integration,
             clock=self._clock,
             hashed_eviction_observer=(
@@ -943,6 +959,7 @@ class MinimalMetalObservabilityBackend:
                     "h2_native_mechanism_only": self._h2_native_mechanism_only,
                     "h2_m4_prefill_curve_bound": h2_m4_prefill_provider is not None,
                     "gpu_memory_utilization": gpu_memory_utilization,
+                    "retention_mode": self._retention_mode.value,
                 },
             )
         )

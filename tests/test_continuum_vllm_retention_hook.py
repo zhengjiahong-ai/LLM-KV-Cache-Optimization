@@ -187,6 +187,33 @@ def test_native_mode_leaves_original_popleft_unhooked(
     assert integration.committed is False
 
 
+def test_native_mode_can_observe_hashed_eviction_without_changing_lru(
+    hook_environment,
+) -> None:
+    original_popleft, _ = hook_environment
+    integration = _FakeIntegration()
+    observations = []
+
+    install_retention_hook(
+        mode=RetentionMode.NATIVE,
+        integration=integration,
+        clock=FakeClock(),
+        hashed_eviction_observer=observations.append,
+    )
+
+    queue = _FakeFreeKVCacheBlockQueue(_blocks(7, 8))
+    assert [block.block_id for block in queue.popleft_n(1)] == [7]
+    assert _FakeFreeKVCacheBlockQueue.popleft_n is original_popleft
+    assert integration.calls == []
+    assert integration.eviction_calls == []
+
+    block = _FakeBlock(9, ref_cnt=0, block_hash=b"native-content")
+    assert _FakeBlockPool()._maybe_evict_cached_block(block) is True
+    assert len(observations) == 1
+    assert observations[0].block_id == 9
+    assert observations[0].hash_removed_after is True
+
+
 def test_shadow_snapshots_complete_queue_then_delegates_original_popleft(
     hook_environment,
 ) -> None:

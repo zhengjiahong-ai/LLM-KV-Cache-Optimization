@@ -112,15 +112,15 @@ def install_retention_hook(
 ) -> None:
     """Install the narrow retention integration hook for one vLLM process.
 
-    Native mode deliberately leaves the vLLM methods untouched.  Shadow mode
-    plans from a complete queue snapshot and delegates removal to the native
-    method.  Controlled mode maps the validated block IDs back to the exact
-    snapshot objects before removing them through the existing queue method.
+    Native mode leaves the free-queue selection method untouched.  When an
+    opt-in hashed-eviction observer is supplied, it wraps only native cached
+    block cleanup to copy pre-removal identity.  Shadow mode plans from a
+    complete queue snapshot and delegates removal to the native method.
+    Controlled mode maps validated block IDs back to the exact snapshot
+    objects before removing them through the existing queue method.
     """
     if not isinstance(mode, RetentionMode):
         raise TypeError("mode must be RetentionMode")
-    if mode is RetentionMode.NATIVE:
-        return
     if not isinstance(clock, Clock):
         raise TypeError("clock must implement Clock")
     if not callable(getattr(integration, "apply_pressure", None)):
@@ -184,7 +184,8 @@ def install_retention_hook(
         ref_count = getattr(block, "ref_cnt", None)
         result = original_evict(pool, block)
         if result is True:
-            integration.observe_native_eviction(BlockIdentity(block.block_id))
+            if mode is not RetentionMode.NATIVE:
+                integration.observe_native_eviction(BlockIdentity(block.block_id))
             if encoded_hash is not None and hashed_eviction_observer is not None:
                 if isinstance(ref_count, bool) or not isinstance(ref_count, int):
                     raise TypeError("native block ref_cnt must be an integer")
@@ -198,7 +199,8 @@ def install_retention_hook(
                 )
         return result
 
-    FreeKVCacheBlockQueue.popleft_n = retained_popleft
+    if mode is not RetentionMode.NATIVE:
+        FreeKVCacheBlockQueue.popleft_n = retained_popleft
     BlockPool._maybe_evict_cached_block = retained_evict
     FreeKVCacheBlockQueue._kvopt_policy_installed = True
 
