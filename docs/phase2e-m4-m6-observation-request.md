@@ -9,11 +9,11 @@
 ## 1. 已存在的字段 —— 请在 Phase 2E 中**保持**
 
 这些字段 Phase 2C/2D 已有，且实测**填充率 100%**（H1 的 1068 条请求观测）。
-**它们是 M4 全部均值与尾部指标的唯一数据基础，请在重新物化时不要丢。**
+这些是基础 request/native 字段；**真正的历史可复用内容重计算还需要 `eligible_prefix_tokens` 或可推导它的同进程有序 prefix hash 证据**，不能把 `native_prompt_tokens - native_cached_prefix_tokens` 当成 `recomputed_tokens`。
 
 | 事件 | 必须保留的字段 |
 | --- | --- |
-| `VLLM_NATIVE_REQUEST_OBSERVATION` | `native_prompt_tokens`、`native_cached_prefix_tokens`、**`native_queued_timestamp`**、**`native_scheduler_admission_timestamp`**、**`native_first_token_timestamp`**、`native_apc_block_hashes`、`native_hash_process_id`、`native_hash_function`、`native_hash_block_size` |
+| `VLLM_NATIVE_REQUEST_OBSERVATION` | `native_prompt_tokens`、`native_cached_prefix_tokens`、`eligible_prefix_tokens`（或可独立重建的先前有序 hash 链）、**`native_queued_timestamp`**、**`native_scheduler_admission_timestamp`**、**`native_first_token_timestamp`**、`native_apc_block_hashes`、`native_hash_process_id`、`native_hash_function`、`native_hash_block_size` |
 | `FORCED_RELEASE_DECISION` | `required_blocks`、`original_free_queue[].{block_id, native_lru_rank, has_block_hash, eligibility_tier}`、`candidates[].{program_id, block_ids, initially_reclaimable_block_ids, retention_deadline_timestamp, next_tool_type, waiting_followup}` |
 | `VLLM_PREFIX_SNAPSHOT` | `block_ids`、`ordered_native_hashes`、`reusable_token_count` |
 | `VLLM_NATIVE_HASHED_CACHE_ENTRY_EVICTED` | 现有字段 + 见下方 **R2** |
@@ -33,7 +33,7 @@ native_queued_timestamp  <=  native_scheduler_admission_timestamp  <=  native_fi
 ```
 
 H1 上 1068/1068 满足该单调序、**0 违例**。请保持。
-⇒ 缺任一 ⇒ **M4 无法计算 TTFT**，A1.3 / A1.4 / A2.2 / A2.7 / A2.8 全部作废。
+⇒ 缺失三时间戳或不满足同 clock domain/单调关系时，受影响请求的 native queued-to-first、queue delay 或 admission-to-first 指标记 `NOT_COMPUTABLE` 并报 missingness，不得静默排除；也不得称其为用户端到端 TTFT 或 isolated GPU prefill。
 
 ### R2 `[阻塞，A3 归因的硬前置]` 开启淘汰时刻的内容身份
 
@@ -47,22 +47,22 @@ _content_evidence_enabled = true   (或在 Phase 2E 中等价的 opt-in)
 若 R2 不开启，**M4 会在最终报告中据此限缩 A3 的全部因果结论** —— 这是可接受的，
 但请**明确告知**，以免 M4 按可归因设计分析工具。
 
-### R3 `[强烈建议]` 淘汰时刻记录 logical owners
+### R3 `[强烈建议]` 在 Continuum 下观测淘汰时刻 logical retention owners
 
 能力矩阵当前声明 `native_block_logical_owners = UNAVAILABLE`
 （*"current approved eviction callback does not persist logical owner attribution"*）。
 
-**用途**：把「逻辑释放」与「物理淘汰」两条链**接起来**（B3 的 marginal capacity 分析）。
+**用途**：把 Continuum 的 logical release 与真实 physical eviction 联系起来（B3）。Native LRU 不存在同义的 protected-retention-entry 状态，不能强制填造；无法建立同一时刻的 native hash/owner 映射则 `NOT_OBSERVABLE`。
 
 ### R4 `[阻塞，否则延迟结论退化]` 至少一个臂并发 > 1
 
 H1 为 `max_concurrent_requests = 1`。实测 **queue delay 最大仅 0.006 s** ⇒ 队列分量退化。
 
 **影响**：在并发 = 1 时，token 尾部 ≈ 延迟尾部；一旦并发 > 1，两者**分离**。
-M4 需要至少一个 > 1 的臂来标定「**token 成本下降是否等比例转化为延迟收益**」。
+M4 需要至少一个有真实 admission/completion overlap 的并发场景，探索 token 损失与 latency 的分离；**单次观测不能标定策略干预的因果收益**。
 
 ⚠️ 实测已有初步答案：H1 上 $\rho_{\text{Spearman}}(\text{recomputed}, \text{TTFT}) = \mathbf{0.4327}$，
-**远非 1.0** ⇒ **token 指标不能代理 P99 TTFT**。并发臂用于确认该结论是否随并发加剧。
+仅提示旧 H1 中二者不严格同序；必须在新数据中同时报告，不用 Spearman 或相对分位比作为可替代的证明。
 
 ### R5 `[重要]` workload 必须表达 agent 空闲间隔与多轮增长
 
@@ -70,6 +70,10 @@ M4 需要至少一个 > 1 的臂来标定「**token 成本下降是否等比例�
 （不只是元数据字段），否则：
 - 无「空闲但受保护」的 entry 组 ⇒ **没有证据的集中淘汰可观察**；
 - regime 判定（RR-EVICT Eq. 1）不可算。
+
+### R5b `[P5 必需]` Native block 的前缀逻辑位置
+
+须记录带观测时刻、同一 native hash process 与 content identity 的 `block → ordered prefix position/token range` 证据，保留前缀 hash 链和 slot reuse 检查，验证 LRU 冷端与前缀尾部的对应关系。不得用 native LRU rank 猜测前缀位置；如现有只读接口不足，M6 可在授权范围内补充最小 opt-in 观测及负控制。缺失则 P5 记 `NOT_OBSERVABLE`，不能报告通过。
 
 ### R6 `[重要]` 交付物与命名
 
@@ -90,7 +94,7 @@ M4 的缺失性规则要求**「排除」与「未观测」分开计数**，不�
 
 ## 3. 分阶段交付（便于 M4 提前调试分析工具）
 
-M1 已批准 M4/M6 **并行推进**。建议：
+M4 已先交付观测契约；M6 可并行开发 runner 与场景草案。**T1 smoke 完成并与 M4 对齐有效指标、同进程内容归因及 P5 观测后**，才可冻结完整 manifests/evaluator、执行 measured campaign。不得根据 T1/T2 的有利效果改动已冻结分布。建议：
 
 | 阶段 | M6 交付 | M4 可立即开展 |
 | --- | --- | --- |
@@ -117,6 +121,5 @@ M1 已批准 M4/M6 **并行推进**。建议：
 
 ## 5. 一句话总结
 
-> **请在 Phase 2E 中保住三个时间戳（R1）、打开淘汰时刻的内容身份（R2）、
-> 并给出至少一个并发 > 1 的臂（R4）。** 其余为增强项。
+> **请在 Phase 2E 中保留三时间戳（R1）、`E/C/N` 内容语义、开启 pre-eviction hash（R2）、验证 P5 block→prefix position，并提供真实重叠并发场景（R4）。** 先通过 native smoke 的字段与 provenance 核查，再开展完整 measured campaign。
 > 若 R2 无法落实，M4 会把 A3 的因果归因限缩为 `NOT_IDENTIFIABLE` 并在报告中说明 —— 请提前告知以便对齐。
