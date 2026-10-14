@@ -36,3 +36,11 @@ def test_mechanism_not_realized_is_not_eligible() -> None:
     result = compare_pair(a, b)
     assert result["status"] == "COMPARABLE"
     assert result["mechanism_evaluable"] is False
+
+
+def test_pair_rejects_mismatched_provenance() -> None:
+    left, right = _arm("native-lru"), _arm("continuum-baseline")
+    right["pairing_provenance"]["backend_revision"] = "another-revision"
+    result = compare_pair(left, right)
+    assert result["status"] == "NOT_COMPARABLE"
+    assert result["checks"]["provenance_equal"] is False
