@@ -43,7 +43,7 @@ def _runtime_mode(run: RawRunArtifacts) -> str | None:
     return payload.get("retention_mode") if isinstance(payload, dict) else None
 
 
-def _overlap_seconds(run: RawRunArtifacts) -> float:
+def _lifecycle_overlap_seconds(run: RawRunArtifacts) -> float:
     submitted: dict[str, float] = {}
     completed: dict[str, float] = {}
     for row in run.events:
@@ -66,6 +66,111 @@ def _overlap_seconds(run: RawRunArtifacts) -> float:
         ),
         default=0.0,
     )
+
+
+def _native_execution_overlap_seconds(rows: Sequence[Mapping[str, object]]) -> float:
+    intervals = [
+        (
+            float(row["native_scheduler_admission_timestamp"]),
+            float(row["native_first_token_timestamp"]),
+        )
+        for row in rows
+        if not str(row["request_id"]).startswith("pressure:")
+        and row.get("native_clock_domain") == "engine_core_monotonic"
+        and row.get("native_scheduler_admission_timestamp") is not None
+        and row.get("native_first_token_timestamp") is not None
+    ]
+    return max(
+        (
+            min(left[1], right[1]) - max(left[0], right[0])
+            for index, left in enumerate(intervals)
+            for right in intervals[index + 1 :]
+        ),
+        default=0.0,
+    )
+
+
+def _config_comparability(runs: Sequence[RawRunArtifacts]) -> dict[str, object]:
+    configs = [
+        json.loads((run.run_dir / "config.json").read_text(encoding="utf-8"))
+        for run in runs
+    ]
+    manifests = [run.manifest for run in runs]
+    request_sets = [
+        sorted(
+            str(row["request_id"])
+            for row in run.replay
+            if isinstance(row.get("request_id"), str)
+        )
+        for run in runs
+    ]
+    same_fields = (
+        "model",
+        "tokenizer",
+        "generation",
+        "batching",
+        "cache",
+        "runtime_mode",
+        "backend_factory",
+        "backend_revision",
+        "seed",
+        "observe",
+    )
+    field_checks = {
+        field: configs[0].get(field) == configs[1].get(field)
+        for field in same_fields
+    }
+    runtime_fields = (
+        "vllm_release_version",
+        "vllm_metal_distribution_version_raw",
+        "vllm_metal_source_commit",
+        "platform_plugin_identity",
+        "platform_plugin_class",
+        "metal_paged_kv_enabled",
+        "gpu_memory_utilization",
+        "cache_block_override",
+        "block_size",
+        "engine_core_observation_topology",
+    )
+    ready_payloads: list[dict[str, object]] = []
+    for run in runs:
+        ready = _events(run, "REAL_RUNTIME_READY")
+        payload = ready[0].get("payload") if len(ready) == 1 else None
+        ready_payloads.append(payload if isinstance(payload, dict) else {})
+    runtime_checks = {
+        field: ready_payloads[0].get(field) is not None
+        and ready_payloads[0].get(field) == ready_payloads[1].get(field)
+        for field in runtime_fields
+    }
+    sha_checks = {
+        field: all(isinstance(row.get(field), str) and row.get(field) for row in manifests)
+        and len({str(row[field]) for row in manifests}) == 1
+        for field in ("git_sha", "trace_sha256")
+    }
+    checks = {
+        "expected_request_ids_equal": request_sets[0] == request_sets[1]
+        and bool(request_sets[0]),
+        **{f"config_{key}_equal": value for key, value in field_checks.items()},
+        **{f"runtime_{key}_equal": value for key, value in runtime_checks.items()},
+        **{f"nonempty_{key}_equal": value for key, value in sha_checks.items()},
+    }
+    return {
+        "status": "PASS" if all(checks.values()) else "FAIL",
+        "checks": checks,
+        "expected_request_ids": request_sets[0] if request_sets[0] == request_sets[1] else request_sets,
+        "intentional_differences": {
+            "policy": [config.get("policy") for config in configs],
+            "retention_mode": [_runtime_mode(run) for run in runs],
+            "phase2e_stage.baseline": [
+                config.get("phase2e_stage", {}).get("baseline") for config in configs
+            ],
+            "config_sha256": [manifest.get("config_sha256") for manifest in manifests],
+        },
+        "instrumentation_difference_assessment": (
+            "same observer and event contract; retention hook mode differs by the "
+            "authorized baseline policy, so wall-clock comparisons remain descriptive"
+        ),
+    }
 
 
 def build_physical_evictions(run: RawRunArtifacts) -> tuple[dict[str, object], ...]:
@@ -167,6 +272,7 @@ def build_t1_audit(
         for row in _events(run, "FORCED_RELEASE_DECISION")
     ]
     by_run = {run.run_id: [row for row in evidence_rows if row["run_id"] == run.run_id] for run in runs}
+    comparability = _config_comparability(runs)
     per_run: dict[str, object] = {}
     gate_pass = True
     for policy, run in configs.items():
@@ -180,12 +286,14 @@ def build_t1_audit(
         run_evictions = [row for row in evictions if row["run_id"] == run.run_id]
         mapped = sum(row["prefix_position_status"] == "MAPPED" for row in run_evictions)
         expected_mode = "native" if policy == "native-lru" else "controlled"
+        native_overlap = _native_execution_overlap_seconds(rows)
         checks = {
             "execution_success": run.manifest.get("execution_status") == "success",
             "request_completeness": len(rows) == 5 and run.manifest.get("completion_count") == 5,
             "native_token_evidence_complete": available == len(rows),
             "native_timestamps_complete": timing == len(rows),
-            "true_overlap_observed": _overlap_seconds(run) > 0,
+            "request_lifecycle_overlap_observed": _lifecycle_overlap_seconds(run) > 0,
+            "native_admission_to_first_token_overlap_observed": native_overlap > 0,
             "retention_mode_matches_baseline": _runtime_mode(run) == expected_mode,
             "pre_eviction_content_identity_observed": bool(run_evictions)
             and all(row["native_cache_key_before"] for row in run_evictions),
@@ -195,7 +303,12 @@ def build_t1_audit(
             "baseline": policy,
             "checks": checks,
             "peak_inflight": run.manifest.get("peak_inflight"),
-            "maximum_observed_overlap_seconds": _overlap_seconds(run),
+            "maximum_request_lifecycle_overlap_seconds": _lifecycle_overlap_seconds(run),
+            "maximum_native_admission_to_first_token_overlap_seconds": native_overlap,
+            "native_overlap_claim": (
+                "overlapping engine-core admission-to-first-token windows; "
+                "not a claim of simultaneous GPU kernel execution"
+            ),
             "request_evidence_available": available,
             "request_count": len(rows),
             "physical_eviction_count": len(run_evictions),
@@ -203,10 +316,7 @@ def build_t1_audit(
             "p5_unmapped_eviction_count": len(run_evictions) - mapped,
             "forced_release_decision_count": len(_events(run, "FORCED_RELEASE_DECISION")),
         }
-    trace_hashes = {str(run.manifest.get("trace_sha256")) for run in runs}
-    git_hashes = {str(run.manifest.get("git_sha")) for run in runs}
-    comparability = len(trace_hashes) == 1 and len(git_hashes) == 1
-    gate_pass = gate_pass and comparability
+    gate_pass = gate_pass and comparability["status"] == "PASS"
     missingness = {
         run.run_id: {
             "expected_requests": len(by_run[run.run_id]),
