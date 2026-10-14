@@ -1130,6 +1130,7 @@ class MinimalMetalObservabilityBackend:
             "token_count": len(token_ids),
             "reusable_prefix_token_count": reusable_prefix_tokens,
             "materialization": "deterministic_token_ids",
+            "submitted_token_ids_sha256": token_ids_sha256(token_ids),
         }
         if self._phase2b_content_keys is not None and request.kind == "turn":
             payload.update(
@@ -1138,7 +1139,6 @@ class MinimalMetalObservabilityBackend:
                         request.program_id
                     ],
                     "prefix_generator_version": PREFIX_GENERATOR_VERSION,
-                    "submitted_token_ids_sha256": token_ids_sha256(token_ids),
                     "submitted_prefix_token_ids_sha256": token_ids_sha256(
                         token_ids[: reusable_prefix_tokens]
                     ),
@@ -1154,7 +1154,6 @@ class MinimalMetalObservabilityBackend:
                     "prefix_segment_content_keys": [key for key, _tokens in segments],
                     "prefix_segment_token_counts": [tokens for _key, tokens in segments],
                     "prefix_generator_version": PILOT_PREFIX_GENERATOR_VERSION,
-                    "submitted_token_ids_sha256": token_ids_sha256(token_ids),
                     "submitted_prefix_token_ids_sha256": token_ids_sha256(
                         token_ids[: reusable_prefix_tokens]
                     ),

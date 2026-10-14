@@ -68,26 +68,66 @@ def _lifecycle_overlap_seconds(run: RawRunArtifacts) -> float:
     )
 
 
-def _native_execution_overlap_seconds(rows: Sequence[Mapping[str, object]]) -> float:
+def _native_execution_overlap(rows: Sequence[Mapping[str, object]]) -> dict[str, object]:
     intervals = [
-        (
-            float(row["native_scheduler_admission_timestamp"]),
-            float(row["native_first_token_timestamp"]),
-        )
+        {
+            "request_id": str(row["request_id"]),
+            "native_request_id": row.get("native_request_id"),
+            "native_hash_process_id": row.get("native_hash_process_id"),
+            "clock_domain": row.get("native_clock_domain"),
+            "start": float(row["native_scheduler_admission_timestamp"]),
+            "end": float(row["native_first_token_timestamp"]),
+        }
         for row in rows
         if not str(row["request_id"]).startswith("pressure:")
         and row.get("native_clock_domain") == "engine_core_monotonic"
         and row.get("native_scheduler_admission_timestamp") is not None
         and row.get("native_first_token_timestamp") is not None
     ]
-    return max(
+    candidates = [
         (
-            min(left[1], right[1]) - max(left[0], right[0])
-            for index, left in enumerate(intervals)
-            for right in intervals[index + 1 :]
-        ),
-        default=0.0,
+            min(float(left["end"]), float(right["end"]))
+            - max(float(left["start"]), float(right["start"])),
+            left,
+            right,
+        )
+        for index, left in enumerate(intervals)
+        for right in intervals[index + 1 :]
+    ]
+    overlap, left, right = max(
+        candidates,
+        key=lambda item: item[0],
+        default=(0.0, None, None),
     )
+    identities_valid = bool(
+        left
+        and right
+        and left["request_id"] != right["request_id"]
+        and left["native_request_id"]
+        and right["native_request_id"]
+        and left["native_request_id"] != right["native_request_id"]
+        and left["native_hash_process_id"]
+        and left["native_hash_process_id"] == right["native_hash_process_id"]
+        and left["clock_domain"] == right["clock_domain"] == "engine_core_monotonic"
+    )
+    return {
+        "overlap_seconds": max(0.0, overlap),
+        "identity_checks_pass": identities_valid,
+        "left": left,
+        "right": right,
+    }
+
+
+def _materialized_digests(run: RawRunArtifacts) -> dict[str, str | None]:
+    result: dict[str, str | None] = {}
+    for row in _events(run, "BACKEND_INPUT_MATERIALIZED"):
+        request_id = row.get("request_id")
+        payload = row.get("payload")
+        if not isinstance(request_id, str) or not isinstance(payload, dict):
+            continue
+        digest = payload.get("submitted_token_ids_sha256")
+        result[request_id] = digest if isinstance(digest, str) and digest else None
+    return result
 
 
 def _config_comparability(runs: Sequence[RawRunArtifacts]) -> dict[str, object]:
@@ -147,17 +187,47 @@ def _config_comparability(runs: Sequence[RawRunArtifacts]) -> dict[str, object]:
         and len({str(row[field]) for row in manifests}) == 1
         for field in ("git_sha", "trace_sha256")
     }
+    digests = [_materialized_digests(run) for run in runs]
+    digest_request_ids_equal = set(digests[0]) == set(digests[1]) == set(request_sets[0])
+    digest_values_equal = digest_request_ids_equal and all(
+        digests[0][request_id] == digests[1][request_id]
+        for request_id in request_sets[0]
+    )
+    all_digests_present = digest_request_ids_equal and all(
+        digests[arm][request_id]
+        for arm in (0, 1)
+        for request_id in request_sets[0]
+    )
     checks = {
         "expected_request_ids_equal": request_sets[0] == request_sets[1]
         and bool(request_sets[0]),
         **{f"config_{key}_equal": value for key, value in field_checks.items()},
         **{f"runtime_{key}_equal": value for key, value in runtime_checks.items()},
         **{f"nonempty_{key}_equal": value for key, value in sha_checks.items()},
+        "materialized_digest_request_ids_equal": digest_request_ids_equal,
+        "materialized_digest_values_equal": digest_values_equal,
     }
+    strict_checks = {**checks, "all_materialized_digests_nonempty": all_digests_present}
+    status = (
+        "COMPARABLE"
+        if all(strict_checks.values())
+        else (
+            "COMPARABLE_WITH_LEGACY_PRESSURE_DIGEST_LIMITATION"
+            if all(checks.values())
+            and all(
+                value is not None
+                for digest_map in digests
+                for request_id, value in digest_map.items()
+                if not request_id.startswith("pressure:")
+            )
+            else "NOT_COMPARABLE"
+        )
+    )
     return {
-        "status": "PASS" if all(checks.values()) else "FAIL",
-        "checks": checks,
+        "status": status,
+        "checks": strict_checks,
         "expected_request_ids": request_sets[0] if request_sets[0] == request_sets[1] else request_sets,
+        "materialized_token_digests": digests,
         "intentional_differences": {
             "policy": [config.get("policy") for config in configs],
             "retention_mode": [_runtime_mode(run) for run in runs],
@@ -286,14 +356,17 @@ def build_t1_audit(
         run_evictions = [row for row in evictions if row["run_id"] == run.run_id]
         mapped = sum(row["prefix_position_status"] == "MAPPED" for row in run_evictions)
         expected_mode = "native" if policy == "native-lru" else "controlled"
-        native_overlap = _native_execution_overlap_seconds(rows)
+        native_overlap = _native_execution_overlap(rows)
         checks = {
             "execution_success": run.manifest.get("execution_status") == "success",
             "request_completeness": len(rows) == 5 and run.manifest.get("completion_count") == 5,
             "native_token_evidence_complete": available == len(rows),
             "native_timestamps_complete": timing == len(rows),
             "request_lifecycle_overlap_observed": _lifecycle_overlap_seconds(run) > 0,
-            "native_admission_to_first_token_overlap_observed": native_overlap > 0,
+            "native_admission_to_first_token_overlap_observed": (
+                native_overlap["overlap_seconds"] > 0
+                and native_overlap["identity_checks_pass"] is True
+            ),
             "retention_mode_matches_baseline": _runtime_mode(run) == expected_mode,
             "pre_eviction_content_identity_observed": bool(run_evictions)
             and all(row["native_cache_key_before"] for row in run_evictions),
@@ -304,7 +377,7 @@ def build_t1_audit(
             "checks": checks,
             "peak_inflight": run.manifest.get("peak_inflight"),
             "maximum_request_lifecycle_overlap_seconds": _lifecycle_overlap_seconds(run),
-            "maximum_native_admission_to_first_token_overlap_seconds": native_overlap,
+            "native_admission_to_first_token_overlap": native_overlap,
             "native_overlap_claim": (
                 "overlapping engine-core admission-to-first-token windows; "
                 "not a claim of simultaneous GPU kernel execution"
@@ -316,7 +389,10 @@ def build_t1_audit(
             "p5_unmapped_eviction_count": len(run_evictions) - mapped,
             "forced_release_decision_count": len(_events(run, "FORCED_RELEASE_DECISION")),
         }
-    gate_pass = gate_pass and comparability["status"] == "PASS"
+    gate_pass = gate_pass and comparability["status"] in {
+        "COMPARABLE",
+        "COMPARABLE_WITH_LEGACY_PRESSURE_DIGEST_LIMITATION",
+    }
     missingness = {
         run.run_id: {
             "expected_requests": len(by_run[run.run_id]),
