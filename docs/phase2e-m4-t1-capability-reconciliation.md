@@ -32,6 +32,129 @@ T2 的**第一项**要求（§E）。
 
 ---
 
+## 0.5 分支推进后的复核（rev.2，2026-10-14）
+
+⚠️ **本节是对全文的时效性修正，请优先阅读。**
+
+### 0.5.1 版本落差（必须记录）
+
+M1 审查的是 M6 的提交 **`228f940`**。但 M6 的分支
+`feature/phase2e-m6-native-baseline-characterization` 已推进到 **`306c0cb`**，
+其中两个提交**直接回应了 RC1/RC2/RC4**：
+
+| 提交 | 内容 |
+| --- | --- |
+| `5c3caef` | *fix: complete Phase 2E joint freeze checks* —— 新增 `_config_comparability`、`_native_execution_overlap_seconds`、targeted forced-release fixture 与 materializer |
+| `306c0cb` | *test: verify Phase 2E forced release evidence chain* —— 新增 RC4 专用审计与测试 |
+
+**实测确认**：在 `228f940` 上检索 `expected_request_ids_equal` / `nonempty_*` /
+`runtime_*_equal` / `_native_execution_overlap`
+⇒ **全部不存在**（`git show 228f940:src/kvopt/profiling/phase2e_fidelity.py` 无命中）。
+⇒ 因此 M1 关于「当前 audit 仅通过 trace SHA / Git SHA 检查配对条件」的描述
+**对 `228f940` 成立，对分支 tip 已不成立**。
+
+⚠️ 本文件 §B.1、§E.3 是按 `228f940` 状态写的，**下述复核取代其相应条目**。
+
+### 0.5.2 RC1 — 已**大幅**落实（超出 M1 描述）
+
+`_config_comparability` 实际执行的检查（`phase2e_fidelity.py:93-175`）：
+
+| M1 的 RC1 条目 | 对应检查 | 判定 |
+| --- | --- | --- |
+| 1. 相同 materialized workload / expected request IDs | `expected_request_ids_equal` —— **请求 ID 集合**（非总数）相等，且**要求非空** | ✅ |
+| 2. 相同模型 / tokenizer / KV 容量 / block size | `config_model_equal`、`config_tokenizer_equal`、`config_cache_equal`；`runtime_block_size_equal`、`runtime_cache_block_override_equal`、`runtime_gpu_memory_utilization_equal` | ✅ |
+| 3. 相同 generation / runtime parameters | `config_generation_equal`、`config_batching_equal`、`config_seed_equal`、`config_runtime_mode_equal`、`config_backend_revision_equal` | ✅ |
+| 4. 真实执行环境 / 版本 / 资源配置 | `runtime_vllm_release_version_equal`、`runtime_vllm_metal_distribution_version_raw_equal`、`runtime_vllm_metal_source_commit_equal`、`runtime_platform_plugin_identity_equal`、`runtime_platform_plugin_class_equal`、`runtime_metal_paged_kv_enabled_equal`、`runtime_engine_core_observation_topology_equal` | ✅ |
+| 5. 两臂 instrumentation 开销与配置差异 | `intentional_differences`（记录 `policy` / `retention_mode` / `phase2e_stage.baseline` / `config_sha256`）+ 一段**定性** `instrumentation_difference_assessment` | ⚠️ **部分** |
+| SHA 非空且一致，不得「双方均缺失视为可比」 | `nonempty_git_sha_equal`、`nonempty_trace_sha256_equal` —— 实现为 `all(isinstance(...) and row.get(field))` **且** 集合大小为 1 | ✅ |
+
+⇒ **RC1 的 1–4 项与 SHA 规则已被落实**；仅第 5 项仍为定性。
+
+**仍然缺的一项（我先前 §B.2 的 C2 主张仍有效）**：`trace_sha256` 只能证明**输入文件**相同，
+不能证明**实际提交给 tokenizer 的 token 序列**相同。逐请求 `submitted_token_ids_sha256`
+（`BACKEND_INPUT_MATERIALIZED` 事件已带该字段）**未被该审计比对**。
+⇒ 这仍是「same materialized workload」在 **token 级**的残余缺口。
+
+### 0.5.3 RC2 — 已改为 **admission 级**，但**缺一项 E4 已有的身份校验**
+
+M6 新增的 `_native_execution_overlap_seconds`（`phase2e_fidelity.py:71-92`）：
+
+```python
+intervals = [(native_scheduler_admission_timestamp, native_first_token_timestamp) ...]
+overlap  = max(min(left1,right1) - max(left0,right0))
+```
+
+对比 Phase 2D E4 的既有定义（`src/kvopt/profiling/phase2d_e4.py:73-83`）：
+
+```python
+overlap = min(completed_at) - max(scheduler_admission_at)     # admission -> completion
++ 且校验：distinct native_request_id、同一 native_hash_process_id
+```
+
+| 项 | E4（Phase 2D） | T1（Phase 2E） |
+| --- | --- | --- |
+| 区间 | admission → **completion** | admission → **first_token** |
+| `native_request_id` 相异 | ✅ 校验 | ❌ **未校验** |
+| 同 `native_hash_process_id` | ✅ 校验 | ❌ **未校验**（仅在 clock domain 上过滤） |
+
+评定：
+
+- ✅ **已不再是 M1 批评的 `SUBMITTED → COMPLETED` 生命周期重叠**；
+- ✅ 审计自带诚实声明：`"overlapping engine-core admission-to-first-token windows; not a claim of simultaneous GPU kernel execution"` —— 符合 M1 的要求；
+- ⚠️ **但缺 E4 的两项身份校验**。而「已验证的 native in-flight 证据」恰恰要求身份可核。
+- 附带说明：因 `max_new_tokens = 1`，`admission→first_token` 与 `admission→completion` 在 T1 中**几乎重合**，
+  故定义之差在当前 fixture 上不构成问题。
+
+⇒ **RC2 的最小修法是把 E4 的两行身份校验并入 T1 的 overlap 检查**（不是新建插桩）。
+
+### 0.5.4 RC4 — **装置已就绪，只差一次 run**
+
+`5c3caef` 新增 `configs/phase2/phase2e-t1-targeted-forced-release-v1.json`
+与 `phase2e_t1_targeted_materialize.py`（2 program × 2 turn、共享前缀、`tool_gap_seconds`）。
+`306c0cb` 新增专用审计 `phase2e.t1_rc4_forced_release_audit.v1`，其 `checks` 恰为 M1 要求的链条：
+
+```text
+single_real_forced_release_decision
+candidate_geometry_present                 (>= 2)
+selected_logical_release_present
+selected_blocks_became_physically_evicted
+decision_precedes_selected_physical_evictions
+selected_evictions_have_pre_eviction_identity
+selected_evictions_map_to_selected_prefix
+```
+
+并显式声明 `content_level_counterfactual_causality: NOT_CLAIMED`、
+`physical_event_persisted_logical_owner: NOT_OBSERVABLE`
+（与我在任务 A §4.2 的 R1/R2 规则一致）。
+
+⇒ **RC4 从「需补能力」降级为「需执行并出证」**。这是本次复核最重要的状态变化。
+
+### 0.5.5 我在任务 A 中提出的 R1–R5，T1 的满足情况
+
+| 我的要求 | T1 状态 |
+| --- | --- |
+| **R1** 三个时间戳齐备 | ✅ 审计以 `native_timestamps_complete` 作为 gate 项 |
+| **R2** 淘汰时刻内容身份 | ✅ `pre_eviction_content_identity_observed` 为 gate 项，且已提供 |
+| **R3** logical owners | ⛔ 仍 `NOT_OBSERVABLE`（M6 声明），符合「允许保留」 |
+| **R4** 至少一个并发 > 1 的臂 | ✅ `max_concurrent_requests: 2` |
+| **R5** agent 空闲间隔 + 多轮增长 | ✅ 物化器写入 `tool_gap_seconds: 1.0` 与 `{program}-turn-2-growth` |
+
+⇒ **T1 已满足我提出的 5 项中的 4 项**，R3 为 M1 已允许的例外。
+
+### 0.5.6 复核对结论的影响
+
+§D 的推荐**不变**（仍为 `TARGETED_SMOKE_REQUIRED`），但**理由收窄为一条半**：
+
+1. ~~RC1 未落实~~ ⇒ **已落实**（§0.5.2）；
+2. ~~RC2 证据不足~~ ⇒ **已改善**，仅缺身份校验（§0.5.3）；
+3. ✅ **仍成立**：核心机制未被实例化（T1 无 `FORCED_RELEASE_DECISION`）—— RC4 装置虽就绪但**未执行**；
+4. ✅ **仍成立**：T1 archive 未获我独立核验（RC5）；
+5. ✅ **仍成立**：P5 覆盖 1/7 且分散，位置类结论不可判定。
+
+⚠️ 因此 §E 的「T2 最小定向 Smoke 规格」已**大幅缩水**：原本要求「新建」，现在多为「执行 + 补两行校验」。
+
+---
+
 ## A. Metrics — 哪些 A1/A2 指标已可算
 
 ### A.1 已可算（T1 摘要已声明具备的字段足以支撑）
@@ -71,6 +194,11 @@ T2 的**第一项**要求（§E）。
 ## B. Comparability — 配对条件是否充分
 
 ### B.1 M1 列的 5 项：我的逐项裁定
+
+⚠️ **rev.2 更新（见 §0.5.2）**：下表「是否充分 = 否」的三项中，**第 1–4 项已在 M6 的
+`5c3caef` 中由 `_config_comparability` 实现；第 5 项仍为定性**。
+**唯一残余缺口是第 1 项的 token 级强度**（逐请求 `submitted_token_ids_sha256` 未被比对，见 §B.2 的 C2）。
+下表保留为**判据设计说明**，其「当前是否具备」请以 §0.5.2 为准。
 
 | M1 项 | 是否**必要** | 是否**充分** | M4 意见 |
 | --- | --- | --- | --- |
@@ -187,6 +315,11 @@ snapshot 与 eviction 不同时刻 / 该块 hash 已被移除 / hash 不在该�
 
 ### C.3 Forced-release decision（`NOT_DEMONSTRATED`）
 
+⚠️ **rev.2 更新（见 §0.5.4）**：该状态对 **T1 smoke** 仍然成立（T1 确无 decision），
+但 M6 已在 `5c3caef` / `306c0cb` 中**建成** targeted fixture 与
+`phase2e.t1_rc4_forced_release_audit.v1`（7 项 checks 恰为下述链条）。
+⇒ 本节的「不可测」**降级为「待执行」**：能力已就绪，缺的是一次 native run 及其证据。
+
 ⚠️ **这是本轮最重要的限制。**
 
 T1 **未产生 `FORCED_RELEASE_DECISION`** ⇒ 整条归因链从未被实例化：
@@ -232,81 +365,64 @@ FORCED_RELEASE_DECISION → selected logical release → eligibility → physica
 
 ---
 
-## E. T2 最小定向 Smoke — 一次性规格（给 M6）
+## E. T2 最小定向 Smoke — 一次性规格（rev.2：已缩水）
 
-⚠️ **一次性提出，不再拆分**。目标：**用一个最小的 run 集合同时消除 RC1–RC5 的阻塞**。
+⚠️ **本节已按 §0.5 改写。** 原版按 `228f940` 状态要求「新建」多项能力；
+实测表明 M6 已在 `5c3caef` / `306c0cb` 中建成大部分。因此**当前所需仅为「执行 + 补两处小缺口」**。
 
-### E.1 要求（按阻塞性排序）
+### E.1 所需（按阻塞性排序，共 4 项）
 
-| # | 要求 | 消除 | 最小可接受量 |
+| # | 项 | 状态 | 阻塞 |
 | --- | --- | --- | --- |
-| **E1** | **可访问的 T1 evidence archive**（含两臂原始 events、configs/manifests、fidelity-audit.json、request_evidence、physical_evictions、missingness、provenance、archive hash + 独立复算命令） | RC5 + §0 | **T1 归档本身**；附一个可复算命令 |
-| **E2** | **一次真实的 `FORCED_RELEASE_DECISION`**，并保存完整链：决策几何（`required_blocks`、`original_free_queue` 含 `native_lru_rank`、`candidates`）→ `selected_releases` → eligibility → physical eviction | RC4 + §C.3 | **≥1 个决策点**；建议复用 Phase 2D E2 fixture 的共享保留结构 |
-| **E3** | **两臂同 scenario 的配对**（Native LRU vs Continuum），且满足 §B.2 的 C1–C10 | RC1 + §B | **1 个 scenario**，每臂 2 次噪声重复 |
-| **E4** | **并发证据用 admission 级**：`native_scheduler_admission_timestamp → completion` 区间重叠 + native identity 校验 | RC2 | 复用 `src/kvopt/profiling/phase2d_e4.py:73-83` 的**现成定义**（见 §E.3） |
-| **E5** | **一个 entry 的完整 block→prefix position 映射** | RC3 + §C.1 | **≥1 个 entry 的全部块**（不是分散的点）；若可达则再加 **≥2 个 entry** 以查一般性 |
-| **E6** | 逐请求 `submitted_token_ids_sha256` 与 request-ID 集合导出 | §B.2 C1/C2 | 全量 |
+| **E1** | **执行 RC4 targeted forced-release fixture**（装置已存在，一条命令） | ⏳ **待执行** | RC4 的 `DEMONSTRATED` 判定；B1 的「集中淘汰」与「NGR/再分配」 |
+| **E2** | 把 **E4 的两行身份校验**并入 T1 的 `_native_execution_overlap_seconds`（`native_request_id` 相异 + 同 `native_hash_process_id`） | ⏳ **待补** | RC2「**已验证**的 native in-flight 证据」 |
+| **E3** | 在可比性审计中增加**逐请求 `submitted_token_ids_sha256`** 相等性（字段已在 `BACKEND_INPUT_MATERIALIZED`） | ⏳ **待补** | RC1 第 1 项的 **token 级**强度 |
+| **E4** | 提供 **T1 + RC4 的 evidence archive**（RC5 清单） | ⏳ **待提供** | Gate B 关闭的定义前提；我无法独立核验任何 SHA |
 
 ### E.2 明确**不**要求
 
 ```text
-❌ 不要求 P5 达到 100% 覆盖
-❌ 不要求新的插桩能力（E4/E5 原则上复用现有字段）
-❌ 不要求 six-family / 36 draws 规模
-❌ 不改 native ownership / B1 / 默认 Continuum 策略
+❌ 不新建 overlap 插桩（复用 E4 定义 + 已采集的 admission/first_token 时间戳即可）
+❌ 不要求 100% 的 P5 覆盖（§C.1 已裁定：允许限缩为受限结论）
+❌ 不要求 physical 级 logical owners（M1 已允许保留 NOT_OBSERVABLE）
+❌ 不改 native ownership、不解锁 B1、不改 Continuum 默认策略
 ❌ 不启动 144 次 measured campaign
 ```
 
-### E.3 ⭐ 对 RC2 的技术修正（我认为 M1 的判断需要更新）
+### E.3 P5：先**诊断 join 失败**，不要先补插桩
 
-M1 写：*"当前 `_overlap_seconds()` 依据 `SUBMITTED → COMPLETED` 计算区间重叠"*。
-
-我已逐行核对仓库实现，**E4 gate 实际不是这样**（`src/kvopt/profiling/phase2d_e4.py`）：
-
-```python
-overlap = max(0.0,
-    min(left["completed_at"], right["completed_at"])
-    - max(left["scheduler_admission_at"], right["scheduler_admission_at"]))   # :73-77
-# 且校验：submit <= admission <= completion          (:61)
-#        native_request_id 相异                        (:80-81)
-#        同一 native_hash_process_id                   (:82-83)
-#        pressure decision 在两个 completion 之后        (:116-119)
-```
-
-⇒ **E4 用的是 `scheduler_admission → completion`（真实原生时间戳）+ 身份校验**，
-比「submitted→completed」**强**。
-
-**因此 RC2 的修法应是「复用 E4 的现成定义」，而非新建插桩。**
-
-⚠️ **但残余缺口仍须声明**（我认同 M1 的底层关切）：
-admission→completion 重叠**不能排除**「二者被同时接纳但在 decode 阶段被顺序化」。
-⇒ 若无法获得逐 decode step 证据，主张应**限定**为
-「**两请求被并发接纳且 in-flight 区间正重叠**」，而**不是**「同时执行」。
-`peak_inflight=2` 可保留为该主张的**辅证**，但不得单独承担。
+§C.1 的判定在 rev.2 中**不变**：P5 缺口看起来是 **join 失败**（1/7）而非能力缺失。
+⇒ 请 M6 对这 6 次未命中各给一个 reason（snapshot 时刻不同 / hash 已移除 / 不在该请求快照内）。
+这比新增插桩便宜，且能直接决定 P5 是否需要定向 smoke。
 
 ### E.4 通过判据（T2）
 
 ```text
-PASS : E1 到位 且 E2 产生并保存完整决策链 且 E3 的 C1..C9 全满足
-      且 E4 给出 admission 级重叠 + 身份校验 且 E5 至少 1 个 entry 完整映射
-PARTIAL : E2/E3 满足，但 E5 仅部分  => 允许，位置类结论标 NOT_OBSERVABLE
-NOT_PASS : E1 或 E2 或 E3 任一未满足 => Gate B 不关闭
+E1 的 RC4 审计 status = PASS，且 7 项 checks 全通过；
+E2 的身份校验加入后，两臂 overlap > 0 且身份合法；
+E3 的逐请求 digest 集合相等；
+E4 archive 可访问、SHA 与交接一致、可由我独立复算。
 ```
 
-⇒ T2 通过后，**双方共同提交简短的 Joint Freeze Record**（合同 / runner / manifest / evaluator
-版本与 SHA + 已知观测缺口），随后才谈 measured campaign。
+⚠️ 全部通过**仍不等于** `READY_FOR_JOINT_FREEZE` —— 联合冻结记录还须写明
+**§C.3 已确认的观测缺口**（P5 覆盖、logical owners、无内容级反事实因果）。
 
 ---
 
-## F. 请求 M1 裁定
+## F. 请求 M1 裁定（rev.2）
 
-1. **D 的判定**：是否接受 `TARGETED_SMOKE_REQUIRED`（而非 `READY` 或 `BLOCKED`）？
-2. **§B.2 的 C1–C10**：是否采纳为联合冻结的可比性判据？
-   ⭐ 特别是 **C2（逐请求 `submitted_token_ids_sha256`）** 与 **C10（到达剖面）** 这两项我新增的条件。
-3. **§E.3 的 RC2 修正**：是否接受「复用 E4 的 admission 级定义」，
-   并把主张限定为「并发接纳 + in-flight 重叠」而非「同时执行」？
+1. **版本落差的处置**：M1 的 RC1/RC2 描述基于 `228f940`，而 M6 分支 tip `306c0cb`
+   已实现 `_config_comparability` 与 admission 级 overlap（§0.5.1–0.5.3）。
+   请确认**以分支 tip 为复核基准**，并把 RC1 记为「第 1–4 项已落实、第 5 项仍定性」。
+2. **§E 的最小清单（4 项）**：是否接受 rev.2 缩水后的 **E1–E4** 作为**唯一**一次定向 smoke？
+   ⭐ 其中 **E2（并入 E4 的两行身份校验）** 与 **E3（逐请求 digest 相等性）** 是我认为必须补的两处；
+   **E1（执行 RC4 fixture）** 是 RC4 从「待执行」转 `DEMONSTRATED` 的唯一路径。
+3. **§D 判定**：是否接受 `TARGETED_SMOKE_REQUIRED`（而非 `READY_FOR_JOINT_FREEZE`
+   或 `BLOCKED_BY_OBSERVABILITY`），但**理由收窄为「核心机制未实例化 + archive 未核验 + P5 覆盖分散」**？
 4. **§C.2 的层级切分**：是否接受 B3 **逻辑半边可做、物理半边 `NOT_OBSERVABLE`**？
-5. **§E 规格**：确认作为**唯一**一次 smoke 申请，不再拆分？
+5. **§C.1 的 P5 处置**：是否同意「**先诊断 6 次 join 失败**，而非先补插桩」？
+6. **联合冻结记录的内容**：是否确认须写明 §C.3 的三项观测缺口
+   （P5 覆盖、logical owners、无内容级反事实因果）？
 
 ---
 
