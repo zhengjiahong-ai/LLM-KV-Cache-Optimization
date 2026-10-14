@@ -99,6 +99,18 @@ def test_load_run_artifacts_reads_all_four_raw_sources(tmp_path: Path) -> None:
     assert [event["event_index"] for event in artifacts.events] == [0, 1]
 
 
+def test_load_run_artifacts_accepts_phase2e_t1_schema(tmp_path: Path) -> None:
+    run_dir = _write_valid_run(tmp_path)
+    manifest_path = run_dir / "run.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["schema_version"] = "phase2e.t1_run.v1"
+    _write_json(manifest_path, manifest)
+
+    assert load_run_artifacts(run_dir).manifest["schema_version"] == (
+        "phase2e.t1_run.v1"
+    )
+
+
 def test_load_run_artifacts_rejects_duplicate_event_index(
     tmp_path: Path,
 ) -> None:

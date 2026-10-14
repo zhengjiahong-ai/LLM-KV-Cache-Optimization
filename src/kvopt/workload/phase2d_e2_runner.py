@@ -94,9 +94,14 @@ def _run_phase2d_stage(
             timeout_seconds=180.0,
             pressure_safety_ceiling=int(config["pressure"]["safety_ceiling"]),
         )
+        requests_by_id = {request.request_id: request for request in trace.requests}
         with (output / "replay.jsonl").open("w", encoding="utf-8") as stream:
             for row in result.submissions:
-                stream.write(json.dumps(asdict(row), sort_keys=True) + "\n")
+                value = asdict(row)
+                request = requests_by_id.get(row.logical_request_id)
+                value["request_id"] = row.logical_request_id
+                value["kind"] = "pressure" if request is None else request.kind
+                stream.write(json.dumps(value, sort_keys=True) + "\n")
         manifest.update(
             execution_status="success",
             submission_count=len(result.submissions),
