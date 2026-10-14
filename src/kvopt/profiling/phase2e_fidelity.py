@@ -372,6 +372,107 @@ def build_t1_audit(
     return audit, tables
 
 
+def build_targeted_forced_release_audit(
+    run: RawRunArtifacts,
+) -> tuple[dict[str, object], list[dict[str, object]], tuple[dict[str, object], ...]]:
+    decisions = _events(run, "FORCED_RELEASE_DECISION")
+    evictions = build_physical_evictions(run)
+    if len(decisions) != 1:
+        raise ArtifactValidationError("targeted RC4 smoke requires one forced-release decision")
+    decision = decisions[0]
+    payload = decision.get("payload")
+    if not isinstance(payload, dict):
+        raise ArtifactValidationError("forced-release payload must be an object")
+    candidates = payload.get("candidates")
+    releases = payload.get("selected_releases")
+    if not isinstance(candidates, list) or not isinstance(releases, list) or not releases:
+        raise ArtifactValidationError("forced-release candidates/releases are incomplete")
+    decision_index = int(decision["event_index"])
+    selected_by_program = {
+        str(row["program_id"]): set(row.get("newly_eligible_block_ids", []))
+        for row in releases
+        if isinstance(row, dict) and row.get("program_id") is not None
+    }
+    candidate_rows = [
+        {
+            "run_id": run.run_id,
+            "decision_event_index": decision_index,
+            "program_id": row.get("program_id"),
+            "prefix_id": row.get("prefix_id"),
+            "block_ids": row.get("block_ids"),
+            "initially_reclaimable_block_ids": row.get("initially_reclaimable_block_ids"),
+            "eligibility_tier_observed": any(
+                item.get("eligibility_tier") is not None
+                and item.get("block_id") in set(row.get("initially_reclaimable_block_ids", []))
+                for item in payload.get("original_free_queue", [])
+                if isinstance(item, dict)
+            ),
+            "selected": str(row.get("program_id")) in selected_by_program,
+        }
+        for row in candidates
+        if isinstance(row, dict)
+    ]
+    next_non_pressure_submission = min(
+        (
+            int(row["event_index"])
+            for row in _events(run, "VLLM_REQUEST_SUBMITTED")
+            if int(row["event_index"]) > decision_index
+            and not str(row.get("request_id", "")).startswith("pressure:")
+        ),
+        default=max(int(row["event_index"]) for row in run.events) + 1,
+    )
+    selected_evictions = [
+        row
+        for row in evictions
+        if int(row["event_index"]) > decision_index
+        and int(row["event_index"]) < next_non_pressure_submission
+        and row.get("block_id")
+        in set().union(*selected_by_program.values())
+    ]
+    selected_blocks = set().union(*selected_by_program.values())
+    evicted_blocks = {row["block_id"] for row in selected_evictions}
+    mapped_programs = {row["source_program_id"] for row in selected_evictions}
+    checks = {
+        "execution_success": run.manifest.get("execution_status") == "success",
+        "single_real_forced_release_decision": len(decisions) == 1,
+        "candidate_geometry_present": len(candidate_rows) >= 2,
+        "selected_logical_release_present": bool(selected_by_program),
+        "selected_blocks_became_physically_evicted": selected_blocks <= evicted_blocks,
+        "decision_precedes_selected_physical_evictions": bool(selected_evictions)
+        and decision_index < min(int(row["event_index"]) for row in selected_evictions),
+        "selected_evictions_have_pre_eviction_identity": all(
+            row.get("native_cache_key_before") for row in selected_evictions
+        ),
+        "selected_evictions_map_to_selected_prefix": mapped_programs
+        == set(selected_by_program),
+    }
+    audit = {
+        "schema_version": "phase2e.t1_rc4_forced_release_audit.v1",
+        "scope": "NON_HOLDOUT_RESEARCH_DISCOVERY",
+        "status": "PASS" if all(checks.values()) else "FAIL",
+        "checks": checks,
+        "decision_event_index": decision_index,
+        "selected_programs": sorted(selected_by_program),
+        "selected_block_ids": sorted(selected_blocks),
+        "matched_physical_eviction_event_indices": [
+            row["event_index"] for row in selected_evictions
+        ],
+        "p5_mapped_selected_evictions": sum(
+            row["prefix_position_status"] == "MAPPED" for row in selected_evictions
+        ),
+        "p5_total_selected_evictions": len(selected_evictions),
+        "capability_boundaries": {
+            "forced_release_decision_geometry": "DEMONSTRATED",
+            "selected_release_to_physical_eviction_sequence": "DEMONSTRATED",
+            "physical_event_persisted_logical_owner": "NOT_OBSERVABLE",
+            "content_level_counterfactual_causality": "NOT_CLAIMED",
+        },
+        "measured_campaign_authorized": False,
+        "joint_freeze_complete": False,
+    }
+    return audit, candidate_rows, evictions
+
+
 def write_t1_package(*, run_root: Path, output_dir: Path) -> Path:
     run_dirs = sorted(path for path in run_root.iterdir() if path.is_dir())
     runs = tuple(load_run_artifacts(path) for path in run_dirs)
@@ -397,12 +498,48 @@ def write_t1_package(*, run_root: Path, output_dir: Path) -> Path:
     return path
 
 
+def write_targeted_package(*, run_dir: Path, output_dir: Path) -> Path:
+    run = load_run_artifacts(run_dir)
+    audit, candidates, evictions = build_targeted_forced_release_audit(run)
+    output_dir.mkdir(parents=True, exist_ok=False)
+    _write_json(output_dir / "forced-release-audit.json", audit)
+    _write_jsonl(output_dir / "decision_candidates.jsonl", candidates)
+    _write_jsonl(output_dir / "physical_evictions.jsonl", evictions)
+    files = sorted(path for path in output_dir.iterdir() if path.is_file())
+    path = output_dir / "manifest.json"
+    _write_json(
+        path,
+        {
+            "schema_version": "phase2e.t1_rc4_evidence_package.v1",
+            "audit_status": audit["status"],
+            "source_run_dir": str(run_dir.resolve()),
+            "files": [
+                {"path": item.name, "size_bytes": item.stat().st_size, "sha256": _sha256(item)}
+                for item in files
+            ],
+        },
+    )
+    return path
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--run-root", type=Path, required=True)
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--run-root", type=Path)
+    source.add_argument("--targeted-run-dir", type=Path)
     parser.add_argument("--output-dir", type=Path, required=True)
     arguments = parser.parse_args(argv)
-    path = write_t1_package(run_root=arguments.run_root, output_dir=arguments.output_dir)
+    if arguments.targeted_run_dir is not None:
+        path = write_targeted_package(
+            run_dir=arguments.targeted_run_dir,
+            output_dir=arguments.output_dir,
+        )
+    else:
+        assert arguments.run_root is not None
+        path = write_t1_package(
+            run_root=arguments.run_root,
+            output_dir=arguments.output_dir,
+        )
     print(f"wrote Phase 2E T1 evidence package: {path}")
     return 0
 
