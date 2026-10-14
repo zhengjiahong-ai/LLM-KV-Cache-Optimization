@@ -153,11 +153,10 @@ TTFT_i = (admission_i - queued_i)   +   (first_token_i - admission_i)
 | **A2.3** | `max_single_request_recomputed` | $\max_i \text{rec}_i$ | per-request | OFFLINE_DERIVED | D |
 | **A2.4** | `worst_agent_cumulative_recovery` | $\max_{a} \sum_{i \in a} \text{rec}_i$ | tokens | OFFLINE_DERIVED | D |
 | **A2.5a** | `native_miss_rate` | 请求中 `apc_outcome == MISS` 的比例 | share | OFFLINE_DERIVED（**派生标签**，见 §4.3 R3） | D |
-| **A2.5b** | `severe_loss_rate` | 请求中 `cached / prompt < θ` 的比例 | share | OFFLINE_DERIVED | D |
+| **A2.5b** | `severe_loss_rate` | 只在 $E_i>0$ 的可复用请求中统计 `(E_i-C_i)/E_i > 1-θ` 的比例；$E_i=0$ 为 `NOT_APPLICABLE_NO_ELIGIBLE_PREFIX` | share | OFFLINE_DERIVED | D |
 | **A2.6** | `inter_agent_concentration` | **top1_share** $=\max_a R_a / \sum_a R_a$ 与 **agent_gini** | share | OFFLINE_DERIVED | D |
 
-⚠️ **`θ = 0.25` 标为 `PROVISIONAL`**（「该 agent 几乎丢掉全部缓存」的判据），等待 M1 冻结。
-同时上报 `κ`-口径作为敏感性：`recomputed_tokens ≥ κ`、`κ = 512`（`PROVISIONAL`）。
+⚠️ `θ=0.25` 与 `κ=512`（基于 `E-C` 的绝对损失）仅为探索性敏感性参数，不是正式接受阈值，也不是具体 eviction 因果证据。必须报告 $E=0$、不适用数量及有效分母。
 
 ### 3.2 ⭐ 强制：尾部重计算量 vs 实际 P99 TTFT（M1 §A2 明确要求）
 
@@ -168,17 +167,16 @@ TTFT_i = (admission_i - queued_i)   +   (first_token_i - admission_i)
 | **A2.7** | `rho_recompute_ttft` | 请求级 $\rho_{\text{Spearman}}(\text{recomputed}_i, \text{TTFT}_i)$ |
 | **A2.8** | `tail_transfer_ratio` | $\dfrac{\text{p99 TTFT} / \text{median TTFT}}{\text{p99 rec} / \text{median rec}}$ |
 
-**读法**：`A2.8 ≈ 1` ⇒ 两侧尾部同形，token 指标可代理延迟；
-`A2.8 > 1` ⇒ **延迟尾部另有来源**（排队、调度、decode），token 指标**不可**代理延迟。
+**读法**：A2.8 仅描述两种指标相对于自身中位数的尾部放大程度；接近 1 不能证明 tokens 可代理 TTFT，超过 1 也不能直接归因于排队/调度。若分母所需中位数为零或缺失，标 `NOT_APPLICABLE`。
 
 ⇒ 任何「改善尾部」的主张**必须同时给出 A2.1 与 A2.2**，并报告 A2.7/A2.8。
 
 ### 3.3 集中度的口径说明
 
-`A2.6` 是**观测性**指标，**不需要**配对臂。它是判断「LRU 是否把损失压在少数 agent」的**唯一**直接量。
+`A2.6` 是**观测性的请求/Agent 损失分布**指标，不需要配对臂，但不能单独证明 LRU 物理淘汰集中。应同时上报 Agent 请求数与可复用前缀总量。
 
 ⚠️ 与 RR-EVICT 理论模型的落差须显式报告：其模型预测 LRU 令 $q$ 比例的 agent **全量**受损；
-若实测 `top1_share` 温和（既非 1.0 也非 $1/n$），则**该模型与我们的 workload 不完全匹配**，必须说明。
+`top1_share` 与论文归一化单请求损失变量不是同一种量，不能直接用 1.0 对比判定模型是否匹配；必须考虑 Agent 数量、活动次数与可复用内容长度。
 
 ---
 
@@ -287,9 +285,9 @@ VIOLATIONS                                              : 0
 
 $$\rho_{\text{Spearman}}(\text{recomputed}, \text{TTFT}) = \mathbf{0.4327}$$
 
-⇒ ⭐ **实证支持 M1 的警告**：token 成本与延迟**相关但远非等比例**（$\rho = 0.43$）。
+⇒ 旧 H1 的**报告性探索结果**提示 token 与延迟并非严格同序（$\rho = 0.43$）。此处 probe 位于 `local/`，未纳入 PR；Phase 2E 需要由归档与 evaluator 可复算，不能据此作新方法的性能主张。
 `tail_transfer_ratio`（A2.8）在 p95 上 $= 8.94/5.61 \approx 1.59 > 1$
-⇒ **延迟尾部另有来源**，token 指标**不可**直接代理 P99 TTFT。
+⇒ 两种分位放大程度不同，但不足以定量归因其来源，因此必须直接上报真实 TTFT。
 
 ### 6.4 集中度（A2.6）
 
@@ -299,8 +297,7 @@ $$\rho_{\text{Spearman}}(\text{recomputed}, \text{TTFT}) = \mathbf{0.4327}$$
 | top-3 agent 占比 | 59.8% |
 | 单 run 内 max-agent share | median **0.359**，max **0.715** |
 
-⇒ **集中真实但温和**：既远离「均匀」（$1/n$），也**远未达到** RR-EVICT 模型预测的
-「少数 agent 全量受损」（$1.0$）。⇒ **该模型与我们的 workload 不完全匹配，必须显式报告此落差**（§3.3）。
+⇒ 这是旧 H1 的 Agent 累计重算占比，不能与 RR-EVICT 理想模型的单请求归一化损失值 1.0 直接比较；活动次数、Agent 数量与已知 workload fidelity 限制均须注明。
 
 ---
 
@@ -314,12 +311,14 @@ $$\rho_{\text{Spearman}}(\text{recomputed}, \text{TTFT}) = \mathbf{0.4327}$$
 | --- | --- | --- | --- |
 | **O1** | 每个请求保留 `native_queued_timestamp` / `native_scheduler_admission_timestamp` / `native_first_token_timestamp` | A1.3、A1.4、A1.6、A2.2、A2.7、A2.8 | ✅ Phase 2C/2D 已有，**须在 Phase 2E 保持** |
 | **O2** | **开启 `_content_evidence_enabled`**，使**淘汰时刻**持久化 pre-eviction native hash | A3 环节 4 的**具体归因**（R1） | ❌ legacy 模式不可用；需 opt-in |
-| **O3** | 淘汰时刻记录 **logical owners** | A3 环节 3→4 的衔接、B3 marginal capacity | ❌ 能力矩阵声明 `UNAVAILABLE` |
+| **O3** | 在 Continuum 下观测淘汰时刻的 logical retention owners；Native LRU 不要求同样的 protected-entry 语义 | A3 环节 3→4、B3 marginal capacity | ⚠️ native smoke 确认只读可用性 |
 | **O4** | 每请求保留 `program_id` 与 `turn_index` | A2.4、A2.6、B1/B2 的 agent 归组 | ✅ 有；须保持 |
 | **O5** | `FORCED_RELEASE_DECISION` 保留 `required_blocks` / `original_free_queue`（含 `native_lru_rank`）/ `candidates` | A1 与 A3 全部候选分析 | ✅ 有；须保持 |
 | **O6** | workload 表达 **agent 空闲间隔**（inter-turn gap），并记录 | P2 regime 判定、B1 | ✅ `tool_gap_seconds` 存在；**须真正落在时间线上** |
 | **O7** | 同一 scenario 内同一 native hash process，且记录 process id | 时序有效性（R1 条件 a） | ✅ 有 |
-| **O8** | 至少一个**并发 >1** 的臂 | A1.6 队列分量、A2.8 传递率（否则退化） | ❌ H1 为 `max_concurrent_requests = 1` |
+| **O8** | 至少一个有真实 admission/completion overlap 的并发 >1 场景 | A1.6 队列分量、A2.8 传递率（否则退化） | ❌ H1 为 `max_concurrent_requests = 1` |
+
+**O12（P5 必需）**：保留带有 native content hash/process 身份及观测时刻的 `block → logical prefix position / token range` 映射、有序 prefix hash chain 和 slot reuse 防护；绝不以 LRU rank 代替前缀位置。只读 instrumentation 与 smoke 可在既有授权内开展，缺失则 P5 记 `NOT_OBSERVABLE`。
 
 ### 7.2 重要但非阻塞
 
@@ -362,13 +361,11 @@ B1 runtime 修改、native ownership 改动、重开 H1/H2、正式 holdout camp
 
 ### 请求 M1 裁定
 
-1. **`PROVISIONAL` 阈值**：`severe_loss` 的 $\theta = 0.25$ 与敏感性 $\kappa = 512$ tokens 是否认可？
-2. **`NGR` 口径**（A1.9）与 `REDISTRIBUTION_DOMINATED` 的 $0.5$ 门线是否认可？
-3. **D/I 双视图**：确认**推断性主张仅用 I 视图**（每次 draw 内先算分位）？
-4. **观测需求 O2/O3/O8**：是否批准向 M6 提出这三项（其中 **O2 是 A3 具体归因的硬前置**）？
-   若 O2 不批准，则 `A3` 中对具体淘汰的归因在 Phase 2E **仍为 `NOT_IDENTIFIABLE`**，
-   须在最终报告中据此限缩结论。
-5. **A2.8 传递率**：确认「**A2.1 与 A2.2 必须成对上报、禁止互相代理**」为强制项？
+1. θ=0.25 与 κ=512 仅认可作探索性敏感性参数，非正式验收阈值。
+2. NGR 仅作净/毛变化诊断；不批准 0.5 硬判据，以带符号的 aggregate delta 判断变化方向。
+3. D/I 双视图认可；本轮均非高置信度 P99 推断，正式统计协议另行冻结。
+4. O2/O3/O8/O12：允许 M6 开展只读 instrumentation、内容身份和并发/P5 smoke，不得修改 native ownership。
+5. Recomputation 与 TTFT 必须成对上报，不得互相代理。
 
 ---
 
