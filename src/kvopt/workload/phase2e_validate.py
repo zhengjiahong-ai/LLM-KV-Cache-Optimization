@@ -52,12 +52,27 @@ def validate_phase2e_campaign(manifest_path: Path) -> dict[str, object]:
         )
         if pair_shape != expected_shape:
             raise ValueError(f"invalid pair/repeat shape: {scenario_id}")
+        if sorted(scenario.get("run_ids", [])) != sorted(row["run_id"] for row in rows):
+            raise ValueError(f"manifest run identity mismatch: {scenario_id}")
         configs = []
         for row in rows:
             config_path = root / str(row["config"])
             if _sha(config_path) != row.get("config_sha256"):
                 raise ValueError(f"config hash mismatch: {row['run_id']}")
-            configs.append(json.loads(config_path.read_text(encoding="utf-8")))
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+            stage = config.get("phase2e_stage", {})
+            if (
+                config.get("policy") != row["baseline"]
+                or config.get("trace") != row["trace"]
+                or stage.get("scenario_id") != scenario_id
+                or stage.get("baseline") != row["baseline"]
+                or stage.get("family") != scenario["family"]
+                or stage.get("repeat") != row["repeat"]
+                or stage.get("draw") != scenario["draw"]
+                or stage.get("execution_order") != row["execution_order"]
+            ):
+                raise ValueError(f"manifest/config identity mismatch: {row['run_id']}")
+            configs.append(config)
         reference = configs[0]
         stable_fields = ("model", "tokenizer", "generation", "batching", "cache", "backend_options", "trace")
         paired_equal = all(
