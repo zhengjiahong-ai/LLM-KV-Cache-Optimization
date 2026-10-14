@@ -37,7 +37,7 @@
 
 | 前提 | 判据 | 实测 | 判定 |
 | --- | --- | --- | --- |
-| **P1** recency 同步 | entry 内 `native_lru_rank` 是否连续 | **候选 entry 的块在 LRU 序中 100% 连续（87/87 决策）** | ✅ **成立（形式比论文更强）** |
+| **P1** recency 同步 | entry 内 `native_lru_rank` 是否连续 | **候选 entry 的块在 LRU 序中 100% 连续（87/87 决策）** | ✅ **H1 受检快照中成立（不同于论文时间同步条件）** |
 | **P4** 多个 idle entry | 决策时可选 entry 数 | 每决策 median **3**、max **6**（1 个的仅 6/87） | ✅ **成立** |
 | **P2** 进入可用区间 | $n_a<m<n$ | q 中位数 **0.500**；**55.2%** 落在 $0.05<q<0.80$ | ✅ **部分成立** |
 | **P3** 分位条件 | $q>1-p$（P99 ⇒ $q>0.01$） | 62.1% 的决策可用 Eq 2–3 公式；**理想模型计算的示意性 P99 降幅中位数 50.0%，非性能预测** | ✅ **成立（限于 q≤1 的 62.1%）** |
@@ -137,7 +137,7 @@ $$n_a<m<n$$
 | Agent 级缓存组 | 一个 `RetentionEntryKey` 的全部 `block_ids` | ✅ 有 |
 | Tail chunk 回收 | **entry 的尾部若干 block 的部分回收** | ❌ **不支持**（见 §4.1） |
 | Completion signal | lifecycle / 完成信号 | ⚠️ 未使用 |
-| Recency tiering（论文的退路） | **我们已有显式 `deadline_timestamp`** → 可做**deadline 分层 + 组内轮转** | ✅ **比论文的退路更强** |
+| Recency tiering（论文的退路） | **我们已有显式 `deadline_timestamp`** → 可做**deadline 分层 + 组内轮转** | ⚠️ **待验证：deadline 不等于真实 completion signal** |
 
 **一个正面发现**：论文的 recency tiering 只是用「最后访问时间」**近似**「是否陈旧」；而我们的 baseline **已有显式 `deadline_timestamp`**（来自 Continuum retention）。⇒ 我们的「deadline 分层 + 组内轮转」是**一个可供测试的替代分层信号**；TTL deadline 不等于 Agent completion/失活真值，不能预设其效果优于论文的分层机制。
 
@@ -158,7 +158,7 @@ return (entry.deadline_timestamp, native_key, key.sort_key)
 | 决策时输入 | `deadline`、newly-eligible 块的**最小** LRU 秩、逻辑身份 | `deadline`（**保留为分层**）+ **entry 轮转游标** + 候选**尾块** | ✅ |
 | 是否需要预测未来 | 否 | **否** | 两者都不用 ✅ |
 | 释放粒度 | **整 entry**（`released_keys.add(key)`，循环至满足 `required_blocks`） | **entry 尾部子集** | ⚠️ **需扩展，见 §6** |
-| 优化目标 | **均值** | **尾部 P99** | ⭐ **协议级差异** |
+| 优化目标 | **均值** | **尾部 P95/P99（探索性增加，均值保留）** | ⭐ **评价维度差异** |
 | 是否用共有多重度 | 仅用于**资格**判定 | 可用于**排序** | ✅ 已存在但未利用 |
 
 ### 4.2 关键洞察：tail-first 天然保护「共享头」
@@ -201,8 +201,8 @@ return (entry.deadline_timestamp, native_key, key.sort_key)
 ### 5.2 共有多重度 ⇒ tail chunk 未必是私有的
 
 论文的 tail chunk 是私有后缀。我们的共享结构在**根部**，故 tail-first 兼容（§4.2）。
-但**一般情形**下，若两个 entry 的共享段落在尾部，回收 A 的尾块会**同时缩短 B**。
-⇒ 需要一个「**共同引用度加权**的轮转」，而非朴素轮转。这是**论文未覆盖**的情形，也是我们独有数据（`_entries_by_block`）**已经算好但未使用**的信息。
+但**一般情形**下，若 A 的候选尾块仍被 B 有效持有，释放 A 不一定使该块具备物理淘汰资格，更不能自动断定会缩短 B。
+⇒ 是否需要结合**多 owner、边际可回收容量与尾部损失**进行调度，是待实验证明的扩展问题；不能预设简单共引用度加权优于朴素轮转。
 
 ---
 
@@ -218,7 +218,7 @@ return (entry.deadline_timestamp, native_key, key.sort_key)
 | 判据 | 均值改善 + CI 下界 > 0 | **P99 改善 + bootstrap CI（同 seed 20261007）** |
 
 ⚠️ **这是对冻结接受协议的修改**，必须由 M1 裁定（§8 决策 1）。
-⚠️ 依论文，**均值对比预期为「无差异」**，因此**不得**把「均值未改善」当作否证。
+⚠️ 论文的均值恒等仅适用于其理想模型，不预设异构/共享 workload 中均值没有差异；探索性阶段同时记录均值与尾部，正式目标和统计协议另行冻结。
 
 ### 6.2 淘汰规则（最小形态）
 
@@ -226,13 +226,13 @@ return (entry.deadline_timestamp, native_key, key.sort_key)
 在 FORCED_RELEASE_DECISION：
   1. 按 deadline 分层（保留基线的第一分量语义）
   2. 层内：按 entry 轮转游标取一个「tail chunk」
-  3. tail chunk = 该 entry 中 native_lru_rank 最差（最冷）的 k 个 block
-     且必须使剩余部分仍是连续可用前缀
+  3. tail chunk = 根据 entry 的**前缀内逻辑位置**选取末尾 k 个可回收块
+     且必须保证剩余部分仍是连续可复用前缀；不能把 LRU 秩直接当成前缀位置
   4. 轮转游标 push-back，直至 required_blocks 满足
 ```
 
 **新增状态**：跨 pressure 轮次的 **entry 轮转游标**（论文 Algorithm 1 的 queue）。
-**不需要新观测缝**：所需输入（entry 分组、`block_ids`、`native_lru_rank`、`deadline`）**全部已在 `original_free_queue` 与 `entries` 中**。
+**工程可行性待验证**：entry 分组、slot ID、native_lru_rank 和 deadline 已可得，但精确的 `block_id → prefix position` 映射以及子 entry 部分释放对应的 native eligibility/retention 状态更新仍需评估；不能据此断言无需接口扩展。
 
 ### 6.3 可证伪前提（**已离线验证，见 §0.1**）
 
@@ -240,7 +240,7 @@ return (entry.deadline_timestamp, native_key, key.sort_key)
 | --- | --- | --- | --- |
 | **P1** | **Recency 同步** | 同一 entry 内 `native_lru_rank` 连续 | ✅ **100% 连续（87/87）** |
 | **P2** | **进入可用区间** | 存在区间使 $n_a<m<n$ | ✅ 部分：**55.2%** 在 $0.05<q<0.80$；37.9% 已越界 |
-| **P3** | **分位条件** | $q>1-p$（P99 ⇒ $q>0.01$） | ✅ 成立（62.1% 可算，预测 P99 削减 median **50.0%**） |
+| **P3** | **分位条件** | $q>1-p$（P99 ⇒ $q>0.01$） | ⚠️ 理想公式的条件性示意（62.1% 可代入；模型 P99 降幅 median 50.0%），**非真实 workload 预测** |
 | **P4** | **多个 idle entry** | 决策时受保护 idle entry 数 $n_s\ge2$ | ✅ 成立：median **3**、max **6** |
 | **P5** | **带内排序 = 前缀顺序？**（新增，**未验证**） | 带的冷端是否对应前缀**尾部** | ⚠️ **未验证** —— tail-first 的正确性依赖它 |
 
@@ -290,7 +290,7 @@ return (entry.deadline_timestamp, native_key, key.sort_key)
 | --- | --- | --- |
 | **S1** | entry 内 `native_lru_rank` 离散度 | **100% 带内连续**；normalized spread median 0.152 ⇒ **P1 成立** |
 | **S1b** | 最冷端起走，满足 `required_blocks` 消耗几个 entry | 只吃 1 个：30/87；median 2；⇒ 集中真实但非极端 |
-| **S1c** | $q=$ `required_blocks` / idle 受保护块数 | median **0.500**；55.2% 在可用区；62.1% 可套 Eq 2–3，**预测 P99 削减 median 50.0%** |
+| **S1c** | $q=$ `required_blocks` / idle 受保护块数 | median **0.500**；55.2% 在可用区；62.1% 在探索性容量代理下可代入 Eq 2–3；理想模型示意 P99 降幅 median 50.0%，**非 native 预测** |
 | **S1d** | 决策时候选 entry 数（P4） | median **3**、max 6（仅 6/87 只有 1 个）⇒ **P4 成立** |
 | **S5** | 尾部基线 | runtime 视图仅 **27** 个决策，样本过薄；见 §8 R3 |
 
@@ -323,7 +323,7 @@ S2  未做：若 timeline 从不进入 na<m<n        -> 关闭
 ## 10. 请求的裁定
 
 1. **目标函数（最关键）**：是否授权把**评估目标**从均值扩展为**尾部（P99 recompute）**？
-   这是本方向的**前提**：依论文 Eq 3，均值目标下**不存在**可捕获空间（且已被我们 S0-c 实测确认）。
+   论文 Eq. 3 说明**特定简化模型**中 LRU/RR 的均值相同，不能推广为我们真实 workload 的均值不可改进；S0-c 亦非这一定理的实证确认。
 2. **Step 0 授权**：是否授权 §9 的 S1–S5 离线检查（零 native run、复用现有数据）？
 3. **既有结论的适用域修正**：是否确认 §7 的收窄（特别是 **M-1 在尾部目标下不阻塞**、S0-c 结论**仅限均值目标**）？
 4. **B1 边界**：若 Step 0 肯定，是否考虑解锁 **B1 的只读/诊断子集**（非 runtime 实现），
