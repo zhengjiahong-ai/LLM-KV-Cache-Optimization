@@ -64,6 +64,7 @@ def validate_phase2e_campaign(manifest_path: Path) -> dict[str, object]:
             all(config.get(field) == reference.get(field) for field in stable_fields)
             for config in configs[1:]
         )
+        repeat_seeds = {int(config["seed"]) for config in configs}
         family = str(scenario["family"])
         request_segments = reference["backend_options"]["prefix_segments_by_request"]
         sizes = {
@@ -72,8 +73,9 @@ def validate_phase2e_campaign(manifest_path: Path) -> dict[str, object]:
         }
         offsets = [request.planned_arrival_offset_seconds for request in trace.requests]
         family_semantics = {
-            "F1": any(request.tool_gap_seconds is not None for request in trace.requests),
-            "F2": len(set(Counter(request.program_id for request in trace.requests).values())) > 1,
+            "F1": min(Counter(request.program_id for request in trace.requests).values()) >= 3,
+            "F2": max(Counter(request.program_id for request in trace.requests).values())
+            >= 2 * min(Counter(request.program_id for request in trace.requests).values()),
             "F3": len(sizes) >= 3,
             "F4": (
                 bool(scenario["shared_prefix_control"])
@@ -90,6 +92,7 @@ def validate_phase2e_campaign(manifest_path: Path) -> dict[str, object]:
         }[family]
         checks[scenario_id] = {
             "paired_inputs_equal": paired_equal,
+            "repeat_content_seed_equal": len(repeat_seeds) == 1,
             "request_ids_unique": len(trace.requests)
             == len({request.request_id for request in trace.requests}),
             "tool_lifecycle_present": any(
@@ -97,6 +100,7 @@ def validate_phase2e_campaign(manifest_path: Path) -> dict[str, object]:
             ),
             "pressure_present": bool(trace.pressure_stages),
             "family_semantics_materialized": family_semantics,
+            "family_parameters_recorded": bool(scenario.get("family_parameters")),
         }
         if not all(checks[scenario_id].values()):
             raise ValueError(f"scenario fidelity validation failed: {scenario_id}")

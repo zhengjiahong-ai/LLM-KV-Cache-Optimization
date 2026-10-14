@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import subprocess
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -33,6 +34,27 @@ def authorize_config(config_path: Path, authorization_path: Path) -> dict[str, o
         "campaign_manifest_sha256"
     ):
         raise ValueError("authorized campaign manifest hash mismatch")
+    repository = Path(__file__).parents[3]
+    current_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    if current_sha != authorization.get("git_sha"):
+        raise ValueError("runtime code SHA does not match the joint freeze record")
+    bindings = authorization.get("bindings")
+    if not isinstance(bindings, dict):
+        raise TypeError("joint freeze record lacks code bindings")
+    required = {
+        "runner": repository / "src/kvopt/workload/phase2e_runner.py",
+        "gate_c_evaluator": repository / "src/kvopt/profiling/phase2e_gate.py",
+    }
+    for name, path in required.items():
+        binding = bindings.get(name)
+        if not isinstance(binding, dict) or binding.get("sha256") != _sha(path):
+            raise ValueError(f"{name} hash does not match the joint freeze record")
     return authorization
 
 

@@ -40,7 +40,7 @@ def _segments(family: str, draw: int, agent: str, turn: int) -> list[list[object
 def _scenario(family: str, draw: int) -> tuple[dict[str, object], dict[str, object]]:
     agent_count = 4 if draw in {3, 6} else 3
     agents = tuple(f"a{index}" for index in range(1, agent_count + 1))
-    turn_count = 3 if family in {"F2", "F5"} else 2
+    turn_count = 3 if family in {"F1", "F5"} else (4 if family == "F2" else 2)
     requests: list[dict[str, object]] = []
     request_segments: dict[str, list[list[object]]] = {}
     for agent_index, agent in enumerate(agents):
@@ -105,6 +105,23 @@ def _scenario(family: str, draw: int) -> tuple[dict[str, object], dict[str, obje
         "pressure_count": len(pressure_offsets),
         "max_concurrent_requests": 3 if family == "F6" else 1,
         "shared_prefix_control": family == "F4" and draw % 2 == 0,
+        "family_parameters": {
+            "agent_turn_counts": dict(
+                Counter(str(row["program_id"]) for row in requests)
+            ),
+            "pressure_offsets_seconds": pressure_offsets,
+            "arrival_offsets_seconds": sorted(
+                float(row["planned_arrival_offset_seconds"]) for row in requests
+            ),
+            "prefix_sizes_tokens": sorted(max_prefix_by_program.values()),
+            "shared_prefix_mode": (
+                "NO_SHARED_PREFIX_NEGATIVE_CONTROL"
+                if family == "F4" and draw % 2 == 0
+                else ("SHARED_ROOT" if family == "F4" else "FAMILY_DEFAULT")
+            ),
+            "pressure_execution_semantics": "POST_COMPLETION_BARRIER",
+            "generation_scope": "PREFILL_FOCUSED_MAX_NEW_TOKENS_1",
+        },
     }
 
 
@@ -153,7 +170,9 @@ def materialize_phase2e(*, distribution_path: Path, output_dir: Path) -> Path:
                         "backend_revision": "phase2e-native-baseline-v1",
                         "campaign_kind": "phase2e_non_holdout_research_discovery",
                         "policy": baseline,
-                        "seed": int(distribution["sampler_seed"]) + int(repeat),
+                        "seed": int(distribution["sampler_seed"])
+                        + (int(str(family)[1:]) * 100)
+                        + draw,
                         "observe": True,
                         "model": distribution["model"],
                         "tokenizer": distribution["model"],
@@ -191,6 +210,8 @@ def materialize_phase2e(*, distribution_path: Path, output_dir: Path) -> Path:
                             "independent_statistical_unit": scenario_id,
                             "runtime_repeat_is_independent": False,
                             "measured": True,
+                            "shared_prefix_control": metadata["shared_prefix_control"],
+                            "family_parameters": metadata["family_parameters"],
                         },
                     }
                     _write(config_path, config)
@@ -221,6 +242,8 @@ def materialize_phase2e(*, distribution_path: Path, output_dir: Path) -> Path:
                     "turn_request_count": metadata["turn_request_count"],
                     "pressure_count": metadata["pressure_count"],
                     "shared_prefix_control": metadata["shared_prefix_control"],
+                    "design_kind": "PREDEFINED_BALANCED_PARAMETER_GRID",
+                    "family_parameters": metadata["family_parameters"],
                     "run_ids": scenario_runs,
                 }
             )
