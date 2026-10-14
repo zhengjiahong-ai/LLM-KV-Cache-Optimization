@@ -1,0 +1,23 @@
+{
+  "schema_version": "phase2e.t1_targeted_fixture.v1",
+  "run_kind": "NON_HOLDOUT_RESEARCH_DISCOVERY",
+  "execution_authorized": true,
+  "measured_campaign": false,
+  "joint_freeze_complete": false,
+  "cost_aware_policy": false,
+  "purpose": "RC4 forced-release decision and physical-eviction capability validation",
+  "block_size_tokens": 16,
+  "prefix_tokens": 192,
+  "pressure_prompt_tokens": 320,
+  "initial_shortage_blocks": 12,
+  "model": {
+    "name": "Qwen/Qwen2.5-0.5B-Instruct",
+    "revision": "7ae557604adf67be50417f59c2c2f167def9a775"
+  },
+  "runtime": {
+    "backend_factory": "scripts.spikes.phase2_minimal_observability_metal:build_phase2_metal_observability_backend",
+    "gpu_memory_utilization": 0.75,
+    "max_new_tokens": 1,
+    "temperature": 0.0
+  }
+}

@@ -37,6 +37,9 @@ def _run_phase2d_stage(
     output_root: Path,
     run_id: str,
     expected_stage: str,
+    stage_field: str = "phase2d_stage",
+    run_kind: str = "NON_HOLDOUT_RESEARCH_PILOT",
+    schema_namespace: str = "phase2d",
 ) -> Path:
     if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,95}", run_id) is None:
         raise ValueError("run_id must be a safe path component")
@@ -45,7 +48,7 @@ def _run_phase2d_stage(
     if not isinstance(config, dict):
         raise TypeError("config must be an object")
     _validate_config(config)
-    stage = config.get("phase2d_stage")
+    stage = config.get(stage_field)
     options = config.get("backend_options")
     if not isinstance(stage, dict) or stage.get("stage") != expected_stage:
         raise ValueError(f"config is not a Phase 2D {expected_stage} fixture")
@@ -61,8 +64,8 @@ def _run_phase2d_stage(
     _write_json(output / "trace.json", trace.to_dict())
     (output / "replay.jsonl").touch()
     manifest: dict[str, object] = {
-        "schema_version": f"phase2d.{expected_stage.lower()}_run.v1",
-        "run_kind": "NON_HOLDOUT_RESEARCH_PILOT",
+        "schema_version": f"{schema_namespace}.{expected_stage.lower()}_run.v1",
+        "run_kind": run_kind,
         "stage": expected_stage,
         "run_id": run_id,
         "case_id": stage.get("case_id"),
@@ -91,9 +94,14 @@ def _run_phase2d_stage(
             timeout_seconds=180.0,
             pressure_safety_ceiling=int(config["pressure"]["safety_ceiling"]),
         )
+        requests_by_id = {request.request_id: request for request in trace.requests}
         with (output / "replay.jsonl").open("w", encoding="utf-8") as stream:
             for row in result.submissions:
-                stream.write(json.dumps(asdict(row), sort_keys=True) + "\n")
+                value = asdict(row)
+                request = requests_by_id.get(row.logical_request_id)
+                value["request_id"] = row.logical_request_id
+                value["kind"] = "pressure" if request is None else request.kind
+                stream.write(json.dumps(value, sort_keys=True) + "\n")
         manifest.update(
             execution_status="success",
             submission_count=len(result.submissions),

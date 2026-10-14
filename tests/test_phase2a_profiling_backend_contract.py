@@ -2,14 +2,38 @@ from __future__ import annotations
 
 import pytest
 
+from kvopt.continuum import RetentionMode
 from kvopt.workload.phase2 import PlannedRequest
 from scripts.spikes.phase2_minimal_observability_metal import (
     _expected_profiling_block_override,
     _pressure_stage_sizes,
     _program_prefix_sizes,
     _required_max_model_len,
+    _retention_mode_for_config,
     _turn_token_ids,
 )
+
+
+def test_phase2e_can_select_real_native_or_continuum_baseline() -> None:
+    common = {"campaign_kind": "phase2e_non_holdout_research_discovery"}
+
+    assert _retention_mode_for_config({**common, "policy": "native-lru"}) is (
+        RetentionMode.NATIVE
+    )
+    assert _retention_mode_for_config(
+        {**common, "policy": "continuum-baseline"}
+    ) is RetentionMode.CONTROLLED
+
+
+def test_native_lru_switch_is_restricted_to_phase2e() -> None:
+    with pytest.raises(ValueError, match="restricted to Phase 2E"):
+        _retention_mode_for_config({"policy": "native-lru"})
+
+
+def test_legacy_config_keeps_controlled_retention_default() -> None:
+    assert _retention_mode_for_config({"policy": "continuum-baseline"}) is (
+        RetentionMode.CONTROLLED
+    )
 
 
 def test_expected_block_budget_matches_controlled_scarcity_rule() -> None:
