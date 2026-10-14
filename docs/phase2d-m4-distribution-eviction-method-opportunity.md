@@ -9,22 +9,22 @@
 
 ## 0. 结论摘要
 
-这篇论文提出一个**与我们此前四轮方向正交**的机制，并且**恰好解释了我们为何一直找不到可捕获收益**：
+这篇论文给出一种值得研究的**尾部分布目标与跨 Agent 分散淘汰机制**。其 §3.3 在等长私有前缀、无跨 Agent 共享、均匀返回、固定容量与忽略 chunk 效应等假设下，证明**理想 LRU 与理想 RR 的均值相同、尾部不同**。
 
-> 我们一直在优化**均值**目标；而该论文证明，在均值目标下**任何策略的最优值都相同**，收益**只存在于尾部**。
+> 这一结果说明我们此前可能遗漏了尾部成本维度；**不等于**真实异构 Agent workload 下任意策略的均值最优值相同，也**不能单独解释**所有历史负结果。
 
 因此本评估的核心建议不是「实现一个新规则」，而是三件事按序：
 
 | # | 建议 | 成本 |
 | --- | --- | --- |
-| **A** | **把目标从均值改为尾部**（P99 未缓存/recompute tokens）—— 这是**协议级**变更，⚠️ **尚未授权，本轮请求裁定** | 文档 |
+| **A** | **在 Phase 2E 探索性评价中增加尾部指标**（P95/P99 uncached/recomputed tokens、TTFT），同时保留聚合/均值指标；正式验收协议另行冻结 | 文档 |
 | **B** | **离线验证可证伪前提**（recency 同步、regime `na<m<n`、分位条件 `q>1-p`） | ✅ **M1 已授权**（PR #43 Step 0），本轮已完成 |
 | **C** | 仅在 B 全部成立时，才讨论「分布式淘汰」的最小 fixture | 需授权 |
 
 ✅ **B 已完成**：四个前提中 **P1/P4 成立、P2/P3 部分成立**，但存在一个越界区间
 （37.9% 决策 $q\ge0.95$）与一个**新识别的未验证前提 P5**。详见 §0.1。
 
-⚠️ **A 仍在请求中**（§10 第 1 项）：它是对已冻结接受协议的修改，**未经 M1 裁定不得视为已授权**。
+⚠️ A 是下一阶段探索性研究的指标建议；既有 H1/H2 冻结接受协议不会因此变更。
 
 ⚠️ **本轮不请求**：B1 解锁、policy 实现、formal campaign、任何 native run。
 
@@ -40,15 +40,13 @@
 | **P1** recency 同步 | entry 内 `native_lru_rank` 是否连续 | **候选 entry 的块在 LRU 序中 100% 连续（87/87 决策）** | ✅ **成立（形式比论文更强）** |
 | **P4** 多个 idle entry | 决策时可选 entry 数 | 每决策 median **3**、max **6**（1 个的仅 6/87） | ✅ **成立** |
 | **P2** 进入可用区间 | $n_a<m<n$ | q 中位数 **0.500**；**55.2%** 落在 $0.05<q<0.80$ | ✅ **部分成立** |
-| **P3** 分位条件 | $q>1-p$（P99 ⇒ $q>0.01$） | 62.1% 的决策可用 Eq 2–3 公式；**预测 P99 削减中位数 50.0%** | ✅ **成立（限于 q≤1 的 62.1%）** |
+| **P3** 分位条件 | $q>1-p$（P99 ⇒ $q>0.01$） | 62.1% 的决策可用 Eq 2–3 公式；**理想模型计算的示意性 P99 降幅中位数 50.0%，非性能预测** | ✅ **成立（限于 q≤1 的 62.1%）** |
 
 **但有两个必须挂上的限制**：
 
 1. **37.9% 的决策 $q\ge0.95$**（其中 $q$ 最大 6.44 ⇒ **候选池本身不足**，压力须由其他手段满足）。
    依论文：$m	o n_a$ 时 $q	o1$，**无策略可保留有意义的 idle 状态** ⇒ 这些决策**不在收益区**。
-2. ⚠️ **H1 无法兑现该收益**：`max_concurrent_requests = 1`、`max_new_tokens = 1`、无 idle 间隔
-   ⇒ H1 **不具备 RR 所要求的 workload 形态**。因此上面是**压力几何的可行性信号**，
-   **不是性能预测**。
+2. ⚠️ **H1 无法验证上述尾部收益**：`max_concurrent_requests = 1`、`max_new_tokens = 1`，缺乏真实的多轮 Agent idle/overlap 形态。而 S1c 的 $q$ 来自 `required_blocks / idle_protected_blocks` 容量代理，**尚不能直接等同**论文的 $(n-m)/n_s$ 时间占用模型，因此这些比例仅供筛选研究场景，并非 native P99 改善预测。
 
 **S1b 的结构发现（本轮最有价值的实测）**：
 
@@ -58,9 +56,8 @@
   spread ≈ size − 1（median: size 12, spread 11）
 ```
 
-⇒ 在 vLLM 块级 APC 中，一个 entry 的块构成 LRU 序中的**连续带**，
-比论文的「时间戳几乎相同」**更强**：不是在时间上接近，而是在**排序上相邻**。
-⇒ 节点级 LRU 会**逐带**推进 ⇒ 论文所述「节点级 LRU 退化为 entry 级淘汰」在**我们的系统中被实测确认**。
+⇒ **在这 87 个受检 H1 决策快照中**，受检 entry 的候选块在 native LRU 秩中形成相邻带，这是潜在集中回收的一种结构线索。
+⇒ 但相邻秩不等于跨 Agent 多轮访问的 recency synchronization，更不能直接证明原生 LRU 在真实 Agent workload 中集中物理淘汰并导致尾延迟异常；该机制仍需 Phase 2E 的 native 验证。
 
 **集中度实测（S1b）**：从最冷端按 rank 走，满足 `required_blocks` 前消耗的候选 entry 数：
 
@@ -70,7 +67,7 @@
 
 ⇒ **34.5% 的决策 LRU 只吃一个 entry**（当 `required_blocks` 落在最冷带内 —— 占 27.6% —— 则**恰好 1 个**）。
 其余情形因 `required_blocks`（median 34）大于最冷带（median 8）而必须跨带。
-⇒ **集中是真实的，但不是论文描述的极端形态**；这解释了为何在我们的语料上「均值仍然无差异」。
+⇒ 上述为候选队列中的**模拟回收集中度**，不是已观察到的 native cache miss 分布，也不能据此解释旧语料均值结果。
 
 ---
 
@@ -97,7 +94,7 @@ $$\boxed{\mathbb{E}[X_{\text{LRU}}]=\mathbb{E}[X_{\text{RR}}]=q}$$
 
 论文原文：*"Both policies have the same mean recomputation cost, ... but distribute it differently."*
 
-⇒ **均值恒等，差异全在分布。** 且分位条件明确：*"At percentile $p$, LRU has a full miss when $q>1-p$, while round-robin incurs a $q$-fraction miss."*
+⇒ **在上述论文简化模型与 LRU/RR 对照中**均值恒等、尾部分布不同；这不是一般 Cost-Aware 策略的均值不可能性定理。分位条件为：*"At percentile $p$, LRU has a full miss when $q>1-p$, while round-robin incurs a $q$-fraction miss."*
 
 ### 1.2 可用区间（两侧有界）
 
@@ -113,16 +110,16 @@ $$n_a<m<n$$
 
 ## 2. 为什么这解释了本项目此前的全部否定结果
 
-这是本节最重要的内容：**我们过去的否定结果不是错的，而是「瞄准了均值目标，而均值目标的最优值是恒等的」。**
+下表提出可能的**解释联系**，不重新裁决历史实验。RR-EVICT 的理想化理论揭示均值与尾部可能分离，但不能单独解释 H1/H2 中的样本有效性、proxy loss 和 workload fidelity 问题。
 
 | 我们的实测 | 该论文给出的解释 |
 | --- | --- |
-| **S0-c**：runtime 视图上基线 **27/27** 达压力可行 oracle 最优，8 条规则**全部 0 好 / 0 差 / 27 平** | **均值恒等（Eq 3）** ⇒ 在均值目标上**本来就没有空间**。我们测到的「无空间」是对的 |
-| **Phase 2D E3**：释放 A ⇒ {65, 1}；释放 B ⇒ {1, 65}；**聚合推算不变** | 与 Eq 3 **同构**：$X_{\text{LRU}}$ 把全部代价压在 $q$ 比例上，$X_{\text{RR}}$ 摊平；**均值相同** |
-| **H1-R1**：reverse-deadline `DIAGNOSTIC_ONLY`，13 better / 14 worse，无改善 | 对**均值**指标重排序，无法改善**尾部** |
-| **F-D1 / H1**：返回预测最强 ρ = 0.228，无稳健增量 | ⭐ **该论文根本不需要预测未来** ⇒ 我们花了四轮找的「可预测性」，在这个正确表述里**不是必要条件** |
+| **S0-c**：runtime 视图上基线 **27/27** 达压力可行 oracle 最优，8 条规则**全部 0 好 / 0 差 / 27 平** | 受检 27 条决策的特定 runtime loss-view 下未观察到基线 regret；与均值空间有限**相容**，但不是 Eq. 3 在 H1 上的证明 |
+| **Phase 2D E3**：释放 A ⇒ {65, 1}；释放 B ⇒ {1, 65}；**聚合推算不变** | 两种 logical release 的单请求结果可能体现损失转移；但这并非理想 LRU/RR tail-chunk 对照，聚合 native recomputation 尚需原始事件核验 |
+| **H1-R1**：reverse-deadline `DIAGNOSTIC_ONLY`，13 better / 14 worse，无改善 | 该 reverse-deadline 规则未获支持，原因不能仅归于理想模型的均值恒等，也未检验分散尾部损失的策略 |
+| **F-D1 / H1**：返回预测最强 ρ = 0.228，无稳健增量 | RR-EVICT 式分散风险策略可不预测未来返回；这不否定预测式 Cost-Aware 方向，亦不能解释此前弱结果的全部成因 |
 | **M-1（我列为「根本障碍」）**：损失 =「你释放的是否是将来那个请求所属的 entry」，属未来事实 | ⭐ 该论文**绕开**了 M-1：不预测归属，而是让**每个 agent 都只损失一部分**，从而**不依赖**任何归属预测 |
-| **H2-M4 FAIL**：block-level partial-prefix retention，冻结 single-prefix 比较器下 pairwise headroom = 0 | ⭐ **pairwise 比较器在原理上看不到该收益**：收益是**跨 agent 的分布性质**，单前缀对照无法表达 |
+| **H2-M4 FAIL**：block-level partial-prefix retention，冻结 single-prefix 比较器下 pairwise headroom = 0 | 单前缀对照不能直接检测跨 Agent 的分布性收益，但不能据此确定 H2-M4 FAIL 的唯一原因 |
 
 ⚠️ **一条必须说清的后果**：我此前在 `PHASE2D_COST_AWARE_METHOD_OPPORTUNITY_ASSESSMENT` 中把 **M-1 列为「根本障碍」**。
 在该论文的目标下，M-1 **不再阻塞**。该结论的适用域需要相应收窄（见 §7）。
@@ -136,13 +133,13 @@ $$n_a<m<n$$
 | Agent / trajectory | logical program（`program_id`） | ✅ 有 |
 | Agent turn | 同一 program 的后续 request | ✅ 有（`turn_index`、`W-TURN-GROW`） |
 | Idle trajectory（等待工具/用户） | entry **protected 但当前无活跃 request** | ⚠️ 语义存在，**未见显式建模** |
-| 节点级 LRU | 基线释放键第 2 分量 `min(native_lru_rank of newly_eligible)` | ✅ **正是论文批评的对象** |
+| 节点级 LRU | Native LRU 才是论文讨论的物理块淘汰基线；Continuum 的该分量只是 whole-entry release 的次级排序信息 | ⚠️ **策略粒度不同** |
 | Agent 级缓存组 | 一个 `RetentionEntryKey` 的全部 `block_ids` | ✅ 有 |
 | Tail chunk 回收 | **entry 的尾部若干 block 的部分回收** | ❌ **不支持**（见 §4.1） |
 | Completion signal | lifecycle / 完成信号 | ⚠️ 未使用 |
 | Recency tiering（论文的退路） | **我们已有显式 `deadline_timestamp`** → 可做**deadline 分层 + 组内轮转** | ✅ **比论文的退路更强** |
 
-**一个正面发现**：论文的 recency tiering 只是用「最后访问时间」**近似**「是否陈旧」；而我们的 baseline **已有显式 `deadline_timestamp`**（来自 Continuum retention）。⇒ 我们的「deadline 分层 + 组内轮转」是**比论文更干净**的构造，**不需要新信号**。
+**一个正面发现**：论文的 recency tiering 只是用「最后访问时间」**近似**「是否陈旧」；而我们的 baseline **已有显式 `deadline_timestamp`**（来自 Continuum retention）。⇒ 我们的「deadline 分层 + 组内轮转」是**一个可供测试的替代分层信号**；TTL deadline 不等于 Agent completion/失活真值，不能预设其效果优于论文的分层机制。
 
 ---
 
@@ -153,7 +150,7 @@ $$n_a<m<n$$
 ```python
 # src/kvopt/continuum/pressure.py:324  —— 基线
 return (entry.deadline_timestamp, native_key, key.sort_key)
-#                                  └ min(native_lru_rank of newly_eligible)   ← 论文批评的节点级 LRU
+#                                  └ min(native_lru_rank of newly_eligible)   ← Continuum whole-entry release 的 LRU 次级键，并非原生 node-level LRU
 ```
 
 | 维度 | 基线 | 分布式方案 | 是真差异吗 |
@@ -168,17 +165,16 @@ return (entry.deadline_timestamp, native_key, key.sort_key)
 
 我们的语料有**共有多重度**结构（Phase 2D E2：两候选共享 **8** blocks）。注意共享发生在**前缀根部**（`shared_root`），而 tail chunk 取自**尾部**。
 
-⇒ **tail-first 淘汰天然保留共享头**，因此**对所有共享该头的 agent 都有利**。
-这是**论文没有的性质**（论文假设 *"no cross-agent prefix sharing"*）。
+⇒ 在**仅释放私有后缀且共享根仍受有效保护**的条件下，tail-first 可能保留共享头。但论文的**理想分析**假设无跨 Agent 共享，不代表其实际前缀树实现无法支持共享。
 
-⇒ 我们的 setting 在这一点上**比论文更有利**：分布式淘汰与共享结构**方向一致**，而非冲突。
+⇒ 是否存在额外优势，必须通过 native ownership、边际可回收容量和尾部损失验证；目前只是候选研究问题。
 
 ### 4.3 与已实现规则的**去重**（必须声明）
 
 `src/kvopt/costaware/rules.py` 已实现 `M1_reclaimable_ascending`、`M1_marginal_cost_per_reclaimable` 等。
 本方案**不是**这些规则的重新包装，理由：
 
-- 那些规则改的是**排序键**，目标仍是**均值** ⇒ 受 Eq 3 限制，**不可能有效**（S0-c 已实测确认）；
+- 那些规则主要重排 whole-entry 候选，在受检 H1 的 proxy/均值视图中缺乏稳健收益；但**不能**由 RR-EVICT 简化模型断言它们在一般负载中不可能有效；
 - 本方案改的是**目标函数 + 释放粒度 + 跨 entry 的损失分布**，三者都不是排序键重排。
 
 ---
@@ -196,7 +192,7 @@ return (entry.deadline_timestamp, native_key, key.sort_key)
 | **等块数**（每轮各取 1 个 chunk） | 对小 entry，一个 chunk 可能是其**全部** ⇒ 该 agent **全量重算**，退化回论文批评的 LRU 行为 |
 | **等比例**（各保留 $h$ 份额） | 匹配 Eq 2 的理想；但 chunk 粒度需更细 |
 
-我们的 block 粒度是 **16 tokens**，相对 32-block entry 仅 0.5% ⇒ **能做到接近理想的等比例轮转**（论文 1,024-token chunk 粗得多）。
+我们的 block 粒度是 **16 tokens**，相对 32-block entry 为 3.125% ⇒ **能做到接近理想的等比例轮转**（论文 1,024-token chunk 粗得多）。
 
 ⚠️ **但不能直接断言等比例更优**：真实 $C(r)$ 是 **U 形**（§2.4：最低点在 $r\approx1024$ tokens，全域离散 13.49×）。在非线性的 $C$ 下，「等比例损失」**未必**是「尾部最优」。这构成一个**可证伪的新问题**：
 
