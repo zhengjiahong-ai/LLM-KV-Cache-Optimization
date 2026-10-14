@@ -1,0 +1,22 @@
+{
+  "schema_version": "phase2d.e4_fixture.v1",
+  "run_kind": "NON_HOLDOUT_RESEARCH_PILOT",
+  "stage": "E4_TRUE_INFLIGHT_OVERLAP",
+  "execution_authorized": true,
+  "formal_campaign": false,
+  "cost_aware_policy": false,
+  "controlled_repeats": 1,
+  "block_size_tokens": 16,
+  "pressure_prompt_tokens": 320,
+  "initial_shortage_blocks": 12,
+  "model": {
+    "name": "Qwen/Qwen2.5-0.5B-Instruct",
+    "revision": "7ae557604adf67be50417f59c2c2f167def9a775"
+  },
+  "runtime": {
+    "backend_factory": "scripts.spikes.phase2_minimal_observability_metal:build_phase2_metal_observability_backend",
+    "gpu_memory_utilization": 0.75,
+    "max_new_tokens": 1,
+    "temperature": 0.0
+  }
+}

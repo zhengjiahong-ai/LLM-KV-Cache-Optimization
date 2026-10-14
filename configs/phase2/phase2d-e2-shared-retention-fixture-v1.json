@@ -1,0 +1,39 @@
+{
+  "schema_version": "phase2d.e2_fixture.v1",
+  "run_kind": "NON_HOLDOUT_RESEARCH_PILOT",
+  "stage": "E2_SHARED_RETENTION_MATERIALIZATION",
+  "controlled_repeats": 2,
+  "execution_authorized": true,
+  "forced_victim_authorized_in_e2": false,
+  "formal_campaign": false,
+  "cost_aware_policy": false,
+  "block_size_tokens": 16,
+  "shared_root_tokens": 128,
+  "branch_tokens": 64,
+  "pressure_prompt_tokens": 320,
+  "initial_shortage_blocks": 12,
+  "model": {
+    "name": "Qwen/Qwen2.5-0.5B-Instruct",
+    "revision": "7ae557604adf67be50417f59c2c2f167def9a775"
+  },
+  "runtime": {
+    "backend_factory": "scripts.spikes.phase2_minimal_observability_metal:build_phase2_metal_observability_backend",
+    "gpu_memory_utilization": 0.75,
+    "max_new_tokens": 1,
+    "temperature": 0.0
+  },
+  "cases": [
+    {
+      "case_id": "e2-shared-root",
+      "expected_shared_protected_blocks": 8,
+      "program_a_segments": [["e2-shared-root", 128], ["e2-branch-a", 64]],
+      "program_b_segments": [["e2-shared-root", 128], ["e2-branch-b", 64]]
+    },
+    {
+      "case_id": "e2-distinct-root-control",
+      "expected_shared_protected_blocks": 0,
+      "program_a_segments": [["e2-control-root-a", 128], ["e2-control-branch-a", 64]],
+      "program_b_segments": [["e2-control-root-b", 128], ["e2-control-branch-b", 64]]
+    }
+  ]
+}

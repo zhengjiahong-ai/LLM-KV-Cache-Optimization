@@ -21,7 +21,7 @@ from .selection import (
     RetentionEntryKey,
 )
 from .snapshots import RetentionEntrySnapshot
-from .types import BlockIdentity, _as_non_negative_finite_float
+from .types import BlockIdentity, ProgramIdentity, _as_non_negative_finite_float
 
 
 class _CandidateLike(Protocol):
@@ -58,11 +58,18 @@ class RetentionAwareSelectionCoordinator:
         *,
         required_blocks: int,
         timestamp: float,
+        diagnostic_first_release_program_id: ProgramIdentity | None = None,
     ) -> EligibilityPreparation:
         states = self._normalize_candidates(candidates)
         required = self._require_non_negative_int(required_blocks, "required_blocks")
         now = _as_non_negative_finite_float(timestamp, "timestamp")
         entries = self._normalize_entries(retention_entries)
+        if diagnostic_first_release_program_id is not None and not isinstance(
+            diagnostic_first_release_program_id, ProgramIdentity
+        ):
+            raise TypeError(
+                "diagnostic_first_release_program_id must be ProgramIdentity or None"
+            )
         entries_by_block = self._entries_by_block(entries)
 
         ordinary_expired = tuple(
@@ -106,7 +113,16 @@ class RetentionAwareSelectionCoordinator:
             if not candidates_for_release:
                 raise ValueError("retention entries cannot satisfy pressure target")
 
-            ranked_releases = sorted(
+            forced = [
+                item
+                for item in candidates_for_release
+                if not pressure_releases
+                and diagnostic_first_release_program_id is not None
+                and item[0].program_id == diagnostic_first_release_program_id
+            ]
+            if len(forced) > 1:
+                raise ValueError("diagnostic program has multiple release candidates")
+            ranked_releases = forced or sorted(
                 candidates_for_release,
                 key=lambda item: self._release_sort_key(
                     item[0],
@@ -117,6 +133,12 @@ class RetentionAwareSelectionCoordinator:
                     released_keys,
                 ),
             )
+            if (
+                not pressure_releases
+                and diagnostic_first_release_program_id is not None
+                and not forced
+            ):
+                raise ValueError("diagnostic release program is not a legal candidate")
             key, _entry = ranked_releases[0]
             newly_eligible = self._newly_eligible_blocks_after_release(
                 key,

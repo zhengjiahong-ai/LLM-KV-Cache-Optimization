@@ -1,0 +1,333 @@
+{
+  "audit_kind": "READ_ONLY_FEASIBILITY_AUDIT",
+  "boundaries": {
+    "content_hash_used_as_owner_identity": false,
+    "cross_decision_owner_join": false,
+    "native_ref_count_used_as_logical_owner_count": false,
+    "new_gpu_runs": false,
+    "policy_modified": false,
+    "victim_intervention": false
+  },
+  "capabilities": {
+    "block_content_identity": "OBSERVABLE",
+    "decision_identity": "OBSERVABLE",
+    "entry_to_block_mapping": "OBSERVABLE",
+    "initially_reclaimable_blocks": "OBSERVABLE",
+    "logical_retention_entries": "OBSERVABLE",
+    "native_free_queue_position": "OBSERVABLE",
+    "native_process_identity": "OBSERVABLE",
+    "protection_state": "OBSERVABLE"
+  },
+  "conclusion": "OBSERVED_NO_SHARED_PROTECTED",
+  "decisions": [
+    {
+      "candidate_count": 1,
+      "candidate_mappings": [
+        {
+          "block_count": 24,
+          "blocks": [
+            {
+              "block_id": 1,
+              "native_cache_key": "b1a3a9e5d560b0077d82b8987a197de19a01157fa7dcb2d906a44241560b1c0600000000",
+              "native_hash": "b1a3a9e5d560b0077d82b8987a197de19a01157fa7dcb2d906a44241560b1c06"
+            },
+            {
+              "block_id": 2,
+              "native_cache_key": "834104cbf000274c68343fa6125c14a1b0a31f5e594184f37567b143cadcd1f500000000",
+              "native_hash": "834104cbf000274c68343fa6125c14a1b0a31f5e594184f37567b143cadcd1f5"
+            },
+            {
+              "block_id": 3,
+              "native_cache_key": "33760e51d91870082f9248127200aa6eac58e40a29507dffa307aed14bcd0f3c00000000",
+              "native_hash": "33760e51d91870082f9248127200aa6eac58e40a29507dffa307aed14bcd0f3c"
+            },
+            {
+              "block_id": 4,
+              "native_cache_key": "2e3a21ee59e58865b330998cb1735d28b329610bb60d0f14ec2d55c4445bbe6200000000",
+              "native_hash": "2e3a21ee59e58865b330998cb1735d28b329610bb60d0f14ec2d55c4445bbe62"
+            },
+            {
+              "block_id": 5,
+              "native_cache_key": "9a526475c4d0b39d32fe8ea69cf39117c03dea8efb1ad4fbd69c7734a862303300000000",
+              "native_hash": "9a526475c4d0b39d32fe8ea69cf39117c03dea8efb1ad4fbd69c7734a8623033"
+            },
+            {
+              "block_id": 6,
+              "native_cache_key": "7a579d754bcd1aab7c1ba08787a2988b194889d61bf8962fae36244bb4a04d5300000000",
+              "native_hash": "7a579d754bcd1aab7c1ba08787a2988b194889d61bf8962fae36244bb4a04d53"
+            },
+            {
+              "block_id": 7,
+              "native_cache_key": "c975f0db4e056821e69f047939b3fbe4d2b67e3c5b224a25192814e3a995f56b00000000",
+              "native_hash": "c975f0db4e056821e69f047939b3fbe4d2b67e3c5b224a25192814e3a995f56b"
+            },
+            {
+              "block_id": 8,
+              "native_cache_key": "e5bb49206a30c6266f8dbfc22e4ed5f63c45704401e89408f792047e6b71220e00000000",
+              "native_hash": "e5bb49206a30c6266f8dbfc22e4ed5f63c45704401e89408f792047e6b71220e"
+            },
+            {
+              "block_id": 9,
+              "native_cache_key": "6049a98eb26742637e959b5f8a2d9e987234aa6b7d49c6d15aa2effb2a41a1c000000000",
+              "native_hash": "6049a98eb26742637e959b5f8a2d9e987234aa6b7d49c6d15aa2effb2a41a1c0"
+            },
+            {
+              "block_id": 10,
+              "native_cache_key": "d06c21a9fbe349572cd70615ed2ceb55175698b4f745264af3894e160c40518200000000",
+              "native_hash": "d06c21a9fbe349572cd70615ed2ceb55175698b4f745264af3894e160c405182"
+            },
+            {
+              "block_id": 11,
+              "native_cache_key": "0c2681c360cf7d8c1dc8507c460ec7b1375cde37c2d7c490b15a0ecadf1f87e200000000",
+              "native_hash": "0c2681c360cf7d8c1dc8507c460ec7b1375cde37c2d7c490b15a0ecadf1f87e2"
+            },
+            {
+              "block_id": 12,
+              "native_cache_key": "abb4c0cf77d9f0ea1ab1c296b29fc124efe1ce32f0a69db79527ab4b8ff2926500000000",
+              "native_hash": "abb4c0cf77d9f0ea1ab1c296b29fc124efe1ce32f0a69db79527ab4b8ff29265"
+            },
+            {
+              "block_id": 13,
+              "native_cache_key": "afd0b5e956b96c7d1694d481df44490444631816952e240adf3b09542d18908a00000000",
+              "native_hash": "afd0b5e956b96c7d1694d481df44490444631816952e240adf3b09542d18908a"
+            },
+            {
+              "block_id": 14,
+              "native_cache_key": "fad10408c45f4bff62f4d024b3b37e0c463bbed56acfc5af9bcefcc4a23afe0c00000000",
+              "native_hash": "fad10408c45f4bff62f4d024b3b37e0c463bbed56acfc5af9bcefcc4a23afe0c"
+            },
+            {
+              "block_id": 15,
+              "native_cache_key": "ff4ce2ce5d40c971cbcc16ee17ede9ed218c6b6bf3be8c6905123e925082137400000000",
+              "native_hash": "ff4ce2ce5d40c971cbcc16ee17ede9ed218c6b6bf3be8c6905123e9250821374"
+            },
+            {
+              "block_id": 16,
+              "native_cache_key": "080fa27010091367317e6d5303224f4c15a03484c452bdc0a771fcba55676e9f00000000",
+              "native_hash": "080fa27010091367317e6d5303224f4c15a03484c452bdc0a771fcba55676e9f"
+            },
+            {
+              "block_id": 17,
+              "native_cache_key": "e28b43a84b2f7e3085e52ca156774fe2c30169d01f0a2062981653ab3f141af200000000",
+              "native_hash": "e28b43a84b2f7e3085e52ca156774fe2c30169d01f0a2062981653ab3f141af2"
+            },
+            {
+              "block_id": 18,
+              "native_cache_key": "4f96964fd6ec8896a295d6ca39cb263c519d955e1b205270aae2410543c5082a00000000",
+              "native_hash": "4f96964fd6ec8896a295d6ca39cb263c519d955e1b205270aae2410543c5082a"
+            },
+            {
+              "block_id": 19,
+              "native_cache_key": "73d36704caf92c63fb4d4ec0f4832bb5dc71be37057eae19920d454195887d3e00000000",
+              "native_hash": "73d36704caf92c63fb4d4ec0f4832bb5dc71be37057eae19920d454195887d3e"
+            },
+            {
+              "block_id": 20,
+              "native_cache_key": "ab676dbf4c20e26cce4e04b5f9177a818c03c0bc6c87e8d8560c8c15671369ce00000000",
+              "native_hash": "ab676dbf4c20e26cce4e04b5f9177a818c03c0bc6c87e8d8560c8c15671369ce"
+            },
+            {
+              "block_id": 21,
+              "native_cache_key": "377242c22efa15a59b7d3d9bf74c739b7862e4f6e5a208c36236e4b84dad1b5000000000",
+              "native_hash": "377242c22efa15a59b7d3d9bf74c739b7862e4f6e5a208c36236e4b84dad1b50"
+            },
+            {
+              "block_id": 22,
+              "native_cache_key": "2cd7f5896367af2b6b2fc02cb7d8df17169d0c2ed32934106505370f17b7b52e00000000",
+              "native_hash": "2cd7f5896367af2b6b2fc02cb7d8df17169d0c2ed32934106505370f17b7b52e"
+            },
+            {
+              "block_id": 23,
+              "native_cache_key": "cf22c6d02458981b102f6186c8d3ea5b19d99961e9969178a02eaf182761467500000000",
+              "native_hash": "cf22c6d02458981b102f6186c8d3ea5b19d99961e9969178a02eaf1827614675"
+            },
+            {
+              "block_id": 24,
+              "native_cache_key": "673ab826fec5a487548f1b94d992f17a27ab7735bb3d733ac49563ed6c58accd00000000",
+              "native_hash": "673ab826fec5a487548f1b94d992f17a27ab7735bb3d733ac49563ed6c58accd"
+            }
+          ],
+          "initially_reclaimable_block_count": 24,
+          "mapping_reason": "latest pre-decision block/hash/process mapping is complete",
+          "mapping_status": "OBSERVABLE",
+          "native_hash_process_id": "13028",
+          "prefix_id": "continuum.prefix.native_hash.v1:673ab826fec5a487548f1b94d992f17a27ab7735bb3d733ac49563ed6c58accd00000000",
+          "prefix_snapshot_event_index": 9,
+          "program_id": "pressure-target"
+        }
+      ],
+      "decision_event_index": 17,
+      "decision_timestamp": 14620.200781583,
+      "has_differentiated_marginal_relief": false,
+      "has_multiple_protected_owners": false,
+      "marginal_relief_counts": [
+        24
+      ],
+      "owner_mapping_status": "OBSERVABLE",
+      "run_id": "w-pressure-native-repeat-1",
+      "shared_protected_blocks": [],
+      "source": "artifacts/phase2c-native-pilot-runs-v1/w-pressure-native-repeat-1/events.jsonl"
+    },
+    {
+      "candidate_count": 1,
+      "candidate_mappings": [
+        {
+          "block_count": 24,
+          "blocks": [
+            {
+              "block_id": 1,
+              "native_cache_key": "a7f552bd8f503dea76e5da96134dbbc879194b263cf5ce4da81246d52ede777f00000000",
+              "native_hash": "a7f552bd8f503dea76e5da96134dbbc879194b263cf5ce4da81246d52ede777f"
+            },
+            {
+              "block_id": 2,
+              "native_cache_key": "9473c958b38752619c7ccf002f00d78d815a21b7af2c6fb739762b0e4c9620e100000000",
+              "native_hash": "9473c958b38752619c7ccf002f00d78d815a21b7af2c6fb739762b0e4c9620e1"
+            },
+            {
+              "block_id": 3,
+              "native_cache_key": "1638bc382b9fea4a507613d0122032e5fbc6caf01ba4c1067067202ef676f24700000000",
+              "native_hash": "1638bc382b9fea4a507613d0122032e5fbc6caf01ba4c1067067202ef676f247"
+            },
+            {
+              "block_id": 4,
+              "native_cache_key": "07f26e457b934bbb4644861344b086c7afd358dbbffe6811caa4bc2c5576098600000000",
+              "native_hash": "07f26e457b934bbb4644861344b086c7afd358dbbffe6811caa4bc2c55760986"
+            },
+            {
+              "block_id": 5,
+              "native_cache_key": "72ea38775f869e608f113d3232bdf02581c06f019db4b86b0a245857fbe903b800000000",
+              "native_hash": "72ea38775f869e608f113d3232bdf02581c06f019db4b86b0a245857fbe903b8"
+            },
+            {
+              "block_id": 6,
+              "native_cache_key": "37224b0961fa5dcd3e83c09c8f754e9cf485d396c1e4901c8611c25961ea1a0a00000000",
+              "native_hash": "37224b0961fa5dcd3e83c09c8f754e9cf485d396c1e4901c8611c25961ea1a0a"
+            },
+            {
+              "block_id": 7,
+              "native_cache_key": "12cc6cd783dae375c676b5cd7b9b33e2996933c4c842e79cb47abc009029614500000000",
+              "native_hash": "12cc6cd783dae375c676b5cd7b9b33e2996933c4c842e79cb47abc0090296145"
+            },
+            {
+              "block_id": 8,
+              "native_cache_key": "0d502c25d4fdebc872f50d2fe9be57c9f96deb31995430f90b17d0b8d2cfa90400000000",
+              "native_hash": "0d502c25d4fdebc872f50d2fe9be57c9f96deb31995430f90b17d0b8d2cfa904"
+            },
+            {
+              "block_id": 9,
+              "native_cache_key": "309ab0743afe2e35f255aaea3c08bcef6bd7f4480dc86745e8d94de64c14f69c00000000",
+              "native_hash": "309ab0743afe2e35f255aaea3c08bcef6bd7f4480dc86745e8d94de64c14f69c"
+            },
+            {
+              "block_id": 10,
+              "native_cache_key": "a0b86556236cd4387961dca16c0f106160b3357cf29de4f533639a2d629293de00000000",
+              "native_hash": "a0b86556236cd4387961dca16c0f106160b3357cf29de4f533639a2d629293de"
+            },
+            {
+              "block_id": 11,
+              "native_cache_key": "b67fd1a3acc2bb9c846112c9195a9797df4a33185a7ba8f8de0fe6536cb5215e00000000",
+              "native_hash": "b67fd1a3acc2bb9c846112c9195a9797df4a33185a7ba8f8de0fe6536cb5215e"
+            },
+            {
+              "block_id": 12,
+              "native_cache_key": "2e30bcf0eebb48bb4c8e6ebdda91a516c1be6f6dc1add13d16a00d7ec64e26de00000000",
+              "native_hash": "2e30bcf0eebb48bb4c8e6ebdda91a516c1be6f6dc1add13d16a00d7ec64e26de"
+            },
+            {
+              "block_id": 13,
+              "native_cache_key": "35fd23f11b447fc6ba42d1220481b6368d553068a8803aa9930d9b38d4e4fbee00000000",
+              "native_hash": "35fd23f11b447fc6ba42d1220481b6368d553068a8803aa9930d9b38d4e4fbee"
+            },
+            {
+              "block_id": 14,
+              "native_cache_key": "a3b066d281b76f356efe712b48da8209db1aa3d082c5d79f02804003c34ae94000000000",
+              "native_hash": "a3b066d281b76f356efe712b48da8209db1aa3d082c5d79f02804003c34ae940"
+            },
+            {
+              "block_id": 15,
+              "native_cache_key": "8a18cbc1e8a143f025c432c8b1c6d2796a5b3a44ba54b34bcd8def6e6d40a43f00000000",
+              "native_hash": "8a18cbc1e8a143f025c432c8b1c6d2796a5b3a44ba54b34bcd8def6e6d40a43f"
+            },
+            {
+              "block_id": 16,
+              "native_cache_key": "2024c26ecfaea1a1e22fa90939aa3fedb11cd3b2b38cc312267e3a5e1cea49c800000000",
+              "native_hash": "2024c26ecfaea1a1e22fa90939aa3fedb11cd3b2b38cc312267e3a5e1cea49c8"
+            },
+            {
+              "block_id": 17,
+              "native_cache_key": "7abe95e399c401875ae51a4d1761b40cec87b07566ec92141e131e8eb30632a000000000",
+              "native_hash": "7abe95e399c401875ae51a4d1761b40cec87b07566ec92141e131e8eb30632a0"
+            },
+            {
+              "block_id": 18,
+              "native_cache_key": "2ac578034dd149f88d51101acf63dcc76bc151310cc1f015db9a47f756b39df300000000",
+              "native_hash": "2ac578034dd149f88d51101acf63dcc76bc151310cc1f015db9a47f756b39df3"
+            },
+            {
+              "block_id": 19,
+              "native_cache_key": "23378b1bd962fdb5e7284bfe305d34a842079e2630c8d2e8e722fe8ac7d3a11900000000",
+              "native_hash": "23378b1bd962fdb5e7284bfe305d34a842079e2630c8d2e8e722fe8ac7d3a119"
+            },
+            {
+              "block_id": 20,
+              "native_cache_key": "f51e8e0e28008beec5ba4c3fdb4740bfd17dc26f981d6dd6665162bd69e1b97a00000000",
+              "native_hash": "f51e8e0e28008beec5ba4c3fdb4740bfd17dc26f981d6dd6665162bd69e1b97a"
+            },
+            {
+              "block_id": 21,
+              "native_cache_key": "974c7eeb188e8203485481aa37e8d9185496737c71138cd3f9b1917d176703db00000000",
+              "native_hash": "974c7eeb188e8203485481aa37e8d9185496737c71138cd3f9b1917d176703db"
+            },
+            {
+              "block_id": 22,
+              "native_cache_key": "34c4fc262e8e8f807ae0577190905d4f3c1b81649c57702821c5350ecac16f1100000000",
+              "native_hash": "34c4fc262e8e8f807ae0577190905d4f3c1b81649c57702821c5350ecac16f11"
+            },
+            {
+              "block_id": 23,
+              "native_cache_key": "154b28c755e53dc83fcbe2c24a440fb1b1473c8519b70a436346b79111b3482b00000000",
+              "native_hash": "154b28c755e53dc83fcbe2c24a440fb1b1473c8519b70a436346b79111b3482b"
+            },
+            {
+              "block_id": 24,
+              "native_cache_key": "95b9ebb74edefcbeb03838cfa86869ab6e826f049430fc8c9b5b6b3f353b7c5d00000000",
+              "native_hash": "95b9ebb74edefcbeb03838cfa86869ab6e826f049430fc8c9b5b6b3f353b7c5d"
+            }
+          ],
+          "initially_reclaimable_block_count": 24,
+          "mapping_reason": "latest pre-decision block/hash/process mapping is complete",
+          "mapping_status": "OBSERVABLE",
+          "native_hash_process_id": "13038",
+          "prefix_id": "continuum.prefix.native_hash.v1:95b9ebb74edefcbeb03838cfa86869ab6e826f049430fc8c9b5b6b3f353b7c5d00000000",
+          "prefix_snapshot_event_index": 9,
+          "program_id": "pressure-target"
+        }
+      ],
+      "decision_event_index": 17,
+      "decision_timestamp": 14636.525278083,
+      "has_differentiated_marginal_relief": false,
+      "has_multiple_protected_owners": false,
+      "marginal_relief_counts": [
+        24
+      ],
+      "owner_mapping_status": "OBSERVABLE",
+      "run_id": "w-pressure-native-repeat-2",
+      "shared_protected_blocks": [],
+      "source": "artifacts/phase2c-native-pilot-runs-v1/w-pressure-native-repeat-2/events.jsonl"
+    }
+  ],
+  "schema_version": "phase2d.shared_retention_feasibility.v1",
+  "source_runs_root": "artifacts/phase2c-native-pilot-runs-v1",
+  "summary": {
+    "differentiated_marginal_relief_decision_count": 0,
+    "fully_reconstructed_owner_mapping_count": 2,
+    "legal_candidate_counts": [
+      1,
+      1
+    ],
+    "multiple_protected_owner_decision_count": 0,
+    "not_observable_decision_count": 0,
+    "valid_forced_release_decision_count": 2
+  }
+}
