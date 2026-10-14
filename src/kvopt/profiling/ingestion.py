@@ -11,7 +11,9 @@ class ArtifactValidationError(ValueError):
     """Raised when raw experiment artifacts violate the data contract."""
 
 
-_RUN_SCHEMA_VERSIONS = frozenset({"phase2.run.v1", "phase2e.t1_run.v1"})
+_RUN_SCHEMA_VERSIONS = frozenset(
+    {"phase2.run.v1", "phase2e.t1_run.v1", "phase2e.measured_run.v1"}
+)
 _TRACE_SCHEMA_VERSION = "phase2.trace.v1"
 _EVENT_SCHEMA_VERSION = "phase2.event.v1"
 
