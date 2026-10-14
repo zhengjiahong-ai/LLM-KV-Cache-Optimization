@@ -36,6 +36,7 @@ def build_freeze_candidate(
         "validator": repository / "src/kvopt/workload/phase2e_validate.py",
         "runner": repository / "src/kvopt/workload/phase2e_runner.py",
         "gate_c_evaluator": repository / "src/kvopt/profiling/phase2e_gate.py",
+        "campaign_evaluator": repository / "src/kvopt/profiling/phase2e_campaign_gate.py",
         "runtime_evidence": repository / "src/kvopt/profiling/runtime_evidence.py",
     }
     git_sha = subprocess.run(

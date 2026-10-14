@@ -50,6 +50,8 @@ def authorize_config(config_path: Path, authorization_path: Path) -> dict[str, o
     required = {
         "runner": repository / "src/kvopt/workload/phase2e_runner.py",
         "gate_c_evaluator": repository / "src/kvopt/profiling/phase2e_gate.py",
+        "campaign_evaluator": repository
+        / "src/kvopt/profiling/phase2e_campaign_gate.py",
     }
     for name, path in required.items():
         binding = bindings.get(name)

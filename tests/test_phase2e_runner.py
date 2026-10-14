@@ -67,6 +67,11 @@ def test_runner_accepts_only_hash_bound_config(tmp_path: Path) -> None:
                     "gate_c_evaluator": {
                         "sha256": _sha(repository / "src/kvopt/profiling/phase2e_gate.py")
                     },
+                    "campaign_evaluator": {
+                        "sha256": _sha(
+                            repository / "src/kvopt/profiling/phase2e_campaign_gate.py"
+                        )
+                    },
                 },
             }
         ),
