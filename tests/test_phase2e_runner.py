@@ -56,6 +56,7 @@ def test_runner_accepts_only_hash_bound_config(tmp_path: Path) -> None:
                 "schema_version": "phase2e.joint_freeze.v1",
                 "joint_freeze_complete": True,
                 "measured_campaign_authorized": True,
+                "git_dirty": False,
                 "campaign_manifest_path": "manifest.json",
                 "campaign_manifest_sha256": _sha(campaign),
                 "authorized_config_sha256": [_sha(config)],
