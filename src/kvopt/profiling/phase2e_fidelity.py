@@ -389,10 +389,7 @@ def build_t1_audit(
             "p5_unmapped_eviction_count": len(run_evictions) - mapped,
             "forced_release_decision_count": len(_events(run, "FORCED_RELEASE_DECISION")),
         }
-    gate_pass = gate_pass and comparability["status"] in {
-        "COMPARABLE",
-        "COMPARABLE_WITH_LEGACY_PRESSURE_DIGEST_LIMITATION",
-    }
+    gate_pass = gate_pass and comparability["status"] == "COMPARABLE"
     missingness = {
         run.run_id: {
             "expected_requests": len(by_run[run.run_id]),
@@ -513,7 +510,7 @@ def build_targeted_forced_release_audit(
         "single_real_forced_release_decision": len(decisions) == 1,
         "candidate_geometry_present": len(candidate_rows) >= 2,
         "selected_logical_release_present": bool(selected_by_program),
-        "selected_blocks_became_physically_evicted": selected_blocks <= evicted_blocks,
+        "selected_blocks_became_physically_evicted": bool(selected_blocks) and selected_blocks <= evicted_blocks and all(row.get("hash_removed_after") is True for row in selected_evictions),
         "decision_precedes_selected_physical_evictions": bool(selected_evictions)
         and decision_index < min(int(row["event_index"]) for row in selected_evictions),
         "selected_evictions_have_pre_eviction_identity": all(

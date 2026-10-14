@@ -61,6 +61,7 @@ def evaluate_run(run_dir: Path) -> dict[str, object]:
             isinstance(row.get("payload"), dict)
             and row["payload"].get("native_cache_key_before")
             and row["payload"].get("native_hash_process_id")
+            and row["payload"].get("hash_removed_after") is True
             for row in evictions
         )
     family = str(stage.get("family"))
@@ -131,6 +132,7 @@ def evaluate_run(run_dir: Path) -> dict[str, object]:
         "native_overlap_evidence": overlap if family == "F6" else None,
         "request_evidence": rows,
         "materialized_token_digests": digests,
+        "pairing_provenance": {"git_sha": run.manifest.get("git_sha"), "trace_sha256": run.manifest.get("trace_sha256"), "model": config.get("model"), "generation": config.get("generation"), "cache": config.get("cache"), "batching": config.get("batching"), "seed": config.get("seed"), "backend_revision": config.get("backend_revision")},
     }
 
 

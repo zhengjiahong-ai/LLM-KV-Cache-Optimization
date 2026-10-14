@@ -44,6 +44,11 @@ def authorize_config(config_path: Path, authorization_path: Path) -> dict[str, o
     ).stdout.strip()
     if current_sha != authorization.get("git_sha"):
         raise ValueError("runtime code SHA does not match the joint freeze record")
+    if authorization.get("git_dirty") is not False:
+        raise ValueError("joint freeze candidate was not clean")
+    dirty = subprocess.run(["git", "status", "--porcelain"], cwd=repository, check=True, capture_output=True, text=True).stdout.strip()
+    if dirty:
+        raise ValueError("dirty working tree is not authorized")
     bindings = authorization.get("bindings")
     if not isinstance(bindings, dict):
         raise TypeError("joint freeze record lacks code bindings")

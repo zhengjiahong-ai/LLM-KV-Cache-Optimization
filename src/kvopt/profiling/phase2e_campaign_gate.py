@@ -31,7 +31,10 @@ def compare_pair(
         for row in right_rows
         if isinstance(row, dict)
     } if isinstance(right_rows, list) else set()
+    left_prov, right_prov = native_lru.get("pairing_provenance"), continuum.get("pairing_provenance")
     checks = {
+        "provenance_complete": bool(left_prov) and bool(right_prov) and all(v is not None for v in left_prov.values()) and all(v is not None for v in right_prov.values()),
+        "provenance_equal": left_prov == right_prov,
         "both_runs_valid": native_lru.get("status") == continuum.get("status") == "VALID",
         "scenario_identity_equal": native_lru.get("scenario_id") == continuum.get("scenario_id"),
         "repeat_identity_equal": native_lru.get("repeat") == continuum.get("repeat"),
@@ -41,6 +44,7 @@ def compare_pair(
         and all(left_digests.values()),
     }
     return {
+        "mechanism_evaluable": all(checks.values()) and native_lru.get("family_mechanism_status") == continuum.get("family_mechanism_status") == "REALIZED",
         "status": "COMPARABLE" if all(checks.values()) else "NOT_COMPARABLE",
         "checks": checks,
         "reasons": [name for name, passed in checks.items() if not passed],
