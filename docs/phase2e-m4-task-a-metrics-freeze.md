@@ -13,7 +13,7 @@
 本文件**冻结 Phase 2E 的指标口径、统计单位、证据分级与缺失性处理**。
 
 ⚠️ **冻结后不得依据早期有利结果临时更改主要指标或 workload 分布**（M1 §六）。
-任何口径变更**须作为新的 preregistration**，不得视为对本文件的编辑。
+探索性测量契约如因 native smoke 暴露观测缺口而确需修订，应在正式 measured execution 前**版本化记录变更及理由**；不得依据早期效果方向事后修改主要指标。正式 preregistration 仍属于未来单独阶段。
 
 ⚠️ **A2 的阈值（θ、κ）标为 `PROVISIONAL`**，等待 M1 裁定。
 
@@ -47,7 +47,7 @@ seed repetition        -> 运行噪声 / 可复现性，不是独立样本
 | 级别 | 含义 | 可否用于因果主张 |
 | --- | --- | --- |
 | **`NATIVE_OBSERVED`** | runtime 直接发出（时间戳、token 计数、hash 链、淘汰事件） | ✅ 可作事实 |
-| **`OFFLINE_DERIVED`** | 由原生字段 + 已声明输入经确定函数得到 | ✅ 但须列明函数与输入 |
+| **`OFFLINE_DERIVED`** | 由原生字段 + 已声明输入经确定函数得到 | ✅ 可陈述派生事实；因果性仍取决于识别设计，须列明函数与输入 |
 | **`ASSOCIATION_ONLY`** | 仅时间/空间共现，**无隔离** | ❌ **不得**作因果 |
 | **`NOT_OBSERVABLE`** | 所需观测缝不存在 | ❌ 须显式报告缺口 |
 
@@ -83,22 +83,36 @@ view         : D | I
 
 | ID | 指标 | 定义 | 单位 | 证据 | 必需字段 |
 | --- | --- | --- | --- | --- | --- |
-| **A1.1** | `aggregate_recomputed_tokens` | $\sum_{i} (\text{prompt}_i - \text{cached}_i)$ over scenario 内全部请求 | scenario-draw | NATIVE_OBSERVED 输入 / OFFLINE_DERIVED 求和 | `native_prompt_tokens`, `native_cached_prefix_tokens` |
-| **A1.2** | `mean_recomputed_tokens_per_request` | `A1.1 / n_requests` | per-request | 同上 | 同上 |
-| **A1.3** | `mean_ttft_seconds` | $\text{mean}(\text{first\_token}_i - \text{queued}_i)$ | scenario-draw | NATIVE_OBSERVED 输入 / OFFLINE_DERIVED 差 | `native_first_token_timestamp`, `native_queued_timestamp` |
-| **A1.4** | `native_prefill_to_first_seconds` | $\sum_i (\text{first\_token}_i - \text{admission}_i)$ | scenario-draw | 同上 + `native_scheduler_admission_timestamp` | 三个时间戳 |
-| **A1.5** | `cache_reuse_efficiency` | $\sum_i \text{cached}_i / \sum_i \text{prompt}_i$ | share | 同 A1.1 | 同 A1.1 |
+| **A1.1** | `aggregate_recomputed_tokens` | $\sum_i (E_i-C_i)$；只统计此前证据可认定可复用的前缀缺失 | scenario-draw | OFFLINE_DERIVED | `eligible_prefix_tokens`、`native_cached_prefix_tokens`、同进程内容证据 |
+| **A1.1a** | `aggregate_actual_prefill_tokens` | $\sum_i (N_i-C_i)$；实际输入 prefill 工作量，**包含自然新增内容** | scenario-draw | OFFLINE_DERIVED | `native_prompt_tokens`、`native_cached_prefix_tokens` |
+| **A1.1b** | `aggregate_new_suffix_tokens` | $\sum_i (N_i-E_i)$；首次出现/自然增长的 token | scenario-draw | OFFLINE_DERIVED | `native_prompt_tokens`、`eligible_prefix_tokens` |
+| **A1.2** | `mean_recomputed_tokens_per_request` | `A1.1 / 全部预期请求数`，必须先检查请求完整性 | per-request | OFFLINE_DERIVED | 同 A1.1 + expected request manifest |
+| **A1.3** | `mean_ttft_seconds` | $\operatorname{mean}(\text{first\_token}_i - \text{queued}_i)$（**native queued-to-first**，非必然用户端到端 TTFT） | scenario-draw | OFFLINE_DERIVED | `native_first_token_timestamp`、`native_queued_timestamp`、同 clock domain |
+| **A1.4** | `aggregate_admission_to_first_token_seconds` | $\sum_i (\text{first\_token}_i - \text{admission}_i)$；包含调度/执行影响，**非 isolated GPU prefill** | scenario-draw | OFFLINE_DERIVED | `native_scheduler_admission_timestamp`、`native_first_token_timestamp` |
+| **A1.5** | `cache_reuse_efficiency` | $\sum_i C_i / \sum_i N_i$ | share | OFFLINE_DERIVED | `native_prompt_tokens`、`native_cached_prefix_tokens` |
 
-### 2.2 TTFT 的强制分解（对应 A2 的「区分」要求）
+### 2.2 Token 语义与 TTFT 的强制分解
+
+沿用 `src/kvopt/profiling/runtime_evidence.py::derive_level_b_token_semantics` 的冻结定义：
+
+```text
+N_i = native_prompt_tokens；E_i = eligible_prefix_tokens；C_i = native_cached_prefix_tokens
+约束：0 <= C_i <= E_i <= N_i
+actual_prefill_i = N_i - C_i = (E_i - C_i) + (N_i - E_i)
+recomputed_i     = E_i - C_i     （先前可复用内容当前未命中）
+new_suffix_i     = N_i - E_i     （新输入/增长；不得归为淘汰损失）
+```
+
+`E_i` 需以当前 hash 与兼容的先前 prefix snapshot 推导；缺少有效的历史内容 provenance 时不能用 `N_i` 冒充 `E_i`。即使 `E-C>0`，无淘汰因果证据也不得称为“LRU 导致的重计算”。
 
 ```text
 TTFT_i = (admission_i - queued_i)   +   (first_token_i - admission_i)
-         └ A1.6 queue_delay_seconds     └ A1.4 prefill-to-first
+         └ A1.6 queue_delay_seconds     └ A1.4 admission-to-first
 ```
 
 ⚠️ **为何必须分开报**：RR-EVICT 指出延迟收益部分来自**避免超长 prefill 引发的 head-of-line blocking**。
 在 `max_concurrent_requests = 1` 下队列分量**退化**（实测 H1 最大 queue delay 仅 **0.006 s**），
-此时 token 尾 ≈ 延迟尾；一旦并发 >1，两者**分离**。
+即使并发为 1，token 尾也不一定与 TTFT 尾等比例；并发 >1 时还可能进一步引入排队与调度差异。
 
 ⇒ **A1.6 `mean_queue_delay_seconds` 与并发度必须与 A1.3 同时上报**，否则延迟结论不可比。
 
@@ -111,25 +125,19 @@ TTFT_i = (admission_i - queued_i)   +   (first_token_i - admission_i)
 | ID | 指标 | 定义 |
 | --- | --- | --- |
 | **A1.7** | `aggregate_delta_tokens` | $\sum_i \Delta_i$，其中 $\Delta_i = \text{rec}_i^{\text{armB}} - \text{rec}_i^{\text{armA}}$ |
-| **A1.8** | `abs_redistribution_tokens` | $\sum_i |\Delta_i|$（**毛**变化量） |
+| **A1.8** | `gross_request_level_change_tokens`（兼容旧别名 `abs_redistribution_tokens`） | $\sum_i |\Delta_i|$（**毛变化量**，不全等于实际转移量） |
 | **A1.9** | **`NGR`（net-to-gross ratio）** | $\dfrac{\left|\sum_i \Delta_i\right|}{\sum_i |\Delta_i|}$ |
 
-**`NGR` 的读法**（本文件的核心新指标）：
+**`NGR` 仅刻画净变化相对毛变化的比例，不提供收益方向。** 令 `Δ_i = rec_i(armB) - rec_i(armA)`，则 `aggregate_delta_tokens < 0` 表示 B 比 A 少重算，`> 0` 表示 B 更多；**是否减少总体成本必须首先由带符号的聚合量判断**。`NGR=1` 也可能是全面退化；`NGR<0.5` 仍可存在真实净节省，只能额外描述为 `REDISTRIBUTION_HEAVY_DIAGNOSTIC`，**不得设 0.5 硬收益门槛**。
 
-```text
-NGR ≈ 0  -> 纯再分配：聚合计算量未变，只是谁承担变了   => 不得声称为收益
-NGR ≈ 1  -> 真实聚合变化：整体计算量确实改变           => 才可声称为收益
-```
-
-⚠️ **凡 `NGR < 0.5` 的对照，一律标注 `REDISTRIBUTION_DOMINATED`**，
-其 `aggregate_delta_tokens` **不得**表述为「节省」。
+`Σ|Δ_i| = 0` 时 NGR 为 `NOT_APPLICABLE_ZERO_GROSS`，不能填 0 或 1。计算前须一对一匹配 scenario、request identity 和完整返回序列；若任一臂预期请求缺失/无法匹配，则标 `NOT_COMPARABLE` 并报告 missingness，不得静默减少分母。基线与候选比较属于**策略级配对观察**，本身不证明某一次 physical eviction 的因果贡献。
 
 **观测性（非对照）场景的替代量**：无配对臂时，改用
-**A1.10 `within_scenario_recompute_gini`**（见 A2.6）刻画损失在 agent 间的分散程度。
+**A1.10 `within_scenario_recompute_gini`**（见 A2.6）刻画 `E-C` 在 agent 间的分散程度，且应同时报告各 agent 的请求次数，以免混淆活跃度与损失程度。
 
 ### 2.4 缺失性
 
-若 `native_prompt_tokens` 或 `native_cached_prefix_tokens` 缺失 ⇒ `A1.1` 记 `NOT_COMPUTABLE`
+若 `native_prompt_tokens`、`native_cached_prefix_tokens` 或有效的 `eligible_prefix_tokens` 缺失 ⇒ `A1.1` 记 `NOT_COMPUTABLE`（不能回退为 `N-C`）；`A1.1a` 仅要求 N/C，但须单独标注口径。
 并附 reason code；**不得插补**，**不得静默丢弃**（沿用 `docs/phase2a-m4-missingness-semantics.md` 与 issue #34）。
 
 ---
