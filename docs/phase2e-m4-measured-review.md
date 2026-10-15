@@ -17,8 +17,8 @@
 ### ⭐ 本轮最重要的发现（一句话）
 
 > **时间三个分量（TTFT / queue / prefill）全部只动了 ~0.05%，而 actual prefill token 降了 14.48%。**
-> 因此问题**不是**「收益被排队掩盖」，而是 **token→时间 的转化在 prefill 分量内部就已经失效**。
-> 「queue-dominated」是**真实事实**，但**不是**该零结果的解释。
+> 因此当前能说的是：没有观察到对应的时间下降，**token→latency 的转化路径尚未识别**。
+> 「queue-dominated」是**真实事实**，但不是已证明的 masking 机制。
 
 ---
 
@@ -144,43 +144,54 @@ A2.8'  分母改为正分位或条件于 E>0：
 12 = F4 draws 01/03/05 × 2 臂 × 2 repeats。已核实物化器：
 
 ```python
-"shared_prefix_control": family == "F4" and draw % 2 == 0     # 偶数 draw 才是 SHARED_ROOT
+root_key += f"-{agent}" when family == "F4" and draw % 2 == 0
+"shared_prefix_mode": (
+   "NO_SHARED_PREFIX_NEGATIVE_CONTROL"  # even draws 02/04/06
+   if family == "F4" and draw % 2 == 0
+   else "SHARED_ROOT"                    # odd draws 01/03/05
+)
 ```
 
-⇒ F4 的 `draw % 2 != 0`（即 01/03/05）走的是**逐 agent 根**路径。
+⇒ F4 的 `draw % 2 != 0`（即 01/03/05）才是 **SHARED_ROOT treatment**；
+F4 的偶数 draw（02/04/06）才是逐 agent 根的 **NO_SHARED_PREFIX_NEGATIVE_CONTROL**。
 M6 将其保留（`retained rather than deleted or relabeled`）、参与**请求级**测量、
-但**不参与物理淘汰机制声明** —— **完全符合** M1 的指示与我的 §A3 规则 R1/R2。
+但奇数 treatment draw 的物理淘汰机制未实现，故不参与该机制声明 —— **完全符合** M1 的指示与我的 §A3 规则 R1/R2。
 
-⇒ **我确认此处理正确，且不应改为删除或重标。**
+⇒ **我确认保留这些运行的处理正确，但 shared/control 标签必须按上述方向修正，且不得把 negative-control 的改善写成 shared-root 机制收益。**
 
 ### 2.2 ⭐ F4 的 family 均值**被稀释**，必须分层报告
 
-报告给出 F4 `6 draws, 3 负 / 3 零 / 0 正`，均值 **−133.33**；并说明「三个零 draw 恰为
-mechanism 未实现的 shared-root cases」。
+报告给出 F4 `6 draws, 3 负 / 3 零 / 0 正`，均值 **−133.33**；三个零 draw 是
+**SHARED_ROOT treatment**，但其所需物理淘汰机制未实现；三个负 delta 来自
+**NO_SHARED_PREFIX_NEGATIVE_CONTROL**，不是 shared-root benefit。
 
-⇒ 故 F4 的 −133.33 是**混合了 3 个机制未实现 draw（Δ=0）**的产物：
+⇒ 故 F4 的 −133.33 是保留在描述表中的**六 draw unconditional mean**；可另外给出
+「mechanism-realized negative-control」条件均值，但它**不是 shared-root treatment 的证据**：
 
 ```text
 F4 mean = (Σ 3 个已实现 Δ + Σ 3 个机制未实现 Δ) / 6 = −133.33
-若 3 个零全来自机制未实现 ⇒ Σ 已实现 Δ = −800.00 ⇒ 条件均值 = −266.67
+若 3 个负 delta 的确对应报告所述 −133.33×6/3 ≈ −266.67 的 conditional mean，
+则该数值只表示 **mechanistically eligible no-shared negative-control** 的条件均值。
 ```
 
-| Family | 报告均值（6 draws） | 零 draw 数 | 零 draw 性质 | **条件均值（非零 draw）** |
-| --- | ---: | ---: | --- | ---: |
-| F3 | −357.33 | 0 | — | **−357.33** |
-| F1 | −266.67 | 0 | — | **−266.67** |
-| **F4** | −133.33 | 3 | ⚠️ **全部为机制未实现** | **≈ −266.67**（`DERIVED_PENDING_ARCHIVE`） |
-| F5 | −208.00 | 0 | — | **−208.00** |
-| F6 | −58.67 | 4 | ✅ **机制已实现，是真平局** | **≈ −176.01**（`DERIVED_PENDING_ARCHIVE`） |
-| F2 | −128.00 | 0 | — | **−128.00** |
+| Family | 报告均值（6 draws） | 零 draw 数 | `shared_prefix_mode` / 机制状态 |
+| --- | ---: | ---: | --- |
+| F3 | −357.33 | 0 | `FAMILY_DEFAULT` / realized |
+| F1 | −266.67 | 0 | `FAMILY_DEFAULT` / realized |
+| **F4** | −133.33 | 3 | odd `SHARED_ROOT` / NOT_REALIZED；even `NO_SHARED_PREFIX_NEGATIVE_CONTROL` / realized |
+| F5 | −208.00 | 0 | `FAMILY_DEFAULT` / realized |
+| **F6** | **−58.67** | 4 | `FAMILY_DEFAULT` / realized **true ties** |
+| F2 | −128.00 | 0 | `FAMILY_DEFAULT` / realized |
 
 ⚠️ **这条区分很重要**：**F4 与 F6 的零 draw 性质完全不同** ——
-F4 的零是**机制假象**，F6 的零是**真实平局**。
-若不分层，会同时**低估 F4**（实际与 F1 同级）与**高估 F6 的实际差异**（其条件均值更高）。
+F4 的零是 **SHARED_ROOT treatment 的机制未实现**，F6 的零是**机制已实现的真实平局**。
+此外，F4 的三个负 delta 属于 negative control，**不能**用来证明 shared-root benefit，
+也不能据此把 F4 提升为 shared-root 方法机会。
 
-⇒ **建议**：family 表**必须加一列 `mechanism_evaluable_repeat/scenario` 并给出条件均值**；
+⇒ **建议**：family 表**必须加 `shared_prefix_mode`、`mechanism_evaluable_repeat/scenario` 两列**；
 分析器已经计算了 `mechanism_evaluable_repeat_count`，只是**未用于分层**。
-⚠️ 依 M1：这些 run 的**请求级**测量有效，故**保留**；但**不得**用于机制结论，**也不应混入 family 均值**。
+⚠️ 依 M1：这些 run 的**请求级**测量有效，故**保留**；但 treatment 的机制结论只能标 `NOT_ESTABLISHED`，
+negative-control 的结果也不能重命名为 shared-root 机制收益。
 
 ### 2.3 能力边界：全部保持
 
@@ -212,8 +223,11 @@ F4 的零是**机制假象**，F6 的零是**真实平局**。
 **两臂同时 REALIZED**。F4 的 01/03/05 两臂皆 NOT_REALIZED ⇒ 这 6 个 scenario 的
 **配对机制不可评估**（其请求级 Δ 仍有效）。
 
-⇒ 机制结论的**有效 scenario 数 = 36 − 6 = 30**（其中 F4 只剩 3）。
-⚠️ 因此任何 family 级机制主张，其**有效样本是 30 而非 36**，须显式写出。
+⇒ 机制结论的**有效 scenario 数 = 36 − 3 = 33**：3 个 F4 treatment draw 不可评估，
+而三个 negative-control draw 仍是机制已实现的可评估对照。
+对应 full-pair 层级为 **66/72 mechanism-evaluable pairs**，不是 30/36。
+⚠️ 对 shared-root treatment 这一特定机制，当前**没有任何 treatment draw 建立了物理淘汰**；
+negative controls 的有效性不能替代 treatment 证据。
 
 ---
 
@@ -224,7 +238,7 @@ F4 的零是**机制假象**，F6 的零是**真实平局**。
 | # | 结论 | 强度 |
 | --- | --- | --- |
 | **C1** | 在本冻结合成 workload 中，Continuum 在 scenario 级**保留了更多可复用前缀**：aggregate recomputed 326.67 → 134.67（**−58.77%**） | **实测**（29/7/0，方向一致） |
-| **C2** | 该 token 收益**不是再分配**：所有非零配对 `NGR = 1` ⇒ **无任何请求变差** | **实测**（且非平凡） |
+| **C2** | 所有非零配对 `NGR = 1`，即每个**已匹配 comparison** 内的 request-level delta 同号；具体全局方向与匹配有效性仍以 archive/gate 复核为准 | **实测摘要支持，非因果主张** |
 | **C3** | token 尾部同样改善：per-draw P99 recomputed **−29.17%** | **实测**（I 视图） |
 | **C4** | **未观察到任何延迟层面的对应改善**：TTFT +0.056%、queue +0.057%、prefill-to-first +0.050%；I 视图 P99 TTFT −0.349%、D 视图 +0.036% | **实测** |
 | **C5** | ⭐ **prefill 分量本身未响应 token 减少**：actual prefill token **−14.48%**，而 prefill-to-first 时间 **+0.050%** | **实测**（本节核心） |
@@ -237,9 +251,9 @@ F4 的零是**机制假象**，F6 的零是**真实平局**。
 - 效果可外推到生产分布（合成网格）；
 - 任何 Cost-Aware policy 的收益。
 
-### 3.3 ⭐ 为什么 recomputation savings 不能作为 latency benefit 的代理
+### 3.3 ⭐ 为什么 recomputation savings 不能直接作为 latency benefit 的代理
 
-**这是 M1 特别要求判断的一项。我的结论与 M6 的解释不同。**
+**这是 M1 特别要求判断的一项。这里修正原文中过强的因果解释。**
 
 **（a）已观察事实**
 
@@ -251,16 +265,14 @@ TTFT   : 0.729370 -> 0.729779   +0.056%
 token ：recomputed -58.77%，actual prefill -14.48%
 ```
 
-**（b）M6 的解释及其问题**
+**（b）正确的证据边界**
 
-报告写：*"Queue delay dominates ... in this workload"*，以此解释零结果。
-但**该解释不能成立**，理由是：
+报告中的 *"Queue delay dominates ... in this workload"* 是**描述性事实**，
+但不能据此证明 latency 零结果是 queue masking。`native_scheduler_admission_timestamp`
+到 `native_first_token_timestamp` 也不是隔离的 GPU prefill compute；它可能包含调度、固定开销、
+engine timing、batching 与 workload scale 等因素。由聚合比较不能识别 token→latency 的具体失败位置。
 
-> queue 分量**只能通过 service time 变化**而缩小（`queue ≈ Σ 前序请求 service`）。
-> 若 token 减少真的改善了 prefill，则 service time 会下降，**queue 与 prefill 会一起下降**。
-> 实测**二者都没动**（+0.057% / +0.050%）。
-
-⇒ 若「prefill 时间 ∝ prefill token」，则预期：
+若作一个**明确标注为假设的**辅助算术：假定 queue 固定且 prefill-to-first 与 token 线性，则预期：
 
 ```text
 prefill-to-first : 0.072453 × (1 − 0.1448) = 0.061961   （实测 0.072489）
@@ -275,14 +287,14 @@ TTFT             : 0.718878                              （实测 0.729779）
 | --- | --- |
 | **已观察事实** | queue 占 TTFT 的 **90.07%**（两臂相同）；且 prefill-to-first **未响应** 14.48% 的 token 减少 |
 | **已推导（DERIVED）** | 若 prefill 时间线性于 token，TTFT 应改善 **1.438%**；实测为 **+0.056%** ⇒ 实现比例 ≈ **−3.9%** |
-| **未证明** | **为什么** prefill 时间不响应 token 数。候选（**均未检验**）：① 这些规模（≤256-token prompt、`max_new_tokens=1`）下 prefill 由**固定开销**主导（kernel launch / 调度 / 首 token 生成）；② `native_first_token_timestamp` 的时间粒度或噪声覆盖了 ~10 ms 效应；③ prefill token 数在引擎重批处理下**并非成本驱动量**。**无 CI，故不能做任何显著性主张** |
+| **未证明** | **为什么** admission-to-first 不响应 token 数。候选（**均未检验**）：① 这些规模（≤256-token prompt、`max_new_tokens=1`）下固定开销主导；② 调度、engine timing 或 batching；③ workload scale / 测量噪声；④ prefill token 数不是该设置下的主要时间驱动量。**无 CI，故不能做任何显著性主张** |
 
-⇒ **结论**：**不是**「收益被排队掩盖」，而是 **token→时间 的转化在 prefill 分量内部就已经失效**。
-「queue-dominated」是事实，但把它当作零结果的**解释**是**未被支持的推断**。
+⇒ **结论**：这个 synthetic one-token regime 没有观察到 native admission-to-first 或 queued-to-first 的对应下降；
+token→latency 的转化路径**尚未识别**。queue 占比高是描述性事实，不是已证明的 masking 机制。
 
-⚠️ **这一条对下一阶段是决定性的**：如果 prefill 时间在本 regime 不随 token 数变化，
-那么 **`recomputed tokens` 作为面向延迟的目标函数是无效的**，
-后续优化必须改用**时间锚定**的目标（见 §4）。
+⚠️ **这一条对下一阶段是决定性的**：`recomputed tokens` 仍是有效的资源/效率指标，
+但在本 workload 中尚未证明它是 latency proxy；需要 isolated prefill 与 controlled low-queue regime
+来区分这些机制，不能据此宣称它普遍无效（见 §4）。
 
 ### 3.4 我无法判定的一项
 
@@ -295,16 +307,15 @@ TTFT             : 0.718878                              （实测 0.729779）
 
 ### 4.1 最值得验证的**成本目标**（必须换）
 
-⛔ **不再以 `recomputed tokens` 作为主目标**（§3.3：它在本次 regime 中无时间信号）。
-建议按优先级：
+**时间感知验证优先**，但保留 `recomputed tokens` 作为互补资源指标。建议按优先级：
 
 | # | 候选成本目标 | 理由 |
 | --- | --- | --- |
-| **T1** | **`prefill-to-first` 时间（条件于 E>0）** | 直接锚定时间；本 campaign 已证明它与 token 数脱钩，需先弄清其驱动量 |
+| **T1** | **`prefill-to-first` 时间（条件于 E>0）** | 直接锚定时间；本 campaign 未识别其与 token 数的关系，需先弄清其驱动量 |
 | **T2** | **KV 容量 / admission 效应** | 若 per-request 延迟对 recomputation 不敏感，token 节省的价值可能体现在**总计算量与 KV 压力**上（间接影响 admission 与 queue）。本 campaign **未测** |
 | **T3** | **完整请求延迟（含 decode）** | 本 campaign `max_new_tokens=1` ⇒ 无法刻画；需 `max_new_tokens>1` |
 
-⚠️ **测量设计前置条件**：要验证任何延迟收益，必须存在一个 **prefill 份额足够大**的 regime。
+⚠️ **测量设计前置条件**：要验证任何延迟收益，必须存在一个 **prefill 份额足够大、queue 较低**的 regime。
 本 campaign 的 queue 份额 90.07%（且 F1–F5 并发=1）使 token 效应在**原理上**被压到 ≤1.44%。
 ⇒ 下一轮**至少需要一个低队列/高 prefill 份额的臂**，否则延迟类结论不可检验。
 
@@ -316,24 +327,24 @@ TTFT             : 0.718878                              （实测 0.729779）
 | --- | --- | --- | --- |
 | **①最高** | **F3 非等长前缀与成本异构** | 效应最大：**−357.33** | ⭐ **RR-EVICT 假设等长前缀 + 等比例轮转**（其 Eq 2 的 $h$ 对每个 agent 相同）⇒ **F3 正是该假设失效之处**，且我们有决策时可观测的代理（前缀长度） |
 | **②** | **F1 多 agent 周期返回** | −266.67 | 与 RR-EVICT 的机制重叠（其主场），**创新性需谨慎** |
-| **③** | **F4 跨 agent 共享前缀** | 条件 ≈ −266.67（待核） | 共享位于**前缀根部**，tail-first **天然保护共享头** ⇒ 与 RR-EVICT（假设无跨 agent 共享）方向一致，可能形成正向协同 |
-| **④** | **F6 并发/突发** | 条件 ≈ −176.01，**4 个真平局** | 效应最小且平局最多 ⇒ **最低优先级**；且 `max_new_tokens=1` 使其不代表真实并发 |
+| **③** | **F4 shared-root treatment / negative control 对照** | treatment 机制未建立；negative-control 非零 delta 不能证明 shared-root benefit | 共享前缀机制必须先真实实现并归因；不能把 negative-control 的结果包装成 treatment 机会 |
+| **④** | **F6 并发/突发** | all-six-draw mean **−58.67**，4 个机制已实现真平局 | 不用 post-outcome 子组均值 `−176.01` 替代 preregistered family mean；优先级较低且 `max_new_tokens=1` 不代表完整并发 |
 | **⑤** | F2 冷热与非均匀返回 | −128.00（最小） | 与 H1 已测的返回因子方向重叠，证据已弱 |
 
-⚠️ **F4 与 F6 的排序依赖 §2.2 的分层复核**（`DERIVED_PENDING_ARCHIVE`）。
+⚠️ **F4 treatment/control 与 F6 的分层仍需 archive 核验**（`DERIVED_PENDING_ARCHIVE`）。
 
 ### 4.3 建议的下一步（**不**请求新实验授权）
 
 1. **修正分析器（M6 定点）**：
    - 继承 `gate_status`（fail-closed）；
-   - family 表加 `mechanism_evaluable` 分层与条件均值；
+   - family 表加 `shared_prefix_mode` 与 `mechanism_evaluable` 分层，保留 unconditional family mean；
    - manifest 的计数改为**实际遍历导出**。
 2. **修正我的合同（M4）**：`A2.8'` 条件于 E>0（§1.4）；`A1.11` 增加 `prefill-to-first` 的条件化版本。
 3. **收尾结论的措辞**（建议 M1 采纳）：
    > *本 campaign 提供了可复现证据：在冻结合成 workload 中，更多 KV 前缀复用**并未**带来请求延迟改善；
-   > 且 token 的减少**未**在其自身的 prefill 时间分量上产生可测响应。*
-   > *因此后续 Cost-Aware 研究不能以 recomputed-token 数量为目标函数，而须先建立一个
-   > prefill 份额足够大、且能观测到 token→时间响应的测量 regime。*
+   > 且 token 的减少**未**在 admission-to-first 或 queued-to-first 时间中产生可测响应。*
+   > *这并未识别 token→latency 的失败机制；后续需要 isolated prefill 与 controlled low-queue/high-prefill
+   > regime，同时保留 recomputed tokens 作为互补资源指标。*
 4. **Phase 2E 收尾**：接受 `C1–C5` 为探索性结论；`C5` 为本轮最有价值的方法学发现。
 
 ---
@@ -341,11 +352,11 @@ TTFT             : 0.718878                              （实测 0.729779）
 ## 5. 请求 M1 裁定
 
 1. **METRIC_REVIEW** 是否接受 `PASS_WITH_DEFECTS`（口径合规 + 2 处分析器缺陷 + 1 处我的合同缺陷）？
-2. **§3.3 的解释修正**：是否接受「**不是 queue-dominated masking，而是 prefill 分量内部 token→时间转化失效**」这一修正？
-   ⚠️ 这是与 M6 报告措辞的**实质分歧**，请裁定。
-3. **§2.2 的 F4 分层**：是否要求 family 表按 `mechanism_evaluable` 分层（F4 条件均值 ≈ F1）？
+2. **§3.3 的解释修正**：是否接受「没有观察到时间下降，但 token→latency 转化路径**尚未识别**；queue 高占比是描述性事实，不是已证明 masking」？
+3. **§2.2 的 F4 分层**：是否要求按 `SHARED_ROOT` vs `NO_SHARED_PREFIX_NEGATIVE_CONTROL` 与 `mechanism_evaluable` 分层，
+   并保留 unconditional six-draw mean？
 4. **§1.3 的 fail-open 缺陷**：是否要求**在联合冻结记录中**记为前置条件（改为 fail-closed）？
-5. **§4.1 T1–T3**：是否确认下一轮的主目标**不再**是 `recomputed tokens`，并需要「低队列份额」的测量臂？
+5. **§4.1 T1–T3**：是否确认下一轮以**时间感知验证为优先**、保留 `recomputed tokens` 作为互补资源指标，并需要低队列/高 prefill 份额测量臂？
 6. **§4.2 优先级**：是否确认 **F3（非等长前缀与成本异构）** 为下一阶段最高优先级的失败模式？
 
 ---
