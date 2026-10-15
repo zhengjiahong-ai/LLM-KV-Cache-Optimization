@@ -12,7 +12,7 @@
 | --- | --- | --- |
 | **METRIC_REVIEW** | **PASS_WITH_DEFECTS** | 指标定义与我的冻结合同**逐项一致**（含 NGR、D/I、聚合顺序）；但发现 **2 处分析器缺陷**（1 处我已定位为 fail-open），以及 **1 处我自己的合同缺陷**（A2.8 在本 workload 中退化） |
 | **MECHANISM_REVIEW** | **ACCEPT_WITH_LIMITS** | 保留 12 个 NOT_REALIZED run 的做法**正确**；但 **F4 的 family 均值被稀释**，必须分层报告；且分析器**未继承 Gate C 的不可比较状态** |
-| **RESEARCH_INTERPRETATION** | **SUPPORTED，但必须修正一处因果解释** | 「token 下降未转化为延迟」是**事实**；但 M6 的归因（queue-dominated masking）**不成立** —— 见 §3.3 |
+| **RESEARCH_INTERPRETATION** | **SUPPORTED，但必须修正一处因果解释** | 「token 下降未转化为延迟」是**事实**；但 M6 的归因（queue-dominated masking）**尚无证据支持** —— 见 §3.3 |
 
 ### ⭐ 本轮最重要的发现（一句话）
 
@@ -215,12 +215,12 @@ negative-control 的结果也不能重命名为 shared-root 机制收益。
 
 ⚠️ 这**改变了对 §3.3 的初步解读**：90% 的 queue 份额是**测量与执行设计**的产物（含 planned offsets 与串行化），
 **不能**直接外推为「生产环境中 recomputation 与延迟无关」。
-但它**也不解释**零结果 —— 理由见 §3.3。
+但无法仅凭该占比确定零结果的原因 —— 见 §3.3。
 
 ### 2.4 机制有效性的**可评估子集**
 
 144 run 中 **132 REALIZED / 12 NOT_REALIZED**。但注意：`mechanism_evaluable` 在 Gate C 中要求
-**两臂同时 REALIZED**。F4 的 01/03/05 两臂皆 NOT_REALIZED ⇒ 这 6 个 scenario 的
+**两臂同时 REALIZED**。F4 的 01/03/05 两臂皆 NOT_REALIZED ⇒ 这 3 个 scenario 对应的 6 个 scenario×repeat pairs 的
 **配对机制不可评估**（其请求级 Δ 仍有效）。
 
 ⇒ 机制结论的**有效 scenario 数 = 36 − 3 = 33**：3 个 F4 treatment draw 不可评估，
@@ -316,7 +316,7 @@ token→latency 的转化路径**尚未识别**。queue 占比高是描述性事
 | **T3** | **完整请求延迟（含 decode）** | 本 campaign `max_new_tokens=1` ⇒ 无法刻画；需 `max_new_tokens>1` |
 
 ⚠️ **测量设计前置条件**：要验证任何延迟收益，必须存在一个 **prefill 份额足够大、queue 较低**的 regime。
-本 campaign 的 queue 份额 90.07%（且 F1–F5 并发=1）使 token 效应在**原理上**被压到 ≤1.44%。
+本 campaign 的 queue 份额为 90.07%（且 F1–F5 并发=1）；**仅在 queue 固定且 admission-to-first 时间随实际 prefill tokens 线性缩放的简化假设下**，估算 TTFT 收益约为 1.44%，**这不是理论上限，也不是实测收益**。
 ⇒ 下一轮**至少需要一个低队列/高 prefill 份额的臂**，否则延迟类结论不可检验。
 
 ### 4.2 最值得验证的**失败模式**
