@@ -101,6 +101,17 @@ Minimum state:
 
 vLLM does not natively provide tool events. These are an **external workload/orchestrator input**, not a reconstructed vLLM signal.
 
+Scope amendment (2026-09): the orchestrator input remains the preferred
+source, but a server-side tool-call parser
+(`kvopt.continuum.tool_call.ToolCallParser`) now also derives the
+`next_tool_type` of a finished non-terminal turn from the decoded request
+output, using the same single-bash-block extraction as the source
+`vllm-continuum` `ToolCallParser`. This is a fallback for real agent
+workloads where no orchestrator-side tool identity is wired into the
+serving process; derived identities are classified as `OBSERVED` with their
+provenance recorded, and failures as `UNAVAILABLE`, never silently
+substituted.
+
 ### 3. Dynamic TTL
 
 The primary baseline must use a **dynamic TTL estimator** based on the Continuum mechanism and available runtime/history signals.
@@ -247,6 +258,12 @@ Primary hook scope:
 - waiting/admission order in `Scheduler.schedule()` / `_select_waiting_queue_for_scheduling()`.
 
 Preemption-order modification is **not required in the first implementation** unless Member 3 demonstrates that Continuum's required program-level behavior cannot be represented without it. If added, it requires a scope update before formal experiments.
+
+A 2026-09 reproduction review confirmed this exclusion stays in force: the
+source scheduler's preemption victim ordering was evaluated and deliberately
+not reproduced, because its primary effect (protected entries surviving
+memory pressure) is already represented by the frozen soft-protection and
+deterministic pressure-release rules above.
 
 Native scheduling must remain available as a baseline/shadow mode.
 
