@@ -1,343 +1,401 @@
-# Phase 2F — 组合算法设计：Ours-Evict (simulation candidate v0) × Continuum Retention
+# Phase 2F — Combined Algorithm Design: Ours-Evict (simulation candidate v0) x Continuum Retention
 
-**提交人**：M4　**送审**：M1　**日期**：2026-10-16
-**分支**：`sim/phase2f-agent-apc-eviction-retention`
-**性质**：**设计 + CPU 离线模拟验证**。不含 runtime 实现、不含 native run、不改冻结基线。
-**上游边界**：PR #50（`docs/ours-evict-algorithm-design-v1.md` rev.2）当前状态
-`CHANGES_REQUESTED / METHOD NOT YET APPROVED / RUNTIME IMPLEMENTATION NOT AUTHORIZED / B1 LOCKED`。
+**Submitter**: M4 **Reviewer**: M1 **Date**: 2026-10-16
+**Branch**: `sim/phase2f-agent-apc-eviction-retention`
+**Nature**: **design plus CPU-only offline simulation validation**. No runtime
+implementation, no native run, no frozen-baseline change.
+**Upstream boundary**: PR #50 (`docs/ours-evict-algorithm-design-v1.md` rev.2)
+is currently `CHANGES_REQUESTED / METHOD NOT YET APPROVED / RUNTIME
+IMPLEMENTATION NOT AUTHORIZED / B1 LOCKED`.
+
+> Audit note (Member 2, 2026-10-16): this revision incorporates the review of
+> the implemented study. Confirmed defects and their fixes are listed in the
+> final report (`docs/phase2f-m4-final-report.md` §10); no conclusion below
+> changed as a result, and the two corrected measurements (protection-time
+> integral, TTL sensitivity probe) are reported explicitly.
 
 ---
 
-## 0. 本文档的位置与裁决承接
+## 0. Position and inherited rulings
 
-### 0.1 继承自 PR #50 的已裁定事实（本文档不再重新论证）
+### 0.1 Facts inherited from PR #50 (not re-argued here)
 
-| # | 事实 | 来源 |
+| # | Fact | Source |
 | --- | --- | --- |
-| F1 | 冻结 block-level 边界只暴露 `EvictionCandidate = {block_id, ref_cnt, has_block_hash, lru_rank}`；`EvictionContext = {required_blocks, free_blocks, total_blocks, timestamp}`。不含 depth / owner / 内容身份 | PR #50 §0.1 结论 1；`runtime/vllm/types.py` |
-| F2 | vLLM 0.27.1 原生路径已做 hashless 优先（`free_blocks()` 对无 hash 块 `prepend_n`、有 hash 块 `append_n`；`get_new_blocks()` `popleft_n`）⇒ **hashless-first 不是本方法的创新** | M1 RC-A；vLLM v0.27.1 `block_pool.py` L719–742 / L647–667 |
-| F3 | `lru_rank` 方向：**数值越小越先被 Native LRU 选中**；`NativeLRUAdapter` 按 `lru_rank` 升序取 `required_blocks` 个 | M1 RC-B；`runtime/vllm/adapter.py:27-39` |
-| F4 | Q1 logical release ⇏ Q2 physical eviction ⇏ Q3 future recomputed tokens；成本模型只对 Q2 建立，Q2→Q3 的映射必须显式假设 | PR #50 RC2；M1 RC-D |
-| F5 | 增量重计算定义：`ΔR = Σ_r B·max(0, j_old(r) − j_new(r))`，`j` = 同一请求可命中的最长**连续**前缀深度；不是全部 prefill tokens | M1 RC-D；本任务硬性约束 |
-| F6 | entry-level pressure-release replay 的效果**不得**当作 block-level Ours-Evict 的效果 | PR #50 §0.1；本任务 §七 |
-| F7 | 不得向 `src/kvopt/continuum/**` 添加 Cost-Aware 评分；不得改 adapter 字段；不得改冻结释放键/TTL | `docs/phase2a-m4-block-level-design-draft.md` §7；PR #50 verdict |
+| F1 | The frozen block-level boundary exposes exactly `EvictionCandidate = {block_id, ref_cnt, has_block_hash, lru_rank}` and `EvictionContext = {required_blocks, free_blocks, total_blocks, timestamp}`. It contains no depth, owner, or content identity. | PR #50 §0.1; `src/kvopt/runtime/vllm/types.py` |
+| F2 | vLLM 0.27.1 already prefers hashless blocks natively (`free_blocks()` prepends hashless and appends hashed blocks; `get_new_blocks()` pops from the head). Hashless-first is therefore **not** claimed as an innovation here. | M1 RC-A; vLLM v0.27.1 `block_pool.py` L719–742, L647–667 |
+| F3 | `lru_rank` direction: smaller rank is selected earlier by `NativeLRUAdapter`, which sorts ascending and takes `required_blocks`. | M1 RC-B; `src/kvopt/runtime/vllm/adapter.py:27-39` |
+| F4 | Q1 logical release does not imply Q2 physical eviction, which does not imply Q3 future recomputed tokens. The cost model prices Q2 only; the Q2 → Q3 mapping is an explicit assumption. | PR #50 RC2; M1 RC-D |
+| F5 | Incremental recomputation is defined as `dR = sum_r B * max(0, j_old(r) - j_new(r))`, where `j` is the longest **contiguous** prefix hit depth. It is not the full prefill token count. | M1 RC-D; task contract |
+| F6 | Entry-level pressure-release replay effects must not be presented as block-level Ours-Evict effects. | PR #50 §0.1; task §7 |
+| F7 | No cost-aware scoring may be added under `src/kvopt/continuum/**`; no adapter field changes; no change to the frozen release key or TTL. | `docs/phase2a-m4-block-level-design-draft.md` §7; PR #50 verdict |
 
-### 0.2 本文档新增的裁决请求（仅此一项）
+### 0.2 The only ruling requested here
 
-请求 M1 裁定：**是否批准将 `simulation candidate v0`（§2）作为 Phase 2F 离线模拟的研究对象**，
-及其明确的非授权属性（simulation-observable signals、不得进入 runtime、不得宣称为正式方法）。
-**不请求**：任何 adapter 字段扩张、任何 runtime 实现、B1 解锁、冻结基线变更。
-
----
-
-## 1. 三个方法层级与本轮边界
-
-```text
-Layer 1  Ours-Evict                : 独立 block-level victim 选择（本轮实现 + 模拟评估）
-Layer 2  Ours-Evict + Retention    : 叠加 Continuum 保留/保护（本轮重点）
-Layer 3  Ours-Full                 : 再叠加调度协调（本轮不实现；A4 仅作单独报告的系统参照）
-```
-
-- Layer 1 必须能脱离 Retention 独立运行与评估（臂 A2）。
-- Layer 2 评估 Retention 的**增量贡献**（A3 vs A2、A1 vs A0、A0/A1/A2/A3 四方对比）。
-- 所有组件对照臂使用**同一 native 调度**（FIFO by (arrival, request_id)）；调度差异只允许出现在
-  单独报告的 A4，且不得用于任何组件归因。
+Whether `simulation candidate v0` (§2) may be studied as the Phase 2F
+simulation object, with its explicit non-authorized status
+(simulation-observable signals, not runtime-deployable, not the formal method).
+**Not requested**: adapter field expansion, runtime implementation, B1 unlock,
+frozen-baseline changes.
 
 ---
 
-## 2. Ours-Evict — `simulation candidate v0`（精确定义）
-
-### 2.1 动机：Native LRU 在 free-event band 内的结构性方向
-
-vLLM 原生 free queue 的入队规则（F2）意味着：一次请求完成时释放的块构成一个 **band**——
-无 hash 块被 `prepend_n` 到队首，有 hash 块被 `append_n` 到队尾，且**同一 band 内保持请求
-block table 的顺序（前缀头 → 尾）**。因此在该 band 内，**链头块（浅层）的 `lru_rank` 小于
-链尾块（深层）**，Native LRU 升序选取会**先淘汰浅层块**。
-
-这正是 M1 RC-B 指出的方向问题，也是本候选方法针对的结构信号：
+## 1. Method layers and this round's boundary
 
 ```text
-淘汰浅层块 a_1  → 连续前缀从第 1 块即断裂 → 后续全部重算
-淘汰深层块 a_m  → 连续前缀保留 1..m-1  → 仅损失后缀
+Layer 1  Ours-Evict                independent block-level victim selection
+Layer 2  Ours-Evict + Retention    Continuum retention/protection on top
+Layer 3  Ours-Full                 plus scheduling coordination (not this round)
 ```
 
-⚠️ **band 内方向（头先 vs 尾先）是从 pinned vLLM 源码推出的假设 A1，不是本项目的运行时实测**
-（P5 的 `(depth, native_lru_rank)` 对应关系 `NOT_OBSERVABLE`）。本模拟直接把该对应关系作为
-**可测量**输出（见模拟器设计文档 §7），并用敏感性臂 S1 量化对假设 A1 的依赖。
+Layer 1 must run and be evaluated without Retention (arm A2). Layer 2 measures
+the incremental contribution of Retention (A3 vs A2, A1 vs A0, and the full
+four-arm contrast). All component arms use the same native scheduling
+(FIFO by `(arrival, request_id)`); scheduling differences appear only in the
+separately reported system reference arm A4 and are never used for component
+attribution.
 
-### 2.2 支配性定理（candidate v0 的正确性依据）
+---
 
-**设定**：内容身份构成前缀 trie（块 hash 为链式 hash，与 vLLM prefix hash 语义一致）；
-一个 band 是一个请求的完整 block 列表，是一条根到叶的链；候选集中的每个块属于唯一 band。
+## 2. Ours-Evict — `simulation candidate v0`
 
-**定理**：固定淘汰数量，把一个 band 内的选择从"较浅优先"改为"较深优先"（跨 band 顺序不变），
-则对**任意**未来请求集合与任意返回概率分布，aggregate recomputed tokens **弱不增**。
+### 2.1 Motivation: the structural direction of Native LRU inside a free-event band
 
-**证明**：任取未来请求 r。若 r 的路径不经过该 band，其命中深度不受影响。若经过，则 r 与该 band
-的交集必为 band 的一个前缀 `1..q`（trie 性质：经过深层块必经过其全部祖先）。设 band 大小为 n，
-本决策从该 band 取 k 块：
+The native free-queue insertion rules (F2) imply that one request completion
+releases a **band** of blocks: hashless blocks are prepended to the queue head
+and hashed blocks appended to the queue tail, each group preserving the request
+block-table order (head to tail). Inside a hashed band, the chain-head block
+therefore has the smaller `lru_rank`, and ascending-rank native selection
+evicts **shallow blocks first**.
 
-- 较浅优先（native，假设 A1）：淘汰位置 `1..k`。因 `1 ≤ k` 且 `1 ≤ q`，r 的第一个缺失块为 1
-  ⇒ `j_native(r) = 0`。
-- 较深优先（candidate v0）：淘汰位置 `n-k+1..n`。r 的路径只含 `1..q`：
-  - 若 `q < n-k+1`：路径上无淘汰 ⇒ `j_candidate(r) = q`；
-  - 若 `q ≥ n-k+1`：第一个缺失块为 `n-k+1` ⇒ `j_candidate(r) = n-k`。
+This is exactly the direction M1 flagged in RC-B, and it is the structural
+signal candidate v0 targets:
 
-两种情况均有 `j_candidate(r) ≥ j_native(r)`，且 `recompute(r) = (m_r − j(r) + 1)·B` 随 `j`
-单调不增。∎
+```text
+evicting shallow block a_1  -> the contiguous prefix breaks at block 1 -> the
+                               entire suffix is recomputed
+evicting deep block a_m     -> blocks 1..m-1 stay reusable -> only the suffix
+                               is lost
+```
 
-**与 PR #50 rev.2 的关系**：rev.2 只能给出"固定每链块数"的弱命题且被 RC-C 指出未覆盖共享前缀。
-本定理利用**物理 free-event band 结构**（一个 band 就是一条链，共享块随最后所有者入队），
-把"每条链被选块数不变"变为**结构事实**而非假设，从而同时覆盖共享前缀（共享根位于 band 头部，
-深优先天然保护它）。
+The band-internal direction (head-first vs tail-first insertion) is
+**assumption A1**, derived from the pinned vLLM source and the Phase 2C
+87/87 contiguous-band evidence. It is *not* measured in this project's runtime
+(P5 `(depth, native_lru_rank)` correspondence is `NOT_OBSERVABLE`). The
+simulator measures the correspondence directly (§ simulator design §7) and the
+sensitivity arm quantifies dependence on A1; in the simulated campaign,
+diagnostic arm D1 (explicit shallow-first ordering) reproduces native LRU
+bit-for-bit on all 70 draws, which is the in-simulation confirmation that the
+native band-internal order is indeed shallow-first.
 
-**定理不覆盖的情形（必须如实报告）**：
+### 2.2 Dominance theorem (correctness basis)
 
-| # | 情形 | 后果 |
+**Setting.** Content identity forms a prefix trie (chained block hashes, the
+same semantics as vLLM prefix hashes). A band is one request's full block list,
+i.e. one root-to-leaf chain; shared blocks enter the queue only when their last
+owner releases them.
+
+**Theorem.** Fix the number of victims taken from one band. Changing that
+band's internal choice from shallow-preferred to deep-preferred (cross-band
+order unchanged) never increases aggregate recomputed tokens for **any** future
+request set and **any** return distribution.
+
+**Proof.** Take any future request r. If its path does not intersect the band,
+its hit depth is unaffected. If it does, the intersection is a prefix `1..q` of
+the band (trie property: a path through a deep block passes through all its
+ancestors). Let the band hold n blocks and k be taken:
+
+- shallow-preferred (native under A1): positions `1..k` are evicted, so the
+  first missing position on r's path is 1 and `j_native(r) = 0`;
+- deep-preferred (candidate v0): positions `n-k+1..n` are evicted; if
+  `q < n-k+1` nothing on the path is evicted and `j_candidate(r) = q`,
+  otherwise the first missing position is `n-k+1` and
+  `j_candidate(r) = n-k`.
+
+In both cases `j_candidate(r) >= j_native(r)`, and
+`recompute(r) = (m_r - j(r) + 1) * B` is non-increasing in `j`. ∎
+
+**Relation to PR #50 rev.2.** rev.2 could only offer the weaker
+"fixed per-chain count" proposition, which RC-C showed does not cover shared
+prefixes. The free-event band structure turns "each chain loses the same number
+of blocks" into a structural fact (a band *is* one chain), which covers shared
+prefixes as well: a shared root sits at the head of every band that contains
+it, so deep-first ordering protects it by construction.
+
+**What the theorem does not cover (reported, not hidden):**
+
+| # | Situation | Consequence |
 | --- | --- | --- |
-| X1 | 假设 A1 不成立（band 内 native 顺序本就是尾先） | candidate v0 与 native **同选**，无分歧也无损害（分歧率指标会显示 0） |
-| X2 | 淘汰切口落在 band 边界 | victim 集合与 native **逐位相同**（非平凡窗口缺失，见 §4.3） |
-| X3 | 单次分配跨多个 band 且前面 band 已被取空 | 定理只约束每个 band 内部，跨 band 分配保持 native 顺序（见 §2.3 键设计） |
+| X1 | Assumption A1 is false (native band order is tail-first) | candidate v0 and native select identical sets; no divergence and no harm (the divergence metric reads ~0; the sensitivity arm shows exactly this) |
+| X2 | The cut falls on a band boundary | victim set identical to native (non-trivial window absent) |
+| X3 | Multiple bands are consumed in one decision | Only the within-band direction changes; cross-band allocation stays native by key construction |
 
-### 2.3 精确排序规则（零超参）
+### 2.3 Exact ordering rule (zero hyperparameters)
 
-对每个合法候选块 b 定义：
-
-```text
-lru_rank(b)      : 原生 free queue 位置（0 = 队首 = native 最先选中）   [runtime 可得]
-has_block_hash(b): 是否带 APC hash                                      [runtime 可得]
-band(b)          : b 当前所在 band 的队列次序 = 该 band 全部块的最小 lru_rank
-                   （= 该 band 在原生队列中的位置）                      [模拟可观测]
-depth(b)         : b 在其前缀 trie 路径上的 1-based 深度（根 = 1）        [模拟可观测]
-tier(b)          : Retention 资格层（TIER_1 / TIER_2）；无 Retention 时恒 TIER_1
-```
-
-**选择规则**（需取 R 个 victim）：
+For each legal candidate block b:
 
 ```text
-Retention 开启 (A3):  key(b) = (tier(b), band(b), −depth(b), lru_rank(b))
-Retention 关闭 (A2):  key(b) = (band(b), −depth(b), lru_rank(b))
-
-victims = eligible 按 key 升序的前 R 个
+lru_rank(b)       native free-queue position (0 = head = native first)  [runtime]
+has_block_hash(b) APC hash presence                                    [runtime]
+band(b)           the band's queue position = min lru_rank over its blocks
+depth(b)          1-based position on its prefix-trie path (root = 1)
+tier(b)           retention eligibility tier (TIER_1 / TIER_2); TIER_1 when
+                  retention is off
 ```
 
-性质：
+Selection of R victims:
 
-1. **零超参**：没有任何权重、阈值、桶宽；全部键都是结构量。
-2. **跨 band 分配不变**：`band(b)` 为主键 ⇒ 与 native 选取同一组 band、同一顺序；
-   只有切口 band 内部的方向被反转。这正是 X3 的保证，也是跨链反例
-   （热长链 vs 冷短链，PR #50 §3.1）不会击穿本规则的原因：冷链的 band 次序更小，仍先被取。
-3. **hashless 保持原生优先**：hashless 块零重算成本，原生已优先选取（F2）⇒ candidate v0
-   **不把 hashless-first 当作创新**，只保持该行为不变（band 键对 hashless band 同样适用，
-   单个 hashless 块时无内部顺序可反转）。
-4. **并列分数**：`(band, depth)` 在 band 内唯一（一个 band 是一条链，深度互异）；
-   理论并列由 `lru_rank` 唯一确定，不存在随机 tie-break。
-5. **安全回退**：若 `depth`/`band` 不可得（runtime 现状）或机制不适用，
-   键退化为 `(lru_rank)` ⇒ **逐位等同于 `NativeLRUAdapter`**（不是 size rule、不是其他策略）。
-   该退化由单测 D3 断言（深度置常数后必须与 A0 逐位一致）。
+```text
+retention on : key(b) = (tier(b), band(b), -depth(b), lru_rank(b))
+retention off: key(b) = (band(b), -depth(b), lru_rank(b))
 
-### 2.4 信号清单与运行时可用性（对应 RC-E）
+victims = eligible candidates sorted ascending by key, first R
+```
 
-| 信号 | 单位 | 来源 | 更新时间 | 运行时现状 |
+Properties:
+
+1. **Zero hyperparameters**: no weights, thresholds or bucket widths; every
+   key component is a structural quantity.
+2. **Cross-band allocation unchanged**: `band(b)` is the primary key, so the
+   same bands are consumed in the same order as native; only the direction
+   inside a band is reversed. This is the guarantee behind X3 and the reason
+   the hot-long-chain vs cold-short-chain counterexample (PR #50 §3.1) cannot
+   break the rule: the colder chain's band is consumed first.
+3. **Hashless blocks keep native priority**: hashless blocks cost nothing to
+   evict and native already prefers them (F2); candidate v0 keeps that
+   behavior unchanged and claims nothing for it.
+4. **Ties**: `(band, depth)` is unique inside a band (a band is one chain, so
+   depths are distinct); any residual tie is resolved by `lru_rank`. There is
+   no randomized tie-breaking.
+5. **Safe degradation**: if `depth`/`band` are unavailable (the runtime
+   situation), the key collapses to `(lru_rank)` — **exactly** native LRU
+   order, not a size rule and not another policy. The collapse is asserted
+   bit-for-bit by tests (diagnostic D3).
+
+### 2.4 Signal inventory and runtime availability (RC-E)
+
+| Signal | Unit | Source | Updated | Runtime status |
 | --- | --- | --- | --- | --- |
-| `lru_rank` | queue position | 原生 free queue 快照 | 每次 free/acquire | ✅ `EvictionCandidate.lru_rank` |
-| `has_block_hash` | bool | 原生块 hash 状态 | 分配/淘汰时 | ✅ `EvictionCandidate.has_block_hash` |
-| `tier` | enum | Continuum `EligibilityPreparation` | 每次压力决策 | ⚠️ 只在 Retention 开启时存在（冻结路径已有） |
-| `depth` | block index (1-based) | 前缀 trie 路径位置 | 内容分配时确定，不变 | ❌ **模拟可观测；线上需接口扩展** |
-| `band` | free-event 次序 | 原生 free event 分组 | 每次 block 释放入队 | ❌ **模拟可观测；线上需接口扩展** |
+| `lru_rank` | queue position | native free-queue snapshot | every free/acquire | available (`EvictionCandidate.lru_rank`) |
+| `has_block_hash` | bool | native block hash state | allocation/eviction | available (`EvictionCandidate.has_block_hash`) |
+| `tier` | enum | Continuum `EligibilityPreparation` | every pressure decision | only when retention is on (frozen path already provides it) |
+| `depth` | block index (1-based) | prefix-trie path position | fixed at content allocation | **simulation-observable; runtime needs an interface extension** |
+| `band` | free-event order | native free-event grouping | every block release | **simulation-observable; runtime needs an interface extension** |
 
-**最小接口缺口（仅记录，不请求授权）**：若未来要 runtime 化 candidate v0，最小只读扩展是
-`EvictionCandidate.depth: int | None` **加上** free-event 分组信息（或等价地"同一入队批次 +
-批次内位置"）。`depth` 单独不足以恢复 band 结构（RC-E 已指出单字段不满足 L2-A）。
-在取得该能力前，candidate v0 **不得**被称为可部署方法。
+**Minimal interface gap (recorded, not requested).** Runtime deployment would
+need, at minimum, an optional read-only `EvictionCandidate.depth: int | None`
+plus free-event grouping information (or equivalently "same enqueue batch plus
+position within batch"). `depth` alone is insufficient to recover the band
+structure (RC-E). Until that capability exists, candidate v0 must not be
+described as deployable.
 
-### 2.5 失败条件汇总（进报告的证伪清单）
+### 2.5 Failure conditions (falsification list for the report)
 
 ```text
-C1  候选集内所有 band 大小 ≤ 1，或切口均在 band 边界      → 与 native 同选（无分歧）
-C2  假设 A1 不成立（band 内尾先）                        → 与 native 同选（S1 量化）
-C3  未来请求不复用被保留的浅层前缀                        → 保留浅层无收益（负对照 G 族测量）
-C4  Retention 使候选集收缩到非平凡窗口消失                → 组合无增量（A3 vs A2 测量）
-C5  深块内容恰是唯一被复用的部分（共享 DAG 中反例）        → 定理前提被违反；由 S3 族 + 分歧归因检测
+C1  every band holds <= 1 block, or all cuts fall on band boundaries
+       -> identical to native (no divergence)
+C2  assumption A1 is false (native is tail-first)
+       -> identical to native (quantified by the sensitivity arm)
+C3  future requests never reuse the preserved shallow prefix
+       -> preserving shallow blocks buys nothing (measured by family S7)
+C4  retention shrinks the candidate set until the non-trivial window closes
+       -> no combination increment (A3 vs A2 measures this)
+C5  the deep block is the only reused part (shared-DAG counterexample)
+       -> theorem premise violated; detected by family S3 plus divergence
+          attribution
 ```
 
 ---
 
-## 3. Continuum Retention 层（复用冻结实现，不新造）
+## 3. Continuum Retention layer (frozen components reused unchanged)
 
-### 3.1 复用清单（全部为冻结 Phase 1B 组件，直接调用，不修改）
+### 3.1 Reuse map
 
-| 职责 | 复用实现 | 语义 |
+| Responsibility | Reused implementation | Semantics |
 | --- | --- | --- |
-| Agent/program 生命周期 | `continuum.events` + `RuntimeCoordinator.handle` | ProgramStarted/Arrived/Admitted/FollowupWaiting/Cancelled/ToolGap/TurnFinished/BlocksObserved/BlockEvicted |
-| 工具间隔历史 | `ServerGapHistory` / `ExternalToolDurationHistory` | finish→next-arrival gap，按 tool_type 分桶 |
-| 动态 TTL | `estimate_ttl`（`continuum.ttl`） | `argmax_τ F(τ)·(T·η + R) − τ`；COLD_START/GLOBAL/TOOL_SPECIFIC 分层 |
-| 软保留 / 保护状态 | `RetentionManager`（`protected` / `waiting_followup` / `expire_due` / `admit_followup` / `cancel_followup` / `complete_program`） | 惰性过期；waiting 程序不普通过期 |
-| 压力释放 | `RetentionAwareSelectionCoordinator.prepare`（`continuum.pressure`） | Tier 1（无 hash / 无受保护所有者）→ 循环释放 `(deadline, min newly-eligible lru_rank, key)` 直到 `min(required, len(queue))` |
-| 共享所有权 | `_entries_by_block` + `_newly_eligible_blocks_after_release` | 块仅在**全部**所有者释放后变为可回收；共保护块的零边际释放被如实记录 |
-| 释放提交 | `commit_pressure_releases` + `observe_eviction` | 逻辑解除保护与物理淘汰分开记账 |
-| 冻结 LRU 基线臂 | `RetentionAwareLRUAdapter`（A1 臂直接使用该类，保证逐位忠实） | `(tier, lru_rank)` 序 |
+| Agent/program lifecycle | `continuum.events` + `RuntimeCoordinator.handle` | ProgramStarted / RequestArrived / RequestAdmitted / FollowupWaiting / FollowupCancelled / ToolGapStarted / ToolGapEnded / TurnFinished / BlocksObserved / BlockEvicted |
+| Tool-interval history | `ServerGapHistory` / `ExternalToolDurationHistory` | finish → next-arrival gaps tagged by tool type; explicit tool-gap durations kept separate |
+| Dynamic TTL | `estimate_ttl` (`continuum.ttl`) | `argmax_tau F(tau) * (T * eta + R) - tau`; COLD_START / GLOBAL / TOOL_SPECIFIC tiers |
+| Soft retention / protection | `RetentionManager` | `protected` / `waiting_followup` / `expire_due` / `admit_followup` / `cancel_followup` / `complete_program` |
+| Pressure release | `RetentionAwareSelectionCoordinator.prepare` | Tier 1 (hashless or no remaining protected owner) → release whole entries by `(deadline, min newly-eligible lru_rank, key)` until `min(required_blocks, len(queue))` |
+| Shared ownership | `_entries_by_block` + `_newly_eligible_blocks_after_release` | a block becomes reclaimable only after **all** owners release; zero-marginal releases are recorded honestly |
+| Release commit | `commit_pressure_releases` + `observe_eviction` | logical unprotection and physical eviction are booked separately |
+| Frozen baseline arm | `RetentionAwareLRUAdapter` (used directly by arm A1) | `(tier, lru_rank)` order |
 
-### 3.2 Retention 层负责什么（明确边界）
+### 3.2 What the retention layer decides (boundary)
 
 ```text
-Retention 层决定：
-  (a) 哪些缓存内容仍受保护            → entry.protected（waiting / TTL / 未释放）
-  (b) 哪些物理块当前可参与正常淘汰     → Tier 1 = 无 hash 或全部所有者已释放/过期
-  (c) 未保护块不足时如何释放软保护     → 冻结循环：按 (deadline, min rank, key) 整块释放
-  (d) 释放后哪些块新变得可回收         → PressureReleaseEffect.newly_eligible_block_ids
-Ours-Evict 层决定：
-  (e) 在 (a)-(d) 产生的合法候选集中选哪些块做 victim
+Retention decides:
+  (a) which cached content stays protected        -> entry.protected
+  (b) which physical blocks may be evicted now     -> Tier 1 = hashless or all
+                                                      owners released/expired
+  (c) how soft protection is released under need  -> frozen loop: whole entries,
+                                                      (deadline, min rank, key)
+  (d) which blocks become reclaimable after that -> PressureReleaseEffect
+Ours-Evict decides:
+  (e) which of the legal candidates become victims
 ```
 
-**禁止混淆**（对应任务 §二）：(c) 的逻辑释放 ≠ (e) 的物理淘汰 ≠ 未来重计算。
-本模拟中三者分别记账：`pressure_releases`（Q1）、`physical evictions`（Q2）、
-`recomputed tokens`（Q3），互不派生。
+Logical release (c), physical eviction (e) and future recomputation are booked
+separately (`pressure_releases`, `physical evictions`, `recomputed tokens`) and
+never derived from one another.
 
-### 3.3 Retention 在模拟中的可观测效果（必须能观察到才算实现）
+### 3.3 Observable retention effects required for the mechanism to count as implemented
 
-1. 保护生效：tool gap 期间受保护块不被普通淘汰；
-2. 自然过期：非 waiting 程序到期 `expire_due` / coordinator `ordinary_expired`；
-3. 压力强制释放：`pressure_releases` 非空；
-4. 共享所有权导致的释放差异：共保护块只在最后一个所有者释放时进入 Tier 2（零边际释放可见）。
+1. protection in force during tool gaps;
+2. natural expiry of non-waiting entries;
+3. forced release under pressure;
+4. shared-ownership release differences (a co-owned block enters Tier 2 only
+   on the last owner's release; zero-marginal releases are visible).
+
+Effects 1, 3 and 4 occur throughout the campaign (final report §6). Effect 2
+does not occur in the simulated regimes: the frozen TTL estimator selects
+TTL = 0 for every decision when the queue-delay term degenerates to 0 (the
+simulator has no queueing model), and a non-waiting protected entry does not
+persist across events except after a cancellation. A bridge-level regression
+test exercises the cancellation path with a positive TTL and shows natural
+expiry firing; the campaign itself contains no cancelled program, so the
+campaign-level count is 0. The claim is therefore scoped: natural expiry was
+**not observed in these regimes**, not "unreachable in principle".
 
 ---
 
-## 4. 实验臂、oracle 与判别臂
+## 4. Experiment arms, oracle reference and diagnostics
 
-### 4.1 主对照臂（同一 trace / 容量 / block size / 事件时间 / 初始条件 / 种子）
+### 4.1 Main arms (same trace, capacity, block size, event times, seeds)
 
-| 臂 | Retention | Victim 选择 | 说明 |
+| Arm | Retention | Victim selection | Purpose |
 | --- | --- | --- | --- |
-| **A0** | 关 | `lru_rank` 升序（原生） | native 基线 |
-| **A1** | 开（冻结路径） | `RetentionAwareLRUAdapter`（`(tier, lru_rank)`） | Retention 独立增量（**直接复用冻结 adapter 类**） |
-| **A2** | 关 | candidate v0：`(band, −depth, lru_rank)` | Ours-Evict 独立运行 |
-| **A3** | 开 | candidate v0：`(tier, band, −depth, lru_rank)` | **目标组合** |
-| **A4** | 开 | 同 A1 + `ContinuumSchedulingPolicy` 准入次序 | 可选 Full-Continuum 系统参照，**单独报告**，不进组件对比 |
+| **A0** | off | `lru_rank` ascending (native) | native baseline |
+| **A1** | on (frozen path) | `RetentionAwareLRUAdapter` (`(tier, lru_rank)`) | retention's independent increment; the frozen adapter class is instantiated directly for bit fidelity |
+| **A2** | off | candidate v0 `(band, -depth, lru_rank)` | Ours-Evict standalone |
+| **A3** | on | candidate v0 `(tier, band, -depth, lru_rank)` | target combination |
+| **A4** | on | same as A1 plus `ContinuumSchedulingPolicy` admission order | optional full-system reference; reported separately, never mixed into component attribution |
 
-### 4.2 Oracle 对照（研究参照，**不是** Ours-Evict）
-
-```text
-O1  oracle-evict（无 Retention）：合法候选集中，按"未来再次使用距离"降序淘汰
-    （不再使用 = ∞；Belady/MIN 风格）。使用未来 trace，仅评估器可用。
-O2  oracle-evict + Retention：合法集由冻结资格决定，oracle 只在合法集内选择。
-```
-
-⚠️ O1/O2 **不得**被称作 Ours-Evict，其结果**不得**当作真实策略可取得的收益；
-它只估计"完美 victim 选择"的 headroom（且 Belady 风格不保证严格最优，报告为估计值）。
-
-### 4.3 非平凡窗口与判别臂（对应精修补丁 §3）
+### 4.2 Oracle-like references (research references, not the proposed method)
 
 ```text
-平凡事件  : |EligibleCandidates| == required_blocks → 任何重排序选出同一集合
-非平凡事件: |EligibleCandidates| >  required_blocks → victim 集合可能真实分歧
+O1  Belady-style next-use ordering over the eligible set (no retention)
+O2  the same ordering inside the retention-restricted eligible set
 ```
 
-工作负载必须覆盖非平凡窗口，两类来源：
+Both arms read the future trace. They are **oracle-like references, not proven
+optimal** (Belady-style next-use ordering is not proven optimal under
+prefix-truncation semantics) and **not** Ours-Evict; their results indicate
+headroom only and must not be quoted as achievable performance.
 
-1. **Unpin overshoot**：压力释放解绑某 Entry 后释放出 M 个候选块，但当前仅需淘汰 K < M 个；
-2. **多条未保护链并存**：候选池中同时存在多个未保护 band，切口落在某个 band 内部。
+### 4.3 Non-trivial window and diagnostics
 
-报告单列：**非平凡淘汰事件占比**、**Victim Set 真实分歧率**
-（`VictimSet_A2 != VictimSet_A0`、`VictimSet_A3 != VictimSet_A1`，按淘汰事件计）。
+```text
+trivial event  : |EligibleCandidates| == required_blocks -> any reordering
+                 selects the same set
+non-trivial    : |EligibleCandidates| >  required_blocks -> the victim set can
+                                                   genuinely diverge
+```
 
-判别臂（机制链诊断，不进主对比结论）：
+The workloads cover both non-trivial sources (unpin overshoot: a release frees
+M candidates while only K < M are needed; and several unprotected chains in the
+pool at once). The report lists the non-trivial event share and the true
+victim-set divergence rates (`VictimSet_A2 != VictimSet_A0`,
+`VictimSet_A3 != VictimSet_A1`).
 
-| 臂 | 定义 | 预期 | 用途 |
+| Arm | Definition | Observed result | Use |
 | --- | --- | --- | --- |
-| **D1** | candidate v0 方向反转（`+depth`，即 band 内浅层优先） | **实测：与 A0 逐位相同**（70/70 draws 每个决策的 victim 序列完全一致）⇒ 证实"原生 band 内顺序本就是浅层先淘汰"，即 candidate v0 所反转的正是原生方向 | 模型验证（对应 PR #50 A4 的方向判别；结果为正向验证而非劣化） |
-| **D3** | `depth` 置常数（退化回 `lru_rank`） | 必须与 A0 **逐位一致** | 来源判别（对应 PR #50 A5） |
-| **S1** | 全 campaign 重跑，free-order 假设翻转为尾先 | A2 与 A0 分歧率应降为 ~0 | 假设 A1 敏感性 |
+| **D1** | candidate v0 with the in-band direction reversed (shallow-first) | **bit-identical to A0** on all 70 draws | model validation: the simulated native band order *is* shallow-first, i.e. candidate v0 reverses exactly the native direction (corresponds to PR #50's A4-style direction check; the outcome is a positive model confirmation, not a degradation) |
+| **D3** | `depth` and `band` dropped (order by `lru_rank` only) | must equal A0 bit-for-bit | source discrimination (corresponds to PR #50 A5); asserted by tests |
+| **S1** | whole campaign re-run with the free-order assumption flipped (`tail_first`) | candidate v0 and native select identical victim sets in every family | quantifies dependence on assumption A1 |
 
-### 4.4 机制验证链（四层，对应任务 §七）
+### 4.4 Mechanism chain (task §7)
 
 ```text
-L1 候选合法   : victims ⊆ eligible、|victims| = R、无重复、满足 required_blocks
-L2 决策不同   : 与 native 比较 victim ID 集合（不是顺序）
-L3 物理改变   : cache mapping / 连续命中 / 后续可复用状态改变
-L4 重计算改变 : 同一未来 trace 重放，aggregate recomputed tokens 改变
-增量归因      : A0/A1（Retention 增量）、A2/A3（Retention 增量）、A0/A2 与 A1/A3（驱逐增量）
-失败归因      : 未触发 / 未实现 / 机制失败 / 有效但不可用（见模拟器设计文档 §8）
+L1 legality    victims subset of eligible, |victims| = R, unique, requirement met
+L2 real difference   victim ID *sets* differ from native (not just order)
+L3 physical change  cache mapping, contiguous hits, later reusability change
+L4 recomputation    same future trace replayed; aggregate recomputed tokens change
+increment attribution A0/A1, A2/A3, A1/A3, A2/A3
+failure attribution not triggered / not implemented / mechanism failed /
+                    effective but unusable
 ```
 
-**首次分歧反事实分支**：对 (A0,A2) 与 (A1,A3) 两对，逐 scenario 做 lockstep 双run，
-在**第一个 victim 集合分歧的决策点**分支：从该状态出发用同一策略分别续跑，
-用 `ΔR = Σ_r B·max(0, j_branchB(r) − j_branchA(r))` 计量**那一次决策**的因果效应。
-这避免了"状态已分歧后按 index 对齐"的伪因果。
+The first-divergence counterfactual isolates the causal effect of a single
+decision: the baseline arm is re-run with the challenger's victims substituted
+at the first divergent decision, and the future recomputation difference is
+attributable to that decision alone.
 
 ---
 
-## 5. 指标口径（与 Phase 2E 冻结合约对齐的部分显式标注）
+## 5. Metric definitions (comparison direction is explicit)
 
-请求级（每个 measured request r）：
-
-```text
-N_r = prompt tokens（含非对齐尾块）
-M_r = 完整 block 数 = floor(N_r / B)
-E_r = eligible prefix tokens = LCP(r, 所有更早请求) · B      # 内容曾在更早请求出现才算可复用
-C_r = j(r) · B，j(r) = 最长连续命中前缀深度（严格截断，见模拟器设计 §4.2）
-recomputed_r = E_r − C_r                                        # = A1.1 的请求级分量
-```
-
-场景级（统计单位 = 独立 scenario draw）：
-
-| 指标 | 定义 | 对应 |
-| --- | --- | --- |
-| `aggregate_recomputed_tokens` | Σ_r recomputed_r | A1.1 |
-| `aggregate_delta_tokens` | Σ_r (rec_armB − rec_armA)（配对） | A1.7 |
-| `gross_request_level_change` | Σ_r \|Δ_r\| | A1.8 |
-| `NGR` | \|ΣΔ\| / Σ\|Δ\|；Σ\|Δ\|=0 → `NOT_APPLICABLE_ZERO_GROSS` | A1.9 |
-| `cache_reuse_efficiency` | Σ C_r / Σ N_r | A1.5 |
-| `physical_eviction_count` | 带 hash 块被真实移除的次数 | A3 环节 4（模拟内可解析内容身份） |
-| `hashless_reuse_count` | 无 hash 块被直接重用次数 | — |
-| `live_cached_blocks/tokens` | 期末仍在 cache mapping 中的内容量 | — |
-| per-agent 分布与尾部 | 每 draw 内先算分位再跨 draw 配对（I 视图） | A2.1/D-vs-I |
-| `nontrivial_eviction_share` | \|eligible\| > required 的淘汰事件占比 | 精修补丁 §3 |
-| `victim_set_divergence_rate` | A2!=A0、A3!=A1 的淘汰事件占比 | 精修补丁 §3 |
-| `first_divergence_delta_R` | 首次分歧决策的因果 ΔR（反事实分支） | 任务 §七.4 |
-| 决策开销 | 每次策略决策的候选扫描/排序操作数 + CPU 时间 | experiment-plan |
-| TTFT/TPOT/吞吐 | **NOT_MEASURED**（模拟不执行真实模型） | 显式标注 |
-
-Retention 专项：受保护 block/token 量及持续时间；保护期间实际再次复用比例；
-保护后未复用而占用的容量；自然 TTL 过期次数；压力强制释放次数；
-共享块因其他 owner 仍受保护而不可回收的次数；cold-start 与 warm-start 差异。
-
-统计：配对 bootstrap 95% CI（10,000 次，种子随配置记录）；报告均值/中位数/分布/
-无收益（Δ=0）与退化（Δ>0）的 draw 数；请求数/回合数/决策数**不**作为独立样本。
-
----
-
-## 6. 研究问题与预期判据
-
-> 在贴近 Agent 多轮工具调用的缓存工作负载中，Continuum 的动态保留与压力释放是否能为独立的
-> Cost-Aware block eviction 提供额外收益？增益来自更合理的物理 victim 选择、延长有效复用，
-> 还是仅仅源于候选集变化？收益在什么场景存在、什么条件下消失？
-
-判据（预先登记，避免事后叙事）：
+Per request r (measured window):
 
 ```text
-H-attr-1  A2 < A0（aggregate recomputed tokens，配对）且 victim 分歧率 > 0
-          ⇒ 增益来自物理 victim 选择（band 内深优先）
-H-attr-2  A1 < A0 且 A3 < A2 同向改善
-          ⇒ Retention 提供独立于 victim 规则的增量（候选集收缩 + 延长有效复用）
-H-attr-3  A3 ≈ A2 但 A3 的候选集显著小于 A2
-          ⇒ Retention 只改变候选集、未降低重计算（如实记录为无增量）
-H-null    负对照族（G）允许 Δ = 0 或 Δ > 0（策略成本）；不得预设受益
+N_r = prompt tokens
+M_r = cacheable blocks = (N_r - 1) // B        (frozen Phase 2E cap)
+E_r = eligible prefix tokens = LCP(r, any earlier request) * B
+C_r = j(r) * B, j(r) = longest contiguous hit depth (strict truncation)
+recomputed_r          = E_r - C_r
+actual_prefill_r      = N_r - C_r
+new_suffix_r          = N_r - E_r
 ```
 
----
+Per draw (statistical unit = independent scenario draw):
 
-## 7. 可追溯性
-
-| 陈述 | 来源 |
+| Metric | Definition |
 | --- | --- |
-| 冻结 4 字段 candidate / native LRU 升序 | `src/kvopt/runtime/vllm/types.py`、`adapter.py:27-39` |
-| hashless 优先是原生行为 | M1 RC-A（vLLM v0.27.1 `block_pool.py` L719–742、L647–667） |
-| band 内头先入队假设 A1 | 同上（`append_n(blocks_with_hash)` 保持 block table 顺序）+ Phase 2C 87/87 连续带；方向未经 P5 实测 || Q1/Q2/Q3 分离、ΔR 公式 | M1 RC-D；PR #50 §2 |
-| 冻结压力释放键与 Tier 语义 | `src/kvopt/continuum/pressure.py:300-324`、`selection.py` |
-| 共享块全释放后才可回收 | `pressure.py:260-278`；`tests/test_continuum_pressure.py:277-290` |
-| 冻结 TTL 目标与冷启动 concretization | `continuum/ttl.py:63-78`、`ttl.py:27-34` |
-| PrefillReload 正式 profile | `docs/experiments/phase1b-continuum/artifacts/prefill-reload-profile-formal-20260920T045859Z-6183d106.json` |
-| Phase 2E 指标口径与统计单位 | `docs/phase2e-m4-task-a-metrics-freeze.md` §1–§3 |
-| 不得向 continuum 添加 cost-aware 评分 | `docs/phase2a-m4-block-level-design-draft.md` §7 |
-| PR #50 当前 verdict | PR #50 review（`CHANGES_REQUESTED`，RC-A~RC-E） |
+| `aggregate_recomputed_tokens` | `sum_r recomputed_r` |
+| signed aggregate delta | `sum_r (recomputed_challenger(r) - recomputed_baseline(r))`; **negative means the challenger recomputes less (improvement)** |
+| `dR` (task formula) | `sum_r B * max(0, j_baseline(r) - j_challenger(r))` — non-negative extra recomputation caused by the challenger |
+| `gross` | `sum_r B * |j_baseline(r) - j_challenger(r)|` — absolute request-level change |
+| `NGR` | `|sum delta| / sum gross`; `NOT_APPLICABLE_ZERO_GROSS` when gross is 0 |
+| `cache_reuse_efficiency` | `sum C_r / sum N_r` |
+| eviction counts | hashed evictions (real hash cleanup) and hashless reuses, separately |
+| non-trivial share | share of decisions with `|eligible| > required` |
+| divergence rate | share of index-aligned decisions with different victim ID sets |
+
+Statistics: per-draw pairing; mean and median; 10,000-resample paired bootstrap
+95% CI (seed 20261016); improved / tied / degraded draw counts; per-family and
+overall. Requests, turns and decisions are never treated as independent
+samples.
+
+---
+
+## 6. Research question and pre-registered criteria
+
+> In agent-like multi-turn tool-calling cache workloads, does Continuum's
+> dynamic retention and pressure release add value on top of an independent
+> cost-aware block eviction rule? Is the gain from better physical victim
+> selection, from extended effective reuse, or merely from a candidate-set
+> change? Where does the benefit exist, and where does it disappear?
+
+```text
+H-attr-1  A2 < A0 (paired aggregate recomputed tokens) and divergence rate > 0
+          -> the gain comes from physical victim selection (in-band deep-first)
+H-attr-2  A1 < A0 and A3 < A2 in the same direction
+          -> retention adds value beyond the victim rule (candidate-set
+             restriction plus extended effective reuse)
+H-attr-3  A3 ~ A2 while A3's candidate set is much smaller than A2's
+          -> retention changes only the candidate set, not recomputation
+             (recorded honestly as no increment)
+H-null    negative-control family (S7) may show delta = 0 or delta > 0
+          (policy cost); no benefit is presumed
+```
+
+---
+
+## 7. Traceability
+
+| Statement | Source |
+| --- | --- |
+| frozen 4-field candidate / native LRU ascending | `src/kvopt/runtime/vllm/types.py`; `adapter.py:27-39` |
+| hashless preference is native | M1 RC-A (vLLM v0.27.1 `block_pool.py` L719–742, L647–667) |
+| band-internal head-first insertion (assumption A1) | same source (`append_n(blocks_with_hash)` preserves block-table order) plus Phase 2C 87/87 contiguous bands; the direction is not measured in this project's runtime |
+| D1 ≡ A0 confirms the native band direction | campaign result; `tests/test_agent_sim_invariants.py::test_direction_reversal_is_bitwise_native` |
+| Q1/Q2/Q3 separation, dR formula | M1 RC-D; PR #50 §2 |
+| frozen pressure-release key and tier semantics | `src/kvopt/continuum/pressure.py:300-324`; `selection.py` |
+| shared block reclaimable only after all owners release | `pressure.py:260-278`; `tests/test_continuum_pressure.py:277-290` |
+| frozen TTL objective and cold-start concretization | `continuum/ttl.py:63-78`, `ttl.py:27-34` |
+| PrefillReload formal profile | `docs/experiments/phase1b-continuum/artifacts/prefill-reload-profile-formal-20260920T045859Z-6183d106.json` |
+| Phase 2E metric contract and statistical unit | `docs/phase2e-m4-task-a-metrics-freeze.md` §1–§3 |
+| no cost-aware scoring under `continuum/**` | `docs/phase2a-m4-block-level-design-draft.md` §7 |
+| PR #50 current verdict | PR #50 review (`CHANGES_REQUESTED`, RC-A..RC-E) |
+| no-lookahead gate and audit regressions | `src/kvopt/agent_sim/policies.py` (`requires_future_trace`); `tests/test_agent_sim_audit.py` |

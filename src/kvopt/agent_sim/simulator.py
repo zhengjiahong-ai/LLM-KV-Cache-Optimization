@@ -157,6 +157,14 @@ class AgentSimulator:
             ContinuumSchedulingPolicy() if scheduler == "continuum" else None
         )
         self.future_index = future_index
+        # No-lookahead gate: future trace information reaches a policy only if
+        # that policy declares ``requires_future_trace`` (oracle-like arms).
+        self._policy_requires_future = bool(
+            getattr(policy, "requires_future_trace", False)
+        )
+        self._shadow_requires_future = bool(
+            getattr(shadow_policy, "requires_future_trace", False)
+        )
         # Optional analysis hooks (never used by the campaign arms themselves):
         # ``shadow_policy`` records the first decision where a second policy
         # would choose a different victim set from identical state;
@@ -182,7 +190,7 @@ class AgentSimulator:
             seen.append(content_ids)
         self._block_acquire_time: dict[int, float] = {}
         self._entries: dict[tuple[str, str], EntryLifecycleRecord] = {}
-        self._last_sample_time = 0.0
+        self._protection_samples: list[tuple[float, int]] = []
         self._free_event_counter = 0
         self.result = ScenarioResult(
             arm_id=arm_id, trace_id=trace.trace_id, family=trace.family, draw=trace.draw
@@ -209,6 +217,7 @@ class AgentSimulator:
             self.clock.set(arrival)
             if self.bridge is not None:
                 self.bridge.expire_due_and_count()
+                self._track_entry_unprotection()
             for request in group:
                 if self.bridge is not None:
                     self.bridge.request_arrived(
@@ -236,6 +245,9 @@ class AgentSimulator:
         self.clock.set(arrival)
         if self.bridge is not None:
             self.bridge.request_admitted(request.program_id, request.request_id, arrival)
+            # Admission ends the program's prior idle protection; measure the
+            # protection window *before* this request's own allocation.
+            self._track_entry_unprotection()
 
         content_ids = prompt_block_content_ids(
             request.segments, self.trace.block_size_tokens
@@ -378,7 +390,18 @@ class AgentSimulator:
             victims = self.policy.select(candidates, context)
             self._policy_seconds += time.perf_counter() - decision_started
             if self._shadow_policy is not None and self.first_divergence is None:
-                shadow_victims = self._shadow_policy.select(candidates, context)
+                shadow_context = (
+                    context
+                    if self._shadow_requires_future
+                    else self._decision_context(
+                        request,
+                        needed,
+                        timestamp,
+                        preparation,
+                        False,
+                    )
+                )
+                shadow_victims = self._shadow_policy.select(candidates, shadow_context)
                 if set(shadow_victims) != set(victims):
                     self.first_divergence = {
                         "decision_index": decision_index,
@@ -510,7 +533,21 @@ class AgentSimulator:
             for rank, block in enumerate(queue)
         ]
         eligible_count = sum(1 for candidate in candidates if candidate.eligible)
-        context = DecisionContext(
+        context = self._decision_context(
+            request, needed, timestamp, preparation, self._policy_requires_future
+        )
+        return candidates, context, eligible_count, shared_blocked, preparation
+
+    def _decision_context(
+        self,
+        request: TraceRequest,
+        needed: int,
+        timestamp: float,
+        preparation,
+        requires_future: bool,
+    ) -> DecisionContext:
+        """Build the decision context, gating future trace fields."""
+        return DecisionContext(
             required_blocks=needed,
             free_blocks=self.pool.free_blocks,
             total_blocks=self.pool.total_blocks,
@@ -518,14 +555,23 @@ class AgentSimulator:
             decision_index=len(self.result.decisions),
             request_id=request.request_id,
             preparation=preparation,
-            future_index=self.future_index,
-            current_request_index=self._trace_index[request.request_id],
+            future_index=self.future_index if requires_future else None,
+            current_request_index=(
+                self._trace_index[request.request_id] if requires_future else None
+            ),
         )
-        return candidates, context, eligible_count, shared_blocked, preparation
 
     # ------------------------------------------------------------------
     def _sample_protection(self, timestamp: float) -> None:
-        if self.bridge is None or timestamp <= self._last_sample_time:
+        """Record a (timestamp, protected-block-count) sample.
+
+        Protection state changes only at event timestamps (request arrivals
+        and tool-gap ends), so the sorted sample pairs integrate exactly at
+        finalize time. Samples may arrive out of order (a tool-gap end can
+        fall between two other programs' arrivals); ordering is resolved by
+        the sort, not by call order.
+        """
+        if self.bridge is None:
             return
         protected = sum(
             1
@@ -533,12 +579,7 @@ class AgentSimulator:
             if block.has_block_hash
             and self.bridge.manager.is_block_protected(BlockIdentity(block.block_id))
         )
-        self.result.protected_block_token_seconds += (
-            protected
-            * self.trace.block_size_tokens
-            * (timestamp - self._last_sample_time)
-        )
-        self._last_sample_time = timestamp
+        self._protection_samples.append((timestamp, protected))
 
     def _track_entry_unprotection(self) -> None:
         """Detect entries that lost protection; measure reused vs unused."""
@@ -568,9 +609,31 @@ class AgentSimulator:
                     if content_id in self.pool.cache_mapping
                 )
 
+    def _integrate_protection(self) -> None:
+        """Integrate protected block-token-seconds over the event timeline."""
+        # Several samples can share a timestamp (a group arrival and a
+        # tool-gap end). The state that holds *after* that timestamp is the
+        # last sample recorded for it, so later samples overwrite earlier ones
+        # before the time-ordered integration.
+        by_time: dict[float, int] = {}
+        for timestamp, count in self._protection_samples:
+            by_time[timestamp] = count
+        ordered = sorted(by_time.items())
+        total = 0.0
+        for index in range(len(ordered) - 1):
+            start_time, start_count = ordered[index]
+            end_time = ordered[index + 1][0]
+            if end_time > start_time:
+                total += (
+                    start_count * self.trace.block_size_tokens * (end_time - start_time)
+                )
+        self.result.protected_block_token_seconds = total
+
     def _finalize(self) -> None:
         result = self.result
         result.policy_seconds = self._policy_seconds
+        self._integrate_protection()
+        self.pool.check_invariants()
         result.hashed_eviction_count = self.pool.hashed_eviction_count
         result.hashless_reuse_count = self.pool.hashless_reuse_count
         result.live_cached_blocks = self.pool.cached_content_blocks()

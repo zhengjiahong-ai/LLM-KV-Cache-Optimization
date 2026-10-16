@@ -221,15 +221,31 @@ def _fmt(value: float, digits: int = 1) -> str:
 
 def render_markdown(report: dict[str, object]) -> str:
     lines: list[str] = []
-    lines.append("# Phase 2F — Agent APC Eviction × Retention 模拟 campaign 报告")
+    lines.append("# Phase 2F — Agent APC Eviction x Retention: Simulation Campaign Report")
     lines.append("")
-    lines.append("- 统计单位：独立 scenario draw（配对比较；请求/回合/决策不是独立样本）")
-    lines.append("- 成本口径：`recomputed = E − C`，`ΔR = Σ_r B·max(0, j_old(r) − j_new(r))`")
-    lines.append("- 本报告为**离线模拟**结论；TTFT/TPOT/吞吐 **NOT_MEASURED**")
+    lines.append(
+        "- Statistical unit: the independent scenario draw (paired comparisons; "
+        "requests, turns and decisions are never independent samples)."
+    )
+    lines.append(
+        "- Cost semantics: `recomputed = E - C` per request; the signed aggregate "
+        "difference is `challenger - baseline` (negative = improvement); "
+        "`dR = sum_r B * max(0, j_baseline(r) - j_challenger(r))` is the "
+        "non-negative extra recomputation the challenger causes; "
+        "`gross = sum_r B * |j_baseline(r) - j_challenger(r)|` is the absolute "
+        "request-level change."
+    )
+    lines.append(
+        "- This report contains **offline simulation** results only. TTFT, TPOT "
+        "and throughput are **NOT_MEASURED**."
+    )
     lines.append("")
-    lines.append("## 1. 臂级汇总")
+    lines.append("## 1. Arm-level summary")
     lines.append("")
-    lines.append("| 臂 | 定义 | draws | 均值 recomputed tokens | hashed 淘汰 | 强制释放 | 非平凡窗口占比 |")
+    lines.append(
+        "| Arm | Definition | Draws | Mean recomputed tokens | Hashed evictions | "
+        "Forced releases | Non-trivial window share |"
+    )
     lines.append("| --- | --- | ---: | ---: | ---: | ---: | ---: |")
     for arm_id, summary in report["arms"].items():  # type: ignore[union-attr]
         lines.append(
@@ -239,9 +255,12 @@ def render_markdown(report: dict[str, object]) -> str:
             f"{_fmt(100 * summary['mean_nontrivial_share'])}% |"
         )
     lines.append("")
-    lines.append("## 2. 配对比较（负值 = challenger 更少重算）")
+    lines.append("## 2. Paired comparisons (negative = challenger recomputes less)")
     lines.append("")
-    lines.append("| 家族 | 比较 | 均值 Δ | 中位数 Δ | 95% CI | 改善/平/退化 draws | NGR | 均值 ΔR（任务公式） |")
+    lines.append(
+        "| Family | Comparison | Mean delta | Median delta | 95% CI | "
+        "Improved/tied/degraded draws | NGR | Mean dR (task formula) |"
+    )
     lines.append("| --- | --- | ---: | ---: | --- | --- | --- | ---: |")
     for comparison in report["comparisons"]:  # type: ignore[index]
         ngr = comparison["ngr"]
@@ -259,16 +278,28 @@ def render_markdown(report: dict[str, object]) -> str:
             f"{comparison['degraded_draws']} | {ngr_text} | {_fmt(mean_delta_r)} |"
         )
     lines.append("")
-    lines.append("## 3. Victim set 分歧与非平凡窗口")
+    lines.append("## 3. Victim-set divergence and non-trivial windows")
     lines.append("")
+    lines.append(
+        "Divergence is measured on index-aligned decisions; after the first "
+        "divergence the two arms' states differ, so later index-aligned "
+        "comparisons are descriptive rather than counterfactual."
+    )
     for key, value in report["victim_set_divergence"].items():  # type: ignore[union-attr]
         lines.append(
-            f"- `{key}`：分歧率 {_fmt(100 * value['mean_divergence_rate'])}%，"
-            f"非平凡窗口占比 {_fmt(100 * value['mean_nontrivial_share'])}%（{value['draws']} draws）"
+            f"- `{key}`: {_fmt(100 * value['mean_divergence_rate'])}% of decisions "
+            f"select different victim ID sets; "
+            f"{_fmt(100 * value['mean_nontrivial_share'])}% of decisions are in the "
+            f"non-trivial window (|eligible| > required) ({value['draws']} draws)"
         )
     lines.append("")
-    lines.append("## 4. 反事实：首次分歧决策的因果 ΔR")
+    lines.append("## 4. Counterfactual: causal effect of the first divergent decision")
     lines.append("")
+    lines.append(
+        "For each draw, the baseline arm is re-run with the challenger's victim "
+        "set substituted at the single first-divergent decision; the difference "
+        "in future recomputed tokens is attributable to that one decision alone."
+    )
     counterfactual = report["counterfactual_first_divergence"]  # type: ignore[index]
     for pair, by_draw in counterfactual.items():
         improvements = [
@@ -284,17 +315,17 @@ def render_markdown(report: dict[str, object]) -> str:
         missing = sum(1 for entry in by_draw.values() if entry is None)
         if improvements:
             lines.append(
-                f"- `{pair}`：{len(improvements)} 个 draw 出现首次分歧；"
-                f"该单一决策的因果效应（challenger 选择避免的重计算）均值 "
-                f"{_fmt(sum(improvements) / len(improvements))} tokens"
-                f"（min {_fmt(min(improvements))}，max {_fmt(max(improvements))}）；"
-                f"反向损伤合计 {_fmt(sum(damages))} tokens；"
-                f"{missing} 个 draw 无分歧"
+                f"- `{pair}`: {len(improvements)} draws show a first divergence; "
+                f"mean recomputation avoided by the challenger's choice at that "
+                f"single decision is {_fmt(sum(improvements) / len(improvements))} "
+                f"tokens (min {_fmt(min(improvements))}, max {_fmt(max(improvements))}); "
+                f"total reverse damage {_fmt(sum(damages))} tokens; "
+                f"{missing} draws show no divergence"
             )
         else:
-            lines.append(f"- `{pair}`：无任何 draw 出现 victim 集合分歧")
+            lines.append(f"- `{pair}`: no draw shows a victim-set divergence")
     lines.append("")
-    lines.append("## 5. 敏感性与 TTL 探针")
+    lines.append("## 5. Sensitivity probes")
     lines.append("")
     lines.append("```json")
     lines.append(json.dumps(report["sensitivity"], indent=2, sort_keys=True))
@@ -304,9 +335,17 @@ def render_markdown(report: dict[str, object]) -> str:
     lines.append(json.dumps(report["ttl_probe"], indent=2, sort_keys=True))
     lines.append("```")
     lines.append("")
-    lines.append("## 6. Per-agent 分布与尾部（I 视图：先按 draw 汇总再跨 draw）")
+    lines.append("## 6. Per-agent distribution and tails (I view)")
     lines.append("")
-    lines.append("| 臂 | 均值 worst-agent 累计重算 | 均值 top1 share | 均值 p95/draw |")
+    lines.append(
+        "I view: per-draw aggregates are computed first, then averaged across "
+        "draws; requests are never pooled across draws."
+    )
+    lines.append("")
+    lines.append(
+        "| Arm | Mean worst-agent cumulative recomputed | Mean top-1 share | "
+        "Mean p95 per draw |"
+    )
     lines.append("| --- | ---: | ---: | ---: |")
     for arm_id, summary in report["arms"].items():  # type: ignore[union-attr]
         lines.append(
@@ -315,16 +354,20 @@ def render_markdown(report: dict[str, object]) -> str:
             f"{_fmt(summary['mean_p95_recomputed'])} |"
         )
     lines.append("")
-    lines.append("## 7. cold-start 与 warm-start 分层（S6 族）")
+    lines.append("## 7. Cold-start vs warm-start stratification (family S6)")
     lines.append("")
     lines.append(
-        "S6 的 measured 内容在两种起点下均未被淘汰破坏（recompute 恒 0，recency 足够），"
-        "因此冷/暖差异体现在淘汰次数与 TTL 历史模式上。"
+        "In S6 the measured content is never destroyed under either starting "
+        "condition (recomputed tokens stay 0 because recency suffices), so the "
+        "cold/warm difference shows up in eviction counts and TTL history mode "
+        "rather than in recomputation."
     )
     lines.append("")
     cold_warm = report["cold_warm"]  # type: ignore[index]
     if cold_warm:
-        lines.append("| 臂 | cold recomputed | warm recomputed | cold 淘汰 | warm 淘汰 |")
+        lines.append(
+            "| Arm | Cold recomputed | Warm recomputed | Cold evictions | Warm evictions |"
+        )
         lines.append("| --- | ---: | ---: | ---: | ---: |")
         for arm_id, values in cold_warm.items():
             lines.append(
@@ -333,11 +376,16 @@ def render_markdown(report: dict[str, object]) -> str:
                 f"{values['warm_evictions']:.0f} |"
             )
     else:
-        lines.append("- 无 S6 draws")
+        lines.append("- no S6 draws")
     lines.append("")
-    lines.append("## 8. 决策开销（CPU 模拟器内测量，非 serving 延迟）")
+    lines.append("## 8. Decision cost (measured inside the CPU simulator)")
     lines.append("")
-    lines.append("| 臂 | 决策数 | 策略 CPU 总时长 (s) | 均值 µs/决策 |")
+    lines.append(
+        "Wall-clock cost of the policy's `select` call only; this is simulator "
+        "overhead, not serving latency."
+    )
+    lines.append("")
+    lines.append("| Arm | Decisions | Total policy CPU (s) | Mean microseconds/decision |")
     lines.append("| --- | ---: | ---: | ---: |")
     for arm_id, summary in report["arms"].items():  # type: ignore[union-attr]
         lines.append(
@@ -346,7 +394,7 @@ def render_markdown(report: dict[str, object]) -> str:
             f"{_fmt(1e6 * summary['mean_policy_seconds_per_decision'], 1)} |"
         )
     lines.append("")
-    lines.append("## 9. 失败场景")
+    lines.append("## 9. Failures")
     lines.append("")
     failures = report["failures"]  # type: ignore[index]
     any_failure = False
@@ -355,7 +403,7 @@ def render_markdown(report: dict[str, object]) -> str:
             any_failure = True
             lines.append(f"- `{arm_id}` draw {draw}: {error}")
     if not any_failure:
-        lines.append("- 无（所有 arm × draw 组合均成功完成）")
+        lines.append("- none: every arm x draw combination completed successfully")
     lines.append("")
     return "\n".join(lines)
 

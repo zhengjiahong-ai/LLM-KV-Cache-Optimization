@@ -160,8 +160,10 @@ class RetentionBridge:
         )
         # Mirror of the server-gap samples (same records, same order) so the
         # report can re-run the frozen TTL estimator under sensitivity sweeps.
+        # The frozen runtime keeps pending gaps per program; the mirror must
+        # too, otherwise interleaved programs mis-attribute each other's gaps.
         self._gap_mirror: list[tuple[str | None, float]] = []
-        self._pending_gap: tuple[float, str | None] | None = None
+        self._pending_gap: dict[str, tuple[float, str | None]] = {}
         self.ttl_probe_records: list[TTLProbeRecord] = []
         self.natural_expiry_count = 0
         self.forced_release_count = 0
@@ -188,8 +190,9 @@ class RetentionBridge:
                 ProgramIdentity(program_id), RequestIdentity(request_id), timestamp
             )
         )
-        if self._pending_gap is not None:
-            finish_timestamp, tool_type = self._pending_gap
+        pending = self._pending_gap.pop(program_id, None)
+        if pending is not None:
+            finish_timestamp, tool_type = pending
             self._gap_mirror.append((tool_type, timestamp - finish_timestamp))
 
     def request_admitted(self, program_id: str, request_id: str, timestamp: float) -> None:
@@ -306,7 +309,11 @@ class RetentionBridge:
                     history_mode=entry.ttl_decision.history_mode.value,
                 )
             )
-        self._pending_gap = (timestamp, next_tool_type)
+        # Only non-terminal turns open a server gap, exactly as the frozen
+        # runtime does (``_handle_turn_finished`` sets the pending gap only on
+        # the non-terminal path).
+        if not is_terminal:
+            self._pending_gap[program_id] = (timestamp, next_tool_type)
 
     # ------------------------------------------------------------------
     # lazy expiry and pressure eligibility

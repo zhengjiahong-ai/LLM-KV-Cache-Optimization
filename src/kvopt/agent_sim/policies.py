@@ -48,7 +48,14 @@ class SimCandidate:
 
 @dataclass(frozen=True, slots=True)
 class DecisionContext:
-    """Everything a policy may see for one victim-selection decision."""
+    """Everything a policy may see for one victim-selection decision.
+
+    No-lookahead contract: ``future_index`` and ``current_request_index`` are
+    populated **only** for policies that declare ``requires_future_trace``
+    (the explicitly labelled oracle-like references). Every ordinary policy
+    receives ``None`` for both fields; the engine enforces this, so an
+    ordinary policy cannot read future trace information even by accident.
+    """
 
     required_blocks: int
     free_blocks: int
@@ -84,6 +91,7 @@ class NativeLRUPolicy:
     """A0: the frozen native adapter over the complete queue."""
 
     strategy_id = "A0_native_lru"
+    requires_future_trace = False
 
     def __init__(self) -> None:
         self._adapter = NativeLRUAdapter()
@@ -122,6 +130,7 @@ class RetentionNativePolicy:
     """A1: the frozen retention-aware adapter over the complete queue."""
 
     strategy_id = "A1_retention_native_lru"
+    requires_future_trace = False
 
     def select(
         self,
@@ -189,6 +198,7 @@ class InBandTailFirstPolicy:
     ignore_structure: bool = False
     constant_depth: bool = False
     reverse_direction: bool = False
+    requires_future_trace = False
 
     def _key(self, candidate: SimCandidate, band_min_rank: dict[tuple[int, bool], int]):
         if self.ignore_structure:
@@ -232,15 +242,21 @@ class InBandTailFirstPolicy:
 
 @dataclass(frozen=True, slots=True)
 class OraclePolicy:
-    """Belady-style oracle over the eligible set (research upper bound only).
+    """Belady-style oracle-like reference over the eligible set.
 
     Evicts, in order: blocks whose content is never requested again, then
     blocks whose next use is furthest in the future. Ties break toward deeper
-    blocks (less prefix damage) and then colder native rank. Uses the future
-    trace; never a deployable policy.
+    blocks (less prefix damage) and then colder native rank.
+
+    This is an oracle-like research reference, **not** a proven optimal
+    policy and **not** a deployable policy: it reads the future trace, and
+    Belady-style next-use ordering is not proven optimal under prefix-
+    truncation semantics. Its results bound nothing; they only indicate the
+    headroom a perfect victim rule might approach.
     """
 
-    strategy_id: str = "ORACLE_belady"
+    strategy_id: str = "ORACLE_belady_like_reference"
+    requires_future_trace = True
 
     def select(
         self,

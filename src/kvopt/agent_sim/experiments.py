@@ -61,8 +61,18 @@ ARM_SPECS: dict[str, ArmSpec] = {
         kind="native",
         scheduler="continuum",
     ),
-    "O1": ArmSpec("O1", "Oracle eviction (Belady-style, no retention)", retention=False, kind="oracle"),
-    "O2": ArmSpec("O2", "Oracle eviction + retention", retention=True, kind="oracle"),
+    "O1": ArmSpec(
+        "O1",
+        "Oracle-like reference (Belady-style next-use, not proven optimal; no retention)",
+        retention=False,
+        kind="oracle",
+    ),
+    "O2": ArmSpec(
+        "O2",
+        "Oracle-like reference (Belady-style next-use, not proven optimal) + retention",
+        retention=True,
+        kind="oracle",
+    ),
     "D1": ArmSpec(
         "D1",
         "Direction reversal diagnostic (in-band shallow-first)",

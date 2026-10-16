@@ -191,11 +191,57 @@ class BlockPool:
             if block.has_block_hash:
                 self._append(block)
 
+    def check_invariants(self) -> None:
+        """Assert the physical-cache invariants (called once per run).
+
+        1. every block is either queued (``in_queue``, ``ref_cnt == 0``) or
+           owned (``ref_cnt >= 1``, not queued) — never both, never neither;
+        2. the cache mapping is consistent: each mapped block's
+           ``content_id`` equals its key;
+        3. no content identity is mapped twice (no duplicate content);
+        4. the queue size equals the number of queued blocks.
+        """
+        queued = 0
+        owners: dict[str, int] = {}
+        for block in self.blocks:
+            if block.in_queue:
+                if block.ref_cnt != 0:
+                    raise AssertionError(
+                        f"block {block.block_id} is queued with ref_cnt {block.ref_cnt}"
+                    )
+                queued += 1
+            elif block.ref_cnt < 1:
+                raise AssertionError(
+                    f"block {block.block_id} is neither queued nor owned"
+                )
+            if block.has_block_hash:
+                mapped = self.cache_mapping.get(block.content_id or "")
+                if mapped is not block:
+                    raise AssertionError(
+                        f"block {block.block_id} holds content "
+                        f"{block.content_id} but the mapping points elsewhere"
+                    )
+                owners[block.content_id or ""] = owners.get(block.content_id or "", 0) + 1
+        for content_id, count in owners.items():
+            if count > 1:
+                raise AssertionError(
+                    f"content {content_id} is held by {count} blocks"
+                )
+        if queued != self._queue_size:
+            raise AssertionError("queue size does not match queued block count")
+
     def evict_and_take(self, block_id: int, content_id: str, depth: int, *, hashed: bool) -> Block:
         """Physically evict one queued victim and reassign the slot."""
         block = self.blocks[block_id]
         if not block.in_queue or block.ref_cnt != 0:
             raise ValueError("victim must be a free-queue block with ref_cnt 0")
+        if hashed:
+            existing = self.cache_mapping.get(content_id)
+            if existing is not None and existing is not block:
+                raise ValueError(
+                    f"content {content_id} is already cached in block "
+                    f"{existing.block_id}; duplicate content assignment"
+                )
         self._unlink(block)
         if block.has_block_hash:
             mapped = self.cache_mapping.get(block.content_id or "")

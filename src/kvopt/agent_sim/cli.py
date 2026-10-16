@@ -29,8 +29,16 @@ from kvopt.agent_sim.report import (
     render_charts,
     render_markdown,
 )
-from kvopt.agent_sim.trace import SimulationTrace
 from kvopt.agent_sim.workload_gen import DRAWS_PER_FAMILY, FAMILIES, generate_campaign
+from kvopt.continuum.snapshots import TTLInput
+from kvopt.continuum.ttl import estimate_ttl
+from kvopt.continuum.types import (
+    InputProvenance,
+    InputSource,
+    PrefixIdentity,
+    ProgramIdentity,
+    RequestIdentity,
+)
 
 MAIN_ARMS = ("A0", "A1", "A2", "A3")
 EXTRA_ARMS = ("A4", "O1", "O2", "D1")
@@ -46,56 +54,47 @@ def _ttl_probe(results, traces) -> dict[str, object]:
     queue-delay term were non-zero? It uses the frozen estimator and the same
     recorded history samples; the swept values are labelled as assumptions.
     """
-    from kvopt.continuum.snapshots import TTLInput
-    from kvopt.continuum.ttl import estimate_ttl
-    from kvopt.continuum.types import InputProvenance, InputSource
-
     sweeps = (0.0, 0.05, 0.65)
     totals = {value: 0 for value in sweeps}
     nonzero = {value: 0 for value in sweeps}
     decisions = 0
-    for arm_id in ("A1", "A3"):
-        for result in results.get(arm_id, {}).values():
-            if result.error:
-                continue
-            for record in result.ttl_probe_records:
-                decisions += 1
-                for queue_delay in sweeps:
-                    ttl_input = TTLInput(
-                        program_id=__import__(
-                            "kvopt.continuum.types", fromlist=["ProgramIdentity"]
-                        ).ProgramIdentity("probe"),
-                        request_id=__import__(
-                            "kvopt.continuum.types", fromlist=["RequestIdentity"]
-                        ).RequestIdentity(record.request_id),
-                        prefix_id=__import__(
-                            "kvopt.continuum.types", fromlist=["PrefixIdentity"]
-                        ).PrefixIdentity("probe"),
-                        decision_timestamp=0.0,
-                        next_tool_type=record.next_tool_type,
-                        global_server_gap_samples_seconds=record.global_samples,
-                        tool_server_gap_samples_seconds=record.tool_samples,
-                        queue_delay_t_seconds=queue_delay,
-                        eta=record.eta,
-                        prefill_reload_seconds=record.prefill_reload_seconds,
-                        default_ttl_seconds=0.0,
-                        server_gap_history_provenance=InputProvenance(InputSource.OBSERVED),
-                        queue_delay_provenance=InputProvenance(
-                            InputSource.OBSERVED,
-                            "SIMULATION_ASSUMED_T_sensitivity_probe",
-                        ),
-                        eta_provenance=InputProvenance(InputSource.OBSERVED),
-                        prefill_reload_provenance=InputProvenance(
-                            InputSource.APPROXIMATED, "offline PrefillReload profile"
-                        ),
-                        default_ttl_provenance=InputProvenance(
-                            InputSource.APPROXIMATED, "configured default TTL"
-                        ),
-                    )
-                    decision = estimate_ttl(ttl_input)
-                    totals[queue_delay] += decision.ttl_seconds
-                    if decision.ttl_seconds > 0:
-                        nonzero[queue_delay] += 1
+    # A1 and A3 share an identical retention path, so their TTL probe records
+    # are identical; count A1 once (the equality is asserted by a test).
+    for result in results.get("A1", {}).values():
+        if result.error:
+            continue
+        for record in result.ttl_probe_records:
+            decisions += 1
+            for queue_delay in sweeps:
+                ttl_input = TTLInput(
+                    program_id=ProgramIdentity("probe"),
+                    request_id=RequestIdentity(record.request_id),
+                    prefix_id=PrefixIdentity("probe"),
+                    decision_timestamp=0.0,
+                    next_tool_type=record.next_tool_type,
+                    global_server_gap_samples_seconds=record.global_samples,
+                    tool_server_gap_samples_seconds=record.tool_samples,
+                    queue_delay_t_seconds=queue_delay,
+                    eta=record.eta,
+                    prefill_reload_seconds=record.prefill_reload_seconds,
+                    default_ttl_seconds=0.0,
+                    server_gap_history_provenance=InputProvenance(InputSource.OBSERVED),
+                    queue_delay_provenance=InputProvenance(
+                        InputSource.OBSERVED,
+                        "SIMULATION_ASSUMED_T_sensitivity_probe",
+                    ),
+                    eta_provenance=InputProvenance(InputSource.OBSERVED),
+                    prefill_reload_provenance=InputProvenance(
+                        InputSource.APPROXIMATED, "offline PrefillReload profile"
+                    ),
+                    default_ttl_provenance=InputProvenance(
+                        InputSource.APPROXIMATED, "configured default TTL"
+                    ),
+                )
+                decision = estimate_ttl(ttl_input)
+                totals[queue_delay] += decision.ttl_seconds
+                if decision.ttl_seconds > 0:
+                    nonzero[queue_delay] += 1
     return {
         "decisions": decisions,
         "queue_delay_sweep_seconds": list(sweeps),
@@ -106,7 +105,8 @@ def _ttl_probe(results, traces) -> dict[str, object]:
         "nonzero_ttl_decisions": {str(value): nonzero[value] for value in sweeps},
         "note": (
             "T=0 is the simulator's degenerate (no queueing model) value; "
-            "T>0 values are labelled SIMULATION_ASSUMED sensitivity inputs."
+            "T>0 values are labelled SIMULATION_ASSUMED sensitivity inputs. "
+            "Decisions are counted once (A1; A3 records are identical)."
         ),
     }
 
@@ -165,11 +165,6 @@ def main(argv: list[str] | None = None) -> int:
     traces_list = generate_campaign(
         seed=args.seed, families=tuple(args.families), draws_per_family=args.draws
     )
-    traces: dict[int, SimulationTrace] = {trace.draw + index * 1000: trace for index, trace in enumerate(traces_list)}
-    # key by a stable (family, draw) pair
-    traces = {}
-    for trace in traces_list:
-        traces[(trace.family, trace.draw)] = trace
     trace_manifest = [
         {
             "trace_id": trace.trace_id,
