@@ -1,0 +1,49 @@
+{
+  "schema_version": "phase2g.a1_native_gate1_fixture.v1",
+  "scope": "NATIVE_MECHANISM_VALIDATION",
+  "execution_authorized": true,
+  "policies": ["A0", "A1"],
+  "runtime_repeats": 2,
+  "block_size_tokens": 16,
+  "pressure_prompt_tokens": 320,
+  "initial_shortage_blocks": 8,
+  "a1": {
+    "lambda": 0.5,
+    "tau_seconds": 30.0
+  },
+  "model": {
+    "name": "Qwen/Qwen2.5-0.5B-Instruct",
+    "revision": "7ae557604adf67be50417f59c2c2f167def9a775"
+  },
+  "runtime": {
+    "backend_factory": "scripts.spikes.phase2_minimal_observability_metal:build_phase2_metal_observability_backend",
+    "gpu_memory_utilization": 0.75,
+    "max_new_tokens": 1,
+    "temperature": 0.0
+  },
+  "cases": [
+    {
+      "case_id": "gate1-selection-divergence",
+      "expected_selection_relation": "DIFFERENT",
+      "program_prefix_tokens": {
+        "gate1-a": 256,
+        "gate1-b": 128
+      }
+    },
+    {
+      "case_id": "gate1-selection-control",
+      "expected_selection_relation": "SAME",
+      "program_prefix_tokens": {
+        "gate1-a": 192,
+        "gate1-b": 192
+      }
+    }
+  ],
+  "boundaries": {
+    "continuum_a0_modified": false,
+    "native_block_pool_modified": false,
+    "a2_a3_implemented": false,
+    "b1_unlocked": false,
+    "h1_h2_modified": false
+  }
+}

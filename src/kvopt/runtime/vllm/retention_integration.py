@@ -32,12 +32,20 @@ class RetentionRuntimeIntegration:
         manager: RetentionManager,
         forced_release_observer: ForcedReleaseObserver | None = None,
         diagnostic_first_release_program_id: ProgramIdentity | None = None,
+        selection_coordinator: RetentionAwareSelectionCoordinator | None = None,
     ) -> None:
         if not isinstance(manager, RetentionManager):
             raise TypeError("manager must be RetentionManager")
         self._manager = manager
         self._forced_release_observer = forced_release_observer
         self._diagnostic_first_release_program_id = diagnostic_first_release_program_id
+        if selection_coordinator is not None and not isinstance(
+            selection_coordinator, RetentionAwareSelectionCoordinator
+        ):
+            raise TypeError(
+                "selection_coordinator must be RetentionAwareSelectionCoordinator or None"
+            )
+        self._selection_coordinator = selection_coordinator
 
     def apply_pressure(
         self,
@@ -68,9 +76,10 @@ class RetentionRuntimeIntegration:
             return RetentionPressureResult(selected, None)
 
         candidates = native_bridge.build_candidates(native_blocks)
-        preparation = RetentionAwareSelectionCoordinator(
+        coordinator = self._selection_coordinator or RetentionAwareSelectionCoordinator(
             self._forced_release_observer
-        ).prepare(
+        )
+        preparation = coordinator.prepare(
             candidates,
             self._manager.planning_snapshots(),
             required_blocks=required_blocks,
