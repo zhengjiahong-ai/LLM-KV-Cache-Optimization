@@ -92,7 +92,6 @@ def evaluate_run(run_dir: Path) -> dict[str, object]:
         "all_native_counts_nonnegative": all(
             int(row["recomputed_tokens"]) >= 0 for row in observations.values()
         ),
-        "forced_decision_evidence_present": bool(forced),
     }
     return {
         "run_id": run.run_id,
@@ -117,6 +116,7 @@ def evaluate_run(run_dir: Path) -> dict[str, object]:
             "backend_revision": config.get("backend_revision"),
         },
         "selection_sequence": selections,
+        "pressure_release_mechanism_realized": bool(forced),
         "physical_eviction_count": len(evictions),
         "physical_eviction_signature": sorted(physical_signature),
         "unmapped_physical_eviction_count": unmapped_evictions,
@@ -150,6 +150,10 @@ def compare_pair(
     }
     if not all(checks.values()):
         state = "INCONCLUSIVE"
+    elif not a0.get("pressure_release_mechanism_realized") or not a1.get(
+        "pressure_release_mechanism_realized"
+    ):
+        state = "NOT_REALIZED"
     elif a0.get("selection_sequence") == a1.get("selection_sequence"):
         state = "NO_SELECTION_DIVERGENCE"
     elif not a0.get("physical_eviction_count") or not a1.get("physical_eviction_count"):

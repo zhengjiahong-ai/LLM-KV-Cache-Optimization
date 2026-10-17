@@ -17,6 +17,7 @@ def _arm(policy: str, *, selected: str, physical: str, tokens: int) -> dict[str,
         "materialized_token_digests": {"a:1": "one", "a:2": "two"},
         "pairing_config": {"cache": 37},
         "selection_sequence": [[selected]],
+        "pressure_release_mechanism_realized": True,
         "physical_eviction_count": 1,
         "physical_eviction_signature": [(physical, 0)],
         "aggregate_recomputed_tokens": tokens,
@@ -40,6 +41,22 @@ def test_pair_preserves_no_selection_divergence() -> None:
     )
 
     assert result["evidence_state"] == "NO_SELECTION_DIVERGENCE"
+
+
+def test_pair_preserves_not_realized_without_forced_release() -> None:
+    a0 = _arm("A0", selected="a", physical="a", tokens=200)
+    a1 = _arm("A1", selected="a", physical="a", tokens=200)
+    a0["pressure_release_mechanism_realized"] = False
+    a1["pressure_release_mechanism_realized"] = False
+    a0["selection_sequence"] = []
+    a1["selection_sequence"] = []
+    a0["physical_eviction_count"] = 0
+    a1["physical_eviction_count"] = 0
+
+    result = compare_pair(a0, a1)
+
+    assert result["status"] == "COMPARABLE"
+    assert result["evidence_state"] == "NOT_REALIZED"
 
 
 def test_pair_fails_closed_on_unpaired_content() -> None:
