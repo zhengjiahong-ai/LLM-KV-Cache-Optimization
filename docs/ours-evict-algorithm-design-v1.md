@@ -1,381 +1,444 @@
-# Ours-Evict — Algorithm Design（rev.3）
+# Ours-Evict — Algorithm Design（rev.4）
 
-**提交人**：M4　**送审**：M1　**日期**：2026-10-15
+**提交人**：M4　**送审**：M1　**日期**：2026-10-17
 **阶段**：Phase 2 Cost-Aware Eviction 算法设计（**设计 PR，不含 runtime 实现**）
 **主目标**：`aggregate_recomputed_tokens`　**辅助观测**：TTFT / queue delay
-**边界**：不改 native BlockPool / ref_cnt / hash cleanup / LRU，不改冻结 Continuum baseline，B1 保持 LOCKED，不实施 runtime
+**边界**：不改 native BlockPool / ref_cnt / hash cleanup / LRU，不改冻结 Continuum baseline，**B1 保持 LOCKED**，不实施 runtime
 
-> **rev.3 说明**：M1 已独立发现 rev.2 的 Layer 1 问题。本轮我把该问题**做完**了实测，
-> 并顺带把 Layer 2 也**量化**了。两个实测合起来给出一个更根本的结论：
-> **在冻结的 block-level 接口内，几乎没有 LRU 尚未利用的成本信号。**
-> 因此 rev.3 不再是"完善一个算法"，而是**如实报告接口天花板并请 M1 在三条例径中裁定**。
+> **rev.4 说明**：本轮响应 M1 对 rev.2（`5c2f8a9`）的 `CHANGES_REQUESTED`（RC1–RC6）。
+> ⚠️ **同时更正 rev.3**：rev.3（未推送草稿）曾引用一个**不存在的探针**
+> `local/probe_c3_and_refcnt.py`，其「729 窗口 / 93.4% / 6.6%」数字**不可复现**。
+> 我已重建该测量（新探针 `local/probe_rev3_verify.py`），**结论与原数字相反**（见 §0.2）。
+> 该失真数字**已从本文撤回**；相关结论按可复现数据重写。
 
----
-
-## 0. rev.3 结论摘要（先给答案）
-
-### 0.1 核心实测：接口天花板
-
-冻结接口暴露的全部字段（已核实到源码）：
-
-```text
-EvictionCandidate = { block_id, ref_cnt, has_block_hash, lru_rank }
-EvictionContext   = { required_blocks, free_blocks, total_blocks, timestamp }
-```
-
-**逐字段评估它们能否作为成本信号**：
-
-| 字段 | 可作成本信号？ | 实测证据 |
-| --- | --- | --- |
-| `lru_rank` | ❌ **它就是基线本身** | `NativeLRUAdapter` 即按其升序取值 |
-| `has_block_hash` | ❌ **LRU 已经自动用掉了**（见 §0.2） | 顺序起作用的 54 个决策中，hashless 块归一化 rank **= 0.0000** |
-| `ref_cnt` | ❌ **常数** | free-queue 块按定义 `ref_cnt == 0`；且**未持久化**在 H1 队列中（行字段仅 `{block_id, eligibility_tier, has_block_hash, native_lru_rank}`） |
-| `required/free/total_blocks` | ❌ 只是**预算**，不是成本 | — |
-| 前缀深度 `d(b)` | ⚠️ 若加入**可能**有用，但窗口极小（见 §0.2） | 729 个链窗口中 **93.4% 已被 LRU 满足** |
-| owner / 内容身份 | ❌ 不在接口内 | 属 replay 层产物 |
-
-⇒ **结论**：在该边界内，**除 `lru_rank` 外的每个可得信号，要么已被基线用尽、要么是常数。**
-这不是实现不足，而是**接口的能力上限**。
-
-### 0.2 支撑该结论的两组决定性实测
-
-**实测 A —— Layer 1 无空间**（探针 `local/probe_l1_refined.py`）
-
-```text
-决策总数                                              : 87
-  required_blocks >= len(queue)（顺序无关，全队列都要淘汰） : 33 = 37.9%
-  required_blocks <  len(queue)（顺序才起作用）           : 54 = 62.1%
-
-在"顺序起作用"的 54 个决策上：
-  hashless 占比（整个队列）              : median 0.2980
-  hashless 占比（冷端前缀 = LRU 先淘汰的） : median 0.8591
-  冷端 hashless 富集（LRU 已这么做）      : 54 / 54 = 100%
-  冷端 hashless 枯竭（Layer 1 才有空间）  :  0 / 54 =   0%
-  最早 hashless 块归一化 rank            : median 0.0000
-  最早 hashed   块归一化 rank            : median 0.3012
-```
-
-⇒ **无 hash 块就坐在 free queue 最前端。** 原因不是 vLLM 写了特殊规则，而是结构性必然：
-
-```text
-前缀命中只刷新"有 hash"的块（推到热端）
-无 hash 块永不被任何命中触及 ⇒ 只能持续变冷 ⇒ 自动沉到冷端
-⇒ 任何 LRU 系淘汰都会自动优先吃掉它们
-```
-
-**实测 B —— Layer 2 窗口极小**（探针 `local/probe_c3_and_refcnt.py`）
-
-```text
-链窗口数（87 个决策内，每窗口 = 一段按前缀序对齐的链）    : 729
-链窗口长度 : median 12, min 3, max 32
-
-rho = Spearman(前缀位置 k, lru_rank)
-  median -1.0000    mean -0.8843    min -1.0000    max +1.0000
-
-  rho < 0（深块更冷 ⇒ LRU 已"深优先" ⇒ 无空间） : 681  = 93.4%
-  rho > 0（浅块更冷 ⇒ LRU"浅优先" ⇒ 有空间）    :  48  =  6.6%
-```
-
-⇒ **93.4% 的情形下 LRU 已经在淘汰最深块**（中位数是完美负相关 −1.0）。
-⇒ **Layer 2 的可利用窗口只有 6.6%**，且即便在这 6.6% 内，收益还需"这些块随后真被重新请求"才兑现。
-⇒ 这与 rev.2 的推断（"链内 LRU 很可能已近似深度序"）一致，但**从推断升级为实测，且量级更小**。
-
-### 0.3 设计后果
-
-| rev.2 的组件 | rev.3 处置 |
-| --- | --- |
-| **Layer 1（hashless 优先）** | **删除**（实测 A：0% 空间；M1 亦已指出） |
-| **Layer 2（链内深度）** | **降级为 6.6% 窗口的窄假设**，且需 M1 授权一个只读字段 |
-| rev.2 §3.3 的 64→0 正例 | **撤回**（它假设 hashless 块 rank 最大，实测为 rank 0） |
-| 成本模型（Q1/Q2/Q3 + APC 语义） | **保留**（仍然正确，且是判断上述窗口的依据） |
-
-⇒ **本设计目前不包含任何"可立即实现且有预期增益"的组件。**
+**结论（一句话）**：在冻结的 block-level 接口内，**Ours-Evict 目前没有可实现的、能改变 native victim set 的成本信号** ⇒ 判定 **BLOCKED**，并请 M1 在两条路径中裁定（§7）。
 
 ---
 
-## 0.4 变更轨迹（含我自己的三次撤回）
+## 0. 变更轨迹（含我自己的四次撤回）
 
 | 版本 | 主张 | 结果 |
 | --- | --- | --- |
-| v1 | `damage/(1+credit)` 的 entry-level 成本模型 | **撤回**：语义错（被保护的块不会被淘汰）+ 比值退化为 credit 的单调函数 |
-| v2 | Layer 1 可证明弱占优 + 全局深优先定理 | **撤回**：全局深优先被跨链反例击破；**Layer 1 被实测否定**（§0.2） |
-| v3 | 接口天花板 + 6.6% 窄窗口 | 本文 |
+| v1 | `damage/(1+credit)` entry-level 成本模型 | **撤回**：语义错（被保护的块不会被淘汰）+ 比值退化为 credit 的单调函数 |
+| v2 | Layer 1 可证明弱占优；全局深优先定理 | **撤回**：全局深优先被跨链反例击破 |
+| v3 | Layer 1「实测无空间」；Layer 2「6.6% 窗口」 | **Layer 1 部分保留**；**Layer 2 的 6.6% 撤回**（不可复现，见文首说明） |
+| v4 | 接口天花板 = BLOCKED；Layer 1 降为 native invariant；Layer 2 = NOT_OBSERVABLE | 本文 |
 
-⇒ 三次撤回都由**实测或推导**驱动，不是措辞调整。我不再为保留一个"看起来可行"的算法而弱化证据。
-
----
-
-## 1. 决策边界（RC1，沿用 rev.2 裁定）
-
-### 1.1 Ours-Evict = block-level（方案 A）
-
-```text
-src/kvopt/runtime/vllm/adapter.py:11
-    class EvictionPolicyAdapter(ABC):
-        def select_victims(self, candidates: Sequence[EvictionCandidate],
-                           context: EvictionContext) -> Sequence[int]
-        """Choose block-level victims without mutating vLLM cache state directly."""
-```
-
-| 项 | 值 |
-| --- | --- |
-| **输入 1** | `Sequence[EvictionCandidate]` = `{block_id, ref_cnt, has_block_hash, lru_rank}` |
-| **输入 2** | `EvictionContext` = `{required_blocks, free_blocks, total_blocks, timestamp}` |
-| **输出** | `Sequence[int]` = victim block IDs 按淘汰顺序；唯一、取自 candidates |
-| **约束** | 不得 mutate vLLM queue / block metadata |
-| **下游** | `BlockPool.get_new_blocks()` → `_maybe_evict_cached_block()` 真实 hash cleanup |
-| **生产者** | `bridge.py:35` `build_candidates()`：`lru_rank` = 队列序号；`has_block_hash = block.block_hash is not None` |
-
-⚠️ **注意 `bridge.py` 的 `VLLMBlockLike` 只有 `{block_id, ref_cnt, block_hash}`**
-——**没有前缀位置**。且 `EvictionCandidate` 把 `block_hash` **降级成布尔**，
-内容身份在构造时被丢弃。这是 §0.1 天花板的具体来源。
-
-### 1.2 entry-level 设计的定位（**不属于 Ours-Evict**）
-
-`FORCED_RELEASE_DECISION.payload.candidates` 属**另一个决策边界**（Continuum retention pressure release）。
-rev.2 已将其改名 `Cost-Aware Pressure Release`、降级为**离线 harness**。
-rev.3 保持该定位，并把它列为 §7 的**候选路径 B**（需 M1 批准范围变更）。
+⇒ 四次撤回均由**实测或推导**驱动。**我不保留任何"看起来可行"的组件。**
 
 ---
 
-## 2. 成本模型（保留 rev.2，仍然正确）
+## 0.1 M1 RC1–RC6 落实对照（供核对）
 
-### 2.1 三个必须区分的量
-
-| # | 量 | 等于重计算？ |
+| RC | 要求 | 本文落实位置 |
 | --- | --- | --- |
-| **Q1** | Logical protection released | ❌ |
-| **Q2** | Physical cached blocks evicted | ❌（但**是** Q3 的必要条件） |
-| **Q3** | Future recomputed prefix tokens | ✅ **主目标** |
-
-⇒ **Q1 ⇏ Q2 ⇏ Q3**。成本模型只对 Q2 定价，Q2→Q3 映射写成显式假设。
-
-### 2.2 APC 语义（唯一依据）
-
-仓库既有事实（`docs/phase2b-m6-experimental-fidelity-repair-spec.md` §1）：APC 需**可匹配的连续前缀**。
-故对请求 r 的链 `p₁…p_m`：
-
-```text
-j(r) = min{ k : p_k 已被淘汰 }        （均未淘汰则 j(r) = m+1）
-recompute(r) = (m − j(r) + 1) × block_size_tokens
-```
-
-**关键**：`recompute(r)` **只由 r 链上最浅的已淘汰块决定**。
-
-### 2.3 为什么该模型依然必要
-
-它给出了 §0.2 实测的解释：**"深优先"正是 `j(r)` 最大化**，而实测 B 表明 **LRU 已在 93.4% 的窗口做到这一点**
-⇒ 该模型用来自证"没有空间"，而非用来包装一个算法。
+| **RC1** | 撤回 Layer 1 独立增益；给出 native 机制；需合法 free-queue snapshot 或降为 sanity check | **§1**（native 机制 + 可复核快照 + 无例外 ⇒ 降为 sanity check） |
+| **RC2** | 修正 rank/depth 方向矛盾；删去由连续带推出深度序 | **§2**（方向约定 + 重建实测 ρ≡−1.0000 + 方向 `NOT_OBSERVABLE`） |
+| **RC3** | 弱命题限独立无共享链；共享情形单独说明；只留一个可执行版本；fail-closed | **§3**（共享反例 + 单一版本 + fail-closed；并指出 `chain_pos` 单字段不足） |
+| **RC4** | 边际重算改为新旧成本差 | **§4**（`ΔR = Σ_r B·max(0, j_old − j_new)` + M1 的 4/3/2 算例） |
+| **RC5** | 消融/契约/集合 vs 序列；最小路径 | **§5**（含 `bridge._validate_selection` 真实契约 + `NO_HEADROOM_OBSERVED` 判据） |
+| **RC6** | X3 交付边界 | **§8 附 2**（H1 已核查；**Phase 2E 尚未核查**） |
 
 ---
 
-## 3. 两层的处置
+## 0.2 两组实测（全部可复现）
 
-### 3.1 Layer 1 —— **删除**（含撤回 rev.2 的正例）
+### 实测 A —— Layer 1 无空间
 
-**rev.2 的论证**（正确但**不适用**）：hashless 块不参与 APC 匹配 ⇒ 淘汰它 β=0。
-**rev.2 的算例**（**错误，撤回**）：假定 hashless 块的 `lru_rank` 最大。
-**实测**：其归一化 rank = **0.0000**（最冷）；冷端 hashless **富集 100%**、**枯竭 0%**。
-
-⇒ **LRU 已经做了这件事**。Layer 1 在 100% 的顺序相关决策上冗余，
-在其余 37.9% 上是空操作（全队列都要淘汰）。
-
-⇒ **Layer 1 从设计中移除。** 其"可证明弱占优"命题依然为真，但**在真实队列顺序下永不被激活**。
-
-### 3.2 Layer 2 —— **降级为 6.6% 窄窗口假设**
-
-**可由 rev.2 §3.2 保留的弱命题**（**成立**）：
-
-> **固定每条链被选中的块数**时，把某条链的选择从较浅优先改为较深优先，
-> 则 `j(rγ)` 不减小 ⇒ `recompute(rγ)` 不增；对其它链无影响。
-
-**必须同时保留的反例**（rev.2 §3.1，**成立**）：跨链全局深优先可为**更差**
-（热长链 vs 冷短链）⇒ **深度不能作全局主键，`lru_rank` 必须保留为主序**。
-
-**实测窗口（§0.2 B）**：只有 **6.6%** 的链窗口满足 `ρ > 0`（浅块更冷，即 recency 与 depth **分离**）。
-
-⇒ Layer 2 的形态（若实现）：**仅在链内做次序校正，跨链分配不变**：
+探针 `local/probe_l1_refined.py`（H1 `original_free_queue`）：
 
 ```text
-形态 L2-A（仅需链身份 + 链内相对序）
-    主键: lru_rank
-    后处理: 若某链被选中 >= 2 块且其 lru_rank 序与链内序**不一致**，
-            则在该链内部改为**更深优先**；跨链分配保持不动
+决策总数                                             : 87
+  required_blocks >= len(queue)（顺序无关，全队列都要淘汰）: 33 = 37.9%
+  required_blocks <  len(queue)（顺序才起作用）          : 54 = 62.1%
+
+在"顺序起作用"的 54 个决策上：
+  hashless 占比（整个队列）                : median 0.2980
+  hashless 占比（冷端 = LRU 先淘汰的前缀）  : median 0.8591
+  冷端 hashless 富集（LRU 已这么做）        : 54 / 54 = 100%
+  冷端 hashless 枯竭（Layer 1 才有空间）    :  0 / 54 =   0%
+  最早 hashless 块归一化 rank              : median 0.0000
+  最早 hashed   块归一化 rank              : median 0.3012
 ```
 
-⚠️ **实现前提（三个，缺一不可）**：
-1. M1 授权一个**只读**字段（§6.3）——注意这是**直通**而非新插桩：`bridge.py` 已持有 `block.block_hash`，
-   而前缀位置在 `VLLM_PREFIX_SNAPSHOT.block_ids`（**按前缀序**，已核实）+ `ordered_native_hashes` 中可得；
-2. 该字段的覆盖率足够（依赖 P5，当前 `PARTIALLY_DEMONSTRATED`）；
-3. 接受**预期效应极小**：6.6% × 二级效应（这些块需随后被重新请求）。
+### 实测 B —— 链窗口的重排自由度（**重建，取代 rev.3 的失真数字**）
 
-⇒ **我不建议优先实现 Layer 2**；它更像是"若 M1 一定要在 block-level 交付一个东西"的兜底选项。
+探针 `local/probe_rev3_verify.py`；**定义已写死在探针里**：
+
+```text
+chain window = 一个 decision 内的一个候选 entry（candidates[].block_ids）
+k            = 该 entry 内 block_ids 的下标（升序）
+rho          = Spearman(k, 该块的 native_lru_rank)        （取自同一 decision 的 original_free_queue）
+
+结果：
+  可测窗口（>=3 个可比块）      : 294
+  rho  min −1.0000   median −1.0000   mean −1.0000   max −1.0000
+  恰为 −1.0000                  : 294 / 294 = 100%
+  rho > 0（存在重排空间）        :   0 / 294 =   0%
+```
+
+⇒ **在一个 entry 内部，`native_lru_rank` 是 block 下标的一个完美单调函数。**
+⇒ **entry 内部不存在任何重排自由度**（不是"6.6% 有空间"，而是 **0%**）。
+
+⚠️ **方向（哪一端更冷）仍不可判定**：把下标等同于"前缀深度"需要 `block_id → token 前缀位置`
+的映射，而该能力（P5）当前为 `PARTIALLY_DEMONSTRATED`（T2 实测覆盖率约 1/7）。
+因此本文**不声称**「LRU 已在做深优先」，只声称**单调性**（见 §2）。
+
+### 附：`ref_cnt` 的可观测性
+
+```text
+H1 全部 decision 的 original_free_queue 行数 : 6606
+  其中携带 ref_cnt 字段的行                  :    0   ⇒ H1 中 ref_cnt 未持久化
+```
+
+⇒ 在既有语料上 `ref_cnt` 为 `NOT_OBSERVABLE`；其"恒为 0"的依据来自**vLLM 源码**（§1.1），
+不是来自我们的数据。
 
 ---
 
-## 4. 与既有规则及研究的边界
+## 1. RC1 — Layer 1 是 **native invariant**，不是 Ours-Evict 组件
 
-### 4.1 与 H1 规则族（**边界不同，不可比**）
-
-H1 规则在 **entry-level** 打分（`DecisionCandidateRow`，含 `block_ids`）；
-Ours-Evict 在 **block-level** 打分（`EvictionCandidate`，仅 4 字段）。
-⇒ 必须分开报告；H1 的"无增益"既不证否也不支持 Ours-Evict。
-
-### 4.2 与 `NativeLRUAdapter` 的真实关系（**rev.3 的核心表述**）
+### 1.1 native 机制（源码级，M1 已核对，我独立引用）
 
 ```text
-在冻结接口内，Ours-Evict 能用的信号 = {lru_rank, has_block_hash, ref_cnt}
-其中：lru_rank 就是基线；has_block_hash 已被 LRU 用掉；ref_cnt 恒为 0
-⇒ 在本 campaign 的实测下，Ours-Evict 与 NativeLRUAdapter 的**预期差异≈6.6% 的窄窗口**
+vLLM v0.27.1  vllm/v1/core/block_pool.py
+  free_blocks()     分离 blocks_without_hash / blocks_with_hash，
+                    再 prepend_n(blocks_without_hash) + append_n(blocks_with_hash)
+                    （M1 引：第 727–742 行）
+  get_new_blocks()  free_block_queue.popleft_n(num_blocks)
+                    随后对每块 _maybe_evict_cached_block(block)
+                    并 **assert block.ref_cnt == 0**                （M1 引：第 647–666 行）
 ```
 
-⚠️ 这不是说"LRU 最优"。而是说：**在只暴露这些字段的边界内，没有更多信息可加。**
-若要更大空间，必须改变**决策边界**（→ entry-level）或**暴露更多字段**（→ 接口扩展）。
+⇒ 两点结构性事实：
 
-### 4.3 与 RR-EVICT 的关系
+1. **无 hash 块被 native 主动前置**（`prepend_n`）⇒ 会被优先取用/淘汰，
+   **不需要任何策略去"发现"它们**；
+2. **free queue 中每个候选块的 `ref_cnt` 恒为 0**（源码断言）⇒ `ref_cnt` **不携带任何成本信息**。
 
-RR-EVICT 在 **entry/子 entry 粒度**（轮转 tail chunk），且需要 idle/active 区分。
-它与本设计**不在同一决策边界**。⛔ "截尾/保根"直觉**不主张为创新**（早期 B1 草案已推导，RR-EVICT 亦含）。
+补充旁证：该文件的提交历史含 *"Skip LRU hash-split in free_blocks when prefix caching is …"*
+（commit `a82f1b3`），说明该 hash-split 是 vLLM 的**显式、有条件的既有机制**，而非偶然现象。
 
-### 4.4 RC6 — F4 / Phase 2D 边界（严格保持）
+### 1.2 可复核的 free-queue snapshot（M1 要求）
+
+**生成路径**：H1 语料 `…/phase2a-h1-formal-level-a-runs-v1/<run>/events.jsonl`
+→ `FORCED_RELEASE_DECISION.payload.original_free_queue`
+→ 按 `native_lru_rank` 升序（= native 淘汰顺序）；脚本 `local/probe_rev3_verify.py`。
 
 ```text
-F4 odd draws 01/03/05 = SHARED_ROOT treatment（机制 NOT_REALIZED）
-F4 even draws 02/04/06 = NO_SHARED_PREFIX_NEGATIVE_CONTROL（已观察非零改善来自此处）
+run_id = h1-f1-draw-04-seed-101   event_index = 95
+  required_blocks = 30   queue_len = 83   hashless_in_queue = 24
+  first_hashed_rank = 24                       ← 前 24 个全是 hashless
+  最冷 12 项 (block_id, lru_rank, has_block_hash):
+    (60,0,False) (61,1,False) (62,2,False) (63,3,False) (64,4,False) (65,5,False)
+    (66,6,False) (67,7,False) (68,8,False) (69,9,False) (70,10,False) (71,11,False)
 ```
 
-⇒ 旧 F4 数值**不作**本算法证据；仅**复用其 workload 构造方式**。
-Phase 2D E2/E3 仅作**设计依据**，不作有效性证明。
+⇒ **无 hash 块占据 rank 0..23（连续），第一个有 hash 块在 rank 24。**
+⇒ 在 `required_blocks = 30` 下，native 取的前 24 个**全部**是零成本块。
+
+### 1.3 是否存在例外？（M1 要求回答）
+
+我按 M1 的要求检索了全部 87 个决策：
+
+```text
+冷端 hashless 富集 : 54 / 54（顺序相关子集）
+冷端 hashless 枯竭 :  0 / 54
+```
+
+⇒ **未发现任何例外**（不存在"hashless 块排在热端、需要策略去救"的决策）。
+
+### 1.4 处置
+
+| rev.2 的表述 | rev.4 处置 |
+| --- | --- |
+| 「Layer 1 可立即实现，含 hashless 时严格更优」 | **撤回** |
+| 「Layer 1 是可证明弱占优的独立增益」 | **降级为 native invariant 的 sanity check**，**不列为交付** |
+| rev.2 §3.3 的 64→0 正例 | **撤回**（其前提"hashless 块 rank 最大"与 native `prepend_n` 不符） |
+
+> **Layer 1 从 Ours-Evict 中删除。** 其"hashless 淘汰不增加重算"的命题**依然为真**，
+> 但它**描述的是 native 已有行为**，不能作为本设计的贡献。
 
 ---
 
-## 5. 验证计划（RC5 修正，保留四层链）
+## 2. RC2 — 方向约定修正，且**方向判定为 NOT_OBSERVABLE**
 
-### 5.1 四层机制链（替换"未观察即证伪"）
+### 2.1 修正方向约定（解释 rev.2 的矛盾）
+
+rev.2 §3.4 写 `a1(浅) < a2 < a3(深)`（`<` 表示 `lru_rank` 更小），随后却推断
+「NativeLRU 已先淘汰 a3」。**该推断错误**：升序排序**先淘汰 a1**。方向约定现固定为：
 
 ```text
-第 1 层  是否产生**合法且不同**的选择？（输出 ⊆ candidates、|输出| = R、去重、≠ A0）
-第 2 层  是否改变**物理缓存状态**？（淘汰后存活块集合不同）
-第 3 层  是否改变 **aggregate recomputed tokens**？（同未来请求序列）
-第 4 层  方向是否与主张一致？（A4/A6 劣于 A3）
+lru_rank 升序  = 淘汰顺序（小 → 先淘汰）
+depth/前缀位置 k 升序 = 越靠前缀根部越浅（k 小 = 浅）
+ρ = Spearman(k, lru_rank)
+   ρ = −1  ⇔ 深块 rank 更小 ⇔ LRU 先淘汰深块 ⇔ 无深优先空间
+   ρ = +1  ⇔ 浅块 rank 更小 ⇔ 有空间
 ```
 
-**失败归因表**：
+### 2.2 撤回「由连续带推出深度序」
+
+rev.2 曾以「87/87 连续带」推断 LRU 已深优先。**连续带只说明块在 rank 上相邻，
+不说明浅深排列方向。** 该推断**已删除**。
+
+### 2.3 重建后的实测（取代 rev.3 的失真数字）
+
+见 §0.2 实测 B：
+
+```text
+294 / 294 窗口 ρ ≡ −1.0000（完美单调）  ⇒ entry 内无重排自由度
+但"−1"对应的方向解释需要 P5（block → token 前缀位置）⇒ 当前不可靠
+```
+
+⇒ **正确表述**：
+
+> 在一个 entry 内部，native LRU 序与 block 下标**完美单调一致**（ρ ≡ −1.0000，294/294），
+> 因此**不存在 entry 内重排空间**。
+> **该单调性对应"深优先"还是"浅优先"，当前 `NOT_OBSERVABLE`**（需 P5，覆盖率不足）。
+> 本文不据此授权 Layer 2（M1 明确要求：没有可靠 depth/chain identity 则标 `NOT_OBSERVABLE`）。
+
+---
+
+## 3. RC3 — 弱命题的适用条件与 Layer 2 的阻塞
+
+### 3.1 修正：弱命题**仅在无共享的独立链**下成立
+
+rev.2 §3.2 的弱命题原文含「**对其它链无影响**」。**该句在共享前缀下为假**：
+
+```text
+设 A、B 两个请求的前缀共享 root。
+若把淘汰目标从共享 root 改到 A 的私有尾部：
+  → root 得以保留 ⇒ B 的命中**同时改善**
+⇒ 说"对其它链无影响"是错的
+```
+
+更根本地：**一个物理 block 可以属于多条逻辑链**（这正是 Phase 2C/2D 的共享结构），
+且「每条链固定 k 个」**不是一个天然可实施的不变量**（策略在物理 block 上做选择，
+链配额是它的**涌现结果**而非约束）。
+
+**修正后的命题（严格限定）**：
+
+> **当被比较的链块集合互不相交（无共享）时**，保持"每条链被选中的块数不变"，
+> 把某条链的选择从较浅优先改为较深优先，则该链对应请求的 `j(r)` 不减小 ⇒ `recompute(r)` 不增；
+> 且**对其余链无影响**（因块集互不相交）。
+> ⚠️ **共享情形下本命题不适用**，须按物理 block / 前缀 DAG 逐一计算未来请求的 `j(r)`。
+
+### 3.2 只保留一个可执行版本（且当前判定为阻塞）
+
+rev.2 的 L2-A（同链退避）与 L2-B（桶内降序）**只保留 L2-A**（B 已被 §3.1 的无共享前提击破）。
+
+```text
+L2-A（唯一版本）
+  主键: lru_rank（跨链分配不动）
+  后处理: 若某链被选中 >= 2 块，且其**链内 lru_rank 序与链内位置序不一致**，
+          则在该链内部改为更深优先
+  fail-closed: 当 (a) 链身份或链内位置不可确定，或 (b) 该链块集合与其它候选块**有交集**（共享），
+               或 (c) 该链被选中块数 < 2 时 —— **一律不做改动，退回原生 lru_rank 序**
+```
+
+### 3.3 阻塞：`chain_pos: int | None` **不足以**实现 L2-A
+
+M1 指正成立。§3.2 的后处理需要三样东西，而一个 `int` 只给了其中一样：
+
+| L2-A 需要 | `chain_pos: int \| None` 是否提供 |
+| --- | --- |
+| 块在其链内的位置 | ✅ |
+| **链身份**（哪两个块属于同一条链） | ❌ **缺失** |
+| **祖先/共享关系**（用于 fail-closed 判交集） | ❌ **缺失** |
+
+⇒ **因此本文不再请求该字段**（依 M1：「若当前能力无法满足则如实标记阻塞，不抢先要求增加 depth 字段」）。
+
+**Layer 2 判定：`BLOCKED`（能力不足）**，而非「6.6% 的窄机会」。
+实现它至少需要 `(chain_id, chain_pos)` 成对可读，**且**在共享情形下还需块级 owner 交集的
+只读视图——这已超出「直通一个已存在字段」的范围，属**新观测缝**，本轮不请求。
+
+---
+
+## 4. RC4 — 边际重算的正确公式（新旧成本差）
+
+### 4.1 rev.2 的错误
+
+rev.2 §2.3 把「本次使 `j(r)` 变小」乘以**淘汰后的全部未命中后缀长度**当作增量，
+**会重复计算此前已缺失的部分**。M1 的算例：
+
+```text
+长度 m=4，原 j_old=3，现 j_new=2
+真实增量 = (3 − 2) × B = B
+rev.2 的算法 = (4 − 2 + 1) × B = 3B        ← 错，多算了 2B
+```
+
+### 4.2 修正后的定义
+
+```text
+recompute_level(r) = (m_r − j(r) + 1) × B            ← 绝对水平（§2.2 已正确）
+marginal:  ΔR = Σ_r  B · max(0, j_old(r) − j_new(r))  ← 边际增量（本版修正）
+```
+
+⚠️ **两条限制**（必须与公式同时表述）：
+
+1. `ΔR` 是**相对同一请求路径的额外 recomputation**，
+   **不等于**该请求实际发生的全部 prefill tokens（后者还含自然新增内容）；
+2. **共享前缀的聚合必须按未来请求逐一计算**——一个物理 block 的淘汰会同时影响
+   所有经过它的请求路径，**不可**把一个物理淘汰直接等同于固定 token 损失。
+
+---
+
+## 5. RC5 — 验证计划修正
+
+### 5.1 契约修正：`bridge._validate_selection` 的真实要求
+
+已核实 `src/kvopt/runtime/vllm/bridge.py:65-80`：
+
+```text
+1. required_blocks >= 0
+2. len(selected) >= min(required_blocks, len(candidates))   ← "足够数量"，不是"恰好 R"
+3. len(selected) == len(set(selected))                      ← 无重复
+4. selected ⊆ {candidate.block_id}                          ← 取自 candidates
+```
+
+⇒ rev.2 写的「**恰好** required_blocks 个（不得多、不得少）」**是错的**，已更正。
+新策略可以返回 `min(R, len(candidates))` 个。
+
+### 5.2 ⭐ 关键区分：**排序序列不同 ≠ 淘汰集合不同**
+
+```text
+adapter 返回的序列中，被淘汰的是**被选中的那一批块**；
+同一集合内的**次序交换**不改变哪些块被淘汰 ⇒ 不改变物理状态 ⇒ 不能作为有效提升。
+真正有效的差异 = **selected victim SET 不同**（等价地：消费了 free queue 的不同前缀）。
+```
+
+⇒ 本设计的"分歧"判据一律定义为**集合层面**的分歧。
+
+### 5.3 最小路径（M1 要求的先后顺序）
+
+```text
+第 0 步（已有数据即可做，无需新实验）:
+    在某个合法 block-level 候选集合下，确认新规则与 native 的 **victim SET 有可复核分歧**
+    若无分歧 ⇒ 如实写 **NO_HEADROOM_OBSERVED**，不进入后续步骤
+第 1 步: 同一输入、同一后续工作负载，做**少量配对 native 执行**
+第 2 步: 四层机制链 + 失败归因表
+```
+
+**第 0 步的当前答案（本文已给出）**：
+
+```text
+冻结接口内可用于排序的量 = {lru_rank, has_block_hash, ref_cnt}
+  lru_rank     = 基线本身
+  has_block_hash = native 已用（prepend_n；实测冷端富集 54/54）
+  ref_cnt      = 恒为 0（源码 assert）；H1 中未持久化
+⇒ 无任何字段能**有依据地**产生不同的 victim SET
+⇒ 结论：**NO_HEADROOM_OBSERVED at the frozen block-level boundary**
+   （这是构造性结论，不是"实验未观察到"）
+```
+
+⚠️ 存在排序余地的决策有 54/87（§0.2 实测 A），但**没有成本信号去正当化任何偏离**。
+
+### 5.4 四层机制链（保留）与失败归因表
+
+```text
+第 1 层  selected victim SET 是否不同（且合法）？
+第 2 层  物理缓存状态是否改变（存活块集合不同）？
+第 3 层  aggregate recomputed tokens 是否改变？
+第 4 层  方向与主张是否一致？
+```
 
 | 观察 | 归因 | 处置 |
 | --- | --- | --- |
-| 第 1 层不过 | **未触发**（无分离窗口） | 属**预期情形**：实测仅 6.6% 窗口；不是机制失败 |
-| 第 1 层过、第 2 层不过 | **未实现**（未发生真实 hash cleanup） | 机制未受检验 |
+| 第 1 层不过 | **未触发** | 本文预期即为该情形（§5.3） |
+| 第 1 层过、第 2 层不过 | **未实现** | 检查是否发生真实 hash cleanup |
 | 第 1、2 层过、第 3 层不过 | **机制失败**（成本模型错） | 修订或放弃 |
-| 第 3 层过但方向相反 | **机制失败** | 必须解释 |
+| 第 3 层过但方向相反 | **机制失败** | 必须解释，不得以"效应小"掩盖 |
 | 全过但效应极小 | **有效但不可用** | 如实报告 |
 
-⚠️ rev.3 新增：**"第 1 层不过"在本设计中是*最可能*的结果**（6.6% 窗口），
-故它应被预先归类为 `NOT_TRIGGERED`，而不是事后辩解。
+### 5.5 消融臂（按 M1 修正）
 
-### 5.2 消融臂
-
-| 臂 | 定义 | 预期 |
+| 臂 | 定义 | 说明 |
 | --- | --- | --- |
 | **A0** | `NativeLRUAdapter` | 基线 |
-| **A1** | ~~Layer 1~~ | **已删除**（实测 0% 空间） |
-| **A2** | 链内深度重排（不跨链） | 仅 6.6% 窗口生效 |
-| **A3** | A2 + `lru_rank` 主序（= 候选完整形态） | 最佳 |
-| **A4** | 链内方向反转（浅优先） | 应劣于 A3（方向判别） |
-| **A6** | 去 `lru_rank`（identity 作 tie-break） | 应**显著劣于** A3（实证跨链反例） |
+| ~~A1~~ | ~~Layer 1~~ | **已删除**（§1.4） |
+| **A2** | L2-A（链内深度校正，跨链不动） | 依赖 §3.3 的阻塞字段 ⇒ **当前不可实现** |
+| **A3** | A2 + `lru_rank` 主序 | 同上 |
+| **A4** | 链内方向反转（浅优先） | **报告项，不是硬门槛**：应报告合法分歧、真实物理淘汰、token 方向与原因 |
+| **A5** | 深度/位置全部置常数 | 层内触发条件失效 ⇒ **应逐位等同 A0**；若不等，须归因到**具体排序差异**（不是绝对必要条件） |
+| **A6** | 去掉 `lru_rank` 主序（改用**稳定 `block_id` 升序**作 tie-break） | 说明：`EvictionCandidate` **没有**逻辑身份字段，此处的 identity = **`block_id`**；预期显著劣于 A3（实证跨链反例）。**报告项，非硬门槛** |
 
-### 5.3 最小 fixture
-
-```text
-必须落在 6.6% 窗口内，故构造方式：
-  一条链发生**部分命中**（只刷新其尾部）⇒ 使链内 lru_rank 序偏离链内位置序
-  其余保持 lru_rank 主序 ⇒ 验证跨链分配不变
-复用 Phase 2E F4 的 shared-root 模板；不引用其任何数值
-```
-
-**最小通过判据**：第 1–4 层完整，且 A4/A6 劣于 A3。**不要求**正式统计显著性。
+⚠️ A4/A6 若**更差**，按 M1 要求**不得**视为"必须满足的先验门槛失败"，而应报告方向与原因。
 
 ---
 
-## 6. 接口与实现映射（RC4 修正）
+## 6. 决策边界与接口映射（沿用 rev.2/rev.3，已核实）
 
-### 6.1 v1 的判断错在哪（保留）
+### 6.1 边界
+
+```text
+src/kvopt/runtime/vllm/adapter.py:11   class EvictionPolicyAdapter(ABC)
+    select_victims(candidates: Sequence[EvictionCandidate],
+                   context: EvictionContext) -> Sequence[int]
+    "Choose block-level victims without mutating vLLM cache state directly."
+```
+
+| 项 | 值（已核实） |
+| --- | --- |
+| 输入 | `EvictionCandidate` = `{block_id, ref_cnt, has_block_hash, lru_rank}`；`EvictionContext` = `{required_blocks, free_blocks, total_blocks, timestamp}` |
+| 输出 | victim block IDs 序列；契约见 §5.1 |
+| 下游 | `BlockPool.get_new_blocks()` → `_maybe_evict_cached_block()` 真实 hash cleanup |
+| 生产者 | `bridge.py:32-42` `build_candidates()`：`lru_rank` = 队列序号；`has_block_hash` = `block.block_hash is not None` |
+| 上游类型 | `VLLMBlockLike` = `{block_id, ref_cnt, block_hash}` ⇒ **无前缀位置** |
+
+### 6.2 `RuleStrategy` 丢弃 `state`（保留）
 
 ```text
 src/kvopt/costaware/replay.py:252
     def pick_next(self, remaining, state):
-        del state                                  # 主动丢弃 state
+        del state
         return self.rule.selection(remaining, 1)[0]
 ```
 
-⇒ `CandidateRule` 只能静态评分。正确做法是 **state-aware `ReleaseStrategy`**。
-
-### 6.2 最小接口映射（六问）
-
-| # | 问题 | 答案（已核实） |
-| --- | --- | --- |
-| 1 | 决策状态来源 | `ReplayState(snapshot)`（`replay.py:146`） |
-| 2 | 读已释放集合与新 eligibility | `state.released`；**`state.newly_eligible_after(key)`（`:193`）** |
-| 3 | 每轮重排 | 实现 `ReleaseStrategy.pick_next(remaining, state)`（Protocol `:223`） |
-| 4 | 满足 `required_blocks` | 复用冻结循环，`DecisionSnapshot.target` 判定停止 |
-| 5 | 复用 fidelity 校验 | `ExecutedP1BStrategy`（`:256`）同路径，动态策略**有先例** |
-| 6 | native 执行边界 | **`EvictionPolicyAdapter.select_victims`** |
-
-### 6.3 唯一请求的字段（**直通，非新插桩**）
-
-```text
-若 M1 授权 Layer 2：
-  EvictionCandidate 增加**可选只读** chain_pos: int | None（默认 None ⇒ 自动退回 A0）
-  来源（全部已存在，无新插桩）:
-      bridge.VLLMBlockLike.block_hash（bridge.py 已持有，当前被降级为布尔）
-      VLLM_PREFIX_SNAPSHOT.block_ids（**按前缀序**）+ ordered_native_hashes
-  ⇒ 这是把**已在内存中的信息**透出，不是新增观测能力
-  覆盖率前置：P5（block→prefix position）当前 PARTIALLY_DEMONSTRATED
-  depth/chain_pos = None 时算法**逐位等同 NativeLRUAdapter**
-```
-
-**代码改动范围**：`types.py` +1 可选字段（若授权）；`adapter.py` 新增 1 个类（~30 行）。
-**不触碰**：`pressure.py` 默认键、`ttl.py`、BlockPool / ref_cnt / hash cleanup / LRU。
+⇒ entry-level 若要表达依赖已释放集合的量，须用 **state-aware `ReleaseStrategy`**
+（Protocol `:223`；`ExecutedP1BStrategy` `:256` 为先例），复用 `state.newly_eligible_after`（`:193`）。
 
 ---
 
-## 7. 请求 M1 裁定（三条例径，请择一）
+## 7. 请求 M1 裁定（两条路径；原 C 路径已失去依据）
 
 | 路径 | 内容 | 我的评估 |
 | --- | --- | --- |
-| **A. 关闭 block-level 线** | 接受 §0.1 的天花板结论：冻结接口内无可加信号 | ⭐ **证据最支持**：实测 A 0%、实测 B 6.6%；M1 已独立发现同一问题 |
-| **B. 授权范围变更 → entry-level** | 把 `Cost-Aware Pressure Release` 立为正式研究对象（那是唯一还有可观测量——共享/保护结构——的边界） | ⭐ **研究价值最高**：H1 中 `relief ≡ block_count`（471/471），Phase 2E F4 才首次出现共享结构 ⇒ 仍有未开发空间 |
-| **C. 授权 Layer 2 窄实验** | 授予 `chain_pos` 字段，在 6.6% 窗口上做最小验证 | ⚠️ 成本低但**预期效应极小**，可能只换来一个"未触发"结论 |
+| **A. 关闭 block-level 线** | 接受 §5.3 的 `NO_HEADROOM_OBSERVED` | ⭐ **证据最强**：三条字段全部无可用信息（源码 + 实测） |
+| **B. 授权范围变更 → entry-level** | 把 `Cost-Aware Pressure Release` 立为正式研究对象（唯一还有可观测量——共享/保护结构——的边界） | ⭐ **研究价值最高** |
+| ~~C. Layer 2 窄实验~~ | ~~授予 `chain_pos` 做 6.6% 窗口验证~~ | **撤回**：① 6.6% 不可复现（实测 0% 重排自由度）；② 单字段不足（§3.3）⇒ 需新观测缝 |
 
-**我的建议顺序：B > A > C。**
+**建议顺序：B > A。**
 
-理由：实测已表明 block-level 边界**信息不足**（不是算法不好），
-继续在 C 上投入的期望产出很低；而 A 与 B 都只需一次裁定即可推进。
-若 M1 选 B，我将在批准后**另立设计**（不混入本文）。
-
-### 附：另外两个小问题
-
-1. **X1 已撤回**（`loss_views.py:74` 已有 `observed_recomputed_tokens`）；
-2. **X3 已执行并附数字**：H1 中 `prefill_reload_seconds` 与 `block_count` **位置级完全同序**
-   （114/114 决策、465/465 位置、99/99 ρ=1.0000）⇒ 不使用该字段。
-
-⛔ 本设计**不**请求：改 native BlockPool / ref_cnt / hash cleanup / LRU；改冻结 Continuum 默认键或 TTL；
-子 entry 释放（**不解锁 B1**）；新观测缝（除 §6.3 的单一直通字段）；重开 H1/H2；M1 通过前开始实现。
+若 M1 选 **B**，我将在批准后**另立设计**（不混入本文），并沿用：
+entry-level 边界、Q1/Q2/Q3 区分、F4 使用边界、四层链与失败归因表。
 
 ---
 
-## 8. 局限（诚实前置）
+## 8. 局限与附件
+
+### 8.1 局限
 
 | # | 局限 |
 | --- | --- |
-| **L1** | 实测 A/B 来自 **H1 语料**（87 决策 / 729 窗口）；**不自动外推** Phase 2E 语料或生产分布 |
-| **L2** | 实测 A 的结论依赖"无 hash 块不被 APC 命中刷新"这一 APC 语义；若某实现会刷新它们，需重测 |
-| **L3** | 6.6% 窗口是**上界**：即便在其中，收益还需"这些块随后被重新请求"才兑现（二级效应） |
-| **L4** | `chain_pos` 依赖 P5 覆盖率（当前 `PARTIALLY_DEMONSTRATED`） |
+| **L1** | 实测 A/B 来自 **H1 语料**（87 决策 / 6606 队列行 / 294 窗口）；**不外推** Phase 2E 或生产分布 |
+| **L2** | 实测 B 只证明**单调性**；**方向（深/浅优先）为 `NOT_OBSERVABLE`**（P5 覆盖率不足） |
+| **L3** | 实测 A 依赖 APC 语义（前缀命只刷新有 hash 块）；若某实现会刷新无 hash 块则需重测 |
+| **L4** | `ref_cnt` 恒 0 的依据是 vLLM 源码断言；**H1 数据中该字段未持久化** |
 | **L5** | **不承诺延迟收益**（Phase 2E 实测 token 下降未带来延迟改善） |
 | **L6** | 合成网格；`max_new_tokens=1`，不代表 decode 期 |
-| **L7** | 不用 `prefill_reload_seconds`（X3 实测同序） |
-| **L8** | **不使用引用度/复用度**（runtime 不可得）⇒ 深度相同而共享度不同时无法区分 |
+| **L7** | 不用 `prefill_reload_seconds`（X3：H1 中与尺寸位置级同序） |
+| **L8** | 不使用引用度/复用度（runtime 不可得） |
+| **L9** | ⚠️ **过程教训**：rev.3 曾引用不存在的探针并写入不可复现数字。已撤回，且此后每条实测均附探针文件与定义 |
+
+### 8.2 附件
+
+1. **X1 已撤回**（`loss_views.py:74` 已有 `observed_recomputed_tokens`）；
+2. **X3（RC6 修正）**：`prefill_reload_seconds` 与 `block_count` 的秩关系在 **H1 已核查**
+   （114/114 决策、465/465 位置、99/99 决策内 ρ=1.0000）；
+   **Phase 2E 语料尚未核查** —— 本文不据此对 Phase 2E 作任何结论。
+
+⛔ 本设计**不**请求：改 native BlockPool / ref_cnt / hash cleanup / LRU；改冻结 Continuum 默认键或 TTL；
+子 entry 释放（**不解锁 B1**）；**新观测缝**；重开 H1/H2；M1 通过前开始实现。
 
 ---
 
@@ -383,26 +446,22 @@ src/kvopt/costaware/replay.py:252
 
 | 陈述 | 来源 |
 | --- | --- |
-| `EvictionPolicyAdapter.select_victims` 契约与"不得 mutate" | `src/kvopt/runtime/vllm/adapter.py:11-25` |
+| `free_blocks()` 分离 hashless/hashed 并 `prepend_n`/`append_n` | vLLM v0.27.1 `vllm/v1/core/block_pool.py`（M1 引第 727–742 行） |
+| `get_new_blocks()` 用 `popleft_n` 且 `assert block.ref_cnt == 0` | 同上（M1 引第 647–666 行） |
+| hash-split 为显式、有条件机制 | 上述文件的提交 `a82f1b3`（*Skip LRU hash-split in free_blocks when prefix caching is …*） |
+| `EvictionPolicyAdapter.select_victims` 契约 | `src/kvopt/runtime/vllm/adapter.py:11-25` |
 | `EvictionCandidate` / `EvictionContext` 字段 | `src/kvopt/runtime/vllm/types.py` |
-| `bridge.build_candidates`：`lru_rank`=队列序号、`has_block_hash`=hash 非空 | `src/kvopt/runtime/vllm/bridge.py:32-42` |
-| `VLLMBlockLike` = `{block_id, ref_cnt, block_hash}`（无前缀位置） | `src/kvopt/runtime/vllm/bridge.py:14-19` |
+| `bridge.build_candidates`；`VLLMBlockLike` 无前缀位置 | `src/kvopt/runtime/vllm/bridge.py:32-42`、`:14-19` |
+| `_validate_selection` 真实契约（≥ min(R,n)、无重复、取自 candidates） | `src/kvopt/runtime/vllm/bridge.py:65-80` |
 | `NativeLRUAdapter` 按 `lru_rank` 取 `required_blocks` | `src/kvopt/runtime/vllm/adapter.py:27-38` |
-| **实测 A：冷端 hashless 富集 100%、枯竭 0%、rank=0.0000** | `local/probe_l1_refined.py`（H1 语料） |
-| **实测 B：729 窗口中 93.4% 为 ρ<0（median −1.0000）** | `local/probe_c3_and_refcnt.py`（H1 语料） |
-| free-queue 行字段 = `{block_id, eligibility_tier, has_block_hash, native_lru_rank}`（**无 ref_cnt**） | H1 `FORCED_RELEASE_DECISION.payload.original_free_queue` |
-| `VLLM_PREFIX_SNAPSHOT.block_ids` 按前缀序 + `ordered_native_hashes` | H1 events（已核实长度一致） |
-| `RuleStrategy` 丢弃 `state`（`del state`） | `src/kvopt/costaware/replay.py:252` |
-| `ReplayState.newly_eligible_after` / `owners_by_block` / `ExecutedP1BStrategy` | `src/kvopt/costaware/replay.py:193` / `:131` / `:256` |
+| 实测 A：冷端 hashless 富集 54/54、枯竭 0/54、最早 hashless rank 0.0000 | `local/probe_l1_refined.py`（H1） |
+| 实测 B：294 窗口 ρ ≡ −1.0000（100%），0% 存在重排空间 | `local/probe_rev3_verify.py`（H1） |
+| 快照：`h1-f1-draw-04-seed-101`@95 `queue=83 hashless=24 first_hashed_rank=24` | 同上 |
+| `ref_cnt` 在 6606 条队列行中出现 0 次 | 同上 |
+| `RuleStrategy` 丢弃 `state` | `src/kvopt/costaware/replay.py:252` |
+| `ReplayState.newly_eligible_after` / `ExecutedP1BStrategy` | `src/kvopt/costaware/replay.py:193` / `:256` |
 | `observed_recomputed_tokens` 视图已存在 | `src/kvopt/profiling/loss_views.py:74-75` |
 | APC 需连续前缀 | `docs/phase2b-m6-experimental-fidelity-repair-spec.md` §1 |
+| F4 odd=SHARED_ROOT treatment / even=negative control | `src/kvopt/workload/phase2e_materialize.py`；`docs/phase2e-m4-measured-review.md` §2.1 |
 | 基线键 `(deadline, min LRU over newly_eligible, identity)` | `src/kvopt/continuum/pressure.py:324` |
-| eligibility 语义（hashless 恒 Tier 1） | `continuum/selection.py::BlockEligibilitySnapshot`；`pressure.py::_eligible_block_ids` |
-| recency 同步 ⇒ 连续带 87/87 | `local/probe_s1_recency_sync.py`、`probe_s1b_lru_concentration.py` |
-| `relief ≡ block_count` 471/471（H1 无共享结构） | `local/probe_relief_field.py` |
-| F4 odd=treatment / even=negative control | `src/kvopt/workload/phase2e_materialize.py`；`docs/phase2e-m4-measured-review.md` §2.1 |
-| F4 treatment 机制未建立（12 NOT_REALIZED） | `docs/phase2e-m6-measured-campaign-report.md` |
-| X3：`prefill_reload_seconds` 与 `block_count` 位置级完全同序 | `local/probe_x3_prefill_reload_rank.py` |
-| Phase 2E：token 下降未带来延迟改善 | `docs/phase2e-m6-measured-campaign-report.md` |
 | 冻结接受协议 / 统计单位 | `docs/phase2a-m4-rule-acceptance-protocol.md` |
-| RR-EVICT 假设与目标 | `local/2609.32278v2.pdf` §3.3 |
