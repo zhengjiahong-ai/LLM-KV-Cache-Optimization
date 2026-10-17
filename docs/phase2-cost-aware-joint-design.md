@@ -8,6 +8,9 @@
 > 并按新公式重算 §5.1（旧版例子与旧版规则不自洽，已作勘误）。
 > 修订：rev.4 依 M1 RC3 废弃 Block 层 WRR（权重方向错误 + 不表达 APC 连续前缀损失），
 > 改为逐 Block 最小边际重算损失，并重算 §5.2。
+> 修订：rev.5 依 M1 RC4 统一成本口径为 aggregate recomputed tokens；
+> 撤回「$C(r)/r$ 下降 ⇒ $C$ 凹」的推断（正确蕴含是次可加），
+> 并把 $C(r)$/TTFT/queue delay 降为辅助观测；勘误 `block_hash_num_tokens` 的语义。
 > 关联：PR #50（`docs/ours-evict-algorithm-design-v1.md`）保留为**当前四字段接口局限性的分析记录**；
 > 其中 H1 派生结论已按 M1 要求收紧到「该接口 + 该语料」范围内，本文**不**复用其外推。
 
@@ -70,7 +73,20 @@ $$
 \boxed{\;L(S) \;=\; \sum_{r \in \mathcal{R}_{\text{future}}} w_r \cdot \mathrm{recompute}_S(r)\;}
 $$
 
-$\mathcal{R}_{\text{future}}$：未来会返回且命中该前缀的请求；$B$：Block 的 token 数（见 §4.5）。
+$\mathcal{R}_{\text{future}}$：未来会返回且命中该前缀的请求；
+$B = \texttt{block\_size}$，**常数**（见 §4.4 的勘误）。
+
+**指标口径（RC4 统一，全文适用）**——本设计只有一套成本量纲：
+
+```text
+主目标    aggregate recomputed tokens = L(S)         ← 全部规则的排序与取舍依据
+辅助观测  prefill 时间 C(r) / TTFT / queue delay      ← 只用于解释，不参与任何排序
+```
+
+两者**不可混用**：$L(S)$ 的记账单位是 token，$C(r)$ 的记账单位是时间。
+本设计的所有排序量（$\widehat R_i$ 与 $\Delta(b)$）都只在 token 量纲内计算；
+时间量纲只出现在 §6.5 的辅助观测中，用途是解释
+「token 收益为何不按比例体现为延迟收益」，而不是用来判定策略优劣。
 
 **要点**：$L$ 的自变量**只有 $S$**。$S$ 之外的任何量（是否解除保护、解除几个、顺序如何）
 都不进入 $L$，因此结构上不可能重复计数。
@@ -334,13 +350,19 @@ $$
 
 ```text
 d_c(b) > j_c   ⇒ Δ = 0        更深于缺口：已经作废，淘汰它不增加任何重算  ← 免费块
-d_c(b) < j_c   ⇒ Δ = q_c·B_b   更浅于缺口：缺口上移 (j_c − d) 位，缺失后缀随之扩大
-S_c = ∅        ⇒ j_c = m_c+1    全新链：从尾部淘汰 Δ = q_c·B_b（正常代价）
+d_c(b) < j_c   ⇒ Δ = q_c·B   更浅于缺口：缺口上移 (j_c − d) 位，缺失后缀随之扩大
+S_c = ∅        ⇒ j_c = m_c+1    全新链：从尾部淘汰 Δ = q_c·B（正常代价）
 ```
 
 由此还得到一个**必须遵守的次序性质**：在同一链上从尾部连续往浅处淘汰时，
-每一步的 $\Delta$ 恒为 $q_c B_b$（线性）；若跳过中间块直接打更浅的位置，
+每一步的 $\Delta$ 恒为 $q_c B$（线性）；若跳过中间块直接打更浅的位置，
 单价会变成 $(j_c-d)$ 倍。所以「按深度由深到浅」是唯一不浪费的次序。
+
+**$B_b$ 的口径**：$B_b$ 是**该 Block 的 token 数**，对满块恒等于常数
+$B=\texttt{block\_size}$。唯一例外是每条链的**末块**可能是部分块
+（token 数 $\le B$）。它只改变该链最后一个 Block 的单价，
+不改变 §3.4.3 的排序结构；第一版按常数 $B$ 处理，
+并在 §6.4 把末块实际 token 数列为核对项。
 
 #### 3.4.3 选择规则
 
@@ -367,9 +389,11 @@ $$
 ```
 
 **注意一个反直觉但正确的推论**：本规则**不会**在链间分散损伤。
-在一条完好链上连续从尾部淘汰时 $\Delta \equiv q_cB_b$ 为常数，
+在一条完好链上连续从尾部淘汰时 $\Delta \equiv q_cB$ 为常数，
 因此它会**先把最便宜的链打穿**（直到该链的合法最浅深度），再换下一条。
-这与 §3.5 的凹代价曲线方向一致，而旧 WRR 的分散行为恰恰相反。
+**但注意**：在 token 口径下这不带来任何优势 —— $q_c$ 相同时，集中与分散的
+token 总量完全相同（§3.5.2）。旧 WRR 的分散行为也不是它更差的原因；
+它更差是因为权重方向反了（§3.4 的 RC3 说明）。
 
 #### 3.4.5 共享 Block 如何避免重复计数
 
@@ -405,33 +429,70 @@ M1 说「不必为了保留轮询而强行设计复杂公式」，我接受，**
 
 **不主张 WRR' 更优**：它只是用来检查「按链推进」是否引入损失。
 
-### 3.5 与实测代价曲线的关系（凹性不再与规则冲突）
+### 3.5 代价口径：为什么 token 口径下不引用 $C(r)$ 的凹性
 
-本项目的实测代价曲线 $C(r)$（H2-M1：$r=16 \dots 30720$ tokens）在
-$r \in [16,1024]$ 上 $C(r)/r$ **单调下降**（13.49×），最小值在 $r \approx 1024$ tokens，
-之后转为上升。本项目链长约 192 tokens = 12 blocks，落在 $C$ 的凹区间内：
+> **RC4 修订**：旧版本节由「$C(r)/r$ 下降」推出「$C$ 是凹函数」，再用
+> $C(r_1)+C(r_2)>C(r_1+r_2)$ 论证「分散更差」。这个推断**不成立**；
+> 而且它把**时间**量纲的结论用在了**token**量纲的规则选择上。两点均已撤回。
+
+#### 3.5.1 正确的蕴含是次可加，不是凹
+
+$C(r)/r$ 在 $r>0$ 上单调不增，能严格推出的是**次可加性（subadditivity）**：
 
 $$
-C \text{ 凹} \;\Longrightarrow\; C(r_1)+C(r_2) > C(r_1+r_2)
+\text{对 } r_1,r_2>0,\; s=r_1+r_2:\quad
+C(r_1)+C(r_2)
+= r_1\frac{C(r_1)}{r_1}+r_2\frac{C(r_2)}{r_2}
+\;\ge\; r_1\frac{C(s)}{s}+r_2\frac{C(s)}{s}
+= C(s)
 $$
+
+只需平均成本不增，即 $C(r_1)/r_1 \ge C(s)/s$（因 $r_1 \le s$）。
 
 ```text
-⇒ 在凹区间内，把损伤分散到多条链上，总量 **大于** 集中在一条链上。
-⇒ §3.4.3 的规则天然集中（先打穿最便宜的链），与凹性一致。
-⇒ 旧版 §3.5 曾警告「轮询分散可能更差」；该警告随 WRR 一同撤回，
-   因为新规则不再分散。新规则面临的风险是**另一个**：过度集中会
-   把一条链打穿到底，若这条链的复用概率估计偏小，损失会集中兑现。
+凹 (concave)  ⇒  次可加         充分条件
+次可加        ⇏  凹            所以「C(r)/r 下降」推不出凹性
 ```
 
-**因此 A2 的待检验命题改为**：真正的操作条件是**「$q$ 序与 `lru_rank` 序的背离率」**——
-只有在两者背离的决策上，§3.4.3 才可能优于 native LRU（§5.2 的两种情形）。
-§6.4 因此把背离率列为必测中间量，并同时记录：
+⇒ 旧版的**结论方向对，来源写错了**：$C(r_1)+C(r_2)>C(r_1+r_2)$ 来自次可加，
+不来自凹性。本节据实修正，不再使用「凹」这个说法。
+
+#### 3.5.2 但这条对 token 口径没有用
+
+即使次可加成立，它陈述的是**时间**。主目标是 aggregate recomputed tokens，
+而 token 口径下 $L(S)$ 对每条链是**严格线性**的：
+
+$$
+L(S)=\sum_c q_c\cdot(\text{链 } c \text{ 被淘汰的 token 数}),
+\qquad \text{线性}\;\Longrightarrow\; L_{c_1}+L_{c_2}=L_{c_1\cup c_2}
+$$
 
 ```text
-背离率统计   每决策 sign(q_c 排序) ≠ sign(lru_rank 排序) 的链对数占比
-条件收益     仅在该子集上比较 A2 与 A0/A1 的期望损失，而不是看全体平均
+⇒ 在**相同 q_c** 下，把损伤集中在一条链与分散到多条链，token 总量完全相同。
+⇒ token 口径**不能**为「集中更好」提供任何论据。
+   唯一能区分集中与分散的是 q_c 的差异（期望权重），不是任何非线性。
+```
+
+这正是 §5.2 的实际情形：新规则 1.2B vs 旧 WRR 3.0B vs native 3.6B，
+**全部**差异来自 $q_c$ 的排序，与 $C$ 的形状无关；§5.2 的数值不依赖本节。
+
+#### 3.5.3 $C(r)$ 的定位：辅助观测，不参与排序
+
+$C(r)$、TTFT、queue delay 只保留一个用途：解释 **token 收益为何不按比例传导到延迟**。
+
+```text
+Spearman(重算 token, TTFT) = 0.4327      ← 已实测，非估算
+⇒ token 减少 14% 不意味着 TTFT 减少 14%。
+⇒ 报告时两个口径并列，但**排序与取舍依据只取 token 口径**（§1.2）。
+```
+
+**A2 的待检验命题不变**：仍是「$q$ 序与 `lru_rank` 序的背离率」——
+它才是 token 口径下唯一有效的区分信号。§6.4 记录：
+
+```text
+背离率统计   sign(q_c 排序) ≠ sign(lru_rank 排序) 的链对占比
+条件收益     仅在该子集上比较 A2 与 A0/A1 的期望 token 损失
 上界检查     A2 的全体平均收益 ≤ 背离率 × 单决策最大可能收益差
-```
 
 ---
 
@@ -442,12 +503,29 @@ $$
 | 4.1 | 候选 Entry 集 $C$、每 Entry 的 Block | `DecisionSnapshot.candidate_keys` / `block_ids_by_key` | ✅ 决策时 | 已冻结 |
 | 4.2 | 共属关系 $O(b)$ | `DecisionSnapshot.owners_by_block` | ✅ 决策时 | 无未来信息 |
 | 4.3 | 复用可能性代理 | Continuum 已冻结的四类信号：Program Identity、Tool Gap History（`tool_gap_seconds` / `next_tool_type`）、动态 TTL（`retention_deadline_timestamp`）、Prefill Cost（`prefill_reload_seconds`） | ✅ 决策时 | **不新训练模型**；直接复用 Continuum 的既有估计 |
-| 4.4 | 重算 token 换算 | `block_hash_num_tokens`（vLLM `KVCacheBlock` 字段）→ `VLLM_PREFIX_SNAPSHOT.hash_num_tokens`（H1 中 903 条快照、10 个不同值、min 16 / median 112 / max 512） | ✅ 可离线重建 | 使 $B$ 不必假设为常数 |
+| 4.4 | Block token 数 $B$ | $B=\texttt{block\_size}$，引擎配置，**常数**。`block_hash_num_tokens` 是**累计前缀边界**，不是单块大小 | ✅ 决策时 | 见下方勘误 |
 | 4.5 | 物理淘汰集合 $S$、$j_S(r)$ | 由本设计产出；评测时用 `observed_recomputed_tokens` / `observed_physical_eviction_blocks` | 仅评测期 | 属 `FORBIDDEN_FEATURES`，**不得**作为决策输入 |
 | 4.6 | 容量需求 | `EvictionContext.required_blocks` / `free_blocks` / `total_blocks` | ✅ 决策时 | 冻结 |
 | 4.7 | Native 顺序 | `DecisionCandidateRow.decision_native_lru_position` | ✅ 决策时 | 仅作 warm-start / tie-break |
 | 4.8 | 新增暴露 $N_i(R)$ | 由 4.1 + 4.2 直接计算（$|E(R\cup\{i\})|-|E(R)|$） | ✅ 决策时 | 无需额外输入 |
 | 4.9 | 后续压力概率 $\lambda$ | 历史决策中发生强制淘汰的占比（Continuum pressure 统计 / replay 序列） | ✅ 决策时 | 全局统计量，非未来信息 |
+
+**RC4 勘误 —— `block_hash_num_tokens` 不是 block_size**：
+
+```text
+它是「截至该 Block（含）的累计前缀 token 数」，即 hash 覆盖的 token 边界。
+因此相邻两个边界的**差**才是一个 Block 的 token 数，对满块恒等于 block_size。
+旧版把它读成「单 Block 的 token 大小、可不为常数」是错的，已撤回。
+
+旁证：H1 快照中该字段的 10 个不同值为 min 16 / median 112 / max 512，
+全部是 16 的整数倍（16=1×16, 112=7×16, 512=32×16），与 block_size=16 下的
+累计边界一致；若它是单块大小，在固定 block_size 下不可能跨越 32 倍。
+```
+
+⇒ 因此本设计取 $B=\texttt{block\_size}$ 为**常数**。唯一例外是每条链的**末块**
+可能是部分块（token 数 = 末个边界 − 前一边界 $\le B$）。末块只影响该链最后一个
+Block 的单价，不改变 §3.4.3 的排序结构；第一版按常数 $B$ 处理，
+并在 §6.4 把末块实际 token 数列为核对项。
 
 **合规红线**：`src/kvopt/costaware/rules.py::FORBIDDEN_FEATURES`
 （`returned_after_decision`、`observed_recomputed_tokens`、`physical_eviction_count` 等）
@@ -647,7 +725,8 @@ M1 明确要求「在修复后的真实共享前缀工作负载中验证」，�
 ```text
 门槛 0.1  存在 ≥2 Entry 共享 Block 的决策占比            > 0（H1 为 0/81）
 门槛 0.2  这些决策中 E({A}) ∪ E({B}) ⊊ E({A,B}) 的占比   > 0（互补性可发生）
-门槛 0.3  Σ_c 上 |C(r1)+C(r2) − C(r1+r2)| 的相对幅度      > 噪声
+门槛 0.3  §3.4.3 与 native LRU 选择集合不同的决策占比    > 0（规则可分性；
+          token 口径下 C(r) 的非线性在此无意义，见 §3.5.2）
 门槛 0.4  返回概率代理在链间存在非零方差（否则 q_c 无区分度，§3.4.3 退化为均质）
 ```
 
@@ -662,7 +741,8 @@ M1 明确要求「在修复后的真实共享前缀工作负载中验证」，�
 ```text
 主指标   L(S) 的代理：Σ_r (m_r − j_S(r) + 1)·B        ← §1.2，唯一记录量
 分解     j_S(r) 分布、每链损伤深度、每链被淘汰 Block 数
-对照     Σ_c [C(r_c) 实测] 与线性 Σ B 的差（实证凹/凸，检验 §3.5）
+辅助观测 Σ_c C(r_c)、TTFT、queue delay（只解释 token→延迟传导，不参与排序，§3.5.3）
+末块核对 每链末块的实际 token 数（检验 §4.4 的常数 $B$ 假设引入的误差）
 规则审计 每决策触及链数（检验 §3.4.4 的「集中而非分散」）、Δ(b) 与事后实测重算量的秩相关
 背离率   sign(q_c 排序) ≠ sign(lru_rank 排序) 的链对占比（§3.5 的操作条件）
 合法性   S ⊆ E(R) 被违反的次数（必须为 0，§1.3）
@@ -676,10 +756,13 @@ M1 明确要求「在修复后的真实共享前缀工作负载中验证」，�
 （同 seed、同 workload、同 backend，仅策略不同），样本量取最小可判读规模。
 
 ```text
-主指标    TTFT（H1 已确认可直接测量：native_queued_timestamp →
+主目标    aggregate recomputed tokens（与 §6.4 同一量，§1.2；
+          native 运行下由 observed_recomputed_tokens 提供，仅评测期可得）
+辅助观测  TTFT（H1 已确认可直接测量：native_queued_timestamp →
           native_scheduler_admission_timestamp → native_first_token_timestamp）
 注意      Spearman(重算 token, TTFT) = 0.4327 ⇒ token 收益 **不**按比例传导到延迟
-          ⇒ 必须同时报告「重算 token」与「TTFT」两个口径，不得只报一个
+口径      token 与 TTFT 两个口径必须并列报告，
+          但**判断优劣只取 token 口径**（§1.2）；TTFT 用于解释传导损耗
 ```
 
 ### 6.6 明确不做的部分
@@ -743,7 +826,7 @@ M1 明确要求「在修复后的真实共享前缀工作负载中验证」，�
 | $E(R) = \{b : O(b) \subseteq R\} \cup \{$hashless$\}$ | `costaware/replay.py::eligible_block_ids` 逐行核对 |
 | $E(\{A\}) \cup E(\{B\}) \subsetneq E(\{A,B\})$ | 由上式直接推出（$O(b)=\{A,B\}$） |
 | Continuum 释放主键为 `deadline` 优先 | `continuum/pressure.py:324` |
-| 线性代价下集中/分散总量相同 | §5.2 算例；与 PR #50 §4 的线性不变性一致 |
+| 线性代价下集中/分散总量相同 | §5.2 算例；与 PR #50 §4 的线性不变性一致；RC4 后统一按 token 口径表述 |
 | (C2)(C3) 释放/淘汰量的口径 | `costaware/replay.py` 的 `target = min(required_blocks, len(queue))`；`continuum/pressure.py` 的按需释放循环 |
 | $R = C$ 是未加 (C3) 时的退化最优解 | 由 $L$ 对释放量不计费、且 $E(R)$ 对 $R$ 单调不减直接推出（RC1） |
 | $\widehat{R}_i$ 在 $N_i$ 相同且 $\lambda=0$ 时退化为 `deadline` 序 | §3.3.3 的 $q$ 是 `deadline` 的单调变换 |
@@ -752,8 +835,9 @@ M1 明确要求「在修复后的真实共享前缀工作负载中验证」，�
 | $R_c$ 只依赖最浅缺口 $j_c$ | APC 前缀语义；与 §3.4.1 的定义一致 |
 | $\Delta_c(b)=q_c B_b (j_c-d)^{+}$ | 对 $R_c$ 逐项求差，三种情形穷举 |
 | 旧 WRR 3.0B；native 在 lru 与 q 一致时 1.2B、背离时 3.6B | `local/probe_rc3_block.py` 逐步复算并断言三种情形 |
-| $C(r)/r$ 在 $[16,1024]$ 单调下降（凹） | H2-M1 实测代价曲线（13.49× 跨度，最小值 $r\approx1024$） |
-| `block_hash_num_tokens` 可离线重建 | `VLLM_PREFIX_SNAPSHOT` 含 `hash_num_tokens`（903 快照 / 10 值 / min16 med112 max512） |
+| $C(r)/r$ 单调不增 ⇒ **次可加**（不是凹） | §3.5.1 的推导；`local/probe_rc4_metric.py` 给出非凹反例并逐一检验不等式 |
+| token 口径下集中与分散在 $q$ 相同时等值 | $L$ 对每条链严格线性（§3.5.2）；`local/probe_rc4_metric.py` 数值确认 2.000B = 2.000B |
+| $B=\texttt{block\_size}$ 为常数；`block_hash_num_tokens` 是累计前缀边界 | §4.4 勘误；H1 该字段 10 个值均为 16 的整数倍，与 block_size=16 的累计边界一致 |
 | H1 无共享：0/81、0/471、294/294 | `local/probe_entry_vs_block.py`、`local/probe_rev3_verify.py`（本地探针，未纳入提交） |
 | `FORBIDDEN_FEATURES` | `costaware/rules.py` |
 | TTFT 可直接测量 | `VLLM_NATIVE_REQUEST_OBSERVATION` 三时间戳，100% 填充 |
