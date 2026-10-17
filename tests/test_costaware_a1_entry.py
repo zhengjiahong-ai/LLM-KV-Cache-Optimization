@@ -300,7 +300,7 @@ def test_pair_lookahead_releases_both_members_in_deadline_order() -> None:
     assert proposal["proposed_partner"] == ("B", "p")
     assert proposal["joint_new_blocks"] == 4
     assert proposal["joint_cost_proxy"] > 0
-    assert comparison.cost_proxy_a1 == pytest.approx(0.0)  # no lone marginal cost
+    assert comparison.cost_proxy_a1 > 0  # second release unlocks the shared blocks
 
 
 def test_pair_reuse_weight_is_a_union_not_a_sum() -> None:
