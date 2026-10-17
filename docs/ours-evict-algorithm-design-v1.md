@@ -61,6 +61,24 @@
   最早 hashed   块归一化 rank              : median 0.3012
 ```
 
+**实测 A′ —— 更强的形式（取代"富集"这种弱表述）**
+
+探针 `local/probe_hashless_prefix.py`：
+
+```text
+无 hash 块的 lru_rank 集合是否严格等于 {0..k-1}（k = 无 hash 块数）：
+  严格前缀 : 87 / 87 = 100.0%
+  交错     :  0 / 87 =   0.0%          ← 不存在"hashed 排在 hashless 之前"的决策
+
+"无 hash 优先"重排是否改变 victim **集合**（顺序相关子集，54/87）：
+  集合改变 :  0 / 54 =   0.0%
+  集合不变 : 54 / 54
+```
+
+⇒ 这比"冷端富集"强得多：**native 的自由队列不变量保证无 hash 块恰好占据最冷的
+`0..k-1` 段**，因此任何"hashless 优先"策略**不可能**选出不同的集合。
+⇒ Layer 1 的无效是**结构性的、可证明的**，不是"本语料未观察到"。
+
 ### 实测 B —— 链窗口的重排自由度（**重建，取代 rev.3 的失真数字**）
 
 探针 `local/probe_rev3_verify.py`；**定义已写死在探针里**：
@@ -323,12 +341,13 @@ adapter 返回的序列中，被淘汰的是**被选中的那一批块**；
 
 ```text
 冻结接口内可用于排序的量 = {lru_rank, has_block_hash, ref_cnt}
-  lru_rank     = 基线本身
-  has_block_hash = native 已用（prepend_n；实测冷端富集 54/54）
-  ref_cnt      = 恒为 0（源码 assert）；H1 中未持久化
+  lru_rank       = 基线本身
+  has_block_hash = native 已用（prepend_n）；**实测 A′：hashless 严格前缀 87/87、
+                   重排改变 victim 集合 0/54**
+  ref_cnt        = 恒为 0（源码 assert）；H1 中未持久化
 ⇒ 无任何字段能**有依据地**产生不同的 victim SET
 ⇒ 结论：**NO_HEADROOM_OBSERVED at the frozen block-level boundary**
-   （这是构造性结论，不是"实验未观察到"）
+   （**构造性**结论：由 native 队列不变量与实测共同支撑，不是"实验未观察到"）
 ```
 
 ⚠️ 存在排序余地的决策有 54/87（§0.2 实测 A），但**没有成本信号去正当化任何偏离**。
@@ -393,11 +412,12 @@ bridge.select_blocks() 文档字符串：
 
 **（b）有效差异案例 —— 在当前边界内 `无法构造`（这本身就是阻塞结论）**
 
-"有效差异"需满足：**存在一个由实测成本正当化的、不同的 victim SET**。逐字段排除（§0.1、§1.1）：
+"有效差异"需满足：**存在一个由实测成本正当化的、不同的 victim SET**。逐字段排除（§0.1、§1.1、§0.2 A′）：
 
 ```text
 has_block_hash : 任何"排除 hashless 改取 hashed"的集合都更差（β(hashless)=0）；
-                 native 已把 hashless 置于冷端 ⇒ 该轴上 native 已是最好，无正当分歧
+                 **实测 A′：hashless 恒占 rank 0..k-1（87/87），
+                 且"hashless 优先"重排改变集合 0/54** ⇒ 该轴上 native 已是最好
 ref_cnt        : 恒为 0（源码 assert）；H1 中未持久化（6606 行出现 0 次）⇒ 无法区分
 lru_rank       : 就是基线主键；以别的方式使用它 = 无依据的偏离
 required/free/total_blocks : 全局标量，不能对候选排序
@@ -409,6 +429,75 @@ required/free/total_blocks : 全局标量，不能对候选排序
 
 ⇒ 一个**有效**案例需要至少一个缺失信号（块→前缀位置 / 链身份 / owner 集合）——
 这些在本轮**不予请求**（§3.3、§7）。
+
+### 5.7 最小可实现策略规格（M1 交付项 3）
+
+即使当前预期增益为 0，**规格本身应当完整**，这样一旦某个使能信号变为可观测即可直接实现。
+以下为 `OursEvictAdapter` 的完整最小规格。
+
+**（1）标识与位置**
+
+```text
+类名     : OursEvictAdapter(EvictionPolicyAdapter)
+位置     : src/kvopt/runtime/vllm/adapter.py（与 NativeLRUAdapter 并列）
+不改变   : 默认策略仍为 NativeLRUAdapter；本类只作为可评测的候选
+```
+
+**（2）输入 / 输出（精确）**
+
+```text
+输入 1 : candidates: Sequence[EvictionCandidate]
+         EvictionCandidate = { block_id:int, ref_cnt:int, has_block_hash:bool, lru_rank:int }
+输入 2 : context: EvictionContext
+         EvictionContext = { required_blocks:int, free_blocks:int, total_blocks:int, timestamp:float }
+输出   : Sequence[int]  = victim block_ids（唯一、取自 candidates）
+```
+
+**（3）决策规则（三档阶梯，fail-closed 向下）**
+
+```text
+Tier 0（可立即实现，但为 no-op）
+    依 has_block_hash 分区 F/H，先 F 后 H，各自按 lru_rank 升序
+    ⚠️ 由实测 A′：native 不变量已保证 F 恰在 rank 0..k-1 ⇒ Tier 0 与 native **恒等**
+    ⇒ 显式保留为 sanity check，不计入交付
+
+Tier 1（链内深度校正；L2-A）
+    前置: 每块可读 (chain_id, chain_pos) 且可判 owner 交集
+    规则: 主键仍为 lru_rank（跨链分配不动）；
+          若某 chain_id 被选中 >= 2 块，且其链内 lru_rank 序与 chain_pos 序不一致，
+          则在该链内部改为 chain_pos 降序（更深优先）
+    ⚠️ 前置不可满足（§3.3）⇒ **当前不实现**
+
+Tier 2（fail-closed 兜底）
+    当 Tier 1 前置不满足，或 (a) 链身份/位置不可确定，(b) 该链块集与其它候选块有交集，
+       (c) 该链被选中块数 < 2  →  **完全退回 lru_rank 升序**（= NativeLRUAdapter 行为）
+```
+
+**（4）合法性（已核实 `bridge.py:65-80`）**
+
+```text
+len(selected) >= min(required_blocks, len(candidates))   ← 足够，而非"恰好 R"
+无重复；selected ⊆ candidate_ids；required_blocks >= 0
+选取数量 = min(required_blocks, len(candidates))
+```
+
+**（5）预期增益（诚实）**
+
+```text
+当前（冻结字段 + H1 可观测性）: **0**（实测 A′ 集合改变 0/54；实测 B 重排自由 0/294）
+Tier 0 与 native 恒等；Tier 1 因前置缺失不可达
+⇒ 本规格的用途是"把算法定义清楚并预先登记触发条件"，不是"立即获得收益"
+```
+
+**（6）触发条件（预先登记，可证伪；一旦命中即应实现 Tier 1）**
+
+| # | 触发条件 | 当前实测 | 若命中则 |
+| --- | --- | --- | --- |
+| **T1** | 存在决策使 hashless rank 集合**非**严格前缀（即出现交错） | **0 / 87** | Tier 0 **不再**与 native 恒等 ⇒ Layer 1 复活，且**可证明更优** |
+| **T2** | 存在链窗口其链内 `lru_rank` 序与 `chain_pos` 序**不一致** | **0 / 294** | Tier 1 有可用窗口 ⇒ 且需 P5 覆盖率足够 |
+| **T3** | `ref_cnt` 变为可持久化且**非**恒定 | H1 中 **0/6606** 可观测 | 可引入"引用中块更贵"的成本项 |
+
+⇒ **T1/T2/T3 三者构成该设计唯一的使能前提**；在任一命中前，正确动作是**不实现**。
 
 ---
 
@@ -454,6 +543,13 @@ src/kvopt/costaware/replay.py:252
 | ~~C. Layer 2 窄实验~~ | ~~授予 `chain_pos` 做 6.6% 窗口验证~~ | **撤回**：① 6.6% 不可复现（实测 0% 重排自由度）；② 单字段不足（§3.3）⇒ 需新观测缝 |
 
 **建议顺序：B > A。**
+
+⚠️ **关于 M1 交付项 3「给出一个真正可实现的最小 block-level 策略」**：
+该规格**已给出并完整**（§5.7），包含类名、精确输入/输出、三档 fail-closed 规则、
+合法性契约（按 §5.1 的真实 bridge 契约）、以及**预先登记的触发条件 T1/T2/T3**。
+但其**当前预期增益为 0**，原因是其中唯一有增量潜力的 Tier 1 需要不可得信号，
+而 Tier 0 由实测 A′ 证明**与 native 恒等**。
+⇒ 因此该项的答案是「**规格可行、当前无增益**」，而非「无法给出设计」。
 
 若 M1 选 **B**，我将在批准后**另立设计**（不混入本文），并沿用：
 entry-level 边界、Q1/Q2/Q3 区分、F4 使用边界、四层链与失败归因表。
@@ -501,6 +597,7 @@ entry-level 边界、Q1/Q2/Q3 区分、F4 使用边界、四层链与失败归�
 | `_validate_selection` 真实契约（≥ min(R,n)、无重复、取自 candidates） | `src/kvopt/runtime/vllm/bridge.py:65-80` |
 | `NativeLRUAdapter` 按 `lru_rank` 取 `required_blocks` | `src/kvopt/runtime/vllm/adapter.py:27-38` |
 | 实测 A：冷端 hashless 富集 54/54、枯竭 0/54、最早 hashless rank 0.0000 | `local/probe_l1_refined.py`（H1） |
+| **实测 A′：hashless 严格前缀 87/87、交错 0/87、重排改变集合 0/54** | `local/probe_hashless_prefix.py`（H1） |
 | 实测 B：294 窗口 ρ ≡ −1.0000（100%），0% 存在重排空间 | `local/probe_rev3_verify.py`（H1） |
 | 快照：`h1-f1-draw-04-seed-101`@95 `queue=83 hashless=24 first_hashed_rank=24` | 同上 |
 | `ref_cnt` 在 6606 条队列行中出现 0 次 | 同上 |
