@@ -29,9 +29,9 @@ Branch ladder, evaluated fresh on every iteration:
         relief itself becomes the scarce quantity;
 ``3c`` otherwise every ``N_i`` is zero (entries co-own everything): two-entry
         lookahead over pairs with positive joint relief, scored by
-        ``Rhat_ij / N_ij`` with ``q~ = 1 - (1-q_i)(1-q_j)`` so the co-owned
-        prefix is charged once rather than twice; release the sooner-deadline
-        member first;
+        ``Rhat_ij / N_ij`` with ``q~ = 1 - (1-q_i)(1-q_j)``; release the
+        sooner-deadline member first. This is a *one-step proposal*, not a
+        binding two-release batch: the replay re-ranks after every release;
 ``fallback`` no pair unlocks anything: release the soonest deadline.
 
 Every branch is deterministic: the total order is ``(score, deadline, identity)``
@@ -103,6 +103,8 @@ class A1Selection:
     scores: tuple[CandidateScore, ...]
     joint_new_blocks: int | None = None
     joint_reuse_proxy: float | None = None
+    proposed_partner: CandidateKey | None = None
+    joint_cost_proxy: float | None = None
 
 
 def reuse_proxy(deadline: float, timestamp: float, tau: float) -> float:
@@ -164,7 +166,7 @@ class A1EntryCostAwareStrategy:
     @staticmethod
     def _per_unit_order(score: CandidateScore) -> tuple[float, float, CandidateKey]:
         # ``per_unit`` is not None on this path by construction.
-        return (score.per_unit or UNSCOREABLE, score.deadline, score.key)
+        return (score.per_unit if score.per_unit is not None else UNSCOREABLE, score.deadline, score.key)
 
     # -- the ladder ------------------------------------------------------
 
@@ -214,13 +216,15 @@ class A1EntryCostAwareStrategy:
             best = min(scores, key=lambda s: (s.deadline, s.key))
             return A1Selection(best.key, BRANCH_DEADLINE_FALLBACK, scores)
 
-        (first, _second), joint_blocks, joint_q = pair
+        (first, second), joint_blocks, joint_q, joint_cost = pair
         return A1Selection(
             key=first,
             branch=BRANCH_PAIR_LOOKAHEAD,
             scores=scores,
             joint_new_blocks=joint_blocks,
             joint_reuse_proxy=joint_q,
+            proposed_partner=second,
+            joint_cost_proxy=joint_cost,
         )
 
     def _best_pair(
@@ -229,7 +233,7 @@ class A1EntryCostAwareStrategy:
         remaining: Sequence[DecisionCandidateRow],
         state: ReplayState,
         need: int,
-    ) -> tuple[tuple[CandidateKey, CandidateKey], int, float] | None:
+    ) -> tuple[tuple[CandidateKey, CandidateKey], int, float, float] | None:
         """Best (first, second) pair by cost per unit relief, or ``None``."""
         by_key = {candidate_key(row): row for row in remaining}
         best: tuple[
@@ -267,7 +271,10 @@ class A1EntryCostAwareStrategy:
 
         if best is None:
             return None
-        return best[1], best[2], best[3]
+        # This pair is a lookahead proposal, not an atomic release commitment.
+        # After the first entry is released, the next pick_next call may choose
+        # a different partner because the frozen replay re-ranks every step.
+        return best[1], best[2], best[3], best[0][0] * best[2]
 
     # -- ReleaseStrategy protocol ---------------------------------------
 
