@@ -192,8 +192,23 @@ class ReplayState:
 
     def newly_eligible_after(self, key: CandidateKey) -> tuple[int, ...]:
         """Blocks that would become eligible if ``key`` were released now."""
+        return self.newly_eligible_after_many((key,))
+
+    def newly_eligible_after_many(
+        self, keys: Sequence[CandidateKey]
+    ) -> tuple[int, ...]:
+        """Blocks that would become eligible if every key in ``keys`` were released.
+
+        Generalises :meth:`newly_eligible_after` to a simultaneous multi-entry
+        release. A two-entry lookahead needs the *joint* relief, because releasing
+        either entry alone may unlock nothing while releasing both unlocks the
+        blocks they co-own. Semantics are identical to the frozen loop: releasing
+        ``keys`` removes them from the still-protected owner set.
+        """
         before = self.eligible_block_ids()
-        candidates_after = set(self._snapshot.candidate_keys) - self.released - {key}
+        candidates_after = (
+            set(self._snapshot.candidate_keys) - self.released - set(keys)
+        )
         eligible_after: set[int] = set()
         for block in self._snapshot.queue:
             if not block.has_block_hash:
