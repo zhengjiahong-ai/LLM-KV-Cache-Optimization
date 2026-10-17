@@ -80,6 +80,7 @@ class DecisionComparison:
     set_differs: bool
     cost_proxy_a1: float
     branch_trace: tuple[str, ...]
+    pair_lookahead_proposals: tuple[dict[str, object], ...] = ()
     at_risk_blocks: int | None = None
     #: Selection evidence only; never a measured cache benefit.
     is_physical_benefit: bool = False
@@ -102,7 +103,7 @@ def _walk(
     snapshot: DecisionSnapshot,
     rows: dict[CandidateKey, DecisionCandidateRow],
     strategy,
-) -> tuple[ReplayOutcome, tuple[str, ...], float]:
+) -> tuple[ReplayOutcome, tuple[str, ...], float, tuple[dict[str, object], ...]]:
     """Replay one decision, returning the outcome, branch trace and cost proxy.
 
     The trace and proxy come from walking the same ladder the strategy walked, so
@@ -111,9 +112,10 @@ def _walk(
     result = replay_decision(snapshot, strategy, rows)
 
     if not hasattr(strategy, "select"):
-        return result, (), 0.0
+        return result, (), 0.0, ()
 
     trace: list[str] = []
+    pair_proposals: list[dict[str, object]] = []
     cost = 0.0
     state = ReplayState(snapshot)
     for _ in range(len(snapshot.candidate_keys) + 1):
@@ -128,13 +130,24 @@ def _walk(
             break
         selection = strategy.select(remaining, state)
         trace.append(selection.branch)
+        # Only actually selected releases enter cost_proxy_a1. A lookahead
+        # score is a proposal, not a cost realised by the first zero-relief
+        # member; report it separately and re-rank next iteration.
+        if selection.proposed_partner is not None:
+            pair_proposals.append({
+                "released_first": selection.key,
+                "proposed_partner": selection.proposed_partner,
+                "joint_new_blocks": selection.joint_new_blocks,
+                "joint_reuse_proxy": selection.joint_reuse_proxy,
+                "joint_cost_proxy": selection.joint_cost_proxy,
+            })
         for score in selection.scores:
             if score.key == selection.key:
                 cost += score.expected_recompute
                 break
         state.release(selection.key)
 
-    return result, tuple(trace), cost
+    return result, tuple(trace), cost, tuple(pair_proposals)
 
 
 def compare_one(
@@ -147,8 +160,8 @@ def compare_one(
     """Run A0 and A1 on the same snapshot and classify the difference."""
     strategy = strategy or A1EntryCostAwareStrategy()
 
-    a0_result, _a0_trace, _a0_cost = _walk(snapshot, rows, ExecutedP1BStrategy())
-    a1_result, trace, cost = _walk(snapshot, rows, strategy)
+    a0_result, _a0_trace, _a0_cost, _ = _walk(snapshot, rows, ExecutedP1BStrategy())
+    a1_result, trace, cost, pair_proposals = _walk(snapshot, rows, strategy)
 
     at_risk: int | None = None
     if returns_after_decision:
@@ -172,6 +185,7 @@ def compare_one(
         set_differs=set(a0_result.released) != set(a1_result.released),
         cost_proxy_a1=cost,
         branch_trace=trace,
+        pair_lookahead_proposals=pair_proposals,
         at_risk_blocks=at_risk,
     )
 
@@ -296,13 +310,28 @@ def run_corpus(
         snapshots, rows_by_decision, ExecutedP1BStrategy()
     )
 
+    if fidelity.decisions_compared != len(snapshots) or any(
+        rate != 1.0 for rate in (
+            fidelity.release_set_match_rate,
+            fidelity.release_sequence_match_rate,
+            fidelity.initial_reclaimable_match_rate,
+        )
+    ):
+        raise ValueError(
+            "BASELINE_FIDELITY_FAILED: "
+            f"snapshots={len(snapshots)}, compared={fidelity.decisions_compared}, "
+            f"set={fidelity.release_set_match_rate}, "
+            f"sequence={fidelity.release_sequence_match_rate}, "
+            f"initial={fidelity.initial_reclaimable_match_rate}"
+        )
+
     comparisons: list[DecisionComparison] = []
     for snapshot in snapshots:
         rows = rows_by_decision.get(
             (snapshot.run_id, snapshot.decision_event_index)
         )
-        if not rows:
-            continue
+        if not rows or any(key not in rows for key in snapshot.candidate_keys):
+            raise ValueError(f"MISSING_DECISION_ROWS: {snapshot.run_id}@{snapshot.decision_event_index}")
         comparisons.append(compare_one(snapshot, rows, strategy=strategy))
 
     summary = summarise(comparisons)
@@ -348,10 +377,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     }
 
     if args.corpus:
-        summary, _comparisons = run_corpus(
+        summary, comparisons = run_corpus(
             args.corpus, formal=args.formal, strategy=strategy
         )
         payload["corpus"] = summary
+        payload["decisions"] = [asdict(comparison) for comparison in comparisons]
         print(json.dumps(summary, indent=2, ensure_ascii=False))
     else:
         scenarios = all_scenarios()
