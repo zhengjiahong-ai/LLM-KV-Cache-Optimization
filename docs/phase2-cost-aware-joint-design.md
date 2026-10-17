@@ -495,6 +495,7 @@ Spearman(重算 token, TTFT) = 0.4327      ← 已实测，非估算
 背离率统计   sign(q_c 排序) ≠ sign(lru_rank 排序) 的链对占比
 条件收益     仅在该子集上比较 A2 与 A0/A1 的期望 token 损失
 上界检查     A2 的全体平均收益 ≤ 背离率 × 单决策最大可能收益差
+```
 
 ---
 
@@ -913,6 +914,26 @@ Step 1 未出现稳定方向 ⇒ 结束，不得用离线数字充当结论。
 | `src/kvopt/continuum/pressure.py` | **冻结基线 A0**，只读；本文的 A1 是其增量，退化分支保证不劣化 |
 | `src/kvopt/costaware/replay.py` | 提供 `ReleaseStrategy` 协议与 `ExecutedP1BStrategy` 先例，是 Step 1 的载体 |
 | `src/kvopt/runtime/vllm/adapter.py` | A2 的实现落点（`EvictionPolicyAdapter`），但**当前只读** |
+
+### 9.1 复用与最小改动（对应 M1 第 4 项要求）
+
+| 类别 | 内容 |
+|---|---|
+| **直接复用** | `costaware/replay.py` 的 `DecisionSnapshot` / `ReplayState` / `eligible_block_ids` / `replay_decision` / `validate_replay_fidelity`；`costaware/rules.py` 的 `CandidateRule` 与 `FORBIDDEN_FEATURES`；`eviction_decision` 的决策事件载荷（`candidates[].block_ids` 与 `original_free_queue`） |
+| **最小改动** | 仅 §6.4.2 的 T1–T4：深度重建、`VictimStrategy` 协议、`ReplayOutcome` 两个纯增字段、保真校验。**不改**既有字段含义，不改 `replay_decision` 的循环语义 |
+| **不改动** | native BlockPool / `ref_cnt` / hash 清理 / native LRU；冻结的 Continuum baseline（`continuum/pressure.py`）与 TTL 估计器；Phase 2E 的指标口径 |
+
+**A0–A3 的比较方式**（同一批决策、同一语料、同一指标）：
+
+```text
+A0  →  ExecutedP1BStrategy（已存在，可先跑保真校验）
+A1  →  §3.3 的 Entry 排序 + native LRU 淘汰（复用 replay_decision，今天可跑）
+A2  →  ExecutedP1BStrategy + §3.4.3 的 VictimStrategy（需 T1–T3）
+A3  →  §3.3 + §3.4.3 同时启用（需 T1–T3，且需 A3 门槛通过）
+```
+
+四臂共用同一个 `DecisionSnapshot` 序列，因此差异只来自策略本身，
+不需要为每臂单独准备语料。
 
 ---
 
