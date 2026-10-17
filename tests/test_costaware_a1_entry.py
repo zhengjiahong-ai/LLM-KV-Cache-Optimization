@@ -467,6 +467,41 @@ def test_identical_decision_time_inputs_give_identical_choices() -> None:
     assert with_twin.key == ("A", "p")
 
 
+def test_choice_does_not_depend_on_the_native_lru_position() -> None:
+    """A1 must not covertly reproduce native LRU.
+
+    A1 should differ from A0 because of the cost model, not because it smuggled in
+    the adapter's recency signal. Permuting ``decision_native_lru_position`` across
+    the candidates must therefore leave every choice untouched -- if it ever
+    changes a choice, the strategy has started reading a field it must not use.
+    """
+    for scenario in all_scenarios():
+        baseline_state = ReplayState(scenario.snapshot)
+        baseline = A1EntryCostAwareStrategy().select(
+            _remaining(scenario.snapshot, scenario.rows, baseline_state),
+            baseline_state,
+        )
+
+        inverted = {
+            key: dataclasses.replace(
+                row,
+                decision_native_lru_position=(
+                    len(scenario.rows) - 1 - row.decision_native_lru_position
+                    if row.decision_native_lru_position is not None
+                    else None
+                ),
+            )
+            for key, row in scenario.rows.items()
+        }
+        state = ReplayState(scenario.snapshot)
+        remaining = [
+            inverted[key]
+            for key in scenario.snapshot.candidate_keys
+            if key in inverted
+        ]
+        assert A1EntryCostAwareStrategy().select(remaining, state).key == baseline.key
+
+
 # --- A0 fidelity -----------------------------------------------------------
 
 

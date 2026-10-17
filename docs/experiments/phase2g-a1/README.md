@@ -7,7 +7,7 @@ Native LRU），未实现 A2/A3，未做任何 native 验证。以下所有数�
 | 项 | 状态 |
 |---|---|
 | A0 冻结行为复现 | ✅ 保真度 1.0 / 1.0 / 1.0 |
-| A1 实现 + 单元测试 | ✅ 26 tests |
+| A1 实现 + 单元测试 | ✅ 27 tests |
 | A0/A1 离线对照入口 | ✅ `python -m kvopt.costaware.a1_compare` |
 | 物理收益 | ❌ **未验证**（Block 层未模拟，见 §5） |
 | A2 / A3 / B1 | 未授权，未触碰 |
@@ -40,6 +40,15 @@ $$
 
 确定性：全序为 `(score, deadline, identity)`。停止条件沿用冻结目标
 `target = min(required_blocks, queue_len)`，达标即停，不额外释放。
+
+**信息边界（已测试）**：A1 的全部输入是
+`retention_deadline_timestamp`（候选行）、`timestamp` / `target` / `candidate_keys`
+（快照）、以及由 `owners_by_block` + `queue` 推出的 eligibility 与边际容量。
+**完全不读 `decision_native_lru_position`，也不读 `ranking_by_block`** —— 若读，
+A1 就可能与 native LRU 趋同而掩盖真实差异。
+`test_choice_does_not_depend_on_the_native_lru_position` 通过置换该字段并断言选择不变
+来固定这一点。此外 `FORBIDDEN_FEATURES` 中没有任何一项是 `DecisionCandidateRow` 的字段，
+所以未来信息在类型上就读不到。
 
 **唯一对既有代码的改动**：`ReplayState.newly_eligible_after_many(keys)` 为纯增方法，
 `newly_eligible_after(key)` 改为委托给它，语义完全一致（既有 16 个 replay 测试全通过）。
