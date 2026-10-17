@@ -34,8 +34,8 @@
       "case_id": "gate1-selection-control",
       "expected_selection_relation": "SAME",
       "program_prefix_tokens": {
-        "gate1-a": 128,
-        "gate1-b": 128
+        "gate1-a": 192,
+        "gate1-b": 192
       }
     }
   ],
