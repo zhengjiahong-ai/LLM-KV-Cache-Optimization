@@ -111,14 +111,14 @@ S  —— Block 层变量：在可行池内选择实际淘汰集合
 **约束**：$S \subseteq E(R)$ 是硬约束。Block 层**不得**绕过 Continuum 的保护，
 只能淘汰 $E(R)$ 内的 Block。这条约束本身就是 A0→A2 的合法性边界。
 
-**释放约束（C1–C4）** —— 回应 RC1。第一版不追求联合最优，只把释放行为钉死在
+**释放约束（C1–C4）** —— 回应 RC1。这里 `target = min(required_blocks, len(original_free_queue))`，与冻结 `pressure.py` 一致。第一版不追求联合最优，只把释放行为钉死在
 冻结的按需压力语义之内：
 
 ```text
 (C1) 合法淘汰    S ⊆ E(R)                           Block 层不得绕过保护
-(C2) 不过量淘汰  |S| = min(required_blocks, |E(R)|)  同 target 语义，queue→E(R)
-(C3) 按需最小    |E(R)| ≥ required_blocks 后立即停止  不主动多释放（本轮不授权）
-(C4) 压力触发    仅在 |E(R)| < required_blocks 时进入释放流程
+(C2) 不过量淘汰  |S| = target（合法候选足够时）  不超额进行物理淘汰
+(C3) 按需最小    |E(R)| ≥ target 后立即停止  不主动多释放（本轮不授权）
+(C4) 压力触发    仅在 |E(R)| < target 时进入释放流程
 ```
 
 **为什么必须有 (C3)**：$L$ 只对 $S$ 计费，对「释放了多少保护」**不计费**。
@@ -135,7 +135,7 @@ S  —— Block 层变量：在可行池内选择实际淘汰集合
 ```text
 Continuum 冻结语义：while len(tier_1_ids | tier_2_ids) < target   （pressure.py:107）
                            target = min(required_blocks, len(queue))
-本设计等价式：      while |E(R)| < required_blocks
+本设计等价式：      while |E(R)| < target
   其中 E(R) 就是 tier_1 ∪ tier_2 的重算（hashless 恒 eligible；hashed 需无受保护 owner）
 ⇒ 直接复用 Continuum 的判定，不引入 free_blocks 这个不同量纲的量
 ```
@@ -250,7 +250,8 @@ Entry 层只做一件事：在满足 (C3)「释放到够即止」的前提下，
 #### 3.3.1 五个可计算量
 
 ```text
-需求      D      = EvictionContext.required_blocks
+需求      D      = min(required_blocks, len(original_free_queue))  # 冻结 target
+剩余缺口  G(R)   = max(0, D − |E(R)|)        # 已有合法候选先抵扣压力需求
 新增暴露  N_i(R) = |E(R ∪ {i})| − |E(R)|    释放 i 新解锁的 Block 数（由 O(b) 决定）
 复用概率  q_i    ∈ (0,1]                    见 3.3.3，Continuum 既有信号的单调变换
 Block 大小 B                                 见 §4.4，block_hash_num_tokens，可不为常数
@@ -261,17 +262,16 @@ Block 大小 B                                 见 §4.4，block_hash_num_tokens
 
 $$
 \widehat{R}_i(R) \;=\; q_i \cdot B \cdot \Bigl[\,
-\underbrace{\min(D,\,N_i)}_{\text{本次必然淘汰}}
+\underbrace{\min(G,\,N_i)}_{\text{本次最多可能涉及的新暴露}}
 \;+\;
-\underbrace{\lambda\,\bigl(N_i-\min(D,N_i)\bigr)^{+}}_{\text{残留暴露面的后续代价}}
+\underbrace{\lambda\,\bigl(N_i-\min(G,N_i)\bigr)^{+}}_{\text{残留暴露面的后续代价}}
 \,\Bigr]
 $$
 
 **两项的物理含义**：
 
-- **第一项**：本次压力必须淘汰 $\min(D,N_i)$ 个 Block。深度优先淘汰只在 $i$ 的链上
-  产生一次 $j$ 下移，代价即这 $\min(D,N_i)$ 个 Block 的重算量。
-- **第二项**：$E(R\cup\{i\})$ 一旦形成就**持续存在**，直到 $i$ 重新被保护或过期。
+- **第一项**：以剩余缺口 $G$ 截断新暴露量，是本次压力**最多可能选中**的新增候选数量；已有 eligible blocks 及 Block 选择顺序可能使实际被选中的数量更少。它只是 token 风险代理，**不是必然的物理淘汰量或精确重算损失**。
+- **第二项**：未在本次压力中使用的新增 eligible blocks 可能在后续压力事件继续暴露，但仍可能被重新保护或更早被实际淘汰，因此这也只是风险代理。
   暴露面越大，后续压力事件可继续取用的就越多。$\lambda$ 是「$i$ 的剩余生命周期内
   还会发生一次强制淘汰」的估计概率。这一项是**共享结构进入成本的唯一通道**：
   $N_i$ 完全由 $O(b)$ 决定（§2.3）。
@@ -310,14 +310,16 @@ $$
 #### 3.3.4 释放流程（含 N_i = 0 的处理）
 
 ```text
-1) 若 D = 0 或 |E(R)| >= D                → 不进入释放（C4，见 §1.3）
+1) D = min(required_blocks, len(queue))；G = max(0, D-|E(R)|)
+   若 D = 0 或 G = 0                       → 不进入释放（C4，见 §1.3）
 2) F  = { i ∈ C : |E(R ∪ {i})| >= D }     # 单步足够集
    C⁺ = { i ∈ C : N_i > 0 }               # 有正边际的候选
 3) 分支：
    3a) F ≠ ∅        → 选 argmin_{i∈F} R̂_i          # 单步即可满足
    3b) F = ∅, C⁺≠∅  → 选 argmin_{i∈C⁺} R̂_i / N_i   # 边际稀缺，按单位成本换容量
    3c) C⁺ = ∅       → 两 Entry 前瞻（见下）
-4) R ← R ∪ {i}；若 |E(R)| < D 回到 2)；否则停止（C3）
+4) R ← R ∪ selected（单 Entry 为 {i}，两 Entry 前瞻为 {i,j}）；
+   若 |E(R)| < D 回到 2)；否则停止（C3）；每轮重算 G
 5) 并列时 deadline 升序 → identity 打破
 ```
 
@@ -345,7 +347,7 @@ $$
 
 $$
 \widehat R_{ij} = \tilde q_{ij}\cdot B\cdot\Bigl[
-\min(D, N_{ij}) + \lambda\bigl(N_{ij}-\min(D,N_{ij})\bigr)^{+}\Bigr],
+\min(G, N_{ij}) + \lambda\bigl(N_{ij}-\min(G,N_{ij})\bigr)^{+}\Bigr],
 \qquad \tilde q_{ij} = 1-(1-q_i)(1-q_j)
 $$
 
@@ -361,9 +363,7 @@ $$
 三层以上共享需要 $O(|C|^k)$，超出第一版范围；若 §6.4 显示三元以上共享常见，
 再单独评估（不在本轮）。
 
-**为什么 $\tilde q_{ij}$ 用并集公式**：只要 $i$ 或 $j$ 任意一个返回，
-被联合解锁的那段前缀就可能被重算，因此按「至少一个返回」加权，
-而不是把 $q_i$ 与 $q_j$ 相加（那会超过 1，且重复计入同一段共享前缀）。
+**$\tilde q_{ij}$ 的含义仅为有界的联合启发式权重**：$q_i,q_j$ 并非校准概率，且两条 Entry 的返回事件可能相关；因此 $1-(1-q_i)(1-q_j)$ **不能作为真实的并集概率或无相关性结论**。这里仅用其将共享块暴露风险压到一个有界权重中，后续效果须通过 native 观测验证。
 
 **与 Continuum 的差别（可精确陈述）**：当所有候选的 $N_i$ **相同**时，
 $\widehat R_i$ 方括号内为公共常数，故 $\widehat R_i \propto q_i$，
