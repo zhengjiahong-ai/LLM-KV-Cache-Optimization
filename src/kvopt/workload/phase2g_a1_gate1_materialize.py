@@ -162,11 +162,11 @@ def materialize_gate1(*, fixture_path: Path, output_dir: Path) -> Path:
                     "phase2g_stage": {
                         "stage": "A1_GATE1",
                         "case_id": case_id,
-                        "policy": policy,
-                        "repeat": repeat,
                         "expected_selection_relation": case[
                             "expected_selection_relation"
                         ],
+                        "policy": policy,
+                        "repeat": repeat,
                     },
                 }
                 config_path = output_dir / config_name
@@ -175,6 +175,9 @@ def materialize_gate1(*, fixture_path: Path, output_dir: Path) -> Path:
                     {
                         "run_id": run_id,
                         "case_id": case_id,
+                        "expected_selection_relation": case[
+                            "expected_selection_relation"
+                        ],
                         "policy": policy,
                         "repeat": repeat,
                         "config": config_name,

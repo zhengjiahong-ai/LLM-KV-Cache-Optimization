@@ -57,11 +57,7 @@ def test_gate1_has_divergence_and_same_selection_controls(tmp_path: Path) -> Non
         fixture_path=FIXTURE,
         output_dir=tmp_path / "campaign",
     )
-    relations = {
-        json.loads((manifest_path.parent / run["config"]).read_text(encoding="utf-8"))[
-            "phase2g_stage"
-        ]["expected_selection_relation"]
-        for run in json.loads(manifest_path.read_text(encoding="utf-8"))["runs"]
-    }
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    relations = {run["expected_selection_relation"] for run in manifest["runs"]}
 
     assert relations == {"DIFFERENT", "SAME"}
