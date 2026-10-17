@@ -364,6 +364,52 @@ adapter 返回的序列中，被淘汰的是**被选中的那一批块**；
 
 ⚠️ A4/A6 若**更差**，按 M1 要求**不得**视为"必须满足的先验门槛失败"，而应报告方向与原因。
 
+### 5.6 两个案例（M1 交付项 4）
+
+**（a）无效差异案例 —— 可手工复核：序列交换不改变集合**
+
+用 §1.2 的同一快照（`h1-f1-draw-04-seed-101` @ event 95）：
+
+```text
+required_blocks = 30；queue_len = 83；hashless = 24（rank 0..23）；first_hashed_rank = 24
+native 选中的是 rank 0..29 = 全部 24 个 hashless + 最冷的 6 个 hashed
+```
+
+现假设某策略返回**同样的 30 个块**，只把其中两个 hashed 块**互换次序**。依据：
+
+```text
+bridge.select_blocks() 文档字符串：
+  build_candidates()  = "Snapshot free-queue blocks in their current native LRU order."
+  "This class does not evict blocks itself. The caller remains responsible for
+   handing the validated block IDs back to the existing vLLM allocation and eviction path."
+```
+
+⇒ 执行方按**返回的 ID 集合**去驱动 vLLM 的分配/淘汰路径，**返回序列的次序不参与淘汰决策**
+⇒ **被淘汰的集合不变 ⇒ 物理状态不变 ⇒ 该差异无效**（不能作为提升）。
+
+进一步：要真正得到**不同的集合**，就必须跳过 rank 24..29 中某个 hashed 块、改取 rank ≥ 30 的
+另一个 hashed 块。两者都带 hash（成本同类），**唯一区别是 `lru_rank`** ——
+即**用更热的块替换更冷的块**，且**没有任何成本信号可以正当化它**。
+
+**（b）有效差异案例 —— 在当前边界内 `无法构造`（这本身就是阻塞结论）**
+
+"有效差异"需满足：**存在一个由实测成本正当化的、不同的 victim SET**。逐字段排除（§0.1、§1.1）：
+
+```text
+has_block_hash : 任何"排除 hashless 改取 hashed"的集合都更差（β(hashless)=0）；
+                 native 已把 hashless 置于冷端 ⇒ 该轴上 native 已是最好，无正当分歧
+ref_cnt        : 恒为 0（源码 assert）；H1 中未持久化（6606 行出现 0 次）⇒ 无法区分
+lru_rank       : 就是基线主键；以别的方式使用它 = 无依据的偏离
+required/free/total_blocks : 全局标量，不能对候选排序
+```
+
+⇒ **无法构造有效差异案例**，故判定 **`NO_HEADROOM_OBSERVED`**（§5.3）。
+此外 33/87 的决策 `required_blocks >= queue_len`，**集合被完全固定**（必须全取），
+在这些决策上连"不同集合"都不存在。
+
+⇒ 一个**有效**案例需要至少一个缺失信号（块→前缀位置 / 链身份 / owner 集合）——
+这些在本轮**不予请求**（§3.3、§7）。
+
 ---
 
 ## 6. 决策边界与接口映射（沿用 rev.2/rev.3，已核实）
