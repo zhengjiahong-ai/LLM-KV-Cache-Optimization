@@ -110,9 +110,9 @@ def main() -> int:
     assert all(v == 0 for v in singles.values())
     assert all(v == 0 for v in pairs.values())
     print("  -> no pair has N_ij > 0, so the fallback is deadline-ascending release")
-    fallback = sorted(q_of_2, key=lambda k: -q_of_2[k])  # higher q = later deadline
-    print(f"  -> deadline order (q descending) = {fallback}")
-    assert fallback == ["i", "j", "k"]
+    fallback = sorted(q_of_2, key=lambda k: q_of_2[k])  # lower q = earlier deadline
+    print(f"  -> deadline order (q ascending) = {fallback}")
+    assert fallback == ["k", "j", "i"]
 
     # releasing all of them does reach the upper bound, which is why progress holds
     everything = eligible(owners_2, set(q_of_2))
