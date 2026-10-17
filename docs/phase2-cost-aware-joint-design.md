@@ -11,6 +11,8 @@
 > 修订：rev.5 依 M1 RC4 统一成本口径为 aggregate recomputed tokens；
 > 撤回「$C(r)/r$ 下降 ⇒ $C$ 凹」的推断（正确蕴含是次可加），
 > 并把 $C(r)$/TTFT/queue delay 降为辅助观测；勘误 `block_hash_num_tokens` 的语义。
+> 修订：rev.6 依 M1 RC5 把 Step 0 门槛按臂拆分、如实列出 A2/A3 的工具缺口
+> （replay 当前只支持 Entry 释放），并明确离线估计不等于收益。
 > 关联：PR #50（`docs/ours-evict-algorithm-design-v1.md`）保留为**当前四字段接口局限性的分析记录**；
 > 其中 H1 派生结论已按 M1 要求收紧到「该接口 + 该语料」范围内，本文**不**复用其外推。
 
@@ -297,7 +299,7 @@ $$
 **与 Continuum 的差别（可精确陈述）**：当所有候选的 $N_i$ 相同且 $\lambda = 0$ 时，
 $\widehat{R}_i \propto q_i$，排序**精确退化**为 Continuum 的 `deadline` 序。
 其余情形本设计会与 Continuum 不同，且**不保证逐决策不劣化** ——
-A1 的优劣必须由 §6.4 的离线 replay 判定（这也是 §6 先跑 replay 再跑 native 的原因）。
+A1 的优劣必须由 §6.4.4 的离线 replay 判定（这也是 §6 先跑 replay 再跑 native 的原因）。
 
 ⚠️ **本轮明确不做**：「`required_blocks` 已满足后，仍主动多释放一个 Entry
 以解锁共享组」已被 M1 判为超出冻结的按需压力释放语义，**本轮不授权**（RC1）。
@@ -695,74 +697,170 @@ $q\cdot 4B$（打穿任一链），此时**不得**宣称新规则更好。
 
 ## 6. 最小实验方案（M1 第 ④ 项要求）
 
-### 6.1 必须先修好的前提
+### 6.1 两类前提：语料前提与工具前提（不要混为一谈）
 
-M1 明确要求「在修复后的真实共享前缀工作负载中验证」，前提有两项：
+> **RC5 修订**：旧版把「共享前缀 / 非线性成本 / 返回概率差异」当成**所有实验臂**
+> 的共同前置条件，过强且不可执行；同时假定 replay 已经能做物理 Block 选择。
+> 两个问题都已修正：前提按臂分别判定（§6.3），工具缺口如实列出（§6.4）。
 
 ```text
-前提甲 : 真实共享前缀。PR #50 §1.0 已记录 H1 的 F-PREFIX 缺陷。
-         修复点已定位在 src/kvopt/workload/phase2e_materialize.py::_segments
-         （当前 even draw = NO_SHARED 负对照，odd draw = SHARED_ROOT 处理组）。
-前提乙 : 多轮增长 + 返回概率不对称。H1 的 F-ARRIVAL / F-HISTORY 使
-「谁更可能回来」无区分度，导致 §3.4 的 $q_c$ 无区分度（各链边际损失近乎相同），
+语料前提  取决于该臂需要用到的信号      → 按臂判定，见 §6.3
+工具前提  取决于该臂需要记录的中间量    → 见 §6.4.2，A2/A3 当前不具备
 ```
 
-⚠️ 未修好前提就开跑，只会再得到一次「区分度弱」的结论。**建议先做 §6.2 的 Step 0。**
+语料方面仍有一条**全局**要求：必须在修复 F-PREFIX 之后的语料上跑。
+修复点已定位在 `src/kvopt/workload/phase2e_materialize.py::_segments`
+（当前 even draw = NO_SHARED 负对照，odd draw = SHARED_ROOT 处理组）。
+但「修复后语料」不等于「每条臂都需要共享结构」—— 那是 §6.3 的事。
 
-### 6.2 四臂递进（对应 M1 的 A0–A3）
+### 6.2 四臂递进（A0–A3 保持不变）
 
-| 臂 | 定义 | 目的 | 预期 |
-|---|---|---|---|
-| **A0** | 原始 Continuum（**冻结基线**） | 对照 | — |
-| **A1** | Entry 层 Cost-Aware 释放 + native LRU 淘汰 | 最小增量，§3.3 | 若 A1 稳定有收益即先收敛到此 |
-| **A2** | Continuum 释放 + Block 层最小边际损失（§3.4.3） | 检验 §3.5 的「$q$ 序与 `lru_rank` 序背离率」命题 | 只在该背离子集上可能优于 native LRU（§5.2） |
-| **A3** | Entry + Block 联合（即 §1.3 的两变量） | 仅在 A2 有额外收益时再做 | — |
+| 臂 | 定义 | 目的 |
+|---|---|---|
+| **A0** | 原始 Continuum（**冻结基线**） | 对照 |
+| **A1** | Entry Cost-Aware 释放 + native LRU 淘汰（§3.3） | 最小增量；有稳定收益即先收敛到此 |
+| **A2** | 原始 Continuum 释放 + Block Cost-Aware 淘汰（§3.4.3） | 检验「$q$ 序与 `lru_rank` 序背离率」命题 |
+| **A3** | Entry + Block 联合（§1.3 的两变量） | 仅在 A2 有额外收益时再做 |
 
-### 6.3 Step 0 —— 离线的区分度门槛（先做，成本极低）
+### 6.3 Step 0 —— 区分度门槛：按臂分别判定
 
-在修复后的语料上，**只做 replay，不跑 native**，先确认样本具备可区分性：
+每臂只要求**它自己用到的信号**具备区分度。任一臂的门槛不满足 ⇒ 该臂在本语料上
+不可测，**只停该臂**，其余臂照常推进。
 
 ```text
-门槛 0.1  存在 ≥2 Entry 共享 Block 的决策占比            > 0（H1 为 0/81）
-门槛 0.2  这些决策中 E({A}) ∪ E({B}) ⊊ E({A,B}) 的占比   > 0（互补性可发生）
-门槛 0.3  §3.4.3 与 native LRU 选择集合不同的决策占比    > 0（规则可分性；
-          token 口径下 C(r) 的非线性在此无意义，见 §3.5.2）
-门槛 0.4  返回概率代理在链间存在非零方差（否则 q_c 无区分度，§3.4.3 退化为均质）
+A1 门槛（Entry 层）
+  1a  存在 N_i 取值不同的决策占比             > 0     否则 argmin R̂ 恒等，退化为 deadline
+  1b  q_i 在候选间有非零方差                   > 0     否则 R̂ ∝ N_i，只剩暴露面一项
+  必备/不必需  不需要共享 Block；不需要 block 深度；不需要非线性成本
+
+A2 门槛（Block 层）
+  2a  合法候选链数 ≥ 2 的决策占比              > 0     单链时无链间比较
+  2b  q_c 在链间有非零方差                     > 0     否则各链 Δ 同质
+  2c  sign(q_c 序) ≠ sign(lru_rank 序) 的链对占比 > 0   §3.5 的操作条件
+  2d  深度可重建率（§6.4.2 的工具前提）        = 100%  否则该决策不可用于 A2
+  必备/不必需  不需要共享 Block（单 owner 链同样可分）
+
+A3 门槛（联合）
+  3a  A1 与 A2 门槛同时满足
+  3b  E({A}) ∪ E({B}) ⊊ E({A,B}) 可发生的决策占比 > 0   互补性存在才可能有联合收益
+  必备  共享结构是 A3 的**唯一**额外前提（这也是 A3 排在最后的原因）
 ```
 
-任一门槛不满足 ⇒ **停止**，报告该臂在本语料上不可测，不得继续扩实验。
-（此即 PR #50 §1.0 的教训：先确认语料能表达该效应，再谈算法收益。）
+**这一点很重要**：H1 的 0/81 共享只表示 A3 在 H1 上不可测，
+**不**表示 A1/A2 不可测。旧版把它们绑在一起是错的。
 
-### 6.4 Step 1 —— 离线 replay 主战场（成本低，可全量）
+### 6.4 Step 1 —— 离线阶段（A1 可跑；A2/A3 需先补工具）
 
-用 `src/kvopt/costaware/replay.py` 的 replay 框架，在**同一批决策**上比较
-`A0 / A1 / A2 / A3` 四个 `ReleaseStrategy` + victim chooser。记录：
+#### 6.4.1 现状核实：replay 只支持 Entry 释放
+
+已对源码逐项核对（`src/kvopt/costaware/replay.py`，并由 `local/probe_rc5_replay_gap.py`
+内省断言同一结论），A2/A3 需要的三样东西**当前都不具备**：
 
 ```text
-主指标   L(S) 的代理：Σ_r (m_r − j_S(r) + 1)·B        ← §1.2，唯一记录量
-分解     j_S(r) 分布、每链损伤深度、每链被淘汰 Block 数
-辅助观测 Σ_c C(r_c)、TTFT、queue delay（只解释 token→延迟传导，不参与排序，§3.5.3）
-末块核对 每链末块的实际 token 数（检验 §4.4 的常数 $B$ 假设引入的误差）
-规则审计 每决策触及链数（检验 §3.4.4 的「集中而非分散」）、Δ(b) 与事后实测重算量的秩相关
-背离率   sign(q_c 排序) ≠ sign(lru_rank 排序) 的链对占比（§3.5 的操作条件）
-合法性   S ⊆ E(R) 被违反的次数（必须为 0，§1.3）
-(C2) 违规   |S| ≠ min(required_blocks, |E(R)|) 的次数（必须为 0）
-(C3) 违规   |E(R)| ≥ required_blocks 之后仍有释放的次数（必须为 0）
+① replay_decision 只产出 ReplayOutcome(released=Entry 键序列, ...,
+   eligible_blocks_final=int)。**不记录被淘汰的 Block 集合 S**，
+   因此 j_c 与 L(S) 都无法计算。
+② DecisionSnapshot.QueueBlock 只有 block_id / has_block_hash / native_lru_rank。
+   **没有深度、没有链归属**，Δ_c(b) = q_c·B·(j_c − d)^+ 无法求值。
+③ DecisionSnapshot **丢弃了每 Entry 的 block_ids**（只保留 owners_by_block 与
+   observed_initial_reclaimable），链归属无法从 replay 快照恢复，
+   只能回到原始 payload 重建。
 ```
 
-### 6.5 Step 2 —— 最小配对的 native 验证（成本高，样本小）
+另有一项**未经验证**、不能当作已具备的前提：`DecisionCandidateRow.block_ids`
+保留了元组顺序，但「该顺序即前缀深度序（深度 = 下标 + 1）」**尚未证实**。
+它必须被验证，不能被假定。
 
-仅在 Step 1 出现 ≥1 个稳定方向后执行；方法沿用 Phase 2E 的配对协议
-（同 seed、同 workload、同 backend，仅策略不同），样本量取最小可判读规模。
+#### 6.4.2 需要补的最小工具（设计，不实现）
 
 ```text
-主目标    aggregate recomputed tokens（与 §6.4 同一量，§1.2；
-          native 运行下由 observed_recomputed_tokens 提供，仅评测期可得）
-辅助观测  TTFT（H1 已确认可直接测量：native_queued_timestamp →
-          native_scheduler_admission_timestamp → native_first_token_timestamp）
-注意      Spearman(重算 token, TTFT) = 0.4327 ⇒ token 收益 **不**按比例传导到延迟
-口径      token 与 TTFT 两个口径必须并列报告，
-          但**判断优劣只取 token 口径**（§1.2）；TTFT 用于解释传导损耗
+T1  深度重建       从原始 payload 的 per-entry block_ids 建 depth_by_block 与
+                   chain_of_block；先用 §6.4.3 的次序检验通过后才可启用
+T2  VictimStrategy  与 ReleaseStrategy 对称的新协议：
+                   pick_next(legal: Sequence[int], state) -> int
+                   合法集强制 ⊆ E(R)，违规即抛错（对齐 §1.3 的 (C1)）
+T3  Outcome 扩字段  ReplayOutcome 增 evicted_blocks 与 per_chain_exposure，
+                   纯增字段，不改变既有字段含义
+T4  保真校验        若存在 observed_physical_eviction_blocks，则校验模拟的 S
+                   与观测集合一致；**若不存在，本次只能称 simulation**
+```
+
+⚠️ **命名纪律**：T4 没有观测集合时，不得把 Step 1b 的结果称为 replay 或
+「复现了 native 行为」。它是在给定释放顺序下对物理淘汰的**模拟**。
+
+#### 6.4.3 必须先通过的次序检验（T1 的准入条件）
+
+```text
+检验 H1  对每个 Entry，block_ids 的下标序是否与其块在该链上的前缀序一致
+         判据：同一 Entry 内 native_lru_rank 与 block_ids 下标是否同向
+         （PR #50 已测得 hashless 在队列中恰为 {0..k−1}，方向一致但那是队列序，
+           不是 Entry 内深度序，两者需分别验证）
+检验 H2  跨 Entry 拼接时，共享根是否落在两条链的**相同**深度上
+         若不一致 ⇒ 该语料的前缀结构不可用于深度计算，T1 停用
+```
+
+#### 6.4.4 Step 1a：Entry 阶段（A0 vs A1，当前即可执行）
+
+用现有 `replay_decision`，在**同一批决策**上比较 A0 与 A1。记录：
+
+```text
+主指标   （**代理，不是 L(S)**）|E(R)| 与 N_i 的组合近似（A1 阶段尚无 S，
+         故只能记期望量，不能记 j_S(r)）
+释放侧   released 序列、迭代次数、satisfied / exhausted
+合法性   released ⊆ C 且 R 满足 (C2)(C3)：违规次数必须为 0
+臂门槛   1a / 1b 的实测值（§6.3）
+```
+
+⚠️ **A1 的这一行不是 L(S)**：由于 S 未产生，这里只有期望代理。
+真实 L(S) 需要 T1–T3，见 §6.4.5。这也是 §6.5.3 强调离线不是收益的原因之一。
+
+#### 6.4.5 Step 1b：Block 阶段（A2 vs A3，需 T1–T4 就绪后执行）
+
+```text
+主指标   L(S) = Σ_r (m_r − j_S(r) + 1)·B          ← §1.2，唯一记录量
+分解     每链 j_c、每链被淘汰 Block 数、S 的深度分布
+规则审计 每决策触及链数（检验 §3.4.4 的「集中而非分散」）、
+         Δ(b) 与事后实测重算量的秩相关
+背离率   sign(q_c 序) ≠ sign(lru_rank 序) 的链对占比（§3.5 操作条件）
+末块核对 每链末块的实际 token 数（检验 §4.4 常数 B 的误差）
+合法性   S ⊆ E(R) 违规次数 = 0；(C2) 违规 = 0；(C3) 违规 = 0
+模拟标记 若 T4 无观测集合可比，本行结果标注为 simulation
+```
+
+### 6.5 Step 2 —— 最小配对 native 验证（离线之后，非可选）
+
+#### 6.5.1 触发条件
+
+```text
+Step 1 出现 ≥1 个方向稳定、且通过该臂全部门槛的候选，才进入 Step 2。
+Step 1 未出现稳定方向 ⇒ 结束，不得用离线数字充当结论。
+```
+
+#### 6.5.2 指标口径
+
+```text
+主指标    aggregate recomputed tokens（observed_recomputed_tokens，仅评测期可得）
+辅助指标  TTFT（native_queued_timestamp → native_scheduler_admission_timestamp
+          → native_first_token_timestamp，H1 已确认 100% 填充）
+辅助指标  queue delay、prefill 时间
+判定      **只按 token 口径判定优劣**；辅助指标用于解释传导损耗
+报告      两个口径必须并列，不得只报一个
+```
+
+方法沿用 Phase 2E 的配对协议（同 seed、同 workload、同 backend，仅策略不同），
+样本量取最小可判读规模。
+
+#### 6.5.3 离线估计不是收益（RC5 明确要求）
+
+```text
+离线 L(S) 只是**在给定模型下的估计**，受三层误差影响：
+  ① q_c 来自 TTL 的单调变换，是启发式，不是实测返回概率
+  ② 深度与链归属来自 T1 重建，依赖 §6.4.3 的次序假设
+  ③ S 是模拟集合，可能与 native 实际淘汰不同（T4 无观测时无法校验）
+
+⇒ 因此必须同时报告：离线估计值、native 实测值、以及二者的差；
+   差值本身就是发现（模型缺项 / 次序假设不成立 / 信号不可靠）。
+⇒ 不得把离线估计写成「预计可降低 X%」这样的收益陈述。
 ```
 
 ### 6.6 明确不做的部分
@@ -774,9 +872,8 @@ M1 明确要求「在修复后的真实共享前缀工作负载中验证」，�
 ❌ 不做大规模实验（M1 未授权）
 ❌ 不新增离线训练模型（§4.3 复用 Continuum 既有信号）
 ❌ 不在压力满足后主动多释放 Entry（RC1，本轮不授权）
+❌ 不在 T1–T4 就绪前声称 A2/A3 的离线结果（§6.4.2）
 ```
-
----
 
 ## 7. 为什么 H1 无法支撑本设计（以及不重复审计）
 
@@ -801,7 +898,7 @@ M1 明确要求「在修复后的真实共享前缀工作负载中验证」，�
    §3.3 已按 (C3) 改为释放到够即止。该方向保持关闭，待单独论证后再议。
 2. **部分前缀保护**：本设计只处理**整 Entry 释放**；若未来需要按 Block 粒度解除保护
    （即 PR #50 的四字段接口不足以表达 $O(b)$ 的按 Block 语义），需先扩展接口并另行评审。
-3. **A2 的取舍**：若 §6.4 显示 A2 在 aggregate token 上为负而仅在尾部风险上为正，
+3. **A2 的取舍**：若 §6.4.5 显示 A2 在 aggregate token 上为负而仅在尾部风险上为正，
    请裁定以哪个口径为准（本项目此前声明的主口径是 aggregate token）。
 
 ---
@@ -839,6 +936,9 @@ M1 明确要求「在修复后的真实共享前缀工作负载中验证」，�
 | token 口径下集中与分散在 $q$ 相同时等值 | $L$ 对每条链严格线性（§3.5.2）；`local/probe_rc4_metric.py` 数值确认 2.000B = 2.000B |
 | $B=\texttt{block\_size}$ 为常数；`block_hash_num_tokens` 是累计前缀边界 | §4.4 勘误；H1 该字段 10 个值均为 16 的整数倍，与 block_size=16 的累计边界一致 |
 | H1 无共享：0/81、0/471、294/294 | `local/probe_entry_vs_block.py`、`local/probe_rev3_verify.py`（本地探针，未纳入提交） |
+| replay 不产出淘汰 Block 集合 S | `costaware/replay.py::replay_decision` 与 `ReplayOutcome` 字段核对 |
+| `QueueBlock` 无深度、无链归属 | `costaware/replay.py::QueueBlock` 三字段 |
+| `DecisionSnapshot` 丢弃 per-entry `block_ids` | `_snapshot_from_event` 只保留 owners 与 observed_initial_reclaimable；`local/probe_rc5_replay_gap.py` 内省断言 |
 | `FORBIDDEN_FEATURES` | `costaware/rules.py` |
 | TTFT 可直接测量 | `VLLM_NATIVE_REQUEST_OBSERVATION` 三时间戳，100% 填充 |
 | 重算 token 不按比例传导到 TTFT | Spearman = 0.4327 |
