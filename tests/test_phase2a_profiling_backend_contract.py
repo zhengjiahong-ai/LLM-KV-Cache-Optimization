@@ -17,12 +17,11 @@ from scripts.spikes.phase2_minimal_observability_metal import (
 def test_phase2e_can_select_real_native_or_continuum_baseline() -> None:
     common = {"campaign_kind": "phase2e_non_holdout_research_discovery"}
 
-    assert _retention_mode_for_config({**common, "policy": "native-lru"}) is (
-        RetentionMode.NATIVE
+    assert _retention_mode_for_config({**common, "policy": "native-lru"}) is (RetentionMode.NATIVE)
+    assert (
+        _retention_mode_for_config({**common, "policy": "continuum-baseline"})
+        is RetentionMode.CONTROLLED
     )
-    assert _retention_mode_for_config(
-        {**common, "policy": "continuum-baseline"}
-    ) is RetentionMode.CONTROLLED
 
 
 def test_native_lru_switch_is_restricted_to_phase2e() -> None:
@@ -37,31 +36,35 @@ def test_legacy_config_keeps_controlled_retention_default() -> None:
 
 
 def test_expected_block_budget_matches_controlled_scarcity_rule() -> None:
-    assert _expected_profiling_block_override(
-        {"agent-a": 256, "agent-b": 256}, 512
-    ) == 64
-    assert _expected_profiling_block_override(
-        {"agent-a": 128, "agent-b": 256}, 512
-    ) == 56
-    assert _expected_profiling_block_override(
-        {"agent-a": 256, "agent-b": 512}, 512
-    ) == 80
-    assert _expected_profiling_block_override(
-        {"agent-a": 128, "agent-b": 256, "agent-c": 512},
-        512,
-        20,
-    ) == 69
+    assert _expected_profiling_block_override({"agent-a": 256, "agent-b": 256}, 512) == 64
+    assert _expected_profiling_block_override({"agent-a": 128, "agent-b": 256}, 512) == 56
+    assert _expected_profiling_block_override({"agent-a": 256, "agent-b": 512}, 512) == 80
+    assert (
+        _expected_profiling_block_override(
+            {"agent-a": 128, "agent-b": 256, "agent-c": 512},
+            512,
+            20,
+        )
+        == 69
+    )
+    assert (
+        _expected_profiling_block_override(
+            {"agent-a": 256, "agent-b": 256},
+            320,
+            4,
+            protected_prefix_blocks_override=20,
+        )
+        == 37
+    )
 
 
 def test_program_prefix_sizes_accept_h2_grid_points_only_when_aligned() -> None:
-    assert _program_prefix_sizes({
-        "program_prefix_tokens": {"agent-a": 192, "agent-b": 30_720}
-    }) == {"agent-a": 192, "agent-b": 30_720}
+    assert _program_prefix_sizes(
+        {"program_prefix_tokens": {"agent-a": 192, "agent-b": 30_720}}
+    ) == {"agent-a": 192, "agent-b": 30_720}
 
     with pytest.raises(ValueError, match="align to the KV block size"):
-        _program_prefix_sizes({
-            "program_prefix_tokens": {"agent-a": 191}
-        })
+        _program_prefix_sizes({"program_prefix_tokens": {"agent-a": 191}})
 
 
 def test_materialized_turn_uses_requested_prefix_size() -> None:
@@ -88,29 +91,35 @@ def test_materialized_turn_uses_requested_prefix_size() -> None:
 
 
 def test_pressure_stage_sizes_accept_aligned_overrides() -> None:
-    assert _pressure_stage_sizes({
-        "pressure_stage_prompt_tokens": {
-            "pressure-1": 256,
-            "pressure-2": 512,
+    assert _pressure_stage_sizes(
+        {
+            "pressure_stage_prompt_tokens": {
+                "pressure-1": 256,
+                "pressure-2": 512,
+            }
         }
-    }) == {"pressure-1": 256, "pressure-2": 512}
+    ) == {"pressure-1": 256, "pressure-2": 512}
 
     with pytest.raises(ValueError, match="align to the KV block size"):
-        _pressure_stage_sizes({
-            "pressure_stage_prompt_tokens": {"pressure-1": 255}
-        })
+        _pressure_stage_sizes({"pressure_stage_prompt_tokens": {"pressure-1": 255}})
 
 
 def test_max_model_len_covers_largest_pressure_stage() -> None:
-    assert _required_max_model_len(
-        {"agent-a": 256, "agent-b": 512},
-        512,
-        {"pressure-1": 512},
-        1,
-    ) == 528
-    assert _required_max_model_len(
-        {"agent-a": 256, "agent-b": 512},
-        512,
-        {"pressure-1": 512, "pressure-2": 768},
-        1,
-    ) == 784
+    assert (
+        _required_max_model_len(
+            {"agent-a": 256, "agent-b": 512},
+            512,
+            {"pressure-1": 512},
+            1,
+        )
+        == 528
+    )
+    assert (
+        _required_max_model_len(
+            {"agent-a": 256, "agent-b": 512},
+            512,
+            {"pressure-1": 512, "pressure-2": 768},
+            1,
+        )
+        == 784
+    )
