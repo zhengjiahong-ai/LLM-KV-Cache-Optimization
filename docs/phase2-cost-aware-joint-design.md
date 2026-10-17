@@ -753,7 +753,7 @@ A3 门槛（联合）
 
 #### 6.4.1 现状核实：replay 只支持 Entry 释放
 
-已对源码逐项核对（`src/kvopt/costaware/replay.py`，并由 `local/probe_rc5_replay_gap.py`
+已对源码逐项核对（`src/kvopt/costaware/replay.py`，并由 `scripts/probes/probe_replay_capability.py`
 内省断言同一结论），A2/A3 需要的三样东西**当前都不具备**：
 
 ```text
@@ -918,6 +918,10 @@ Step 1 未出现稳定方向 ⇒ 结束，不得用离线数字充当结论。
 
 ## 10. 可追溯性
 
+本表引用的探针脚本全部位于 `scripts/probes/`，可独立运行并自断言；
+自足探针已纳入 `tests/test_joint_design_probes.py`，会随测试套件执行。
+H1 探针需要运行产物目录（不提交数据），用法见 `scripts/probes/README.md`。
+
 | 本文结论 | 依据 |
 |---|---|
 | $E(R) = \{b : O(b) \subseteq R\} \cup \{$hashless$\}$ | `costaware/replay.py::eligible_block_ids` 逐行核对 |
@@ -931,14 +935,14 @@ Step 1 未出现稳定方向 ⇒ 结束，不得用离线数字充当结论。
 | 旧键按 `share` 升序会选 $A$ | $\text{share}_A=8/16=0.5<\text{share}_B=8/10=0.8$（RC2 勘误） |
 | $R_c$ 只依赖最浅缺口 $j_c$ | APC 前缀语义；与 §3.4.1 的定义一致 |
 | $\Delta_c(b)=q_c B_b (j_c-d)^{+}$ | 对 $R_c$ 逐项求差，三种情形穷举 |
-| 旧 WRR 3.0B；native 在 lru 与 q 一致时 1.2B、背离时 3.6B | `local/probe_rc3_block.py` 逐步复算并断言三种情形 |
-| $C(r)/r$ 单调不增 ⇒ **次可加**（不是凹） | §3.5.1 的推导；`local/probe_rc4_metric.py` 给出非凹反例并逐一检验不等式 |
-| token 口径下集中与分散在 $q$ 相同时等值 | $L$ 对每条链严格线性（§3.5.2）；`local/probe_rc4_metric.py` 数值确认 2.000B = 2.000B |
+| 旧 WRR 3.0B；native 在 lru 与 q 一致时 1.2B、背离时 3.6B | `scripts/probes/probe_example_block_eviction.py` 逐步复算并断言三种情形 |
+| $C(r)/r$ 单调不增 ⇒ **次可加**（不是凹） | §3.5.1 的推导；`scripts/probes/probe_metric_semantics.py` 给出非凹反例并逐一检验不等式 |
+| token 口径下集中与分散在 $q$ 相同时等值 | $L$ 对每条链严格线性（§3.5.2）；`scripts/probes/probe_metric_semantics.py` 数值确认 2.000B = 2.000B |
 | $B=\texttt{block\_size}$ 为常数；`block_hash_num_tokens` 是累计前缀边界 | §4.4 勘误；H1 该字段 10 个值均为 16 的整数倍，与 block_size=16 的累计边界一致 |
-| H1 无共享：0/81、0/471、294/294 | `local/probe_entry_vs_block.py`、`local/probe_rev3_verify.py`（本地探针，未纳入提交） |
+| H1 无共享：0/81、0/471、294/294 | `scripts/probes/h1_entry_block_overlap.py`、`scripts/probes/h1_lru_monotonicity.py`（`scripts/probes/` 下的可复核脚本，需要 H1 artifacts 目录；数据集不提交） |
 | replay 不产出淘汰 Block 集合 S | `costaware/replay.py::replay_decision` 与 `ReplayOutcome` 字段核对 |
 | `QueueBlock` 无深度、无链归属 | `costaware/replay.py::QueueBlock` 三字段 |
-| `DecisionSnapshot` 丢弃 per-entry `block_ids` | `_snapshot_from_event` 只保留 owners 与 observed_initial_reclaimable；`local/probe_rc5_replay_gap.py` 内省断言 |
+| `DecisionSnapshot` 丢弃 per-entry `block_ids` | `_snapshot_from_event` 只保留 owners 与 observed_initial_reclaimable；`scripts/probes/probe_replay_capability.py` 内省断言 |
 | `FORBIDDEN_FEATURES` | `costaware/rules.py` |
 | TTFT 可直接测量 | `VLLM_NATIVE_REQUEST_OBSERVATION` 三时间戳，100% 填充 |
 | 重算 token 不按比例传导到 TTFT | Spearman = 0.4327 |
