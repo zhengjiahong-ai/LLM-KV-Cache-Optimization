@@ -46,6 +46,7 @@ from kvopt.continuum import (
 )
 from kvopt.continuum.composition import build_runtime_from_config
 from kvopt.continuum.runtime import build_runtime
+from kvopt.costaware.a1_native import A1NativeSelectionCoordinator
 from kvopt.profiling.experiment_events import (
     ExperimentEvent,
     ExperimentEventSink,
@@ -488,9 +489,27 @@ class _ObservedRetentionIntegration:
         clock: SystemMonotonicClock,
         forced_release_observer: _CountingForcedReleaseObserver,
         diagnostic_first_release_program_id: str | None = None,
+        *,
+        phase2g_release_policy: str = "A0",
+        phase2g_a1_lambda: float = 0.5,
+        phase2g_a1_tau_seconds: float = 30.0,
+        sink: ExperimentEventSink | None = None,
     ) -> None:
         self._runtime = runtime
         self._clock = clock
+        if phase2g_release_policy not in {"A0", "A1"}:
+            raise ValueError("phase2g_release_policy must be A0 or A1")
+        self._phase2g_release_policy = phase2g_release_policy
+        self._sink = sink
+        self._a1_coordinator = (
+            A1NativeSelectionCoordinator(
+                forced_release_observer,
+                lambda_=phase2g_a1_lambda,
+                tau_seconds=phase2g_a1_tau_seconds,
+            )
+            if phase2g_release_policy == "A1"
+            else None
+        )
         self._delegate = RetentionRuntimeIntegration(
             runtime.retention,
             forced_release_observer,
@@ -499,12 +518,30 @@ class _ObservedRetentionIntegration:
                 if diagnostic_first_release_program_id is None
                 else ProgramIdentity(diagnostic_first_release_program_id)
             ),
+            selection_coordinator=self._a1_coordinator,
         )
         self.last_selected_block_ids: tuple[int, ...] = ()
 
     def apply_pressure(self, **kwargs: object) -> Any:
         result = self._delegate.apply_pressure(**kwargs)
         self.last_selected_block_ids = tuple(result.selected_block_ids)
+        if self._a1_coordinator is not None and self._sink is not None:
+            self._sink.emit(
+                ExperimentEvent.create(
+                    event_type="COST_AWARE_RELEASE_DECISION",
+                    timestamp=self._clock.now(),
+                    clock_domain="system_monotonic",
+                    source="phase2g.a1_native",
+                    payload={
+                        "policy": "A1",
+                        "strategy_id": self._a1_coordinator.strategy.strategy_id,
+                        "lambda": self._a1_coordinator.strategy.lambda_,
+                        "tau_seconds": self._a1_coordinator.strategy.tau_seconds,
+                        "selection_trace": self._a1_coordinator.selection_trace(),
+                        "selected_native_block_ids": self.last_selected_block_ids,
+                    },
+                )
+            )
         return result
 
     def observe_native_eviction(self, block_id: BlockIdentity) -> None:
@@ -607,6 +644,16 @@ class MinimalMetalObservabilityBackend:
         ):
             raise ValueError("Phase 2D diagnostic release is restricted to its pilot")
         self._phase2d_diagnostic_release_program = diagnostic_release
+        phase2g_release_policy = options.get("phase2g_release_policy", "A0")
+        if phase2g_release_policy not in {"A0", "A1"}:
+            raise ValueError("backend_options.phase2g_release_policy must be A0 or A1")
+        if phase2g_release_policy == "A1" and config.get("campaign_kind") not in {
+            "phase2g_a1_native_gate1",
+            "phase2g_a1_bounded_evaluation",
+        }:
+            raise ValueError("A1 native release is restricted to authorized Phase 2G campaigns")
+        phase2g_a1_lambda = float(options.get("phase2g_a1_lambda", 0.5))
+        phase2g_a1_tau_seconds = float(options.get("phase2g_a1_tau_seconds", 30.0))
         if self._h2_interventions and config.get("campaign_kind") not in {
             "h2_formal_measurement",
             "h2_intervention_validation",
@@ -684,6 +731,10 @@ class MinimalMetalObservabilityBackend:
             self._clock,
             self._forced_release_observer,
             self._phase2d_diagnostic_release_program,
+            phase2g_release_policy=str(phase2g_release_policy),
+            phase2g_a1_lambda=phase2g_a1_lambda,
+            phase2g_a1_tau_seconds=phase2g_a1_tau_seconds,
+            sink=sink,
         )
 
         try:
@@ -960,6 +1011,15 @@ class MinimalMetalObservabilityBackend:
                     "h2_m4_prefill_curve_bound": h2_m4_prefill_provider is not None,
                     "gpu_memory_utilization": gpu_memory_utilization,
                     "retention_mode": self._retention_mode.value,
+                    "phase2g_release_policy": phase2g_release_policy,
+                    "phase2g_a1_lambda": (
+                        phase2g_a1_lambda if phase2g_release_policy == "A1" else None
+                    ),
+                    "phase2g_a1_tau_seconds": (
+                        phase2g_a1_tau_seconds
+                        if phase2g_release_policy == "A1"
+                        else None
+                    ),
                 },
             )
         )

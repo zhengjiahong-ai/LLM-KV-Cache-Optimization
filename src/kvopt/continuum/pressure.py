@@ -122,24 +122,25 @@ class RetentionAwareSelectionCoordinator:
             ]
             if len(forced) > 1:
                 raise ValueError("diagnostic program has multiple release candidates")
-            ranked_releases = forced or sorted(
-                candidates_for_release,
-                key=lambda item: self._release_sort_key(
-                    item[0],
-                    item[1],
-                    states,
-                    entries,
-                    entries_by_block,
-                    released_keys,
-                ),
-            )
             if (
                 not pressure_releases
                 and diagnostic_first_release_program_id is not None
                 and not forced
             ):
                 raise ValueError("diagnostic release program is not a legal candidate")
-            key, _entry = ranked_releases[0]
+            key = (
+                forced[0][0]
+                if forced
+                else self._pick_pressure_release(
+                    candidates_for_release,
+                    states,
+                    entries,
+                    entries_by_block,
+                    released_keys,
+                    target,
+                    now,
+                )
+            )
             newly_eligible = self._newly_eligible_blocks_after_release(
                 key,
                 states,
@@ -183,6 +184,30 @@ class RetentionAwareSelectionCoordinator:
                 )
             )
         return preparation
+
+    def _pick_pressure_release(
+        self,
+        candidates: list[tuple[RetentionEntryKey, RetentionEntrySnapshot]],
+        states: tuple[_CandidateState, ...],
+        entries: dict[RetentionEntryKey, RetentionEntrySnapshot],
+        entries_by_block: dict[BlockIdentity, tuple[RetentionEntryKey, ...]],
+        released_keys: set[RetentionEntryKey],
+        target: int,
+        timestamp: float,
+    ) -> RetentionEntryKey:
+        """Choose the next logical release; the default is the frozen A0 order."""
+        del target, timestamp
+        return min(
+            candidates,
+            key=lambda item: self._release_sort_key(
+                item[0],
+                item[1],
+                states,
+                entries,
+                entries_by_block,
+                released_keys,
+            ),
+        )[0]
 
     @staticmethod
     def _normalize_candidates(
