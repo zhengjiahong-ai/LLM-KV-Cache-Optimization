@@ -295,8 +295,7 @@ $$
 - $\tau$ = 时间尺度常数，取 Tool Gap History 的典型间隔（§4.3），**无新增拟合参数**。
 - **$q_i$ 的读法（rev.7 明确）**：$q_i > 0.5 \iff \text{deadline}_i > t$，
   即该 Entry 的 TTL **尚未到期**；$q_i < 0.5$ 表示 **已过 TTL 但尚未被释放**
-  —— 这正是在一次强制释放决策上出现的合法状态，因为 Continuum 按 `deadline`
-  升序释放，轮到它时其 deadline 往往已经在 $t$ 之前。
+  —— 仅在其仍受保护时才是合法候选，例如 `waiting_followup=True` 阻止了 ordinary expiry。普通已过期且不等待 follow-up 的 Entry 会先被释放。
 - **$q_i$ 与 $\lambda$ 都是启发式代理，不是已校准的未来事件概率**（M1 第 3 点）。
   它们只用于**排序**，量纲和取值不承担概率解释；不得把它们报成
   「该 Entry 以 0.3 的概率被复用」这类断言。
@@ -365,7 +364,7 @@ $$
 
 **$\tilde q_{ij}$ 的含义仅为有界的联合启发式权重**：$q_i,q_j$ 并非校准概率，且两条 Entry 的返回事件可能相关；因此 $1-(1-q_i)(1-q_j)$ **不能作为真实的并集概率或无相关性结论**。这里仅用其将共享块暴露风险压到一个有界权重中，后续效果须通过 native 观测验证。
 
-**与 Continuum 的差别（可精确陈述）**：当所有候选的 $N_i$ **相同**时，
+**与 Continuum 的差别（可精确陈述）**：当所有可比较候选都属于相同分支且 $N_i$ **相同并为正**时，
 $\widehat R_i$ 方括号内为公共常数，故 $\widehat R_i \propto q_i$，
 排序**精确退化**为 Continuum 的 `deadline` 序 —— 这是严格成立的条件，不是近似。
 
@@ -457,7 +456,7 @@ b^{\ast} = \arg\min_{b\in E(R)\setminus S}\; \Delta(b),
 \Delta(b) = \sum_{c\,:\,b\in \mathrm{chain}(c)} \Delta_c(b)
 $$
 
-重复 $\min(D,\,|E(R)|)$ 次（(C2)），每次重新计算 $j_c$ 与 $\Delta$。
+合法候选满足压力目标后，恰好选择 $D$ 个物理 Block（$D=\min(\texttt{required\_blocks},|\texttt{queue}|)$）；每次重新计算 $j_c$ 与 $\Delta$。
 
 实现上可用一个按 $\Delta$ 的最小堆：每淘汰一个 Block 只影响它所属链的 $\Delta$，
 复杂度 $O(|E(R)|\log|E(R)|)$，无需迭代求解。
@@ -651,7 +650,7 @@ N_B = |E({B})| − |E(∅)| = 2   (p17,p18)
 > 合法性核对（M1 第 3 点）：$q_A = 0.5$ 对应 $\text{deadline}_A = t$，
 > $q_B = 0.9$ 对应 $\text{deadline}_B = t + \tau\ln 9$，两者都是合法状态。
 > §5.2 的 $q_\beta = 0.3$ 对应 $\text{deadline}_\beta = t - \tau\ln(7/3)$，
-> 即**已过 TTL 但尚未被释放**的冷链 —— 这正是强制释放决策上常见的情形（见 §3.3.3）。
+> 即**已过 TTL 但仍被保护**的冷链；这需要例如 `waiting_followup=True` 使普通过期释放暂未执行，否则该 Entry 会先被普通过期处理（见 §3.3.3）。
 $\lambda = 0.5$：
 
 $$
@@ -1014,7 +1013,7 @@ H1 实测（`scripts/probes/h1_entry_block_overlap.py` 的 F4，`--strict` 会�
 | `docs/ours-evict-algorithm-design-v1.md`（PR #50） | 保留为**当前接口局限性的分析记录**；本文不复用其 H1 外推 |
 | PR #44 / Phase 2D | 提供 A2 验证所需的**共享保留**最小夹具 |
 | PR #45 / Phase 2E Task A | 指标冻结；本文沿用其口径，不新增主指标 |
-| `src/kvopt/continuum/pressure.py` | **冻结基线 A0**，只读；本文的 A1 是其增量，退化分支保证不劣化 |
+| `src/kvopt/continuum/pressure.py` | **冻结基线 A0**，只读；A1 在相同边际量时退化为 deadline 排序，但不保证逐决策不劣化 |
 | `src/kvopt/costaware/replay.py` | 提供 `ReleaseStrategy` 协议与 `ExecutedP1BStrategy` 先例，是 Step 1 的载体 |
 | `src/kvopt/runtime/vllm/adapter.py` | A2 的实现落点（`EvictionPolicyAdapter`），但**当前只读** |
 
