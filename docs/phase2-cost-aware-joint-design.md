@@ -4,6 +4,8 @@
 > 依 M1 裁定：本文只做设计，不做 runtime 策略实现、不做大规模实验。
 > 修订：rev.2 依 M1 RC1 为目标函数补充释放约束 (C1)–(C4)，
 > 并撤回「压力满足后仍主动多释放 Entry」的表述（本轮不授权）。
+> 修订：rev.3 依 M1 RC2 以期望重算代价 $\widehat{R}_i$ 取代纯拓扑排序键，
+> 并按新公式重算 §5.1（旧版例子与旧版规则不自洽，已作勘误）。
 > 关联：PR #50（`docs/ours-evict-algorithm-design-v1.md`）保留为**当前四字段接口局限性的分析记录**；
 > 其中 H1 派生结论已按 M1 要求收紧到「该接口 + 该语料」范围内，本文**不**复用其外推。
 
@@ -112,7 +114,8 @@ S  —— Block 层变量：在可行池内选择实际淘汰集合
 
 M1 的提醒成立，本设计明确**不做**两层各自最优的声明：
 
-- Entry 层使用的是**可行域启发式**（§3.3），它**不是** $L$ 的一部分，只是一个构造 $E(R)$ 的规则；
+- Entry 层使用的是**成本排序启发式**（§3.3），它**不是** $L$ 的一部分，只是一个构造 $E(R)$ 的规则；
+  其评分 $\widehat{R}_i$ 是 $L$ 的代理，但**不是** $L$ 本身（它含 $\lambda$ 这类启发式权重）；
 - Block 层在给定 $E(R)$ 上做加权轮询，其目标也只是 $L$ 的启发式代理（§3.4）；
 - 两者都不声称最优；A3 的收益必须由 §6 的实测给出，而不是由两层的局部论证给出。
 
@@ -190,33 +193,92 @@ M1 裁定「统一损失模型为优先设计方向，分层启发式为候选�
 ### 3.2 四个输入维度（对应 M1 第 2 条列出的四项）
 
 ```text
-① 容量   relief(i|R) = |E(R ∪ {i})| − |E(R)|          → 能否达到 required_blocks
-② 复用   未来复用可能性（代理，见 §4.3）              → 牺牲它的代价有多大
-③ 重算   丢失后实际需要重算的 token 量（§4.4）        → 代价的物理换算
-④ 共享   跨 Entry 共属结构 O(b)（§2.3）               → 释放顺序的互补性
+① 容量   N_i(R) = |E(R ∪ {i})| − |E(R)|          → 能否达到 required_blocks（约束）
+② 复用   q_i，由 Continuum 的 TTL 单调给出        → 牺牲它的概率
+③ 重算   丢弃后实际需要重算的 token 量（§4.4）    → 代价的物理换算，B × blocks
+④ 共享   共属结构 O(b)（§2.3）                     → 决定 N_i，并通过 N_i 进入成本
 ```
 
-### 3.3 Entry 层：可行域启发式（不进入 $L$）
+M1 曾指出「不能只围绕 relief 设计」。本设计据此把 ① 降为**约束**，
+把 ②③ 合成 **期望重算代价** 作为唯一排序量，把 ④ 作为产生 $N_i$ 的结构来源。
 
-Entry 层**只做一件事**：构造一个 $E(R)$，使其
-(a) 满足 $|E(R)| \ge \texttt{required\_blocks}$，且
-(b) 尽量把「便宜的牺牲品」暴露出来、把「贵的根」保留。
+### 3.3 Entry 层：可计算的 Cost-Aware 释放排序
+
+Entry 层只做一件事：在满足 (C3)「释放到够即止」的前提下，决定**先释放谁**。
+
+> **RC2 修订说明**：旧版排序键为 `last-owner → share → deadline → LRU`，
+> 其中没有任何成本量，实质是**共享拓扑启发式**，不是 Cost-Aware Release。
+> 该键已整体废弃，替换为下面的期望重算排序。旧键的另一个问题是它与 §5.1 的例子
+> 自相矛盾（按 `share` 升序会选 $A$ 而非文中声称的 $B$，见 §5.1 的勘误）。
+
+#### 3.3.1 五个可计算量
 
 ```text
-release_priority(i | R)  升序 = 先释放
-   ( 0 if i 是某个 Block 的最后未释放 owner else 1 ,   # 先解锁共享组（互补性）
-     share_i(R) ,                                      # 释放后仍被保护的占比：越高越"浪费"，越晚释放
-     deadline_timestamp ,                              # 退化到 Continuum 的 TTL 语义
-     native_lru_rank_of_newly_eligible_min ,           # 退化到 Continuum 的 LRU 语义
-     identity )                                        # 稳定 tie-break
+需求      D      = EvictionContext.required_blocks
+新增暴露  N_i(R) = |E(R ∪ {i})| − |E(R)|    释放 i 新解锁的 Block 数（由 O(b) 决定）
+复用概率  q_i    ∈ (0,1]                    见 3.3.3，Continuum 既有信号的单调变换
+Block 大小 B                                 见 §4.4，block_hash_num_tokens，可不为常数
+后续压力  λ      ∈ [0,1]                    见 3.3.3
 ```
 
-**与 Continuum 的差异**：Continuum 的主键是 `deadline_timestamp`，
-relief 仅用于「判断是否已够容量」。本设计把**共属拓扑**提到主键之前——
-当 `required_blocks` 已经满足时，Continuum 停止释放；
-在满足 (C3)「释放到够即止」的前提下，决定**先释放谁**（而非释放几个）。
-当 `share_i(R) ≡ 1`（H1 情形）时，主键退化为 Continuum，
-**这保证了 A0→A1 是纯增量、不劣化**。
+#### 3.3.2 评分：期望未来重算 token
+
+$$
+\widehat{R}_i(R) \;=\; q_i \cdot B \cdot \Bigl[\,
+\underbrace{\min(D,\,N_i)}_{\text{本次必然淘汰}}
+\;+\;
+\underbrace{\lambda\,\bigl(N_i-\min(D,N_i)\bigr)^{+}}_{\text{残留暴露面的后续代价}}
+\,\Bigr]
+$$
+
+**两项的物理含义**：
+
+- **第一项**：本次压力必须淘汰 $\min(D,N_i)$ 个 Block。深度优先淘汰只在 $i$ 的链上
+  产生一次 $j$ 下移，代价即这 $\min(D,N_i)$ 个 Block 的重算量。
+- **第二项**：$E(R\cup\{i\})$ 一旦形成就**持续存在**，直到 $i$ 重新被保护或过期。
+  暴露面越大，后续压力事件可继续取用的就越多。$\lambda$ 是「$i$ 的剩余生命周期内
+  还会发生一次强制淘汰」的估计概率。这一项是**共享结构进入成本的唯一通道**：
+  $N_i$ 完全由 $O(b)$ 决定（§2.3）。
+- 两项都乘 $q_i$：只有 $i$ 真的回来，重算才会发生。
+
+**为什么不能把 $N_i$ 放进分母**：relief 是**可行域约束**（能否达到 $D$），
+不是要最大化的量。第二项已经惩罚了「不必要的过度暴露」；再除以 $N_i$ 会把该惩罚
+抵消，并导致「越过度暴露越优先」。旧键用 `share` 升序正是犯了这类错误。
+
+#### 3.3.3 $q_i$ 与 $\lambda$ 怎么算（不训练新预测器）
+
+$$
+q_i \;=\; \sigma\!\left(\frac{\mathrm{deadline}_i - t}{\tau}\right),
+\qquad \sigma(x)=\frac{1}{1+e^{-x}}
+$$
+
+- `deadline` = Continuum 动态 TTL 的 `retention_deadline_timestamp`。离过期越远 ⇒
+  越可能被再次命中 ⇒ $q_i$ 越大。这是对 Continuum 既有估计的**单调变换**，
+  因此 $q$ 的排序与 Continuum 的 `deadline` 一致 —— 本设计**不推翻** TTL，
+  而是在同一偏好方向上补充「暴露面大小」与「重算量」两个维度。
+- $\tau$ = 时间尺度常数，取 Tool Gap History 的典型间隔（§4.3），**无新增拟合参数**。
+- $\lambda = \min(1, H_{\text{evict}} / H_{\text{total}})$，即历史决策中
+  「发生强制淘汰」的占比。Continuum 的 pressure 统计与离线 replay 的决策序列
+  都可直接给出该量。
+
+可选精化（**不进第一版**）：$q_i$ 再乘 Program Identity 匹配度，或用
+`prefill_reload_seconds` 做归一化项。第一版保持单参数，便于归因。
+
+#### 3.3.4 释放流程
+
+```text
+1) 若 D = 0 或 free_blocks >= D           → 不进入释放（C4）
+2) F = { i ∈ C : |E(R ∪ {i})| >= D }      # 单步足够集
+3) 若 F ≠ ∅ : 选 argmin_{i∈F} R̂_i(R)      # 成本最小；relief 仅作约束
+   否则     : 选 argmin_{i∈C} R̂_i(R)/N_i   # relief 稀缺，按单位成本换容量
+4) R ← R ∪ {i}；若 |E(R)| < D 回到 2)；否则停止（C3）
+5) 并列时 deadline 升序 → identity 打破
+```
+
+**与 Continuum 的差别（可精确陈述）**：当所有候选的 $N_i$ 相同且 $\lambda = 0$ 时，
+$\widehat{R}_i \propto q_i$，排序**精确退化**为 Continuum 的 `deadline` 序。
+其余情形本设计会与 Continuum 不同，且**不保证逐决策不劣化** ——
+A1 的优劣必须由 §6.4 的离线 replay 判定（这也是 §6 先跑 replay 再跑 native 的原因）。
 
 ⚠️ **本轮明确不做**：「`required_blocks` 已满足后，仍主动多释放一个 Entry
 以解锁共享组」已被 M1 判为超出冻结的按需压力释放语义，**本轮不授权**（RC1）。
@@ -236,7 +298,8 @@ $$
 $$
 
 加权轮询每步选 $c^\ast = \arg\max_c \; \alpha_c \cdot \rho_c(s_c)$，
-$\alpha_c$ 为该链的复用权重（§4.3）。**为什么不是纯深浅优先**：
+$\alpha_c = q_c$，即 §3.3.3 的同一个复用概率，**不引入第二个复用模型**；
+这样两层对「谁更可能回来」的判断完全一致，避免各自最优互相抵消。
 PR #50 的跨链反例已证明深度不能作为全局主键（冷短链会因此被误伤）。
 $\alpha_c$ 承担「谁更可能回来」，$\rho_c$ 承担「还剩下多长」。
 
@@ -271,6 +334,8 @@ A2 的价值必须来自**复用可能性不对称**（谁更可能回来），�
 | 4.5 | 物理淘汰集合 $S$、$j_S(r)$ | 由本设计产出；评测时用 `observed_recomputed_tokens` / `observed_physical_eviction_blocks` | 仅评测期 | 属 `FORBIDDEN_FEATURES`，**不得**作为决策输入 |
 | 4.6 | 容量需求 | `EvictionContext.required_blocks` / `free_blocks` / `total_blocks` | ✅ 决策时 | 冻结 |
 | 4.7 | Native 顺序 | `DecisionCandidateRow.decision_native_lru_position` | ✅ 决策时 | 仅作 warm-start / tie-break |
+| 4.8 | 新增暴露 $N_i(R)$ | 由 4.1 + 4.2 直接计算（$|E(R\cup\{i\})|-|E(R)|$） | ✅ 决策时 | 无需额外输入 |
+| 4.9 | 后续压力概率 $\lambda$ | 历史决策中发生强制淘汰的占比（Continuum pressure 统计 / replay 序列） | ✅ 决策时 | 全局统计量，非未来信息 |
 
 **合规红线**：`src/kvopt/costaware/rules.py::FORBIDDEN_FEATURES`
 （`returned_after_decision`、`observed_recomputed_tokens`、`physical_eviction_count` 等）
@@ -283,28 +348,83 @@ A2 的价值必须来自**复用可能性不对称**（谁更可能回来），�
 
 ### 5.1 例一（Entry 层）：共享根 + 不对称尾巴
 
+> **RC2 勘误**：本节的旧版声称「本设计选 $B$」，但当时给出的排序键按
+> `share` 升序会选 $A$ —— 与文中结论相反。M1 的指正成立。
+> 核算：$A$ 的 Block 共 16 个，释放 $A$ 后仍被 $B$ 保护 8 个 ⇒ $\text{share}_A=0.5$；
+> $B$ 的 Block 共 10 个，释放 $B$ 后仍被 $A$ 保护 8 个 ⇒ $\text{share}_B=0.8$。
+> 升序 ⇒ 选 $A$。旧版例子与旧版规则不自洽，已用下方新公式重算。
+
 ```text
 Block 布局（每 Block = B tokens）
   共享根 : p1..p8        O(pk) = {A, B}          ← 两份共享
-  A 的尾 : p9..p16       O = {A}                 ← A 独有 8 blocks
-  B 的尾 : p17..p18      O = {B}                 ← B 独有 2 blocks
-required_blocks = 2
+  A 的尾 : p9..p16       O = {A}                 ← A 独有 8 blocks，m_A = 16
+  B 的尾 : p17..p18      O = {B}                 ← B 独有 2 blocks，m_B = 10
+required_blocks D = 2 ，初始 R = ∅ ⇒ |E(∅)| = 0（无 hashless Block）
 ```
 
-| | Continuum（`deadline` 为主键） | 本设计（共属拓扑优先） |
+**第一步：算 $N_i$**（由 $O(b)$ 决定，§2.1）
+
+```text
+N_A = |E({A})| − |E(∅)| = 8   (p9..p16)
+N_B = |E({B})| − |E(∅)| = 2   (p17,p18)
+两者均 >= D = 2 ⇒ 都属于单步足够集 F ⇒ 直接比成本
+```
+
+**第二步：代入 §3.3.2 的成本公式**
+
+取 $q_A = 0.5$、$q_B = 0.9$（$A$ 的 deadline 更早 ⇒ $q_A<q_B$，与 Continuum 一致）、
+$\lambda = 0.5$：
+
+$$
+\widehat{R}_A = 0.5\,B\,[\,\min(2,8) + 0.5\,(8-2)\,] = 0.5B\,[2+3] = 2.5\,B
+$$
+
+$$
+\widehat{R}_B = 0.9\,B\,[\,\min(2,2) + 0.5\,(2-2)\,] = 0.9B\,[2+0] = 1.8\,B
+$$
+
+$$
+\widehat{R}_B = 1.8B \;<\; 2.5B = \widehat{R}_A \quad\Longrightarrow\quad \text{选 } B
+$$
+
+| | Continuum（`deadline` 主键） | 本设计（§3.3.2） |
 |---|---|---|
-| 释放 | 若 $A$ 的 deadline 更早 → 释放 $A$ | 释放 $B$（$B$ 是唯一能独立解锁的组，且解锁量恰好够 2） |
-| 可行池 | $E(\{A\}) = \{p_9..p_{16}\}$（8 blocks）；根仍被 $B$ 保护 | $E(\{B\}) = \{p_{17},p_{18}\}$（2 blocks） |
-| 实际淘汰 | 必须从 $A$ 尾部淘汰 2 个 → $j(A)$ 下移 | 淘汰 $B$ 的 2 个 → $j(B)$ 下移 |
-| 结果 | 破坏 $A$ 的可复用后缀（8 blocks 已全部暴露） | 只破坏 $B$ 的后缀 |
+| 释放 | $A$（deadline 更早） | $B$ |
+| 可行池 | $E(\{A\})=\{p_9..p_{16}\}$，8 blocks | $E(\{B\})=\{p_{17},p_{18}\}$，2 blocks |
+| 本次淘汰 | 2 个（从 8 个里选，深度优先） | 2 个（$B$ 的尾恰好全占） |
+| 本次重算 | $2B$ | $2B$ |
+| **残留暴露面** | **6 blocks**（长期可被后续压力取用） | **0 blocks** |
+| 期望总代价（$\lambda=0.5$） | $2.5B$ | $1.8B$ |
 
-**选择确实不同**，且差异**不能**由单 Entry 的价值密度解释：
-两条路径都能满足 `required_blocks = 2`，差别在**暴露面的形状**——
-Continuum 一次性把 $A$ 的 8 个 Block 全部变成合法牺牲品（其中 6 个本不必动）。
+**为什么这个选择有机会降低重计算（关键在最后两行）**：
 
-⚠️ 注意：本例中「多释放」并未发生（两者都只释放 1 个 Entry），
-所以**不触及 (C3) 的主动释放边界**。若把 `required_blocks` 改为 10，则必须同时释放 $A$ 与 $B$
-才能解锁根，此时两层互补性才会显现。
+```text
+本次淘汰量相同（都是 2 个 Block ⇒ 都是 2B 重算），单次决策分不出高下。
+差别在**残留暴露面**：释放 A 会留下 6 个长期可淘汰的 Block，
+而释放 B 的暴露面被完全消耗掉（N_B 恰好 = D）。
+在 λ > 0（后续还会发生强制淘汰）的系统里，残留暴露面就是持续的风险敞口：
+A 虽然在本次只损失 2B，但它的 8 个 Block 后续会被逐个蚕食，
+使 j(A) 反复下移；B 的 2 个 Block 一次性用完即止。
+因为 q_A·N_A = 0.5×8 = 4 > q_B·N_B = 0.9×2 = 1.8，
+即使 A 的复用概率只有 B 的一半，它的期望敞口仍然更大。
+```
+
+**阈值（可检验，不是事后拟合）**：令 $\widehat R_B<\widehat R_A$，得
+
+$$
+0.9\,(2) \;<\; 0.5\,(2+6\lambda) \;\Longleftrightarrow\; \lambda \;>\; 0.2\overline{6}
+$$
+
+```text
+λ = 0    ⇒ 退化为「谁更可能回来就牺牲谁」⇒ 选 A（与 Continuum 一致）
+λ > 0.27 ⇒ 暴露面开始主导          ⇒ 选 B（与 Continuum 分歧）
+```
+
+这个阈值是本设计的**可证伪预测**：若 §6.4 实测发现 $\lambda$ 很低而 A1 仍有收益，说明模型缺项；若 $\lambda$ 高但 A1 无收益，
+说明「残留暴露面」这一项没有真实作用。两种情况都应照实记录。
+
+⚠️ 本例两种策略都只释放 1 个 Entry，**不触及 (C3) 的主动释放边界**。
+若把 $D$ 改为 10，则必须同时释放 $A$ 与 $B$ 才能解锁根，此时才用到 §2.3 的互补性。
 
 ### 5.2 例二（Block 层）：集中 vs 分散，并暴露 §3.5 的凹性预测
 
@@ -460,6 +580,9 @@ M1 明确要求「在修复后的真实共享前缀工作负载中验证」，�
 | 线性代价下集中/分散总量相同 | §5.2 算例；与 PR #50 §4 的线性不变性一致 |
 | (C2)(C3) 释放/淘汰量的口径 | `costaware/replay.py` 的 `target = min(required_blocks, len(queue))`；`continuum/pressure.py` 的按需释放循环 |
 | $R = C$ 是未加 (C3) 时的退化最优解 | 由 $L$ 对释放量不计费、且 $E(R)$ 对 $R$ 单调不减直接推出（RC1） |
+| $\widehat{R}_i$ 在 $N_i$ 相同且 $\lambda=0$ 时退化为 `deadline` 序 | §3.3.3 的 $q$ 是 `deadline` 的单调变换 |
+| §5.1 的阈值 $\lambda>0.2\overline{6}$ | 代入 $q_A=0.5,q_B=0.9,N_A=8,N_B=2,D=2$ 解不等式 |
+| 旧键按 `share` 升序会选 $A$ | $\text{share}_A=8/16=0.5<\text{share}_B=8/10=0.8$（RC2 勘误） |
 | $C(r)/r$ 在 $[16,1024]$ 单调下降（凹） | H2-M1 实测代价曲线（13.49× 跨度，最小值 $r\approx1024$） |
 | `block_hash_num_tokens` 可离线重建 | `VLLM_PREFIX_SNAPSHOT` 含 `hash_num_tokens`（903 快照 / 10 值 / min16 med112 max512） |
 | H1 无共享：0/81、0/471、294/294 | `local/probe_entry_vs_block.py`、`local/probe_rev3_verify.py`（本地探针，未纳入提交） |
