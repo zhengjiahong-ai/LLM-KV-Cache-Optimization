@@ -282,6 +282,68 @@ len(selected) >= min(required_blocks, len(candidates))    ← "足够"，不是"
 | 第 3 层过但方向相反 | **机制失败** | 必须解释，不得以"效应小"掩盖 |
 | 全过但效应极小 | **有效但不可用** | 如实报告 |
 
+### 5.6 最小可实现策略规格（保留 rev.4 交付项 3）
+
+即使当前预期增益为 0，**规格本身应完整**，以便某个使能信号一旦可观测即可直接实现。
+
+**（1）标识与位置**
+
+```text
+类名   : OursEvictAdapter(EvictionPolicyAdapter)
+位置   : src/kvopt/runtime/vllm/adapter.py（与 NativeLRUAdapter 并列）
+不改变 : 默认策略仍为 NativeLRUAdapter；本类只作为**可评测的候选**
+```
+
+**（2）输入 / 输出（精确）**：`candidates: Sequence[EvictionCandidate]`、
+`context: EvictionContext`（字段见 §1.2）→ `Sequence[int]`（victim block ids，唯一、取自 candidates）。
+
+**（3）决策规则（三档阶梯，fail-closed 向下）**
+
+```text
+Tier 0（可立即实现，但为 no-op）
+    依 has_block_hash 分区 F/H，先 F 后 H，各自按 lru_rank 升序
+    ⚠️ 由 E1（§7.2）：native 不变量已保证 F 恰在 rank 0..k-1
+       ⇒ Tier 0 与 native **恒等** ⇒ 显式保留为 sanity check，不计入交付
+
+Tier 1（链内深度校正；L2-A）
+    前置: 每块可读 (chain_id, chain_pos)，且可判块级 owner 交集
+    规则: 主键仍为 lru_rank（跨链分配不动）；
+          若某 chain_id 被选中 >= 2 块，且其链内 lru_rank 序与 chain_pos 序不一致，
+          则在该链内部改为 chain_pos 降序（更深优先）
+    ⚠️ 前置不可满足（§4.1 / §3.5）⇒ **当前不实现**
+
+Tier 2（fail-closed 兜底）
+    当 Tier 1 前置不满足，或 (a) 链身份/位置不可确定，(b) 该链块集与其它候选块有交集，
+       (c) 该链被选中块数 < 2  →  **完全退回 lru_rank 升序**（= NativeLRUAdapter 行为）
+```
+
+**（4）合法性（已核实，§5.4）**：`len(selected) >= min(required_blocks, len(candidates))`；
+无重复；`selected ⊆ candidate_ids`。
+
+**（5）⚠️ 零分歧命题（**限定作用域**，勿过度引用）**
+
+```text
+在冻结四字段 {lru_rank, has_block_hash, ref_cnt} 下：
+  ref_cnt 恒 0 ⇒ 无区分；has_block_hash 由 native 不变量占据（E1：set changed 0/54）；
+  lru_rank 即基线主键
+⇒ **任何仅使用这四个字段的策略都无法产生不同的 victim SET**
+⇒ 这是"当前接口内"的命题，**不是**"native vLLM 可获得的全部信息内"的命题（§3.5）
+```
+
+**（6）预期增益（诚实）**：**当前为 0**（E1 集合改变 0/54；E3 重排自由 0/294）。
+本规格的用途是**把算法定义清楚并预先登记触发条件**，不是"立即获得收益"。
+
+**（7）触发条件（预先登记、可证伪；一旦命中即应实现 Tier 1）**
+
+| # | 触发条件 | 当前实测 | 若命中则 |
+| --- | --- | --- | --- |
+| **T1** | 存在决策使 hashless rank 集合**非**严格前缀（出现交错） | **0 / 54** | Tier 0 不再与 native 恒等 ⇒ Layer 1 复活，且**可证明更优** |
+| **T2** | 存在链窗口其链内 `lru_rank` 序与 `chain_pos` 序**不一致** | **0 / 294** | Tier 1 有可用窗口（仍需 P5 覆盖率足够） |
+| **T3** | `ref_cnt` 变为可持久化且**非**恒定 | H1 中 **0 / 6606** 可观测 | 可引入"引用中块更贵"的成本项 |
+
+⇒ **T1/T2/T3 构成该设计唯一的使能前提**；任一命中前，正确动作是**不实现**。
+⇒ 这三条也是 §6 Step 0 应当复核的**具体量**。
+
 ---
 
 ## 6. 最小验证方案（M1 要求 4）
@@ -474,3 +536,5 @@ ref_cnt 可观测性：original_free_queue 行数 6606，其中含 ref_cnt 的 0
 | F4 odd=SHARED_ROOT treatment `NOT_REALIZED` / even=negative control | `src/kvopt/workload/phase2e_materialize.py`；`docs/phase2e-m4-measured-review.md` §2.1 |
 | 冻结接受协议 / 统计单位 | `docs/phase2a-m4-rule-acceptance-protocol.md` |
 | 决策粒度原为待研究问题 | `docs/phase2a-m4-method-design-input.md` |
+| `OursEvictAdapter` 最小规格与触发条件 T1/T2/T3 | 本文 §5.6（保留 rev.4 交付项 3 并限定其作用域） |
+| 「零分歧」命题限冻结四字段 | §5.6(5)；依据 §1.2 字段集 + E1（§7.2） |
