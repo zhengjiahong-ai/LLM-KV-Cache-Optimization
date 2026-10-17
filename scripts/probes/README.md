@@ -9,12 +9,13 @@ They are deliberately small: no framework, no dataset, no plotting.
 These run on any machine with Python 3.10+ and assert their own results, so a
 failure means the document and the code have drifted apart.
 
-| Script | Backs | Run |
-|---|---|---|
-| `probe_example_entry_release.py` | §5.1 numbers, incl. the break-even `lambda > 0.2666` | `python scripts/probes/probe_example_entry_release.py` |
-| `probe_example_block_eviction.py` | §5.2 numbers for the new rule, the withdrawn WRR and native LRU in both regimes | `python scripts/probes/probe_example_block_eviction.py` |
-| `probe_metric_semantics.py` | §3.5.1 subadditivity (not concavity) and §3.5.2 token-metric linearity | `python scripts/probes/probe_metric_semantics.py` |
-| `probe_replay_capability.py` | §6.4.1 — the replay layer records no evicted block set and no depth | `PYTHONPATH=src python scripts/probes/probe_replay_capability.py` |
+| Script | Backs |
+|---|---|
+| `probe_example_entry_release.py` | §5.1 numbers, incl. the break-even `lambda > 0.2666` |
+| `probe_example_block_eviction.py` | §5.2 numbers for the new rule, the withdrawn WRR and native LRU in both regimes |
+| `probe_metric_semantics.py` | §3.5.1 subadditivity (not concavity) and §3.5.2 token-metric linearity |
+| `probe_zero_marginal.py` | §3.3.4.2 — the two-entry lookahead used when every `N_i` is zero |
+| `probe_replay_capability.py` | §6.4.1 — the replay layer records no evicted block set and no depth |
 
 `probe_example_block_eviction.py` also asserts that the **withdrawn** share-ascending
 key would have selected the opposite entry, so the RC2 erratum stays checkable.
@@ -46,6 +47,8 @@ h1_entry_block_overlap.py
   bands pairwise disjoint              : 81 = 100.0%
   snapshots carrying hash_num_tokens   : 903
   distinct hash_num_tokens values      : 10  min 16  median 112  max 512
+  decisions with >1 distinct N_i       : 72  = 88.9%
+  decisions where ALL N_i == 0         : 0  = 0.0%
 
 h1_lru_monotonicity.py
   decisions                                     : 87
@@ -61,12 +64,15 @@ failing; with it, any drift from the quoted numbers fails loudly.
 
 ## Why these two are still load-bearing
 
-The joint design document uses them for exactly two narrow claims, both scoped to
+The joint design document uses them for exactly three narrow claims, all scoped to
 H1 plus the frozen four-field interface:
 
 1. entry-level's only distinctive signal (shared ownership) does not occur in H1;
-2. inside a chain, `native_lru_rank` already orders blocks deepest-first.
+2. inside a chain, `native_lru_rank` already orders blocks deepest-first;
+3. `N_i` still varies across candidates even without sharing (72 of 81 decisions),
+   so the entry score is not a function of `deadline` alone and A1 is **not**
+   automatically equivalent to A0.
 
-Neither is used to argue that block-level optimisation has no headroom in general.
-That inference was explicitly withdrawn — see §1.0 of
+None of these is used to argue that block-level optimisation has no headroom in
+general. That inference was explicitly withdrawn — see §1.0 of
 `docs/ours-evict-algorithm-design-v1.md`.

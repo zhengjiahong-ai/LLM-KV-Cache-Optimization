@@ -13,6 +13,8 @@
 > 并把 $C(r)$/TTFT/queue delay 降为辅助观测；勘误 `block_hash_num_tokens` 的语义。
 > 修订：rev.6 依 M1 RC5 把 Step 0 门槛按臂拆分、如实列出 A2/A3 的工具缺口
 > （replay 当前只支持 Entry 释放），并明确离线估计不等于收益。
+> 修订：rev.7 依 M1 四处修正：C4 改用 |E(R)| 触发；补 N_i = 0 的零边际处理；
+> 明确 q/λ 是启发式代理并给出 §5.2 的合法运行状态；删除「H1 上 A1 = A0」的断言。
 > 关联：PR #50（`docs/ours-evict-algorithm-design-v1.md`）保留为**当前四字段接口局限性的分析记录**；
 > 其中 H1 派生结论已按 M1 要求收紧到「该接口 + 该语料」范围内，本文**不**复用其外推。
 
@@ -116,7 +118,7 @@ S  —— Block 层变量：在可行池内选择实际淘汰集合
 (C1) 合法淘汰    S ⊆ E(R)                           Block 层不得绕过保护
 (C2) 不过量淘汰  |S| = min(required_blocks, |E(R)|)  同 target 语义，queue→E(R)
 (C3) 按需最小    |E(R)| ≥ required_blocks 后立即停止  不主动多释放（本轮不授权）
-(C4) 压力触发    仅在 free_blocks < required_blocks 时进入释放流程
+(C4) 压力触发    仅在 |E(R)| < required_blocks 时进入释放流程
 ```
 
 **为什么必须有 (C3)**：$L$ 只对 $S$ 计费，对「释放了多少保护」**不计费**。
@@ -124,6 +126,19 @@ S  —— Block 层变量：在可行池内选择实际淘汰集合
 于是 $R = C$（**把全部候选 Entry 都解除保护**）恒为最优解之一。
 那等于把 Continuum 的保护机制整体架空 —— 这正是 RC1 指出的退化。
 因此释放量必须由**外生约束** (C3)(C4) 定住，**不能**指望 $L$ 去惩罚它。
+
+**关于 (C4) 的触发量（rev.7 修正）**：触发条件必须用**合法可淘汰块数**，
+**不能**用 `free_blocks`。`free_blocks` 是 native free queue 的长度，
+其中包含仍受 Continuum 保护的缓存块，因此它 **不等于** 当前可淘汰的块数；
+以它作判据会在仍有合法候选时误判为「需要解除保护」，或在无合法候选时误判为「无需释放」。
+
+```text
+Continuum 冻结语义：while len(tier_1_ids | tier_2_ids) < target   （pressure.py:107）
+                           target = min(required_blocks, len(queue))
+本设计等价式：      while |E(R)| < required_blocks
+  其中 E(R) 就是 tier_1 ∪ tier_2 的重算（hashless 恒 eligible；hashed 需无受保护 owner）
+⇒ 直接复用 Continuum 的判定，不引入 free_blocks 这个不同量纲的量
+```
 
 **必须承认的代价**：在 (C3) 下 Entry 层不再能选「释放几个」，
 只能选**以什么顺序释放、释放到够即止**。即 Entry 层的自由度由
@@ -278,6 +293,13 @@ $$
   因此 $q$ 的排序与 Continuum 的 `deadline` 一致 —— 本设计**不推翻** TTL，
   而是在同一偏好方向上补充「暴露面大小」与「重算量」两个维度。
 - $\tau$ = 时间尺度常数，取 Tool Gap History 的典型间隔（§4.3），**无新增拟合参数**。
+- **$q_i$ 的读法（rev.7 明确）**：$q_i > 0.5 \iff \text{deadline}_i > t$，
+  即该 Entry 的 TTL **尚未到期**；$q_i < 0.5$ 表示 **已过 TTL 但尚未被释放**
+  —— 这正是在一次强制释放决策上出现的合法状态，因为 Continuum 按 `deadline`
+  升序释放，轮到它时其 deadline 往往已经在 $t$ 之前。
+- **$q_i$ 与 $\lambda$ 都是启发式代理，不是已校准的未来事件概率**（M1 第 3 点）。
+  它们只用于**排序**，量纲和取值不承担概率解释；不得把它们报成
+  「该 Entry 以 0.3 的概率被复用」这类断言。
 - $\lambda = \min(1, H_{\text{evict}} / H_{\text{total}})$，即历史决策中
   「发生强制淘汰」的占比。Continuum 的 pressure 统计与离线 replay 的决策序列
   都可直接给出该量。
@@ -285,19 +307,78 @@ $$
 可选精化（**不进第一版**）：$q_i$ 再乘 Program Identity 匹配度，或用
 `prefill_reload_seconds` 做归一化项。第一版保持单参数，便于归因。
 
-#### 3.3.4 释放流程
+#### 3.3.4 释放流程（含 N_i = 0 的处理）
 
 ```text
-1) 若 D = 0 或 free_blocks >= D           → 不进入释放（C4）
-2) F = { i ∈ C : |E(R ∪ {i})| >= D }      # 单步足够集
-3) 若 F ≠ ∅ : 选 argmin_{i∈F} R̂_i(R)      # 成本最小；relief 仅作约束
-   否则     : 选 argmin_{i∈C} R̂_i(R)/N_i   # relief 稀缺，按单位成本换容量
+1) 若 D = 0 或 |E(R)| >= D                → 不进入释放（C4，见 §1.3）
+2) F  = { i ∈ C : |E(R ∪ {i})| >= D }     # 单步足够集
+   C⁺ = { i ∈ C : N_i > 0 }               # 有正边际的候选
+3) 分支：
+   3a) F ≠ ∅        → 选 argmin_{i∈F} R̂_i          # 单步即可满足
+   3b) F = ∅, C⁺≠∅  → 选 argmin_{i∈C⁺} R̂_i / N_i   # 边际稀缺，按单位成本换容量
+   3c) C⁺ = ∅       → 两 Entry 前瞻（见下）
 4) R ← R ∪ {i}；若 |E(R)| < D 回到 2)；否则停止（C3）
 5) 并列时 deadline 升序 → identity 打破
 ```
 
-**与 Continuum 的差别（可精确陈述）**：当所有候选的 $N_i$ 相同且 $\lambda = 0$ 时，
-$\widehat{R}_i \propto q_i$，排序**精确退化**为 Continuum 的 `deadline` 序。
+##### 3.3.4.1 为什么会有 $N_i = 0$
+
+若若干 Entry **共同**保护同一组 Block，释放其中任何一个都不解锁任何块：
+$O(b) = \{i, j\}$ 时 $O(b) \not\subseteq \{i\}$ 且 $O(b) \not\subseteq \{j\}$。
+此时 $N_i = 0$，$\widehat R_i / N_i$ **无定义**（不是无穷大，是未定义）。
+
+```text
+H1 实测：0/81 决策出现「全部候选 N_i = 0」（无共享 ⇒ 见 §7）
+⇒ 该分支在 H1 上不会触发，但在修复后的共享前缀语料上**必然**会触发
+```
+
+##### 3.3.4.2 零边际候选的处理（第一版，不做全局优化）
+
+**两 Entry 前瞻**：对每个候选对 $(i,j)$ 计算联合边际
+
+$$
+N_{ij} = \bigl|E(R\cup\{i,j\})\bigr| - |E(R)|
+$$
+
+只在 $N_{ij} > 0$ 的对上评分。联合损失沿用同一结构，
+但**暴露面只计一次**（避免把联合解锁的块重复计入两个 Entry）：
+
+$$
+\widehat R_{ij} = \tilde q_{ij}\cdot B\cdot\Bigl[
+\min(D, N_{ij}) + \lambda\bigl(N_{ij}-\min(D,N_{ij})\bigr)^{+}\Bigr],
+\qquad \tilde q_{ij} = 1-(1-q_i)(1-q_j)
+$$
+
+选 $\arg\min_{(i,j):\,N_{ij}>0} \widehat R_{ij} / N_{ij}$，
+依次释放 $i$ 与 $j$（两者都释放后才真正解锁共享块）。
+
+```text
+若不存在 N_ij > 0 的对 ⇒ 退化为 deadline 升序单步释放（保证有进展，
+因为释放全部候选必然使每个队列块都无受保护 owner，|E(R)| 达到上界）
+```
+
+**明确的取舍**：只做 **两** Entry 前瞻，不做 $k$ Entry 的搜索。
+三层以上共享需要 $O(|C|^k)$，超出第一版范围；若 §6.4 显示三元以上共享常见，
+再单独评估（不在本轮）。
+
+**为什么 $\tilde q_{ij}$ 用并集公式**：只要 $i$ 或 $j$ 任意一个返回，
+被联合解锁的那段前缀就可能被重算，因此按「至少一个返回」加权，
+而不是把 $q_i$ 与 $q_j$ 相加（那会超过 1，且重复计入同一段共享前缀）。
+
+**与 Continuum 的差别（可精确陈述）**：当所有候选的 $N_i$ **相同**时，
+$\widehat R_i$ 方括号内为公共常数，故 $\widehat R_i \propto q_i$，
+排序**精确退化**为 Continuum 的 `deadline` 序 —— 这是严格成立的条件，不是近似。
+
+⚠️ **但这不等于「H1 上 A1 = A0」**（rev.7 修正，M1 第 4 点）。
+H1 没有共享结构，只保证 $N_i$ 等于该 Entry 的私有块数，**不保证各 Entry 的 $N_i$ 相同**；
+Entry 大小不同则 $N_i$ 不同，排序就会偏离 `deadline`。实测：
+
+```text
+H1：81 个多候选决策中，72 个（88.9%）存在 >1 个不同的 N_i
+    平均每决策 3.04 个不同取值；「全部 N_i = 0」0/81
+⇒ A1 与 A0 在 H1 上**一般不同**，必须按 §6.4.4 实测判定
+```
+
 其余情形本设计会与 Continuum 不同，且**不保证逐决策不劣化** ——
 A1 的优劣必须由 §6.4.4 的离线 replay 判定（这也是 §6 先跑 replay 再跑 native 的原因）。
 
@@ -508,7 +589,7 @@ Spearman(重算 token, TTFT) = 0.4327      ← 已实测，非估算
 | 4.3 | 复用可能性代理 | Continuum 已冻结的四类信号：Program Identity、Tool Gap History（`tool_gap_seconds` / `next_tool_type`）、动态 TTL（`retention_deadline_timestamp`）、Prefill Cost（`prefill_reload_seconds`） | ✅ 决策时 | **不新训练模型**；直接复用 Continuum 的既有估计 |
 | 4.4 | Block token 数 $B$ | $B=\texttt{block\_size}$，引擎配置，**常数**。`block_hash_num_tokens` 是**累计前缀边界**，不是单块大小 | ✅ 决策时 | 见下方勘误 |
 | 4.5 | 物理淘汰集合 $S$、$j_S(r)$ | 由本设计产出；评测时用 `observed_recomputed_tokens` / `observed_physical_eviction_blocks` | 仅评测期 | 属 `FORBIDDEN_FEATURES`，**不得**作为决策输入 |
-| 4.6 | 容量需求 | `EvictionContext.required_blocks` / `free_blocks` / `total_blocks` | ✅ 决策时 | 冻结 |
+| 4.6 | 容量需求 | `required_blocks`（**唯一判据**）。`free_blocks` / `total_blocks` 仅供参考，**不得**作为触发判据（§1.3 的 C4 修正） | ✅ 决策时 | 冻结 |
 | 4.7 | Native 顺序 | `DecisionCandidateRow.decision_native_lru_position` | ✅ 决策时 | 仅作 warm-start / tie-break |
 | 4.8 | 新增暴露 $N_i(R)$ | 由 4.1 + 4.2 直接计算（$|E(R\cup\{i\})|-|E(R)|$） | ✅ 决策时 | 无需额外输入 |
 | 4.9 | 后续压力概率 $\lambda$ | 历史决策中发生强制淘汰的占比（Continuum pressure 统计 / replay 序列） | ✅ 决策时 | 全局统计量，非未来信息 |
@@ -566,6 +647,11 @@ N_B = |E({B})| − |E(∅)| = 2   (p17,p18)
 **第二步：代入 §3.3.2 的成本公式**
 
 取 $q_A = 0.5$、$q_B = 0.9$（$A$ 的 deadline 更早 ⇒ $q_A<q_B$，与 Continuum 一致）、
+
+> 合法性核对（M1 第 3 点）：$q_A = 0.5$ 对应 $\text{deadline}_A = t$，
+> $q_B = 0.9$ 对应 $\text{deadline}_B = t + \tau\ln 9$，两者都是合法状态。
+> §5.2 的 $q_\beta = 0.3$ 对应 $\text{deadline}_\beta = t - \tau\ln(7/3)$，
+> 即**已过 TTL 但尚未被释放**的冷链 —— 这正是强制释放决策上常见的情形（见 §3.3.3）。
 $\lambda = 0.5$：
 
 $$
@@ -627,7 +713,7 @@ $$
 
 ```text
 链 α : m_α = 12,  合法候选深度 9..12,  q_α = 0.9  (热链，更可能返回)
-链 β : m_β = 6,   合法候选深度 1..6,   q_β = 0.3  (冷链)
+链 β : m_β = 6,   合法候选深度 1..6,   q_β = 0.3  (冷链；deadline 已过，见下方合法性核对)
 D = 4 ，B 统一，初始两链均完好 (j_α = 13, j_β = 7)
 ```
 
@@ -885,9 +971,26 @@ Step 1 未出现稳定方向 ⇒ 结束，不得用离线数字充当结论。
 294/294  native_lru_rank 与 index 单调一致(仅在 H1) ⇒ Block 层只剩名次取前 k
 ```
 
-⇒ H1 上 A1 会**精确退化为 A0**（§3.3 的退化分支），A2 会退化为 `NativeLRUAdapter`。
-**这解释了 PR #50 §3.3 / §5.6 那些 0 值**，也说明它们**不是**对 Block-level 方向的否定
-（PR #50 已按 M1 要求收紧为「该接口 + 该语料」）。
+**rev.7 修正（M1 第 4 点）**：旧版此处断言「H1 上 A1 精确退化为 A0」——**该断言已删除**，
+它不成立。新的 Entry 评分同时依赖 $q_i$、$N_i$ 与 $\lambda$；
+无共享结构只保证 $N_i$ 等于该 Entry 的私有块数，**不保证各候选 $N_i$ 相同**。
+
+```text
+H1 实测（`scripts/probes/h1_entry_block_overlap.py` 的 F4，`--strict` 会断言下列数字）：
+  多候选决策                    81
+  存在 >1 个不同 N_i 的决策      72  = 88.9%
+  平均每决策不同 N_i 取值数       3.04
+  全部候选 N_i = 0 的决策         0  = 0.0%
+⇒ 因此 A1 在 H1 上**一般不等于 A0**，是**可测的**，不是恒等。
+```
+
+同理，A2 也**不能**直接断言退化为 `NativeLRUAdapter`：294/294 只说明
+链内 `native_lru_rank` 与深度单调一致，而 §3.4.3 的 $\Delta(b)$ 还含 $q_c$，
+两者一般不同。A2 与 native 的差异是否出现、出现在多少决策上，
+由 §6.4.5 的「背离率」实测决定。
+
+上述四点仍然说明：**H1 无法体现共享结构带来的效应**，
+因此 A3 在 H1 上不可测（§6.3 的 3b 门槛）。但 A1 与 A2 不受此限制。
 
 本文**不再**对这四点做新一轮审计（M1：重点放在算法设计）。
 
@@ -960,7 +1063,9 @@ H1 探针需要运行产物目录（不提交数据），用法见 `scripts/prob
 | $C(r)/r$ 单调不增 ⇒ **次可加**（不是凹） | §3.5.1 的推导；`scripts/probes/probe_metric_semantics.py` 给出非凹反例并逐一检验不等式 |
 | token 口径下集中与分散在 $q$ 相同时等值 | $L$ 对每条链严格线性（§3.5.2）；`scripts/probes/probe_metric_semantics.py` 数值确认 2.000B = 2.000B |
 | $B=\texttt{block\_size}$ 为常数；`block_hash_num_tokens` 是累计前缀边界 | §4.4 勘误；H1 该字段 10 个值均为 16 的整数倍，与 block_size=16 的累计边界一致 |
-| H1 无共享：0/81、0/471、294/294 | `scripts/probes/h1_entry_block_overlap.py`、`scripts/probes/h1_lru_monotonicity.py`（`scripts/probes/` 下的可复核脚本，需要 H1 artifacts 目录；数据集不提交） |
+| H1 上 A1 一般不等于 A0（72/81 决策存在 >1 个不同 $N_i$） | `scripts/probes/h1_entry_block_overlap.py` 的 F4；$N_i$ 取 `initially_reclaimable_block_ids` 长度，与 `replay.py` 的 `initial_reclaimable_match_rate` 同源 |
+| (C4) 触发量是 $\lvert E(R)\rvert$ 而非 `free_blocks` | `continuum/pressure.py:107` 的 `while len(tier_1_ids \| tier_2_ids) < target` |
+| H1 无共享：0/81、0/471、294/294 |
 | replay 不产出淘汰 Block 集合 S | `costaware/replay.py::replay_decision` 与 `ReplayOutcome` 字段核对 |
 | `QueueBlock` 无深度、无链归属 | `costaware/replay.py::QueueBlock` 三字段 |
 | `DecisionSnapshot` 丢弃 per-entry `block_ids` | `_snapshot_from_event` 只保留 owners 与 observed_initial_reclaimable；`scripts/probes/probe_replay_capability.py` 内省断言 |

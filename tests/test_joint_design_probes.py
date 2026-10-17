@@ -21,6 +21,7 @@ SELF_CONTAINED = (
     "probe_example_entry_release.py",
     "probe_example_block_eviction.py",
     "probe_metric_semantics.py",
+    "probe_zero_marginal.py",
     "probe_replay_capability.py",
 )
 

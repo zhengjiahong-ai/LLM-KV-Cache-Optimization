@@ -14,6 +14,10 @@ Backs the two H1 range statements used by the joint design document:
   F3  Is block DEPTH reconstructible offline, i.e. is the block-level path
       blocked by interface exposure or by missing information?
 
+  F4  Does ``N_i`` (the relief a lone release unlocks) VARY across the candidates
+      of one decision? If it does, the entry score is not a function of ``deadline``
+      alone, so A1 is not equivalent to A0 even without shared blocks.
+
 Usage::
 
     python scripts/probes/h1_entry_block_overlap.py <runs-dir> [--strict]
@@ -43,6 +47,8 @@ DOCUMENTED = {
     "bands_disjoint": 81,
     "hash_num_tokens_snapshots": 903,
     "hash_num_tokens_distinct": 10,
+    "ni_varying_decisions": 72,
+    "all_zero_ni_decisions": 0,
 }
 
 
@@ -72,6 +78,9 @@ def main() -> int:
     bands_contig = 0
     bands_disjoint = 0
     band_decisions = 0
+    ni_varying = 0
+    all_zero_ni = 0
+    distinct_ni_counts: list[int] = []
     snapshot_keys: collections.Counter = collections.Counter()
     hash_num_tokens_seen = 0
     hash_num_tokens_values: set[int] = set()
@@ -130,6 +139,18 @@ def main() -> int:
         if any_overlap:
             overlap_decisions += 1
 
+        # ---- F4: does N_i vary across the candidates of this decision? ----
+        # ``initially_reclaimable_block_ids`` is the observed form of N_i at
+        # R = empty, i.e. exactly what a lone release of that entry unlocks.
+        ni_sizes = [
+            len(c.get("initially_reclaimable_block_ids") or []) for c in candidates
+        ]
+        distinct_ni_counts.append(len(set(ni_sizes)))
+        if len(set(ni_sizes)) > 1:
+            ni_varying += 1
+        if all(s == 0 for s in ni_sizes):
+            all_zero_ni += 1
+
         # ---- F2: are the entries' rank bands contiguous AND disjoint? ----
         bands = []
         for blocks in entry_blocks:
@@ -177,6 +198,20 @@ def main() -> int:
               f"  min {values[0]}  median "
               f"{statistics.median(values):.0f}  max {values[-1]}")
 
+    print()
+    print("=" * 78)
+    print("F4. DOES N_i VARY ACROSS CANDIDATES? (is A1 == A0 on this corpus?)")
+    print("=" * 78)
+    print(f"decisions with >1 distinct N_i     : {ni_varying}"
+          f"  = {100 * ni_varying / max(1, decisions):.1f}%")
+    print(f"decisions where ALL N_i == 0       : {all_zero_ni}"
+          f"  = {100 * all_zero_ni / max(1, decisions):.1f}%")
+    if distinct_ni_counts:
+        mean_distinct = sum(distinct_ni_counts) / len(distinct_ni_counts)
+        print(f"mean distinct N_i values/decision  : {mean_distinct:.2f}")
+        print("  -> N_i varies, so the entry score is NOT a function of deadline alone;")
+        print("     A1 is not equivalent to A0 here and must be measured, not assumed.")
+
     if strict:
         assert decisions == DOCUMENTED["decisions"], decisions
         assert overlap_decisions == DOCUMENTED["overlap_decisions"], overlap_decisions
@@ -184,6 +219,8 @@ def main() -> int:
         assert bands_disjoint == DOCUMENTED["bands_disjoint"], bands_disjoint
         assert hash_num_tokens_seen == DOCUMENTED["hash_num_tokens_snapshots"]
         assert len(hash_num_tokens_values) == DOCUMENTED["hash_num_tokens_distinct"]
+        assert ni_varying == DOCUMENTED["ni_varying_decisions"], ni_varying
+        assert all_zero_ni == DOCUMENTED["all_zero_ni_decisions"], all_zero_ni
         print("\nSTRICT: documented counts reproduced")
     return 0
 
