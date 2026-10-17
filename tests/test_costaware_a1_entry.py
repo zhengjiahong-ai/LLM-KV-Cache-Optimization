@@ -293,6 +293,14 @@ def test_pair_lookahead_releases_both_members_in_deadline_order() -> None:
     assert result.satisfied
     assert result.released == (("A", "p"), ("B", "p"))
     assert result.eligible_blocks_final == 4
+    comparison = compare_one(snapshot, rows)
+    assert comparison.pair_lookahead_proposals
+    proposal = comparison.pair_lookahead_proposals[0]
+    assert proposal["released_first"] == ("A", "p")
+    assert proposal["proposed_partner"] == ("B", "p")
+    assert proposal["joint_new_blocks"] == 4
+    assert proposal["joint_cost_proxy"] > 0
+    assert comparison.cost_proxy_a1 == pytest.approx(0.0)  # no lone marginal cost
 
 
 def test_pair_reuse_weight_is_a_union_not_a_sum() -> None:
@@ -519,6 +527,37 @@ def test_a0_reproduces_the_frozen_deadline_order() -> None:
     )
     assert a1.released == (("B", "p"),)
     assert a1.satisfied
+
+
+def test_fidelity_fail_closed_guard_and_decision_json_export(tmp_path, monkeypatch) -> None:
+    from kvopt.costaware import a1_compare
+    from kvopt.costaware.replay import ReplayFidelity
+
+    class Mismatch:
+        pass
+
+    # Verify the report never silently accepts baseline mismatch or dropped rows.
+    # A minimal monkeypatched loader avoids reading external H1 artifacts.
+    scenario = scenario_a_divergent()
+    monkeypatch.setattr(
+        "kvopt.profiling.pipeline.discover_run_artifacts", lambda _root: [Mismatch()]
+    )
+    monkeypatch.setattr(
+        "kvopt.profiling.pipeline.build_derived_dataset_bundle",
+        lambda *_a, **_kw: type("Bundle", (), {"decision_candidates": tuple(scenario.rows.values())})(),
+    )
+    monkeypatch.setattr(a1_compare, "load_decision_snapshots", lambda _runs: (scenario.snapshot,))
+    monkeypatch.setattr(
+        a1_compare,
+        "validate_replay_fidelity",
+        lambda *_a: ReplayFidelity(
+            strategy_id="a0", decisions_compared=1, release_set_matches=0,
+            release_sequence_matches=0, initial_reclaimable_matches=1,
+            initial_reclaimable_fields_compared=1,
+        ),
+    )
+    with pytest.raises(ValueError, match="BASELINE_FIDELITY_FAILED"):
+        a1_compare.run_corpus(tmp_path)
 
 
 def test_comparison_separates_order_from_set_and_from_benefit() -> None:
