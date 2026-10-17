@@ -62,3 +62,17 @@ def test_family_contracts_create_real_parameter_variation(tmp_path: Path) -> Non
         assert len({row["entry_count"] for row in rows}) >= 2
         assert len({tuple(row["family_parameters"]["prefix_sizes_tokens"]) for row in rows}) >= 3
         assert len({row["pressure_count"] for row in rows}) >= 2
+
+
+def test_shared_content_uses_unique_physical_capacity_accounting(
+    tmp_path: Path,
+) -> None:
+    path, manifest = _materialize(tmp_path)
+    run = next(row for row in manifest["runs"] if row["scenario_id"] == "f1-draw-01")
+    config = json.loads((path.parent / run["config"]).read_text(encoding="utf-8"))
+    logical_blocks = sum(
+        value // config["cache"]["block_size"]
+        for value in config["backend_options"]["program_prefix_tokens"].values()
+    )
+
+    assert config["backend_options"]["phase2g_unique_protected_blocks"] < logical_blocks

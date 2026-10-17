@@ -189,9 +189,13 @@ def materialize_bounded_campaign(*, distribution_path: Path, output_dir: Path) -
             pressure_tokens = int(distribution["pressure_prompt_tokens"][(draw - 1) % 3])
             shortage = int(distribution["initial_shortage_blocks"][(draw - 1) % 3])
             pressure_blocks = pressure_tokens // block_size
-            protected_blocks = sum(
-                int(value) // block_size for value in metadata["program_prefix_tokens"].values()
-            )
+            unique_segments: dict[str, int] = {}
+            for request_segments in metadata["request_segments"].values():
+                for key, tokens in request_segments:
+                    if key in unique_segments and unique_segments[key] != int(tokens):
+                        raise ValueError(f"segment size drift for {key}: {scenario_id}")
+                    unique_segments[str(key)] = int(tokens)
+            protected_blocks = sum(unique_segments.values()) // block_size
             block_override = protected_blocks + pressure_blocks + 1 - shortage
             if block_override < 37:
                 raise ValueError(f"insufficient Metal cache capacity: {scenario_id}")
@@ -238,6 +242,7 @@ def materialize_bounded_campaign(*, distribution_path: Path, output_dir: Path) -
                             "phase2g_release_policy": policy,
                             "phase2g_a1_lambda": distribution["a1"]["lambda"],
                             "phase2g_a1_tau_seconds": distribution["a1"]["tau_seconds"],
+                            "phase2g_unique_protected_blocks": protected_blocks,
                             "prefix_segments_by_request": metadata["request_segments"],
                             "program_prefix_tokens": metadata["program_prefix_tokens"],
                             "pressure_prompt_tokens": pressure_tokens,
