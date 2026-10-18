@@ -96,6 +96,16 @@ regresses by 40).
 Fail-closed: a request whose `E − C` cannot be derived now raises instead of being
 dropped, so a total can never be quietly computed over a smaller population.
 
+**Consequence that must be expected on re-run.** The old evaluator built its
+observation map from `VLLM_NATIVE_REQUEST_OBSERVATION` events only, so a request
+without one was **silently omitted** from the aggregate — the precise under-counting
+Task 1.3 forbids. The patched path raises, which turns such a run `INVALID` instead
+of quietly cheaper-looking. Verified end-to-end: loading a real run whose requests
+have no native observation fails with `native_request_observation_missing` rather
+than returning a partial sum. If the Gate 2 re-run reports fewer comparable pairs
+than before, that is the reason, and it is the intended behaviour.
+
+
 ### 1.1.5 Not computable here
 
 The Gate 2 artifact root (144 run manifests, packaged under `artifacts/`) is
