@@ -9,19 +9,40 @@ decision-time cost facts and returns a victim set. It never mutates native state
 
 Objective
 ---------
-Minimise expected aggregate recomputed tokens. For a victim set ``S``:
+Minimise a **proxy-weighted loss** over victim sets. For a victim set ``S``:
 
-    L(S) = sum over chains c with at least one eviction of  q_c * B * (m_c - j_c(S) + 1)
+    L(S) = sum over chains c with at least one eviction of  q_c * (m_c - j_c(S) + 1)
 
 where ``j_c(S) = min{ d_c(b) : b in S, b in chain c }`` and ``m_c`` is the chain
 length in blocks. Only the *shallowest* evicted depth per chain matters, because an
 APC prefix either resolves or it does not: once depth ``j`` is gone, every deeper
 block of that chain is worthless and evicting more of them adds nothing.
 
+On the units: ``q_c`` is the reuse proxy of
+:func:`kvopt.costaware.a2_geometry.reuse_proxy`, an uncalibrated ranking signal in
+``(0, 1)`` -- **not** a measured probability and **not** an expected reuse count. ``L``
+consequently carries dimensions of *weighted block units*, not tokens: the per-token
+block size ``B`` is a constant factor common to every candidate set and is factored
+out. ``L`` is therefore meaningful only through comparison between candidate sets
+under a **fixed** proxy scale; its absolute value must not be read as an expected
+token count. This selector does not claim to minimise expected recomputed tokens.
+
+Proxy scale freeze
+------------------
+Because ``q`` is not calibrated, its *magnitude* is load-bearing: rescaling ``q``
+changes the cross-chain tradeoff even when the deadline ordering is unchanged. Two
+candidates in different chains compare ``q_a * s_a`` against ``q_b * s_b``, so a
+tighter ``tau`` (approaching the step function that ranks purely by deadline) and a
+looser one (drifting toward uniform, where the suffix lengths dominate) can select
+different victims. ``tau_seconds`` is therefore **frozen** for a campaign and passed
+in explicitly rather than defaulted; a report on this policy must state the ``tau`` it
+used, and the A2 Gate 2 measurement is what establishes whether the resulting choices
+actually save tokens.
+
 Per-block marginal cost follows from that, and is what the incremental algorithm
 uses:
 
-    Delta(b | S) = sum over chains c containing b of  q_c * B * max(0, j_c(S) - d_c(b))
+    Delta(b | S) = sum over chains c containing b of  q_c * max(0, j_c(S) - d_c(b))
 
 Evicting ``b`` then updates ``j_c := min(j_c, d_c(b))`` for **every** chain ``b``
 belongs to. A shared block is therefore charged to each chain that would have to
@@ -44,11 +65,13 @@ The algorithm therefore runs two selectors and keeps the better one:
 - **incremental greedy** — exact marginal recomputation after every pick,
   ``O(k * n * r)`` for ``k`` evictions, ``n`` legal blocks and ``r`` memberships per
   block. Optimal on a single chain and on fully independent chains;
-- **exact search** — branch and bound over victim sets, used when the legal set is
+- **bounded exhaustive search** — enumerate every victim set when the legal set is
   small enough (``C(n, k)`` bounded by a configurable budget). This closes the gap
-  greedy can leave when shared blocks couple the chains.
+  greedy can leave when shared blocks couple the chains. It is *not* branch and bound:
+  there is no bounding function and no pruning, the search is exact only because it
+  is exhaustive and only within the budget.
 
-If the budget is exceeded the exact search is skipped and the greedy result is
+If the budget is exceeded the exhaustive search is skipped and the greedy result is
 returned, with the reason recorded. The result therefore carries which selector
 produced it, and never silently claims optimality.
 
@@ -75,13 +98,15 @@ from .a2_geometry import (
 
 #: Which selector produced the result.
 SELECTOR_GREEDY = "incremental_greedy"
-SELECTOR_EXACT = "exact_branch_and_bound"
+SELECTOR_EXACT = "bounded_exhaustive_search"
 SELECTOR_NATIVE_FALLBACK = "native_lru_fallback"
 
 #: Why a fallback happened. Empty when the cost model was fully evaluable.
 FALLBACK_CONTENT_UNVERIFIED = "content_unverified"
 FALLBACK_REUSE_WEIGHT_MISSING = "reuse_weight_missing"
 FALLBACK_NO_LEGAL_BLOCKS = "no_legal_blocks"
+#: The request itself violated the frozen input contract, so no scoring was attempted.
+FALLBACK_CONTRACT_INVALID = "contract_invalid"
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,11 +115,17 @@ class VictimSelection:
 
     blocks: tuple[int, ...]
     selector: str
-    expected_recompute: float | None
+    #: Proxy-weighted loss of ``blocks``, in **weighted block units** with the
+    #: per-token block size factored out. This is *not* an expected token count: it is
+    #: ``sum_c q_c * (m_c - j_c + 1)`` over chains with at least one eviction, where
+    #: ``q_c`` is an uncalibrated reuse proxy. Comparable only against other candidate
+    #: sets scored under the same ``tau``. ``None`` when the cost model could not be
+    #: evaluated (fallback).
+    proxy_weighted_loss: float | None
     #: ``True`` when the cost model was fully evaluable for this decision.
     cost_known: bool
     fallbacks: tuple[str, ...] = ()
-    #: Set when an exact search was skipped because the budget was exceeded.
+    #: Set when the exhaustive search was skipped because the budget was exceeded.
     search_truncated: bool = False
     #: Per-step diagnostics: the marginal cost of each greedy pick.
     step_costs: tuple[float, ...] = ()
@@ -220,14 +251,32 @@ def greedy_select(
     return tuple(chosen), tuple(step_costs)
 
 
-def exact_select(
+def _set_tie_break(
+    geometry: DecisionGeometry, blocks: Sequence[int]
+) -> tuple[tuple[float, int], ...]:
+    """Set-level tie key: the victims' ``(native_rank, block_id)`` pairs, sorted.
+
+    The documented policy is Native rank first, block ID only as a final
+    disambiguator. Comparing victim sets by their sorted ``(rank, id)`` vector extends
+    that policy to sets instead of falling back to comparing raw slot ids, so two
+    equal-loss exhaustive solutions never prefer an arbitrary low slot id over the
+    frozen engine order.
+    """
+    return tuple(sorted(_tie_break(geometry, block_id) for block_id in blocks))
+
+
+def exhaustive_select(
     geometry: DecisionGeometry, need: int, *, budget: int
 ) -> tuple[tuple[int, ...], float] | None:
-    """Exhaustive search over victim sets, or ``None`` when over budget.
+    """Bounded exhaustive search over victim sets, or ``None`` when over budget.
 
-    Only viable for small decisions; the caller passes ``budget`` as the maximum
-    number of combinations to enumerate. Ties break on the sorted victim tuple so the
-    result is deterministic.
+    This enumerates ``C(|legal|, k)`` combinations with no bounding function and no
+    pruning: it is exact only because it is exhaustive, and only when the combination
+    count fits ``budget``.
+
+    Ties on loss break on the set-level ``(native_rank, block_id)`` order (see
+    :func:`_set_tie_break`), so two equal-loss solutions resolve toward the frozen
+    engine order rather than toward whichever slot id happens to be smallest.
     """
     legal = sorted(geometry.blocks)
     k = min(need, len(legal))
@@ -237,17 +286,17 @@ def exact_select(
     if combinations > budget:
         return None
 
-    best: tuple[float, tuple[int, ...]] | None = None
+    best: tuple[float, tuple[tuple[float, int], ...], tuple[int, ...]] | None = None
     for combo in itertools.combinations(legal, k):
         evicted: dict[ChainKey, set[int]] = {}
         for block_id in combo:
             _apply(geometry.blocks[block_id], evicted)
         loss = chain_loss(evicted, geometry)
-        key = (loss, combo)
+        key = (loss, _set_tie_break(geometry, combo), combo)
         if best is None or key < best:
             best = key
     assert best is not None
-    return best[1], best[0]
+    return best[2], best[0]
 
 
 # --------------------------------------------------------------------------
@@ -259,9 +308,9 @@ def exact_select(
 class A2Config:
     """Knobs that affect the search, not the objective."""
 
-    #: Maximum victim-set combinations the exact search may enumerate.
+    #: Maximum victim-set combinations the exhaustive search may enumerate.
     exact_search_budget: int = 20_000
-    #: Set ``False`` to skip the exact search and keep greedy only.
+    #: Set ``False`` to skip the exhaustive search and keep greedy only.
     enable_exact_search: bool = True
 
 
@@ -284,16 +333,16 @@ class A2BlockSelector:
         2. if the cost model is not fully evaluable, return native LRU order over the
            legal set and record why;
         3. run incremental greedy;
-        4. if configured and over budget, keep greedy; otherwise run the exact search
-           and keep whichever set has the lower modelled loss (greedy wins ties, so the
-           cheaper-to-audit answer is preferred).
+        4. if configured and over budget, keep greedy; otherwise run the exhaustive
+           search and keep whichever set has the lower proxy-weighted loss (greedy wins
+           ties, so the cheaper-to-audit answer is preferred).
         """
         legal = geometry.blocks
         if not legal or need <= 0:
             return VictimSelection(
                 blocks=(),
                 selector=SELECTOR_GREEDY,
-                expected_recompute=0.0,
+                proxy_weighted_loss=0.0,
                 cost_known=True,
             )
 
@@ -303,7 +352,7 @@ class A2BlockSelector:
             return VictimSelection(
                 blocks=ordered[: min(need, len(ordered))],
                 selector=SELECTOR_NATIVE_FALLBACK,
-                expected_recompute=None,
+                proxy_weighted_loss=None,
                 cost_known=False,
                 fallbacks=fallbacks,
             )
@@ -315,7 +364,7 @@ class A2BlockSelector:
         truncated = False
 
         if self.config.enable_exact_search:
-            exact = exact_select(
+            exact = exhaustive_select(
                 geometry, need, budget=self.config.exact_search_budget
             )
             if exact is None:
@@ -330,7 +379,7 @@ class A2BlockSelector:
         return VictimSelection(
             blocks=best_blocks,
             selector=selector,
-            expected_recompute=best_loss,
+            proxy_weighted_loss=best_loss,
             cost_known=True,
             search_truncated=truncated,
             step_costs=step_costs if selector == SELECTOR_GREEDY else (),

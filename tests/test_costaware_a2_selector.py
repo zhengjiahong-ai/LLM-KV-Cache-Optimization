@@ -16,6 +16,7 @@ These validate **algorithm correctness**, not native benefit.
 
 from __future__ import annotations
 
+import inspect
 import random
 
 import pytest
@@ -25,6 +26,7 @@ from kvopt.costaware.a2_geometry import (
     LegalBlock,
     Membership,
     MissingReuseWeight,
+    reuse_proxy,
 )
 from kvopt.costaware.a2_selector import (
     FALLBACK_CONTENT_UNVERIFIED,
@@ -36,7 +38,7 @@ from kvopt.costaware.a2_selector import (
     A2Config,
     chain_gap,
     chain_loss,
-    exact_select,
+    exhaustive_select,
     greedy_select,
     marginal_cost,
     native_lru_order,
@@ -106,7 +108,7 @@ def test_agrees_with_lru_when_depth_ordered_and_q_uniform() -> None:
     assert native == (4, 3, 2, 1)  # full order; the selector takes the first `need`
     assert selection.blocks == (4, 3)
     assert selection.cost_known
-    assert selection.expected_recompute == pytest.approx(0.5 * 2)
+    assert selection.proxy_weighted_loss == pytest.approx(0.5 * 2)
 
 
 def test_agrees_with_lru_across_chains_when_q_matches_rank() -> None:
@@ -150,8 +152,8 @@ def test_diverges_from_lru_when_a_cheap_chain_is_not_the_coldest() -> None:
 
     assert native[0] == 13  # a@3, the coldest
     assert selection.blocks == (23,)  # b@3, the cheapest to lose
-    assert selection.expected_recompute == pytest.approx(0.1)
-    assert selection.expected_recompute < _loss(native[:1], geometry)
+    assert selection.proxy_weighted_loss == pytest.approx(0.1)
+    assert selection.proxy_weighted_loss < _loss(native[:1], geometry)
 
 
 def test_negative_control_equal_q_leaves_no_advantage() -> None:
@@ -165,7 +167,7 @@ def test_negative_control_equal_q_leaves_no_advantage() -> None:
     native = native_lru_order(geometry)
     selection = select_victims(geometry, 1)
 
-    assert selection.expected_recompute == pytest.approx(_loss(native[:1], geometry))
+    assert selection.proxy_weighted_loss == pytest.approx(_loss(native[:1], geometry))
 
 
 # --------------------------------------------------------------------------
@@ -252,7 +254,7 @@ def test_multi_block_greedy_drains_one_chain_before_touching_the_next() -> None:
     selection = select_victims(geometry, 2)
 
     assert set(selection.blocks) == {13, 12}  # both from chain a
-    assert selection.expected_recompute == pytest.approx(0.2)
+    assert selection.proxy_weighted_loss == pytest.approx(0.2)
 
 
 def test_marginal_costs_are_recomputed_after_every_pick() -> None:
@@ -300,7 +302,7 @@ def test_unknown_reuse_weight_falls_back_to_native_lru() -> None:
     assert selection.blocks == native_lru_order(geometry)[:2]
     assert FALLBACK_REUSE_WEIGHT_MISSING in selection.fallbacks
     # No loss may be reported for a fallback.
-    assert selection.expected_recompute is None
+    assert selection.proxy_weighted_loss is None
     assert not selection.cost_known
 
 
@@ -391,7 +393,7 @@ def test_empty_legal_set_returns_empty_and_is_not_a_fallback() -> None:
     selection = select_victims(geometry, 3)
     assert selection.blocks == ()
     assert not selection.is_fallback
-    assert selection.expected_recompute == 0.0
+    assert selection.proxy_weighted_loss == 0.0
 
 
 def test_zero_need_returns_empty() -> None:
@@ -465,7 +467,7 @@ def _counterexample() -> DecisionGeometry:
 def test_greedy_is_suboptimal_on_the_counterexample() -> None:
     geometry = _counterexample()
     greedy, _ = greedy_select(geometry, 2)
-    exact = exact_select(geometry, 2, budget=10**9)
+    exact = exhaustive_select(geometry, 2, budget=10**9)
 
     assert exact is not None
     assert _loss(greedy, geometry) == pytest.approx(0.8)
@@ -478,7 +480,9 @@ def test_exact_search_wins_on_the_counterexample() -> None:
     selection = select_victims(geometry, 2)
 
     assert selection.selector == SELECTOR_EXACT
-    assert selection.expected_recompute == pytest.approx(0.6)
+    assert selection.proxy_weighted_loss == pytest.approx(0.6)
+    # the selector name must not claim branch and bound: this is exhaustive search
+    assert "branch" not in SELECTOR_EXACT
 
 
 def test_disabling_exact_search_falls_back_to_greedy() -> None:
@@ -487,7 +491,7 @@ def test_disabling_exact_search_falls_back_to_greedy() -> None:
     selection = selector.select(geometry, 2)
 
     assert selection.selector == SELECTOR_GREEDY
-    assert selection.expected_recompute == pytest.approx(0.8)
+    assert selection.proxy_weighted_loss == pytest.approx(0.8)
 
 
 def test_exact_search_is_skipped_when_over_budget() -> None:
@@ -509,7 +513,7 @@ def test_exact_and_greedy_agree_when_there_is_no_coupling() -> None:
     geometry = _geometry(blocks, length={"a": 5}, q={"a": 0.5})
 
     greedy, _ = greedy_select(geometry, 3)
-    exact = exact_select(geometry, 3, budget=10**9)
+    exact = exhaustive_select(geometry, 3, budget=10**9)
     assert exact is not None
     assert _loss(greedy, geometry) == pytest.approx(exact[1])
 
@@ -522,3 +526,117 @@ def test_cost_model_is_pure() -> None:
     select_victims(geometry, 2)
     assert dict(geometry.blocks) == before_blocks
     assert dict(geometry.q_by_chain) == before_q
+
+
+# --------------------------------------------------------------------------
+# 8. the objective is a proxy-weighted loss, not an expected token count
+# --------------------------------------------------------------------------
+
+
+def test_loss_is_in_weighted_block_units_with_no_token_factor() -> None:
+    """``sum_c q_c * (m_c - j_c + 1)``: suffix length in blocks, no block size in it.
+
+    The value is therefore *weighted block units*, not tokens. Treating it as an
+    expected recomputed-token count would need a per-token block size, which the cost
+    model deliberately does not take: the actual token benefit of these choices is
+    what A2 Gate 2 has to measure.
+    """
+    blocks = _chain_blocks("a", 4, rank_of={1: 3, 2: 2, 3: 1, 4: 0})
+    geometry = _geometry(blocks, length={"a": 4}, q={"a": 0.25})
+
+    # evicting the shallowest block leaves the whole 4-block chain to recompute
+    assert _loss((1,), geometry) == pytest.approx(0.25 * 4)
+    # evicting the deepest leaves one block
+    assert _loss((4,), geometry) == pytest.approx(0.25 * 1)
+
+    assert "block_size" not in inspect.signature(chain_loss).parameters
+
+
+def test_tau_changes_the_victim_set_while_the_deadline_order_is_fixed() -> None:
+    """Why ``tau`` is frozen: ``q``'s magnitude, not only its order, decides.
+
+    Chain ``a`` has an earlier deadline than chain ``b`` for every ``tau`` used here,
+    so the ranking of the two chains never changes. What changes is the ratio
+    ``q_a / q_b``, and with it the cross-chain tradeoff ``q_a * s_a`` vs ``q_b * s_b``:
+    a tight ``tau`` makes ``a`` look nearly free, a loose one makes both nearly equal
+    and lets the suffix lengths decide. The selected victim flips between the two.
+    """
+    blocks = {
+        100: LegalBlock(100, 0, (_member("a", 1),)),
+        200: LegalBlock(200, 1, (_member("b", 1),)),
+    }
+    lengths = {"a": 2, "b": 1}
+    timestamp = 0.0
+
+    def pick(tau: float) -> tuple[int, ...]:
+        weights = {
+            "a": reuse_proxy(-600.0, timestamp, tau),
+            "b": reuse_proxy(-30.0, timestamp, tau),
+        }
+        return select_victims(_geometry(blocks, length=lengths, q=weights), 1).blocks
+
+    # deadline order is a < b throughout, and both tails are below the timestamp
+    assert reuse_proxy(-600.0, timestamp, 30.0) < reuse_proxy(-600.0, timestamp, 600.0)
+    assert reuse_proxy(-30.0, timestamp, 30.0) > reuse_proxy(-600.0, timestamp, 30.0)
+
+    assert pick(30.0) == (100,)
+    assert pick(600.0) == (200,)
+
+
+# --------------------------------------------------------------------------
+# 9. exhaustive-search tie-breaking follows the frozen engine order
+# --------------------------------------------------------------------------
+
+
+def test_exhaustive_ties_prefer_engine_order_over_the_lowest_block_id() -> None:
+    """Equal loss must resolve by ``(native_rank, block_id)``, not by slot id.
+
+    Both blocks are the deepest of their chain, so both cost exactly ``q * 1``. Block
+    ``2`` has the lower id but the colder rank; the documented policy is rank first.
+    """
+    blocks = {
+        1: LegalBlock(1, 50, (_member("a", 1),)),
+        2: LegalBlock(2, 51, (_member("a", 2),)),
+        10: LegalBlock(10, 1, (_member("b", 1),)),
+        11: LegalBlock(11, 2, (_member("b", 2),)),
+    }
+    geometry = _geometry(blocks, length={"a": 2, "b": 2}, q={"a": 0.5, "b": 0.5})
+
+    exact = exhaustive_select(geometry, 1, budget=10**9)
+    assert exact is not None
+    chosen, loss = exact
+
+    # genuinely a tie: both singletons score the same
+    assert _loss((2,), geometry) == pytest.approx(loss)
+    assert _loss((11,), geometry) == pytest.approx(loss)
+    # ... resolved toward the frozen engine order, not toward the lowest slot id
+    assert chosen == (11,)
+
+
+def test_exhaustive_set_level_ties_prefer_the_engine_order() -> None:
+    """The tie-break is set-level: a set holding the coldest block wins.
+
+    Every four-block set below drains exactly one chain, so all tie at ``q * 2``. The
+    set containing rank 1 is the one the frozen engine order would visit first, and the
+    sorted-slot-id rule would instead have taken ``(2, 11)``.
+    """
+    blocks = {
+        1: LegalBlock(1, 99, (_member("a", 1),)),
+        2: LegalBlock(2, 100, (_member("a", 2),)),
+        10: LegalBlock(10, 1, (_member("b", 1),)),
+        11: LegalBlock(11, 2, (_member("b", 2),)),
+        20: LegalBlock(20, 60, (_member("c", 1),)),
+        21: LegalBlock(21, 61, (_member("c", 2),)),
+    }
+    geometry = _geometry(blocks, length={"a": 2, "b": 2, "c": 2},
+                         q={"a": 0.5, "b": 0.5, "c": 0.5})
+
+    exact = exhaustive_select(geometry, 2, budget=10**9)
+    assert exact is not None
+    chosen, loss = exact
+
+    # all four drain one chain, so all four tie
+    for candidate in ((10, 11), (2, 11), (2, 21), (11, 21)):
+        assert _loss(candidate, geometry) == pytest.approx(loss)
+    # sorted slot ids would have preferred (2, 11); engine order prefers (10, 11)
+    assert chosen == (10, 11)

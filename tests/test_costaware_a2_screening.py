@@ -67,7 +67,7 @@ def test_single_inverted_chain_qualifies_without_any_q_disagreement() -> None:
     assert row.victim_set_differs
     assert row.verified
     assert row.native is not None and row.cost_aware is not None
-    assert row.cost_aware.expected_recompute < row.native.expected_recompute
+    assert row.cost_aware.proxy_weighted_loss < row.native.proxy_weighted_loss
 
     summary = summarise([_pair(geometry, 2)])
     assert summary["screening_gate"]["qualifying_decisions"] == 1

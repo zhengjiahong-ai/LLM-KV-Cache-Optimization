@@ -29,7 +29,7 @@ from kvopt.costaware.a2_geometry import (
 )
 from kvopt.costaware.a2_selector import (
     chain_loss,
-    exact_select,
+    exhaustive_select,
     greedy_select,
 )
 
@@ -104,7 +104,7 @@ def main() -> int:
             continue
         need = rng.randint(1, min(3, n))
         greedy, _steps = greedy_select(geometry, need)
-        exact = exact_select(geometry, need, budget=10**9)
+        exact = exhaustive_select(geometry, need, budget=10**9)
         if exact is None:
             continue
         exact_blocks, exact_loss = exact

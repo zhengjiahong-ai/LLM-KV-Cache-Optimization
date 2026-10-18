@@ -29,7 +29,20 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
-from .a2_geometry import ChainKey, DecisionGeometry, LegalBlock, Membership
+from .a2_geometry import (
+    GAP_CONTENT_UNVERIFIED,
+    ChainKey,
+    DecisionGeometry,
+    LegalBlock,
+    Membership,
+)
+from .a2_selector import (
+    FALLBACK_CONTRACT_INVALID,
+    SELECTOR_NATIVE_FALLBACK,
+    A2BlockSelector,
+    A2Config,
+    VictimSelection,
+)
 
 #: Field-provenance labels.
 ALREADY_AVAILABLE = "already_available"
@@ -89,7 +102,10 @@ FIELD_CONTRACT: tuple[FieldContract, ...] = (
         "content_hash",
         NEEDS_EXPOSURE,
         "Content identity of the block's hash chain entry, same value the engine uses "
-        "for APC lookup.",
+        "for APC lookup. Must be non-empty for every hash-carrying membership, and all "
+        "memberships of one physical block must report the same value: a block cannot "
+        "be two different contents at once. A block whose memberships disagree is "
+        "malformed input, not a verified shared block.",
         validity="until the slot is reallocated or the hash entry is evicted",
         invalidated_by=(
             "a hashed-cache eviction of that slot by the same hash process, or a later "
@@ -165,7 +181,10 @@ class DecisionRequest:
         """Build the cost model's input, marking anything unproved as a gap.
 
         A hash-carrying block with no membership cannot be priced, so it becomes a
-        gap and the selector will fall back to native LRU rather than guess.
+        gap and the selector will fall back to native LRU rather than guess. A block
+        whose memberships carry conflicting content identities is treated the same
+        way: physical identity failed closed, so it must never be scored even if the
+        caller skipped :func:`validate_request`.
         """
         blocks: dict[int, LegalBlock] = {}
         gaps: dict[int, str] = {}
@@ -178,8 +197,8 @@ class DecisionRequest:
                 memberships=item.memberships,
                 has_block_hash=item.has_block_hash,
             )
-            if item.has_block_hash and not item.memberships:
-                gaps[item.block_id] = "content_unverified"
+            if item.has_block_hash and (not item.memberships or _identity_problems(item)):
+                gaps[item.block_id] = GAP_CONTENT_UNVERIFIED
             for membership in item.memberships:
                 if membership.chain not in self.reuse_weight:
                     unknown_weight_chains.add(membership.chain)
@@ -195,11 +214,46 @@ class DecisionRequest:
         )
 
 
+def _identity_problems(item: BlockDecisionInput) -> tuple[str, ...]:
+    """Content-identity defects of one block, as plain strings.
+
+    Two failure modes, both of which would otherwise let a malformed block be treated
+    as a verified shared block and scored:
+
+    - a hash-carrying membership with an empty content hash claims an identity it does
+      not have;
+    - memberships of the same physical block disagree on the content hash, which is
+      impossible for one slot and means the input is wrong, not merely ambiguous.
+    """
+    if not item.has_block_hash:
+        return ()
+    problems: list[str] = []
+    hashes: set[str] = set()
+    for membership in item.memberships:
+        digest = (membership.content_hash or "").strip()
+        if not digest:
+            problems.append(
+                f"block {item.block_id} membership in chain "
+                f"{membership.chain!r} at depth {membership.depth} has an empty "
+                f"content hash"
+            )
+            continue
+        hashes.add(digest)
+    if len(hashes) > 1:
+        problems.append(
+            f"block {item.block_id} reports conflicting content hashes "
+            f"{sorted(hashes)} across its memberships"
+        )
+    return tuple(problems)
+
+
 def validate_request(request: DecisionRequest) -> tuple[str, ...]:
     """Return contract violations as plain strings; empty means the request is valid.
 
     Deliberately non-throwing so the engine can log and fall back instead of crashing
-    the scheduler on a malformed input.
+    the scheduler on a malformed input. Any non-empty result means the decision must
+    **not** enter cost scoring: the caller logs the reasons and uses native LRU (see
+    :func:`decide`).
     """
     problems: list[str] = []
     if request.required_blocks < 0:
@@ -208,6 +262,9 @@ def validate_request(request: DecisionRequest) -> tuple[str, ...]:
         problems.append("no legal blocks supplied")
 
     seen: set[int] = set()
+    #: (chain, depth) -> content hash, to catch one chain position claiming two
+    #: different contents across different physical blocks.
+    slot_hash: dict[tuple[ChainKey, int], str] = {}
     for item in request.blocks:
         if item.block_id in seen:
             problems.append(f"duplicate block id {item.block_id}")
@@ -218,6 +275,7 @@ def validate_request(request: DecisionRequest) -> tuple[str, ...]:
             problems.append(
                 f"block {item.block_id} is hashless but claims chain memberships"
             )
+        problems.extend(_identity_problems(item))
         for membership in item.memberships:
             if membership.depth < 1:
                 problems.append(
@@ -234,10 +292,68 @@ def validate_request(request: DecisionRequest) -> tuple[str, ...]:
                     f"{membership.chain!r} length "
                     f"{request.chain_length[membership.chain]}"
                 )
+            digest = (membership.content_hash or "").strip()
+            if not digest:
+                continue
+            slot = (membership.chain, membership.depth)
+            claimed = slot_hash.get(slot)
+            if claimed is None:
+                slot_hash[slot] = digest
+            elif claimed != digest:
+                problems.append(
+                    f"chain {membership.chain!r} depth {membership.depth} is claimed "
+                    f"with incompatible content hashes {sorted({claimed, digest})} by "
+                    f"block {item.block_id}"
+                )
     for chain, weight in request.reuse_weight.items():
         if not 0.0 < weight <= 1.0:
             problems.append(f"reuse weight for {chain!r} outside (0, 1]: {weight}")
     return tuple(problems)
+
+
+@dataclass(frozen=True, slots=True)
+class DecisionOutcome:
+    """A selection plus the contract verdict that produced it."""
+
+    selection: VictimSelection
+    problems: tuple[str, ...] = ()
+
+    @property
+    def rejected(self) -> bool:
+        """``True`` when the request failed the contract and never reached scoring."""
+        return bool(self.problems)
+
+
+def decide(
+    request: DecisionRequest,
+    *,
+    config: A2Config | None = None,
+) -> DecisionOutcome:
+    """The prescribed adapter path: validate first, score only if the input is valid.
+
+    A request that violates the contract is **never** scored. The reason is returned in
+    ``problems`` for the caller to log, and the victim set is native LRU order over the
+    legal blocks restricted to ``required_blocks`` -- the same fallback the selector
+    uses for unverifiable content, so no malformed input can change a decision.
+    """
+    problems = validate_request(request)
+    if problems:
+        ordered = sorted(request.blocks, key=lambda b: (b.native_rank, b.block_id))
+        need = max(0, min(request.required_blocks, len(ordered)))
+        return DecisionOutcome(
+            selection=VictimSelection(
+                blocks=tuple(item.block_id for item in ordered[:need]),
+                selector=SELECTOR_NATIVE_FALLBACK,
+                proxy_weighted_loss=None,
+                cost_known=False,
+                fallbacks=(FALLBACK_CONTRACT_INVALID,),
+            ),
+            problems=problems,
+        )
+    selector = A2BlockSelector(config or A2Config())
+    return DecisionOutcome(
+        selection=selector.select(request.to_geometry(), request.required_blocks)
+    )
 
 
 def fields_needing_exposure() -> tuple[FieldContract, ...]:
