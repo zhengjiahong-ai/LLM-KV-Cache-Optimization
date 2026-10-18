@@ -90,12 +90,20 @@ class A2NativeSnapshotRegistry:
         memberships_by_block: dict[int, list[Membership]] = {
             candidate.block_id: [] for candidate in candidates
         }
+        candidates_by_id = {candidate.block_id: candidate for candidate in candidates}
+        unverified_legal_ids: set[int] = set()
 
         for entry in retention_entries:
             chain = f"{entry.program_id.value}:{entry.prefix_id.canonical_value}"
             snapshot = self.snapshot(chain)
             expected_ids = tuple(block.block_id for block in entry.block_ids)
             if snapshot is None or snapshot.block_ids != expected_ids:
+                unverified_legal_ids.update(
+                    block_id
+                    for block_id in expected_ids
+                    if block_id in candidates_by_id
+                    and candidates_by_id[block_id].has_block_hash
+                )
                 continue
             chain_length[chain] = len(snapshot.block_ids)
             reuse_weight[chain] = reuse_proxy(
@@ -107,10 +115,10 @@ class A2NativeSnapshotRegistry:
                 zip(snapshot.block_ids, snapshot.content_hashes, strict=True),
                 start=1,
             ):
-                candidate = next(
-                    (item for item in candidates if item.block_id == block_id), None
-                )
+                candidate = candidates_by_id.get(block_id)
                 if candidate is None or candidate.content_hash != content_hash:
+                    if candidate is not None and candidate.has_block_hash:
+                        unverified_legal_ids.add(block_id)
                     continue
                 memberships_by_block[block_id].append(
                     Membership(chain, depth, content_hash)
@@ -121,7 +129,11 @@ class A2NativeSnapshotRegistry:
                 block_id=candidate.block_id,
                 native_rank=candidate.lru_rank,
                 has_block_hash=candidate.has_block_hash,
-                memberships=tuple(memberships_by_block[candidate.block_id]),
+                memberships=(
+                    ()
+                    if candidate.block_id in unverified_legal_ids
+                    else tuple(memberships_by_block[candidate.block_id])
+                ),
             )
             for candidate in candidates
         )
@@ -153,6 +165,7 @@ class A2NativeDecisionAudit:
     chain_count: int = 0
     shared_block_count: int = 0
     identified_hashed_block_count: int = 0
+    legal_content_hashes: tuple[tuple[int, str | None], ...] = ()
 
     @property
     def used_fallback(self) -> bool:
@@ -254,6 +267,9 @@ class A2NativeBlockAdapter(EvictionPolicyAdapter):
                     block.has_block_hash and bool(block.memberships)
                     for block in request.blocks
                 )
+            ),
+            legal_content_hashes=tuple(
+                (candidate.block_id, candidate.content_hash) for candidate in candidates
             ),
         )
         self.last_audit = audit

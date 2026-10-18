@@ -562,6 +562,11 @@ class _ObservedRetentionIntegration:
                     "identified_hashed_block_count": (
                         audit.identified_hashed_block_count
                     ),
+                    "legal_content_hashes": [
+                        {"block_id": block_id, "content_hash": content_hash}
+                        for block_id, content_hash in audit.legal_content_hashes
+                    ],
+                    "native_hash_process_id": str(os.getpid()),
                     "claim_boundary": (
                         "proxy-weighted victim selection; not expected recomputed tokens"
                     ),

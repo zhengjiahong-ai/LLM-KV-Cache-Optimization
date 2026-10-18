@@ -42,6 +42,54 @@ def _event_index(event: Mapping[str, object]) -> int:
     return value
 
 
+def _decision_identities(
+    events: Sequence[Mapping[str, object]],
+    decision: Mapping[str, object],
+) -> dict[int, tuple[str, str]]:
+    """Return decision-time ``block -> (cache key, hash process)`` proofs."""
+    decision_payload = _payload(decision)
+    process = decision_payload.get("native_hash_process_id")
+    explicit = decision_payload.get("legal_content_hashes")
+    if isinstance(process, str) and process and isinstance(explicit, list):
+        return {
+            int(row["block_id"]): (str(row["content_hash"]), process)
+            for row in explicit
+            if isinstance(row, Mapping) and row.get("content_hash")
+        }
+
+    identities: dict[int, tuple[str, str]] = {}
+    decision_index = _event_index(decision)
+    for event in events:
+        if _event_index(event) >= decision_index:
+            break
+        payload = _payload(event)
+        event_type = event.get("event_type")
+        if event_type == "VLLM_PREFIX_SNAPSHOT":
+            block_ids = payload.get("block_ids")
+            cache_keys = payload.get("ordered_native_cache_keys")
+            snapshot_process = payload.get("native_hash_process_id")
+            if (
+                isinstance(block_ids, list)
+                and isinstance(cache_keys, list)
+                and len(block_ids) == len(cache_keys)
+                and isinstance(snapshot_process, str)
+                and snapshot_process
+            ):
+                for block_id, cache_key in zip(block_ids, cache_keys, strict=True):
+                    if cache_key:
+                        identities[int(block_id)] = (str(cache_key), snapshot_process)
+        elif event_type == "VLLM_NATIVE_HASHED_CACHE_ENTRY_EVICTED":
+            block_id = int(payload["block_id"])
+            current = identities.get(block_id)
+            observed = (
+                str(payload.get("native_cache_key_before")),
+                str(payload.get("native_hash_process_id")),
+            )
+            if current == observed:
+                identities.pop(block_id, None)
+    return identities
+
+
 def _review_a2_run(run_dir: Path, expected_relation: str) -> dict[str, object]:
     manifest = _load_json(run_dir / "run.json")
     events = _load_events(run_dir / "events.jsonl")
@@ -80,12 +128,6 @@ def _review_a2_run(run_dir: Path, expected_relation: str) -> dict[str, object]:
     selected = tuple(int(value) for value in decision_payload["selected_victims"])
     native = tuple(int(value) for value in decision_payload["native_lru_victims"])
     selected_hashed = set(selected).intersection(hashed_ids)
-    physical = {
-        int(_payload(event)["block_id"])
-        for event in events
-        if event.get("event_type") == "VLLM_NATIVE_HASHED_CACHE_ENTRY_EVICTED"
-        and _event_index(event) > _event_index(decision)
-    }
     fallbacks = tuple(str(value) for value in decision_payload.get("fallbacks", ()))
     adapter_problems = tuple(
         str(value) for value in decision_payload.get("adapter_problems", ())
@@ -93,7 +135,7 @@ def _review_a2_run(run_dir: Path, expected_relation: str) -> dict[str, object]:
     contract_problems = tuple(
         str(value) for value in decision_payload.get("contract_problems", ())
     )
-    relation = "DIFFERENT" if selected != native else "SAME"
+    relation = "DIFFERENT" if set(selected) != set(native) else "SAME"
     expects_fallback = expected_relation == "FALLBACK_SAME"
     fallback_ok = (
         bool(fallbacks)
@@ -109,8 +151,41 @@ def _review_a2_run(run_dir: Path, expected_relation: str) -> dict[str, object]:
         problems.append("adapter or frozen-contract validation failed")
     if not fallback_ok:
         problems.append("fallback behavior differs from the case contract")
-    if selected_hashed and not selected_hashed.issubset(physical):
-        problems.append("selected hashed victims lack subsequent physical eviction evidence")
+    identities = _decision_identities(events, decision)
+    selected_identities = {
+        block_id: identities[block_id]
+        for block_id in selected_hashed
+        if block_id in identities
+    }
+    matched_identities: set[int] = set()
+    for event in events:
+        if (
+            event.get("event_type") != "VLLM_NATIVE_HASHED_CACHE_ENTRY_EVICTED"
+            or _event_index(event) <= _event_index(decision)
+        ):
+            continue
+        payload = _payload(event)
+        block_id = int(payload["block_id"])
+        identity = selected_identities.get(block_id)
+        if identity is None:
+            continue
+        if (
+            identity
+            == (
+                str(payload.get("native_cache_key_before")),
+                str(payload.get("native_hash_process_id")),
+            )
+            and payload.get("hash_removed_after") is True
+        ):
+            matched_identities.add(block_id)
+    physical_complete = bool(selected_hashed) and (
+        set(selected_identities) == selected_hashed
+        and matched_identities == selected_hashed
+    )
+    if selected_hashed and not physical_complete:
+        problems.append(
+            "selected hashed victims lack complete content/process/order eviction evidence"
+        )
     if expected_relation == "SAME" and relation != "SAME":
         problems.append("negative control diverged from Native LRU")
     return {
@@ -132,10 +207,9 @@ def _review_a2_run(run_dir: Path, expected_relation: str) -> dict[str, object]:
             "identified_hashed_block_count", 0
         ),
         "selected_hashed_victim_count": len(selected_hashed),
-        "physically_correlated_hashed_victim_count": len(
-            selected_hashed.intersection(physical)
-        ),
-        "physical_evidence_complete": selected_hashed.issubset(physical),
+        "decision_identity_count": len(selected_identities),
+        "physically_correlated_hashed_victim_count": len(matched_identities),
+        "physical_evidence_complete": physical_complete,
         "events_sha256": _sha256(run_dir / "events.jsonl"),
         "run_manifest_sha256": _sha256(run_dir / "run.json"),
     }

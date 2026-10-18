@@ -32,17 +32,21 @@
     },
     {
       "case_id": "a2-cost-divergence",
-      "expected_relation": "AUDIT",
+      "expected_relation": "DIFFERENT",
       "identity_mode": "normal",
+      "pressure_prompt_tokens": 336,
+      "initial_shortage_blocks": 13,
+      "refresh_content_from_program": "gate1-a",
       "segments": {
-        "gate1-a": [["divergence-a", 480]],
-        "gate1-b": [["divergence-b", 32]]
+        "gate1-a": [["divergence-a", 192]],
+        "gate1-b": [["divergence-b", 192]]
       }
     },
     {
       "case_id": "a2-shared-multichain",
       "expected_relation": "AUDIT",
       "identity_mode": "normal",
+      "initial_shortage_blocks": 13,
       "segments": {
         "gate1-a": [["shared-root", 64], ["shared-tail-a", 192]],
         "gate1-b": [["shared-root", 64], ["shared-tail-b", 192]]

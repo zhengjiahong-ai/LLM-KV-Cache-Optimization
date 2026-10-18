@@ -14,6 +14,7 @@ def test_materializes_six_cases_two_policies_two_repeats(tmp_path: Path) -> None
     assert manifest["case_count"] == 6
     assert manifest["policies"] == ["A0", "A2"]
     assert len({row["config_sha256"] for row in manifest["runs"]}) == 24
+    assert manifest["mechanism_preflight"]["victim_set_differs"] is True
 
 
 def test_a0_and_a2_hold_entry_release_and_workload_fixed(tmp_path: Path) -> None:
@@ -59,7 +60,7 @@ def test_shared_case_uses_real_repeated_content_key(tmp_path: Path) -> None:
     assert config["backend_options"]["phase2g_unique_protected_blocks"] == 28
 
 
-def test_divergence_case_freezes_depth_cost_contrast(tmp_path: Path) -> None:
+def test_divergence_case_freezes_recency_refresh_cost_contrast(tmp_path: Path) -> None:
     path = materialize_gate1(fixture_path=FIXTURE, output_dir=tmp_path / "campaign")
     manifest = json.loads(path.read_text(encoding="utf-8"))
     row = next(
@@ -70,10 +71,16 @@ def test_divergence_case_freezes_depth_cost_contrast(tmp_path: Path) -> None:
     config = json.loads((path.parent / row["config"]).read_text(encoding="utf-8"))
     segments = config["backend_options"]["prefix_segments_by_request"]
 
-    assert config["pressure"]["initial_shortage_blocks"] == 9
-    assert segments["gate1-a:1"] == [["divergence-a", 480]]
-    assert segments["gate1-b:1"] == [["divergence-b", 32]]
-    assert config["backend_options"]["phase2g_unique_protected_blocks"] == 32
+    assert config["pressure"] == {
+        "initial_shortage_blocks": 13,
+        "required_blocks": 21,
+        "safety_ceiling": 1,
+    }
+    assert segments["gate1-a:1"] == [["divergence-a", 192]]
+    assert segments["gate1-b:1"] == [["divergence-b", 192]]
+    assert segments["gate1-refresh:1"] == [["divergence-a", 192]]
+    assert config["backend_options"]["phase2g_unique_protected_blocks"] == 24
+    assert config["phase2g_stage"]["refresh_content_from_program"] == "gate1-a"
 
 
 def test_fallback_cases_are_a2_only_diagnostics(tmp_path: Path) -> None:

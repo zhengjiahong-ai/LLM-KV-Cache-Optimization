@@ -9,6 +9,9 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+from kvopt.costaware.a2_contract import BlockDecisionInput, DecisionRequest, decide
+from kvopt.costaware.a2_geometry import Membership
+
 from .phase2c_native_pilot import PILOT_PREFIX_GENERATOR_VERSION
 
 
@@ -51,19 +54,63 @@ def _segments(case: Mapping[str, object]) -> dict[str, list[list[object]]]:
     return result
 
 
+def _mechanism_preflight() -> dict[str, object]:
+    """Prove the frozen selector can diverge before Native outcomes are read."""
+    blocks: list[BlockDecisionInput] = []
+    for rank, depth in enumerate(range(12, 0, -1)):
+        blocks.append(
+            BlockDecisionInput(
+                rank + 1,
+                rank,
+                True,
+                (Membership("chain-b", depth, f"b-{depth}"),),
+            )
+        )
+    for offset, depth in enumerate(range(12, 0, -1), start=12):
+        blocks.append(
+            BlockDecisionInput(
+                offset + 1,
+                offset,
+                True,
+                (Membership("chain-a", depth, f"a-{depth}"),),
+            )
+        )
+    request = DecisionRequest(
+        required_blocks=12,
+        timestamp=1.0,
+        blocks=tuple(blocks),
+        chain_length={"chain-a": 12, "chain-b": 12},
+        reuse_weight={"chain-a": 0.4, "chain-b": 0.6},
+    )
+    outcome = decide(request)
+    native = tuple(block.block_id for block in request.blocks[:12])
+    selected = tuple(outcome.selection.blocks)
+    return {
+        "contract": "frozen_a2_decide",
+        "native_lru_victims": native,
+        "cost_aware_victims": selected,
+        "victim_set_differs": set(native) != set(selected),
+        "claim_boundary": "abstract preflight only; Native realization is measured",
+    }
+
+
 def materialize_gate1(*, fixture_path: Path, output_dir: Path) -> Path:
     fixture_path = fixture_path.resolve()
     fixture = _load_fixture(fixture_path)
     output_dir.mkdir(parents=True, exist_ok=False)
     block_size = int(fixture["block_size_tokens"])
-    pressure_tokens = int(fixture["pressure_prompt_tokens"])
-    pressure_blocks = pressure_tokens // block_size
-    shortage = int(fixture["initial_shortage_blocks"])
     runs: list[dict[str, object]] = []
 
     for case in fixture["cases"]:
         case_id = str(case["case_id"])
         base_segments = _segments(case)
+        pressure_tokens = int(
+            case.get("pressure_prompt_tokens", fixture["pressure_prompt_tokens"])
+        )
+        pressure_blocks = pressure_tokens // block_size
+        shortage = int(
+            case.get("initial_shortage_blocks", fixture["initial_shortage_blocks"])
+        )
         prefixes = {
             program: sum(int(row[1]) for row in rows)
             for program, rows in base_segments.items()
@@ -93,6 +140,26 @@ def materialize_gate1(*, fixture_path: Path, output_dir: Path) -> Path:
             }
             for program, offset in (("gate1-a", 0.0), ("gate1-b", 0.5))
         ]
+        program_segments = dict(base_segments)
+        refresh_source = case.get("refresh_content_from_program")
+        if refresh_source is not None:
+            if refresh_source not in base_segments:
+                raise ValueError("refresh content source must name a candidate program")
+            program_segments["gate1-refresh"] = base_segments[str(refresh_source)]
+            prefixes["gate1-refresh"] = prefixes[str(refresh_source)]
+            requests.append(
+                {
+                    "program_id": "gate1-refresh",
+                    "request_id": "gate1-refresh:1",
+                    "turn_index": 1,
+                    "planned_arrival_offset_seconds": 0.75,
+                    "prompt": f"Phase 2G A2 Gate 1 {case_id} refresh",
+                    "prefix_prompt": "identity-is-defined-by-explicit-token-segments",
+                    "is_terminal": True,
+                    "next_tool_type": None,
+                    "tool_gap_seconds": None,
+                }
+            )
         requests.extend(
             {
                 "program_id": program,
@@ -108,7 +175,7 @@ def materialize_gate1(*, fixture_path: Path, output_dir: Path) -> Path:
             for program, offset in (("gate1-a", 2.0), ("gate1-b", 3.0))
         )
         request_segments = {
-            str(request["request_id"]): base_segments[str(request["program_id"])]
+            str(request["request_id"]): program_segments[str(request["program_id"])]
             for request in requests
         }
         trace = {
@@ -179,6 +246,7 @@ def materialize_gate1(*, fixture_path: Path, output_dir: Path) -> Path:
                         "case_id": case_id,
                         "expected_relation": case["expected_relation"],
                         "identity_mode": case["identity_mode"],
+                        "refresh_content_from_program": refresh_source,
                         "policy": policy,
                         "repeat": repeat,
                     },
@@ -208,6 +276,7 @@ def materialize_gate1(*, fixture_path: Path, output_dir: Path) -> Path:
         "case_count": len(fixture["cases"]),
         "policies": ["A0", "A2"],
         "runtime_repeats": 2,
+        "mechanism_preflight": _mechanism_preflight(),
         "runs": runs,
         "execution_started": False,
         "gate2_execution_started": False,

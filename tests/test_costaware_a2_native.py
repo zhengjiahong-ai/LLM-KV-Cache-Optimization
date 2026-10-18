@@ -103,6 +103,7 @@ def test_a2_native_adapter_can_diverge_on_same_legal_set_and_count() -> None:
     assert adapter.last_audit.chain_count == 2
     assert adapter.last_audit.shared_block_count == 0
     assert adapter.last_audit.identified_hashed_block_count == 2
+    assert adapter.last_audit.legal_content_hashes == ((1, None), (2, None))
     assert not adapter.last_audit.used_fallback
 
 
@@ -238,6 +239,48 @@ def test_registry_rejects_slot_reuse_after_eviction() -> None:
     registry.observe(A2NativeChainSnapshot("a:pa", (1,), ("old" ,), "p"))
     registry.observe_eviction(1)
     candidates = [EvictionCandidate(1, 0, True, 0, "new")]
+
+    request = registry.build_request(
+        candidates,
+        _context(),
+        (_entry("a", "pa", (1,)),),
+        tau_seconds=30.0,
+    )
+
+    assert request.blocks[0].memberships == ()
+    adapter = A2NativeBlockAdapter(lambda _candidates, _context: request)
+    assert adapter.select_victims(candidates, _context()) == [1]
+    assert adapter.last_audit is not None
+    assert adapter.last_audit.fallbacks == ("content_unverified",)
+
+
+def test_registry_fails_closed_when_one_shared_chain_proof_is_missing() -> None:
+    registry = A2NativeSnapshotRegistry()
+    registry.observe(A2NativeChainSnapshot("a:pa", (1, 2), ("h1", "h2"), "p"))
+    candidates = [
+        EvictionCandidate(1, 0, True, 0, "h1"),
+        EvictionCandidate(2, 0, True, 1, "h2"),
+        EvictionCandidate(3, 0, True, 2, "h3"),
+    ]
+
+    request = registry.build_request(
+        candidates,
+        _context(2),
+        (_entry("a", "pa", (1, 2)), _entry("b", "pb", (1, 3))),
+        tau_seconds=30.0,
+    )
+
+    assert request.blocks[0].memberships == ()
+    adapter = A2NativeBlockAdapter(lambda _candidates, _context: request)
+    assert adapter.select_victims(candidates, _context(2)) == [1, 2]
+    assert adapter.last_audit is not None
+    assert adapter.last_audit.fallbacks == ("content_unverified",)
+
+
+def test_registry_fails_closed_on_candidate_hash_mismatch() -> None:
+    registry = A2NativeSnapshotRegistry()
+    registry.observe(A2NativeChainSnapshot("a:pa", (1,), ("expected",), "p"))
+    candidates = [EvictionCandidate(1, 0, True, 0, "different")]
 
     request = registry.build_request(
         candidates,
