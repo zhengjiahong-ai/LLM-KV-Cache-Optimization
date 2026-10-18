@@ -11,8 +11,7 @@ rules choose from the *same* legal candidate set.
 
 ## 1. Headline result
 
-**On the recorded corpus the two rules never pick a different block set, and the
-expected loss is identical in all 120 decisions.**
+**On the inspected legacy H1-derived corpus, this singly-owned diagnostic never picks a different block set across 120 decisions. This is not a result for the new Phase 2G Gate 2 workload or for shared physical blocks.**
 
 ```text
 decisions analysed                                  120
@@ -45,8 +44,7 @@ entries with >=3 queue-visible blocks               294
   strictly increasing / neither                      0 / 0
 ```
 
-So deeper blocks always have smaller `native_lru_rank`: **native LRU already evicts
-deepest-first within a chain.** A defect here would have made every A2 comparison
+Within this H1-derived corpus, decreasing ranks agree with the assumed candidate-list depth order. **This does not prove that list position is native physical prefix depth, or that native LRU generally evicts deepest-first.** A defect here would have made every A2 comparison
 meaningless, so it is asserted (`scripts/probes/a2_block_geometry.py --strict`).
 
 Additionally, `87/87` decisions expose every candidate block in
@@ -108,7 +106,8 @@ measured rather than assumed. This is the realistic downside risk.
 
 ## 4. Minimal interface gap for an A2 native opt-in
 
-The current adapter is:
+The current diagnostic represents one owner per physical block. If block IDs recur across chains it now fails closed (`MULTI_CHAIN_BLOCK_UNSUPPORTED`) rather than overwriting ownership. The accepted joint design requires summing per-chain marginal losses for a shared block. Neither the current H1 proxy nor rank monotonicity establishes that mapping.
+\nThe current adapter is:
 
 ```text
 EvictionCandidate = {block_id, ref_cnt, has_block_hash, lru_rank}
@@ -137,8 +136,7 @@ offline path, where they must be reconstructed from `block_ids` order.
 
 ## 5. Recommendation
 
-**Do not authorise A2 native implementation on the current evidence.** Block-level
-selection has no measurable value on the only corpus available: the two signal
+**Do not authorise A2 native implementation on the current evidence.** The legacy H1 diagnostic has no distinguishable block victim set, but this neither covers Gate 2 nor proves native block-level headroom absent: the two signal
 sources it depends on (`q_c` order and native rank order) are perfectly aligned, so
 the rule cannot differ from native LRU.
 
@@ -151,7 +149,7 @@ native work. Concretely, the gate is:
 share of multi-chain decisions where cheapest-q chain != coldest-rank chain  > 0
 ```
 
-On the current corpus that share is `0 / 39`.
+On the inspected H1-derived corpus that share is `0 / 39`. The new Gate 2 workload was not evaluated by this reported number. Shared physical blocks are intentionally rejected by the diagnostic until a trustworthy multi-chain ownership/position mapping and shared marginal loss are available.
 
 This is not a judgement that block-level optimisation has no headroom. It is the
 narrower, measured statement that **this corpus cannot express the difference.**
