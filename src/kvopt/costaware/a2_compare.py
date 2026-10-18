@@ -157,15 +157,15 @@ def _shape(
         "victim_set_differs": row.victim_set_differs,
         "verified": row.verified,
         "native_expected_loss": (
-            None if row.native is None else row.native.expected_recompute
+            None if row.native is None else row.native.proxy_weighted_loss
         ),
         "cost_aware_expected_loss": (
-            None if row.cost_aware is None else row.cost_aware.expected_recompute
+            None if row.cost_aware is None else row.cost_aware.proxy_weighted_loss
         ),
         "expected_loss_delta": (
             None
             if row.native is None or row.cost_aware is None
-            else row.cost_aware.expected_recompute - row.native.expected_recompute
+            else row.cost_aware.proxy_weighted_loss - row.native.proxy_weighted_loss
         ),
         "q_order_agrees_with_rank": row.q_order_agrees_with_rank,
         "causes": list(divergence_causes(row, geometry)),
@@ -200,7 +200,7 @@ def summarise(
 
     freedom = [pair for pair in verified if pair[0].legal_count > pair[0].need]
     delta = [
-        pair[0].cost_aware.expected_recompute - pair[0].native.expected_recompute
+        pair[0].cost_aware.proxy_weighted_loss - pair[0].native.proxy_weighted_loss
         for pair in verified
         if pair[0].native is not None and pair[0].cost_aware is not None
     ]
@@ -266,6 +266,8 @@ def summarise(
             "min": min(delta) if delta else None,
             "max": max(delta) if delta else None,
             "non_zero_decisions": sum(1 for value in delta if value != 0),
+            "units": "proxy-weighted block units, block size factored out",
+            "tau_frozen": True,
         },
         "is_physical_benefit": False,
     }
@@ -274,7 +276,7 @@ def summarise(
 def _delta(row: DecisionDivergence) -> float | None:
     if row.native is None or row.cost_aware is None:
         return None
-    return row.cost_aware.expected_recompute - row.native.expected_recompute
+    return row.cost_aware.proxy_weighted_loss - row.native.proxy_weighted_loss
 
 
 def examples(

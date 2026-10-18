@@ -132,7 +132,7 @@ def test_evicting_a_shared_block_moves_the_gap_in_every_chain() -> None:
     outcome = selection_outcome("rule", [1], geometry)
 
     # j_a = 3 -> 2 blocks remain ; j_b = 2 -> 3 blocks remain
-    assert outcome.expected_recompute == pytest.approx(2.0 + 3.0)
+    assert outcome.proxy_weighted_loss == pytest.approx(2.0 + 3.0)
     assert outcome.chains_touched == ("a", "b")
 
 
@@ -175,8 +175,8 @@ def test_inverted_depth_gives_a_real_victim_set_difference() -> None:
     assert aware == (14, 13)  # deepest first
     assert set(native) != set(aware)
 
-    native_loss = selection_outcome("n", native, geometry).expected_recompute
-    aware_loss = selection_outcome("a", aware, geometry).expected_recompute
+    native_loss = selection_outcome("n", native, geometry).proxy_weighted_loss
+    aware_loss = selection_outcome("a", aware, geometry).proxy_weighted_loss
     assert native_loss == pytest.approx(4.0)
     assert aware_loss == pytest.approx(2.0)
     assert aware_loss < native_loss

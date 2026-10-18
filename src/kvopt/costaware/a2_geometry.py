@@ -155,7 +155,12 @@ class SelectionOutcome:
 
     rule: str
     blocks: tuple[int, ...]
-    expected_recompute: float
+    #: ``sum_c q_c * (m_c - j_c + 1)`` over chains with at least one eviction, in
+    #: **weighted block units** with the per-token block size factored out. ``q_c`` is
+    #: the uncalibrated reuse proxy of :func:`reuse_proxy`, so this is a
+    #: proxy-weighted loss and **not** an expected recomputed-token count. Comparing
+    #: two outcomes is valid only under a fixed ``tau``.
+    proxy_weighted_loss: float
     chains_touched: tuple[ChainKey, ...]
     shared_blocks_taken: int
 
@@ -237,6 +242,11 @@ def chain_loss(
 ) -> float:
     """``sum_c q_c * (m_c - j_c + 1)`` over chains with at least one eviction.
 
+    Units are **weighted block units**: the per-token block size is a constant factor
+    common to every candidate set and is omitted. With an uncalibrated ``q`` this is a
+    proxy-weighted loss, so its absolute value is not an expected token count and is
+    comparable only against other sets scored under the same ``tau``.
+
     Raises :class:`MissingReuseWeight` for an evicted chain with no weight.
     """
     total = 0.0
@@ -258,7 +268,7 @@ def native_selection(geometry: DecisionGeometry, need: int) -> tuple[int, ...]:
 
 
 def cost_aware_selection(geometry: DecisionGeometry, need: int) -> tuple[int, ...]:
-    """Greedy minimum marginal expected recomputation."""
+    """Greedy pick minimising the marginal proxy-weighted loss."""
     remaining = dict(geometry.blocks)
     evicted: dict[ChainKey, set[int]] = {}
     chosen: list[int] = []
@@ -331,7 +341,9 @@ def selection_outcome(
     return SelectionOutcome(
         rule=rule,
         blocks=tuple(blocks),
-        expected_recompute=chain_loss(evicted, geometry.chain_length, geometry.q_by_chain),
+        proxy_weighted_loss=chain_loss(
+            evicted, geometry.chain_length, geometry.q_by_chain
+        ),
         chains_touched=tuple(sorted(evicted)),
         shared_blocks_taken=shared,
     )
@@ -439,5 +451,17 @@ def evaluate(
 
 
 def reuse_proxy(deadline: float, timestamp: float, tau_seconds: float) -> float:
-    """``sigmoid((deadline - t) / tau)``, the same proxy A1 uses."""
+    """``sigmoid((deadline - t) / tau)``, the same proxy A1 uses.
+
+    This is a **ranking proxy, not a calibrated probability**: it is monotone in the
+    deadline and bounded to ``(0, 1)``, and only its ordering is justified from first
+    principles. Its magnitude is not a measured reuse probability or reuse count, so
+    any loss built from it is a proxy-weighted score, not an expected token count.
+
+    ``tau`` fixes that magnitude. Because two candidates in different chains compare
+    ``q_a * s_a`` against ``q_b * s_b``, changing ``tau`` changes the cross-chain
+    tradeoff even when the deadline ordering is unchanged, and can therefore change
+    the selected victims. ``tau`` is frozen per campaign and must be reported
+    alongside any result produced from it.
+    """
     return 1.0 / (1.0 + math.exp(-(deadline - timestamp) / tau_seconds))
