@@ -214,3 +214,10 @@ PYTHONPATH=src python -m kvopt.profiling.phase2g_gate2_review \
 python -m kvopt.profiling.phase2g_a1_bounded_gate \
     --manifest <campaign-manifest.json> --run-root <runs-dir> --output gate-report.json
 ```
+
+
+## M1 closeout scope (2026-10-18)
+
+The evaluator implementation is accepted as a corrected post-processing path, **not** as an independently recomputed final Gate 2 result. The packaged 144-run attachment is not accessible in the review execution environment; the historical `12/1/22` and `-24.23` numbers therefore remain **PROVISIONAL**. The frozen raw experiment is preserved; no new Native runs or silent substitutions are authorized. The corrected evaluator must be run against that same artifact archive before its aggregate results can be cited as frozen A1 evidence.
+
+The A2 study is a legacy H1-derived, singly-owned selection diagnostic. It is not a verdict on Phase 2G Gate 2's block-level choice space. Shared block co-ownership is fail-closed until multi-chain content identity and marginal-cost support exist.
