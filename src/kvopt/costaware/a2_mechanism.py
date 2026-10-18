@@ -2,6 +2,10 @@
 
 Scope
 -----
+This is a singly-owned, rank-correlated H1 diagnostic. Shared blocks require
+multi-chain ownership and are explicitly unsupported; position is not verified
+native prefix depth.
+
 A2 keeps Continuum's entry release unchanged and replaces only *which legal block*
 the eviction path takes. This module answers that question offline on recorded
 decisions; it does not implement a native policy and does not run experiments.
@@ -81,12 +85,13 @@ def reconstruct_blocks(
     snapshot: DecisionSnapshot,
     rows: Mapping[CandidateKey, object],
 ) -> dict[int, BlockFact]:
-    """Map legal block id -> (chain, depth) using each candidate's ``block_ids``.
+    """Build a *single-owner diagnostic proxy*, not native prefix provenance.
 
-    The candidate's ``block_ids`` tuple is read as ascending prefix depth: index 0
-    is the shallowest block. That reading is verified against the recorded native
-    ranks by ``scripts/probes/a2_block_geometry.py``; if it ever stops holding, the
-    study must stop rather than silently produce a wrong geometry.
+    ``block_ids`` position is an assumed depth proxy correlated with LRU rank in
+    the inspected H1 artifacts; rank monotonicity does not establish true
+    prefix depth. A shared physical block may participate in several chains;
+    this one-chain diagnostic MUST reject such cases rather than silently
+    overwrite an owner and undercount the joint-design marginal loss.
     """
     facts: dict[int, BlockFact] = {}
     for key, row in rows.items():
@@ -95,6 +100,13 @@ def reconstruct_blocks(
             if block_id not in snapshot.ranking_by_block:
                 # Not currently in the free queue, so not a legal candidate.
                 continue
+            chain = f"{key[0]}:{key[1]}"
+            if block_id in facts and facts[block_id].chain != chain:
+                raise ValueError(
+                    "MULTI_CHAIN_BLOCK_UNSUPPORTED: physical block "
+                    f"{block_id} belongs to both {facts[block_id].chain} and {chain}; "
+                    "requires content-chain ownership and a multi-chain loss function"
+                )
             facts[block_id] = BlockFact(
                 block_id=block_id,
                 chain=f"{key[0]}:{key[1]}",
