@@ -693,6 +693,14 @@ class MinimalMetalObservabilityBackend:
             "backend_options.phase2g_a2_tau_seconds",
         )
         self._phase2g_a2_registry = A2NativeSnapshotRegistry()
+        phase2g_a2_identity_mode = options.get("phase2g_a2_identity_mode", "normal")
+        if phase2g_a2_identity_mode not in {"normal", "missing", "stale"}:
+            raise ValueError(
+                "backend_options.phase2g_a2_identity_mode must be normal, missing, or stale"
+            )
+        if phase2g_a2_identity_mode != "normal" and phase2g_block_policy != "A2":
+            raise ValueError("A2 identity controls require the A2 block policy")
+        self._phase2g_a2_identity_mode = str(phase2g_a2_identity_mode)
         if self._h2_interventions and config.get("campaign_kind") not in {
             "h2_formal_measurement",
             "h2_intervention_validation",
@@ -715,7 +723,8 @@ class MinimalMetalObservabilityBackend:
             protected_blocks_override = options.get("phase2g_unique_protected_blocks")
             if (
                 protected_blocks_override is not None
-                and config.get("campaign_kind") != "phase2g_a1_bounded_evaluation"
+                and config.get("campaign_kind")
+                not in {"phase2g_a1_bounded_evaluation", "phase2g_a2_native_gate1"}
             ):
                 raise ValueError(
                     "unique protected-block accounting is restricted to the "
@@ -1059,6 +1068,11 @@ class MinimalMetalObservabilityBackend:
                     "phase2g_block_policy": phase2g_block_policy,
                     "phase2g_a2_tau_seconds": (
                         phase2g_a2_tau_seconds if phase2g_block_policy == "A2" else None
+                    ),
+                    "phase2g_a2_identity_mode": (
+                        self._phase2g_a2_identity_mode
+                        if phase2g_block_policy == "A2"
+                        else None
                     ),
                 },
             )
@@ -1485,14 +1499,17 @@ class MinimalMetalObservabilityBackend:
                 },
             )
         )
-        self._phase2g_a2_registry.observe(
-            A2NativeChainSnapshot(
-                chain_id=f"{request.program_id}:{prefix.canonical_value}",
-                block_ids=tuple(block_ids),
-                content_hashes=tuple(native_hash.hex() for native_hash in hashes),
-                native_hash_process_id=str(os.getpid()),
+        if self._phase2g_a2_identity_mode != "missing":
+            self._phase2g_a2_registry.observe(
+                A2NativeChainSnapshot(
+                    chain_id=f"{request.program_id}:{prefix.canonical_value}",
+                    block_ids=tuple(block_ids),
+                    content_hashes=tuple(native_hash.hex() for native_hash in hashes),
+                    native_hash_process_id=str(os.getpid()),
+                )
             )
-        )
+            if self._phase2g_a2_identity_mode == "stale":
+                self._phase2g_a2_registry.observe_eviction(block_ids[0])
         return prefix, token_count, blocks, tuple(block_ids), tuple(hashes)
 
     def _apply_h2_intervention(
