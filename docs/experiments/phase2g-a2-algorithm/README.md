@@ -226,7 +226,7 @@ the reason:
 |---|---|
 | `content_unverified` | a hash-carrying legal block has no proved chain membership, or its memberships disagree on the content hash |
 | `reuse_weight_missing` | a chain carrying priced content has no decision-time weight |
-| `contract_invalid` | the whole request failed `validate_request` |
+| `contract_invalid` | the whole request failed `validate_request`; victims are the distinct legal ids in native order |
 
 Fallback reports `proxy_weighted_loss: None` — a loss is never invented. Hashless blocks
 are **not** a fallback trigger: they carry no prefix content, so their cost is zero by
@@ -286,9 +286,26 @@ the caller can log:
 
 The failure path is explicit and is part of the frozen contract,
 `a2_contract.decide()`: validate first, and if anything fails, **log the reasons and
-return native LRU order restricted to `required_blocks`**, marked
-`contract_invalid`, with `proxy_weighted_loss = None`. A malformed request therefore
-never enters cost scoring and cannot change a decision.
+return native LRU order over the distinct legal block ids, restricted to
+`required_blocks`**, marked `contract_invalid`, with `proxy_weighted_loss = None`. A
+malformed request therefore never enters cost scoring and cannot change a decision.
+
+The fallback must survive the very defects it is invoked for, so it does not simply
+sort and slice `request.blocks`:
+
+- **victim ids are deduplicated.** A request with ids `(1, 1, 2)` and
+  `required_blocks = 2` would otherwise return `(1, 1)` — naming one physical block
+twice, so the engine would evict a block it has already freed and the returned count
+would overstate the pressure relieved;
+- **the duplicate policy is deterministic**: each id is represented by its smallest
+  `(native_rank, block_id)` key, so a duplicate can neither displace the colder record
+  nor make the result depend on record order;
+- **the count is truncated at the number of distinct ids.** If fewer distinct
+  candidates exist than `required_blocks`, the short answer is returned rather than
+  padded with a repeat. Reporting a short count is honest; a duplicate is not.
+
+The rejection reasons are still returned in `DecisionOutcome.problems`, so the repair
+never hides the diagnosis.
 
 The guard is doubly enforced. `DecisionRequest.to_geometry()` marks a block with a
 defective identity as a `content_unverified` gap, so even a caller that skips
@@ -309,6 +326,7 @@ changes no existing identity proof, and reuses the fallback already specified ab
 | $\tau$ rescaled between campaigns | different victims at identical deadline order | $\tau$ frozen and reported; sensitivity pinned by a test |
 | slot reuse | stale content attached to a slot | content proof required; unproved ⇒ fallback |
 | inconsistent content hashes in the request | malformed block scored as a verified shared block | `validate_request` rejects; `to_geometry` marks a gap; `decide` falls back |
+| duplicate block ids in the request | fallback victim list naming one block twice, overstating freed blocks | `decide` deduplicates before truncating; count capped at distinct ids |
 | depth from rank | systematically wrong costs | depth never read from rank; enforced by contract |
 | shared ownership collapsed | loss understated | all memberships summed |
 | greedy suboptimality | up to 0.70 loss units in the random search | exhaustive search where affordable; selector recorded |
@@ -320,7 +338,7 @@ changes no existing identity proof, and reuses the fallback already specified ab
 ## 6. Algorithm-layer verification
 
 `tests/test_costaware_a2_selector.py` (34 tests) and
-`tests/test_costaware_a2_contract.py` (33 tests) cover the seven areas required:
+`tests/test_costaware_a2_contract.py` (41 tests) cover the seven areas required:
 
 | required coverage | tests |
 |---|---|
@@ -340,6 +358,7 @@ contract are themselves claims that need pinning:
 | the score is proxy-weighted block units, not tokens | `test_loss_is_in_weighted_block_units_with_no_token_factor` |
 | $\tau$'s scale is load-bearing | `test_tau_changes_the_victim_set_while_the_deadline_order_is_fixed` |
 | content identity fails closed at the boundary | `test_empty_content_hash_is_reported`, `test_whitespace_only_content_hash_is_reported`, `test_one_block_with_two_content_hashes_is_reported`, `test_chain_slot_claimed_with_incompatible_hashes_is_reported`, `test_consistent_shared_identity_is_accepted`, `test_invalid_identity_never_enters_cost_scoring`, `test_conflicting_identity_becomes_a_gap_even_without_validation`, `test_decide_scores_a_valid_request` |
+| the fail-closed fallback names distinct blocks | `test_intake_detects_the_duplicate_before_the_fallback_runs`, `test_fail_closed_victims_are_never_duplicated`, `test_fail_closed_fallback_returns_every_distinct_candidate_it_has`, `test_fail_closed_deduplication_is_deterministic_under_record_order`, `test_fail_closed_duplicate_keeps_the_coldest_record` |
 
 ### 6.1 The three named cases
 

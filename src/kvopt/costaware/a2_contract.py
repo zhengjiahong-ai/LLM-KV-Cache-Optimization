@@ -331,18 +331,18 @@ def decide(
 ) -> DecisionOutcome:
     """The prescribed adapter path: validate first, score only if the input is valid.
 
-    A request that violates the contract is **never** scored. The reason is returned in
-    ``problems`` for the caller to log, and the victim set is native LRU order over the
-    legal blocks restricted to ``required_blocks`` -- the same fallback the selector
-    uses for unverifiable content, so no malformed input can change a decision.
+    A request that violates the contract is **never** scored. The reasons are returned
+    in ``problems`` for the caller to log, and the victim set is native LRU order over
+    the **distinct** legal block ids restricted to ``required_blocks`` -- the same
+    fallback the selector uses for unverifiable content, so no malformed input can
+    change a decision. Duplicate ids are collapsed by :func:`_fail_closed_victims`, so
+    an invalid request can never produce a victim list naming one block twice.
     """
     problems = validate_request(request)
     if problems:
-        ordered = sorted(request.blocks, key=lambda b: (b.native_rank, b.block_id))
-        need = max(0, min(request.required_blocks, len(ordered)))
         return DecisionOutcome(
             selection=VictimSelection(
-                blocks=tuple(item.block_id for item in ordered[:need]),
+                blocks=_fail_closed_victims(request),
                 selector=SELECTOR_NATIVE_FALLBACK,
                 proxy_weighted_loss=None,
                 cost_known=False,
@@ -354,6 +354,37 @@ def decide(
     return DecisionOutcome(
         selection=selector.select(request.to_geometry(), request.required_blocks)
     )
+
+
+def _fail_closed_victims(request: DecisionRequest) -> tuple[int, ...]:
+    """Native LRU victims for a request that failed the contract.
+
+    A victim list must name **distinct physical blocks**: returning the same
+    ``block_id`` twice would tell the engine to evict one block and then evict it
+    again, so the count would overstate how much was freed. ``validate_request``
+    reports duplicate ids, but the fallback still has to cope with them, because the
+    fallback is the one path that runs *on* invalid input.
+
+    Policy, deterministic and independent of input order:
+
+    1. rank each block by ``(native_rank, block_id)`` -- the frozen engine order;
+    2. collapse equal ``block_id`` records onto their smallest such key, so a
+       duplicate never displaces the colder record;
+    3. take the first ``required_blocks`` of the surviving distinct ids.
+
+    The result is therefore truncated at the number of **distinct** candidates, which
+    may be fewer than ``required_blocks``. Reporting a short count is honest; padding
+    it with a repeat would not be.
+    """
+    chosen_key: dict[int, tuple[int, int]] = {}
+    for item in request.blocks:
+        key = (item.native_rank, item.block_id)
+        best = chosen_key.get(item.block_id)
+        if best is None or key < best:
+            chosen_key[item.block_id] = key
+    ordered = sorted(chosen_key.items(), key=lambda pair: pair[1])
+    need = max(0, min(request.required_blocks, len(ordered)))
+    return tuple(block_id for block_id, _ in ordered[:need])
 
 
 def fields_needing_exposure() -> tuple[FieldContract, ...]:

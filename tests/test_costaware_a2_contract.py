@@ -382,3 +382,84 @@ def test_decide_scores_a_valid_request() -> None:
     assert outcome.problems == ()
     assert outcome.selection.cost_known
     assert outcome.selection.proxy_weighted_loss is not None
+
+
+# --- fail-closed victims name distinct physical blocks --------------------
+#
+# The contract-invalid fallback is the one path that runs *on* invalid input, so it
+# must stay defensible for the very defect ``validate_request`` just reported. A victim
+# list naming one block twice would tell the engine to evict a block that is already
+# gone and would overstate how much pressure was relieved.
+
+
+def _duplicate_id_request(required_blocks: int) -> DecisionRequest:
+    """``(1, 1, 2)``: duplicate ids, which is itself the contract violation."""
+    return _request(
+        required_blocks=required_blocks,
+        blocks=(
+            BlockDecisionInput(1, 0, memberships=(Membership("a", 3, "h1"),)),
+            BlockDecisionInput(1, 1, memberships=(Membership("a", 3, "h1"),)),
+            BlockDecisionInput(2, 2, memberships=(Membership("a", 2, "h2"),)),
+        ),
+    )
+
+
+def test_intake_detects_the_duplicate_before_the_fallback_runs() -> None:
+    """Precondition: this request really is rejected for duplicate ids."""
+    problems = validate_request(_duplicate_id_request(2))
+    assert any("duplicate block id 1" in p for p in problems)
+
+
+@pytest.mark.parametrize("required_blocks", [1, 2, 3, 4])
+def test_fail_closed_victims_are_never_duplicated(required_blocks: int) -> None:
+    """No malformed request may produce the same victim id twice."""
+    outcome = decide(_duplicate_id_request(required_blocks))
+
+    assert outcome.rejected
+    # the reasons stay visible even though the victim list was repaired
+    assert any("duplicate block id 1" in p for p in outcome.problems)
+    assert outcome.selection.fallbacks == (FALLBACK_CONTRACT_INVALID,)
+
+    victims = outcome.selection.blocks
+    assert len(set(victims)) == len(victims)
+
+
+def test_fail_closed_fallback_returns_every_distinct_candidate_it_has() -> None:
+    """Deduplication must not silently shrink the answer below what is available.
+
+    Two distinct ids survive, so a request for 2 must return both; asking for more
+    returns the same two rather than padding with a repeat.
+    """
+    assert decide(_duplicate_id_request(2)).selection.blocks == (1, 2)
+    assert decide(_duplicate_id_request(5)).selection.blocks == (1, 2)
+
+
+def test_fail_closed_deduplication_is_deterministic_under_record_order() -> None:
+    """Reordering the duplicate records must not change the victim list."""
+    forward = _duplicate_id_request(2)
+    reversed_blocks = _request(
+        required_blocks=2,
+        blocks=tuple(reversed(forward.blocks)),
+    )
+
+    assert decide(forward).selection.blocks == decide(reversed_blocks).selection.blocks
+
+
+def test_fail_closed_duplicate_keeps_the_coldest_record() -> None:
+    """A duplicate must not displace the colder record's rank position.
+
+    Block 1 appears with rank 9 and with rank 0; only the colder record may decide
+    where the id sits in the engine order, so it still outranks block 2 at rank 5.
+    """
+    request = _request(
+        required_blocks=1,
+        blocks=(
+            BlockDecisionInput(2, 5, memberships=(Membership("a", 2, "h2"),)),
+            BlockDecisionInput(1, 9, memberships=(Membership("a", 3, "h1"),)),
+            BlockDecisionInput(1, 0, memberships=(Membership("a", 3, "h1"),)),
+        ),
+    )
+    outcome = decide(request)
+
+    assert outcome.rejected
+    assert outcome.selection.blocks == (1,)
