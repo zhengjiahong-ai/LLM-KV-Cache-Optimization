@@ -11,9 +11,15 @@ import json
 from pathlib import Path
 
 from kvopt.costaware.a2_evidence import (
+    BLOCK_EVICTED_BEFORE_DECISION,
+    CANDIDATE_BLOCKS_DIFFER,
+    NO_PRIOR_SNAPSHOT,
+    PROVED,
+    SEQUENCE_LENGTH_MISMATCH,
     build_geometry,
     candidate_row,
     decisions_for_run,
+    prove_chain,
     read_run_events,
 )
 from kvopt.costaware.a2_geometry import evaluate
@@ -26,6 +32,7 @@ def _snapshot(
     prefix: str,
     blocks: list[int],
     hashes: list[str],
+    process: str = "pid-1",
 ) -> dict[str, object]:
     return {
         "event_index": index,
@@ -35,8 +42,38 @@ def _snapshot(
         "payload": {
             "block_ids": blocks,
             "ordered_native_hashes": hashes,
+            "ordered_native_cache_keys": [f"{value}-key" for value in hashes],
+            "native_hash_process_id": process,
             "native_hash_block_size": 16,
         },
+    }
+
+
+def _eviction(
+    *, index: int, block_id: int, process: str = "pid-1"
+) -> dict[str, object]:
+    return {
+        "event_index": index,
+        "event_type": "VLLM_NATIVE_HASHED_CACHE_ENTRY_EVICTED",
+        "program_id": "a",
+        "prefix_id": "p1",
+        "payload": {
+            "block_id": block_id,
+            "native_hash_process_id": process,
+            "native_cache_key_before": "before",
+        },
+    }
+
+
+def _candidate(
+    program: str, prefix: str, blocks: list[int], *, deadline: float
+) -> dict[str, object]:
+    return {
+        "program_id": program,
+        "prefix_id": prefix,
+        "block_ids": blocks,
+        "initially_reclaimable_block_ids": [],
+        "retention_deadline_timestamp": deadline,
     }
 
 
@@ -228,9 +265,11 @@ def test_mismatched_hash_alignment_is_skipped_not_guessed(tmp_path: Path) -> Non
     ]
     run = _write(tmp_path, events)
     decision = decisions_for_run(run)[0]
-    assert decision.chains == {}
+    assert decision.proofs["a:p1"].status == SEQUENCE_LENGTH_MISMATCH
+    assert not decision.proofs["a:p1"].proved
     geometry = build_geometry(decision, need=1)
     assert set(geometry.gaps) == {1, 2, 3}
+    assert not geometry.scorable
 
 
 def test_decisions_only_see_snapshots_that_precede_them(tmp_path: Path) -> None:
@@ -356,3 +395,177 @@ def test_evaluate_on_reconstructed_geometry_reports_no_freedom_case(tmp_path: Pa
     )
     assert row.legal_count == row.need
     assert not row.victim_set_differs
+
+
+# --- RC1: slot identity must be proved, never assumed ---------------------
+
+
+def test_slot_reuse_invalidates_the_mapping(tmp_path: Path) -> None:
+    """snapshot(slot X, hash A) -> eviction -> decision must NOT be proved.
+
+    This is the regression M1 asked for. A block id is a slot, not a content
+    identity: after the slot is evicted it may hold different content, so the old
+    hash must not be attached to it.
+    """
+    events = [
+        _snapshot(index=1, program="a", prefix="p1", blocks=[7, 8], hashes=["A7", "A8"]),
+        _eviction(index=2, block_id=7),
+        _decision(
+            index=3,
+            required=1,
+            queue=[(7, 0, True), (8, 1, True)],
+            candidates=[_candidate("a", "p1", [7, 8], deadline=90.0)],
+        ),
+    ]
+    decision = decisions_for_run(_write(tmp_path, events))[0]
+    proof = decision.proofs["a:p1"]
+
+    assert proof.status == BLOCK_EVICTED_BEFORE_DECISION
+    assert not proof.proved
+    # No depth may be borrowed from the stale snapshot.
+    assert proof.depth_of(7) is None
+
+    geometry = build_geometry(decision, need=1)
+    assert set(geometry.gaps) == {7, 8}
+    assert not geometry.scorable
+
+
+def test_eviction_from_a_other_process_does_not_invalidate(tmp_path: Path) -> None:
+    """Only evictions by the same hash process can reuse these slots."""
+    events = [
+        _snapshot(index=1, program="a", prefix="p1", blocks=[7], hashes=["A7"], process="pid-1"),
+        _eviction(index=2, block_id=7, process="pid-2"),
+        _decision(
+            index=3,
+            required=1,
+            queue=[(7, 0, True)],
+            candidates=[_candidate("a", "p1", [7], deadline=90.0)],
+        ),
+    ]
+    proof = decisions_for_run(_write(tmp_path, events))[0].proofs["a:p1"]
+    assert proof.status == PROVED
+
+
+def test_invalid_later_snapshot_does_not_fall_back_to_an_older_one(tmp_path: Path) -> None:
+    """An invalid later snapshot must invalidate the mapping, not leave it active."""
+    events = [
+        _snapshot(index=1, program="a", prefix="p1", blocks=[1, 2], hashes=["h1", "h2"]),
+        # Later snapshot for the same chain describes a different block list.
+        _snapshot(index=2, program="a", prefix="p1", blocks=[1, 2, 3], hashes=["h1", "h2", "h3"]),
+        _decision(
+            index=3,
+            required=1,
+            queue=[(1, 0, True), (2, 1, True)],
+            candidates=[_candidate("a", "p1", [1, 2], deadline=90.0)],
+        ),
+    ]
+    proof = decisions_for_run(_write(tmp_path, events))[0].proofs["a:p1"]
+    assert proof.status == CANDIDATE_BLOCKS_DIFFER
+    assert not proof.proved
+    assert proof.snapshot_event_index is None
+
+
+def test_no_prior_snapshot_is_not_proved(tmp_path: Path) -> None:
+    events = [
+        _decision(
+            index=3,
+            required=1,
+            queue=[(1, 0, True)],
+            candidates=[_candidate("a", "p1", [1], deadline=90.0)],
+        ),
+    ]
+    proof = decisions_for_run(_write(tmp_path, events))[0].proofs["a:p1"]
+    assert proof.status == NO_PRIOR_SNAPSHOT
+
+
+def test_snapshot_without_process_id_is_not_proved(tmp_path: Path) -> None:
+    snapshot = _snapshot(index=1, program="a", prefix="p1", blocks=[1], hashes=["h1"])
+    snapshot["payload"].pop("native_hash_process_id")  # type: ignore[union-attr]
+    events = [
+        snapshot,
+        _decision(
+            index=2,
+            required=1,
+            queue=[(1, 0, True)],
+            candidates=[_candidate("a", "p1", [1], deadline=90.0)],
+        ),
+    ]
+    proof = decisions_for_run(_write(tmp_path, events))[0].proofs["a:p1"]
+    assert not proof.proved
+
+
+def test_ordered_equality_is_required_not_just_same_set(tmp_path: Path) -> None:
+    """A reordered block list is a different prefix, so it cannot be proved."""
+    events = [
+        _snapshot(index=1, program="a", prefix="p1", blocks=[1, 2], hashes=["h1", "h2"]),
+        _decision(
+            index=2,
+            required=1,
+            queue=[(1, 0, True), (2, 1, True)],
+            candidates=[_candidate("a", "p1", [2, 1], deadline=90.0)],
+        ),
+    ]
+    decision = decisions_for_run(_write(tmp_path, events))[0]
+    proof = prove_chain(
+        events, candidate=_candidate("a", "p1", [2, 1], deadline=90.0), decision_index=2
+    )
+    assert proof.status == CANDIDATE_BLOCKS_DIFFER
+    assert not decision.proofs["a:p1"].proved
+
+
+# --- RC2: unknown cost stays unknown --------------------------------------
+
+
+def test_missing_reuse_weight_makes_the_decision_unscorable(tmp_path: Path) -> None:
+    """A proved chain with no deadline is not a zero-cost chain."""
+    events = [
+        _snapshot(index=1, program="a", prefix="p1", blocks=[1, 2], hashes=["h1", "h2"]),
+        _decision(
+            index=2,
+            required=1,
+            queue=[(1, 0, True), (2, 1, True)],
+            # No retention_deadline_timestamp: the weight cannot be obtained.
+            candidates=[
+                {
+                    "program_id": "a",
+                    "prefix_id": "p1",
+                    "block_ids": [1, 2],
+                    "initially_reclaimable_block_ids": [],
+                }
+            ],
+        ),
+    ]
+    decision = decisions_for_run(_write(tmp_path, events))[0]
+    assert decision.proofs["a:p1"].proved
+
+    geometry = build_geometry(decision, need=1)
+    assert geometry.unknown_weight_chains == ("a:p1",)
+    assert not geometry.scorable
+
+    row = evaluate(
+        run_id="run-1", decision_event_index=2, geometry=geometry, need=1
+    )
+    # The selection is kept as a diagnostic, but the loss is not reported.
+    assert row.native is None
+    assert row.cost_aware is None
+    assert not row.verified
+    assert row.cost_aware_blocks  # a choice is still visible
+
+
+def test_verified_decision_reports_both_losses(tmp_path: Path) -> None:
+    events = [
+        _snapshot(index=1, program="a", prefix="p1", blocks=[1, 2], hashes=["h1", "h2"]),
+        _decision(
+            index=2,
+            required=1,
+            queue=[(1, 0, True), (2, 1, True)],
+            candidates=[_candidate("a", "p1", [1, 2], deadline=130.0)],
+        ),
+    ]
+    decision = decisions_for_run(_write(tmp_path, events))[0]
+    geometry = build_geometry(decision, need=1)
+    row = evaluate(run_id="run-1", decision_event_index=2, geometry=geometry, need=1)
+
+    assert geometry.scorable
+    assert row.verified
+    assert row.native is not None and row.cost_aware is not None
