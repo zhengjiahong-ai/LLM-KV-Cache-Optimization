@@ -24,6 +24,106 @@ def _arm(policy: str, *, selected: str, physical: str, tokens: int) -> dict[str,
     }
 
 
+def _outcome(*, recomputed: int, new_suffix: int, cached: int) -> dict[str, object]:
+    """One eligible request's frozen token facts."""
+    return {
+        "recomputed_tokens": recomputed,
+        "new_suffix_tokens": new_suffix,
+        "actual_prefill_tokens": recomputed + new_suffix,
+        "cached_prefix_tokens": cached,
+    }
+
+
+def _arm_with_metric(
+    policy: str,
+    *,
+    selected: str,
+    physical: str,
+    outcome: dict[str, object],
+) -> dict[str, object]:
+    arm = _arm(policy, selected=selected, physical=physical, tokens=0)
+    recoverable = int(outcome["recomputed_tokens"])
+    suffix = int(outcome["new_suffix_tokens"])
+    arm["request_outcomes"] = {"a:2": outcome}
+    arm["aggregate_recomputed_tokens"] = recoverable
+    arm["aggregate_actual_prefill_tokens"] = recoverable + suffix
+    arm["aggregate_new_suffix_tokens"] = suffix
+    return arm
+
+
+def test_pair_metric_equivalence_is_exact_when_new_suffix_matches() -> None:
+    """Same (N, E), different occupancy: the two candidate metrics must agree."""
+    a0 = _arm_with_metric(
+        "A0",
+        selected="a",
+        physical="a",
+        outcome=_outcome(recomputed=48, new_suffix=36, cached=16),
+    )
+    a1 = _arm_with_metric(
+        "A1",
+        selected="b",
+        physical="b",
+        outcome=_outcome(recomputed=16, new_suffix=36, cached=48),
+    )
+
+    result = compare_pair(a0, a1)
+
+    assert result["metric_equivalence"] == "EXACT"
+    assert result["request_completeness"] == "COMPLETE"
+    assert result["new_suffix_identical_across_arms"] is True
+    assert result["token_delta_a1_minus_a0"] == -32
+    assert result["delta_actual_prefill_a1_minus_a0"] == -32
+    assert result["delta_new_suffix_a1_minus_a0"] == 0
+    assert result["delta_difference_actual_prefill_minus_recomputed"] == 0
+
+
+def test_pair_reports_non_equivalence_instead_of_choosing_a_metric() -> None:
+    a0 = _arm_with_metric(
+        "A0",
+        selected="a",
+        physical="a",
+        outcome=_outcome(recomputed=0, new_suffix=100, cached=100),
+    )
+    a1 = _arm_with_metric(
+        "A1",
+        selected="b",
+        physical="b",
+        outcome=_outcome(recomputed=40, new_suffix=20, cached=140),
+    )
+
+    result = compare_pair(a0, a1)
+
+    assert result["metric_equivalence"] == "NOT_EQUIVALENT"
+    assert result["new_suffix_identical_across_arms"] is False
+    assert result["new_suffix_differing_request_ids"] == ["a:2"]
+    # Prefill improves while recomputation regresses; both are reported.
+    assert result["delta_actual_prefill_a1_minus_a0"] == -40
+    assert result["token_delta_a1_minus_a0"] == 40
+    assert result["delta_difference_actual_prefill_minus_recomputed"] == -80
+
+
+def test_pair_marks_unpaired_eligible_population_not_computable() -> None:
+    a0 = _arm_with_metric(
+        "A0",
+        selected="a",
+        physical="a",
+        outcome=_outcome(recomputed=48, new_suffix=36, cached=16),
+    )
+    a1 = _arm_with_metric(
+        "A1",
+        selected="b",
+        physical="b",
+        outcome=_outcome(recomputed=16, new_suffix=36, cached=48),
+    )
+    a1["request_outcomes"] = {"a:9": _outcome(recomputed=16, new_suffix=36, cached=48)}
+
+    result = compare_pair(a0, a1)
+
+    assert result["request_completeness"] == "UNPAIRED"
+    assert result["metric_equivalence"] == "NOT_COMPUTABLE"
+    assert result["unpaired_request_ids"] == ["a:2", "a:9"]
+
+
 def test_pair_reports_native_benefit_only_after_both_divergences() -> None:
     result = compare_pair(
         _arm("A0", selected="a", physical="a", tokens=200),

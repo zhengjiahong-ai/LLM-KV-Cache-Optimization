@@ -12,6 +12,7 @@ from pathlib import Path
 
 from .ingestion import load_run_artifacts
 from .phase2e_fidelity import _materialized_digests
+from .phase2g_a1_metric import RequestTokenFacts, request_token_facts
 
 EVIDENCE_STATES = frozenset(
     {
@@ -60,15 +61,23 @@ def evaluate_run(run_dir: Path) -> dict[str, object]:
     for row in native:
         request_id = str(row.get("request_id"))
         payload = row.get("payload", {})
-        observations[request_id] = {
-            "program_id": str(row.get("program_id")),
-            "prompt_tokens": int(payload["native_prompt_tokens"]),
-            "cached_prefix_tokens": int(payload["native_cached_prefix_tokens"]),
-            "recomputed_tokens": int(payload["native_prompt_tokens"])
-            - int(payload["native_cached_prefix_tokens"]),
-        }
         for position, block_hash in enumerate(payload.get("native_apc_block_hashes", [])):
             hash_identity[str(block_hash)] = (str(row.get("program_id")), position)
+
+    # Token facts come from the frozen Level-B derivation, never from a local
+    # re-derivation: N - C is actual prefill, while the frozen recomputation
+    # metric is E - C. See phase2g_a1_metric for why that distinction matters.
+    facts: dict[str, RequestTokenFacts] = request_token_facts([run])
+    for request_id, fact in facts.items():
+        observations[request_id] = {
+            "program_id": fact.program_id,
+            "prompt_tokens": fact.prompt_tokens,
+            "eligible_prefix_tokens": fact.eligible_prefix_tokens,
+            "cached_prefix_tokens": fact.cached_prefix_tokens,
+            "actual_prefill_tokens": fact.actual_prefill_tokens,
+            "recomputed_tokens": fact.recomputed_tokens,
+            "new_suffix_tokens": fact.new_suffix_tokens,
+        }
     physical_signature: list[tuple[str, int]] = []
     unmapped_evictions = 0
     for row in evictions:
@@ -125,10 +134,27 @@ def evaluate_run(run_dir: Path) -> dict[str, object]:
             int(row["recomputed_tokens"]) for row in eligible.values()
         ),
         "aggregate_actual_prefill_tokens": sum(
-            int(row["recomputed_tokens"]) for row in eligible.values()
+            int(row["actual_prefill_tokens"]) for row in eligible.values()
         ),
+        "aggregate_new_suffix_tokens": sum(
+            int(row["new_suffix_tokens"]) for row in eligible.values()
+        ),
+        "metric_definition": {
+            "actual_prefill_tokens": "N - C",
+            "recomputed_tokens": "E - C",
+            "new_suffix_tokens": "N - E",
+            "derived_by": "runtime_evidence.derive_level_b_token_semantics",
+        },
         "request_outcomes": eligible,
     }
+
+
+def _delta(a0: Mapping[str, object], a1: Mapping[str, object], key: str) -> int | None:
+    """Difference of one aggregate, or ``None`` when either side lacks the key."""
+    left, right = a0.get(key), a1.get(key)
+    if left is None or right is None:
+        return None
+    return int(right) - int(left)
 
 
 def compare_pair(
@@ -177,10 +203,89 @@ def compare_pair(
         != a1.get("physical_eviction_signature"),
         "a0_aggregate_recomputed_tokens": a0.get("aggregate_recomputed_tokens"),
         "a1_aggregate_recomputed_tokens": a1.get("aggregate_recomputed_tokens"),
+        "a0_aggregate_actual_prefill_tokens": a0.get("aggregate_actual_prefill_tokens"),
+        "a1_aggregate_actual_prefill_tokens": a1.get("aggregate_actual_prefill_tokens"),
         "token_delta_a1_minus_a0": (
-            int(a1["aggregate_recomputed_tokens"]) - int(a0["aggregate_recomputed_tokens"])
+            _delta(a0, a1, "aggregate_recomputed_tokens") if all(checks.values()) else None
+        ),
+        "delta_actual_prefill_a1_minus_a0": (
+            _delta(a0, a1, "aggregate_actual_prefill_tokens")
             if all(checks.values())
             else None
+        ),
+        "delta_new_suffix_a1_minus_a0": (
+            _delta(a0, a1, "aggregate_new_suffix_tokens") if all(checks.values()) else None
+        ),
+        **_metric_equivalence(a0, a1, checks),
+    }
+
+
+def _metric_equivalence(
+    a0: Mapping[str, object],
+    a1: Mapping[str, object],
+    checks: Mapping[str, object],
+) -> dict[str, object]:
+    """State whether the actual-prefill delta equals the frozen recomputation delta.
+
+    The two coincide when every paired request has identical ``(N, E)``, because
+    ``N - C = (E - C) + (N - E)`` and only the last term can then differ. Rather
+    than assume that, this measures it per request and records the verdict next to
+    the numbers it describes.
+    """
+    a0_rows = a0.get("request_outcomes") or {}
+    a1_rows = a1.get("request_outcomes") or {}
+    if not a0_rows and not a1_rows:
+        return {
+            "request_completeness": "NO_ELIGIBLE_REQUESTS",
+            "unpaired_request_ids": [],
+            "new_suffix_identical_across_arms": None,
+            "metric_equivalence": "NOT_COMPUTABLE",
+            "metric_equivalence_reason": (
+                "no eligible follow-up requests were observed in either arm"
+            ),
+        }
+    paired = sorted(set(a0_rows) & set(a1_rows))
+    unpaired = sorted(set(a0_rows) ^ set(a1_rows))
+
+    if unpaired:
+        return {
+            "request_completeness": "UNPAIRED",
+            "unpaired_request_ids": unpaired,
+            "new_suffix_identical_across_arms": None,
+            "metric_equivalence": "NOT_COMPUTABLE",
+            "metric_equivalence_reason": (
+                "eligible request populations differ between arms; a delta across "
+                "different populations is not a paired comparison"
+            ),
+        }
+
+    differing = [
+        request_id
+        for request_id in paired
+        if int(a0_rows[request_id]["new_suffix_tokens"])
+        != int(a1_rows[request_id]["new_suffix_tokens"])
+    ]
+    identical = not differing
+    delta_r = _delta(a0, a1, "aggregate_recomputed_tokens") if all(checks.values()) else None
+    delta_w = (
+        _delta(a0, a1, "aggregate_actual_prefill_tokens") if all(checks.values()) else None
+    )
+    return {
+        "request_completeness": "COMPLETE",
+        "unpaired_request_ids": [],
+        "paired_eligible_request_count": len(paired),
+        "new_suffix_identical_across_arms": identical,
+        "new_suffix_differing_request_ids": differing,
+        "metric_equivalence": "EXACT" if identical else "NOT_EQUIVALENT",
+        "metric_equivalence_reason": (
+            "identical (N, E) for every paired request, so delta(new_suffix) = 0 "
+            "and delta(actual_prefill) = delta(recomputed) exactly"
+            if identical
+            else "new-suffix tokens differ for some requests, so the two metrics "
+            "give different deltas and both must be reported"
+        ),
+        "delta_difference_actual_prefill_minus_recomputed": (
+            None if delta_r is None or delta_w is None else delta_w - delta_r
         ),
     }
 
@@ -215,6 +320,22 @@ def _aggregate_scenarios(pairs: Sequence[dict[str, object]]) -> list[dict[str, o
                 "selection_diverged": any(bool(row["selection_diverged"]) for row in comparable),
                 "physical_diverged": any(bool(row["physical_diverged"]) for row in comparable),
                 "mean_token_delta_a1_minus_a0": delta,
+                "mean_actual_prefill_delta_a1_minus_a0": (
+                    statistics.fmean(
+                        float(row["delta_actual_prefill_a1_minus_a0"])
+                        for row in comparable
+                        if row.get("delta_actual_prefill_a1_minus_a0") is not None
+                    )
+                    if len(comparable) == 2
+                    and all(
+                        row.get("delta_actual_prefill_a1_minus_a0") is not None
+                        for row in comparable
+                    )
+                    else None
+                ),
+                "metric_equivalence": sorted(
+                    {str(row.get("metric_equivalence")) for row in comparable}
+                ),
                 "direction": (
                     "BETTER"
                     if delta is not None and delta < 0
@@ -290,12 +411,28 @@ def evaluate_campaign(*, manifest_path: Path, run_root: Path) -> dict[str, objec
     return {
         "schema_version": "phase2g.a1_bounded_gate.v1",
         "primary_metric": "aggregate_recomputed_tokens",
+        "metric_definition": {
+            "actual_prefill_tokens": "N - C",
+            "recomputed_tokens": "E - C",
+            "new_suffix_tokens": "N - E",
+            "note": (
+                "Gate 2 previously reported N - C under both metric names; this "
+                "report computes the frozen recomputation metric E - C and records "
+                "per-pair whether the two deltas coincide"
+            ),
+        },
         "delta_definition": "A1_MINUS_A0",
         "independent_statistical_unit": "scenario_draw",
         "planned_run_count": len(manifest["runs"]),
         "run_status_counts": dict(Counter(str(row["status"]) for row in runs)),
         "pair_status_counts": dict(Counter(str(row["status"]) for row in pairs)),
         "evidence_state_counts": dict(Counter(str(row["evidence_state"]) for row in pairs)),
+        "metric_equivalence_counts": dict(
+            Counter(str(row.get("metric_equivalence")) for row in pairs)
+        ),
+        "request_completeness_counts": dict(
+            Counter(str(row.get("request_completeness")) for row in pairs)
+        ),
         "overall": _summary(scenarios),
         "families": by_family,
         "runs": runs,
@@ -305,6 +442,10 @@ def evaluate_campaign(*, manifest_path: Path, run_root: Path) -> dict[str, objec
             "Runtime repeats are aggregated within scenario and are not independent samples.",
             "Logical release, physical eviction, and recomputation are separate evidence layers.",
             "Mapped block identity is observational and does not modify native ownership.",
+            (
+                "metric_equivalence is measured per pair; NOT_EQUIVALENT means the two "
+                "candidate metrics disagree and both deltas are reported."
+            ),
         ],
     }
 
