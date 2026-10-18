@@ -47,6 +47,12 @@ from kvopt.continuum import (
 from kvopt.continuum.composition import build_runtime_from_config
 from kvopt.continuum.runtime import build_runtime
 from kvopt.costaware.a1_native import A1NativeSelectionCoordinator
+from kvopt.costaware.a2_native import (
+    A2NativeChainSnapshot,
+    A2NativeDecisionAudit,
+    A2NativeSelectionCoordinator,
+    A2NativeSnapshotRegistry,
+)
 from kvopt.profiling.experiment_events import (
     ExperimentEvent,
     ExperimentEventSink,
@@ -475,6 +481,9 @@ class _ObservedRetentionIntegration:
         phase2g_release_policy: str = "A0",
         phase2g_a1_lambda: float = 0.5,
         phase2g_a1_tau_seconds: float = 30.0,
+        phase2g_block_policy: str = "A0",
+        phase2g_a2_tau_seconds: float = 30.0,
+        phase2g_a2_registry: A2NativeSnapshotRegistry | None = None,
         sink: ExperimentEventSink | None = None,
     ) -> None:
         self._runtime = runtime
@@ -492,6 +501,19 @@ class _ObservedRetentionIntegration:
             if phase2g_release_policy == "A1"
             else None
         )
+        if phase2g_block_policy not in {"A0", "A2"}:
+            raise ValueError("phase2g_block_policy must be A0 or A2")
+        if phase2g_block_policy == "A2" and phase2g_a2_registry is None:
+            raise ValueError("A2 block policy requires a native snapshot registry")
+        self._a2_coordinator = (
+            A2NativeSelectionCoordinator(
+                phase2g_a2_registry,
+                tau_seconds=phase2g_a2_tau_seconds,
+                audit_sink=self._observe_a2_decision,
+            )
+            if phase2g_block_policy == "A2" and phase2g_a2_registry is not None
+            else None
+        )
         self._delegate = RetentionRuntimeIntegration(
             runtime.retention,
             forced_release_observer,
@@ -501,8 +523,39 @@ class _ObservedRetentionIntegration:
                 else ProgramIdentity(diagnostic_first_release_program_id)
             ),
             selection_coordinator=self._a1_coordinator,
+            block_selection_coordinator=self._a2_coordinator,
         )
         self.last_selected_block_ids: tuple[int, ...] = ()
+
+    def _observe_a2_decision(self, audit: A2NativeDecisionAudit) -> None:
+        if self._sink is None:
+            return
+        self._sink.emit(
+            ExperimentEvent.create(
+                event_type="COST_AWARE_BLOCK_DECISION",
+                timestamp=self._clock.now(),
+                clock_domain="system_monotonic",
+                source="phase2g.a2_native",
+                payload={
+                    "policy": "A2",
+                    "required_blocks": audit.required_blocks,
+                    "legal_block_ids": audit.legal_block_ids,
+                    "native_lru_victims": audit.native_lru_victims,
+                    "selected_victims": audit.selected_victims,
+                    "selector": audit.selector,
+                    "proxy_weighted_loss": audit.proxy_weighted_loss,
+                    "cost_known": audit.cost_known,
+                    "fallbacks": audit.fallbacks,
+                    "contract_problems": audit.contract_problems,
+                    "adapter_problems": audit.adapter_problems,
+                    "search_truncated": audit.search_truncated,
+                    "step_costs": audit.step_costs,
+                    "claim_boundary": (
+                        "proxy-weighted victim selection; not expected recomputed tokens"
+                    ),
+                },
+            )
+        )
 
     def apply_pressure(self, **kwargs: object) -> Any:
         result = self._delegate.apply_pressure(**kwargs)
@@ -626,6 +679,20 @@ class MinimalMetalObservabilityBackend:
             raise ValueError("A1 native release is restricted to authorized Phase 2G campaigns")
         phase2g_a1_lambda = float(options.get("phase2g_a1_lambda", 0.5))
         phase2g_a1_tau_seconds = float(options.get("phase2g_a1_tau_seconds", 30.0))
+        phase2g_block_policy = options.get("phase2g_block_policy", "A0")
+        if phase2g_block_policy not in {"A0", "A2"}:
+            raise ValueError("backend_options.phase2g_block_policy must be A0 or A2")
+        if phase2g_block_policy == "A2" and config.get("campaign_kind") != (
+            "phase2g_a2_native_gate1"
+        ):
+            raise ValueError("A2 native block selection is restricted to its Gate 1 campaign")
+        if phase2g_block_policy == "A2" and not self._content_evidence_enabled:
+            raise ValueError("A2 native block selection requires content evidence mode")
+        phase2g_a2_tau_seconds = _positive_float(
+            options.get("phase2g_a2_tau_seconds", 30.0),
+            "backend_options.phase2g_a2_tau_seconds",
+        )
+        self._phase2g_a2_registry = A2NativeSnapshotRegistry()
         if self._h2_interventions and config.get("campaign_kind") not in {
             "h2_formal_measurement",
             "h2_intervention_validation",
@@ -710,6 +777,9 @@ class MinimalMetalObservabilityBackend:
             phase2g_release_policy=str(phase2g_release_policy),
             phase2g_a1_lambda=phase2g_a1_lambda,
             phase2g_a1_tau_seconds=phase2g_a1_tau_seconds,
+            phase2g_block_policy=str(phase2g_block_policy),
+            phase2g_a2_tau_seconds=phase2g_a2_tau_seconds,
+            phase2g_a2_registry=self._phase2g_a2_registry,
             sink=sink,
         )
 
@@ -986,6 +1056,10 @@ class MinimalMetalObservabilityBackend:
                     "phase2g_a1_tau_seconds": (
                         phase2g_a1_tau_seconds if phase2g_release_policy == "A1" else None
                     ),
+                    "phase2g_block_policy": phase2g_block_policy,
+                    "phase2g_a2_tau_seconds": (
+                        phase2g_a2_tau_seconds if phase2g_block_policy == "A2" else None
+                    ),
                 },
             )
         )
@@ -995,6 +1069,7 @@ class MinimalMetalObservabilityBackend:
         observation: NativeHashedEvictionObservation,
     ) -> None:
         """Persist native hash cleanup without inferring logical ownership."""
+        self._phase2g_a2_registry.observe_eviction(observation.block_id)
         self._sink.emit(
             ExperimentEvent.create(
                 event_type="VLLM_NATIVE_HASHED_CACHE_ENTRY_EVICTED",
@@ -1408,6 +1483,14 @@ class MinimalMetalObservabilityBackend:
                     "native_hash_process_id": str(os.getpid()),
                     "native_hash_function": "sha256",
                 },
+            )
+        )
+        self._phase2g_a2_registry.observe(
+            A2NativeChainSnapshot(
+                chain_id=f"{request.program_id}:{prefix.canonical_value}",
+                block_ids=tuple(block_ids),
+                content_hashes=tuple(native_hash.hex() for native_hash in hashes),
+                native_hash_process_id=str(os.getpid()),
             )
         )
         return prefix, token_count, blocks, tuple(block_ids), tuple(hashes)

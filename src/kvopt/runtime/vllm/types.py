@@ -16,6 +16,9 @@ class EvictionCandidate:
     ref_cnt: int
     has_block_hash: bool
     lru_rank: int
+    # Current group-qualified Native cache key.  This is read-only content
+    # identity; ``block_id`` remains a recyclable physical slot.
+    content_hash: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
