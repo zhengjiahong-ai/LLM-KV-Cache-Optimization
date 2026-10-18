@@ -1,0 +1,91 @@
+{
+  "schema_version": "phase2g.a1_bounded_distribution.v1",
+  "run_kind": "A1_BOUNDED_NATIVE_EVALUATION",
+  "sampler_seed": 20261107,
+  "families": ["F1", "F2", "F3", "F4", "F5", "F6"],
+  "independent_draws_per_family": 6,
+  "runtime_repeats": [1, 2],
+  "policies": ["A0", "A1"],
+  "block_size_tokens": 16,
+  "pressure_prompt_tokens": [256, 320, 384],
+  "initial_shortage_blocks": [4, 8, 12],
+  "execution_authorized": false,
+  "gate1_status": "PASS",
+  "measured_campaign": true,
+  "statistical_unit": "independent_scenario_draw",
+  "runtime_repeats_are_independent": false,
+  "primary_metric": "aggregate_recomputed_tokens",
+  "model": {
+    "name": "Qwen/Qwen2.5-0.5B-Instruct",
+    "revision": "7ae557604adf67be50417f59c2c2f167def9a775"
+  },
+  "runtime": {
+    "backend_factory": "scripts.spikes.phase2_minimal_observability_metal:build_phase2_metal_observability_backend",
+    "gpu_memory_utilization": 0.75,
+    "max_new_tokens": 1,
+    "temperature": 0.0,
+    "executor_mode": "submit_collect"
+  },
+  "a1": {
+    "strategy_id": "A1_entry_cost_aware",
+    "lambda": 0.5,
+    "tau_seconds": 30.0
+  },
+  "family_contracts": {
+    "F1": {
+      "focus": "shared root with unequal private tails",
+      "entry_counts": [3, 3, 4, 4, 5, 5],
+      "shared_root_tokens": [64, 96, 128, 64, 96, 128],
+      "private_tail_tokens": [[64, 128, 192], [80, 144, 224], [64, 96, 160, 224], [80, 128, 176, 240], [64, 96, 128, 192, 256], [80, 112, 160, 208, 272]],
+      "return_gap_seconds": [0.5, 1.0, 1.5, 2.0, 3.0, 4.0],
+      "pressure_count": [1, 1, 1, 2, 2, 2]
+    },
+    "F2": {
+      "focus": "multi-entry sharing and joint unlock",
+      "entry_counts": [3, 4, 4, 5, 5, 6],
+      "shared_group_sizes": [2, 2, 3, 3, 4, 4],
+      "shared_root_tokens": [96, 128, 160, 96, 128, 160],
+      "private_tail_tokens": [96, 128, 160, 192, 224, 256],
+      "return_gap_seconds": [1.0, 1.5, 2.0, 2.5, 3.0, 4.0],
+      "pressure_count": [1, 1, 2, 2, 2, 2]
+    },
+    "F3": {
+      "focus": "TTL tool-gap and return heterogeneity",
+      "entry_counts": [3, 3, 4, 4, 5, 5],
+      "prefix_tokens": [[96, 160, 224], [128, 192, 256], [96, 144, 208, 272], [112, 176, 240, 304], [96, 128, 176, 224, 288], [112, 160, 208, 256, 320]],
+      "return_gap_seconds": [[0.25, 1.0, 4.0], [0.5, 2.0, 6.0], [0.25, 1.0, 3.0, 8.0], [0.5, 1.5, 5.0, 10.0], [0.25, 1.0, 2.0, 6.0, 12.0], [0.5, 1.5, 3.0, 8.0, 15.0]],
+      "pressure_count": [1, 1, 1, 2, 2, 2]
+    },
+    "F4": {
+      "focus": "high pressure multi-turn tool calls and repeated competition",
+      "entry_counts": [3, 3, 4, 4, 5, 5],
+      "turn_counts": [3, 4, 3, 4, 3, 4],
+      "base_prefix_tokens": [128, 160, 192, 224, 256, 288],
+      "growth_tokens_per_turn": [32, 32, 48, 48, 64, 64],
+      "return_gap_seconds": [0.5, 0.75, 1.0, 1.25, 1.5, 2.0],
+      "pressure_count": [2, 2, 2, 3, 3, 3]
+    },
+    "F5": {
+      "focus": "no-shared-prefix negative control",
+      "entry_counts": [3, 3, 4, 4, 5, 5],
+      "prefix_tokens": [[96, 128, 160], [128, 160, 192], [96, 128, 160, 192], [112, 144, 176, 208], [96, 128, 160, 192, 224], [112, 144, 176, 208, 240]],
+      "return_gap_seconds": [0.5, 1.0, 1.5, 2.0, 3.0, 4.0],
+      "pressure_count": [1, 1, 1, 2, 2, 2]
+    },
+    "F6": {
+      "focus": "return-prediction error and adverse cases",
+      "entry_counts": [3, 3, 4, 4, 5, 5],
+      "prefix_tokens": [[96, 160, 224], [128, 192, 256], [96, 144, 208, 272], [112, 176, 240, 304], [96, 128, 176, 224, 288], [112, 160, 208, 256, 320]],
+      "declared_gap_seconds": [[0.25, 1.0, 4.0], [0.5, 2.0, 6.0], [0.25, 1.0, 3.0, 8.0], [0.5, 1.5, 5.0, 10.0], [0.25, 1.0, 2.0, 6.0, 12.0], [0.5, 1.5, 3.0, 8.0, 15.0]],
+      "realized_return_order": ["reverse", "omit-longest", "reverse", "omit-shortest", "reverse", "omit-middle"],
+      "pressure_count": [1, 1, 2, 2, 2, 2]
+    }
+  },
+  "frozen_boundaries": {
+    "a0_behavior_modified": false,
+    "native_block_pool_modified": false,
+    "a2_a3_implemented": false,
+    "b1_unlocked": false,
+    "h1_h2_modified": false
+  }
+}

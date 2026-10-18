@@ -100,9 +100,8 @@ class _H2M4MeasuredPrefillProvider:
         else:
             lower = index - 1
             upper = index
-            fraction = (
-                (token_count - self._token_counts[lower])
-                / (self._token_counts[upper] - self._token_counts[lower])
+            fraction = (token_count - self._token_counts[lower]) / (
+                self._token_counts[upper] - self._token_counts[lower]
             )
             seconds = self._seconds[lower] + fraction * (
                 self._seconds[upper] - self._seconds[lower]
@@ -136,10 +135,7 @@ def _h2_m4_prefill_provider(
     if not isinstance(points, list) or len(points) != 17:
         raise ValueError("H2 M4 prefill curve must contain the frozen 17-point grid")
     tokens = tuple(point["prefix_tokens"] for point in points)
-    seconds = tuple(
-        float(point["isolated_native_prefill"]["median_seconds"])
-        for point in points
-    )
+    seconds = tuple(float(point["isolated_native_prefill"]["median_seconds"]) for point in points)
     return _H2M4MeasuredPrefillProvider(tokens, seconds)
 
 
@@ -213,9 +209,7 @@ def _program_prefix_sizes(options: Mapping[str, object]) -> dict[str, int]:
             f"backend_options.program_prefix_tokens[{program_id!r}]",
         )
         if not 16 <= size <= 30_720:
-            raise ValueError(
-                "profiling prefix size must be between 16 and 30720 tokens"
-            )
+            raise ValueError("profiling prefix size must be between 16 and 30720 tokens")
         if size % _BLOCK_SIZE != 0:
             raise ValueError("profiling prefix size must align to the KV block size")
         sizes[program_id] = size
@@ -233,9 +227,7 @@ def _phase2b_content_keys(options: Mapping[str, object]) -> dict[str, str] | Non
             raise ValueError("Phase 2B content fields require phase2b_fidelity_mode")
         return None
     if generator != PREFIX_GENERATOR_VERSION:
-        raise ValueError(
-            f"prefix_generator_version must be {PREFIX_GENERATOR_VERSION}"
-        )
+        raise ValueError(f"prefix_generator_version must be {PREFIX_GENERATOR_VERSION}")
     if "ownership_group_by_program" in options:
         raise ValueError("ownership_group_by_program cannot define content identity")
     if not isinstance(raw, Mapping) or not raw:
@@ -297,6 +289,7 @@ def _expected_profiling_block_override(
     program_prefix_tokens: Mapping[str, int],
     pressure_tokens: int,
     initial_shortage_blocks: int = 1,
+    protected_prefix_blocks_override: int | None = None,
 ) -> int:
     if not program_prefix_tokens:
         raise ValueError("program_prefix_tokens must not be empty")
@@ -304,15 +297,16 @@ def _expected_profiling_block_override(
         raise ValueError("pressure token count must align to the KV block size")
     pressure_blocks = pressure_tokens // _BLOCK_SIZE
     if not 1 <= initial_shortage_blocks <= pressure_blocks:
-        raise ValueError(
-            "initial pressure shortage must be within pressure demand"
-        )
-    return (
+        raise ValueError("initial pressure shortage must be within pressure demand")
+    protected_blocks = (
         sum(size // _BLOCK_SIZE for size in program_prefix_tokens.values())
-        + pressure_blocks
-        + 1
-        - initial_shortage_blocks
+        if protected_prefix_blocks_override is None
+        else _positive_int(
+            protected_prefix_blocks_override,
+            "protected_prefix_blocks_override",
+        )
     )
+    return protected_blocks + pressure_blocks + 1 - initial_shortage_blocks
 
 
 def _pressure_stage_sizes(options: Mapping[str, object]) -> dict[str, int]:
@@ -324,17 +318,13 @@ def _pressure_stage_sizes(options: Mapping[str, object]) -> dict[str, int]:
     sizes: dict[str, int] = {}
     for stage_id, value in raw.items():
         if not isinstance(stage_id, str) or not stage_id.strip():
-            raise ValueError(
-                "pressure_stage_prompt_tokens keys must be non-empty stage IDs"
-            )
+            raise ValueError("pressure_stage_prompt_tokens keys must be non-empty stage IDs")
         size = _positive_int(
             value,
             f"backend_options.pressure_stage_prompt_tokens[{stage_id!r}]",
         )
         if size % _BLOCK_SIZE != 0:
-            raise ValueError(
-                "pressure-stage token count must align to the KV block size"
-            )
+            raise ValueError("pressure-stage token count must align to the KV block size")
         sizes[stage_id] = size
     return sizes
 
@@ -344,9 +334,7 @@ def _h2_native_prefix_interventions(
 ) -> dict[str, tuple[str, int]]:
     raw = options.get("h2_native_prefix_interventions", {})
     if not isinstance(raw, Mapping):
-        raise TypeError(
-            "backend_options.h2_native_prefix_interventions must be an object"
-        )
+        raise TypeError("backend_options.h2_native_prefix_interventions must be an object")
     interventions: dict[str, tuple[str, int]] = {}
     for request_id, value in raw.items():
         if not isinstance(request_id, str) or not request_id.strip():
@@ -354,9 +342,7 @@ def _h2_native_prefix_interventions(
         if not isinstance(value, Mapping):
             raise TypeError(f"H2 intervention {request_id!r} must be an object")
         if set(value) != {"position", "count"}:
-            raise ValueError(
-                f"H2 intervention {request_id!r} must contain only position and count"
-            )
+            raise ValueError(f"H2 intervention {request_id!r} must contain only position and count")
         position = value["position"]
         count = value["count"]
         if position not in {"leading", "trailing"}:
@@ -410,7 +396,9 @@ def _turn_token_ids(
     return (*prefix, suffix % vocabulary_size)
 
 
-def _pressure_token_ids(request: PlannedRequest, *, vocabulary_size: int, token_count: int) -> tuple[int, ...]:
+def _pressure_token_ids(
+    request: PlannedRequest, *, vocabulary_size: int, token_count: int
+) -> tuple[int, ...]:
     digest = hashlib.sha256(request.request_id.encode("utf-8")).digest()
     namespace = int.from_bytes(digest[:4], "big")
     base = 13_000 + namespace % 5_000
@@ -450,22 +438,16 @@ def _validate_native_hash_views(
     """Validate request BlockHash values against group-qualified cache keys."""
 
     if request_hashes is None or len(request_hashes) != len(cache_keys):
-        raise RuntimeError(
-            "native request hash chain and cache-key chain do not align"
-        )
+        raise RuntimeError("native request hash chain and cache-key chain do not align")
     for position, (request_hash, cache_key) in enumerate(
         zip(request_hashes, cache_keys, strict=True)
     ):
         try:
             request_bytes = bytes.fromhex(request_hash)
         except ValueError as error:
-            raise RuntimeError(
-                f"native request hash {position} is not hexadecimal"
-            ) from error
+            raise RuntimeError(f"native request hash {position} is not hexadecimal") from error
         if len(cache_key) < 5 or cache_key[:-4] != request_bytes:
-            raise RuntimeError(
-                "native request hash does not match its group-qualified cache key"
-            )
+            raise RuntimeError("native request hash does not match its group-qualified cache key")
     return request_hashes
 
 
@@ -586,15 +568,13 @@ class MinimalMetalObservabilityBackend:
         self._phase2b_content_keys = _phase2b_content_keys(options)
         self._phase2c_request_segments = _phase2c_request_segments(options)
         self._content_evidence_enabled = (
-            self._phase2b_content_keys is not None
-            or self._phase2c_request_segments is not None
+            self._phase2b_content_keys is not None or self._phase2c_request_segments is not None
         )
         if self._phase2b_content_keys is not None and (
             set(self._phase2b_content_keys) != set(self._program_prefix_tokens)
         ):
             raise ValueError(
-                "Phase 2B content keys and program_prefix_tokens must cover "
-                "the same programs"
+                "Phase 2B content keys and program_prefix_tokens must cover the same programs"
             )
         self._pressure_tokens = _positive_int(
             options.get("pressure_prompt_tokens", _PRESSURE_TOKENS),
@@ -610,21 +590,15 @@ class MinimalMetalObservabilityBackend:
             "h2_formal_measurement"
         ):
             raise ValueError("H2 M4 measured prefill curve is restricted to formal H2")
-        isolated_prefill_timing = options.get(
-            "isolated_native_prefill_timing", False
-        )
+        isolated_prefill_timing = options.get("isolated_native_prefill_timing", False)
         if not isinstance(isolated_prefill_timing, bool):
-            raise TypeError(
-                "backend_options.isolated_native_prefill_timing must be bool"
-            )
+            raise TypeError("backend_options.isolated_native_prefill_timing must be bool")
         self._isolated_prefill_timing_enabled = isolated_prefill_timing
         self._isolated_prefill_timings: dict[str, float] = {}
         self._isolated_prefill_timing_hook: IsolatedPrefillTimingHook | None = None
         terminal_snapshot = options.get("capture_terminal_prefix_snapshot", True)
         if not isinstance(terminal_snapshot, bool):
-            raise TypeError(
-                "backend_options.capture_terminal_prefix_snapshot must be bool"
-            )
+            raise TypeError("backend_options.capture_terminal_prefix_snapshot must be bool")
         self._capture_terminal_prefix_snapshot = terminal_snapshot
         mechanism_only = options.get("h2_native_mechanism_only", False)
         if not isinstance(mechanism_only, bool):
@@ -636,9 +610,7 @@ class MinimalMetalObservabilityBackend:
         if diagnostic_release is not None and (
             not isinstance(diagnostic_release, str) or not diagnostic_release.strip()
         ):
-            raise ValueError(
-                "phase2d_diagnostic_first_release_program_id must be non-empty text"
-            )
+            raise ValueError("phase2d_diagnostic_first_release_program_id must be non-empty text")
         if diagnostic_release is not None and config.get("campaign_kind") != (
             "phase2d_non_holdout_research_pilot"
         ):
@@ -658,16 +630,12 @@ class MinimalMetalObservabilityBackend:
             "h2_formal_measurement",
             "h2_intervention_validation",
         }:
-            raise ValueError(
-                "native H2 interventions are restricted to H2 measurement campaigns"
-            )
+            raise ValueError("native H2 interventions are restricted to H2 measurement campaigns")
         if self._h2_native_mechanism_only and config.get("campaign_kind") not in {
             "h2_formal_measurement",
             "h2_intervention_validation",
         }:
-            raise ValueError(
-                "native H2 mechanism-only mode is restricted to H2 campaigns"
-            )
+            raise ValueError("native H2 mechanism-only mode is restricted to H2 campaigns")
         block_override = _positive_int(
             config["cache"]["block_override"],  # type: ignore[index]
             "config.cache.block_override",
@@ -677,10 +645,24 @@ class MinimalMetalObservabilityBackend:
                 config["pressure"].get("initial_shortage_blocks", 1),  # type: ignore[index,union-attr]
                 "config.pressure.initial_shortage_blocks",
             )
+            protected_blocks_override = options.get("phase2g_unique_protected_blocks")
+            if (
+                protected_blocks_override is not None
+                and config.get("campaign_kind") != "phase2g_a1_bounded_evaluation"
+            ):
+                raise ValueError(
+                    "unique protected-block accounting is restricted to the "
+                    "Phase 2G bounded campaign"
+                )
             expected_override = _expected_profiling_block_override(
                 self._program_prefix_tokens,
                 self._pressure_tokens,
                 initial_shortage_blocks,
+                protected_prefix_blocks_override=(
+                    int(protected_blocks_override)
+                    if protected_blocks_override is not None
+                    else None
+                ),
             )
             if block_override != expected_override:
                 raise ValueError(
@@ -696,9 +678,7 @@ class MinimalMetalObservabilityBackend:
                 self._prefix_tokens != _TARGET_PREFIX_TOKENS
                 or self._pressure_tokens != _PRESSURE_TOKENS
             ):
-                raise ValueError(
-                    "qualified minimal test requires 256-prefix / 512-pressure tokens"
-                )
+                raise ValueError("qualified minimal test requires 256-prefix / 512-pressure tokens")
 
         continuum_config = ContinuumConfig(
             enabled=True,
@@ -711,18 +691,14 @@ class MinimalMetalObservabilityBackend:
                 prefill_reload_provider=h2_m4_prefill_provider,
                 default_ttl_seconds=30.0,
                 experiment_event_sink=sink,
-                history_observation_enabled=(
-                    self._content_evidence_enabled
-                ),
+                history_observation_enabled=(self._content_evidence_enabled),
             )
             if h2_m4_prefill_provider is not None
             else build_runtime_from_config(
                 config=continuum_config,
                 clock=self._clock,
                 experiment_event_sink=sink,
-                history_observation_enabled=(
-                    self._content_evidence_enabled
-                ),
+                history_observation_enabled=(self._content_evidence_enabled),
             )
         )
         self._forced_release_observer = _CountingForcedReleaseObserver(sink)
@@ -891,9 +867,7 @@ class MinimalMetalObservabilityBackend:
 
         self._started_programs: set[str] = set()
         self._pending_tool_gaps: dict[str, str] = {}
-        self._phase2b_pending: dict[
-            str, tuple[PlannedRequest, str, int]
-        ] = {}
+        self._phase2b_pending: dict[str, tuple[PlannedRequest, str, int]] = {}
         self._closed = False
         self._level_b_request_count = 0
         self._level_b_raw_complete = True
@@ -923,11 +897,7 @@ class MinimalMetalObservabilityBackend:
                 "reason": "native eviction callback is bridged to BLOCK_EVICTED",
             },
             "native_block_content_identity": {
-                "status": (
-                    "AVAILABLE"
-                    if self._content_evidence_enabled
-                    else "UNAVAILABLE"
-                ),
+                "status": ("AVAILABLE" if self._content_evidence_enabled else "UNAVAILABLE"),
                 "reason": (
                     "Phase 2B read-only hook persists the pre-eviction native hash"
                     if self._content_evidence_enabled
@@ -1004,9 +974,7 @@ class MinimalMetalObservabilityBackend:
                     "pressure_prompt_tokens": self._pressure_tokens,
                     "pressure_stage_prompt_tokens": self._pressure_stage_tokens,
                     "execute_planned_timing": self._execute_planned_timing,
-                    "h2_native_prefix_intervention_count": len(
-                        self._h2_interventions
-                    ),
+                    "h2_native_prefix_intervention_count": len(self._h2_interventions),
                     "h2_native_mechanism_only": self._h2_native_mechanism_only,
                     "h2_m4_prefill_curve_bound": h2_m4_prefill_provider is not None,
                     "gpu_memory_utilization": gpu_memory_utilization,
@@ -1016,9 +984,7 @@ class MinimalMetalObservabilityBackend:
                         phase2g_a1_lambda if phase2g_release_policy == "A1" else None
                     ),
                     "phase2g_a1_tau_seconds": (
-                        phase2g_a1_tau_seconds
-                        if phase2g_release_policy == "A1"
-                        else None
+                        phase2g_a1_tau_seconds if phase2g_release_policy == "A1" else None
                     ),
                 },
             )
@@ -1037,17 +1003,13 @@ class MinimalMetalObservabilityBackend:
                 source="phase2b.native_block_pool",
                 payload={
                     "block_id": observation.block_id,
-                    "native_cache_key_before": (
-                        observation.native_cache_key_before
-                    ),
+                    "native_cache_key_before": (observation.native_cache_key_before),
                     "native_hash_process_id": str(os.getpid()),
                     "ref_count_before": observation.ref_count_before,
                     "hash_removed_after": observation.hash_removed_after,
                     "mechanism": observation.mechanism,
                     "logical_owner_attribution": None,
-                    "attribution_reason": (
-                        "native hash identity does not prove logical ownership"
-                    ),
+                    "attribution_reason": ("native hash identity does not prove logical ownership"),
                 },
             )
         )
@@ -1081,39 +1043,23 @@ class MinimalMetalObservabilityBackend:
             "reason": raw_reason,
         }
         self.observation_capabilities["native_first_token_timestamp"] = {
-            "status": (
-                "AVAILABLE"
-                if self._level_b_first_token_complete
-                else "UNAVAILABLE"
-            ),
+            "status": ("AVAILABLE" if self._level_b_first_token_complete else "UNAVAILABLE"),
             "reason": (
                 "all completed requests exposed EngineCore first-token timestamps"
                 if self._level_b_first_token_complete
                 else "one or more requests lacked EngineCore first-token timestamps"
             ),
         }
-        self.observation_capabilities[
-            "native_scheduler_admission_timestamp"
-        ] = {
-            "status": (
-                "AVAILABLE"
-                if self._level_b_scheduler_timing_complete
-                else "UNAVAILABLE"
-            ),
+        self.observation_capabilities["native_scheduler_admission_timestamp"] = {
+            "status": ("AVAILABLE" if self._level_b_scheduler_timing_complete else "UNAVAILABLE"),
             "reason": (
                 "all completed requests exposed EngineCore queued and first-scheduled timestamps"
                 if self._level_b_scheduler_timing_complete
                 else "one or more requests lacked EngineCore queued or first-scheduled timestamps"
             ),
         }
-        self.observation_capabilities[
-            "isolated_native_prefill_elapsed_seconds"
-        ] = {
-            "status": (
-                "AVAILABLE"
-                if self._isolated_prefill_timing_complete
-                else "UNAVAILABLE"
-            ),
+        self.observation_capabilities["isolated_native_prefill_elapsed_seconds"] = {
+            "status": ("AVAILABLE" if self._isolated_prefill_timing_complete else "UNAVAILABLE"),
             "reason": (
                 "all completed requests exposed profiling-only synchronized prefill timing"
                 if self._isolated_prefill_timing_complete
@@ -1195,15 +1141,12 @@ class MinimalMetalObservabilityBackend:
         if self._phase2b_content_keys is not None and request.kind == "turn":
             payload.update(
                 {
-                    "prefix_content_key": self._phase2b_content_keys[
-                        request.program_id
-                    ],
+                    "prefix_content_key": self._phase2b_content_keys[request.program_id],
                     "prefix_generator_version": PREFIX_GENERATOR_VERSION,
                     "submitted_prefix_token_ids_sha256": token_ids_sha256(
-                        token_ids[: reusable_prefix_tokens]
+                        token_ids[:reusable_prefix_tokens]
                     ),
-                    "suffix_token_count": len(token_ids)
-                    - int(reusable_prefix_tokens or 0),
+                    "suffix_token_count": len(token_ids) - int(reusable_prefix_tokens or 0),
                 }
             )
         if self._phase2c_request_segments is not None and request.kind == "turn":
@@ -1215,10 +1158,9 @@ class MinimalMetalObservabilityBackend:
                     "prefix_segment_token_counts": [tokens for _key, tokens in segments],
                     "prefix_generator_version": PILOT_PREFIX_GENERATOR_VERSION,
                     "submitted_prefix_token_ids_sha256": token_ids_sha256(
-                        token_ids[: reusable_prefix_tokens]
+                        token_ids[:reusable_prefix_tokens]
                     ),
-                    "suffix_token_count": len(token_ids)
-                    - int(reusable_prefix_tokens or 0),
+                    "suffix_token_count": len(token_ids) - int(reusable_prefix_tokens or 0),
                 }
             )
         self._sink.emit(
@@ -1307,14 +1249,11 @@ class MinimalMetalObservabilityBackend:
         """Persist one already-joined native completion and its raw metrics."""
         completions = tuple(getattr(output, "outputs", ()))
         output_token_count = sum(
-            len(tuple(getattr(completion, "token_ids", ())))
-            for completion in completions
+            len(tuple(getattr(completion, "token_ids", ()))) for completion in completions
         )
         prompt_token_ids = getattr(output, "prompt_token_ids", None)
         native_prompt_tokens = (
-            len(prompt_token_ids)
-            if isinstance(prompt_token_ids, (list, tuple))
-            else None
+            len(prompt_token_ids) if isinstance(prompt_token_ids, (list, tuple)) else None
         )
         raw_cached_tokens = getattr(output, "num_cached_tokens", None)
         native_cached_prefix_tokens = (
@@ -1363,12 +1302,9 @@ class MinimalMetalObservabilityBackend:
                 and native_hashes is not None
             ),
             first_token_complete=native_first_token is not None,
-            scheduler_timing_complete=(
-                native_queued is not None and native_scheduled is not None
-            ),
+            scheduler_timing_complete=(native_queued is not None and native_scheduled is not None),
             isolated_prefill_complete=(
-                self._isolated_prefill_timing_enabled
-                and isolated_native_prefill is not None
+                self._isolated_prefill_timing_enabled and isolated_native_prefill is not None
             ),
         )
         self._sink.emit(
@@ -1382,23 +1318,15 @@ class MinimalMetalObservabilityBackend:
                 request_id=RequestIdentity(request.request_id),
                 payload={
                     "native_prompt_tokens": native_prompt_tokens,
-                    "native_cached_prefix_tokens": (
-                        native_cached_prefix_tokens
-                    ),
-                    "native_apc_block_hashes": (
-                        None if native_hashes is None else native_hashes
-                    ),
+                    "native_cached_prefix_tokens": (native_cached_prefix_tokens),
+                    "native_apc_block_hashes": (None if native_hashes is None else native_hashes),
                     "native_hash_block_size": _BLOCK_SIZE,
                     "native_hash_process_id": str(os.getpid()),
                     "native_hash_function": "sha256",
                     "native_queued_timestamp": native_queued,
-                    "native_scheduler_admission_timestamp": (
-                        native_scheduled
-                    ),
+                    "native_scheduler_admission_timestamp": (native_scheduled),
                     "native_first_token_timestamp": native_first_token,
-                    "isolated_native_prefill_elapsed_seconds": (
-                        isolated_native_prefill
-                    ),
+                    "isolated_native_prefill_elapsed_seconds": (isolated_native_prefill),
                 },
             )
         )
@@ -1474,9 +1402,7 @@ class MinimalMetalObservabilityBackend:
                     "reusable_token_count": token_count,
                     "block_ids": tuple(block.block_id for block in blocks),
                     "ordered_native_hashes": request_hashes,
-                    "ordered_native_cache_keys": tuple(
-                        native_hash.hex() for native_hash in hashes
-                    ),
+                    "ordered_native_cache_keys": tuple(native_hash.hex() for native_hash in hashes),
                     "hash_num_tokens": token_count,
                     "native_hash_block_size": _BLOCK_SIZE,
                     "native_hash_process_id": str(os.getpid()),
@@ -1548,9 +1474,7 @@ class MinimalMetalObservabilityBackend:
         if self._phase2c_request_segments is not None:
             segments = self._phase2c_request_segments.get(request.request_id)
             if segments is None:
-                raise ValueError(
-                    f"missing Phase 2C segments for request {request.request_id}"
-                )
+                raise ValueError(f"missing Phase 2C segments for request {request.request_id}")
             prefix_tokens = sum(tokens for _key, tokens in segments)
             token_ids = segmented_turn_token_ids(
                 request.request_id,
@@ -1652,21 +1576,15 @@ class MinimalMetalObservabilityBackend:
                 next_tool_type=request.next_tool_type,
             )
         )
-        followup_id = RequestIdentity(
-            f"{request.program_id}:turn:{request.turn_index + 1}"
-        )
+        followup_id = RequestIdentity(f"{request.program_id}:turn:{request.turn_index + 1}")
         self._handle_lifecycle(FollowupWaiting(program, followup_id, finished_at))
         assert request.next_tool_type is not None
-        self._handle_lifecycle(
-            ToolGapStarted(program, request.next_tool_type, finished_at)
-        )
+        self._handle_lifecycle(ToolGapStarted(program, request.next_tool_type, finished_at))
         self._pending_tool_gaps[request.program_id] = request.next_tool_type
 
     def _execute_turn(self, request: PlannedRequest) -> None:
         self._wait_for_planned_arrival(request)
-        native_id, external_id, _submitted_at, prefix_tokens = self._start_turn(
-            request
-        )
+        native_id, external_id, _submitted_at, prefix_tokens = self._start_turn(request)
         finished_at = self._complete(request, native_id, external_id)
         self._finish_turn(request, native_id, finished_at, prefix_tokens)
 
@@ -1727,9 +1645,7 @@ class MinimalMetalObservabilityBackend:
             native_id, external_id, submitted_at = self._start_pressure(request)
             prefix_tokens = 0
         else:
-            native_id, external_id, submitted_at, prefix_tokens = self._start_turn(
-                request
-            )
+            native_id, external_id, submitted_at, prefix_tokens = self._start_turn(request)
         if external_id in self._phase2b_pending:
             raise RuntimeError("duplicate pending external request ID")
         self._phase2b_pending[external_id] = (
@@ -1744,9 +1660,7 @@ class MinimalMetalObservabilityBackend:
             submitted_at=submitted_at,
         )
 
-    def collect_completed(
-        self, *, until: float | None = None
-    ) -> tuple[RequestCompletion, ...]:
+    def collect_completed(self, *, until: float | None = None) -> tuple[RequestCompletion, ...]:
         """Report no completions without falsely claiming a native poll API.
 
         Pinned ``LLM.enqueue`` does not start processing, and the public API has
@@ -1785,9 +1699,7 @@ class MinimalMetalObservabilityBackend:
                 raise TypeError("native completion lacks external request ID")
             pending = self._phase2b_pending.pop(external_id, None)
             if pending is None:
-                raise RuntimeError(
-                    f"native completion has no pending request: {external_id}"
-                )
+                raise RuntimeError(f"native completion has no pending request: {external_id}")
             request, native_id, prefix_tokens = pending
             finished_at = self._observe_completed_output(
                 request,
@@ -1814,9 +1726,7 @@ class MinimalMetalObservabilityBackend:
             )
         if self._phase2b_pending:
             missing = ", ".join(sorted(self._phase2b_pending))
-            raise RuntimeError(
-                f"native drain omitted pending external request IDs: {missing}"
-            )
+            raise RuntimeError(f"native drain omitted pending external request IDs: {missing}")
         return tuple(rows)
 
     def close(self) -> None:
