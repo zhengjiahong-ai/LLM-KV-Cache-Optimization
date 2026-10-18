@@ -13,6 +13,7 @@ import math
 import pytest
 
 from kvopt.costaware.a2_mechanism import (
+    reconstruct_blocks,
     UNOWNED,
     BlockFact,
     cost_aware_selection,
@@ -183,3 +184,15 @@ def test_all_chain_weights_are_proper_probabilities() -> None:
         for chain, q in scenario.q_by_chain.items():
             assert 0.0 < q < 1.0, f"{scenario.name}:{chain}={q}"
             assert not math.isnan(q)
+
+
+def test_shared_block_diagnostic_fails_closed() -> None:
+    from types import SimpleNamespace
+
+    snapshot = SimpleNamespace(ranking_by_block={7: 0})
+    rows = {
+        ("a", "p"): SimpleNamespace(block_ids=(7,)),
+        ("b", "p"): SimpleNamespace(block_ids=(7,)),
+    }
+    with pytest.raises(ValueError, match="MULTI_CHAIN_BLOCK_UNSUPPORTED"):
+        reconstruct_blocks(snapshot, rows)
