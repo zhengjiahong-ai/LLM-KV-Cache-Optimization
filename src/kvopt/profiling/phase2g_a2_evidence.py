@@ -39,12 +39,14 @@ def package_phase2g_a2_evidence(
     review_report: Path,
     smoke_roots: Sequence[Path],
     archive_path: Path,
+    supplemental_roots: Sequence[Path] = (),
 ) -> tuple[Path, Path]:
     repository = repository.resolve()
     campaign_root = campaign_root.resolve()
     run_root = run_root.resolve()
     review_report = review_report.resolve()
     smoke_roots = tuple(path.resolve() for path in smoke_roots)
+    supplemental_roots = tuple(path.resolve() for path in supplemental_roots)
     archive_path = archive_path.resolve()
     required = (campaign_root / "manifest.json", review_report)
     missing = [str(path) for path in required if not path.is_file()]
@@ -89,7 +91,7 @@ def package_phase2g_a2_evidence(
         raise ValueError("A2 evidence package cannot authorize Gate 2")
 
     sources: list[tuple[Path, Path]] = []
-    artifact_roots = (campaign_root, run_root, *smoke_roots)
+    artifact_roots = (campaign_root, run_root, *smoke_roots, *supplemental_roots)
     for root in artifact_roots:
         if not root.is_dir():
             continue
@@ -111,6 +113,16 @@ def package_phase2g_a2_evidence(
         str(json.loads(path.read_text(encoding="utf-8"))["execution_status"])
         for path in smoke_manifests
     )
+    supplemental_manifests = [
+        path
+        for root in supplemental_roots
+        if root.is_dir()
+        for path in root.glob("*/run.json")
+    ]
+    supplemental_statuses = Counter(
+        str(json.loads(path.read_text(encoding="utf-8"))["execution_status"])
+        for path in supplemental_manifests
+    )
     manifest = {
         "schema_version": "phase2g.a2_native_gate1_evidence_handoff.v1",
         "scope": "PHASE2G_A2_NATIVE_GATE1",
@@ -124,6 +136,8 @@ def package_phase2g_a2_evidence(
         "run_status_counts": dict(sorted(statuses.items())),
         "smoke_run_count": len(smoke_manifests),
         "smoke_status_counts": dict(sorted(smoke_statuses.items())),
+        "supplemental_run_count": len(supplemental_manifests),
+        "supplemental_status_counts": dict(sorted(supplemental_statuses.items())),
         "review_outcome": report["outcome"],
         "native_selection_divergence": report["native_selection_divergence"],
         "shared_multichain_mechanism": report["shared_multichain_mechanism"],
@@ -168,6 +182,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--run-root", type=Path, required=True)
     parser.add_argument("--review-report", type=Path, required=True)
     parser.add_argument("--smoke-root", action="append", type=Path, default=[])
+    parser.add_argument("--supplemental-root", action="append", type=Path, default=[])
     parser.add_argument("--archive", type=Path, required=True)
     args = parser.parse_args(argv)
     manifest, archive = package_phase2g_a2_evidence(
@@ -177,6 +192,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         review_report=args.review_report,
         smoke_roots=args.smoke_root,
         archive_path=args.archive,
+        supplemental_roots=args.supplemental_root,
     )
     print(f"manifest: {manifest}")
     print(f"archive: {archive}")
