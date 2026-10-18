@@ -100,6 +100,9 @@ def test_a2_native_adapter_can_diverge_on_same_legal_set_and_count() -> None:
     assert adapter.last_audit.native_lru_victims == (1,)
     assert adapter.last_audit.legal_block_ids == (1, 2)
     assert adapter.last_audit.required_blocks == 1
+    assert adapter.last_audit.chain_count == 2
+    assert adapter.last_audit.shared_block_count == 0
+    assert adapter.last_audit.identified_hashed_block_count == 2
     assert not adapter.last_audit.used_fallback
 
 
@@ -221,6 +224,13 @@ def test_registry_builds_depth_and_all_shared_chain_memberships() -> None:
     )
     assert request.chain_length == {"a:pa": 2, "b:pb": 2}
     assert set(request.reuse_weight) == {"a:pa", "b:pb"}
+
+    adapter = A2NativeBlockAdapter(lambda _candidates, _context: request)
+    adapter.select_victims(candidates, _context(2))
+    assert adapter.last_audit is not None
+    assert adapter.last_audit.chain_count == 2
+    assert adapter.last_audit.shared_block_count == 1
+    assert adapter.last_audit.identified_hashed_block_count == 3
 
 
 def test_registry_rejects_slot_reuse_after_eviction() -> None:

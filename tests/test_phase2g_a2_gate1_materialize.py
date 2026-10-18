@@ -59,6 +59,23 @@ def test_shared_case_uses_real_repeated_content_key(tmp_path: Path) -> None:
     assert config["backend_options"]["phase2g_unique_protected_blocks"] == 28
 
 
+def test_divergence_case_freezes_depth_cost_contrast(tmp_path: Path) -> None:
+    path = materialize_gate1(fixture_path=FIXTURE, output_dir=tmp_path / "campaign")
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    row = next(
+        item
+        for item in manifest["runs"]
+        if item["case_id"] == "a2-cost-divergence" and item["policy"] == "A2"
+    )
+    config = json.loads((path.parent / row["config"]).read_text(encoding="utf-8"))
+    segments = config["backend_options"]["prefix_segments_by_request"]
+
+    assert config["pressure"]["initial_shortage_blocks"] == 9
+    assert segments["gate1-a:1"] == [["divergence-a", 480]]
+    assert segments["gate1-b:1"] == [["divergence-b", 32]]
+    assert config["backend_options"]["phase2g_unique_protected_blocks"] == 32
+
+
 def test_fallback_cases_are_a2_only_diagnostics(tmp_path: Path) -> None:
     path = materialize_gate1(fixture_path=FIXTURE, output_dir=tmp_path / "campaign")
     manifest = json.loads(path.read_text(encoding="utf-8"))

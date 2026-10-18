@@ -6,7 +6,7 @@
   "runtime_repeats": 2,
   "block_size_tokens": 16,
   "pressure_prompt_tokens": 320,
-  "initial_shortage_blocks": 8,
+  "initial_shortage_blocks": 9,
   "a2": {
     "tau_seconds": 30.0
   },
@@ -32,11 +32,11 @@
     },
     {
       "case_id": "a2-cost-divergence",
-      "expected_relation": "DIFFERENT",
+      "expected_relation": "AUDIT",
       "identity_mode": "normal",
       "segments": {
-        "gate1-a": [["divergence-a", 256]],
-        "gate1-b": [["divergence-b", 128]]
+        "gate1-a": [["divergence-a", 480]],
+        "gate1-b": [["divergence-b", 32]]
       }
     },
     {

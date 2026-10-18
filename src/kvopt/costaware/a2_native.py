@@ -150,6 +150,9 @@ class A2NativeDecisionAudit:
     adapter_problems: tuple[str, ...] = ()
     search_truncated: bool = False
     step_costs: tuple[float, ...] = ()
+    chain_count: int = 0
+    shared_block_count: int = 0
+    identified_hashed_block_count: int = 0
 
     @property
     def used_fallback(self) -> bool:
@@ -190,6 +193,7 @@ class A2NativeBlockAdapter(EvictionPolicyAdapter):
         native = tuple(NativeLRUAdapter().select_victims(candidates, context))
         adapter_problems: list[str] = []
         outcome: DecisionOutcome | None = None
+        request: DecisionRequest | None = None
 
         try:
             request = self._request_factory(candidates, context)
@@ -234,6 +238,23 @@ class A2NativeBlockAdapter(EvictionPolicyAdapter):
             adapter_problems=tuple(adapter_problems),
             search_truncated=search_truncated,
             step_costs=step_costs,
+            chain_count=(0 if request is None else len(request.chain_length)),
+            shared_block_count=(
+                0
+                if request is None
+                else sum(
+                    len({membership.chain for membership in block.memberships}) > 1
+                    for block in request.blocks
+                )
+            ),
+            identified_hashed_block_count=(
+                0
+                if request is None
+                else sum(
+                    block.has_block_hash and bool(block.memberships)
+                    for block in request.blocks
+                )
+            ),
         )
         self.last_audit = audit
         if self._audit_sink is not None:

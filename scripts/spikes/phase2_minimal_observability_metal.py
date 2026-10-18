@@ -186,7 +186,14 @@ def _positive_float(value: object, field: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise TypeError(f"{field} must be a number")
     result = float(value)
-    if not (0.0 < result <= 1.0):
+    if result <= 0.0:
+        raise ValueError(f"{field} must be positive")
+    return result
+
+
+def _unit_float(value: object, field: str) -> float:
+    result = _positive_float(value, field)
+    if result > 1.0:
         raise ValueError(f"{field} must be in (0, 1]")
     return result
 
@@ -550,6 +557,11 @@ class _ObservedRetentionIntegration:
                     "adapter_problems": audit.adapter_problems,
                     "search_truncated": audit.search_truncated,
                     "step_costs": audit.step_costs,
+                    "chain_count": audit.chain_count,
+                    "shared_block_count": audit.shared_block_count,
+                    "identified_hashed_block_count": (
+                        audit.identified_hashed_block_count
+                    ),
                     "claim_boundary": (
                         "proxy-weighted victim selection; not expected recomputed tokens"
                     ),
@@ -849,7 +861,7 @@ class MinimalMetalObservabilityBackend:
         tokenizer_config = config["tokenizer"]
         if not isinstance(model, Mapping) or not isinstance(tokenizer_config, Mapping):
             raise TypeError("model/tokenizer config must be objects")
-        gpu_memory_utilization = _positive_float(
+        gpu_memory_utilization = _unit_float(
             options.get("gpu_memory_utilization", 0.8),
             "backend_options.gpu_memory_utilization",
         )
