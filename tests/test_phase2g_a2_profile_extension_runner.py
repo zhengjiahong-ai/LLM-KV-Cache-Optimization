@@ -5,8 +5,31 @@ from pathlib import Path
 from kvopt.workload.phase2g_a2_profile_extension_runner import (
     _extension_cache_keys,
     _measurement_config,
+    _NativeHashSurface,
     assemble_extended_profile,
 )
+
+
+def test_native_hash_surface_uses_hash_lookup_not_block_membership() -> None:
+    class CacheMap:
+        def __init__(self) -> None:
+            self.lookups: list[bytes] = []
+
+        def get_one_block(self, cache_key: bytes) -> object | None:
+            self.lookups.append(cache_key)
+            return object() if cache_key == b"present" else None
+
+    cache_map = CacheMap()
+    capture = type(
+        "Capture",
+        (),
+        {"pool": type("Pool", (), {"cached_block_hash_to_block": cache_map})()},
+    )()
+    surface = _NativeHashSurface(capture)
+
+    assert surface.lookup_hash(b"present") is True
+    assert surface.lookup_hash(b"absent") is False
+    assert cache_map.lookups == [b"present", b"absent"]
 
 
 def test_extension_snapshot_uses_four_value_observation_contract() -> None:

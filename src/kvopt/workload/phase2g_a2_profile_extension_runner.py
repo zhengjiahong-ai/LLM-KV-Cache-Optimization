@@ -45,7 +45,7 @@ class _NativeHashSurface:
         pool = getattr(self._capture, "pool", None)
         if pool is None:
             return False
-        return bool(pool.cached_block_hash_to_block.contain(native_hash))
+        return pool.cached_block_hash_to_block.get_one_block(native_hash) is not None
 
 
 def _extension_cache_keys(
