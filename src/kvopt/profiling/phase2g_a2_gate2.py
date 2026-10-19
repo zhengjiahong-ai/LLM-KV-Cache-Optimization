@@ -8,6 +8,7 @@ eviction, and request-level recomputation as separate evidence layers.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import random
 import statistics
@@ -18,6 +19,64 @@ from pathlib import Path
 from .phase2g_a1_bounded_gate import compare_pair as compare_token_pair
 from .phase2g_a1_bounded_gate import evaluate_run as evaluate_token_run
 from .phase2g_a2_gate1 import _decision_identities, _event_index, _payload
+
+
+def _sha(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _validate_execution_authorization(
+    *, manifest_path: Path, authorization_path: Path
+) -> dict[str, object]:
+    authorization = json.loads(authorization_path.read_text(encoding="utf-8"))
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if authorization.get("schema_version") != "phase2g.a2_gate2_authorization.v1":
+        raise ValueError("unsupported Gate 2 execution authorization")
+    if authorization.get("formal_native_execution_authorized") is not True:
+        raise ValueError("formal Native Gate 2 execution is not authorized")
+    if authorization.get("execution_authorized") is not True:
+        raise ValueError("Gate 2 execution authorization is false")
+    if authorization.get("campaign_manifest_sha256") != _sha(manifest_path):
+        raise ValueError("authorization is not bound to the frozen manifest")
+    if authorization.get("tested_a2_implementation_git_sha") != manifest.get(
+        "tested_a2_implementation_git_sha"
+    ):
+        raise ValueError("authorization A2 implementation SHA mismatch")
+    tooling_sha = authorization.get("experiment_tooling_git_sha")
+    if not isinstance(tooling_sha, str) or len(tooling_sha) != 40:
+        raise ValueError("authorization lacks a full experiment tooling SHA")
+    authorized_configs = authorization.get("authorized_config_sha256")
+    authorized_traces = authorization.get("authorized_trace_sha256")
+    expected_configs = {
+        str(row["run_id"]): str(row["config_sha256"]) for row in manifest["runs"]
+    }
+    expected_traces = {
+        str(row["scenario_id"]): str(row["trace_sha256"])
+        for row in manifest["scenarios"]
+    }
+    if authorized_configs != expected_configs:
+        raise ValueError("authorization config hashes differ from the frozen manifest")
+    if authorized_traces != expected_traces:
+        raise ValueError("authorization trace hashes differ from the frozen manifest")
+    return authorization
+
+
+def _validate_run_binding(
+    run_dir: Path,
+    entry: Mapping[str, object],
+    authorization: Mapping[str, object],
+) -> None:
+    if _sha(run_dir / "config.json") != entry["config_sha256"]:
+        raise ValueError("actual run config differs from the frozen config")
+    actual_manifest = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
+    if actual_manifest.get("config_sha256") != entry["config_sha256"]:
+        raise ValueError("run manifest config SHA differs from the frozen config")
+    if actual_manifest.get("git_sha") != authorization["experiment_tooling_git_sha"]:
+        raise ValueError("run tooling SHA differs from the authorization")
+    if actual_manifest.get("trace_sha256") != entry["trace_sha256"]:
+        raise ValueError("run trace SHA differs from the frozen trace")
+    if _sha(run_dir / "trace.json") != entry["trace_sha256"]:
+        raise ValueError("actual run trace differs from the frozen trace")
 
 
 def _load_events(path: Path) -> list[dict[str, object]]:
@@ -36,6 +95,78 @@ def _identity_set(
     return tuple(sorted(identities[block_id] for block_id in ids))
 
 
+def _strict_physical_evidence(
+    events: Sequence[Mapping[str, object]], *, require_block_decision: bool
+) -> dict[str, object]:
+    """Build a fail-closed physical signature from an ordered identity timeline."""
+    identities: dict[int, tuple[str, str, int]] = {}
+    forced_indices: list[int] = []
+    decision_indices: list[int] = []
+    signature: list[tuple[str, str]] = []
+    problems: list[str] = []
+    eviction_count = 0
+    for event in events:
+        index = _event_index(event)
+        event_type = event.get("event_type")
+        if event_type == "FORCED_RELEASE_DECISION":
+            forced_indices.append(index)
+        elif event_type == "COST_AWARE_BLOCK_DECISION":
+            decision_indices.append(index)
+        elif event_type == "VLLM_PREFIX_SNAPSHOT":
+            payload = _payload(event)
+            block_ids = payload.get("block_ids")
+            cache_keys = payload.get("ordered_native_cache_keys")
+            process = payload.get("native_hash_process_id")
+            if (
+                not isinstance(block_ids, list)
+                or not isinstance(cache_keys, list)
+                or len(block_ids) != len(cache_keys)
+                or not isinstance(process, str)
+                or not process
+            ):
+                problems.append(f"invalid identity snapshot at event {index}")
+                continue
+            for block_id, cache_key in zip(block_ids, cache_keys, strict=True):
+                if cache_key:
+                    identities[int(block_id)] = (str(cache_key), process, index)
+        elif event_type == "VLLM_NATIVE_HASHED_CACHE_ENTRY_EVICTED":
+            payload = _payload(event)
+            eviction_count += 1
+            block_id = int(payload["block_id"])
+            identity = identities.get(block_id)
+            if not forced_indices or forced_indices[-1] >= index:
+                problems.append(f"eviction {index} has no preceding forced-release decision")
+            if require_block_decision and (
+                not decision_indices or decision_indices[-1] >= index
+            ):
+                problems.append(f"eviction {index} has no preceding A2 block decision")
+            observed = (
+                str(payload.get("native_cache_key_before")),
+                str(payload.get("native_hash_process_id")),
+            )
+            if identity is None:
+                problems.append(f"eviction {index} has no current content identity")
+                continue
+            expected = identity[:2]
+            if identity[2] >= index:
+                problems.append(f"eviction {index} precedes its identity snapshot")
+            if observed != expected:
+                problems.append(f"eviction {index} content/process identity mismatch")
+            if payload.get("hash_removed_after") is not True:
+                problems.append(f"eviction {index} did not remove the Native hash")
+            if observed == expected and payload.get("hash_removed_after") is True:
+                signature.append(expected)
+            identities.pop(block_id, None)
+    observable = eviction_count > 0 and not problems and len(signature) == eviction_count
+    return {
+        "physical_eviction_count": eviction_count,
+        "strict_physical_eviction_signature": sorted(signature),
+        "unmapped_physical_eviction_count": eviction_count - len(signature),
+        "physical_evidence_observable": observable,
+        "physical_evidence_problems": problems,
+    }
+
+
 def _selection_evidence(events: Sequence[Mapping[str, object]]) -> dict[str, object]:
     forced = [row for row in events if row.get("event_type") == "FORCED_RELEASE_DECISION"]
     decisions = [row for row in events if row.get("event_type") == "COST_AWARE_BLOCK_DECISION"]
@@ -45,13 +176,48 @@ def _selection_evidence(events: Sequence[Mapping[str, object]]) -> dict[str, obj
         identities = _decision_identities(events, decision)
         selected = tuple(int(value) for value in payload.get("selected_victims", ()))
         native = tuple(int(value) for value in payload.get("native_lru_victims", ()))
+        legal = tuple(int(value) for value in payload.get("legal_block_ids", ()))
+        required = int(payload.get("required_blocks", 0))
         selected_identity = _identity_set(identities, selected)
         native_identity = _identity_set(identities, native)
-        identity_complete = selected_identity is not None and native_identity is not None
+        legal_identity = _identity_set(identities, legal)
+        fallbacks = tuple(str(value) for value in payload.get("fallbacks", ()))
+        adapter_problems = tuple(
+            str(value) for value in payload.get("adapter_problems", ())
+        )
+        contract_problems = tuple(
+            str(value) for value in payload.get("contract_problems", ())
+        )
+        checks = {
+            "selected_are_legal": set(selected).issubset(legal),
+            "selected_count_matches_required": len(selected) == required,
+            "selected_are_unique": len(selected) == len(set(selected)),
+            "legal_identity_complete": legal_identity is not None,
+            "selected_identity_complete": selected_identity is not None,
+            "native_lru_identity_complete": native_identity is not None,
+            "adapter_problems_absent": not adapter_problems,
+            "contract_problems_absent": not contract_problems,
+            "fallback_is_explicit_native_lru": (
+                not fallbacks
+                or (
+                    payload.get("selector") == "native_lru_fallback"
+                    and set(selected) == set(native)
+                )
+            ),
+        }
+        identity_complete = all(
+            checks[key]
+            for key in (
+                "legal_identity_complete",
+                "selected_identity_complete",
+                "native_lru_identity_complete",
+            )
+        )
         rows.append(
             {
                 "event_index": _event_index(decision),
-                "required_blocks": int(payload.get("required_blocks", 0)),
+                "required_blocks": required,
+                "legal_block_count": len(legal),
                 "selected_victim_count": len(selected),
                 "native_lru_victim_count": len(native),
                 "block_id_sets_differ": set(selected) != set(native),
@@ -64,24 +230,33 @@ def _selection_evidence(events: Sequence[Mapping[str, object]]) -> dict[str, obj
                     else None
                 ),
                 "selector": payload.get("selector"),
-                "fallbacks": payload.get("fallbacks", []),
-                "adapter_problems": payload.get("adapter_problems", []),
-                "contract_problems": payload.get("contract_problems", []),
+                "fallbacks": fallbacks,
+                "adapter_problems": adapter_problems,
+                "contract_problems": contract_problems,
+                "checks": checks,
+                "decision_contract_valid": all(checks.values()),
             }
         )
     observable = [row for row in rows if row["identity_complete"]]
+    sequence_complete = len(decisions) == len(forced) and bool(forced)
+    contract_valid = sequence_complete and all(
+        bool(row["decision_contract_valid"]) for row in rows
+    )
+    fallback_count = sum(bool(row["fallbacks"]) for row in rows)
     return {
         "forced_release_count": len(forced),
         "block_decision_count": len(decisions),
         "decision_rows": rows,
-        "selection_mechanism_realized": bool(forced and decisions),
+        "decision_sequence_complete": sequence_complete,
+        "selection_contract_valid": contract_valid,
+        "selection_mechanism_realized": contract_valid and fallback_count == 0,
         "selection_identity_complete": len(observable) == len(rows) and bool(rows),
         "selection_diverged": (
             any(bool(row["content_identity_sets_differ"]) for row in observable)
             if len(observable) == len(rows) and rows
             else None
         ),
-        "fallback_count": sum(bool(row["fallbacks"]) for row in rows),
+        "fallback_count": fallback_count,
     }
 
 
@@ -90,6 +265,12 @@ def evaluate_run(run_dir: Path) -> dict[str, object]:
     events = _load_events(run_dir / "events.jsonl")
     selection = _selection_evidence(events)
     result.update(selection)
+    result.update(
+        _strict_physical_evidence(
+            events,
+            require_block_decision=str(result.get("policy")) == "A2",
+        )
+    )
     return result
 
 
@@ -102,11 +283,17 @@ def compare_pair(a0: Mapping[str, object], a2: Mapping[str, object]) -> dict[str
     )
     selection_observable = a2.get("selection_diverged") is not None
     selection_diverged = a2.get("selection_diverged") if selection_observable else None
+    physical_observable = (
+        comparable
+        and a0.get("physical_evidence_observable") is True
+        and a2.get("physical_evidence_observable") is True
+        and int(a0.get("unmapped_physical_eviction_count", 0)) == 0
+        and int(a2.get("unmapped_physical_eviction_count", 0)) == 0
+    )
     physical_diverged = (
-        a0.get("physical_eviction_signature") != a2.get("physical_eviction_signature")
-        if comparable
-        and a0.get("physical_eviction_count")
-        and a2.get("physical_eviction_count")
+        a0.get("strict_physical_eviction_signature")
+        != a2.get("strict_physical_eviction_signature")
+        if physical_observable
         else None
     )
     delta = token.get("token_delta_a1_minus_a0")
@@ -136,6 +323,7 @@ def compare_pair(a0: Mapping[str, object], a2: Mapping[str, object]) -> dict[str
         "selection_identity_complete": selection_observable,
         "selection_diverged": selection_diverged,
         "physical_diverged": physical_diverged,
+        "physical_evidence_observable": physical_observable,
         "a0_aggregate_recomputed_tokens": token["a0_aggregate_recomputed_tokens"],
         "a2_aggregate_recomputed_tokens": token["a1_aggregate_recomputed_tokens"],
         "a0_aggregate_actual_prefill_tokens": token[
@@ -220,15 +408,24 @@ def aggregate_scenarios(pairs: Sequence[Mapping[str, object]]) -> list[dict[str,
     return rows
 
 
-def _summary(rows: Sequence[Mapping[str, object]]) -> dict[str, object]:
+def _summary(
+    rows: Sequence[Mapping[str, object]], *, required_complete_scenarios: int
+) -> dict[str, object]:
     values = [
         float(row["mean_delta_recomputed_tokens_a2_minus_a0"])
         for row in rows
         if row.get("mean_delta_recomputed_tokens_a2_minus_a0") is not None
     ]
+    complete = len(values) == required_complete_scenarios
+    descriptive_mean = statistics.fmean(values) if values else None
+    descriptive_median = statistics.median(values) if values else None
+    descriptive_ci = _bootstrap_ci(values)
     return {
         "scenario_count": len(rows),
         "comparable_scenario_count": len(values),
+        "required_complete_scenario_count": required_complete_scenarios,
+        "campaign_completeness_satisfied": complete,
+        "formal_verdict": "COMPLETE" if complete else "INCONCLUSIVE",
         "selection_divergence_scenario_count": sum(
             row.get("selection_diverged") is True for row in rows
         ),
@@ -238,22 +435,32 @@ def _summary(rows: Sequence[Mapping[str, object]]) -> dict[str, object]:
         "better_worse_tied_inconclusive": dict(
             Counter(str(row["direction"]) for row in rows)
         ),
-        "mean_delta_recomputed_tokens_a2_minus_a0": (
-            statistics.fmean(values) if values else None
+        "formal_mean_delta_recomputed_tokens_a2_minus_a0": (
+            descriptive_mean if complete else None
         ),
-        "median_delta_recomputed_tokens_a2_minus_a0": (
-            statistics.median(values) if values else None
+        "formal_median_delta_recomputed_tokens_a2_minus_a0": (
+            descriptive_median if complete else None
         ),
-        "exploratory_bootstrap_95_ci": _bootstrap_ci(values),
+        "formal_exploratory_bootstrap_95_ci": descriptive_ci if complete else None,
+        "descriptive_complete_scenarios_only": {
+            "mean_delta_recomputed_tokens_a2_minus_a0": descriptive_mean,
+            "median_delta_recomputed_tokens_a2_minus_a0": descriptive_median,
+            "exploratory_bootstrap_95_ci": descriptive_ci,
+            "scope": "predefined_parameter_grid_only_not_a_production_distribution",
+        },
         "bootstrap_repetitions": 10_000 if len(values) >= 2 else 0,
         "bootstrap_seed": 20261019 if len(values) >= 2 else None,
     }
 
 
-def evaluate_campaign(*, manifest_path: Path, run_root: Path) -> dict[str, object]:
+def evaluate_campaign(
+    *, manifest_path: Path, authorization_path: Path, run_root: Path
+) -> dict[str, object]:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    if manifest.get("execution_authorized") is not True:
-        raise ValueError("refusing to evaluate an execution-locked Gate 2 manifest")
+    authorization = _validate_execution_authorization(
+        manifest_path=manifest_path,
+        authorization_path=authorization_path,
+    )
     runs: list[dict[str, object]] = []
     for entry in manifest["runs"]:
         run_dir = run_root / str(entry["run_id"])
@@ -261,6 +468,7 @@ def evaluate_campaign(*, manifest_path: Path, run_root: Path) -> dict[str, objec
             runs.append({**entry, "status": "MISSING"})
             continue
         try:
+            _validate_run_binding(run_dir, entry, authorization)
             runs.append(evaluate_run(run_dir))
         except Exception as error:  # noqa: BLE001 - preserve invalid evidence
             runs.append(
@@ -310,9 +518,13 @@ def evaluate_campaign(*, manifest_path: Path, run_root: Path) -> dict[str, objec
         "evidence_state_counts": dict(
             Counter(str(row["evidence_state"]) for row in pairs)
         ),
-        "overall": _summary(scenarios),
+        "authorization_sha256": _sha(authorization_path),
+        "overall": _summary(scenarios, required_complete_scenarios=36),
         "families": {
-            family: _summary([row for row in scenarios if row["family"] == family])
+            family: _summary(
+                [row for row in scenarios if row["family"] == family],
+                required_complete_scenarios=6,
+            )
             for family in ("F1", "F2", "F3", "F4", "F5", "F6")
         },
         "runs": runs,
@@ -323,6 +535,10 @@ def evaluate_campaign(*, manifest_path: Path, run_root: Path) -> dict[str, objec
             "Block-id differences are not content-identity evidence.",
             "Physical eviction correlation is not per-block recomputation causality.",
             "A2 proxy-weighted loss is not actual expected recomputation.",
+            (
+                "Bootstrap statistics describe only the predefined parameter grid and "
+                "are not an estimate for an arbitrary production distribution."
+            ),
         ],
     }
 
@@ -330,10 +546,15 @@ def evaluate_campaign(*, manifest_path: Path, run_root: Path) -> dict[str, objec
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument("--authorization", type=Path, required=True)
     parser.add_argument("--run-root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
-    report = evaluate_campaign(manifest_path=args.manifest, run_root=args.run_root)
+    report = evaluate_campaign(
+        manifest_path=args.manifest,
+        authorization_path=args.authorization,
+        run_root=args.run_root,
+    )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
         json.dumps(report, indent=2, sort_keys=True, allow_nan=False) + "\n",

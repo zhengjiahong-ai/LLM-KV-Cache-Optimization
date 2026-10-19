@@ -92,6 +92,18 @@ Physical event correlation is not interpreted as per-Block causal attribution
 to later recomputation. A2 proxy-weighted loss is not reported as actual expected
 recomputation.
 
+Physical evidence is observable only when every relevant eviction has a current
+decision-time content identity, occurs after the applicable pressure/Block
+decision, uses the same Native Hash process and cache key, and records
+`hash_removed_after=true`. Process mismatch, Slot reuse, a decision-preceding
+event, or even one partially unmapped eviction makes that run's physical layer
+not observable.
+
+Each A2 decision must select only legal candidates, select exactly
+`required_blocks` unique victims, carry complete legal/selected/LRU identity
+evidence, and contain no unhandled adapter or frozen-contract problem. Fallbacks
+remain visible and do not count as realization of the A2 mechanism.
+
 ## Failure and missingness rules
 
 - All planned runs and attempts must be retained.
@@ -102,6 +114,12 @@ recomputation.
 - Missing request evidence, duplicate/unpaired request identities, absent content
   identity, and missing physical evidence fail closed at their respective layer.
 - Mechanism not realized is distinct from no benefit and from invalid evidence.
+- A formal overall result requires all 36 scenarios, with all six families fully
+  represented. If fewer than 36 scenario estimates are complete, the formal
+  campaign verdict is `INCONCLUSIVE`. Statistics over the remaining complete
+  scenarios are explicitly descriptive only.
+- Bootstrap results describe this predefined parameter grid only; they are not
+  estimates for an arbitrary production workload distribution.
 
 ## Preparation workflow
 
@@ -129,7 +147,10 @@ to M1. A separate reviewed authorization step is required before any Native Gate
 ## Evaluator activation boundary
 
 `kvopt.profiling.phase2g_a2_gate2` refuses to analyze an execution-locked
-manifest. After a future explicit M1 authorization, an authorization finalizer
-must bind the reviewed source manifest, config hashes, tested A2 implementation
-SHA, and experiment-tooling SHA without changing the scenario design or metric.
+manifest. After a future explicit M1 authorization, the evaluator additionally
+requires a separate `phase2g.a2_gate2_authorization.v1` record binding the exact
+reviewed manifest SHA, all run/config hashes, all scenario/trace hashes, tested
+A2 implementation SHA and full experiment-tooling SHA. Each actual run must then
+match its frozen config, trace and tooling revision. Changing an authorization
+Boolean alone cannot unlock evaluation.
 

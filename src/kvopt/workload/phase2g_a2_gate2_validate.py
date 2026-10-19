@@ -12,6 +12,7 @@ from pathlib import Path
 
 from .phase2 import load_phase2_trace
 from .phase2g_a1_bounded_validate import _family_semantics
+from .phase2g_a2_gate2_materialize import _digest, _input_contract
 
 
 def _sha(path: Path) -> str:
@@ -51,6 +52,15 @@ def validate_gate2_campaign(manifest_path: Path) -> dict[str, object]:
         raise TypeError("Gate 2 manifest lacks scenarios/runs")
     if len(scenarios) != 36 or len(runs) != 144:
         raise ValueError("Gate 2 campaign cardinality mismatch")
+    run_ids = [str(row["run_id"]) for row in runs]
+    if len(set(run_ids)) != len(run_ids):
+        raise ValueError("duplicate run ID in Gate 2 manifest")
+    pairing_keys = [
+        (str(row["scenario_id"]), str(row["policy"]), int(row["repeat"]))
+        for row in runs
+    ]
+    if len(set(pairing_keys)) != len(pairing_keys):
+        raise ValueError("duplicate scenario/policy/repeat key in Gate 2 manifest")
     family_counts = Counter(str(row["family"]) for row in scenarios)
     if family_counts != Counter({family: 6 for family in ("F1", "F2", "F3", "F4", "F5", "F6")}):
         raise ValueError("Gate 2 campaign must contain six scenarios per family")
@@ -92,9 +102,16 @@ def validate_gate2_campaign(manifest_path: Path) -> dict[str, object]:
                 or stage.get("policy") != policy
                 or stage.get("repeat") != row["repeat"]
                 or config.get("trace") != row["trace"]
+                or row.get("trace") != scenario.get("trace")
+                or row.get("trace_sha256") != scenario.get("trace_sha256")
             ):
                 raise ValueError(f"manifest/config identity mismatch: {row['run_id']}")
-            input_digests.add(str(row.get("input_contract_sha256")))
+            computed_input_digest = _digest(_input_contract(config))
+            if computed_input_digest != row.get("input_contract_sha256"):
+                raise ValueError(f"input contract digest mismatch: {row['run_id']}")
+            if computed_input_digest != scenario.get("input_contract_sha256"):
+                raise ValueError(f"scenario input contract digest mismatch: {row['run_id']}")
+            input_digests.add(computed_input_digest)
             order_counts[(policy, int(row["execution_order"]))] += 1
             configs.append(config)
 

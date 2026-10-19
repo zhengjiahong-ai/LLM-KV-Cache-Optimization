@@ -89,3 +89,41 @@ def test_validator_rejects_entry_release_drift(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="manifest/config identity mismatch"):
         validate_gate2_campaign(path)
+
+
+def test_validator_rejects_duplicate_run_id_and_pairing_key(tmp_path: Path) -> None:
+    path = _campaign(tmp_path)
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    manifest["runs"][1]["run_id"] = manifest["runs"][0]["run_id"]
+    path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="duplicate run ID"):
+        validate_gate2_campaign(path)
+
+    manifest = json.loads(_campaign(tmp_path / "second").read_text(encoding="utf-8"))
+    manifest["runs"][1]["scenario_id"] = manifest["runs"][0]["scenario_id"]
+    manifest["runs"][1]["policy"] = manifest["runs"][0]["policy"]
+    manifest["runs"][1]["repeat"] = manifest["runs"][0]["repeat"]
+    second_path = tmp_path / "second" / "campaign" / "manifest.json"
+    second_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="duplicate scenario/policy/repeat"):
+        validate_gate2_campaign(second_path)
+
+
+def test_validator_rejects_trace_and_input_digest_tampering(tmp_path: Path) -> None:
+    path = _campaign(tmp_path)
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    manifest["runs"][0]["trace_sha256"] = "tampered"
+    path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="manifest/config identity mismatch"):
+        validate_gate2_campaign(path)
+
+    second_path = _campaign(tmp_path / "second")
+    manifest = json.loads(second_path.read_text(encoding="utf-8"))
+    manifest["runs"][0]["input_contract_sha256"] = "tampered"
+    second_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="input contract digest mismatch"):
+        validate_gate2_campaign(second_path)
