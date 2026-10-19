@@ -85,6 +85,7 @@ def test_measurement_config_freezes_only_the_authorized_extension(tmp_path: Path
             "tokenizer": {"name": "model", "revision": "revision"},
         },
         base_profile,
+        token_count=544,
     )
 
     assert config["backend_options"]["program_prefix_tokens"] == {
@@ -94,6 +95,30 @@ def test_measurement_config_freezes_only_the_authorized_extension(tmp_path: Path
     assert config["generation"] == {"max_new_tokens": 1, "temperature": 0.0}
     assert config["backend_options"]["gpu_memory_utilization"] == 0.75
     assert config["backend_options"]["phase2g_block_policy"] == "A0"
+
+
+def test_bridge_config_uses_same_environment_without_changing_profile(
+    tmp_path: Path,
+) -> None:
+    base_profile = tmp_path / "base.json"
+    base_profile.write_text("{}\n", encoding="utf-8")
+    config = _measurement_config(
+        {
+            "runtime_mode": "vllm-metal-observability",
+            "model": {"name": "model", "revision": "revision"},
+            "tokenizer": {"name": "model", "revision": "revision"},
+        },
+        base_profile,
+        token_count=512,
+    )
+
+    assert config["backend_options"]["program_prefix_tokens"] == {
+        "profile-extension": 512
+    }
+    assert config["cache"] == {"block_size": 16, "block_override": 66}
+    assert config["backend_options"]["prefill_profile_path"] == str(
+        base_profile.resolve()
+    )
 
 
 def test_assemble_extended_profile_copies_legacy_points_exactly(tmp_path: Path) -> None:
