@@ -10,6 +10,8 @@ from collections.abc import Sequence
 from copy import deepcopy
 from pathlib import Path
 
+from kvopt.continuum.prefill_profile import load_prefill_reload_provider
+
 from .phase2 import load_phase2_trace
 from .phase2g_a1_bounded_validate import _family_semantics
 from .phase2g_a2_gate2_materialize import _digest, _input_contract
@@ -66,6 +68,24 @@ def validate_gate2_campaign(manifest_path: Path) -> dict[str, object]:
         raise ValueError("Gate 2 campaign must contain six scenarios per family")
 
     root = manifest_path.parent
+    repair = manifest.get("profile_range_repair")
+    repaired_profile = None
+    if repair is not None:
+        if not isinstance(repair, dict):
+            raise TypeError("profile_range_repair must be an object")
+        profile_path = Path(str(repair.get("extended_profile_path")))
+        if not profile_path.is_file() or _sha(profile_path) != repair.get(
+            "extended_profile_sha256"
+        ):
+            raise ValueError("extended profile binding mismatch")
+        if repair.get("required_profile_max_tokens") != 544:
+            raise ValueError("repaired campaign profile maximum mismatch")
+        original_path = Path(str(repair.get("original_manifest_path")))
+        if not original_path.is_file() or _sha(original_path) != repair.get(
+            "original_manifest_sha256"
+        ):
+            raise ValueError("original manifest binding mismatch")
+        repaired_profile = load_prefill_reload_provider(profile_path)
     by_scenario: dict[str, list[dict[str, object]]] = defaultdict(list)
     for row in runs:
         by_scenario[str(row["scenario_id"])].append(row)
@@ -106,6 +126,10 @@ def validate_gate2_campaign(manifest_path: Path) -> dict[str, object]:
                 or row.get("trace_sha256") != scenario.get("trace_sha256")
             ):
                 raise ValueError(f"manifest/config identity mismatch: {row['run_id']}")
+            if repair is not None and backend.get("prefill_profile_path") != repair.get(
+                "extended_profile_path"
+            ):
+                raise ValueError(f"repaired profile path mismatch: {row['run_id']}")
             computed_input_digest = _digest(_input_contract(config))
             if computed_input_digest != row.get("input_contract_sha256"):
                 raise ValueError(f"input contract digest mismatch: {row['run_id']}")
@@ -120,6 +144,14 @@ def validate_gate2_campaign(manifest_path: Path) -> dict[str, object]:
             _without_arm_identity(config) == reference for config in configs[1:]
         )
         semantics = _family_semantics(str(scenario["family"]), scenario, configs[0])
+        profile_queries_supported = True
+        if repaired_profile is not None:
+            segments = configs[0]["backend_options"]["prefix_segments_by_request"]
+            for request in trace.requests:
+                if request.is_terminal:
+                    continue
+                token_count = sum(int(item[1]) for item in segments[request.request_id])
+                repaired_profile.estimate(token_count)
         checks = {
             "four_paired_runs": len(rows) == 4,
             "single_input_contract_digest": len(input_digests) == 1,
@@ -133,6 +165,7 @@ def validate_gate2_campaign(manifest_path: Path) -> dict[str, object]:
             "pressure_count_matches": len(trace.pressure_stages)
             == int(scenario["pressure_count"]),
             "family_parameters_recorded": bool(scenario.get("family_parameters")),
+            "profile_queries_supported": profile_queries_supported,
             **semantics,
         }
         if not all(checks.values()):
