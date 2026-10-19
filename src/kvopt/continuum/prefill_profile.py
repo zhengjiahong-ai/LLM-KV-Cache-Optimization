@@ -13,7 +13,9 @@ from typing import Any
 from .types import InputProvenance, InputSource
 
 TOKEN_GRID = (16, 32, 128, 256, 512)
+EXTENDED_TOKEN_GRID = (*TOKEN_GRID, 544)
 _SCHEMA = "continuum.prefill_reload.profile.v1"
+_EXTENDED_SCHEMA = "continuum.prefill_reload.extended_profile.v1"
 _STATUS = "complete"
 _PROVENANCE_REASON = "offline PrefillReload profile"
 
@@ -126,7 +128,10 @@ def load_prefill_reload_provider(
     with profile_path.open("r", encoding="utf-8") as stream:
         artifact = json.load(stream)
     data = _require_mapping(artifact, "artifact")
-    if data.get("schema") != _SCHEMA:
+    schema = data.get("schema")
+    if schema == _EXTENDED_SCHEMA:
+        return _load_extended_prefill_reload_provider(data)
+    if schema != _SCHEMA:
         raise ValueError("artifact schema does not match frozen profile schema")
     if data.get("status") != _STATUS:
         raise ValueError("only complete profile artifacts are loadable")
@@ -152,4 +157,60 @@ def load_prefill_reload_provider(
         TOKEN_GRID,
         tuple(by_token_count[token_count] for token_count in TOKEN_GRID),
         provenance,
+    )
+
+
+def _load_extended_prefill_reload_provider(
+    artifact: dict[str, Any],
+) -> _ProfilePrefillReloadProvider:
+    if artifact.get("status") != _STATUS:
+        raise ValueError("only complete extended profile artifacts are loadable")
+    protocol = _require_mapping(artifact.get("protocol"), "protocol")
+    expected_protocol = {**_EXPECTED_PROTOCOL, "grid": list(EXTENDED_TOKEN_GRID)}
+    for field_name, expected in expected_protocol.items():
+        if protocol.get(field_name) != expected:
+            raise ValueError(f"protocol.{field_name} does not match extended protocol")
+    extension = _require_mapping(artifact.get("extension"), "extension")
+    if extension.get("measured_extension_points") != [544]:
+        raise ValueError("extended profile must contain the frozen 544-token point")
+    if extension.get("interpolation_rule") != "piecewise_linear_between_measured_points":
+        raise ValueError("extended profile interpolation rule mismatch")
+    raw_base_path = extension.get("base_profile_path")
+    raw_base_sha = extension.get("base_profile_sha256")
+    if not isinstance(raw_base_path, str) or not raw_base_path:
+        raise TypeError("extension.base_profile_path must be non-empty text")
+    if not isinstance(raw_base_sha, str) or len(raw_base_sha) != 64:
+        raise TypeError("extension.base_profile_sha256 must be SHA-256 text")
+    base_path = Path(raw_base_path)
+    if not base_path.is_absolute():
+        base_path = Path.cwd() / base_path
+    if not base_path.is_file():
+        raise FileNotFoundError(f"extended profile base does not exist: {base_path}")
+    import hashlib
+
+    if hashlib.sha256(base_path.read_bytes()).hexdigest() != raw_base_sha:
+        raise ValueError("extended profile base SHA-256 mismatch")
+    base_artifact = _require_mapping(
+        json.loads(base_path.read_text(encoding="utf-8")), "base artifact"
+    )
+    if base_artifact.get("schema") != _SCHEMA:
+        raise ValueError("extended profile base must use the legacy schema")
+    base_points = base_artifact.get("points")
+    points = artifact.get("points")
+    if not isinstance(base_points, list) or not isinstance(points, list):
+        raise TypeError("profile points must be arrays")
+    if len(points) != len(EXTENDED_TOKEN_GRID):
+        raise ValueError("extended profile must match the frozen extended grid")
+    if points[: len(TOKEN_GRID)] != base_points:
+        raise ValueError("extended profile changed legacy measured points")
+    by_token_count: dict[int, float] = {}
+    for point, expected_count in zip(points, EXTENDED_TOKEN_GRID, strict=True):
+        by_token_count[expected_count] = _validate_point(point, expected_count)
+    return _ProfilePrefillReloadProvider(
+        EXTENDED_TOKEN_GRID,
+        tuple(by_token_count[token_count] for token_count in EXTENDED_TOKEN_GRID),
+        InputProvenance(
+            InputSource.APPROXIMATED,
+            "offline extended PrefillReload profile (legacy points preserved)",
+        ),
     )

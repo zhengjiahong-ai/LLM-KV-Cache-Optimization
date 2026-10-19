@@ -42,6 +42,8 @@ class _MetalPrefillAdapter:
         observation_reader: Callable[[str], Any],
         tokens_input_factory: Callable[[Sequence[int]], Any],
         sampling_params_factory: Callable[..., Any],
+        token_grid: Sequence[int] = TOKEN_GRID,
+        request_registered: Callable[[str, str], None] | None = None,
     ) -> None:
         if vocabulary_size <= 0:
             raise ValueError("vocabulary_size must be positive")
@@ -51,6 +53,9 @@ class _MetalPrefillAdapter:
         self._tokens_input_factory = tokens_input_factory
         self._sampling_params_factory = sampling_params_factory
         self._vocabulary_size = vocabulary_size
+        self._token_grid = tuple(token_grid)
+        self._request_registered = request_registered
+        self._reusable_tokens_by_external: dict[str, int] = {}
         self._next_request_number = 0
         self._internal_by_external: dict[str, str] = {}
         self._observations: dict[str, _CapturedObservation] = {}
@@ -81,6 +86,9 @@ class _MetalPrefillAdapter:
         if not isinstance(internal_id, str) or not internal_id:
             raise ValueError("engine returned an invalid internal request ID")
         self._internal_by_external[external_id] = internal_id
+        self._reusable_tokens_by_external[external_id] = len(token_ids) - 1
+        if self._request_registered is not None:
+            self._request_registered(external_id, internal_id)
         return external_id
 
     def step(self) -> tuple[_NormalizedOutput, ...]:
@@ -97,7 +105,11 @@ class _MetalPrefillAdapter:
             finished = bool(getattr(native_output, "finished", False))
             if generated_token_ids or finished:
                 raw_observation = self._observation_reader(internal_id)
-                self._observations[external_id] = _derive_observation(raw_observation)
+                self._observations[external_id] = _derive_observation(
+                    raw_observation,
+                    reusable_tokens=self._reusable_tokens_by_external[external_id],
+                    native_output=native_output,
+                )
             normalized.append(
                 _NormalizedOutput(
                     request_id=external_id,
@@ -125,8 +137,8 @@ class _MetalPrefillAdapter:
         return all(self._native.lookup_hash(native_hash) for native_hash in self._target_hashes)
 
     def target_token_ids(self, token_count: int) -> tuple[int, ...]:
-        if token_count not in TOKEN_GRID:
-            raise ValueError("token_count must be one of the frozen profile points")
+        if token_count not in self._token_grid:
+            raise ValueError("token_count must be one of the authorized profile points")
         prefix = tuple(
             (1_000 + token_count + index * 37) % self._vocabulary_size
             for index in range(token_count)
@@ -187,6 +199,8 @@ def build_adapter(
     observation_reader: Callable[[str], Any],
     tokens_input_factory: Callable[[Sequence[int]], Any] | None = None,
     sampling_params_factory: Callable[..., Any] | None = None,
+    token_grid: Sequence[int] = TOKEN_GRID,
+    request_registered: Callable[[str, str], None] | None = None,
 ) -> _MetalPrefillAdapter:
     """Build the adapter, lazily loading the pinned vLLM input factories."""
 
@@ -200,6 +214,8 @@ def build_adapter(
         observation_reader=observation_reader,
         tokens_input_factory=tokens_input_factory,
         sampling_params_factory=sampling_params_factory,
+        token_grid=token_grid,
+        request_registered=request_registered,
     )
 
 
@@ -212,9 +228,22 @@ def _lazy_request_factories() -> tuple[
     return tokens_input, SamplingParams
 
 
-def _derive_observation(raw_observation: Any) -> _CapturedObservation:
-    num_cached_tokens = int(raw_observation.num_cached_tokens)
-    num_cache_creation_tokens = int(raw_observation.num_cache_creation_tokens)
+def _derive_observation(
+    raw_observation: Any,
+    *,
+    reusable_tokens: int | None = None,
+    native_output: Any | None = None,
+) -> _CapturedObservation:
+    raw_cached = getattr(raw_observation, "num_cached_tokens", None)
+    if raw_cached is None and native_output is not None:
+        raw_cached = getattr(native_output, "num_cached_tokens", None)
+    num_cached_tokens = int(raw_cached)
+    raw_created = getattr(raw_observation, "num_cache_creation_tokens", None)
+    num_cache_creation_tokens = (
+        int(raw_created)
+        if raw_created is not None
+        else int(reusable_tokens) - num_cached_tokens
+    )
     return _CapturedObservation(
         num_cached_tokens=num_cached_tokens,
         num_cache_creation_tokens=num_cache_creation_tokens,
