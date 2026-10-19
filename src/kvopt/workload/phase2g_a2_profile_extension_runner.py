@@ -48,6 +48,21 @@ class _NativeHashSurface:
         return bool(pool.cached_block_hash_to_block.contain(native_hash))
 
 
+def _extension_cache_keys(
+    snapshot_reader: Any,
+    observations: list[dict[str, object]],
+    internal_id: str,
+) -> tuple[bytes, ...]:
+    _prefix, token_count, _block_ids, cache_keys = snapshot_reader(
+        observations,
+        internal_id,
+        expected_token_count=EXTENSION_TOKEN_COUNT,
+    )
+    if token_count != EXTENSION_TOKEN_COUNT:
+        raise ValueError("extension snapshot token count mismatch")
+    return tuple(cache_keys)
+
+
 def _measurement_config(base_config: dict[str, Any], base_profile: Path) -> dict[str, Any]:
     config = json.loads(json.dumps(base_config))
     config["campaign_kind"] = "phase2g_a2_prefill_profile_extension"
@@ -93,12 +108,10 @@ def measure_extension(*, base_config_path: Path, base_profile: Path) -> dict[str
             backend._registry.register_external_batch((internal_id,), (external_id,))
 
         def observation(internal_id: str) -> object:
-            _prefix, _tokens, _blocks, _ids, cache_keys = (
-                _coherent_child_request_snapshot(
-                    backend._native_observations,
-                    internal_id,
-                    expected_token_count=EXTENSION_TOKEN_COUNT,
-                )
+            cache_keys = _extension_cache_keys(
+                _coherent_child_request_snapshot,
+                backend._native_observations,
+                internal_id,
             )
             return SimpleNamespace(native_hashes=cache_keys)
 

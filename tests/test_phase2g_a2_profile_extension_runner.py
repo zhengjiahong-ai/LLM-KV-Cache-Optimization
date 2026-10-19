@@ -3,9 +3,24 @@ import json
 from pathlib import Path
 
 from kvopt.workload.phase2g_a2_profile_extension_runner import (
+    _extension_cache_keys,
     _measurement_config,
     assemble_extended_profile,
 )
+
+
+def test_extension_snapshot_uses_four_value_observation_contract() -> None:
+    calls: list[tuple[object, str, int]] = []
+
+    def reader(
+        observations: object, internal_id: str, *, expected_token_count: int
+    ) -> tuple[str, int, tuple[int, ...], tuple[bytes, ...]]:
+        calls.append((observations, internal_id, expected_token_count))
+        return "prefix", 544, (1, 2), (b"a", b"b")
+
+    observations: list[dict[str, object]] = []
+    assert _extension_cache_keys(reader, observations, "native-1") == (b"a", b"b")
+    assert calls == [(observations, "native-1", 544)]
 
 
 def _point(token_count: int, value: float) -> dict[str, object]:
