@@ -350,3 +350,89 @@ def test_actual_run_binding_rejects_frozen_evidence_drift(
 
     with pytest.raises(ValueError):
         _validate_run_binding(tmp_path, entry, authorization)
+
+
+def test_hashless_slot_difference_is_not_content_identity_difference() -> None:
+    payload = {
+        "required_blocks": 1,
+        "legal_block_ids": [7, 8],
+        "selected_victims": [7],
+        "native_lru_victims": [8],
+        "legal_content_hashes": [
+            {"block_id": 7, "content_hash": None},
+            {"block_id": 8, "content_hash": "content-b"},
+        ],
+        "native_hash_process_id": "process-a",
+        "selector": "incremental_greedy",
+        "fallbacks": [],
+        "adapter_problems": [],
+        "contract_problems": [],
+    }
+    events = [
+        {
+            "event_index": 1,
+            "event_type": "FORCED_RELEASE_DECISION",
+            "payload": {
+                "original_free_queue": [
+                    {"block_id": 7, "has_block_hash": False},
+                    {"block_id": 8, "has_block_hash": True},
+                ]
+            },
+        },
+        {
+            "event_index": 2,
+            "event_type": "COST_AWARE_BLOCK_DECISION",
+            "payload": payload,
+        },
+        {
+            "event_index": 0,
+            "event_type": "VLLM_PREFIX_SNAPSHOT",
+            "payload": {
+                "block_ids": [8],
+                "ordered_native_cache_keys": ["content-b"],
+                "native_hash_process_id": "process-a",
+            },
+        },
+    ]
+    evidence = _selection_evidence(events)
+    assert evidence["selection_contract_valid"] is True
+    assert evidence["selection_diverged"] is None
+
+
+def test_formal_runner_refuses_to_start_without_explicit_authorization(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from kvopt.workload import phase2g_a2_gate2_runner as runner
+
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(
+        json.dumps({
+            "schema_version": "phase2g.a2_gate2_materialization.v1",
+            "execution_authorized": False,
+            "formal_native_execution_authorized": False,
+            "runs": [],
+            "scenarios": [],
+        }),
+        encoding="utf-8",
+    )
+    authorization_path = tmp_path / "authorization.json"
+    authorization_path.write_text(
+        json.dumps({
+            "schema_version": "phase2g.a2_gate2_authorization.v1",
+            "execution_authorized": False,
+            "formal_native_execution_authorized": False,
+        }),
+        encoding="utf-8",
+    )
+    started: list[str] = []
+    monkeypatch.setattr(
+        runner, "_run_phase2d_stage",
+        lambda *args, **kwargs: started.append("started"),
+    )
+    with pytest.raises(ValueError, match="not authorized"):
+        runner.run_campaign(
+            manifest_path=manifest_path,
+            authorization_path=authorization_path,
+            output_root=tmp_path / "runs",
+        )
+    assert started == []
