@@ -6,12 +6,46 @@ from kvopt.continuum import RetentionMode
 from kvopt.workload.phase2 import PlannedRequest
 from scripts.spikes.phase2_minimal_observability_metal import (
     _expected_profiling_block_override,
+    _phase2g_a2_campaign_allowed,
+    _phase2g_unique_protected_block_campaign_allowed,
     _pressure_stage_sizes,
     _program_prefix_sizes,
     _required_max_model_len,
     _retention_mode_for_config,
     _turn_token_ids,
 )
+
+
+@pytest.mark.parametrize(
+    "campaign_kind",
+    ["phase2g_a2_native_gate1", "phase2g_a2_gate2_bounded_evaluation"],
+)
+def test_a2_block_policy_accepts_only_authorized_campaigns(campaign_kind: str) -> None:
+    assert _phase2g_a2_campaign_allowed(campaign_kind)
+
+
+@pytest.mark.parametrize(
+    "campaign_kind",
+    [None, "formal", "phase2g_a1_bounded_evaluation", "phase2e_measured_campaign"],
+)
+def test_a2_block_policy_rejects_other_campaigns(campaign_kind: object) -> None:
+    assert not _phase2g_a2_campaign_allowed(campaign_kind)
+
+
+@pytest.mark.parametrize(
+    "campaign_kind",
+    [
+        "phase2g_a1_bounded_evaluation",
+        "phase2g_a2_native_gate1",
+        "phase2g_a2_gate2_bounded_evaluation",
+    ],
+)
+def test_unique_protected_blocks_accept_authorized_campaigns(campaign_kind: str) -> None:
+    assert _phase2g_unique_protected_block_campaign_allowed(campaign_kind)
+
+
+def test_unique_protected_blocks_reject_unrelated_campaign() -> None:
+    assert not _phase2g_unique_protected_block_campaign_allowed("formal")
 
 
 def test_phase2e_can_select_real_native_or_continuum_baseline() -> None:
