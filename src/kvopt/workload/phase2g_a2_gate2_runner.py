@@ -96,8 +96,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         authorization_path=args.authorization,
         output_root=args.output_root,
     )
-    print(f"completed {len(outputs)} Gate 2 run attempt(s); inspect run manifests before proceeding")
-    return 0 if outputs else 1
+    failed = []
+    for output in outputs:
+        run_manifest = json.loads((output / "run.json").read_text(encoding="utf-8"))
+        if run_manifest.get("execution_status") != "success":
+            failed.append(output.name)
+    print(
+        f"completed {len(outputs)} Gate 2 run attempt(s); "
+        f"failed={len(failed)}; inspect all run manifests before proceeding"
+    )
+    return 1 if failed or not outputs else 0
 
 
 if __name__ == "__main__":
