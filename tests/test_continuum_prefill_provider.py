@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 from collections.abc import Callable
@@ -163,3 +164,71 @@ def test_rejects_unsupported_or_invalid_token_count(
 
     with pytest.raises((TypeError, ValueError)):
         provider.estimate(token_count)  # type: ignore[arg-type]
+
+
+def _extended_artifact(base_path: Path, base: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema": "continuum.prefill_reload.extended_profile.v1",
+        "status": "complete",
+        "protocol": {
+            **base["protocol"],
+            "grid": [*TOKEN_GRID, 544],
+        },
+        "provenance": {"run_id": "extension-test"},
+        "extension": {
+            "base_profile_path": str(base_path),
+            "base_profile_sha256": hashlib.sha256(base_path.read_bytes()).hexdigest(),
+            "measured_extension_points": [544],
+            "interpolation_rule": "piecewise_linear_between_measured_points",
+        },
+        "points": [*base["points"], _point(544, 0.2)],
+    }
+
+
+def test_extended_profile_preserves_legacy_points_and_supports_required_range(
+    tmp_path: Path,
+) -> None:
+    base = _artifact()
+    base_path = tmp_path / "base.json"
+    base_path.write_text(json.dumps(base), encoding="utf-8")
+    extended_path = tmp_path / "extended.json"
+    extended_path.write_text(
+        json.dumps(_extended_artifact(base_path, base)), encoding="utf-8"
+    )
+
+    provider = _load(extended_path)
+
+    for token_count, expected in FORMAL_MEDIANS.items():
+        assert provider.estimate(token_count)[0] == expected
+    assert provider.estimate(528)[0] == pytest.approx(
+        FORMAL_MEDIANS[512] + (0.2 - FORMAL_MEDIANS[512]) / 2
+    )
+    assert provider.estimate(544)[0] == 0.2
+    with pytest.raises(ValueError, match="outside"):
+        provider.estimate(545)
+
+
+def test_extended_profile_rejects_changed_legacy_point(tmp_path: Path) -> None:
+    base = _artifact()
+    base_path = tmp_path / "base.json"
+    base_path.write_text(json.dumps(base), encoding="utf-8")
+    extended = _extended_artifact(base_path, base)
+    extended["points"][0]["median_raw_delta_seconds"] = 0.5
+    extended_path = tmp_path / "extended.json"
+    extended_path.write_text(json.dumps(extended), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="changed legacy"):
+        _load(extended_path)
+
+
+def test_extended_profile_rejects_wrong_base_hash(tmp_path: Path) -> None:
+    base = _artifact()
+    base_path = tmp_path / "base.json"
+    base_path.write_text(json.dumps(base), encoding="utf-8")
+    extended = _extended_artifact(base_path, base)
+    extended["extension"]["base_profile_sha256"] = "0" * 64
+    extended_path = tmp_path / "extended.json"
+    extended_path.write_text(json.dumps(extended), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="base SHA-256"):
+        _load(extended_path)

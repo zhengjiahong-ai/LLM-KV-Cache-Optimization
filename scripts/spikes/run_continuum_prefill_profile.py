@@ -22,6 +22,7 @@ def run_prefill_pair(
     timer: Callable[[], float],
     diagnostics_sink: Callable[[Mapping[str, object]], None] | None = None,
     max_pressure_batches: int,
+    allowed_token_counts: Sequence[int] = TOKEN_GRID,
 ) -> tuple[float, float]:
     """Run and validate one corrected r+1 prefill pair.
 
@@ -39,6 +40,7 @@ def run_prefill_pair(
         timer=timer,
         diagnostics_sink=diagnostics_sink,
         max_pressure_batches=max_pressure_batches,
+        allowed_token_counts=allowed_token_counts,
     )
     request_token_ids = tuple(prefix_token_ids) + (suffix_token_id,)
     if not native.read_target_material_presence():
@@ -98,9 +100,10 @@ def _validate_inputs(
     timer: Callable[[], float],
     diagnostics_sink: Callable[[Mapping[str, object]], None] | None,
     max_pressure_batches: int,
+    allowed_token_counts: Sequence[int],
 ) -> None:
-    if type(r) is not int or r not in TOKEN_GRID:
-        raise ValueError("r must be one of the frozen profile points")
+    if type(r) is not int or r not in allowed_token_counts:
+        raise ValueError("r must be one of the authorized profile points")
     if not isinstance(prefix_token_ids, Sequence) or isinstance(
         prefix_token_ids, (str, bytes)
     ):
