@@ -122,20 +122,24 @@ def _identity_set(
 def _strict_physical_evidence(
     events: Sequence[Mapping[str, object]], *, require_block_decision: bool
 ) -> dict[str, object]:
-    """Fail closed on missing identity, ordering, or selected-victim correlation.
+    """Fail closed on relevant pressure evictions and selected-victim identity.
 
-    Native process IDs establish *within-run* provenance. The cross-run
-    signature intentionally uses content keys only: separate Native runs may
-    have distinct process IDs even for identical cached content.
+    Evictions before the pressure/selection decision are ordinary runtime history,
+    not evidence for this gate. They still invalidate the old slot identity. For A2,
+    only evictions involving the decision's legal candidate set are relevant; a
+    hashed eviction of an unselected legal candidate is a contract failure.
+    Process IDs are checked within a run but are not compared across runs.
     """
     identities: dict[int, tuple[str, str, int]] = {}
     last_forced: int | None = None
     last_decision: int | None = None
     expected_selected: dict[int, tuple[str, str]] = {}
+    expected_legal: set[int] = set()
     matched_selected: set[int] = set()
     signature: list[str] = []
     problems: list[str] = []
     eviction_count = 0
+    last_event_index: int | None = None
 
     def check_pending() -> None:
         if require_block_decision and expected_selected and (
@@ -145,46 +149,81 @@ def _strict_physical_evidence(
 
     for event in events:
         index = _event_index(event)
+        if last_event_index is not None and index <= last_event_index:
+            problems.append("event_index is not strictly increasing in persisted order")
+        last_event_index = index
         event_type = event.get("event_type")
+
         if event_type == "FORCED_RELEASE_DECISION":
             check_pending()
-            expected_selected.clear()
-            matched_selected.clear()
+            expected_selected = {}
+            expected_legal = set()
+            matched_selected = set()
             last_forced = index
             last_decision = None
-        elif event_type == "COST_AWARE_BLOCK_DECISION":
-            if require_block_decision:
-                if last_forced is None or last_forced >= index:
-                    problems.append(f"block decision {index} lacks preceding forced release")
-                if last_decision is not None:
-                    check_pending()
-                last_decision = index
-                payload = _payload(event)
-                process = payload.get("native_hash_process_id")
-                legal = payload.get("legal_content_hashes")
-                if not isinstance(process, str) or not process or not isinstance(legal, list):
-                    problems.append(f"block decision {index} lacks content/process evidence")
-                    expected_selected.clear()
-                else:
-                    cache_keys = {
-                        int(row["block_id"]): row.get("content_hash")
-                        for row in legal if isinstance(row, Mapping)
-                    }
-                    expected_selected = {}
-                    for value in payload.get("selected_victims", ()):
-                        block_id = int(value)
-                        key = cache_keys.get(block_id)
-                        if key is not None:
-                            expected_selected[block_id] = (str(key), process)
-                matched_selected.clear()
-        elif event_type == "VLLM_PREFIX_SNAPSHOT":
+            continue
+
+        if event_type == "COST_AWARE_BLOCK_DECISION":
+            if not require_block_decision:
+                continue
+            check_pending()
+            if last_forced is None or last_forced >= index:
+                problems.append(
+                    f"block decision {index} lacks a preceding forced release"
+                )
+            last_decision = index
+            matched_selected = set()
+            payload = _payload(event)
+            process = payload.get("native_hash_process_id")
+            legal_ids = payload.get("legal_block_ids")
+            legal_hashes = payload.get("legal_content_hashes")
+            if (
+                not isinstance(process, str)
+                or not process
+                or not isinstance(legal_ids, (list, tuple))
+                or not isinstance(legal_hashes, (list, tuple))
+            ):
+                problems.append(
+                    f"block decision {index} lacks legal/content/process evidence"
+                )
+                expected_legal = set()
+                expected_selected = {}
+                continue
+
+            expected_legal = {int(value) for value in legal_ids}
+            cache_keys: dict[int, str] = {}
+            for row in legal_hashes:
+                if not isinstance(row, Mapping):
+                    problems.append(f"block decision {index} has malformed identity row")
+                    continue
+                block_id = int(row["block_id"])
+                key = row.get("content_hash")
+                if isinstance(key, str) and key:
+                    cache_keys[block_id] = key
+            expected_selected = {}
+            selected_ids = payload.get("selected_victims", ())
+            if not isinstance(selected_ids, (list, tuple)):
+                problems.append(f"block decision {index} has malformed selected victims")
+                continue
+            for value in selected_ids:
+                block_id = int(value)
+                key = cache_keys.get(block_id)
+                if key is not None:
+                    expected_selected[block_id] = (key, process)
+            if not set(cache_keys).issubset(expected_legal):
+                problems.append(
+                    f"block decision {index} identity rows exceed the legal candidate set"
+                )
+            continue
+
+        if event_type == "VLLM_PREFIX_SNAPSHOT":
             payload = _payload(event)
             block_ids = payload.get("block_ids")
             cache_keys = payload.get("ordered_native_cache_keys")
             process = payload.get("native_hash_process_id")
             if (
-                not isinstance(block_ids, list)
-                or not isinstance(cache_keys, list)
+                not isinstance(block_ids, (list, tuple))
+                or not isinstance(cache_keys, (list, tuple))
                 or len(block_ids) != len(cache_keys)
                 or not isinstance(process, str)
                 or not process
@@ -192,44 +231,89 @@ def _strict_physical_evidence(
                 problems.append(f"invalid identity snapshot at event {index}")
                 continue
             for block_id, cache_key in zip(block_ids, cache_keys, strict=True):
-                if cache_key:
-                    identities[int(block_id)] = (str(cache_key), process, index)
-        elif event_type == "VLLM_NATIVE_HASHED_CACHE_ENTRY_EVICTED":
-            payload = _payload(event)
-            eviction_count += 1
-            block_id = int(payload["block_id"])
-            identity = identities.get(block_id)
-            if last_forced is None or last_forced >= index:
-                problems.append(f"eviction {index} has no preceding forced-release decision")
-            if require_block_decision and (
-                last_decision is None or last_decision >= index
-            ):
-                problems.append(f"eviction {index} has no preceding A2 block decision")
-            observed = (
-                str(payload.get("native_cache_key_before")),
-                str(payload.get("native_hash_process_id")),
-            )
-            if identity is None:
-                problems.append(f"eviction {index} has no current content identity")
-                continue
-            expected = identity[:2]
-            if identity[2] >= index:
-                problems.append(f"eviction {index} precedes its identity snapshot")
-            if observed != expected:
-                problems.append(f"eviction {index} content/process identity mismatch")
-            if payload.get("hash_removed_after") is not True:
-                problems.append(f"eviction {index} did not remove the Native hash")
-            if require_block_decision:
-                selected = expected_selected.get(block_id)
-                if selected != observed or block_id in matched_selected:
-                    problems.append(f"eviction {index} is not a selected hashed victim")
+                block = int(block_id)
+                if isinstance(cache_key, str) and cache_key:
+                    identities[block] = (cache_key, process, index)
                 else:
-                    matched_selected.add(block_id)
-            if observed == expected and payload.get("hash_removed_after") is True:
-                signature.append(expected[0])
+                    identities.pop(block, None)
+            continue
+
+        if event_type != "VLLM_NATIVE_HASHED_CACHE_ENTRY_EVICTED":
+            continue
+
+        payload = _payload(event)
+        block_id = int(payload["block_id"])
+        identity = identities.get(block_id)
+        observed_key = payload.get("native_cache_key_before")
+        observed_process = payload.get("native_hash_process_id")
+        observed = (
+            observed_key if isinstance(observed_key, str) else "",
+            observed_process if isinstance(observed_process, str) else "",
+        )
+
+        if require_block_decision:
+            relevant = (
+                last_forced is not None
+                and last_decision is not None
+                and last_forced < last_decision < index
+            )
+            # Regardless of relevance, Native eviction invalidates a slot's
+            # previous identity so it cannot be reused by a later decision.
             identities.pop(block_id, None)
+            if not relevant:
+                continue
+            if block_id not in expected_legal and block_id not in expected_selected:
+                continue
+            eviction_count += 1
+            if block_id in expected_legal and block_id not in expected_selected:
+                problems.append(
+                    f"eviction {index} removed an unselected legal candidate"
+                )
+        else:
+            relevant = last_forced is not None and last_forced < index
+            identities.pop(block_id, None)
+            if not relevant:
+                continue
+            eviction_count += 1
+
+        if identity is None:
+            problems.append(f"eviction {index} has no current content identity")
+            continue
+        expected_identity = identity[:2]
+        if identity[2] >= index:
+            problems.append(f"eviction {index} precedes its identity snapshot")
+        if observed != expected_identity:
+            problems.append(f"eviction {index} content/process identity mismatch")
+        if not observed[0] or not observed[1]:
+            problems.append(f"eviction {index} lacks content key or process identity")
+        if payload.get("hash_removed_after") is not True:
+            problems.append(f"eviction {index} did not remove the Native hash")
+
+        if require_block_decision:
+            selected_identity = expected_selected.get(block_id)
+            if selected_identity is None or selected_identity != observed:
+                problems.append(
+                    f"eviction {index} does not match the selected hashed victim identity"
+                )
+            elif block_id in matched_selected:
+                problems.append(f"selected victim block {block_id} was evicted more than once")
+            else:
+                matched_selected.add(block_id)
+
+        if (
+            observed == expected_identity
+            and observed[0]
+            and observed[1]
+            and payload.get("hash_removed_after") is True
+        ):
+            signature.append(observed[0])
+
     check_pending()
-    observable = eviction_count > 0 and not problems and len(signature) == eviction_count
+    observable = (
+        eviction_count > 0
+        and not problems
+        and len(signature) == eviction_count
+    )
     return {
         "physical_eviction_count": eviction_count,
         "strict_physical_eviction_signature": sorted(signature),
@@ -296,8 +380,13 @@ def _selection_evidence(events: Sequence[Mapping[str, object]]) -> dict[str, obj
             any(states.get(bid) == "HASHLESS_NO_CONTENT" for bid in set(selected) ^ set(native))
         )
         selection_difference = (
-            None if not identity_complete or any_hashless_changed
-            else selected_hashed != native_hashed
+            None
+            if not identity_complete
+            else True
+            if selected_hashed != native_hashed
+            else None
+            if any_hashless_changed
+            else False
         )
         fallbacks = tuple(str(value) for value in payload.get("fallbacks", ()))
         adapter_problems = tuple(str(value) for value in payload.get("adapter_problems", ()))
