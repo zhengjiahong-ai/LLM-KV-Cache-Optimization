@@ -66,7 +66,11 @@ def _measurement_config(
     base_config: dict[str, Any], base_profile: Path, *, token_count: int
 ) -> dict[str, Any]:
     config = json.loads(json.dumps(base_config))
-    config["campaign_kind"] = "phase2g_a2_prefill_profile_extension"
+    config["campaign_kind"] = (
+        "phase2g_a2_prefill_profile_extension"
+        if token_count == EXTENSION_TOKEN_COUNT
+        else "phase2g_a2_prefill_profile_bridge_control"
+    )
     config["policy"] = "continuum-baseline"
     config["seed"] = 20261019
     config["generation"] = {"max_new_tokens": 1, "temperature": 0.0}
@@ -87,6 +91,11 @@ def _measurement_config(
         "pressure_prompt_tokens": 512,
         "prefill_profile_path": str(base_profile.resolve()),
     }
+    if token_count == 512:
+        # Preserve the 544 measurement's 66-block physical capacity: 34 protected
+        # blocks plus 32 pressure-demand blocks. This is a measurement control,
+        # not a claim that the 512-token target itself occupies 34 blocks.
+        config["backend_options"]["phase2g_unique_protected_blocks"] = 34
     return config
 
 

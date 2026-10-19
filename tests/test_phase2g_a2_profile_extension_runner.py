@@ -92,6 +92,8 @@ def test_measurement_config_freezes_only_the_authorized_extension(tmp_path: Path
         "profile-extension": 544
     }
     assert config["cache"] == {"block_size": 16, "block_override": 66}
+    assert config["campaign_kind"] == "phase2g_a2_prefill_profile_extension"
+    assert "phase2g_unique_protected_blocks" not in config["backend_options"]
     assert config["generation"] == {"max_new_tokens": 1, "temperature": 0.0}
     assert config["backend_options"]["gpu_memory_utilization"] == 0.75
     assert config["backend_options"]["phase2g_block_policy"] == "A0"
@@ -116,6 +118,8 @@ def test_bridge_config_uses_same_environment_without_changing_profile(
         "profile-extension": 512
     }
     assert config["cache"] == {"block_size": 16, "block_override": 66}
+    assert config["campaign_kind"] == "phase2g_a2_prefill_profile_bridge_control"
+    assert config["backend_options"]["phase2g_unique_protected_blocks"] == 34
     assert config["backend_options"]["prefill_profile_path"] == str(
         base_profile.resolve()
     )
