@@ -2,8 +2,6 @@ from dataclasses import dataclass
 
 import pytest
 
-from kvopt.profiling import InMemoryForcedReleaseObserver
-
 from kvopt.continuum import (
     BlockIdentity,
     InputProvenance,
@@ -20,6 +18,7 @@ from kvopt.continuum import (
 )
 from kvopt.continuum.clock import FakeClock
 from kvopt.continuum.retention import RetentionManager
+from kvopt.profiling import InMemoryForcedReleaseObserver
 from kvopt.runtime.vllm.adapter import RetentionAwareLRUAdapter
 from kvopt.runtime.vllm.retention_integration import RetentionRuntimeIntegration
 
@@ -142,6 +141,72 @@ def test_controlled_commits_release_and_passes_final_validated_ids() -> None:
     assert removed == [(8, 7)]
     assert manager.snapshot(_key(entry)).protected is False
     assert result.selection_plan.selected_block_ids == (BlockIdentity(8), BlockIdentity(7))
+
+
+def test_controlled_block_coordinator_changes_only_order_after_entry_release() -> None:
+    manager = RetentionManager(FakeClock())
+    entry = _entry("program-a", "prefix-a", (7,))
+    manager.upsert(entry)
+    removed: list[tuple[int, ...]] = []
+
+    class BlockCoordinator:
+        def select_victims(
+            self,
+            candidates,
+            preparation,
+            retention_entries,
+            *,
+            required_blocks,
+            timestamp,
+        ):
+            assert {item.block_id for item in candidates} == {7, 8}
+            assert {item.block_id for item in preparation.virtual_eligible_order} == {7, 8}
+            assert retention_entries == (entry,)
+            assert required_blocks == 2
+            assert timestamp == 1.0
+            return (7, 8)
+
+    result = RetentionRuntimeIntegration(
+        manager,
+        block_selection_coordinator=BlockCoordinator(),
+    ).apply_pressure(
+        mode=RetentionMode.CONTROLLED,
+        blocks=(_block(7), _block(8, hashed=False)),
+        required_blocks=2,
+        timestamp=1.0,
+        remove_selected=lambda ids: removed.append(tuple(ids)),
+    )
+
+    assert result.selected_block_ids == (7, 8)
+    assert result.selection_plan is None
+    assert manager.snapshot(_key(entry)).protected is False
+    assert removed == [(7, 8)]
+
+
+def test_invalid_block_coordinator_result_does_not_commit_or_remove() -> None:
+    manager = RetentionManager(FakeClock())
+    entry = _entry("program-a", "prefix-a", (7,))
+    manager.upsert(entry)
+    removed: list[tuple[int, ...]] = []
+
+    class BlockCoordinator:
+        def select_victims(self, *_args, **_kwargs):
+            return (7, 999)
+
+    with pytest.raises(ValueError, match="outside the legal set"):
+        RetentionRuntimeIntegration(
+            manager,
+            block_selection_coordinator=BlockCoordinator(),
+        ).apply_pressure(
+            mode=RetentionMode.CONTROLLED,
+            blocks=(_block(7), _block(8, hashed=False)),
+            required_blocks=2,
+            timestamp=1.0,
+            remove_selected=lambda ids: removed.append(tuple(ids)),
+        )
+
+    assert manager.snapshot(_key(entry)).protected is True
+    assert removed == []
 
 
 def test_shadow_plans_ordinary_expiry_without_committing_live_state() -> None:

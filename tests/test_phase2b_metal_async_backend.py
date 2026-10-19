@@ -1,8 +1,12 @@
 from types import SimpleNamespace
 
+import pytest
+
 from kvopt.workload.phase2 import PlannedRequest
 from scripts.spikes.phase2_minimal_observability_metal import (
     MinimalMetalObservabilityBackend,
+    _positive_float,
+    _unit_float,
 )
 
 
@@ -18,6 +22,17 @@ def _request(program: str, request_id: str) -> PlannedRequest:
         next_tool_type=None,
         tool_gap_seconds=None,
     )
+
+
+def test_positive_float_accepts_time_constants_above_one() -> None:
+    assert _positive_float(30.0, "tau_seconds") == 30.0
+
+
+def test_unit_float_retains_fraction_upper_bound() -> None:
+    assert _unit_float(0.75, "gpu_memory_utilization") == 0.75
+
+    with pytest.raises(ValueError, match=r"must be in \(0, 1\]"):
+        _unit_float(30.0, "gpu_memory_utilization")
 
 
 def test_collect_does_not_wrap_blocking_wait_as_native_poll() -> None:

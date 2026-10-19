@@ -1,0 +1,93 @@
+{
+  "schema_version": "phase2g.a2_native_gate1_fixture.v1",
+  "scope": "NATIVE_BLOCK_MECHANISM_VALIDATION",
+  "execution_authorized": true,
+  "policies": ["A0", "A2"],
+  "runtime_repeats": 2,
+  "block_size_tokens": 16,
+  "pressure_prompt_tokens": 320,
+  "initial_shortage_blocks": 9,
+  "a2": {
+    "tau_seconds": 30.0
+  },
+  "model": {
+    "name": "Qwen/Qwen2.5-0.5B-Instruct",
+    "revision": "7ae557604adf67be50417f59c2c2f167def9a775"
+  },
+  "runtime": {
+    "backend_factory": "scripts.spikes.phase2_minimal_observability_metal:build_phase2_metal_observability_backend",
+    "gpu_memory_utilization": 0.75,
+    "max_new_tokens": 1,
+    "temperature": 0.0
+  },
+  "cases": [
+    {
+      "case_id": "a2-order-control",
+      "expected_relation": "SAME",
+      "identity_mode": "normal",
+      "segments": {
+        "gate1-a": [["control-a", 192]],
+        "gate1-b": [["control-b", 192]]
+      }
+    },
+    {
+      "case_id": "a2-cost-divergence",
+      "expected_relation": "DIFFERENT",
+      "identity_mode": "normal",
+      "pressure_prompt_tokens": 336,
+      "initial_shortage_blocks": 13,
+      "refresh_content_from_program": "gate1-a",
+      "segments": {
+        "gate1-a": [["divergence-a", 192]],
+        "gate1-b": [["divergence-b", 192]]
+      }
+    },
+    {
+      "case_id": "a2-shared-multichain",
+      "expected_relation": "AUDIT",
+      "identity_mode": "normal",
+      "initial_shortage_blocks": 13,
+      "segments": {
+        "gate1-a": [["shared-root", 64], ["shared-tail-a", 192]],
+        "gate1-b": [["shared-root", 64], ["shared-tail-b", 192]]
+      }
+    },
+    {
+      "case_id": "a2-multiblock",
+      "expected_relation": "AUDIT",
+      "identity_mode": "normal",
+      "segments": {
+        "gate1-a": [["multi-a", 256]],
+        "gate1-b": [["multi-b", 256]]
+      }
+    },
+    {
+      "case_id": "a2-missing-identity-fallback",
+      "expected_relation": "FALLBACK_SAME",
+      "identity_mode": "missing",
+      "segments": {
+        "gate1-a": [["fallback-a", 192]],
+        "gate1-b": [["fallback-b", 192]]
+      }
+    },
+    {
+      "case_id": "a2-stale-identity-fallback",
+      "expected_relation": "FALLBACK_SAME",
+      "identity_mode": "stale",
+      "segments": {
+        "gate1-a": [["stale-a", 192]],
+        "gate1-b": [["stale-b", 192]]
+      }
+    }
+  ],
+  "boundaries": {
+    "entry_release_modified": false,
+    "legal_candidate_set_modified": false,
+    "required_block_count_modified": false,
+    "native_block_pool_modified": false,
+    "a2_gate2_authorized": false,
+    "a3_implemented": false,
+    "b1_unlocked": false,
+    "h1_h2_modified": false
+  }
+}

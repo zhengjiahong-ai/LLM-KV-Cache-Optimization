@@ -1,11 +1,12 @@
 """Bridge between vLLM free-queue snapshots and project eviction policies."""
 
+import time
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-import time
 from typing import Protocol
 
 from .adapter import EvictionPolicyAdapter
+from .continuum_observation import encode_native_hash
 from .types import EvictionCandidate, EvictionContext
 
 
@@ -37,6 +38,11 @@ class VLLMEvictionBridge:
                 ref_cnt=block.ref_cnt,
                 has_block_hash=block.block_hash is not None,
                 lru_rank=lru_rank,
+                content_hash=(
+                    None
+                    if type(block.block_hash) is not bytes
+                    else encode_native_hash(block.block_hash)
+                ),
             )
             for lru_rank, block in enumerate(blocks)
         ]
