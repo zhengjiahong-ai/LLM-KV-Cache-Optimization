@@ -142,7 +142,12 @@ python -m kvopt.workload.phase2g_a2_gate2_validate \
 The generated manifest remains locked with both authorization fields set to
 `false`. It must be bound to the committed experiment-tooling SHA and submitted
 to M1. A separate reviewed authorization step is required before any Native Gate
-2 runner may execute these configs.
+2 runner may execute these configs. The formal entry point is
+`python -m kvopt.workload.phase2g_a2_gate2_runner`; it validates the separate
+authorization record, the clean and exact tooling Git SHA, and every config/trace
+hash before starting the first Native process. It preserves failed attempts and
+stops the campaign on the first failed run. Do not invoke the lower-level Phase 2D
+runner directly for this campaign.
 
 ## Evaluator activation boundary
 
