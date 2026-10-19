@@ -119,6 +119,28 @@ def _identity_set(
     return tuple(sorted(identities[block_id] for block_id in ids))
 
 
+def _identity_state(
+    block_id: int,
+    hash_presence: Mapping[int, bool],
+    explicit: Mapping[int, object],
+    proven: Mapping[int, tuple[str, str]],
+) -> str:
+    present = hash_presence.get(block_id)
+    key = explicit.get(block_id)
+    if present is False and key is None and block_id in explicit:
+        return "HASHLESS_NO_CONTENT"
+    if present is True and key is not None and block_id in proven:
+        return "HASHED_PROVEN"
+    return "HASHED_UNVERIFIED"
+
+
+def _identities_complete(ids: Sequence[int], states: Mapping[int, str]) -> bool:
+    return all(
+        states.get(block_id) in {"HASHED_PROVEN", "HASHLESS_NO_CONTENT"}
+        for block_id in ids
+    )
+
+
 def _strict_physical_evidence(
     events: Sequence[Mapping[str, object]], *, require_block_decision: bool
 ) -> dict[str, object]:
@@ -357,19 +379,15 @@ def _selection_evidence(events: Sequence[Mapping[str, object]]) -> dict[str, obj
         legal = tuple(int(value) for value in payload.get("legal_block_ids", ()))
         required = int(payload.get("required_blocks", 0))
 
-        def state(block_id: int) -> str:
-            present = hash_presence.get(block_id)
-            key = explicit.get(block_id)
-            if present is False and key is None and block_id in explicit:
-                return "HASHLESS_NO_CONTENT"
-            if present is True and key is not None and block_id in proven:
-                return "HASHED_PROVEN"
-            return "HASHED_UNVERIFIED"
-
-        states = {block_id: state(block_id) for block_id in legal}
-        def complete(ids: tuple[int, ...]) -> bool:
-            return all(states.get(block_id) in {"HASHED_PROVEN", "HASHLESS_NO_CONTENT"} for block_id in ids)
-        identity_complete = complete(legal) and complete(selected) and complete(native)
+        states = {
+            block_id: _identity_state(block_id, hash_presence, explicit, proven)
+            for block_id in legal
+        }
+        identity_complete = (
+            _identities_complete(legal, states)
+            and _identities_complete(selected, states)
+            and _identities_complete(native, states)
+        )
         selected_hashed = {
             proven[bid] for bid in selected if states.get(bid) == "HASHED_PROVEN"
         }
@@ -381,12 +399,8 @@ def _selection_evidence(events: Sequence[Mapping[str, object]]) -> dict[str, obj
         )
         selection_difference = (
             None
-            if not identity_complete
-            else True
-            if selected_hashed != native_hashed
-            else None
-            if any_hashless_changed
-            else False
+            if not identity_complete or any_hashless_changed
+            else selected_hashed != native_hashed
         )
         fallbacks = tuple(str(value) for value in payload.get("fallbacks", ()))
         adapter_problems = tuple(str(value) for value in payload.get("adapter_problems", ()))
@@ -399,9 +413,9 @@ def _selection_evidence(events: Sequence[Mapping[str, object]]) -> dict[str, obj
             "selected_are_unique": len(selected) == len(set(selected)),
             "native_lru_are_unique": len(native) == len(set(native)),
             "legal_are_unique": len(legal) == len(set(legal)),
-            "legal_identity_complete": complete(legal),
-            "selected_identity_complete": complete(selected),
-            "native_lru_identity_complete": complete(native),
+            "legal_identity_complete": _identities_complete(legal, states),
+            "selected_identity_complete": _identities_complete(selected, states),
+            "native_lru_identity_complete": _identities_complete(native, states),
             "adapter_problems_absent": not adapter_problems,
             "contract_problems_absent": not contract_problems,
             "fallback_is_explicit_native_lru": (

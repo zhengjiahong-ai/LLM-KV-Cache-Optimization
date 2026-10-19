@@ -10,6 +10,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from kvopt.profiling.phase2g_a2_gate2 import _validate_execution_authorization
+
 from .phase2d_e2_runner import _run_phase2d_stage
 
 
@@ -20,6 +21,9 @@ def _sha(path: Path) -> str:
 def authorize_campaign(manifest_path: Path, authorization_path: Path) -> tuple[dict[str, object], dict[str, object]]:
     manifest_path = manifest_path.resolve()
     authorization_path = authorization_path.resolve()
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(manifest, dict):
+        raise TypeError("Gate 2 manifest must be a JSON object")
     authorization = _validate_execution_authorization(
         manifest_path=manifest_path,
         authorization_path=authorization_path,
