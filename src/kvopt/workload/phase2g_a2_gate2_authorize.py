@@ -12,6 +12,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 A2_IMPLEMENTATION_SHA = "15a65e36604af5679987bb91d224fd20ce560e8a"
+V3_AUTHORIZATION_REVIEW_MERGE_COMMIT = (
+    "57a84113d590f3a4174e6ef14fdd5ede91d85f96"
+)
 
 
 def _sha(path: Path) -> str:
@@ -39,6 +42,35 @@ def build_authorization(
         raise ValueError("validation report is not bound to the campaign manifest")
     if manifest.get("scenario_count") != 36 or manifest.get("planned_run_count") != 144:
         raise ValueError("authorized campaign must contain 36 scenarios and 144 runs")
+    repair = manifest.get("profile_range_repair")
+    if not isinstance(repair, dict):
+        raise TypeError("v3 authorization requires the accepted profile range repair")
+    if (
+        repair.get("required_profile_max_tokens") != 544
+        or repair.get("legacy_points_preserved") is not True
+        or repair.get("traces_preserved") is not True
+        or repair.get("workload_inputs_preserved") is not True
+        or repair.get("a2_implementation_preserved") is not True
+    ):
+        raise ValueError("v3 profile range repair contract is incomplete")
+    raw_profile_path = repair.get("extended_profile_path")
+    expected_profile_sha = repair.get("extended_profile_sha256")
+    if not isinstance(raw_profile_path, str) or not raw_profile_path:
+        raise TypeError("extended profile path must be non-empty text")
+    if not isinstance(expected_profile_sha, str) or len(expected_profile_sha) != 64:
+        raise TypeError("extended profile SHA-256 must be SHA-256 text")
+    profile_path = (repository / raw_profile_path).resolve()
+    if repository not in profile_path.parents or not profile_path.is_file():
+        raise ValueError("extended profile path escapes or is missing from repository")
+    if _sha(profile_path) != expected_profile_sha:
+        raise ValueError("extended profile SHA-256 mismatch before authorization")
+    profile = json.loads(profile_path.read_text(encoding="utf-8"))
+    if (
+        profile.get("schema") != "continuum.prefill_reload.extended_profile.v1"
+        or profile.get("status") != "complete"
+        or profile.get("extension", {}).get("measured_extension_points") != [544]
+    ):
+        raise ValueError("extended profile does not satisfy the accepted v3 contract")
 
     run_ids = [str(row["run_id"]) for row in manifest["runs"]]
     pair_keys = [
@@ -92,7 +124,7 @@ def build_authorization(
         "schema_version": "phase2g.a2_gate2_authorization.v1",
         "created_at_utc": datetime.now(UTC).isoformat(),
         "authorization_basis": "M1_PHASE_2G_A2_NATIVE_GATE2_FORMAL_EXECUTION_AUTHORIZED",
-        "authorization_review_merge_commit": "ad0eb28a4a24109a2049c5c10f622354b6848b10",
+        "authorization_review_merge_commit": V3_AUTHORIZATION_REVIEW_MERGE_COMMIT,
         "formal_native_execution_authorized": True,
         "execution_authorized": True,
         "campaign_manifest_path": str(campaign_manifest.resolve()),
@@ -100,6 +132,8 @@ def build_authorization(
         "validation_report_path": str(validation_report.resolve()),
         "validation_report_sha256": _sha(validation_report),
         "tested_a2_implementation_git_sha": A2_IMPLEMENTATION_SHA,
+        "extended_profile_path": str(profile_path),
+        "extended_profile_sha256": expected_profile_sha,
         "experiment_tooling_git_sha": git_sha,
         "authorized_config_sha256": {
             str(row["run_id"]): str(row["config_sha256"])
