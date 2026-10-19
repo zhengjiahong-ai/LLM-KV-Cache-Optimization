@@ -296,10 +296,8 @@ def _selection_evidence(events: Sequence[Mapping[str, object]]) -> dict[str, obj
             any(states.get(bid) == "HASHLESS_NO_CONTENT" for bid in set(selected) ^ set(native))
         )
         selection_difference = (
-            None if not identity_complete
-            else True if selected_hashed != native_hashed
-            else None if any_hashless_changed
-            else False
+            None if not identity_complete or any_hashless_changed
+            else selected_hashed != native_hashed
         )
         fallbacks = tuple(str(value) for value in payload.get("fallbacks", ()))
         adapter_problems = tuple(str(value) for value in payload.get("adapter_problems", ()))
