@@ -18,6 +18,7 @@ _RUN_SCHEMA_VERSIONS = frozenset(
         "phase2e.measured_run.v1",
         "phase2g.a1_gate1_run.v1",
         "phase2g.a1_bounded_run.v1",
+        "phase2g.a2_gate2_preparation_run.v1",
     }
 )
 _TRACE_SCHEMA_VERSION = "phase2.trace.v1"
