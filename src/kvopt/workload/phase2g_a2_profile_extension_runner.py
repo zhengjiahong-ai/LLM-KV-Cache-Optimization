@@ -56,10 +56,9 @@ def _extension_cache_keys(
     _prefix, token_count, _block_ids, cache_keys = snapshot_reader(
         observations,
         internal_id,
-        expected_token_count=EXTENSION_TOKEN_COUNT,
     )
-    if token_count != EXTENSION_TOKEN_COUNT:
-        raise ValueError("extension snapshot token count mismatch")
+    if token_count not in {512, EXTENSION_TOKEN_COUNT}:
+        raise ValueError("extension snapshot is neither target nor pressure material")
     return tuple(cache_keys)
 
 

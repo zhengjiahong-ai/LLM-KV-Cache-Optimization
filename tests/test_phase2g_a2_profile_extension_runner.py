@@ -33,17 +33,36 @@ def test_native_hash_surface_uses_hash_lookup_not_block_membership() -> None:
 
 
 def test_extension_snapshot_uses_four_value_observation_contract() -> None:
-    calls: list[tuple[object, str, int]] = []
+    calls: list[tuple[object, str]] = []
 
     def reader(
-        observations: object, internal_id: str, *, expected_token_count: int
+        observations: object, internal_id: str
     ) -> tuple[str, int, tuple[int, ...], tuple[bytes, ...]]:
-        calls.append((observations, internal_id, expected_token_count))
+        calls.append((observations, internal_id))
         return "prefix", 544, (1, 2), (b"a", b"b")
 
     observations: list[dict[str, object]] = []
     assert _extension_cache_keys(reader, observations, "native-1") == (b"a", b"b")
-    assert calls == [(observations, "native-1", 544)]
+    assert calls == [(observations, "native-1")]
+
+
+def test_extension_snapshot_accepts_pressure_but_rejects_other_lengths() -> None:
+    def pressure_reader(
+        _observations: object, _internal_id: str
+    ) -> tuple[str, int, tuple[int, ...], tuple[bytes, ...]]:
+        return "pressure", 512, (1,), (b"pressure",)
+
+    assert _extension_cache_keys(pressure_reader, [], "pressure-1") == (b"pressure",)
+
+    def invalid_reader(
+        _observations: object, _internal_id: str
+    ) -> tuple[str, int, tuple[int, ...], tuple[bytes, ...]]:
+        return "invalid", 528, (1,), (b"invalid",)
+
+    import pytest
+
+    with pytest.raises(ValueError, match="neither target nor pressure"):
+        _extension_cache_keys(invalid_reader, [], "invalid-1")
 
 
 def _point(token_count: int, value: float) -> dict[str, object]:
