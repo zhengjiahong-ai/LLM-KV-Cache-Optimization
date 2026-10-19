@@ -370,6 +370,15 @@ def test_hashless_slot_difference_is_not_content_identity_difference() -> None:
     }
     events = [
         {
+            "event_index": 0,
+            "event_type": "VLLM_PREFIX_SNAPSHOT",
+            "payload": {
+                "block_ids": [8],
+                "ordered_native_cache_keys": ["content-b"],
+                "native_hash_process_id": "process-a",
+            },
+        },
+        {
             "event_index": 1,
             "event_type": "FORCED_RELEASE_DECISION",
             "payload": {
@@ -384,20 +393,10 @@ def test_hashless_slot_difference_is_not_content_identity_difference() -> None:
             "event_type": "COST_AWARE_BLOCK_DECISION",
             "payload": payload,
         },
-        {
-            "event_index": 0,
-            "event_type": "VLLM_PREFIX_SNAPSHOT",
-            "payload": {
-                "block_ids": [8],
-                "ordered_native_cache_keys": ["content-b"],
-                "native_hash_process_id": "process-a",
-            },
-        },
     ]
     evidence = _selection_evidence(events)
     assert evidence["selection_contract_valid"] is True
     assert evidence["selection_diverged"] is None
-
 
 def test_formal_runner_refuses_to_start_without_explicit_authorization(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
