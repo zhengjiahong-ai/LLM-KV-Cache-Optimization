@@ -10,10 +10,10 @@
   },
   "code_bindings": {
     "tested_a2_implementation_git_sha": "15a65e36604af5679987bb91d224fd20ce560e8a",
-    "experiment_tooling_git_sha": "a3bc744567fce00fdfc708646a5e938aebfcf6b2"
+    "experiment_tooling_git_sha": "be648ff23c893283a90f0032ddc5dc0ce442900f"
   },
   "campaign": {
-    "artifact_path": "artifacts/phase2g-a2-native-gate2-campaign-v1",
+    "artifact_path": "artifacts/phase2g-a2-native-gate2-campaign-v2",
     "scenario_count": 36,
     "family_counts": {
       "F1": 6,
@@ -69,6 +69,22 @@
     "physical_correlation_is_per_block_causality": false,
     "proxy_weighted_loss_is_actual_expected_recomputation": false,
     "missing_or_incomplete_pair_is_inconclusive": true
+  },
+  "review_corrections": {
+    "rc1_strict_physical_identity_timeline": true,
+    "rc1_requires_same_hash_process": true,
+    "rc1_requires_hash_removed_after": true,
+    "rc1_partial_unmapped_events_fail_closed": true,
+    "rc2_legal_candidate_membership_checked": true,
+    "rc2_required_block_count_checked": true,
+    "rc2_fallback_and_problems_explicit": true,
+    "rc3_separate_authorization_record_required": true,
+    "rc3_manifest_config_trace_and_tooling_bindings_required": true,
+    "rc3_duplicate_run_and_pairing_keys_rejected": true,
+    "rc4_formal_complete_scenario_requirement": 36,
+    "rc4_formal_complete_family_requirement": 6,
+    "rc4_incomplete_campaign_verdict": "INCONCLUSIVE",
+    "rc4_bootstrap_scope": "PREDEFINED_PARAMETER_GRID_ONLY"
   },
   "next_gate": "M1_REVIEW_BEFORE_FORMAL_NATIVE_EXECUTION"
 }
