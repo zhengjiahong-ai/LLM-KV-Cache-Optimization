@@ -88,6 +88,26 @@ from kvopt.workload.phase2c_native_pilot import (
 
 _TARGET_PREFIX_TOKENS = 256
 _PRESSURE_TOKENS = 512
+_PHASE2G_A2_CAMPAIGN_KINDS = frozenset(
+    {
+        "phase2g_a2_native_gate1",
+        "phase2g_a2_gate2_bounded_evaluation",
+    }
+)
+_PHASE2G_UNIQUE_PROTECTED_BLOCK_CAMPAIGN_KINDS = frozenset(
+    {
+        "phase2g_a1_bounded_evaluation",
+        *_PHASE2G_A2_CAMPAIGN_KINDS,
+    }
+)
+
+
+def _phase2g_a2_campaign_allowed(campaign_kind: object) -> bool:
+    return campaign_kind in _PHASE2G_A2_CAMPAIGN_KINDS
+
+
+def _phase2g_unique_protected_block_campaign_allowed(campaign_kind: object) -> bool:
+    return campaign_kind in _PHASE2G_UNIQUE_PROTECTED_BLOCK_CAMPAIGN_KINDS
 
 
 class _H2M4MeasuredPrefillProvider:
@@ -699,10 +719,10 @@ class MinimalMetalObservabilityBackend:
         phase2g_block_policy = options.get("phase2g_block_policy", "A0")
         if phase2g_block_policy not in {"A0", "A2"}:
             raise ValueError("backend_options.phase2g_block_policy must be A0 or A2")
-        if phase2g_block_policy == "A2" and config.get("campaign_kind") != (
-            "phase2g_a2_native_gate1"
+        if phase2g_block_policy == "A2" and not _phase2g_a2_campaign_allowed(
+            config.get("campaign_kind")
         ):
-            raise ValueError("A2 native block selection is restricted to its Gate 1 campaign")
+            raise ValueError("A2 native block selection is restricted to authorized campaigns")
         if phase2g_block_policy == "A2" and not self._content_evidence_enabled:
             raise ValueError("A2 native block selection requires content evidence mode")
         phase2g_a2_tau_seconds = _positive_float(
@@ -740,8 +760,9 @@ class MinimalMetalObservabilityBackend:
             protected_blocks_override = options.get("phase2g_unique_protected_blocks")
             if (
                 protected_blocks_override is not None
-                and config.get("campaign_kind")
-                not in {"phase2g_a1_bounded_evaluation", "phase2g_a2_native_gate1"}
+                and not _phase2g_unique_protected_block_campaign_allowed(
+                    config.get("campaign_kind")
+                )
             ):
                 raise ValueError(
                     "unique protected-block accounting is restricted to the "
