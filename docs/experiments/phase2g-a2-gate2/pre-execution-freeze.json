@@ -1,0 +1,90 @@
+{
+  "schema_version": "phase2g.a2_gate2_pre_execution_freeze.v1",
+  "status": "PREPARATION_VALIDATED_EXECUTION_LOCKED",
+  "authorization": {
+    "gate2_preparation_authorized": true,
+    "formal_native_execution_authorized": false,
+    "execution_authorized": false,
+    "outcomes_materialized": false,
+    "outcomes_inspected": false
+  },
+  "code_bindings": {
+    "tested_a2_implementation_git_sha": "15a65e36604af5679987bb91d224fd20ce560e8a",
+    "experiment_tooling_git_sha": "be648ff23c893283a90f0032ddc5dc0ce442900f"
+  },
+  "campaign": {
+    "artifact_path": "artifacts/phase2g-a2-native-gate2-campaign-v2",
+    "scenario_count": 36,
+    "family_counts": {
+      "F1": 6,
+      "F2": 6,
+      "F3": 6,
+      "F4": 6,
+      "F5": 6,
+      "F6": 6
+    },
+    "planned_run_count": 144,
+    "policies": [
+      "A0",
+      "A2"
+    ],
+    "runtime_repeats": [
+      1,
+      2
+    ],
+    "independent_statistical_unit": "scenario_draw",
+    "runtime_repeats_are_independent": false,
+    "design_kind": "PREDEFINED_BALANCED_PARAMETER_GRID"
+  },
+  "pairing_validation": {
+    "status": "PASS",
+    "single_input_contract_digest_per_scenario": true,
+    "policy_is_only_arm_difference": true,
+    "entry_release_frozen_a0": true,
+    "a0_position_1_count": 36,
+    "a0_position_2_count": 36,
+    "a2_position_1_count": 36,
+    "a2_position_2_count": 36
+  },
+  "metric_contract": {
+    "primary_metric": "aggregate_recomputed_tokens",
+    "primary_formula": "sum(E-C)",
+    "actual_prefill_formula": "sum(N-C)",
+    "new_suffix_formula": "sum(N-E)",
+    "delta_direction": "A2_MINUS_A0",
+    "bootstrap_repetitions": 10000,
+    "bootstrap_seed": 20261019,
+    "confidence_level": 0.95
+  },
+  "sha256": {
+    "distribution": "0c8d6904bd812a51b458067f5d9685b86045f1a9699071f2708a932c6ab52ad0",
+    "materialized_manifest": "672a91d210d62a5273847f0d2575d13caece154650a278d5f8e40c08ec203a52",
+    "validation_report": "482793086903ad7f7ac717433ef67d165f994d46563705e2a629ed01bc178136",
+    "ordered_config_hash_listing": "9710f6f95678bcec3bd4dc2f6f73d95bbae42aeb34cba1f5f2a840bf2537efd7",
+    "ordered_trace_hash_listing": "aee420b7882c2922dc12be3eb3e14168e454a587c410aa775fb81945cc6c8fd2"
+  },
+  "evidence_boundaries": {
+    "block_id_only_is_content_identity": false,
+    "selection_physical_recomputation_layers_are_distinct": true,
+    "physical_correlation_is_per_block_causality": false,
+    "proxy_weighted_loss_is_actual_expected_recomputation": false,
+    "missing_or_incomplete_pair_is_inconclusive": true
+  },
+  "review_corrections": {
+    "rc1_strict_physical_identity_timeline": true,
+    "rc1_requires_same_hash_process": true,
+    "rc1_requires_hash_removed_after": true,
+    "rc1_partial_unmapped_events_fail_closed": true,
+    "rc2_legal_candidate_membership_checked": true,
+    "rc2_required_block_count_checked": true,
+    "rc2_fallback_and_problems_explicit": true,
+    "rc3_separate_authorization_record_required": true,
+    "rc3_manifest_config_trace_and_tooling_bindings_required": true,
+    "rc3_duplicate_run_and_pairing_keys_rejected": true,
+    "rc4_formal_complete_scenario_requirement": 36,
+    "rc4_formal_complete_family_requirement": 6,
+    "rc4_incomplete_campaign_verdict": "INCONCLUSIVE",
+    "rc4_bootstrap_scope": "PREDEFINED_PARAMETER_GRID_ONLY"
+  },
+  "next_gate": "M1_REVIEW_BEFORE_FORMAL_NATIVE_EXECUTION"
+}
