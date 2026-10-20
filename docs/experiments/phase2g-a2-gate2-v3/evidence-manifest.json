@@ -1,0 +1,72 @@
+{
+  "archive": {
+    "delivery_url": null,
+    "filename": "phase2g-m6-a2-gate2-v3-final-evidence-2b46819.tar.gz",
+    "sha256": "7d5d8ae49e47b2dfbc5848f48645a5f1b5de4228a2e28e6a4bd5b810c9105e20",
+    "size_bytes": 3175163,
+    "tar_entry_count": 1065
+  },
+  "campaign": {
+    "complete_scenario_count": 36,
+    "family_complete_counts": {
+      "F1": 6,
+      "F2": 6,
+      "F3": 6,
+      "F4": 6,
+      "F5": 6,
+      "F6": 6
+    },
+    "planned_run_count": 144,
+    "successful_run_count": 144,
+    "valid_run_count": 144
+  },
+  "evidence_boundaries": {
+    "a3_authorized": false,
+    "b1_unlocked": false,
+    "eviction_to_recomputation_causality_established": false,
+    "old_aborted_campaign_mixed_into_statistics": false,
+    "physical_content_identity_complete": false,
+    "selection_intervention_realized": false
+  },
+  "execution": {
+    "authorization_sha256": "44ce066ec0088a7912b3a6c8eeac9a7aca6cf5c6cdaee43fc14b2ba3b7b64fe5",
+    "execution_tooling_git_sha": "7a7803718e64e64e4e16a099dc4496024981f8b3",
+    "extended_profile_sha256": "96b946b9ff8fb28901790f3444e18542d7defb31dc1390a4248ac0da8e8dda7d",
+    "manifest_sha256": "4e2eef0d70b2910216773eb9eabe51c71b8abd6ff7eba2c597f4be283f4a5cc0",
+    "tested_a2_implementation_git_sha": "15a65e36604af5679987bb91d224fd20ce560e8a",
+    "validation_report_sha256": "6022db979681e24d969b95ed6527a741a9e6688b8a2d80c30cc4a26f91ec086d"
+  },
+  "formal_result": {
+    "bootstrap_95_ci": [
+      0.0,
+      0.0
+    ],
+    "bootstrap_repetitions": 10000,
+    "bootstrap_seed": 20261019,
+    "campaign_report_sha256": "d4215d818d4c6f0e654637fd20b5210888319058c87730a400456527fa2814a8",
+    "comparable_repeat_pair_count": 72,
+    "evidence_state_counts": {
+      "NOT_REALIZED": 72
+    },
+    "mean_delta_recomputed_tokens_a2_minus_a0": 0.0,
+    "median_delta_recomputed_tokens_a2_minus_a0": 0.0,
+    "physical_divergence_scenario_count": 0,
+    "physical_eviction_count": 3400,
+    "request_completeness_pair_count": 72,
+    "scenario_direction_counts": {
+      "BETTER": 0,
+      "INCONCLUSIVE": 0,
+      "TIED": 36,
+      "WORSE": 0
+    },
+    "selection_divergence_scenario_count": 0,
+    "token_metric_exact_pair_count": 72,
+    "unmapped_physical_eviction_count": 2032
+  },
+  "offline_evaluation": {
+    "evaluator_git_sha": "2b4681901ff76eb5ca8190ba7b4cf40d5c23a4d9",
+    "evaluator_sha256": "d3e2caafd32f41cfd7c25fb36e7f37188c4eb6323e4d9f87360efcabb1820e46",
+    "ingestion_sha256": "618b24ca50b8ea35c085cc696c50452b9f9ad48a54d10b857247b97be1205013"
+  },
+  "schema_version": "phase2g.a2_gate2_v3_evidence_handoff.v1"
+}
