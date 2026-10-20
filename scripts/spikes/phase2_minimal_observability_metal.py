@@ -583,6 +583,11 @@ class _ObservedRetentionIntegration:
                     "identified_hashed_block_count": (
                         audit.identified_hashed_block_count
                     ),
+                    "evidence_problem_counts": dict(audit.evidence_problem_counts),
+                    "identity_state_counts": dict(audit.identity_state_counts),
+                    "resident_chain_count": audit.resident_chain_count,
+                    "broken_chain_count": audit.broken_chain_count,
+                    "unknown_weight_chain_count": audit.unknown_weight_chain_count,
                     "legal_content_hashes": [
                         {"block_id": block_id, "content_hash": content_hash}
                         for block_id, content_hash in audit.legal_content_hashes
@@ -1122,7 +1127,11 @@ class MinimalMetalObservabilityBackend:
         observation: NativeHashedEvictionObservation,
     ) -> None:
         """Persist native hash cleanup without inferring logical ownership."""
-        self._phase2g_a2_registry.observe_eviction(observation.block_id)
+        self._phase2g_a2_registry.observe_eviction(
+            observation.block_id,
+            content_hash=observation.native_cache_key_before,
+            native_hash_process_id=str(os.getpid()),
+        )
         self._sink.emit(
             ExperimentEvent.create(
                 event_type="VLLM_NATIVE_HASHED_CACHE_ENTRY_EVICTED",

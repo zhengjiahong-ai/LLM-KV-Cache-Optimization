@@ -254,6 +254,84 @@ def test_registry_rejects_slot_reuse_after_eviction() -> None:
     assert adapter.last_audit.fallbacks == ("content_unverified",)
 
 
+def test_registry_partial_eviction_preserves_chain_and_prefix_boundary() -> None:
+    registry = A2NativeSnapshotRegistry()
+    registry.observe(
+        A2NativeChainSnapshot("a:pa", (1, 2, 3), ("h1", "h2", "h3"), "p")
+    )
+
+    registry.observe_eviction(2, content_hash="h2", native_hash_process_id="p")
+
+    state = registry.chain_state("a:pa")
+    assert state is not None
+    assert state.snapshot.block_ids == (1, 2, 3)
+    assert state.resident_depths == (1, 3)
+    assert state.reusable_prefix_blocks == 1
+    assert registry.content_identity(1) is not None
+    assert registry.content_identity(2) is None
+    assert registry.content_identity(3) is not None
+
+    request = registry.build_request(
+        [
+            EvictionCandidate(1, 0, True, 0, "h1"),
+            EvictionCandidate(3, 0, True, 1, "h3"),
+        ],
+        _context(),
+        (_entry("a", "pa", (1, 2, 3)),),
+        tau_seconds=30.0,
+    )
+    assert request.chain_length == {"a:pa": 1}
+    assert request.blocks[0].memberships == (Membership("a:pa", 1, "h1"),)
+    assert request.blocks[1].memberships == ()
+    assert dict(registry.last_evidence_audit.problem_counts) == {
+        "chain_prefix_broken": 1,
+        "legal_hashed_candidate_without_membership": 1,
+    }
+    assert registry.last_evidence_audit.broken_chain_count == 1
+
+
+def test_registry_keeps_terminal_content_with_unknown_reuse_weight() -> None:
+    registry = A2NativeSnapshotRegistry()
+    registry.observe(A2NativeChainSnapshot("a:pa", (1,), ("h1",), "p"))
+
+    request = registry.build_request(
+        [EvictionCandidate(1, 0, True, 0, "h1")],
+        _context(),
+        (),
+        tau_seconds=30.0,
+    )
+
+    assert request.blocks[0].memberships == (Membership("a:pa", 1, "h1"),)
+    assert request.chain_length == {"a:pa": 1}
+    assert request.reuse_weight == {}
+    assert dict(registry.last_evidence_audit.problem_counts) == {
+        "reuse_weight_unknown_after_logical_completion": 1
+    }
+    assert dict(registry.last_evidence_audit.identity_state_counts) == {
+        "CONTENT_VERIFIED_WEIGHT_UNKNOWN": 1
+    }
+    adapter = A2NativeBlockAdapter(lambda _candidates, _context: request)
+    assert adapter.select_victims([_candidate(1, 0)], _context()) == [1]
+    assert adapter.last_audit is not None
+    assert adapter.last_audit.fallbacks == ("reuse_weight_missing",)
+
+
+def test_registry_slot_reuse_rejects_delayed_old_eviction() -> None:
+    registry = A2NativeSnapshotRegistry()
+    registry.observe(A2NativeChainSnapshot("old:p", (1,), ("old",), "p"))
+    registry.observe(A2NativeChainSnapshot("new:p", (1,), ("new",), "p"))
+
+    registry.observe_eviction(1, content_hash="old", native_hash_process_id="p")
+
+    identity = registry.content_identity(1)
+    assert identity is not None
+    assert identity.content_hash == "new"
+    old = registry.chain_state("old:p")
+    new = registry.chain_state("new:p")
+    assert old is not None and old.reusable_prefix_blocks == 0
+    assert new is not None and new.reusable_prefix_blocks == 1
+
+
 def test_registry_fails_closed_when_one_shared_chain_proof_is_missing() -> None:
     registry = A2NativeSnapshotRegistry()
     registry.observe(A2NativeChainSnapshot("a:pa", (1, 2), ("h1", "h2"), "p"))
@@ -290,6 +368,9 @@ def test_registry_fails_closed_on_candidate_hash_mismatch() -> None:
     )
 
     assert request.blocks[0].memberships == ()
+    assert dict(registry.last_evidence_audit.problem_counts)[
+        "candidate_content_hash_mismatch"
+    ] == 1
     adapter = A2NativeBlockAdapter(lambda _candidates, _context: request)
     assert adapter.select_victims(candidates, _context()) == [1]
     assert adapter.last_audit is not None
