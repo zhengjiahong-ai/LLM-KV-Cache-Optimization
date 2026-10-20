@@ -225,11 +225,7 @@ def materialize_gate2_campaign(*, distribution_path: Path, output_dir: Path) -> 
                         },
                         "trace": trace_path.name,
                         "phase2g_stage": {
-                            "stage": (
-                                "A2_BOUNDED_VALUE_PREPARATION"
-                                if value_evaluation
-                                else "A2_GATE2_PREPARATION"
-                            ),
+                            "stage": "A2_GATE2_PREPARATION",
                             "scenario_id": scenario_id,
                             "family": family,
                             "draw": draw,
