@@ -1619,6 +1619,18 @@ class MinimalMetalObservabilityBackend:
             position=position,
             count=count,
         )
+        selected_ids = tuple(int(value) for value in result["selected_block_ids"])
+        selected_keys = tuple(
+            str(result["native_cache_keys_before"][index])
+            for index in result["selected_positions"]
+        )
+        for block_id, content_hash in zip(selected_ids, selected_keys, strict=True):
+            self._phase2g_a2_registry.observe_eviction(
+                block_id,
+                content_hash=content_hash,
+                native_hash_process_id=str(os.getpid()),
+            )
+            self._runtime.handle(BlockEvicted(BlockIdentity(block_id), self._clock.now()))
         self._applied_h2_interventions.add(request.request_id)
         self._sink.emit(
             ExperimentEvent.create(

@@ -58,6 +58,14 @@ def test_h2_backend_applies_intervention_and_emits_auditable_event() -> None:
     backend._native_pool_capture = capture
     backend._sink = SimpleNamespace(emit=emitted.append)
     backend._clock = SimpleNamespace(now=lambda: 12.5)
+    observed_evictions = []
+    handled_events = []
+    backend._phase2g_a2_registry = SimpleNamespace(
+        observe_eviction=lambda block_id, **evidence: observed_evictions.append(
+            (block_id, evidence)
+        )
+    )
+    backend._runtime = SimpleNamespace(handle=handled_events.append)
     request = PlannedRequest(
         program_id="probe",
         request_id="probe:turn:1",
@@ -79,6 +87,8 @@ def test_h2_backend_applies_intervention_and_emits_auditable_event() -> None:
 
     assert [block.block_hash for block in pool.blocks] == [None, None, b"\x02", b"\x03"]
     assert backend._applied_h2_interventions == {"probe:turn:1"}
+    assert [row[0] for row in observed_evictions] == [0, 1]
+    assert [event.block_id.block_id for event in handled_events] == [0, 1]
     assert emitted[0].event_type == "H2_NATIVE_PREFIX_INTERVENTION"
     assert emitted[0].payload.to_dict()["selected_positions"] == [0, 1]
 
