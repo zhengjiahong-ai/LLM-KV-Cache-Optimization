@@ -63,6 +63,44 @@ def _slot_reuse_proved(events: Sequence[Mapping[str, object]]) -> bool:
     return False
 
 
+def _program_completion_checks(
+    decisions: Sequence[Mapping[str, object]],
+) -> dict[str, bool]:
+    inactive_observed = False
+    active_peer_preserved = False
+    stale_weight_absent = True
+    for row in decisions:
+        states = row.get("chain_states", [])
+        if not isinstance(states, list):
+            continue
+        inactive = {
+            str(state.get("chain_id"))
+            for state in states
+            if isinstance(state, Mapping)
+            and state.get("reuse_weight_state") == "INACTIVE"
+        }
+        known = {
+            str(state.get("chain_id"))
+            for state in states
+            if isinstance(state, Mapping)
+            and state.get("reuse_weight_state") == "KNOWN"
+        }
+        weights = row.get("decision_reuse_weights", {})
+        lengths = row.get("effective_chain_lengths", {})
+        weighted_chains = set(weights) if isinstance(weights, Mapping) else set()
+        effective_chains = set(lengths) if isinstance(lengths, Mapping) else set()
+        inactive_observed = inactive_observed or bool(inactive)
+        active_peer_preserved = active_peer_preserved or bool(inactive and known)
+        stale_weight_absent = stale_weight_absent and not bool(
+            inactive.intersection(weighted_chains.union(effective_chains))
+        )
+    return {
+        "completed_chain_marked_inactive": inactive_observed,
+        "active_peer_reuse_preserved": active_peer_preserved,
+        "completed_chain_stale_weight_absent": stale_weight_absent,
+    }
+
+
 def review_run(run_dir: Path, case_kind: str) -> dict[str, object]:
     manifest = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
     events = _events(run_dir / "events.jsonl")
@@ -114,13 +152,7 @@ def review_run(run_dir: Path, case_kind: str) -> dict[str, object]:
     elif case_kind == "SHARED_CONTENT":
         checks["shared_membership_observed"] = shared > 0
     elif case_kind == "PROGRAM_COMPLETION":
-        checks["unknown_weight_preserved"] = (
-            unknown_weight > 0
-            and problem_counts["reuse_weight_unknown_after_logical_completion"] > 0
-        )
-        checks["unknown_weight_fails_closed"] = fallback_reasons[
-            "reuse_weight_missing"
-        ] > 0
+        checks.update(_program_completion_checks(decisions))
     elif case_kind == "SLOT_REUSE":
         checks["slot_reuse_observed"] = _slot_reuse_proved(events)
     elif case_kind == "INCOMPLETE_EVIDENCE":
