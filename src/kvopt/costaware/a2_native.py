@@ -196,6 +196,22 @@ class A2NativeSnapshotRegistry:
             )
         )
 
+    def nonresident_block_ids(self, program_id: ProgramIdentity) -> tuple[int, ...]:
+        """Return slots from proved chains whose original content is no longer live."""
+        missing: set[int] = set()
+        for chain, snapshot in self._chains.items():
+            if not chain.startswith(f"{program_id.value}:"):
+                continue
+            for block_id, content_hash in zip(
+                snapshot.block_ids, snapshot.content_hashes, strict=True
+            ):
+                expected = A2NativeContentIdentity(
+                    block_id, content_hash, snapshot.native_hash_process_id
+                )
+                if self._content_by_block.get(block_id) != expected:
+                    missing.add(block_id)
+        return tuple(sorted(missing))
+
     def observe_eviction(
         self,
         block_id: int,

@@ -1655,6 +1655,10 @@ class MinimalMetalObservabilityBackend:
         elif isinstance(event, ProgramCompleted):
             self._phase2g_a2_registry.observe_program_completed(event.program_id)
         elif isinstance(event, TurnFinished):
+            for block_id in self._phase2g_a2_registry.nonresident_block_ids(
+                event.program_id
+            ):
+                self._runtime.retention.observe_eviction(BlockIdentity(block_id))
             self._phase2g_a2_registry.observe_retention_entries(
                 self._runtime.retention.planning_snapshots(),
                 activate_admitted=True,

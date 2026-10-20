@@ -282,6 +282,7 @@ def test_registry_partial_eviction_preserves_chain_and_prefix_boundary() -> None
     assert registry.content_identity(1) is not None
     assert registry.content_identity(2) is None
     assert registry.content_identity(3) is not None
+    assert registry.nonresident_block_ids(ProgramIdentity("a")) == (2,)
 
     request = registry.build_request(
         [
@@ -332,6 +333,34 @@ def test_retention_manager_and_registry_reconcile_observed_partial_eviction() ->
         "chain_prefix_broken": 1,
         "legal_hashed_candidate_without_membership": 1,
     }
+
+
+def test_late_retention_entry_replays_proved_native_eviction() -> None:
+    manager = RetentionManager(FakeClock())
+    registry = A2NativeSnapshotRegistry()
+    registry.observe(
+        A2NativeChainSnapshot("a:pa", (1, 2, 3), ("h1", "h2", "h3"), "p")
+    )
+    registry.observe_eviction(3, content_hash="h3", native_hash_process_id="p")
+
+    manager.upsert(_entry("a", "pa", (1, 2, 3)))
+    for block_id in registry.nonresident_block_ids(ProgramIdentity("a")):
+        manager.observe_eviction(BlockIdentity(block_id))
+
+    request = registry.build_request(
+        [
+            EvictionCandidate(1, 0, True, 0, "h1"),
+            EvictionCandidate(2, 0, True, 1, "h2"),
+        ],
+        _context(),
+        manager.planning_snapshots(),
+        tau_seconds=30.0,
+    )
+    assert request.chain_length == {"a:pa": 2}
+    assert request.blocks[1].memberships == (Membership("a:pa", 2, "h2"),)
+    assert "retention_registry_residency_mismatch" not in dict(
+        registry.last_evidence_audit.problem_counts
+    )
 
 
 def test_retention_registry_unproved_residency_mismatch_fails_closed() -> None:
