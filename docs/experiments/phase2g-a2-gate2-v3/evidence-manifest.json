@@ -1,10 +1,10 @@
 {
   "archive": {
-    "delivery_url": "https://github.com/user-attachments/files/33698594/phase2g-m6-a2-gate2-v3-final-evidence-2b46819.tar.gz",
-    "filename": "phase2g-m6-a2-gate2-v3-final-evidence-2b46819.tar.gz",
-    "sha256": "7d5d8ae49e47b2dfbc5848f48645a5f1b5de4228a2e28e6a4bd5b810c9105e20",
-    "size_bytes": 3175163,
-    "tar_entry_count": 1065
+    "delivery_url": null,
+    "filename": "phase2g-m6-a2-gate2-v3-root-cause-audit-071ff58.tar.gz",
+    "sha256": "da932167be664458295bde182284f8a76762cfe66d63c7d6a046afc3bfbad802",
+    "size_bytes": 3618260,
+    "tar_entry_count": 1082
   },
   "campaign": {
     "complete_scenario_count": 36,
