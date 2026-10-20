@@ -116,6 +116,16 @@ def materialize_gate2_campaign(*, distribution_path: Path, output_dir: Path) -> 
             **distribution,
             "schema_version": VALUE_SCHEMA,
         }
+    profile_path = str(
+        distribution.get(
+            "prefill_profile_path",
+            "docs/experiments/phase1b-continuum/artifacts/"
+            "prefill-reload-profile-formal-20260920T045859Z-6183d106.json",
+        )
+    )
+    profile_source = distribution_path.resolve().parents[2] / profile_path
+    if not profile_source.is_file():
+        raise FileNotFoundError(f"missing bounded campaign profile: {profile_path}")
     if distribution.get("execution_authorized") is not False:
         raise ValueError("Gate 2 preparation must remain execution-locked")
     if distribution.get("formal_native_execution_authorized") is not False:
@@ -221,7 +231,7 @@ def materialize_gate2_campaign(*, distribution_path: Path, output_dir: Path) -> 
                             "prefix_segments_by_request": metadata["request_segments"],
                             "program_prefix_tokens": metadata["program_prefix_tokens"],
                             "pressure_prompt_tokens": pressure_tokens,
-                            "prefill_profile_path": "docs/experiments/phase1b-continuum/artifacts/prefill-reload-profile-formal-20260920T045859Z-6183d106.json",
+                            "prefill_profile_path": profile_path,
                         },
                         "trace": trace_path.name,
                         "phase2g_stage": {
@@ -318,6 +328,11 @@ def materialize_gate2_campaign(*, distribution_path: Path, output_dir: Path) -> 
                 "f6_nonreturn_not_terminal_before_pressure": True,
                 "old_gate2_v3_artifacts_modified": False,
             }
+            if value_evaluation
+            else None
+        ),
+        "prefill_profile_binding": (
+            {"path": profile_path, "sha256": _sha(profile_source)}
             if value_evaluation
             else None
         ),

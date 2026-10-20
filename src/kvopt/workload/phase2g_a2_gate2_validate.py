@@ -86,6 +86,15 @@ def validate_gate2_campaign(manifest_path: Path) -> dict[str, object]:
         ):
             raise ValueError("original manifest binding mismatch")
         repaired_profile = load_prefill_reload_provider(profile_path)
+    profile_binding = manifest.get("prefill_profile_binding")
+    bound_profile = None
+    if profile_binding is not None:
+        if not isinstance(profile_binding, dict):
+            raise TypeError("prefill_profile_binding must be an object")
+        bound_path = Path(str(profile_binding.get("path")))
+        if not bound_path.is_file() or _sha(bound_path) != profile_binding.get("sha256"):
+            raise ValueError("bounded campaign profile binding mismatch")
+        bound_profile = load_prefill_reload_provider(bound_path)
     by_scenario: dict[str, list[dict[str, object]]] = defaultdict(list)
     for row in runs:
         by_scenario[str(row["scenario_id"])].append(row)
@@ -130,6 +139,10 @@ def validate_gate2_campaign(manifest_path: Path) -> dict[str, object]:
                 "extended_profile_path"
             ):
                 raise ValueError(f"repaired profile path mismatch: {row['run_id']}")
+            if profile_binding is not None and backend.get(
+                "prefill_profile_path"
+            ) != profile_binding.get("path"):
+                raise ValueError(f"bounded profile path mismatch: {row['run_id']}")
             computed_input_digest = _digest(_input_contract(config))
             if computed_input_digest != row.get("input_contract_sha256"):
                 raise ValueError(f"input contract digest mismatch: {row['run_id']}")
@@ -152,6 +165,13 @@ def validate_gate2_campaign(manifest_path: Path) -> dict[str, object]:
                     continue
                 token_count = sum(int(item[1]) for item in segments[request.request_id])
                 repaired_profile.estimate(token_count)
+        if bound_profile is not None:
+            segments = configs[0]["backend_options"]["prefix_segments_by_request"]
+            for request in trace.requests:
+                if request.is_terminal:
+                    continue
+                token_count = sum(int(item[1]) for item in segments[request.request_id])
+                bound_profile.estimate(token_count)
         checks = {
             "four_paired_runs": len(rows) == 4,
             "single_input_contract_digest": len(input_digests) == 1,

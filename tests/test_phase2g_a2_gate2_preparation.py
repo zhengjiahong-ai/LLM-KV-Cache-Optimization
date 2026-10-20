@@ -146,6 +146,10 @@ def test_value_campaign_binds_base_and_preserves_old_artifacts(tmp_path: Path) -
 
     assert manifest["run_kind"] == "A2_BOUNDED_NATIVE_VALUE_EVALUATION_V2"
     assert manifest["base_distribution_sha256"]
+    assert manifest["prefill_profile_binding"]["path"].endswith(
+        "prefill-reload-profile-extended-544.json"
+    )
+    assert manifest["prefill_profile_binding"]["sha256"]
     assert validation["status"] == "PASS"
     assert manifest["workload_construction_repairs"] == {
         "f4_capacity_uses_first_pressure_resident_content": True,
