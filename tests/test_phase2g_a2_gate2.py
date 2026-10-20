@@ -73,6 +73,17 @@ def test_pair_fails_closed_when_selection_identity_is_not_observable() -> None:
     assert row["selection_diverged"] is None
 
 
+def test_unrealized_mechanism_does_not_hide_unobservable_selection() -> None:
+    a0 = _run_summary("A0", recomputed=32)
+    a2 = _run_summary("A2", recomputed=32)
+    a2["selection_mechanism_realized"] = False
+    a2["selection_diverged"] = None
+
+    row = compare_pair(a0, a2)
+
+    assert row["evidence_state"] == "SELECTION_NOT_OBSERVABLE"
+
+
 def test_scenario_is_inconclusive_without_two_comparable_repeats() -> None:
     pairs = [
         {
@@ -100,6 +111,26 @@ def test_scenario_is_inconclusive_without_two_comparable_repeats() -> None:
     assert row["comparable_repeat_count"] == 1
     assert row["mean_delta_recomputed_tokens_a2_minus_a0"] is None
     assert row["direction"] == "INCONCLUSIVE"
+
+
+def test_scenario_preserves_unobservable_selection_instead_of_false() -> None:
+    pairs = [
+        {
+            "scenario_id": "f1-draw-01",
+            "family": "F1",
+            "status": "COMPARABLE",
+            "evidence_state": "SELECTION_NOT_OBSERVABLE",
+            "selection_diverged": None,
+            "physical_diverged": None,
+            "delta_recomputed_tokens_a2_minus_a0": 0,
+        }
+        for _ in range(2)
+    ]
+
+    row = aggregate_scenarios(pairs)[0]
+
+    assert row["selection_diverged"] is None
+    assert row["physical_diverged"] is None
 
 
 def test_campaign_missingness_blocks_formal_summary_but_keeps_descriptive_stats() -> None:
