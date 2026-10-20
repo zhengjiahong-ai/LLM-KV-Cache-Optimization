@@ -12,6 +12,7 @@ from kvopt.continuum import (
 )
 from kvopt.continuum.clock import FakeClock
 from kvopt.continuum.retention import RetentionManager
+from kvopt.continuum.selection import RetentionEntryKey
 from kvopt.costaware.a2_contract import BlockDecisionInput, DecisionRequest
 from kvopt.costaware.a2_geometry import Membership
 from kvopt.costaware.a2_native import (
@@ -106,6 +107,12 @@ def test_a2_native_adapter_can_diverge_on_same_legal_set_and_count() -> None:
     assert adapter.last_audit.shared_block_count == 0
     assert adapter.last_audit.identified_hashed_block_count == 2
     assert adapter.last_audit.legal_content_hashes == ((1, None), (2, None))
+    assert adapter.last_audit.effective_chain_lengths == (("cold", 2), ("hot", 2))
+    assert adapter.last_audit.decision_reuse_weights == (("cold", 0.9), ("hot", 0.1))
+    assert adapter.last_audit.block_memberships[0] == (
+        1,
+        (("cold", 2, "h-cold-2"),),
+    )
     assert not adapter.last_audit.used_fallback
 
 
@@ -227,6 +234,9 @@ def test_registry_builds_depth_and_all_shared_chain_memberships() -> None:
     )
     assert request.chain_length == {"a:pa": 2, "b:pb": 2}
     assert set(request.reuse_weight) == {"a:pa", "b:pb"}
+    identity = registry.content_identity(1)
+    assert identity is not None
+    assert registry.content_memberships(identity) == (("a:pa", 1), ("b:pb", 1))
 
     adapter = A2NativeBlockAdapter(lambda _candidates, _context: request)
     adapter.select_victims(candidates, _context(2))
@@ -349,7 +359,7 @@ def test_retention_registry_unproved_residency_mismatch_fails_closed() -> None:
     ] == 1
 
 
-def test_registry_keeps_terminal_content_with_unknown_reuse_weight() -> None:
+def test_registry_keeps_unclassified_content_with_unknown_reuse_weight() -> None:
     registry = A2NativeSnapshotRegistry()
     registry.observe(A2NativeChainSnapshot("a:pa", (1,), ("h1",), "p"))
 
@@ -364,7 +374,7 @@ def test_registry_keeps_terminal_content_with_unknown_reuse_weight() -> None:
     assert request.chain_length == {"a:pa": 1}
     assert request.reuse_weight == {}
     assert dict(registry.last_evidence_audit.problem_counts) == {
-        "reuse_weight_unknown_after_logical_completion": 1
+        "reuse_weight_unknown": 1
     }
     assert dict(registry.last_evidence_audit.identity_state_counts) == {
         "CONTENT_VERIFIED_WEIGHT_UNKNOWN": 1
@@ -376,6 +386,79 @@ def test_registry_keeps_terminal_content_with_unknown_reuse_weight() -> None:
     assert adapter.select_victims([_candidate(1, 0)], _context()) == [1]
     assert adapter.last_audit is not None
     assert adapter.last_audit.fallbacks == ("reuse_weight_missing",)
+
+
+def test_program_completion_retires_only_that_chains_reuse_demand() -> None:
+    registry = A2NativeSnapshotRegistry()
+    registry.observe(A2NativeChainSnapshot("a:pa", (1,), ("h1",), "p"))
+    registry.observe(A2NativeChainSnapshot("b:pb", (1,), ("h1",), "p"))
+    registry.observe_retention_entries(
+        (_entry("a", "pa", (1,)), _entry("b", "pb", (1,)))
+    )
+
+    registry.observe_program_completed(ProgramIdentity("a"))
+    request = registry.build_request(
+        [EvictionCandidate(1, 0, True, 0, "h1")],
+        _context(),
+        (_entry("b", "pb", (1,)),),
+        tau_seconds=30.0,
+    )
+
+    assert request.blocks[0].memberships == (Membership("b:pb", 1, "h1"),)
+    assert set(request.reuse_weight) == {"b:pb"}
+    assert registry.content_identity(1) is not None
+    assert registry.last_evidence_audit.unknown_weight_chain_count == 0
+
+
+def test_logical_entry_release_preserves_tracked_future_demand() -> None:
+    manager = RetentionManager(FakeClock())
+    entry = _entry("a", "pa", (1,))
+    manager.upsert(entry)
+    registry = A2NativeSnapshotRegistry()
+    registry.observe(A2NativeChainSnapshot("a:pa", (1,), ("h1",), "p"))
+    registry.observe_retention_entries(manager.planning_snapshots())
+
+    manager.commit_pressure_releases(
+        (RetentionEntryKey(ProgramIdentity("a"), PrefixIdentity("pa")),)
+    )
+    request = registry.build_request(
+        [EvictionCandidate(1, 0, True, 0, "h1")],
+        _context(),
+        manager.planning_snapshots(),
+        tau_seconds=30.0,
+    )
+
+    assert request.blocks[0].memberships == (Membership("a:pa", 1, "h1"),)
+    assert set(request.reuse_weight) == {"a:pa"}
+
+
+def test_followup_admission_consumes_old_demand_until_new_retention_fact() -> None:
+    registry = A2NativeSnapshotRegistry()
+    registry.observe(A2NativeChainSnapshot("a:pa", (1,), ("h1",), "p"))
+    entry = _entry("a", "pa", (1,))
+    registry.observe_retention_entries((entry,))
+    registry.observe_followup_admitted(ProgramIdentity("a"))
+
+    admitted = registry.build_request(
+        [EvictionCandidate(1, 0, True, 0, "h1")],
+        _context(),
+        (entry,),
+        tau_seconds=30.0,
+    )
+
+    assert admitted.blocks[0].memberships == ()
+    assert admitted.reuse_weight == {}
+
+    registry.observe_retention_entries(
+        (entry,), activate_admitted=True
+    )
+    refreshed = registry.build_request(
+        [EvictionCandidate(1, 0, True, 0, "h1")],
+        _context(),
+        (entry,),
+        tau_seconds=30.0,
+    )
+    assert refreshed.blocks[0].memberships == (Membership("a:pa", 1, "h1"),)
 
 
 def test_registry_slot_reuse_rejects_delayed_old_eviction() -> None:

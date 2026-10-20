@@ -141,7 +141,10 @@ FIELD_CONTRACT: tuple[FieldContract, ...] = (
         "future outcome. A chain with content but no weight makes the decision "
         "unscorable rather than free.",
         validity="must be recomputed at each decision from current retention state",
-        invalidated_by="retention entry release, expiry, or program completion",
+        invalidated_by=(
+            "followup admission, program completion, or a later retention fact; "
+            "logical release alone does not erase the decision-time future-demand fact"
+        ),
     ),
     FieldContract(
         "observed_recomputed_tokens",

@@ -605,6 +605,22 @@ class _ObservedRetentionIntegration:
                             reuse_weight_state,
                         ) in audit.chain_states
                     ],
+                    "effective_chain_lengths": dict(audit.effective_chain_lengths),
+                    "decision_reuse_weights": dict(audit.decision_reuse_weights),
+                    "block_memberships": [
+                        {
+                            "block_id": block_id,
+                            "memberships": [
+                                {
+                                    "chain_id": chain_id,
+                                    "depth": depth,
+                                    "content_hash": content_hash,
+                                }
+                                for chain_id, depth, content_hash in memberships
+                            ],
+                        }
+                        for block_id, memberships in audit.block_memberships
+                    ],
                     "legal_content_hashes": [
                         {"block_id": block_id, "content_hash": content_hash}
                         for block_id, content_hash in audit.legal_content_hashes
@@ -1622,6 +1638,19 @@ class MinimalMetalObservabilityBackend:
             self._sink.emit(experiment_event_from_lifecycle(event))
             return
         self._runtime.handle(event)
+        if isinstance(event, RequestAdmitted):
+            self._phase2g_a2_registry.observe_followup_admitted(event.program_id)
+        elif isinstance(event, ProgramCompleted):
+            self._phase2g_a2_registry.observe_program_completed(event.program_id)
+        elif isinstance(event, TurnFinished):
+            self._phase2g_a2_registry.observe_retention_entries(
+                self._runtime.retention.planning_snapshots(),
+                activate_admitted=True,
+            )
+        elif isinstance(event, FollowupWaiting):
+            self._phase2g_a2_registry.observe_retention_entries(
+                self._runtime.retention.planning_snapshots(),
+            )
 
     def _start_turn(self, request: PlannedRequest) -> tuple[str, str, float, int]:
         program = ProgramIdentity(request.program_id)
