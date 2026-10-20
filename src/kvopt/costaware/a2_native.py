@@ -147,9 +147,12 @@ class A2NativeSnapshotRegistry:
         entries: Sequence[RetentionEntrySnapshot],
         *,
         activate_admitted: bool = False,
+        program_id: ProgramIdentity | None = None,
     ) -> None:
         """Refresh proved future-demand facts without changing content residency."""
         for entry in entries:
+            if program_id is not None and entry.program_id != program_id:
+                continue
             chain = f"{entry.program_id.value}:{entry.prefix_id.canonical_value}"
             current = self._reuse_by_chain.get(chain)
             if (
@@ -211,6 +214,22 @@ class A2NativeSnapshotRegistry:
                 if self._content_by_block.get(block_id) != expected:
                     missing.add(block_id)
         return tuple(sorted(missing))
+
+    def nonresident_block_ids_for_chain(self, chain_id: str) -> tuple[int, ...]:
+        """Return stale slots for exactly one historical chain."""
+        snapshot = self._chains.get(chain_id)
+        if snapshot is None:
+            return ()
+        missing: list[int] = []
+        for block_id, content_hash in zip(
+            snapshot.block_ids, snapshot.content_hashes, strict=True
+        ):
+            expected = A2NativeContentIdentity(
+                block_id, content_hash, snapshot.native_hash_process_id
+            )
+            if self._content_by_block.get(block_id) != expected:
+                missing.append(block_id)
+        return tuple(missing)
 
     def observe_eviction(
         self,

@@ -59,24 +59,6 @@ def _target_decision(
     return release, decisions[0] if decisions else None
 
 
-def _actual_a0_victims(
-    release: Mapping[str, object] | None,
-) -> list[int]:
-    if release is None:
-        return []
-    payload = _payload(release)
-    required = payload.get("required_blocks")
-    queue = payload.get("original_free_queue")
-    if isinstance(required, bool) or not isinstance(required, int):
-        return []
-    if not isinstance(queue, list):
-        return []
-    rows = [row for row in queue if isinstance(row, Mapping)]
-    if len(rows) < required:
-        return []
-    return [int(row["block_id"]) for row in rows[:required]]
-
-
 def evaluate_positive_control(
     *,
     campaign_manifest: Path,
@@ -114,7 +96,7 @@ def evaluate_positive_control(
         for manifest in manifests.values()
     )
 
-    a0_release, _ = _target_decision(events["A0"])
+    _a0_release, _ = _target_decision(events["A0"])
     a2_release, decision = _target_decision(events["A2"])
     payload = _payload(decision) if decision is not None else {}
     decision_complete = bool(
@@ -139,11 +121,20 @@ def evaluate_positive_control(
         }
         process = str(payload.get("native_hash_process_id", ""))
         seen_eviction_hashes: set[str] = set()
+        later_decision_indices = [
+            _index(event)
+            for event in events["A2"]
+            if _index(event) > _index(decision)
+            and event.get("event_type")
+            in {"COST_AWARE_BLOCK_DECISION", "FORCED_RELEASE_DECISION"}
+        ]
+        window_end = min(later_decision_indices, default=None)
         for event in events["A2"]:
             if (
                 event.get("event_type")
                 != "VLLM_NATIVE_HASHED_CACHE_ENTRY_EVICTED"
                 or _index(event) <= _index(decision)
+                or (window_end is not None and _index(event) >= window_end)
             ):
                 continue
             eviction = _payload(event)
@@ -163,7 +154,7 @@ def evaluate_positive_control(
     if gate_b != "PASS":
         gate_c = "NOT_OBSERVABLE"
     elif selected_hashes and selected_hashes == matched_hashes:
-        gate_c = "PASS"
+        gate_c = "CORRELATED"
     else:
         gate_c = "FAIL"
 
@@ -194,18 +185,18 @@ def evaluate_positive_control(
             "shared_block_count": int(payload.get("shared_block_count", 0)),
             "selected_victim_count": len(selected),
             "native_reference_victim_count": len(native),
-            "actual_a0_victim_block_ids": _actual_a0_victims(a0_release),
+            "actual_a0_victim_block_ids": None,
             "actual_a0_victim_provenance": (
-                "A0 forced-release original native free queue; block IDs are "
-                "process-local and are not compared across runs"
+                "NOT_OBSERVABLE: A0 original_free_queue is a candidate ordering, "
+                "not persisted proof of the actual Native victim set"
             ),
             "victim_set_diverged": diverged,
             "selected_hashed_identity_count": len(selected_hashes),
             "physically_matched_selected_identity_count": len(matched_hashes),
         },
         "outcome": (
-            "PASS"
-            if gate_a == gate_b == gate_c == "PASS"
+            "MECHANISM_CORRELATED"
+            if gate_a == gate_b == "PASS" and gate_c == "CORRELATED"
             else "INTERVENTION_NOT_REALIZED"
             if gate_a == "PASS" and gate_b == "FAIL"
             else "FAIL"
@@ -214,6 +205,10 @@ def evaluate_positive_control(
             "non-formal mechanism positive control only",
             "cross-process block ids and native hashes are not compared",
             "physical correlation is not per-block recomputation causality",
+            (
+                "hash removal is bounded to the target Native decision window and "
+                "is reported as correlation, never strict differential realization"
+            ),
             "no recomputation-benefit claim is made",
         ],
         "campaign_manifest_sha256": _sha(campaign_manifest),

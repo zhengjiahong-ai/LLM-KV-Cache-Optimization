@@ -46,6 +46,7 @@ from kvopt.continuum import (
 )
 from kvopt.continuum.composition import build_runtime_from_config
 from kvopt.continuum.runtime import build_runtime
+from kvopt.continuum.selection import RetentionEntryKey
 from kvopt.costaware.a1_native import A1NativeSelectionCoordinator
 from kvopt.costaware.a2_native import (
     A2NativeChainSnapshot,
@@ -1655,13 +1656,25 @@ class MinimalMetalObservabilityBackend:
         elif isinstance(event, ProgramCompleted):
             self._phase2g_a2_registry.observe_program_completed(event.program_id)
         elif isinstance(event, TurnFinished):
-            for block_id in self._phase2g_a2_registry.nonresident_block_ids(
-                event.program_id
-            ):
-                self._runtime.retention.observe_eviction(BlockIdentity(block_id))
+            entries = self._runtime.retention.planning_snapshots()
+            for entry in entries:
+                if entry.program_id != event.program_id:
+                    continue
+                chain_id = (
+                    f"{entry.program_id.value}:{entry.prefix_id.canonical_value}"
+                )
+                stale = self._phase2g_a2_registry.nonresident_block_ids_for_chain(
+                    chain_id
+                )
+                if stale:
+                    self._runtime.retention.reconcile_entry_evictions(
+                        RetentionEntryKey(entry.program_id, entry.prefix_id),
+                        tuple(BlockIdentity(block_id) for block_id in stale),
+                    )
             self._phase2g_a2_registry.observe_retention_entries(
                 self._runtime.retention.planning_snapshots(),
                 activate_admitted=True,
+                program_id=event.program_id,
             )
         elif isinstance(event, FollowupWaiting):
             self._phase2g_a2_registry.observe_retention_entries(

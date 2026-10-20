@@ -99,11 +99,11 @@ def test_positive_control_reports_all_three_gates(tmp_path: Path) -> None:
     assert report["gates"] == {
         "cost_evidence": "PASS",
         "selection_intervention": "PASS",
-        "physical_realization": "PASS",
+        "physical_realization": "CORRELATED",
     }
-    assert report["outcome"] == "PASS"
+    assert report["outcome"] == "MECHANISM_CORRELATED"
     assert report["decision"]["target_decision_event_index"] == 2
-    assert report["decision"]["actual_a0_victim_block_ids"] == [1]
+    assert report["decision"]["actual_a0_victim_block_ids"] is None
 
 
 def test_no_selection_divergence_keeps_physical_gate_unobservable(

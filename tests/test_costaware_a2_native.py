@@ -344,8 +344,13 @@ def test_late_retention_entry_replays_proved_native_eviction() -> None:
     registry.observe_eviction(3, content_hash="h3", native_hash_process_id="p")
 
     manager.upsert(_entry("a", "pa", (1, 2, 3)))
-    for block_id in registry.nonresident_block_ids(ProgramIdentity("a")):
-        manager.observe_eviction(BlockIdentity(block_id))
+    manager.reconcile_entry_evictions(
+        RetentionEntryKey(ProgramIdentity("a"), PrefixIdentity("pa")),
+        tuple(
+            BlockIdentity(block_id)
+            for block_id in registry.nonresident_block_ids_for_chain("a:pa")
+        ),
+    )
 
     request = registry.build_request(
         [
@@ -361,6 +366,53 @@ def test_late_retention_entry_replays_proved_native_eviction() -> None:
     assert "retention_registry_residency_mismatch" not in dict(
         registry.last_evidence_audit.problem_counts
     )
+
+
+def test_unrelated_turn_does_not_reactivate_admitted_program() -> None:
+    registry = A2NativeSnapshotRegistry()
+    registry.observe(A2NativeChainSnapshot("a:pa", (1,), ("ha",), "p"))
+    registry.observe(A2NativeChainSnapshot("b:pb", (2,), ("hb",), "p"))
+    entries = (_entry("a", "pa", (1,)), _entry("b", "pb", (2,)))
+    registry.observe_retention_entries(entries)
+    registry.observe_followup_admitted(ProgramIdentity("a"))
+
+    registry.observe_retention_entries(
+        entries,
+        activate_admitted=True,
+        program_id=ProgramIdentity("b"),
+    )
+
+    assert registry.reuse_state("a:pa") is not None
+    assert registry.reuse_state("a:pa").lifecycle == "FOLLOWUP_ADMITTED"
+    assert registry.reuse_state("b:pb") is not None
+    assert registry.reuse_state("b:pb").lifecycle == "TRACKED_FUTURE"
+
+
+def test_chain_scoped_reconciliation_preserves_reused_slot_owner() -> None:
+    manager = RetentionManager(FakeClock())
+    a = _entry("a", "pa", (1,))
+    b = _entry("b", "pb", (1,))
+    manager.upsert(a)
+    manager.upsert(b)
+    registry = A2NativeSnapshotRegistry()
+    registry.observe(A2NativeChainSnapshot("a:pa", (1,), ("old",), "p"))
+    registry.observe(A2NativeChainSnapshot("b:pb", (1,), ("new",), "p"))
+
+    manager.reconcile_entry_evictions(
+        RetentionEntryKey(ProgramIdentity("a"), PrefixIdentity("pa")),
+        tuple(
+            BlockIdentity(block_id)
+            for block_id in registry.nonresident_block_ids_for_chain("a:pa")
+        ),
+    )
+
+    a_key = RetentionEntryKey(ProgramIdentity("a"), PrefixIdentity("pa"))
+    b_key = RetentionEntryKey(ProgramIdentity("b"), PrefixIdentity("pb"))
+    assert manager.snapshot(a_key).block_ids == ()
+    assert manager.snapshot(b_key).block_ids == (BlockIdentity(1),)
+    assert manager.entries_for_block(BlockIdentity(1)) == (b_key,)
+    identity = registry.content_identity(1)
+    assert identity is not None and identity.content_hash == "new"
 
 
 def test_retention_registry_unproved_residency_mismatch_fails_closed() -> None:
