@@ -40,22 +40,63 @@ def _content_by_block(payload: Mapping[str, object]) -> dict[int, str]:
     }
 
 
+def _target_decision(
+    events: Sequence[Mapping[str, object]],
+) -> tuple[Mapping[str, object] | None, Mapping[str, object] | None]:
+    """Bind the intervention to the first decision after the declared release."""
+    releases = [
+        event for event in events if event.get("event_type") == "FORCED_RELEASE_DECISION"
+    ]
+    if len(releases) != 1:
+        return None, None
+    release = releases[0]
+    decisions = [
+        event
+        for event in events
+        if event.get("event_type") == "COST_AWARE_BLOCK_DECISION"
+        and _index(event) > _index(release)
+    ]
+    return release, decisions[0] if decisions else None
+
+
+def _actual_a0_victims(
+    release: Mapping[str, object] | None,
+) -> list[int]:
+    if release is None:
+        return []
+    payload = _payload(release)
+    required = payload.get("required_blocks")
+    queue = payload.get("original_free_queue")
+    if isinstance(required, bool) or not isinstance(required, int):
+        return []
+    if not isinstance(queue, list):
+        return []
+    rows = [row for row in queue if isinstance(row, Mapping)]
+    if len(rows) < required:
+        return []
+    return [int(row["block_id"]) for row in rows[:required]]
+
+
 def evaluate_positive_control(
     *,
     campaign_manifest: Path,
     run_root: Path,
     repeat: int = 1,
+    case_id: str = "a2-cost-divergence",
 ) -> dict[str, object]:
     campaign = json.loads(campaign_manifest.read_text(encoding="utf-8"))
-    if campaign.get("formal") is not False:
+    if campaign.get("formal") not in (False, None):
         raise ValueError("positive control must be explicitly non-formal")
-    if campaign.get("scope") != "NON_FORMAL_NATIVE_INTERVENTION_POSITIVE_CONTROL":
+    if campaign.get("scope") not in {
+        "NON_FORMAL_NATIVE_INTERVENTION_POSITIVE_CONTROL",
+        "M1_RC3_MINIMAL_RERUN",
+    }:
         raise ValueError("unexpected positive-control scope")
 
     expected = {
         str(row["policy"]): str(row["run_id"])
         for row in campaign["runs"]
-        if row.get("case_id") == "a2-cost-divergence"
+        if row.get("case_id") == case_id
         and int(row.get("repeat", 0)) == repeat
     }
     if set(expected) != {"A0", "A2"}:
@@ -73,33 +114,23 @@ def evaluate_positive_control(
         for manifest in manifests.values()
     )
 
-    decisions = [
-        event
-        for event in events["A2"]
-        if event.get("event_type") == "COST_AWARE_BLOCK_DECISION"
-        and int(_payload(event).get("identified_hashed_block_count", 0)) > 0
-    ]
-    complete = [
-        event
-        for event in decisions
-        if _payload(event).get("cost_known") is True
-        and not _payload(event).get("fallbacks")
-        and not _payload(event).get("adapter_problems")
-        and not _payload(event).get("contract_problems")
-    ]
-    decision = max(
-        complete,
-        key=lambda event: int(_payload(event).get("identified_hashed_block_count", 0)),
-        default=None,
+    a0_release, _ = _target_decision(events["A0"])
+    a2_release, decision = _target_decision(events["A2"])
+    payload = _payload(decision) if decision is not None else {}
+    decision_complete = bool(
+        decision is not None
+        and payload.get("cost_known") is True
+        and not payload.get("fallbacks")
+        and not payload.get("adapter_problems")
+        and not payload.get("contract_problems")
     )
-    gate_a = "PASS" if execution_complete and decision is not None else "FAIL"
+    gate_a = "PASS" if execution_complete and decision_complete else "FAIL"
 
     selected: set[int] = set()
     native: set[int] = set()
     selected_hashes: set[str] = set()
     matched_hashes: set[str] = set()
     if decision is not None:
-        payload = _payload(decision)
         selected = {int(value) for value in payload.get("selected_victims", [])}
         native = {int(value) for value in payload.get("native_lru_victims", [])}
         identities = _content_by_block(payload)
@@ -107,6 +138,7 @@ def evaluate_positive_control(
             identities[block_id] for block_id in selected if block_id in identities
         }
         process = str(payload.get("native_hash_process_id", ""))
+        seen_eviction_hashes: set[str] = set()
         for event in events["A2"]:
             if (
                 event.get("event_type")
@@ -116,12 +148,15 @@ def evaluate_positive_control(
                 continue
             eviction = _payload(event)
             content_hash = str(eviction.get("native_cache_key_before", ""))
+            if content_hash in seen_eviction_hashes:
+                continue
             if (
                 content_hash in selected_hashes
                 and str(eviction.get("native_hash_process_id", "")) == process
                 and eviction.get("hash_removed_after") is True
             ):
                 matched_hashes.add(content_hash)
+                seen_eviction_hashes.add(content_hash)
 
     diverged = bool(selected or native) and selected != native
     gate_b = "PASS" if gate_a == "PASS" and diverged else "FAIL"
@@ -137,6 +172,7 @@ def evaluate_positive_control(
         "scope": "NON_FORMAL_NATIVE_INTERVENTION_POSITIVE_CONTROL",
         "formal_effectiveness_evidence": False,
         "repeat": repeat,
+        "case_id": case_id,
         "gates": {
             "cost_evidence": gate_a,
             "selection_intervention": gate_b,
@@ -144,8 +180,25 @@ def evaluate_positive_control(
         },
         "decision": {
             "observed": decision is not None,
+            "target_binding": "first_cost_decision_after_single_forced_release",
+            "target_release_event_index": (
+                _index(a2_release) if a2_release is not None else None
+            ),
+            "target_decision_event_index": (
+                _index(decision) if decision is not None else None
+            ),
+            "cost_known": payload.get("cost_known"),
+            "fallbacks": list(payload.get("fallbacks", [])),
+            "adapter_problems": list(payload.get("adapter_problems", [])),
+            "contract_problems": list(payload.get("contract_problems", [])),
+            "shared_block_count": int(payload.get("shared_block_count", 0)),
             "selected_victim_count": len(selected),
             "native_reference_victim_count": len(native),
+            "actual_a0_victim_block_ids": _actual_a0_victims(a0_release),
+            "actual_a0_victim_provenance": (
+                "A0 forced-release original native free queue; block IDs are "
+                "process-local and are not compared across runs"
+            ),
             "victim_set_diverged": diverged,
             "selected_hashed_identity_count": len(selected_hashes),
             "physically_matched_selected_identity_count": len(matched_hashes),
@@ -180,12 +233,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--campaign", type=Path, required=True)
     parser.add_argument("--run-root", type=Path, required=True)
     parser.add_argument("--repeat", type=int, default=1)
+    parser.add_argument("--case-id", default="a2-cost-divergence")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
     report = evaluate_positive_control(
         campaign_manifest=args.campaign,
         run_root=args.run_root,
         repeat=args.repeat,
+        case_id=args.case_id,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(

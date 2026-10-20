@@ -187,22 +187,27 @@ class A2NativeSnapshotRegistry:
             entry = entries_by_chain.get(chain)
             state = self.chain_state(chain)
             snapshot = None if state is None else state.snapshot
-            expected_ids = (
-                snapshot.block_ids
-                if entry is None and snapshot is not None
-                else ()
+            entry_ids = (
+                ()
                 if entry is None
                 else tuple(block.block_id for block in entry.block_ids)
             )
-            if snapshot is None or snapshot.block_ids != expected_ids:
+            resident_ids = (
+                ()
+                if state is None
+                else tuple(
+                    snapshot.block_ids[depth - 1] for depth in state.resident_depths
+                )
+            )
+            if snapshot is None or (entry is not None and entry_ids != resident_ids):
                 problems[
                     "chain_snapshot_missing"
                     if snapshot is None
-                    else "chain_sequence_mismatch"
+                    else "retention_registry_residency_mismatch"
                 ] += 1
                 unverified_legal_ids.update(
                     block_id
-                    for block_id in expected_ids
+                    for block_id in set(entry_ids).union(resident_ids)
                     if block_id in candidates_by_id
                     and candidates_by_id[block_id].has_block_hash
                 )

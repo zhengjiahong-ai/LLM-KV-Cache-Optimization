@@ -10,6 +10,8 @@ from kvopt.continuum import (
     TTLHistoryMode,
     TTLInput,
 )
+from kvopt.continuum.clock import FakeClock
+from kvopt.continuum.retention import RetentionManager
 from kvopt.costaware.a2_contract import BlockDecisionInput, DecisionRequest
 from kvopt.costaware.a2_geometry import Membership
 from kvopt.costaware.a2_native import (
@@ -277,7 +279,7 @@ def test_registry_partial_eviction_preserves_chain_and_prefix_boundary() -> None
             EvictionCandidate(3, 0, True, 1, "h3"),
         ],
         _context(),
-        (_entry("a", "pa", (1, 2, 3)),),
+        (_entry("a", "pa", (1, 3)),),
         tau_seconds=30.0,
     )
     assert request.chain_length == {"a:pa": 1}
@@ -291,6 +293,60 @@ def test_registry_partial_eviction_preserves_chain_and_prefix_boundary() -> None
     assert registry.last_evidence_audit.chain_states == (
         ("a:pa", 3, (1, 3), 1, "KNOWN"),
     )
+
+
+def test_retention_manager_and_registry_reconcile_observed_partial_eviction() -> None:
+    manager = RetentionManager(FakeClock())
+    manager.upsert(_entry("a", "pa", (1, 2, 3)))
+    registry = A2NativeSnapshotRegistry()
+    registry.observe(
+        A2NativeChainSnapshot("a:pa", (1, 2, 3), ("h1", "h2", "h3"), "p")
+    )
+
+    manager.observe_eviction(BlockIdentity(2))
+    registry.observe_eviction(2, content_hash="h2", native_hash_process_id="p")
+    request = registry.build_request(
+        [
+            EvictionCandidate(1, 0, True, 0, "h1"),
+            EvictionCandidate(3, 0, True, 1, "h3"),
+        ],
+        _context(),
+        manager.planning_snapshots(),
+        tau_seconds=30.0,
+    )
+
+    assert request.chain_length == {"a:pa": 1}
+    assert request.blocks[0].memberships == (Membership("a:pa", 1, "h1"),)
+    assert request.blocks[1].memberships == ()
+    assert dict(registry.last_evidence_audit.problem_counts) == {
+        "chain_prefix_broken": 1,
+        "legal_hashed_candidate_without_membership": 1,
+    }
+
+
+def test_retention_registry_unproved_residency_mismatch_fails_closed() -> None:
+    manager = RetentionManager(FakeClock())
+    manager.upsert(_entry("a", "pa", (1, 3)))
+    registry = A2NativeSnapshotRegistry()
+    registry.observe(
+        A2NativeChainSnapshot("a:pa", (1, 2, 3), ("h1", "h2", "h3"), "p")
+    )
+
+    request = registry.build_request(
+        [
+            EvictionCandidate(1, 0, True, 0, "h1"),
+            EvictionCandidate(3, 0, True, 1, "h3"),
+        ],
+        _context(),
+        manager.planning_snapshots(),
+        tau_seconds=30.0,
+    )
+
+    assert request.blocks[0].memberships == ()
+    assert request.blocks[1].memberships == ()
+    assert dict(registry.last_evidence_audit.problem_counts)[
+        "retention_registry_residency_mismatch"
+    ] == 1
 
 
 def test_registry_keeps_terminal_content_with_unknown_reuse_weight() -> None:

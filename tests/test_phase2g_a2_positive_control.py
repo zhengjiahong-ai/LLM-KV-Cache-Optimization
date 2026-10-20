@@ -30,6 +30,14 @@ def _fixture(tmp_path: Path, *, diverged: bool) -> tuple[Path, Path]:
             events = [
                 {
                     "event_index": 1,
+                    "event_type": "FORCED_RELEASE_DECISION",
+                    "payload": {
+                        "required_blocks": 1,
+                        "original_free_queue": [{"block_id": 1}],
+                    },
+                },
+                {
+                    "event_index": 2,
                     "event_type": "COST_AWARE_BLOCK_DECISION",
                     "payload": {
                         "identified_hashed_block_count": 2,
@@ -47,7 +55,7 @@ def _fixture(tmp_path: Path, *, diverged: bool) -> tuple[Path, Path]:
                     },
                 },
                 {
-                    "event_index": 2,
+                    "event_index": 3,
                     "event_type": "VLLM_NATIVE_HASHED_CACHE_ENTRY_EVICTED",
                     "payload": {
                         "block_id": selected[0],
@@ -56,6 +64,17 @@ def _fixture(tmp_path: Path, *, diverged: bool) -> tuple[Path, Path]:
                         "hash_removed_after": True,
                     },
                 },
+            ]
+        else:
+            events = [
+                {
+                    "event_index": 1,
+                    "event_type": "FORCED_RELEASE_DECISION",
+                    "payload": {
+                        "required_blocks": 1,
+                        "original_free_queue": [{"block_id": 1}],
+                    },
+                }
             ]
         (run / "events.jsonl").write_text(
             "".join(json.dumps(event) + "\n" for event in events),
@@ -83,6 +102,8 @@ def test_positive_control_reports_all_three_gates(tmp_path: Path) -> None:
         "physical_realization": "PASS",
     }
     assert report["outcome"] == "PASS"
+    assert report["decision"]["target_decision_event_index"] == 2
+    assert report["decision"]["actual_a0_victim_block_ids"] == [1]
 
 
 def test_no_selection_divergence_keeps_physical_gate_unobservable(
@@ -95,3 +116,32 @@ def test_no_selection_divergence_keeps_physical_gate_unobservable(
     assert report["gates"]["selection_intervention"] == "FAIL"
     assert report["gates"]["physical_realization"] == "NOT_OBSERVABLE"
     assert report["outcome"] == "INTERVENTION_NOT_REALIZED"
+
+
+def test_later_larger_decision_does_not_replace_predefined_target(
+    tmp_path: Path,
+) -> None:
+    campaign, root = _fixture(tmp_path, diverged=True)
+    path = root / "a2-cost-divergence-a2-repeat-1" / "events.jsonl"
+    events = [json.loads(line) for line in path.read_text().splitlines()]
+    events.append(
+        {
+            "event_index": 4,
+            "event_type": "COST_AWARE_BLOCK_DECISION",
+            "payload": {
+                "identified_hashed_block_count": 100,
+                "cost_known": True,
+                "fallbacks": [],
+                "adapter_problems": [],
+                "contract_problems": [],
+                "selected_victims": [1],
+                "native_lru_victims": [1],
+            },
+        }
+    )
+    path.write_text("".join(json.dumps(row) + "\n" for row in events))
+
+    report = evaluate_positive_control(campaign_manifest=campaign, run_root=root)
+
+    assert report["decision"]["target_decision_event_index"] == 2
+    assert report["gates"]["selection_intervention"] == "PASS"
