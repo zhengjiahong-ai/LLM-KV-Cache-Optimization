@@ -308,9 +308,10 @@ class A2NativeSnapshotRegistry:
             if state.reusable_prefix_blocks < len(snapshot.block_ids):
                 broken_chain_count += 1
                 problems["chain_prefix_broken"] += 1
-            if state.reusable_prefix_blocks > 0:
-                chain_length[chain] = state.reusable_prefix_blocks
             reuse_state = self.reuse_state(chain)
+            inactive = reuse_state is not None and reuse_state.is_inactive
+            if state.reusable_prefix_blocks > 0 and not inactive:
+                chain_length[chain] = state.reusable_prefix_blocks
             if (
                 reuse_state is not None
                 and reuse_state.has_future_demand
@@ -323,7 +324,7 @@ class A2NativeSnapshotRegistry:
                 )
             elif (
                 state.reusable_prefix_blocks > 0
-                and (reuse_state is None or not reuse_state.is_inactive)
+                and not inactive
             ):
                 unknown_weight_chain_count += 1
                 problems["reuse_weight_unknown"] += 1
@@ -337,12 +338,12 @@ class A2NativeSnapshotRegistry:
                         "KNOWN"
                         if chain in reuse_weight
                         else "INACTIVE"
-                        if reuse_state is not None and reuse_state.is_inactive
+                        if inactive
                         else "UNKNOWN"
                     ),
                 )
             )
-            if reuse_state is not None and reuse_state.is_inactive:
+            if inactive:
                 continue
             for depth, (block_id, content_hash) in enumerate(
                 zip(snapshot.block_ids, snapshot.content_hashes, strict=True),

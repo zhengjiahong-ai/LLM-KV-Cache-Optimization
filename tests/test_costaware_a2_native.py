@@ -405,6 +405,7 @@ def test_program_completion_retires_only_that_chains_reuse_demand() -> None:
     )
 
     assert request.blocks[0].memberships == (Membership("b:pb", 1, "h1"),)
+    assert request.chain_length == {"b:pb": 1}
     assert set(request.reuse_weight) == {"b:pb"}
     assert registry.content_identity(1) is not None
     assert registry.last_evidence_audit.unknown_weight_chain_count == 0
