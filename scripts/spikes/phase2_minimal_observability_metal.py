@@ -92,6 +92,7 @@ _PHASE2G_A2_CAMPAIGN_KINDS = frozenset(
     {
         "phase2g_a2_native_gate1",
         "phase2g_a2_gate2_bounded_evaluation",
+        "phase2g_a2_native_evidence_fidelity",
     }
 )
 _PHASE2G_UNIQUE_PROTECTED_BLOCK_CAMPAIGN_KINDS = frozenset(
@@ -747,6 +748,7 @@ class MinimalMetalObservabilityBackend:
         if self._h2_interventions and config.get("campaign_kind") not in {
             "h2_formal_measurement",
             "h2_intervention_validation",
+            "phase2g_a2_native_evidence_fidelity",
         }:
             raise ValueError("native H2 interventions are restricted to H2 measurement campaigns")
         if self._h2_native_mechanism_only and config.get("campaign_kind") not in {
