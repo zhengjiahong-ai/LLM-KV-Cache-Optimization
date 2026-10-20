@@ -46,6 +46,7 @@ from kvopt.continuum import (
 )
 from kvopt.continuum.composition import build_runtime_from_config
 from kvopt.continuum.runtime import build_runtime
+from kvopt.continuum.selection import RetentionEntryKey
 from kvopt.costaware.a1_native import A1NativeSelectionCoordinator
 from kvopt.costaware.a2_native import (
     A2NativeChainSnapshot,
@@ -92,6 +93,7 @@ _PHASE2G_A2_CAMPAIGN_KINDS = frozenset(
     {
         "phase2g_a2_native_gate1",
         "phase2g_a2_gate2_bounded_evaluation",
+        "phase2g_a2_native_evidence_fidelity",
     }
 )
 _PHASE2G_UNIQUE_PROTECTED_BLOCK_CAMPAIGN_KINDS = frozenset(
@@ -583,6 +585,43 @@ class _ObservedRetentionIntegration:
                     "identified_hashed_block_count": (
                         audit.identified_hashed_block_count
                     ),
+                    "evidence_problem_counts": dict(audit.evidence_problem_counts),
+                    "identity_state_counts": dict(audit.identity_state_counts),
+                    "resident_chain_count": audit.resident_chain_count,
+                    "broken_chain_count": audit.broken_chain_count,
+                    "unknown_weight_chain_count": audit.unknown_weight_chain_count,
+                    "chain_states": [
+                        {
+                            "chain_id": chain_id,
+                            "original_length_blocks": original_length,
+                            "resident_depths": resident_depths,
+                            "reusable_prefix_blocks": reusable_prefix_blocks,
+                            "reuse_weight_state": reuse_weight_state,
+                        }
+                        for (
+                            chain_id,
+                            original_length,
+                            resident_depths,
+                            reusable_prefix_blocks,
+                            reuse_weight_state,
+                        ) in audit.chain_states
+                    ],
+                    "effective_chain_lengths": dict(audit.effective_chain_lengths),
+                    "decision_reuse_weights": dict(audit.decision_reuse_weights),
+                    "block_memberships": [
+                        {
+                            "block_id": block_id,
+                            "memberships": [
+                                {
+                                    "chain_id": chain_id,
+                                    "depth": depth,
+                                    "content_hash": content_hash,
+                                }
+                                for chain_id, depth, content_hash in memberships
+                            ],
+                        }
+                        for block_id, memberships in audit.block_memberships
+                    ],
                     "legal_content_hashes": [
                         {"block_id": block_id, "content_hash": content_hash}
                         for block_id, content_hash in audit.legal_content_hashes
@@ -742,6 +781,7 @@ class MinimalMetalObservabilityBackend:
         if self._h2_interventions and config.get("campaign_kind") not in {
             "h2_formal_measurement",
             "h2_intervention_validation",
+            "phase2g_a2_native_evidence_fidelity",
         }:
             raise ValueError("native H2 interventions are restricted to H2 measurement campaigns")
         if self._h2_native_mechanism_only and config.get("campaign_kind") not in {
@@ -1122,7 +1162,11 @@ class MinimalMetalObservabilityBackend:
         observation: NativeHashedEvictionObservation,
     ) -> None:
         """Persist native hash cleanup without inferring logical ownership."""
-        self._phase2g_a2_registry.observe_eviction(observation.block_id)
+        self._phase2g_a2_registry.observe_eviction(
+            observation.block_id,
+            content_hash=observation.native_cache_key_before,
+            native_hash_process_id=str(os.getpid()),
+        )
         self._sink.emit(
             ExperimentEvent.create(
                 event_type="VLLM_NATIVE_HASHED_CACHE_ENTRY_EVICTED",
@@ -1576,6 +1620,18 @@ class MinimalMetalObservabilityBackend:
             position=position,
             count=count,
         )
+        selected_ids = tuple(int(value) for value in result["selected_block_ids"])
+        selected_keys = tuple(
+            str(result["native_cache_keys_before"][index])
+            for index in result["selected_positions"]
+        )
+        for block_id, content_hash in zip(selected_ids, selected_keys, strict=True):
+            self._phase2g_a2_registry.observe_eviction(
+                block_id,
+                content_hash=content_hash,
+                native_hash_process_id=str(os.getpid()),
+            )
+            self._runtime.handle(BlockEvicted(BlockIdentity(block_id), self._clock.now()))
         self._applied_h2_interventions.add(request.request_id)
         self._sink.emit(
             ExperimentEvent.create(
@@ -1595,6 +1651,35 @@ class MinimalMetalObservabilityBackend:
             self._sink.emit(experiment_event_from_lifecycle(event))
             return
         self._runtime.handle(event)
+        if isinstance(event, RequestAdmitted):
+            self._phase2g_a2_registry.observe_followup_admitted(event.program_id)
+        elif isinstance(event, ProgramCompleted):
+            self._phase2g_a2_registry.observe_program_completed(event.program_id)
+        elif isinstance(event, TurnFinished):
+            entries = self._runtime.retention.planning_snapshots()
+            for entry in entries:
+                if entry.program_id != event.program_id:
+                    continue
+                chain_id = (
+                    f"{entry.program_id.value}:{entry.prefix_id.canonical_value}"
+                )
+                stale = self._phase2g_a2_registry.nonresident_block_ids_for_chain(
+                    chain_id
+                )
+                if stale:
+                    self._runtime.retention.reconcile_entry_evictions(
+                        RetentionEntryKey(entry.program_id, entry.prefix_id),
+                        tuple(BlockIdentity(block_id) for block_id in stale),
+                    )
+            self._phase2g_a2_registry.observe_retention_entries(
+                self._runtime.retention.planning_snapshots(),
+                activate_admitted=True,
+                program_id=event.program_id,
+            )
+        elif isinstance(event, FollowupWaiting):
+            self._phase2g_a2_registry.observe_retention_entries(
+                self._runtime.retention.planning_snapshots(),
+            )
 
     def _start_turn(self, request: PlannedRequest) -> tuple[str, str, float, int]:
         program = ProgramIdentity(request.program_id)

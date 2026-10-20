@@ -136,44 +136,81 @@ def materialize_gate1(*, fixture_path: Path, output_dir: Path) -> Path:
                 "prefix_prompt": "identity-is-defined-by-explicit-token-segments",
                 "is_terminal": False,
                 "next_tool_type": "phase2g-a2-gate1",
-                "tool_gap_seconds": 1.0,
+                "tool_gap_seconds": float(
+                    case.get("program_tool_gap_seconds", {}).get(program, 1.0)
+                ),
             }
             for program, offset in (("gate1-a", 0.0), ("gate1-b", 0.5))
         ]
         program_segments = dict(base_segments)
         refresh_source = case.get("refresh_content_from_program")
+        refresh_same_program = case.get("refresh_same_program", False) is True
         if refresh_source is not None:
             if refresh_source not in base_segments:
                 raise ValueError("refresh content source must name a candidate program")
-            program_segments["gate1-refresh"] = base_segments[str(refresh_source)]
-            prefixes["gate1-refresh"] = prefixes[str(refresh_source)]
+            refresh_terminal = case.get("refresh_request_terminal", True) is True
+            refresh_program = (
+                str(refresh_source) if refresh_same_program else "gate1-refresh"
+            )
+            refresh_turn = 2 if refresh_same_program else 1
+            if not refresh_same_program:
+                program_segments[refresh_program] = base_segments[str(refresh_source)]
+                prefixes[refresh_program] = prefixes[str(refresh_source)]
             requests.append(
                 {
-                    "program_id": "gate1-refresh",
-                    "request_id": "gate1-refresh:1",
-                    "turn_index": 1,
+                    "program_id": refresh_program,
+                    "request_id": f"{refresh_program}:{refresh_turn}",
+                    "turn_index": refresh_turn,
                     "planned_arrival_offset_seconds": 0.75,
                     "prompt": f"Phase 2G A2 Gate 1 {case_id} refresh",
                     "prefix_prompt": "identity-is-defined-by-explicit-token-segments",
+                    "is_terminal": refresh_terminal,
+                    "next_tool_type": (
+                        None if refresh_terminal else "phase2g-a2-positive-control"
+                    ),
+                    "tool_gap_seconds": (
+                        None
+                        if refresh_terminal
+                        else float(case.get("refresh_tool_gap_seconds", 3.25))
+                    ),
+                }
+            )
+            if not refresh_terminal:
+                requests.append(
+                    {
+                        "program_id": refresh_program,
+                        "request_id": f"{refresh_program}:{refresh_turn + 1}",
+                        "turn_index": refresh_turn + 1,
+                        "planned_arrival_offset_seconds": float(
+                            case.get("refresh_return_offset_seconds", 4.0)
+                        ),
+                        "prompt": f"Phase 2G A2 Gate 1 {case_id} refresh return",
+                        "prefix_prompt": (
+                            "identity-is-defined-by-explicit-token-segments"
+                        ),
+                        "is_terminal": True,
+                        "next_tool_type": None,
+                        "tool_gap_seconds": None,
+                    }
+                )
+        for program, offset in (("gate1-a", 2.0), ("gate1-b", 3.0)):
+            if refresh_same_program and program == refresh_source:
+                continue
+            requests.append(
+                {
+                    "program_id": program,
+                    "request_id": f"{program}:2",
+                    "turn_index": 2,
+                    "planned_arrival_offset_seconds": offset,
+                    "prompt": f"Phase 2G A2 Gate 1 {case_id} {program}:2",
+                    "prefix_prompt": (
+                        "identity-is-defined-by-explicit-token-segments"
+                    ),
                     "is_terminal": True,
                     "next_tool_type": None,
                     "tool_gap_seconds": None,
                 }
             )
-        requests.extend(
-            {
-                "program_id": program,
-                "request_id": f"{program}:2",
-                "turn_index": 2,
-                "planned_arrival_offset_seconds": offset,
-                "prompt": f"Phase 2G A2 Gate 1 {case_id} {program}:2",
-                "prefix_prompt": "identity-is-defined-by-explicit-token-segments",
-                "is_terminal": True,
-                "next_tool_type": None,
-                "tool_gap_seconds": None,
-            }
-            for program, offset in (("gate1-a", 2.0), ("gate1-b", 3.0))
-        )
         request_segments = {
             str(request["request_id"]): program_segments[str(request["program_id"])]
             for request in requests
@@ -247,8 +284,13 @@ def materialize_gate1(*, fixture_path: Path, output_dir: Path) -> Path:
                         "expected_relation": case["expected_relation"],
                         "identity_mode": case["identity_mode"],
                         "refresh_content_from_program": refresh_source,
+                        "refresh_same_program": refresh_same_program,
+                        "refresh_request_terminal": case.get(
+                            "refresh_request_terminal", True
+                        ),
                         "policy": policy,
                         "repeat": repeat,
+                        "formal": False,
                     },
                 }
                 config_path = output_dir / config_name
@@ -270,7 +312,8 @@ def materialize_gate1(*, fixture_path: Path, output_dir: Path) -> Path:
 
     manifest = {
         "schema_version": "phase2g.a2_native_gate1_materialization.v1",
-        "scope": "NATIVE_BLOCK_MECHANISM_VALIDATION",
+        "scope": fixture["scope"],
+        "formal": False,
         "fixture_sha256": _sha256(fixture_path),
         "planned_run_count": len(runs),
         "case_count": len(fixture["cases"]),

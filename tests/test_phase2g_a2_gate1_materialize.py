@@ -4,6 +4,9 @@ from pathlib import Path
 from kvopt.workload.phase2g_a2_gate1_materialize import materialize_gate1
 
 FIXTURE = Path("configs/phase2/phase2g-a2-native-gate1-v1.json")
+POSITIVE_CONTROL = Path(
+    "configs/phase2/phase2g-a2-native-positive-control-v1.json"
+)
 
 
 def test_materializes_six_cases_two_policies_two_repeats(tmp_path: Path) -> None:
@@ -94,3 +97,35 @@ def test_fallback_cases_are_a2_only_diagnostics(tmp_path: Path) -> None:
         )
         mode = config["backend_options"]["phase2g_a2_identity_mode"]
         assert mode == (row["identity_mode"] if row["policy"] == "A2" else "normal")
+
+
+def test_positive_control_keeps_refresh_weight_known_at_pressure(
+    tmp_path: Path,
+) -> None:
+    path = materialize_gate1(
+        fixture_path=POSITIVE_CONTROL,
+        output_dir=tmp_path / "positive-control",
+    )
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    row = next(
+        item
+        for item in manifest["runs"]
+        if item["case_id"] == "a2-cost-divergence"
+        and item["policy"] == "A2"
+        and item["repeat"] == 1
+    )
+    config = json.loads((path.parent / row["config"]).read_text(encoding="utf-8"))
+    trace = json.loads((path.parent / row["trace"]).read_text(encoding="utf-8"))
+    requests = {request["request_id"]: request for request in trace["requests"]}
+
+    assert manifest["scope"] == "NON_FORMAL_NATIVE_INTERVENTION_POSITIVE_CONTROL"
+    assert manifest["formal"] is False
+    assert requests["gate1-a:1"]["tool_gap_seconds"] == 100.0
+    assert requests["gate1-b:1"]["tool_gap_seconds"] == 1.0
+    assert requests["gate1-b:2"]["tool_gap_seconds"] == 1.0
+    assert requests["gate1-b:3"]["is_terminal"] is True
+    assert requests["gate1-b:3"]["planned_arrival_offset_seconds"] == 2.0
+    assert "gate1-refresh:1" not in requests
+    assert config["phase2g_stage"]["refresh_same_program"] is True
+    assert config["phase2g_stage"]["refresh_request_terminal"] is False
+    assert config["phase2g_stage"]["formal"] is False

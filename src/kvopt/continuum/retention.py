@@ -144,6 +144,38 @@ class RetentionManager:
                 entry, block_ids=tuple(block for block in entry.block_ids if block != block_id)
             )
 
+    def reconcile_entry_evictions(
+        self,
+        key: RetentionEntryKey,
+        block_ids: Sequence[BlockIdentity],
+    ) -> None:
+        """Remove proved stale edges from one entry without touching slot reusers."""
+        _require_identity(key, RetentionEntryKey, "key")
+        if isinstance(block_ids, (str, bytes)) or not isinstance(block_ids, Sequence):
+            raise TypeError("block_ids must be an ordered sequence")
+        normalized = tuple(block_ids)
+        for block_id in normalized:
+            _require_identity(block_id, BlockIdentity, "block_ids item")
+        if len(normalized) != len(set(normalized)):
+            raise ValueError("block_ids must not contain duplicates")
+        entry = self._entries.get(key)
+        if entry is None:
+            raise KeyError(key)
+        stale = set(normalized).intersection(entry.block_ids)
+        if not stale:
+            return
+        for block_id in stale:
+            owners = self._reverse.get(block_id)
+            if owners is None:
+                continue
+            owners.discard(key)
+            if not owners:
+                del self._reverse[block_id]
+        self._entries[key] = replace(
+            entry,
+            block_ids=tuple(block for block in entry.block_ids if block not in stale),
+        )
+
     def _remove_edges(
         self, key: RetentionEntryKey, entry: RetentionEntrySnapshot
     ) -> None:

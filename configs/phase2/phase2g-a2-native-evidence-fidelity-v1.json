@@ -1,0 +1,93 @@
+{
+  "schema_version": "phase2g.a2_native_evidence_fidelity_fixture.v1",
+  "scope": "NON_FORMAL_NATIVE_EVIDENCE_FIDELITY_REPAIR",
+  "execution_authorized": true,
+  "block_size_tokens": 16,
+  "pressure_prompt_tokens": 272,
+  "initial_shortage_blocks": 1,
+  "model": {
+    "name": "Qwen/Qwen2.5-0.5B-Instruct",
+    "revision": "7ae557604adf67be50417f59c2c2f167def9a775"
+  },
+  "runtime": {
+    "backend_factory": "scripts.spikes.phase2_minimal_observability_metal:build_phase2_metal_observability_backend",
+    "gpu_memory_utilization": 0.75,
+    "max_new_tokens": 1,
+    "temperature": 0.0
+  },
+  "a2": {
+    "tau_seconds": 30.0
+  },
+  "cases": [
+    {
+      "case_id": "fidelity-complete-chain",
+      "case_kind": "COMPLETE_CHAIN",
+      "identity_mode": "normal",
+      "segments": {
+        "fidelity-a": [["complete-a", 128]],
+        "fidelity-b": [["complete-b", 128]]
+      }
+    },
+    {
+      "case_id": "fidelity-partial-eviction",
+      "case_kind": "PARTIAL_EVICTION",
+      "identity_mode": "normal",
+      "segments": {
+        "fidelity-a": [["partial-root", 64], ["partial-tail", 128]],
+        "fidelity-b": [["partial-control", 128]]
+      },
+      "native_prefix_interventions": {
+        "fidelity-a:1": {"position": "trailing", "count": 2}
+      }
+    },
+    {
+      "case_id": "fidelity-shared-content",
+      "case_kind": "SHARED_CONTENT",
+      "identity_mode": "normal",
+      "segments": {
+        "fidelity-a": [["shared-root", 64], ["shared-tail-a", 128]],
+        "fidelity-b": [["shared-root", 64], ["shared-tail-b", 128]]
+      }
+    },
+    {
+      "case_id": "fidelity-program-completion",
+      "case_kind": "PROGRAM_COMPLETION",
+      "identity_mode": "normal",
+      "terminal_first_program": true,
+      "segments": {
+        "fidelity-a": [["completed-content", 128]],
+        "fidelity-b": [["active-content", 128]]
+      }
+    },
+    {
+      "case_id": "fidelity-slot-reuse",
+      "case_kind": "SLOT_REUSE",
+      "identity_mode": "normal",
+      "segments": {
+        "fidelity-a": [["old-slot-content", 128]],
+        "fidelity-b": [["new-slot-content", 128]]
+      },
+      "native_prefix_interventions": {
+        "fidelity-a:1": {"position": "leading", "count": 8}
+      }
+    },
+    {
+      "case_id": "fidelity-incomplete-evidence",
+      "case_kind": "INCOMPLETE_EVIDENCE",
+      "identity_mode": "missing",
+      "segments": {
+        "fidelity-a": [["missing-a", 128]],
+        "fidelity-b": [["missing-b", 128]]
+      }
+    }
+  ],
+  "boundaries": {
+    "formal_campaign": false,
+    "a2_algorithm_modified": false,
+    "a0_entry_release_modified": false,
+    "native_ownership_modified": false,
+    "gate2_effectiveness_authorized": false,
+    "a3_authorized": false,
+    "b1_unlocked": false
+  }
+}

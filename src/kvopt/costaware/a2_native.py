@@ -8,11 +8,13 @@ victim order.  It never mutates a vLLM queue, block, hash table, or refcount.
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from kvopt.continuum.selection import EligibilityPreparation
 from kvopt.continuum.snapshots import RetentionEntrySnapshot
+from kvopt.continuum.types import ProgramIdentity
 from kvopt.runtime.vllm.adapter import EvictionPolicyAdapter, NativeLRUAdapter
 from kvopt.runtime.vllm.types import EvictionCandidate, EvictionContext
 
@@ -48,33 +50,233 @@ class A2NativeChainSnapshot:
             raise ValueError("content_hashes must be non-empty")
 
 
-class A2NativeSnapshotRegistry:
-    """Ephemeral read-only identity proofs used only at the current decision.
+@dataclass(frozen=True, slots=True)
+class A2NativeContentIdentity:
+    """Current content proof for one physical slot in one hash process."""
 
-    An eviction invalidates every snapshot containing that physical slot.  A later
-    snapshot replaces the earlier chain proof.  Thus slot reuse can never inherit an
-    old chain identity.
+    block_id: int
+    content_hash: str
+    native_hash_process_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class A2NativeChainState:
+    """Original chain geometry plus its current contiguous reusable boundary."""
+
+    snapshot: A2NativeChainSnapshot
+    resident_depths: tuple[int, ...]
+    reusable_prefix_blocks: int
+
+
+@dataclass(frozen=True, slots=True)
+class A2NativeReuseState:
+    """Lifecycle-qualified future reuse fact for one content chain."""
+
+    deadline_timestamp: float | None
+    lifecycle: str
+
+    @property
+    def has_future_demand(self) -> bool:
+        return self.lifecycle == "TRACKED_FUTURE" and self.deadline_timestamp is not None
+
+    @property
+    def is_inactive(self) -> bool:
+        return self.lifecycle in {"FOLLOWUP_ADMITTED", "PROGRAM_COMPLETED"}
+
+
+@dataclass(frozen=True, slots=True)
+class A2NativeEvidenceAudit:
+    """Decision-time evidence reconstruction without changing selector semantics."""
+
+    problem_counts: tuple[tuple[str, int], ...] = ()
+    identity_state_counts: tuple[tuple[str, int], ...] = ()
+    resident_chain_count: int = 0
+    broken_chain_count: int = 0
+    unknown_weight_chain_count: int = 0
+    chain_states: tuple[tuple[str, int, tuple[int, ...], int, str], ...] = ()
+
+
+class A2NativeSnapshotRegistry:
+    """Read-only Native content and chain proofs used at decision time.
+
+    Chain geometry is retained independently from current slot residency. Evicting
+    one block removes only that slot's proof, while the original depths of the
+    remaining blocks stay available. A later observation of reused slots replaces
+    their content identity, so new content cannot inherit old membership.
     """
 
     def __init__(self) -> None:
         self._chains: dict[str, A2NativeChainSnapshot] = {}
+        self._content_by_block: dict[int, A2NativeContentIdentity] = {}
+        self._memberships_by_content: dict[
+            tuple[str, str], set[tuple[str, int]]
+        ] = {}
+        self._reuse_by_chain: dict[str, A2NativeReuseState] = {}
+        self.last_evidence_audit = A2NativeEvidenceAudit()
 
     def observe(self, snapshot: A2NativeChainSnapshot) -> None:
         if not isinstance(snapshot, A2NativeChainSnapshot):
             raise TypeError("snapshot must be A2NativeChainSnapshot")
+        previous = self._chains.get(snapshot.chain_id)
+        if previous is not None:
+            self._remove_chain_memberships(previous)
         self._chains[snapshot.chain_id] = snapshot
+        for depth, (block_id, content_hash) in enumerate(
+            zip(snapshot.block_ids, snapshot.content_hashes, strict=True), start=1
+        ):
+            self._content_by_block[block_id] = A2NativeContentIdentity(
+                block_id, content_hash, snapshot.native_hash_process_id
+            )
+            key = (snapshot.native_hash_process_id, content_hash)
+            self._memberships_by_content.setdefault(key, set()).add(
+                (snapshot.chain_id, depth)
+            )
 
-    def observe_eviction(self, block_id: int) -> None:
-        invalid = [
-            chain
-            for chain, snapshot in self._chains.items()
-            if block_id in snapshot.block_ids
-        ]
-        for chain in invalid:
-            del self._chains[chain]
+    def _remove_chain_memberships(self, snapshot: A2NativeChainSnapshot) -> None:
+        for depth, content_hash in enumerate(snapshot.content_hashes, start=1):
+            key = (snapshot.native_hash_process_id, content_hash)
+            memberships = self._memberships_by_content.get(key)
+            if memberships is None:
+                continue
+            memberships.discard((snapshot.chain_id, depth))
+            if not memberships:
+                del self._memberships_by_content[key]
+
+    def observe_retention_entries(
+        self,
+        entries: Sequence[RetentionEntrySnapshot],
+        *,
+        activate_admitted: bool = False,
+        program_id: ProgramIdentity | None = None,
+    ) -> None:
+        """Refresh proved future-demand facts without changing content residency."""
+        for entry in entries:
+            if program_id is not None and entry.program_id != program_id:
+                continue
+            chain = f"{entry.program_id.value}:{entry.prefix_id.canonical_value}"
+            current = self._reuse_by_chain.get(chain)
+            if (
+                current is not None
+                and current.lifecycle == "FOLLOWUP_ADMITTED"
+                and not activate_admitted
+            ):
+                continue
+            self._reuse_by_chain[chain] = A2NativeReuseState(
+                deadline_timestamp=entry.deadline_timestamp,
+                lifecycle="TRACKED_FUTURE",
+            )
+
+    def observe_followup_admitted(self, program_id: ProgramIdentity) -> None:
+        """Consume the previously tracked future demand for one program."""
+        for chain in tuple(self._chains):
+            if chain.startswith(f"{program_id.value}:"):
+                self._reuse_by_chain[chain] = A2NativeReuseState(
+                    deadline_timestamp=None,
+                    lifecycle="FOLLOWUP_ADMITTED",
+                )
+
+    def observe_program_completed(self, program_id: ProgramIdentity) -> None:
+        """Retire demand, while retaining resident content and chain geometry."""
+        for chain in tuple(self._chains):
+            if chain.startswith(f"{program_id.value}:"):
+                self._reuse_by_chain[chain] = A2NativeReuseState(
+                    deadline_timestamp=None,
+                    lifecycle="PROGRAM_COMPLETED",
+                )
+
+    def reuse_state(self, chain_id: str) -> A2NativeReuseState | None:
+        return self._reuse_by_chain.get(chain_id)
+
+    def content_memberships(
+        self, identity: A2NativeContentIdentity
+    ) -> tuple[tuple[str, int], ...]:
+        """Return all proved chains for the current content identity."""
+        return tuple(
+            sorted(
+                self._memberships_by_content.get(
+                    (identity.native_hash_process_id, identity.content_hash), ()
+                )
+            )
+        )
+
+    def nonresident_block_ids(self, program_id: ProgramIdentity) -> tuple[int, ...]:
+        """Return slots from proved chains whose original content is no longer live."""
+        missing: set[int] = set()
+        for chain, snapshot in self._chains.items():
+            if not chain.startswith(f"{program_id.value}:"):
+                continue
+            for block_id, content_hash in zip(
+                snapshot.block_ids, snapshot.content_hashes, strict=True
+            ):
+                expected = A2NativeContentIdentity(
+                    block_id, content_hash, snapshot.native_hash_process_id
+                )
+                if self._content_by_block.get(block_id) != expected:
+                    missing.add(block_id)
+        return tuple(sorted(missing))
+
+    def nonresident_block_ids_for_chain(self, chain_id: str) -> tuple[int, ...]:
+        """Return stale slots for exactly one historical chain."""
+        snapshot = self._chains.get(chain_id)
+        if snapshot is None:
+            return ()
+        missing: list[int] = []
+        for block_id, content_hash in zip(
+            snapshot.block_ids, snapshot.content_hashes, strict=True
+        ):
+            expected = A2NativeContentIdentity(
+                block_id, content_hash, snapshot.native_hash_process_id
+            )
+            if self._content_by_block.get(block_id) != expected:
+                missing.append(block_id)
+        return tuple(missing)
+
+    def observe_eviction(
+        self,
+        block_id: int,
+        *,
+        content_hash: str | None = None,
+        native_hash_process_id: str | None = None,
+    ) -> None:
+        """Invalidate only a matching slot identity, never the whole chain."""
+        current = self._content_by_block.get(block_id)
+        if current is None:
+            return
+        if content_hash is not None and current.content_hash != content_hash:
+            return
+        if (
+            native_hash_process_id is not None
+            and current.native_hash_process_id != native_hash_process_id
+        ):
+            return
+        del self._content_by_block[block_id]
 
     def snapshot(self, chain_id: str) -> A2NativeChainSnapshot | None:
         return self._chains.get(chain_id)
+
+    def content_identity(self, block_id: int) -> A2NativeContentIdentity | None:
+        return self._content_by_block.get(block_id)
+
+    def chain_state(self, chain_id: str) -> A2NativeChainState | None:
+        snapshot = self.snapshot(chain_id)
+        if snapshot is None:
+            return None
+        resident_depths = tuple(
+            depth
+            for depth, (block_id, content_hash) in enumerate(
+                zip(snapshot.block_ids, snapshot.content_hashes, strict=True), start=1
+            )
+            if self._content_by_block.get(block_id)
+            == A2NativeContentIdentity(
+                block_id, content_hash, snapshot.native_hash_process_id
+            )
+        )
+        boundary = 0
+        for depth in resident_depths:
+            if depth != boundary + 1:
+                break
+            boundary = depth
+        return A2NativeChainState(snapshot, resident_depths, boundary)
 
     def build_request(
         self,
@@ -92,37 +294,161 @@ class A2NativeSnapshotRegistry:
         }
         candidates_by_id = {candidate.block_id: candidate for candidate in candidates}
         unverified_legal_ids: set[int] = set()
+        problems: Counter[str] = Counter()
+        broken_chain_count = 0
+        unknown_weight_chain_count = 0
+        chain_states: list[tuple[str, int, tuple[int, ...], int, str]] = []
 
-        for entry in retention_entries:
-            chain = f"{entry.program_id.value}:{entry.prefix_id.canonical_value}"
-            snapshot = self.snapshot(chain)
-            expected_ids = tuple(block.block_id for block in entry.block_ids)
-            if snapshot is None or snapshot.block_ids != expected_ids:
+        entries_by_chain = {
+            f"{entry.program_id.value}:{entry.prefix_id.canonical_value}": entry
+            for entry in retention_entries
+        }
+        self.observe_retention_entries(retention_entries)
+        relevant_chains = set(entries_by_chain)
+        relevant_chains.update(
+            chain_id
+            for chain_id, snapshot in self._chains.items()
+            if any(block_id in candidates_by_id for block_id in snapshot.block_ids)
+        )
+
+        for chain in sorted(relevant_chains):
+            entry = entries_by_chain.get(chain)
+            state = self.chain_state(chain)
+            snapshot = None if state is None else state.snapshot
+            entry_ids = (
+                ()
+                if entry is None
+                else tuple(block.block_id for block in entry.block_ids)
+            )
+            resident_ids = (
+                ()
+                if state is None
+                else tuple(
+                    snapshot.block_ids[depth - 1] for depth in state.resident_depths
+                )
+            )
+            if snapshot is None or (entry is not None and entry_ids != resident_ids):
+                problems[
+                    "chain_snapshot_missing"
+                    if snapshot is None
+                    else "retention_registry_residency_mismatch"
+                ] += 1
                 unverified_legal_ids.update(
                     block_id
-                    for block_id in expected_ids
+                    for block_id in set(entry_ids).union(resident_ids)
                     if block_id in candidates_by_id
                     and candidates_by_id[block_id].has_block_hash
                 )
                 continue
-            chain_length[chain] = len(snapshot.block_ids)
-            reuse_weight[chain] = reuse_proxy(
-                entry.deadline_timestamp,
-                context.timestamp,
-                tau_seconds,
+            if state.reusable_prefix_blocks < len(snapshot.block_ids):
+                broken_chain_count += 1
+                problems["chain_prefix_broken"] += 1
+            reuse_state = self.reuse_state(chain)
+            inactive = reuse_state is not None and reuse_state.is_inactive
+            if state.reusable_prefix_blocks > 0 and not inactive:
+                chain_length[chain] = state.reusable_prefix_blocks
+            if (
+                reuse_state is not None
+                and reuse_state.has_future_demand
+                and state.reusable_prefix_blocks > 0
+            ):
+                reuse_weight[chain] = reuse_proxy(
+                    float(reuse_state.deadline_timestamp),
+                    context.timestamp,
+                    tau_seconds,
+                )
+            elif (
+                state.reusable_prefix_blocks > 0
+                and not inactive
+            ):
+                unknown_weight_chain_count += 1
+                problems["reuse_weight_unknown"] += 1
+            chain_states.append(
+                (
+                    chain,
+                    len(snapshot.block_ids),
+                    state.resident_depths,
+                    state.reusable_prefix_blocks,
+                    (
+                        "KNOWN"
+                        if chain in reuse_weight
+                        else "INACTIVE"
+                        if inactive
+                        else "UNKNOWN"
+                    ),
+                )
             )
+            if inactive:
+                continue
             for depth, (block_id, content_hash) in enumerate(
                 zip(snapshot.block_ids, snapshot.content_hashes, strict=True),
                 start=1,
             ):
+                if depth > state.reusable_prefix_blocks:
+                    continue
                 candidate = candidates_by_id.get(block_id)
-                if candidate is None or candidate.content_hash != content_hash:
-                    if candidate is not None and candidate.has_block_hash:
+                identity = self.content_identity(block_id)
+                if candidate is None:
+                    continue
+                if identity is None:
+                    problems["native_content_not_resident"] += 1
+                    if candidate.has_block_hash:
                         unverified_legal_ids.add(block_id)
+                    continue
+                if candidate.content_hash is None:
+                    problems["candidate_content_hash_missing"] += 1
+                    unverified_legal_ids.add(block_id)
+                    continue
+                if candidate.content_hash != content_hash:
+                    problems["candidate_content_hash_mismatch"] += 1
+                    unverified_legal_ids.add(block_id)
+                    continue
+                if (
+                    identity.content_hash != content_hash
+                    or identity.native_hash_process_id
+                    != snapshot.native_hash_process_id
+                ):
+                    problems["native_content_identity_mismatch"] += 1
+                    unverified_legal_ids.add(block_id)
                     continue
                 memberships_by_block[block_id].append(
                     Membership(chain, depth, content_hash)
                 )
+
+        for candidate in candidates:
+            if candidate.has_block_hash and not memberships_by_block[candidate.block_id]:
+                unverified_legal_ids.add(candidate.block_id)
+                problems["legal_hashed_candidate_without_membership"] += 1
+
+        identity_states: Counter[str] = Counter()
+        for candidate in candidates:
+            memberships = memberships_by_block[candidate.block_id]
+            if candidate.block_id in unverified_legal_ids:
+                state_name = "CONTENT_UNVERIFIED"
+            elif memberships and all(
+                membership.chain in reuse_weight for membership in memberships
+            ):
+                state_name = "CONTENT_VERIFIED_CHAIN_WEIGHTED"
+            elif memberships:
+                state_name = "CONTENT_VERIFIED_WEIGHT_UNKNOWN"
+            elif candidate.has_block_hash:
+                state_name = "CONTENT_VERIFIED_CHAIN_UNUSABLE"
+            else:
+                state_name = "HASHLESS_NO_CONTENT"
+            identity_states[state_name] += 1
+
+        self.last_evidence_audit = A2NativeEvidenceAudit(
+            problem_counts=tuple(sorted(problems.items())),
+            identity_state_counts=tuple(sorted(identity_states.items())),
+            resident_chain_count=sum(
+                self.chain_state(chain_id).reusable_prefix_blocks > 0
+                for chain_id in relevant_chains
+                if self.chain_state(chain_id) is not None
+            ),
+            broken_chain_count=broken_chain_count,
+            unknown_weight_chain_count=unknown_weight_chain_count,
+            chain_states=tuple(chain_states),
+        )
 
         blocks = tuple(
             BlockDecisionInput(
@@ -166,6 +492,17 @@ class A2NativeDecisionAudit:
     shared_block_count: int = 0
     identified_hashed_block_count: int = 0
     legal_content_hashes: tuple[tuple[int, str | None], ...] = ()
+    evidence_problem_counts: tuple[tuple[str, int], ...] = ()
+    identity_state_counts: tuple[tuple[str, int], ...] = ()
+    resident_chain_count: int = 0
+    broken_chain_count: int = 0
+    unknown_weight_chain_count: int = 0
+    chain_states: tuple[tuple[str, int, tuple[int, ...], int, str], ...] = ()
+    effective_chain_lengths: tuple[tuple[str, int], ...] = ()
+    decision_reuse_weights: tuple[tuple[str, float], ...] = ()
+    block_memberships: tuple[
+        tuple[int, tuple[tuple[str, int, str], ...]], ...
+    ] = ()
 
     @property
     def used_fallback(self) -> bool:
@@ -271,6 +608,30 @@ class A2NativeBlockAdapter(EvictionPolicyAdapter):
             legal_content_hashes=tuple(
                 (candidate.block_id, candidate.content_hash) for candidate in candidates
             ),
+            effective_chain_lengths=(
+                () if request is None else tuple(sorted(request.chain_length.items()))
+            ),
+            decision_reuse_weights=(
+                () if request is None else tuple(sorted(request.reuse_weight.items()))
+            ),
+            block_memberships=(
+                ()
+                if request is None
+                else tuple(
+                    (
+                        block.block_id,
+                        tuple(
+                            (
+                                membership.chain,
+                                membership.depth,
+                                membership.content_hash,
+                            )
+                            for membership in block.memberships
+                        ),
+                    )
+                    for block in request.blocks
+                )
+            ),
         )
         self.last_audit = audit
         if self._audit_sink is not None:
@@ -321,6 +682,22 @@ class A2NativeSelectionCoordinator:
         self._config = config or A2Config()
         self._audit_sink = audit_sink
 
+    def _observe_decision(self, audit: A2NativeDecisionAudit) -> None:
+        if self._audit_sink is None:
+            return
+        evidence = self._registry.last_evidence_audit
+        self._audit_sink(
+            replace(
+                audit,
+                evidence_problem_counts=evidence.problem_counts,
+                identity_state_counts=evidence.identity_state_counts,
+                resident_chain_count=evidence.resident_chain_count,
+                broken_chain_count=evidence.broken_chain_count,
+                unknown_weight_chain_count=evidence.unknown_weight_chain_count,
+                chain_states=evidence.chain_states,
+            )
+        )
+
     def select_victims(
         self,
         candidates: Sequence[EvictionCandidate],
@@ -355,7 +732,7 @@ class A2NativeSelectionCoordinator:
         adapter = A2NativeBlockAdapter(
             factory,
             config=self._config,
-            audit_sink=self._audit_sink,
+            audit_sink=self._observe_decision,
         )
         return tuple(adapter.select_victims(legal, context))
 
