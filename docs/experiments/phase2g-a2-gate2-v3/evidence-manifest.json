@@ -26,7 +26,8 @@
     "eviction_to_recomputation_causality_established": false,
     "old_aborted_campaign_mixed_into_statistics": false,
     "physical_content_identity_complete": false,
-    "selection_intervention_realized": false
+    "selection_intervention_realized": false,
+    "selection_observability": "NOT_ESTABLISHED"
   },
   "execution": {
     "authorization_sha256": "44ce066ec0088a7912b3a6c8eeac9a7aca6cf5c6cdaee43fc14b2ba3b7b64fe5",
@@ -44,9 +45,10 @@
     "bootstrap_repetitions": 10000,
     "bootstrap_seed": 20261019,
     "campaign_report_sha256": "d4215d818d4c6f0e654637fd20b5210888319058c87730a400456527fa2814a8",
+    "corrected_campaign_report_sha256": "d5b2ac1d56d88e2fca6a529fd7a074e68d4fb03a35e4ed23568036ae953548c0",
     "comparable_repeat_pair_count": 72,
     "evidence_state_counts": {
-      "NOT_REALIZED": 72
+      "SELECTION_NOT_OBSERVABLE": 72
     },
     "mean_delta_recomputed_tokens_a2_minus_a0": 0.0,
     "median_delta_recomputed_tokens_a2_minus_a0": 0.0,
@@ -62,6 +64,18 @@
     "selection_divergence_scenario_count": 0,
     "token_metric_exact_pair_count": 72,
     "unmapped_physical_eviction_count": 2032
+  },
+  "root_cause_audit": {
+    "a2_decision_count": 778,
+    "a2_selected_equals_native_lru_count": 778,
+    "contract_problem_count": 0,
+    "decision_table_sha256": "1dbb7cf606cf1dae7ac0dfffa296b9a9bdc5db9c1783a51fedc7b10ab5a2187a",
+    "explicit_content_unverified_fallback_count": 428,
+    "forced_release_associated_decision_count": 54,
+    "formal_effectiveness_conclusion": "INCONCLUSIVE",
+    "greedy_selected_equals_lru_count": 350,
+    "root_cause_audit_sha256": "adc7b546b0850d6d99557a5da57c5ba446805cf12b65d2a100d5e74622b1630e",
+    "shared_block_decision_count": 0
   },
   "offline_evaluation": {
     "evaluator_git_sha": "2b4681901ff76eb5ca8190ba7b4cf40d5c23a4d9",

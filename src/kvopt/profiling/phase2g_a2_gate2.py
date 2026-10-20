@@ -500,10 +500,10 @@ def compare_pair(a0: Mapping[str, object], a2: Mapping[str, object]) -> dict[str
     delta = token.get("token_delta_a1_minus_a0")
     if not comparable:
         state = "INCONCLUSIVE"
-    elif not mechanism_realized:
-        state = "NOT_REALIZED"
     elif not selection_observable:
         state = "SELECTION_NOT_OBSERVABLE"
+    elif not mechanism_realized:
+        state = "NOT_REALIZED"
     elif not selection_diverged:
         state = "NO_SELECTION_DIVERGENCE"
     elif physical_diverged is None:
@@ -575,22 +575,26 @@ def aggregate_scenarios(pairs: Sequence[Mapping[str, object]]) -> list[dict[str,
             if row.get("delta_recomputed_tokens_a2_minus_a0") is not None
         ]
         delta = statistics.fmean(deltas) if len(deltas) == 2 else None
+
+        def aggregate_observation(
+            field: str,
+            comparable_rows: Sequence[Mapping[str, object]] = tuple(comparable),
+        ) -> bool | None:
+            values = [row.get(field) for row in comparable_rows]
+            if any(value is True for value in values):
+                return True
+            if values and all(value is False for value in values):
+                return False
+            return None
+
         rows.append(
             {
                 "scenario_id": scenario_id,
                 "family": repeats[0]["family"],
                 "repeat_count": len(repeats),
                 "comparable_repeat_count": len(comparable),
-                "selection_diverged": (
-                    any(row.get("selection_diverged") is True for row in comparable)
-                    if comparable
-                    else None
-                ),
-                "physical_diverged": (
-                    any(row.get("physical_diverged") is True for row in comparable)
-                    if comparable
-                    else None
-                ),
+                "selection_diverged": aggregate_observation("selection_diverged"),
+                "physical_diverged": aggregate_observation("physical_diverged"),
                 "mean_delta_recomputed_tokens_a2_minus_a0": delta,
                 "direction": (
                     "BETTER"
