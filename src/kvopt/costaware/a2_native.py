@@ -227,16 +227,11 @@ class A2NativeSnapshotRegistry:
                     continue
                 candidate = candidates_by_id.get(block_id)
                 identity = self.content_identity(block_id)
-                if (
-                    candidate is None
-                    or identity is None
-                ):
-                    problems[
-                        "candidate_not_legal"
-                        if candidate is None
-                        else "native_content_not_resident"
-                    ] += 1
-                    if candidate is not None and candidate.has_block_hash:
+                if candidate is None:
+                    continue
+                if identity is None:
+                    problems["native_content_not_resident"] += 1
+                    if candidate.has_block_hash:
                         unverified_legal_ids.add(block_id)
                     continue
                 if candidate.content_hash is None:
