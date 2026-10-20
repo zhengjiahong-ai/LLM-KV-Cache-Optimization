@@ -1,0 +1,13 @@
+{
+  "schema_version": "phase2g.a2_bounded_value_distribution.v2",
+  "base_distribution": "phase2g-a2-native-gate2-distribution-v1.json",
+  "run_kind": "A2_BOUNDED_NATIVE_VALUE_EVALUATION_V2",
+  "execution_authorized": false,
+  "formal_native_execution_authorized": false,
+  "construction_repair_version": "phase2g.a2_workload_construction_repair.v2",
+  "construction_repairs": {
+    "f4_capacity_basis": "FIRST_PRESSURE_RESIDENT_UNIQUE_CONTENT",
+    "f6_nonreturn_state": "WAITING_FOLLOWUP_WITHOUT_FUTURE_LEAKAGE",
+    "old_gate2_v3_artifacts_modified": false
+  }
+}

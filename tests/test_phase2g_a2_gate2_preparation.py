@@ -8,12 +8,22 @@ from kvopt.workload.phase2g_a2_gate2_materialize import materialize_gate2_campai
 from kvopt.workload.phase2g_a2_gate2_validate import validate_gate2_campaign
 
 DISTRIBUTION = Path("configs/phase2/phase2g-a2-native-gate2-distribution-v1.json")
+VALUE_DISTRIBUTION = Path(
+    "configs/phase2/phase2g-a2-bounded-value-distribution-v2.json"
+)
 
 
 def _campaign(tmp_path: Path) -> Path:
     return materialize_gate2_campaign(
         distribution_path=DISTRIBUTION,
         output_dir=tmp_path / "campaign",
+    )
+
+
+def _value_campaign(tmp_path: Path) -> Path:
+    return materialize_gate2_campaign(
+        distribution_path=VALUE_DISTRIBUTION,
+        output_dir=tmp_path / "value-campaign",
     )
 
 
@@ -127,3 +137,58 @@ def test_validator_rejects_trace_and_input_digest_tampering(tmp_path: Path) -> N
 
     with pytest.raises(ValueError, match="input contract digest mismatch"):
         validate_gate2_campaign(second_path)
+
+
+def test_value_campaign_binds_base_and_preserves_old_artifacts(tmp_path: Path) -> None:
+    path = _value_campaign(tmp_path)
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    validation = validate_gate2_campaign(path)
+
+    assert manifest["run_kind"] == "A2_BOUNDED_NATIVE_VALUE_EVALUATION_V2"
+    assert manifest["base_distribution_sha256"]
+    assert validation["status"] == "PASS"
+    assert manifest["workload_construction_repairs"] == {
+        "f4_capacity_uses_first_pressure_resident_content": True,
+        "f6_nonreturn_not_terminal_before_pressure": True,
+        "old_gate2_v3_artifacts_modified": False,
+    }
+
+
+def test_f4_capacity_uses_only_content_resident_at_first_pressure(
+    tmp_path: Path,
+) -> None:
+    path = _value_campaign(tmp_path)
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    scenario = next(row for row in manifest["scenarios"] if row["scenario_id"] == "f4-draw-06")
+    run = next(row for row in manifest["runs"] if row["scenario_id"] == "f4-draw-06")
+    config = json.loads((path.parent / run["config"]).read_text(encoding="utf-8"))
+    all_unique = {
+        str(key): int(tokens)
+        for rows in config["backend_options"]["prefix_segments_by_request"].values()
+        for key, tokens in rows
+    }
+    basis = scenario["capacity_basis"]
+
+    assert basis["mode"] == "FIRST_PRESSURE_RESIDENT_UNIQUE_CONTENT"
+    assert basis["protected_blocks"] == config["backend_options"][
+        "phase2g_unique_protected_blocks"
+    ]
+    assert sum(basis["unique_segment_tokens"].values()) < sum(all_unique.values())
+    assert all(request_id.endswith(":1") for request_id in basis["arrived_request_ids"])
+
+
+def test_f6_omitted_return_is_not_declared_terminal_before_pressure(
+    tmp_path: Path,
+) -> None:
+    path = _value_campaign(tmp_path)
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    scenario = next(row for row in manifest["scenarios"] if row["scenario_id"] == "f6-draw-02")
+    trace = json.loads((path.parent / scenario["trace"]).read_text(encoding="utf-8"))
+    omitted = scenario["family_parameters"]["omitted_program_id"]
+    requests = [row for row in trace["requests"] if row["program_id"] == omitted]
+
+    assert len(requests) == 1
+    assert trace["allow_incomplete_programs"] is True
+    assert requests[0]["is_terminal"] is False
+    assert requests[0]["next_tool_type"] == "phase2g-f6"
+    assert scenario["family_parameters"]["future_nonreturn_leaked_before_pressure"] is False

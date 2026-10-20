@@ -11,13 +11,12 @@ from kvopt.profiling.experiment_events import (
     InMemoryExperimentEventSink,
     NullExperimentEventSink,
 )
-from kvopt.workload.phase2 import PlannedRequest, load_phase2_trace
-from kvopt.workload.phase2_smoke import SyntheticSmokeBackend
+from kvopt.workload.phase2 import load_phase2_trace
 from kvopt.workload.phase2_runner import (
     REQUIRED_OBSERVATION_CAPABILITIES,
     run_phase2,
 )
-
+from kvopt.workload.phase2_smoke import SyntheticSmokeBackend
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "configs/phase2/smoke-config.json"
@@ -265,6 +264,32 @@ def test_normalized_trace_round_trip_is_valid(tmp_path: Path) -> None:
     path.write_text(json.dumps(trace.to_dict()), encoding="utf-8")
     reloaded = load_phase2_trace(path)
     assert reloaded.to_dict() == trace.to_dict()
+
+
+def test_incomplete_program_requires_explicit_trace_contract(tmp_path: Path) -> None:
+    raw = json.loads(
+        (
+            ROOT
+            / "docs/experiments/phase2-m5-smoke/synthetic-smoke-v2/trace.json"
+        ).read_text(encoding="utf-8")
+    )
+    program_id = raw["requests"][0]["program_id"]
+    final = [row for row in raw["requests"] if row["program_id"] == program_id][-1]
+    final["is_terminal"] = False
+    final["next_tool_type"] = "pending-followup"
+    final["tool_gap_seconds"] = 10.0
+    path = tmp_path / "incomplete.json"
+    path.write_text(json.dumps(raw), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="only the final program turn may be terminal"):
+        load_phase2_trace(path)
+
+    raw["allow_incomplete_programs"] = True
+    path.write_text(json.dumps(raw), encoding="utf-8")
+    trace = load_phase2_trace(path)
+
+    assert trace.allow_incomplete_programs is True
+    assert trace.to_dict()["allow_incomplete_programs"] is True
 
 
 def test_fake_hardware_provider_events_are_written(tmp_path: Path) -> None:

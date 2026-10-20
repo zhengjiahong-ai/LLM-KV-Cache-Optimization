@@ -6,6 +6,7 @@ import json
 import math
 import random
 from dataclasses import asdict, dataclass
+from itertools import pairwise
 from pathlib import Path
 
 
@@ -96,6 +97,7 @@ class Phase2Trace:
     trace_id: str
     requests: tuple[PlannedRequest, ...]
     pressure_stages: tuple[PressureStage, ...]
+    allow_incomplete_programs: bool = False
 
     def actions(self) -> tuple[PlannedRequest | PressureStage, ...]:
         actions: list[PlannedRequest | PressureStage] = [*self.requests, *self.pressure_stages]
@@ -105,6 +107,7 @@ class Phase2Trace:
         return {
             "schema_version": "phase2.trace.v1",
             "trace_id": self.trace_id,
+            "allow_incomplete_programs": self.allow_incomplete_programs,
             "requests": [request.to_dict() for request in self.requests],
             "pressure_stages": [stage.to_dict() for stage in self.pressure_stages],
         }
@@ -115,6 +118,9 @@ def load_phase2_trace(path: str | Path) -> Phase2Trace:
     if raw.get("schema_version") != "phase2.trace.v1":
         raise ValueError("unsupported trace schema_version")
     trace_id = _text(raw.get("trace_id"), "trace_id")
+    allow_incomplete_programs = raw.get("allow_incomplete_programs", False)
+    if not isinstance(allow_incomplete_programs, bool):
+        raise TypeError("allow_incomplete_programs must be bool")
     pressure = _list(raw.get("pressure_stages", []), "pressure_stages")
     requests: list[PlannedRequest] = []
     if "requests" in raw:
@@ -177,11 +183,11 @@ def load_phase2_trace(path: str | Path) -> Phase2Trace:
                 raise ValueError("turn indexes must be contiguous within each program")
             if any(
                 later.planned_arrival_offset_seconds < earlier.planned_arrival_offset_seconds
-                for earlier, later in zip(program_requests, program_requests[1:])
+                for earlier, later in pairwise(program_requests)
             ):
                 raise ValueError("planned arrival offsets must be non-decreasing within a program")
-            if any(request.is_terminal for request in program_requests[:-1]) or not (
-                program_requests[-1].is_terminal
+            if any(request.is_terminal for request in program_requests[:-1]) or (
+                not allow_incomplete_programs and not program_requests[-1].is_terminal
             ):
                 raise ValueError("only the final program turn may be terminal")
     else:
@@ -259,4 +265,9 @@ def load_phase2_trace(path: str | Path) -> Phase2Trace:
         ))
     if not requests and not stages:
         raise ValueError("trace must contain requests or pressure stages")
-    return Phase2Trace(trace_id, tuple(requests), tuple(stages))
+    return Phase2Trace(
+        trace_id,
+        tuple(requests),
+        tuple(stages),
+        allow_incomplete_programs=allow_incomplete_programs,
+    )
