@@ -76,6 +76,7 @@ class A2NativeEvidenceAudit:
     resident_chain_count: int = 0
     broken_chain_count: int = 0
     unknown_weight_chain_count: int = 0
+    chain_states: tuple[tuple[str, int, tuple[int, ...], int, str], ...] = ()
 
 
 class A2NativeSnapshotRegistry:
@@ -169,6 +170,7 @@ class A2NativeSnapshotRegistry:
         problems: Counter[str] = Counter()
         broken_chain_count = 0
         unknown_weight_chain_count = 0
+        chain_states: list[tuple[str, int, tuple[int, ...], int, str]] = []
 
         entries_by_chain = {
             f"{entry.program_id.value}:{entry.prefix_id.canonical_value}": entry
@@ -219,6 +221,15 @@ class A2NativeSnapshotRegistry:
             elif entry is None and state.reusable_prefix_blocks > 0:
                 unknown_weight_chain_count += 1
                 problems["reuse_weight_unknown_after_logical_completion"] += 1
+            chain_states.append(
+                (
+                    chain,
+                    len(snapshot.block_ids),
+                    state.resident_depths,
+                    state.reusable_prefix_blocks,
+                    "KNOWN" if chain in reuse_weight else "UNKNOWN",
+                )
+            )
             for depth, (block_id, content_hash) in enumerate(
                 zip(snapshot.block_ids, snapshot.content_hashes, strict=True),
                 start=1,
@@ -286,6 +297,7 @@ class A2NativeSnapshotRegistry:
             ),
             broken_chain_count=broken_chain_count,
             unknown_weight_chain_count=unknown_weight_chain_count,
+            chain_states=tuple(chain_states),
         )
 
         blocks = tuple(
@@ -335,6 +347,7 @@ class A2NativeDecisionAudit:
     resident_chain_count: int = 0
     broken_chain_count: int = 0
     unknown_weight_chain_count: int = 0
+    chain_states: tuple[tuple[str, int, tuple[int, ...], int, str], ...] = ()
 
     @property
     def used_fallback(self) -> bool:
@@ -502,6 +515,7 @@ class A2NativeSelectionCoordinator:
                 resident_chain_count=evidence.resident_chain_count,
                 broken_chain_count=evidence.broken_chain_count,
                 unknown_weight_chain_count=evidence.unknown_weight_chain_count,
+                chain_states=evidence.chain_states,
             )
         )
 

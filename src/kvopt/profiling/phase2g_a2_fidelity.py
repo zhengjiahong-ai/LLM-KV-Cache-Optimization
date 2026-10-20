@@ -104,6 +104,13 @@ def review_run(run_dir: Path, case_kind: str) -> dict[str, object]:
         checks["broken_prefix_reported"] = broken > 0 and problem_counts[
             "chain_prefix_broken"
         ] > 0
+        checks["remaining_prefix_boundary_observed"] = any(
+            isinstance(state, Mapping)
+            and 0 < int(state.get("reusable_prefix_blocks", 0))
+            < int(state.get("original_length_blocks", 0))
+            for row in decisions
+            for state in row.get("chain_states", [])
+        )
     elif case_kind == "SHARED_CONTENT":
         checks["shared_membership_observed"] = shared > 0
     elif case_kind == "PROGRAM_COMPLETION":

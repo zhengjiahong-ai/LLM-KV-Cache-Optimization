@@ -589,6 +589,22 @@ class _ObservedRetentionIntegration:
                     "resident_chain_count": audit.resident_chain_count,
                     "broken_chain_count": audit.broken_chain_count,
                     "unknown_weight_chain_count": audit.unknown_weight_chain_count,
+                    "chain_states": [
+                        {
+                            "chain_id": chain_id,
+                            "original_length_blocks": original_length,
+                            "resident_depths": resident_depths,
+                            "reusable_prefix_blocks": reusable_prefix_blocks,
+                            "reuse_weight_state": reuse_weight_state,
+                        }
+                        for (
+                            chain_id,
+                            original_length,
+                            resident_depths,
+                            reusable_prefix_blocks,
+                            reuse_weight_state,
+                        ) in audit.chain_states
+                    ],
                     "legal_content_hashes": [
                         {"block_id": block_id, "content_hash": content_hash}
                         for block_id, content_hash in audit.legal_content_hashes

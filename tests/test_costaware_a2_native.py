@@ -288,6 +288,9 @@ def test_registry_partial_eviction_preserves_chain_and_prefix_boundary() -> None
         "legal_hashed_candidate_without_membership": 1,
     }
     assert registry.last_evidence_audit.broken_chain_count == 1
+    assert registry.last_evidence_audit.chain_states == (
+        ("a:pa", 3, (1, 3), 1, "KNOWN"),
+    )
 
 
 def test_registry_keeps_terminal_content_with_unknown_reuse_weight() -> None:
@@ -310,6 +313,9 @@ def test_registry_keeps_terminal_content_with_unknown_reuse_weight() -> None:
     assert dict(registry.last_evidence_audit.identity_state_counts) == {
         "CONTENT_VERIFIED_WEIGHT_UNKNOWN": 1
     }
+    assert registry.last_evidence_audit.chain_states == (
+        ("a:pa", 1, (1,), 1, "UNKNOWN"),
+    )
     adapter = A2NativeBlockAdapter(lambda _candidates, _context: request)
     assert adapter.select_victims([_candidate(1, 0)], _context()) == [1]
     assert adapter.last_audit is not None
