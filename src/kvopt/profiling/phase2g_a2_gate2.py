@@ -32,7 +32,10 @@ def _validate_execution_authorization(
 ) -> dict[str, object]:
     authorization = json.loads(authorization_path.read_text(encoding="utf-8"))
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    if authorization.get("schema_version") != "phase2g.a2_gate2_authorization.v1":
+    if authorization.get("schema_version") not in {
+        "phase2g.a2_gate2_authorization.v1",
+        "phase2g.a2_bounded_value_authorization.v1",
+    }:
         raise ValueError("unsupported Gate 2 execution authorization")
     if authorization.get("formal_native_execution_authorized") is not True:
         raise ValueError("formal Native Gate 2 execution is not authorized")
