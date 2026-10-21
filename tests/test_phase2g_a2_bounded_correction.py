@@ -1,5 +1,6 @@
 from kvopt.profiling.phase2g_a2_bounded_correction import (
     HASHLESS,
+    _a2_decisions,
     _candidate_semantics,
     _decision_semantics,
     _forced_rows,
@@ -79,7 +80,10 @@ def test_slot_reuse_does_not_keep_old_membership() -> None:
                 "event_index": 1,
                 "event_type": "VLLM_PREFIX_SNAPSHOT",
                 "program_id": "old",
-                "payload": {"block_ids": [7]},
+                "payload": {
+                    "block_ids": [7],
+                    "ordered_native_cache_keys": ["old-hash"],
+                },
             },
             {
                 "event_index": 2,
@@ -90,7 +94,10 @@ def test_slot_reuse_does_not_keep_old_membership() -> None:
                 "event_index": 3,
                 "event_type": "VLLM_PREFIX_SNAPSHOT",
                 "program_id": "new",
-                "payload": {"block_ids": [7]},
+                "payload": {
+                    "block_ids": [7],
+                    "ordered_native_cache_keys": ["new-hash"],
+                },
             },
             {"event_index": 4, "event_type": "OTHER", "payload": {}},
         ]
@@ -108,6 +115,15 @@ def test_actual_a0_selection_uses_selected_event_and_excludes_protected() -> Non
     events = [
         {
             "event_index": 1,
+            "event_type": "VLLM_PREFIX_SNAPSHOT",
+            "program_id": "p",
+            "payload": {
+                "block_ids": [1, 2],
+                "ordered_native_cache_keys": ["hash-1", "hash-2"],
+            },
+        },
+        {
+            "event_index": 2,
             "event_type": "FORCED_RELEASE_DECISION",
             "payload": {
                 "required_blocks": 2,
@@ -117,7 +133,7 @@ def test_actual_a0_selection_uses_selected_event_and_excludes_protected() -> Non
             },
         },
         {
-            "event_index": 2,
+            "event_index": 3,
             "event_type": "PRESSURE_REQUEST_COMPLETED",
             "payload": {"last_selected_block_ids": [3, 2]},
         },
@@ -166,3 +182,57 @@ def test_actual_a0_selection_rejects_protected_selected_block() -> None:
 
     assert row["selection_observable"] is False
     assert row["unobservable_reasons"] == ["selected_blocks_do_not_match_tier_aware_lru"]
+
+
+def test_full_a2_path_does_not_fallback_to_candidate_membership() -> None:
+    events = [
+        {
+            "event_index": 1,
+            "event_type": "FORCED_RELEASE_DECISION",
+            "payload": {
+                "required_blocks": 1,
+                "selected_releases": [],
+                "candidates": [{"program_id": "p", "block_ids": [7]}],
+                "original_free_queue": [
+                    {
+                        "block_id": 7,
+                        "eligibility_tier": 1,
+                        "has_block_hash": True,
+                        "native_lru_rank": 0,
+                    }
+                ],
+            },
+        },
+        {
+            "event_index": 2,
+            "event_type": "COST_AWARE_BLOCK_DECISION",
+            "payload": {
+                "required_blocks": 1,
+                "legal_block_ids": [7],
+                "selected_victims": [7],
+                "native_lru_victims": [7],
+                "legal_content_hashes": [{"block_id": 7, "content_hash": None}],
+                "block_memberships": [
+                    {
+                        "block_id": 7,
+                        "memberships": [
+                            {
+                                "chain_id": "p:logical-chain",
+                                "depth": 1,
+                                "content_hash": None,
+                            }
+                        ],
+                    }
+                ],
+                "selector": "native_lru_fallback",
+                "fallbacks": ["content_unverified"],
+            },
+        },
+    ]
+
+    rows, ordinary = _a2_decisions(events)
+
+    assert ordinary == 0
+    assert rows[0]["legal_semantics"] is None
+    assert rows[0]["selected_semantics"] is None
+    assert rows[0]["internal_lru_semantics"] is None

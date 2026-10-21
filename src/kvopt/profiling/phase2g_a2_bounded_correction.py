@@ -35,6 +35,7 @@ def _semantic_state(
 ) -> dict[int, dict[int, SemanticBlock]]:
     """Return current content memberships immediately before every event."""
     memberships: dict[int, set[tuple[str, int]]] = defaultdict(set)
+    content_keys: dict[int, str] = {}
     states: dict[int, dict[int, SemanticBlock]] = {}
     for event in events:
         index = int(event["event_index"])
@@ -43,14 +44,32 @@ def _semantic_state(
         }
         if event.get("event_type") == "VLLM_PREFIX_SNAPSHOT":
             program = event.get("program_id")
-            block_ids = _payload(event).get("block_ids", ())
-            if isinstance(program, str) and isinstance(block_ids, (list, tuple)):
-                for position, value in enumerate(block_ids):
-                    memberships[int(value)].add((program, position))
+            payload = _payload(event)
+            block_ids = payload.get("block_ids", ())
+            cache_keys = payload.get("ordered_native_cache_keys", ())
+            if (
+                isinstance(program, str)
+                and isinstance(block_ids, (list, tuple))
+                and isinstance(cache_keys, (list, tuple))
+                and len(block_ids) == len(cache_keys)
+            ):
+                for position, (value, cache_key) in enumerate(
+                    zip(block_ids, cache_keys, strict=True)
+                ):
+                    block_id = int(value)
+                    if not isinstance(cache_key, str) or not cache_key:
+                        memberships.pop(block_id, None)
+                        content_keys.pop(block_id, None)
+                        continue
+                    if content_keys.get(block_id) not in {None, cache_key}:
+                        memberships.pop(block_id, None)
+                    content_keys[block_id] = cache_key
+                    memberships[block_id].add((program, position))
         elif event.get("event_type") == "VLLM_NATIVE_HASHED_CACHE_ENTRY_EVICTED":
             block_id = _payload(event).get("block_id")
             if isinstance(block_id, int):
                 memberships.pop(block_id, None)
+                content_keys.pop(block_id, None)
     return states
 
 
@@ -165,7 +184,7 @@ def _forced_rows(events: Sequence[Mapping[str, object]], *, policy: str) -> list
             if isinstance(queue, (list, tuple))
             else []
         )
-        semantic_state = _candidate_semantics(payload) or states[index]
+        semantic_state = dict(states[index])
         for row in queue_rows:
             if row.get("has_block_hash") is False:
                 semantic_state[int(row["block_id"])] = HASHLESS
@@ -241,7 +260,6 @@ def _forced_rows(events: Sequence[Mapping[str, object]], *, policy: str) -> list
 
 
 def _a2_decisions(events: Sequence[Mapping[str, object]]) -> tuple[list[dict[str, object]], int]:
-    states = _semantic_state(events)
     forced = [row for row in events if row.get("event_type") == "FORCED_RELEASE_DECISION"]
     forced_indices = [int(row["event_index"]) for row in forced]
     rows: list[dict[str, object]] = []
@@ -259,11 +277,7 @@ def _a2_decisions(events: Sequence[Mapping[str, object]]) -> tuple[list[dict[str
             continue
         payload = _payload(event)
         forced_payload = _payload(forced[ordinal])
-        state = (
-            _decision_semantics(payload, forced_payload)
-            or _candidate_semantics(forced_payload)
-            or states[index]
-        )
+        state = _decision_semantics(payload, forced_payload)
         rows.append(
             {
                 "ordinal": ordinal,
@@ -430,7 +444,7 @@ def evaluate(
         f4_repeat_deltas[key] += int(row["delta_recomputed_tokens_a2_minus_a0"])
     actual_values = [row["a2_vs_actual_a0_diverged"] for row in comparisons]
     result = {
-        "schema_version": "phase2g.a2_bounded_offline_correction.v2",
+        "schema_version": "phase2g.a2_bounded_offline_correction.v3",
         "scope": "EXISTING_144_RUN_EVIDENCE_ONLY",
         "forced_window_comparison_count": len(comparisons),
         "ordinary_allocation_decision_count": ordinary_count,

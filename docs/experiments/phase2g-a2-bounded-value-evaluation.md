@@ -129,18 +129,22 @@ hashless only when the forced-window evidence explicitly records
 `has_block_hash=false`; hashed-but-unverified and missing memberships remain
 unknown.
 
-Of 122 forced-release windows, 34 had complete actual A0/A2 comparison evidence
-and 88 remained unpairable or identity-incomplete. In all 34 complete actual
-comparisons, A2 equaled the actual A0 Tier-aware victim content set and A0
-equaled A2's internal Native-LRU reference. Separately, 82 windows permitted
-the within-A2 comparison against its internal Native-LRU reference; the two
-previously observed divergences remain present in that narrower comparison.
-They cannot be upgraded to actual A0/A2 divergence because their A0 windows
-lack complete comparable evidence.
+The final implementation does not fall back from failed Native identity
+validation to logical Retention Candidate membership. A2 uses only verified
+decision-time content identities or explicit Native hashless evidence. A0 uses
+only current Native snapshot membership, resetting a physical slot when its
+content key changes and invalidating it on observed eviction.
+
+Of 122 forced-release windows, 40 had complete actual A0/A2 comparison evidence
+and 82 remained unpairable or identity-incomplete. Separately, 82 windows
+permitted the within-A2 comparison against its internal Native-LRU reference.
+Two windows diverged in both comparisons: the final forced-release window of
+each `f4-draw-04` repeat. In those two windows, actual A0 equaled A2's internal
+Native-LRU reference while A2's verified Cost-Aware selection differed.
 
 The unresolved-reason report records overlapping evidence failures, including
 74 missing/ambiguous A0 selected-block events, 20 window-contract mismatches,
-12 incomplete A0 selected-content identities, and incomplete A2 legal or
+4 incomplete A0 selected-content identities, and incomplete A2 legal or
 victim identities. Two actual selected-block records also failed the frozen
 Tier-aware reconstruction and are retained as unobservable rather than
 reinterpreted.
@@ -161,20 +165,24 @@ The F4 request-level correction preserves the arm-level deltas exactly:
 There are 22 requests with nonzero paired recomputation deltas. Their `E`, `C`,
 and derived FULL/PARTIAL/MISS states are preserved in
 `f4-request-deltas.csv`. These request differences are reproducible, but the
-existing evidence cannot connect them to a confirmed A2-versus-A0 forced-window
-victim difference. Nor can it distinguish ordinary-allocation fallback/order
-effects from Native timing/state differences, because A0 lacks the matching
-ordinary decision evidence.
+existing evidence cannot establish a complete per-block physical
+selection-to-recomputation causal chain. `f4-draw-04` now has a confirmed
+A2-versus-A0 forced-window selection difference, but its full +560-token arm
+difference cannot automatically be assigned to that decision. F4 draws 05 and
+06 still have no confirmed comparable selection divergence. The archive also
+cannot exclude ordinary-allocation fallback/order effects or Native
+timing/state differences because A0 lacks matching ordinary decision evidence.
 
 The answer to the bounded review question is therefore:
 
 **`INCONCLUSIVE_BASELINE_COMPARISON_AND_NATIVE_ATTRIBUTION_GAPS_REMAIN`.**
 
-The three F4 regressions remain valid arm-level measurements, but they are not
-confirmed Cost-Aware decision regressions. The missing link is a comparable A0
-ordinary-allocation decision record plus valid selected-block, content-identity,
-and physical attribution for the 88 unresolved forced windows. No new Native execution was
-performed for this correction.
+The three F4 regressions remain valid arm-level measurements. F4 draw 04 also
+contains a reproducible, verified Cost-Aware selection divergence, but strict
+causal attribution of its token regression remains incomplete. Draws 05 and 06
+remain unexplained arm-level regressions. The missing link is a comparable A0
+ordinary-allocation decision record plus complete physical attribution for the
+82 unresolved forced windows. No new Native execution was performed.
 
 ## Evidence bindings
 
@@ -192,4 +200,6 @@ performed for this correction.
 | F4 request-level deltas | `b9fe4fc8e4e0ed3fb6e6c80c1bae0ceada63eefb1373b34cf92350e9da9ccc0d` |
 | Final corrected offline comparison | `e8364e49c627b34d1ea9f852df997120e9994a30a74ca4ba3055a42346184ab8` |
 | Final forced-window comparisons | `daed4d909d13048288a2b71f025eac1f2cbad7145d798a4d48445a873633165b` |
+| No-fallback offline comparison | `c1bb895835a16f10a58e8714fb40fa3fd241299f815f6604be02b1cc3cd16c85` |
+| No-fallback forced-window comparisons | `6b66ae5eb79fc6a128adc36eb5d9f8f32bdc2c6470d384b2f1f11f9c0a4e0b11` |
 
