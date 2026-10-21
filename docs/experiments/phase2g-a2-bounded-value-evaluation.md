@@ -73,10 +73,11 @@ incomplete identity therefore made all 72 repeat pairs
 `SELECTION_NOT_OBSERVABLE`. This is retained rather than rewritten after
 outcomes were observed.
 
-The read-only audit also found that the real A0 forced-window victim set agreed
-with A2's internal Native-LRU reference in 94 of 122 windows and disagreed in
-28. Consequently, the A0 comparator and A2's internal reference were not fully
-interchangeable in this workload. Physical evidence also remained incomplete:
+The original read-only audit reported that the A0 forced-window queue prefix
+agreed with A2's internal Native-LRU reference in 94 of 122 windows and
+disagreed in 28. The bounded correction below supersedes that comparison:
+those counts compared process-local physical Block IDs and therefore were not
+valid cross-arm policy identities. Physical evidence also remained incomplete:
 3,444 of 7,390 pressure-window eviction records were not strictly mapped under
 the frozen content/process/order checks. Event coexistence is not treated as
 per-block recomputation causality.
@@ -104,6 +105,60 @@ show a reproducible adverse request-level outcome in three F4 scenarios.
 No new campaign, A3 implementation, B1 work, or post-hoc workload/threshold
 change is authorized by this record.
 
+## Bounded offline correction after M1 review
+
+The versioned correction separates all three cases requested by M1:
+
+- A2 versus its internal Native-LRU reference;
+- A2 versus the actual A0 Tier-aware queue selection; and
+- windows whose Native state or legal candidates cannot be paired.
+
+Physical Block IDs and process-local Native hashes are never compared across
+arms. Instead, the correction represents a victim by its observed
+`(program_id, chain_position)` memberships and treats explicitly hashless
+blocks as no-content candidates. A forced window is pairable only when its
+ordinal, required capacity, released programs, and semantic victim identities
+are all available.
+
+Of 122 forced-release windows, 74 had complete pairable semantic evidence and
+48 remained unpairable or identity-incomplete. In all 74 pairable windows:
+
+- A2 equaled its internal Native-LRU reference;
+- A2 equaled the actual A0 Tier-aware victim content set; and
+- A0 equaled A2's internal Native-LRU reference.
+
+Thus the two previously reported divergences were not confirmed as actual
+A0/A2 policy divergences. The 656 ordinary-allocation A2 decisions have no
+equivalent persisted A0 decision event and remain explicitly
+`NO_EQUIVALENT_A0_DECISION_EVENT_NOT_COMPARABLE`, rather than making every
+repeat pair globally unobservable.
+
+The F4 request-level correction preserves the arm-level deltas exactly:
+
+| Scenario | Repeat 1 | Repeat 2 |
+|---|---:|---:|
+| `f4-draw-04` | +560 | +560 |
+| `f4-draw-05` | +96 | +96 |
+| `f4-draw-06` | +288 | +288 |
+
+There are 22 requests with nonzero paired recomputation deltas. Their `E`, `C`,
+and derived FULL/PARTIAL/MISS states are preserved in
+`f4-request-deltas.csv`. These request differences are reproducible, but the
+existing evidence cannot connect them to a confirmed A2-versus-A0 forced-window
+victim difference. Nor can it distinguish ordinary-allocation fallback/order
+effects from Native timing/state differences, because A0 lacks the matching
+ordinary decision evidence.
+
+The answer to the bounded review question is therefore:
+
+**`INCONCLUSIVE_BASELINE_COMPARISON_AND_NATIVE_ATTRIBUTION_GAPS_REMAIN`.**
+
+The three F4 regressions remain valid arm-level measurements, but they are not
+confirmed Cost-Aware decision regressions. The missing link is a comparable A0
+ordinary-allocation decision record and complete content-identity/physical
+attribution for the 48 unresolved forced windows. No new Native execution was
+performed for this correction.
+
 ## Evidence bindings
 
 | Artifact | SHA-256 |
@@ -115,4 +170,7 @@ change is authorized by this record.
 | Campaign report | `45d5ec1355dd0854a66ce3517582bb68cb66b11c67991cde76c2508f11ecec87` |
 | Root-cause audit | `605a5d4c90c48c05b2e58936a0eae8b43d3f47deed270e8f4a78e1841000c861` |
 | Decision table | `fb2649d0f247af1626425737b7cda98a97babc26bad03bf95019fa6b754a4aad` |
+| Bounded offline correction | `d0f61829140b1b1fb15e59a2a0a02978d7740921c15eaf004a87156d4402265d` |
+| Forced-window semantic comparisons | `d460902f6eb62992010bb6f31ffe783e30e68f00c86317f4dec0573cd4ced2b6` |
+| F4 request-level deltas | `b9fe4fc8e4e0ed3fb6e6c80c1bae0ceada63eefb1373b34cf92350e9da9ccc0d` |
 
