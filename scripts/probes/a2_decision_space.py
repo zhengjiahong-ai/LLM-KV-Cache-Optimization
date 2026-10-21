@@ -132,6 +132,128 @@ def survey(trials=4000, seed=11):
     return counts, unexplained
 
 
+def shared_vs_inversion(rounds=1500, seed=3):
+    """Separate the shared-block effect from the depth-inversion effect.
+
+    A shared block can only help if native picks it. If it is shallow while deeper
+    private blocks are colder, that pick *is* a depth inversion, so the two effects
+    are confounded by construction. This function classifies each decision by
+    (inversion present, shared block present) and reports the gain per cell, so a
+    reader can see that there is no cell with sharing and no inversion.
+    """
+    rng = random.Random(seed)
+    cells = {}
+    for _ in range(rounds):
+        chains = {"a": rng.randint(3, 6), "b": rng.randint(3, 6)}
+        ranks = {}
+        for name, length in chains.items():
+            # every chain strictly deepest-first: depth d gets rank length - d
+            ranks[name] = {d: length - d for d in range(1, length + 1)}
+        q = {name: 0.5 for name in chains}
+        geometry = _geometry(chains, ranks, q)
+
+        share = rng.random() < 0.5
+        if share:
+            geometry = _with_shared_tail(geometry, chains, ranks)
+
+        need = rng.randint(1, min(2, len(geometry.blocks)))
+        native = native_lru_order(geometry)[:need]
+        aware = select_victims(geometry, need).blocks
+        gain = _loss(geometry, native) - _loss(geometry, aware)
+        key = (share, _inverted(geometry))
+        cell = cells.setdefault(key, {"n": 0, "gain": 0, "best": 0.0})
+        cell["n"] += 1
+        cell["gain"] += int(gain > 1e-12)
+        cell["best"] = max(cell["best"], gain)
+    return cells
+
+
+def canonical_flatness():
+    """Lemma B applies to canonical sets only: no shared block, deepest suffix per chain.
+
+    A canonical set takes, for each chain, a contiguous run of the deepest blocks and
+    never evicts a shared block. Under uniform q every such set scores ``q * k``.
+    Sets outside that family need not, which is what the counterexample shows.
+    """
+    geometry = _geometry(
+        {"a": 4, "b": 4},
+        {"a": {d: 4 - d for d in range(1, 5)}, "b": {d: 4 - d for d in range(1, 5)}},
+        {"a": 0.5, "b": 0.5},
+    )
+    by_depth = {"a": {}, "b": {}}
+    for block_id, block in geometry.blocks.items():
+        member = block.memberships[0]
+        by_depth[member.chain][member.depth] = block_id
+
+    print("  k   canonical choices (suffix depth per chain)            loss")
+    for k in (1, 2):
+        rows = []
+        for ka in range(k + 1):
+            kb = k - ka
+            if ka > 4 or kb > 4:
+                continue
+            picks = [by_depth["a"][d] for d in range(5 - ka, 5)] if ka else []
+            picks += [by_depth["b"][d] for d in range(5 - kb, 5)] if kb else []
+            rows.append((ka, kb, _loss(geometry, picks)))
+        for ka, kb, loss in rows:
+            print(f"  {k}   a gets {ka}, b gets {kb}{'':32} {loss:.4f}")
+        distinct = {round(loss, 12) for _, _, loss in rows}
+        print(f"      -> distinct losses {sorted(distinct)}  "
+              f"flat={len(distinct) == 1}")
+
+
+def exhaustive_non_inverted(limit=6):
+    """Enumerate small non-inverted geometries with a shared block, exhaustively.
+
+    If sharing could pay off without a depth inversion, some of these must diverge.
+    Stronger than a random search because the space is enumerated.
+    """
+    import itertools
+
+    checked = 0
+    divergent = 0
+    for length_a, length_b in itertools.product([2, 3, 4], [2, 3, 4]):
+        for shared_depth in range(1, min(length_a, length_b) + 1):
+            private = [("a", d) for d in range(1, length_a + 1) if d != shared_depth]
+            private += [("b", d) for d in range(1, length_b + 1) if d != shared_depth]
+            if len(private) + 1 > limit:
+                continue
+            for perm in itertools.permutations(range(len(private) + 1)):
+                blocks = {}
+                for index, (chain, depth) in enumerate(private):
+                    blocks[index + 1] = LegalBlock(
+                        index + 1,
+                        perm[index],
+                        (Membership(chain, depth, f"{chain}#{depth}"),),
+                    )
+                shared_id = len(private) + 1
+                blocks[shared_id] = LegalBlock(
+                    shared_id,
+                    perm[len(private)],
+                    (
+                        Membership("a", shared_depth, "shared"),
+                        Membership("b", shared_depth, "shared"),
+                    ),
+                )
+                geometry = DecisionGeometry(
+                    blocks=blocks,
+                    chain_length={"a": length_a, "b": length_b},
+                    q_by_chain={"a": 0.5, "b": 0.5},
+                )
+                if _inverted(geometry):
+                    continue
+                checked += 1
+                for need in (1, 2):
+                    if need > len(blocks):
+                        continue
+                    native = native_lru_order(geometry)[:need]
+                    aware = select_victims(geometry, need).blocks
+                    gained = _loss(geometry, native) - _loss(geometry, aware)
+                    if set(native) != set(aware) and gained > 1e-12:
+                        divergent += 1
+    return checked, divergent
+
+
 def uniform_q_gain(trials=3000, seed=5, *, shared=False):
     """Uniform q, every chain already deepest-first: can A2 strictly improve?"""
     rng = random.Random(seed)
@@ -233,6 +355,26 @@ def main() -> int:
     print("== uniform q, every chain deepest-first, shared block above the deepest ==")
     print(f"  3000 random decisions: cost-aware strictly better in {shared_better}, "
           f"worst gain {shared_worst:.6f}")
+
+    cells = shared_vs_inversion()
+    print()
+    print("== shared effect vs inversion effect (uniform q) ==")
+    print("  shared  inverted   decisions   strictly better   best gain")
+    for (share, inverted), cell in sorted(cells.items()):
+        print(
+            f"  {share!s:>6}  {inverted!s:>8}   {cell['n']:9d}   "
+            f"{cell['gain']:15d}   {cell['best']:9.4f}"
+        )
+
+    print()
+    print("== lemma B scope: canonical (no shared, deepest suffix) sets only ==")
+    canonical_flatness()
+
+    print()
+    print("== exhaustive small non-inverted geometries WITH a shared block ==")
+    checked, divergent = exhaustive_non_inverted()
+    print(f"  geometries checked: {checked}")
+    print(f"  divergences with a positive proxy gain: {divergent}")
 
     print()
     print("== gain vs q spread on a non-inverted geometry (need = 2) ==")
