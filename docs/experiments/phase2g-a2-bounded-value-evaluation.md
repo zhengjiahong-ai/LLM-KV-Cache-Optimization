@@ -120,15 +120,32 @@ blocks as no-content candidates. A forced window is pairable only when its
 ordinal, required capacity, released programs, and semantic victim identities
 are all available.
 
-Of 122 forced-release windows, 74 had complete pairable semantic evidence and
-48 remained unpairable or identity-incomplete. In all 74 pairable windows:
+The final correctness pass reconstructs A0 only from the real
+`PRESSURE_REQUEST_COMPLETED.last_selected_block_ids` event. It validates that
+the selection excludes protected candidates and equals the frozen
+`(eligibility_tier, native_lru_rank)` ordering. A missing or ambiguous selected
+event is not replaced by a free-queue prefix. Likewise, A2 treats a block as
+hashless only when the forced-window evidence explicitly records
+`has_block_hash=false`; hashed-but-unverified and missing memberships remain
+unknown.
 
-- A2 equaled its internal Native-LRU reference;
-- A2 equaled the actual A0 Tier-aware victim content set; and
-- A0 equaled A2's internal Native-LRU reference.
+Of 122 forced-release windows, 34 had complete actual A0/A2 comparison evidence
+and 88 remained unpairable or identity-incomplete. In all 34 complete actual
+comparisons, A2 equaled the actual A0 Tier-aware victim content set and A0
+equaled A2's internal Native-LRU reference. Separately, 82 windows permitted
+the within-A2 comparison against its internal Native-LRU reference; the two
+previously observed divergences remain present in that narrower comparison.
+They cannot be upgraded to actual A0/A2 divergence because their A0 windows
+lack complete comparable evidence.
 
-Thus the two previously reported divergences were not confirmed as actual
-A0/A2 policy divergences. The 656 ordinary-allocation A2 decisions have no
+The unresolved-reason report records overlapping evidence failures, including
+74 missing/ambiguous A0 selected-block events, 20 window-contract mismatches,
+12 incomplete A0 selected-content identities, and incomplete A2 legal or
+victim identities. Two actual selected-block records also failed the frozen
+Tier-aware reconstruction and are retained as unobservable rather than
+reinterpreted.
+
+The 656 ordinary-allocation A2 decisions have no
 equivalent persisted A0 decision event and remain explicitly
 `NO_EQUIVALENT_A0_DECISION_EVENT_NOT_COMPARABLE`, rather than making every
 repeat pair globally unobservable.
@@ -155,8 +172,8 @@ The answer to the bounded review question is therefore:
 
 The three F4 regressions remain valid arm-level measurements, but they are not
 confirmed Cost-Aware decision regressions. The missing link is a comparable A0
-ordinary-allocation decision record and complete content-identity/physical
-attribution for the 48 unresolved forced windows. No new Native execution was
+ordinary-allocation decision record plus valid selected-block, content-identity,
+and physical attribution for the 88 unresolved forced windows. No new Native execution was
 performed for this correction.
 
 ## Evidence bindings
@@ -173,4 +190,6 @@ performed for this correction.
 | Bounded offline correction | `d0f61829140b1b1fb15e59a2a0a02978d7740921c15eaf004a87156d4402265d` |
 | Forced-window semantic comparisons | `d460902f6eb62992010bb6f31ffe783e30e68f00c86317f4dec0573cd4ced2b6` |
 | F4 request-level deltas | `b9fe4fc8e4e0ed3fb6e6c80c1bae0ceada63eefb1373b34cf92350e9da9ccc0d` |
+| Final corrected offline comparison | `e8364e49c627b34d1ea9f852df997120e9994a30a74ca4ba3055a42346184ab8` |
+| Final forced-window comparisons | `daed4d909d13048288a2b71f025eac1f2cbad7145d798a4d48445a873633165b` |
 

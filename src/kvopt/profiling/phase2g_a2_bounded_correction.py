@@ -97,43 +97,65 @@ def _candidate_semantics(payload: Mapping[str, object]) -> dict[int, SemanticBlo
     return {block_id: tuple(sorted(values)) for block_id, values in memberships.items()}
 
 
-def _decision_semantics(payload: Mapping[str, object]) -> dict[int, SemanticBlock]:
+def _decision_semantics(
+    payload: Mapping[str, object], forced_payload: Mapping[str, object]
+) -> dict[int, SemanticBlock]:
     """Recover verified memberships and explicit hashless state from A2 evidence."""
     result: dict[int, SemanticBlock] = {}
+    queue = forced_payload.get("original_free_queue", ())
+    hash_presence = (
+        {
+            int(row["block_id"]): row.get("has_block_hash")
+            for row in queue
+            if isinstance(row, Mapping) and isinstance(row.get("block_id"), int)
+        }
+        if isinstance(queue, (list, tuple))
+        else {}
+    )
+    hashes = payload.get("legal_content_hashes", ())
+    content_hashes = (
+        {
+            int(row["block_id"]): row.get("content_hash")
+            for row in hashes
+            if isinstance(row, Mapping) and isinstance(row.get("block_id"), int)
+        }
+        if isinstance(hashes, (list, tuple))
+        else {}
+    )
     memberships = payload.get("block_memberships", ())
     if isinstance(memberships, (list, tuple)):
         for row in memberships:
             if not isinstance(row, Mapping):
                 continue
             block_id = int(row["block_id"])
+            verified_hash = content_hashes.get(block_id)
+            if hash_presence.get(block_id) is not True or not isinstance(verified_hash, str):
+                continue
             values: set[tuple[str, int]] = set()
             for membership in row.get("memberships", ()):
                 if not isinstance(membership, Mapping):
                     continue
                 chain_id = membership.get("chain_id")
                 depth = membership.get("depth")
-                if isinstance(chain_id, str) and isinstance(depth, int):
+                if (
+                    isinstance(chain_id, str)
+                    and isinstance(depth, int)
+                    and membership.get("content_hash") == verified_hash
+                ):
                     values.add((chain_id.split(":", 1)[0], depth - 1))
             if values:
                 result[block_id] = tuple(sorted(values))
-    hashes = payload.get("legal_content_hashes", ())
-    if isinstance(hashes, (list, tuple)):
-        for row in hashes:
-            if (
-                isinstance(row, Mapping)
-                and row.get("content_hash") is None
-                and isinstance(row.get("block_id"), int)
-            ):
-                result[int(row["block_id"])] = HASHLESS
+    for block_id, present in hash_presence.items():
+        if present is False and content_hashes.get(block_id) is None:
+            result[block_id] = HASHLESS
     return result
 
 
 def _forced_rows(events: Sequence[Mapping[str, object]], *, policy: str) -> list[dict[str, object]]:
     states = _semantic_state(events)
     rows: list[dict[str, object]] = []
-    for ordinal, event in enumerate(
-        row for row in events if row.get("event_type") == "FORCED_RELEASE_DECISION"
-    ):
+    forced_events = [row for row in events if row.get("event_type") == "FORCED_RELEASE_DECISION"]
+    for ordinal, event in enumerate(forced_events):
         index = int(event["event_index"])
         payload = _payload(event)
         required = int(payload.get("required_blocks", 0))
@@ -147,7 +169,58 @@ def _forced_rows(events: Sequence[Mapping[str, object]], *, policy: str) -> list
         for row in queue_rows:
             if row.get("has_block_hash") is False:
                 semantic_state[int(row["block_id"])] = HASHLESS
-        actual_ids = [int(row["block_id"]) for row in queue_rows[:required]]
+        next_index = (
+            int(forced_events[ordinal + 1]["event_index"])
+            if ordinal + 1 < len(forced_events)
+            else None
+        )
+        completions = [
+            row
+            for row in events
+            if row.get("event_type") == "PRESSURE_REQUEST_COMPLETED"
+            and int(row["event_index"]) > index
+            and (next_index is None or int(row["event_index"]) < next_index)
+        ]
+        selected = (
+            _payload(completions[0]).get("last_selected_block_ids", ())
+            if len(completions) == 1
+            else ()
+        )
+        actual_ids = (
+            [int(value) for value in selected] if isinstance(selected, (list, tuple)) else []
+        )
+        legal_rows = [row for row in queue_rows if row.get("eligibility_tier") is not None]
+        legal_rows.sort(
+            key=lambda row: (
+                int(row["eligibility_tier"]),
+                int(row["native_lru_rank"]),
+            )
+        )
+        reconstructed_ids = [int(row["block_id"]) for row in legal_rows[:required]]
+        queue_valid = (
+            len({int(row["block_id"]) for row in queue_rows}) == len(queue_rows)
+            and [int(row["native_lru_rank"]) for row in queue_rows] == list(range(len(queue_rows)))
+            and len(legal_rows) >= required
+        )
+        selection_valid = (
+            len(completions) == 1
+            and len(actual_ids) == required
+            and len(actual_ids) == len(set(actual_ids))
+            and set(actual_ids).issubset({int(row["block_id"]) for row in legal_rows})
+            and actual_ids == reconstructed_ids
+        )
+        problems: list[str] = []
+        if len(completions) != 1:
+            problems.append("selected_block_event_missing_or_ambiguous")
+        if not queue_valid:
+            problems.append("eligibility_preparation_invalid")
+        if len(completions) == 1 and queue_valid and not selection_valid:
+            problems.append("selected_blocks_do_not_match_tier_aware_lru")
+        actual_semantics = (
+            _semantic_set(actual_ids, semantic_state) if queue_valid and selection_valid else None
+        )
+        if actual_semantics is None and queue_valid and selection_valid:
+            problems.append("selected_content_identity_incomplete")
         rows.append(
             {
                 "ordinal": ordinal,
@@ -155,7 +228,10 @@ def _forced_rows(events: Sequence[Mapping[str, object]], *, policy: str) -> list
                 "policy": policy,
                 "required_blocks": required,
                 "release_programs": _release_programs(payload),
-                "actual_victim_semantics": _semantic_set(actual_ids, semantic_state),
+                "actual_victim_semantics": actual_semantics,
+                "actual_selected_block_count": len(actual_ids),
+                "selection_observable": actual_semantics is not None,
+                "unobservable_reasons": problems,
                 "tier_counts": dict(
                     Counter(str(row.get("eligibility_tier")) for row in queue_rows)
                 ),
@@ -184,7 +260,9 @@ def _a2_decisions(events: Sequence[Mapping[str, object]]) -> tuple[list[dict[str
         payload = _payload(event)
         forced_payload = _payload(forced[ordinal])
         state = (
-            _decision_semantics(payload) or _candidate_semantics(forced_payload) or states[index]
+            _decision_semantics(payload, forced_payload)
+            or _candidate_semantics(forced_payload)
+            or states[index]
         )
         rows.append(
             {
@@ -290,36 +368,56 @@ def evaluate(
                 and a0["required_blocks"] == a2["required_blocks"]
                 and a0["release_programs"] == a2["release_programs"]
             )
-            identity_complete = bool(
-                a0
-                and a2
-                and a0["actual_victim_semantics"] is not None
+            a2_identity_complete = bool(
+                a2
                 and a2["selected_semantics"] is not None
                 and a2["internal_lru_semantics"] is not None
                 and a2["legal_semantics"] is not None
             )
+            actual_comparison_complete = bool(
+                window_match
+                and a0
+                and a0["actual_victim_semantics"] is not None
+                and a2_identity_complete
+            )
+            reasons: list[str] = []
+            if a0 is None or a2 is None:
+                reasons.append("missing_arm_window")
+            elif not window_match:
+                reasons.append("window_contract_mismatch")
+            if a0 is not None:
+                reasons.extend(str(value) for value in a0["unobservable_reasons"])
+            if a2 is not None:
+                if a2["legal_semantics"] is None:
+                    reasons.append("a2_legal_identity_incomplete")
+                if a2["selected_semantics"] is None:
+                    reasons.append("a2_selected_identity_incomplete")
+                if a2["internal_lru_semantics"] is None:
+                    reasons.append("a2_internal_lru_identity_incomplete")
             comparisons.append(
                 {
                     "scenario_id": key[0],
                     "repeat": key[1],
                     "window_ordinal": ordinal,
                     "window_pairable": window_match,
-                    "identity_complete": identity_complete,
+                    "a2_identity_complete": a2_identity_complete,
+                    "actual_comparison_complete": actual_comparison_complete,
+                    "unobservable_reasons": sorted(set(reasons)),
                     "selector": a2.get("selector") if a2 else None,
                     "fallbacks": a2.get("fallbacks") if a2 else None,
                     "a2_vs_internal_lru_diverged": (
                         a2["selected_semantics"] != a2["internal_lru_semantics"]
-                        if identity_complete
+                        if a2_identity_complete
                         else None
                     ),
                     "a2_vs_actual_a0_diverged": (
                         a2["selected_semantics"] != a0["actual_victim_semantics"]
-                        if window_match and identity_complete
+                        if actual_comparison_complete
                         else None
                     ),
                     "a0_vs_internal_lru_reference_diverged": (
                         a0["actual_victim_semantics"] != a2["internal_lru_semantics"]
-                        if window_match and identity_complete
+                        if actual_comparison_complete
                         else None
                     ),
                 }
@@ -332,13 +430,16 @@ def evaluate(
         f4_repeat_deltas[key] += int(row["delta_recomputed_tokens_a2_minus_a0"])
     actual_values = [row["a2_vs_actual_a0_diverged"] for row in comparisons]
     result = {
-        "schema_version": "phase2g.a2_bounded_offline_correction.v1",
+        "schema_version": "phase2g.a2_bounded_offline_correction.v2",
         "scope": "EXISTING_144_RUN_EVIDENCE_ONLY",
         "forced_window_comparison_count": len(comparisons),
         "ordinary_allocation_decision_count": ordinary_count,
         "ordinary_allocation_classification": "NO_EQUIVALENT_A0_DECISION_EVENT_NOT_COMPARABLE",
         "pairable_complete_forced_window_count": sum(
-            row["window_pairable"] and row["identity_complete"] for row in comparisons
+            row["actual_comparison_complete"] for row in comparisons
+        ),
+        "a2_internal_lru_comparable_window_count": sum(
+            row["a2_identity_complete"] for row in comparisons
         ),
         "a2_vs_internal_lru_divergence_count": sum(
             row["a2_vs_internal_lru_diverged"] is True for row in comparisons
@@ -349,6 +450,13 @@ def evaluate(
         ),
         "unobservable_or_unpairable_forced_window_count": sum(
             value is None for value in actual_values
+        ),
+        "unobservable_reason_counts": dict(
+            sorted(
+                Counter(
+                    reason for row in comparisons for reason in row["unobservable_reasons"]
+                ).items()
+            )
         ),
         "f4_nonzero_request_delta_row_count": len(f4_requests),
         "f4_repeat_delta_recomputed_tokens_a2_minus_a0": dict(sorted(f4_repeat_deltas.items())),
