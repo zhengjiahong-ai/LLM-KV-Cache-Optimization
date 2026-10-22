@@ -34,10 +34,22 @@ def _median(values: list[float]) -> float | None:
     return statistics.median(values) if values else None
 
 
-def build_report(root: Path) -> dict[str, object]:
+def build_report(
+    root: Path,
+    *,
+    frozen_instance_ids: tuple[str, ...],
+    conversion_directory: str = "converted",
+) -> dict[str, object]:
     run_dirs = sorted(path.parent for path in root.glob("*/run.json"))
     if not run_dirs:
         raise ValueError("no W1-A run manifests found")
+    directory_ids = [path.name for path in run_dirs]
+    if len(set(directory_ids)) != len(directory_ids):
+        raise ValueError("duplicate W1-A run directory identity")
+    if set(directory_ids) != set(frozen_instance_ids):
+        missing = sorted(set(frozen_instance_ids) - set(directory_ids))
+        extra = sorted(set(directory_ids) - set(frozen_instance_ids))
+        raise ValueError(f"frozen W1-A cohort mismatch: missing={missing}, extra={extra}")
     tasks: list[dict[str, object]] = []
     first_tokens: dict[str, list[int]] = {}
     all_model_elapsed: list[float] = []
@@ -49,8 +61,8 @@ def build_report(root: Path) -> dict[str, object]:
         run_path = run_dir / "run.json"
         sidecar_path = run_dir / "acquisition-sidecar.json"
         trajectory_path = run_dir / f"{run_dir.name}.traj.json"
-        evidence_path = run_dir / "converted" / "acquisition-evidence.json"
-        validation_path = run_dir / "converted" / "validation-report.json"
+        evidence_path = run_dir / conversion_directory / "acquisition-evidence.json"
+        validation_path = run_dir / conversion_directory / "validation-report.json"
         required = [sidecar_path, trajectory_path, evidence_path, validation_path]
         if any(not path.is_file() for path in required):
             raise ValueError(f"incomplete W1-A run evidence: {run_dir.name}")
@@ -61,6 +73,21 @@ def build_report(root: Path) -> dict[str, object]:
         instance_id = str(run.get("instance_id"))
         if instance_id != run_dir.name or sidecar.get("program_id") != instance_id:
             raise ValueError("run directory, manifest, and sidecar identity mismatch")
+        trajectory = _load_object(trajectory_path)
+        info = trajectory.get("info")
+        if not isinstance(info, dict):
+            raise TypeError("trajectory info must be an object")
+        if info.get("exit_status") != run.get("agent_exit_status"):
+            raise ValueError("run manifest and trajectory exit status mismatch")
+        expected_outcome = (
+            "SUBMITTED"
+            if info.get("exit_status") == "Submitted"
+            else "INCOMPLETE"
+            if info.get("exit_status") in {"LimitsExceeded", "ContextLengthExceeded"}
+            else "FAILED"
+        )
+        if run.get("agent_outcome") != expected_outcome:
+            raise ValueError("run outcome does not match trajectory completion semantics")
         model_calls = sidecar.get("model_calls")
         tool_calls = sidecar.get("tool_calls")
         requests = evidence.get("requests")
@@ -257,8 +284,22 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--runs-root", type=Path, required=True)
     parser.add_argument("--output-root", type=Path, required=True)
+    parser.add_argument("--sample-manifest", type=Path, required=True)
+    parser.add_argument("--conversion-directory", default="converted")
     args = parser.parse_args()
-    report = build_report(args.runs_root)
+    sample = _load_object(args.sample_manifest)
+    instance_ids = sample.get("instance_ids")
+    if not isinstance(instance_ids, list) or any(
+        not isinstance(instance_id, str) for instance_id in instance_ids
+    ):
+        raise TypeError("sample manifest instance_ids must be strings")
+    if len(instance_ids) != len(set(instance_ids)):
+        raise ValueError("sample manifest contains duplicate instance IDs")
+    report = build_report(
+        args.runs_root,
+        frozen_instance_ids=tuple(instance_ids),
+        conversion_directory=args.conversion_directory,
+    )
     args.output_root.mkdir(parents=True, exist_ok=True)
     (args.output_root / "w1a-report.json").write_text(
         json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8"

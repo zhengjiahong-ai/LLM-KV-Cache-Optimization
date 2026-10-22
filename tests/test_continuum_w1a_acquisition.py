@@ -3,12 +3,14 @@ from pathlib import Path
 
 import pytest
 
+from kvopt.workload.continuum_source_audit import convert_mini_swe_trajectory
 from kvopt.workload.continuum_w1a_acquisition import (
     AcquisitionRecorder,
     ObservedEnvironment,
     ObservedModel,
 )
 from kvopt.workload.continuum_w1a_conversion import (
+    apply_completion_semantics,
     build_sidecar_evidence,
     main,
     resolve_instance_id,
@@ -91,14 +93,33 @@ def test_sidecar_conversion_recovers_timing_and_token_growth(tmp_path: Path) -> 
     trajectory = tmp_path / "task.traj.json"
     trajectory.write_text("{}\n", encoding="utf-8")
     recorder = _recorder()
-    recorder.observe_model_call([{"role": "user", "content": "fix"}], dict)
-    recorder.observe_tool_call("rg bug", lambda: {"output": "ok"})
+    recorder.observe_model_call(
+        [{"role": "user", "content": "fix"}],
+        lambda: {"content": "```bash\nrg bug\n```", "extra": None},
+    )
+    recorder.observe_tool_call("rg bug", lambda: {"output": "ok", "returncode": 0})
     sidecar = recorder.to_dict(trajectory_path=trajectory)
 
     evidence = build_sidecar_evidence(
         sidecar,
+        trajectory={
+            "messages": [
+                {"role": "user", "content": "fix"},
+                {
+                    "role": "assistant",
+                    "content": "```bash\nrg bug\n```",
+                    "extra": None,
+                },
+                {"role": "user", "content": "<returncode>0</returncode>\n<output>\nok</output>"},
+            ],
+            "info": {"exit_status": "LimitsExceeded"},
+        },
         trajectory_path=trajectory,
         instance_id="astropy__astropy-12907",
+        tokenize_messages=lambda messages: (
+            "rendered:" + str(len(messages)),
+            list(range(len(messages) + 1)),
+        ),
     )
 
     assert evidence["model_call_count"] == 1
@@ -118,8 +139,99 @@ def test_sidecar_conversion_rejects_trajectory_hash_mismatch(tmp_path: Path) -> 
     with pytest.raises(ValueError, match="trajectory SHA-256"):
         build_sidecar_evidence(
             sidecar,
+            trajectory={"messages": []},
             trajectory_path=trajectory,
             instance_id="astropy__astropy-12907",
+            tokenize_messages=lambda _messages: ("", []),
+        )
+
+
+def test_sidecar_conversion_rejects_tampered_request_messages(tmp_path: Path) -> None:
+    trajectory_path = tmp_path / "task.traj.json"
+    trajectory = {
+        "messages": [
+            {"role": "user", "content": "fix"},
+            {"role": "assistant", "content": "done", "extra": None},
+        ],
+        "info": {"exit_status": "LimitsExceeded"},
+    }
+    trajectory_path.write_text(json.dumps(trajectory), encoding="utf-8")
+    recorder = _recorder()
+    recorder.observe_model_call([{"role": "user", "content": "different"}], dict)
+    sidecar = recorder.to_dict(trajectory_path=trajectory_path)
+
+    with pytest.raises(ValueError, match="messages do not match"):
+        build_sidecar_evidence(
+            sidecar,
+            trajectory=trajectory,
+            trajectory_path=trajectory_path,
+            instance_id="astropy__astropy-12907",
+            tokenize_messages=lambda messages: (
+                "rendered:" + str(len(messages)),
+                list(range(len(messages) + 1)),
+            ),
+        )
+
+
+def test_sidecar_conversion_rejects_tampered_tool_result(tmp_path: Path) -> None:
+    trajectory_path = tmp_path / "task.traj.json"
+    trajectory = {
+        "messages": [
+            {"role": "user", "content": "fix"},
+            {"role": "assistant", "content": "```bash\nrg bug\n```", "extra": None},
+            {
+                "role": "user",
+                "content": "<returncode>0</returncode>\n<output>\ntampered\n</output>",
+            },
+        ],
+        "info": {"exit_status": "LimitsExceeded"},
+    }
+    trajectory_path.write_text(json.dumps(trajectory), encoding="utf-8")
+    recorder = _recorder()
+    recorder.observe_model_call(
+        [{"role": "user", "content": "fix"}],
+        lambda: {"content": "```bash\nrg bug\n```", "extra": None},
+    )
+    recorder.observe_tool_call("rg bug", lambda: {"output": "original", "returncode": 0})
+    sidecar = recorder.to_dict(trajectory_path=trajectory_path)
+
+    with pytest.raises(ValueError, match="tool result does not match"):
+        build_sidecar_evidence(
+            sidecar,
+            trajectory=trajectory,
+            trajectory_path=trajectory_path,
+            instance_id="astropy__astropy-12907",
+            tokenize_messages=lambda messages: (
+                "rendered:" + str(len(messages)),
+                list(range(len(messages) + 1)),
+            ),
+        )
+
+
+def test_sidecar_conversion_rejects_tokenizer_mismatch(tmp_path: Path) -> None:
+    trajectory_path = tmp_path / "task.traj.json"
+    trajectory = {
+        "messages": [
+            {"role": "user", "content": "fix"},
+            {"role": "assistant", "content": "done", "extra": None},
+        ],
+        "info": {"exit_status": "LimitsExceeded"},
+    }
+    trajectory_path.write_text(json.dumps(trajectory), encoding="utf-8")
+    recorder = _recorder()
+    recorder.observe_model_call(
+        [{"role": "user", "content": "fix"}],
+        lambda: {"content": "done", "extra": None},
+    )
+    sidecar = recorder.to_dict(trajectory_path=trajectory_path)
+
+    with pytest.raises(ValueError, match="token IDs do not match"):
+        build_sidecar_evidence(
+            sidecar,
+            trajectory=trajectory,
+            trajectory_path=trajectory_path,
+            instance_id="astropy__astropy-12907",
+            tokenize_messages=lambda _messages: ("rendered:1", [999]),
         )
 
 
@@ -167,6 +279,28 @@ def test_external_instance_id_may_fill_but_not_override_source_identity() -> Non
         )
 
 
+def test_incomplete_trajectory_is_right_censored_not_terminal() -> None:
+    trajectory = {
+        "trajectory_format": "mini-swe-agent-1",
+        "instance_id": "task",
+        "messages": [
+            {"role": "user", "content": "fix"},
+            {"role": "assistant", "content": "work"},
+        ],
+    }
+    base_trace, base_report = convert_mini_swe_trajectory(
+        trajectory, instance_id="task"
+    )
+
+    trace, report = apply_completion_semantics(
+        base_trace, base_report, program_complete=False
+    )
+
+    assert trace.allow_incomplete_programs is True
+    assert all(request.is_terminal is False for request in trace.requests)
+    assert report["program_completion_status"] == "RIGHT_CENSORED_INCOMPLETE"
+
+
 def test_w1a_cli_returns_nonzero_when_validation_fails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -175,11 +309,22 @@ def test_w1a_cli_returns_nonzero_when_validation_fails(
         json.dumps(
             {
                 "trajectory_format": "mini-swe-agent-1",
-                "info": {"instance_id": "task"},
+                "info": {"instance_id": "task", "exit_status": "Submitted"},
                 "messages": [
                     {"role": "user", "content": "fix"},
                     {"role": "assistant", "content": "done"},
                 ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    run_manifest = tmp_path / "run.json"
+    run_manifest.write_text(
+        json.dumps(
+            {
+                "instance_id": "task",
+                "agent_exit_status": "Submitted",
+                "agent_outcome": "SUBMITTED",
             }
         ),
         encoding="utf-8",
@@ -190,7 +335,15 @@ def test_w1a_cli_returns_nonzero_when_validation_fails(
     )
     monkeypatch.setattr(
         "sys.argv",
-        ["converter", "--trajectory", str(source), "--output-root", str(tmp_path / "out")],
+        [
+            "converter",
+            "--trajectory",
+            str(source),
+            "--run-manifest",
+            str(run_manifest),
+            "--output-root",
+            str(tmp_path / "out"),
+        ],
     )
 
     assert main() == 2
