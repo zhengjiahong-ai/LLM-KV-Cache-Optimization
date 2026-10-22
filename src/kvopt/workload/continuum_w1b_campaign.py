@@ -61,6 +61,7 @@ def materialize_campaign(
         group_id = group["group_id"]
         requests: list[dict[str, Any]] = []
         replay_tokens: dict[str, list[int]] = {}
+        right_censored_end_request_ids: list[str] = []
         program_prefix_tokens: dict[str, int] = {}
         for session_position, selected_session in enumerate(group["sessions"]):
             session_id = selected_session["session_id"]
@@ -81,6 +82,8 @@ def materialize_campaign(
                 naturally_terminal = not session["right_censored"] and source_turn == len(
                     session["requests"]
                 )
+                if replay_turn == len(selected) and not naturally_terminal:
+                    right_censored_end_request_ids.append(request_id)
                 requests.append(
                     {
                         "program_id": session_id,
@@ -151,6 +154,7 @@ def materialize_campaign(
                     "capture_terminal_prefix_snapshot": True,
                     "continuum_w1b_replay_mode": True,
                     "replay_token_ids_by_request": replay_tokens,
+                    "w1b_right_censored_end_request_ids": right_censored_end_request_ids,
                     "program_prefix_tokens": program_prefix_tokens,
                     "pressure_prompt_tokens": pressure_tokens,
                     "phase2g_unique_protected_blocks": capacity_blocks - pressure_blocks,
@@ -230,7 +234,18 @@ def validate_campaign(*, manifest_path: Path) -> dict[str, Any]:
         if {row["continuum_w1b_stage"]["arm"] for row in configs} != {"A0", "A1", "A2"}:
             problems.append(f"missing arm in {group_id}")
             continue
-        tokens = [row["backend_options"]["replay_token_ids_by_request"] for row in configs]
+        if any(
+            "w1b_right_censored_end_request_ids" not in row["backend_options"] for row in configs
+        ):
+            problems.append(f"missing right-censored endpoint contract: {group_id}")
+            continue
+        tokens = [
+            (
+                row["backend_options"]["replay_token_ids_by_request"],
+                row["backend_options"]["w1b_right_censored_end_request_ids"],
+            )
+            for row in configs
+        ]
         if any(value != tokens[0] for value in tokens[1:]):
             problems.append(f"cross-arm token identity mismatch: {group_id}")
         fixed = [

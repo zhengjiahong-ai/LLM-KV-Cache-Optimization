@@ -19,7 +19,10 @@ def test_validate_campaign_rejects_cross_arm_token_mismatch(tmp_path: Path) -> N
             "seed": 1,
             "model": {"name": "m"},
             "tokenizer": {"name": "t"},
-            "backend_options": {"replay_token_ids_by_request": {"r": [1 if arm != "A2" else 2]}},
+            "backend_options": {
+                "replay_token_ids_by_request": {"r": [1 if arm != "A2" else 2]},
+                "w1b_right_censored_end_request_ids": [],
+            },
             "continuum_w1b_stage": {"arm": arm},
         }
         path = tmp_path / f"{arm}.json"

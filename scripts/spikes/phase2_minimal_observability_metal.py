@@ -355,6 +355,25 @@ def _w1b_replay_token_ids(
     return parsed
 
 
+def _w1b_right_censored_end_requests(
+    options: Mapping[str, object],
+    replay_tokens: Mapping[str, tuple[int, ...]] | None,
+) -> frozenset[str]:
+    raw = options.get("w1b_right_censored_end_request_ids", [])
+    if not isinstance(raw, list) or any(
+        not isinstance(request_id, str) or not request_id for request_id in raw
+    ):
+        raise TypeError("w1b_right_censored_end_request_ids must be a list of request IDs")
+    result = frozenset(raw)
+    if len(result) != len(raw):
+        raise ValueError("W1-B right-censored request IDs must be unique")
+    if result and replay_tokens is None:
+        raise ValueError("W1-B right-censored endpoints require exact-token replay mode")
+    if replay_tokens is not None and not result.issubset(replay_tokens):
+        raise ValueError("W1-B right-censored endpoint is missing replay tokens")
+    return result
+
+
 def _expected_profiling_block_override(
     program_prefix_tokens: Mapping[str, int],
     pressure_tokens: int,
@@ -738,6 +757,10 @@ class MinimalMetalObservabilityBackend:
         self._phase2b_content_keys = _phase2b_content_keys(options)
         self._phase2c_request_segments = _phase2c_request_segments(options)
         self._w1b_replay_tokens = _w1b_replay_token_ids(options)
+        self._w1b_right_censored_end_requests = _w1b_right_censored_end_requests(
+            options,
+            self._w1b_replay_tokens,
+        )
         self._content_evidence_enabled = (
             self._phase2b_content_keys is not None
             or self._phase2c_request_segments is not None
@@ -1828,6 +1851,26 @@ class MinimalMetalObservabilityBackend:
             native_id,
             expected_token_count=prefix_tokens,
         )
+
+        if request.request_id in self._w1b_right_censored_end_requests:
+            self._sink.emit(
+                ExperimentEvent.create(
+                    event_type="W1B_RIGHT_CENSORED_REPLAY_WINDOW_ENDED",
+                    timestamp=finished_at,
+                    clock_domain="system_monotonic",
+                    source="phase2.minimal_metal",
+                    program_id=program,
+                    request_id=logical_request,
+                    prefix_id=prefix,
+                    payload={
+                        "source_completion_inferred": False,
+                        "future_demand_created": False,
+                        "ttl_query_performed": False,
+                        "claim_boundary": ("selected replay window ended; source session did not"),
+                    },
+                )
+            )
+            return
 
         if request.is_terminal:
             self._handle_lifecycle(
