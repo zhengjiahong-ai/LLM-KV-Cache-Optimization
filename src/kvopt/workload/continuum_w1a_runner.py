@@ -132,51 +132,57 @@ def run_one(
     }
     manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
 
-    dataset = load_dataset(
-        config["dataset"]["name"],
-        config["dataset"]["config"],
-        split=config["dataset"]["split"],
-        revision=config["dataset"]["revision"],
-    )
-    matching = [row for row in dataset if row["instance_id"] == instance_id]
-    if len(matching) != 1:
-        raise ValueError("frozen instance was not uniquely found in the pinned dataset")
-    instance = dict(matching[0])
-
-    author_config_path = source_checkout / config["author_runner"]["agent_config"]
-    agent_config = yaml.safe_load(author_config_path.read_text(encoding="utf-8"))
-    model_config = copy.deepcopy(config["model"])
-    model_config.pop("model_revision")
-    model_config.pop("tokenizer_name")
-    model_config.pop("tokenizer_revision")
-    model_config.pop("paper_example_difference")
-    model = get_model(config=model_config)
-    environment_config = copy.deepcopy(agent_config.get("environment", {}))
-    environment_config.update(
-        {
-            "environment_class": config["environment"]["environment_class"],
-            "image": get_swebench_docker_image_name(instance),
-            "timeout": config["environment"]["tool_timeout_seconds"],
-        }
-    )
-    environment = get_environment(environment_config)
-    recorder = AcquisitionRecorder(
-        program_id=instance_id,
-        provenance={
-            "dataset": copy.deepcopy(config["dataset"]),
-            "author_runner": copy.deepcopy(config["author_runner"]),
-            "model": copy.deepcopy(config["model"]),
-            "repository_git_sha": manifest["repository_git_sha"],
-        },
-        tokenize_messages=_tokenizer_observer(config["model"]),
-    )
-    observed_model = ObservedModel(model, recorder)
-    observed_environment = ObservedEnvironment(environment, recorder)
-    agent = DefaultAgent(observed_model, observed_environment, **agent_config.get("agent", {}))
+    agent = None
+    recorder = None
     exit_status = "NOT_STARTED"
     result = ""
     extra_info = None
     try:
+        dataset = load_dataset(
+            config["dataset"]["name"],
+            config["dataset"]["config"],
+            split=config["dataset"]["split"],
+            revision=config["dataset"]["revision"],
+        )
+        matching = [row for row in dataset if row["instance_id"] == instance_id]
+        if len(matching) != 1:
+            raise ValueError("frozen instance was not uniquely found in the pinned dataset")
+        instance = dict(matching[0])
+
+        author_config_path = source_checkout / config["author_runner"]["agent_config"]
+        agent_config = yaml.safe_load(author_config_path.read_text(encoding="utf-8"))
+        model_config = copy.deepcopy(config["model"])
+        model_config.pop("model_revision")
+        model_config.pop("tokenizer_name")
+        model_config.pop("tokenizer_revision")
+        model_config.pop("paper_example_difference")
+        model = get_model(config=model_config)
+        environment_config = copy.deepcopy(agent_config.get("environment", {}))
+        environment_config.update(
+            {
+                "environment_class": config["environment"]["environment_class"],
+                "image": get_swebench_docker_image_name(instance),
+                "timeout": config["environment"]["tool_timeout_seconds"],
+            }
+        )
+        manifest["environment_image"] = environment_config["image"]
+        manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+        environment = get_environment(environment_config)
+        recorder = AcquisitionRecorder(
+            program_id=instance_id,
+            provenance={
+                "dataset": copy.deepcopy(config["dataset"]),
+                "author_runner": copy.deepcopy(config["author_runner"]),
+                "model": copy.deepcopy(config["model"]),
+                "repository_git_sha": manifest["repository_git_sha"],
+            },
+            tokenize_messages=_tokenizer_observer(config["model"]),
+        )
+        observed_model = ObservedModel(model, recorder)
+        observed_environment = ObservedEnvironment(environment, recorder)
+        agent = DefaultAgent(
+            observed_model, observed_environment, **agent_config.get("agent", {})
+        )
         exit_status, result = agent.run(instance["problem_statement"])
         manifest["status"] = "completed"
         manifest["agent_exit_status"] = exit_status
@@ -191,21 +197,26 @@ def run_one(
         manifest["agent_outcome"] = "FAILED"
         manifest["failure_reason"] = f"{type(error).__name__}: {error}"
     finally:
-        save_traj(
-            agent,
-            trajectory_path,
-            exit_status=exit_status,
-            result=result,
-            extra_info=extra_info,
-            instance_id=instance_id,
-            print_path=False,
-        )
-        recorder.write(sidecar_path, trajectory_path=trajectory_path)
-        manifest["trajectory_sha256"] = _sha256(trajectory_path)
-        manifest["sidecar_sha256"] = _sha256(sidecar_path)
-        manifest["model_call_count"] = len(recorder.model_calls)
-        manifest["tool_call_count"] = len(recorder.tool_calls)
-        manifest["tool_execution_demonstrated"] = bool(recorder.tool_calls)
+        if agent is not None and recorder is not None:
+            save_traj(
+                agent,
+                trajectory_path,
+                exit_status=exit_status,
+                result=result,
+                extra_info=extra_info,
+                instance_id=instance_id,
+                print_path=False,
+            )
+            recorder.write(sidecar_path, trajectory_path=trajectory_path)
+            manifest["trajectory_sha256"] = _sha256(trajectory_path)
+            manifest["sidecar_sha256"] = _sha256(sidecar_path)
+            manifest["model_call_count"] = len(recorder.model_calls)
+            manifest["tool_call_count"] = len(recorder.tool_calls)
+            manifest["tool_execution_demonstrated"] = bool(recorder.tool_calls)
+        else:
+            manifest["model_call_count"] = 0
+            manifest["tool_call_count"] = 0
+            manifest["tool_execution_demonstrated"] = False
         manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
     print(f"{manifest['status']}: {run_dir}")
     return run_dir
