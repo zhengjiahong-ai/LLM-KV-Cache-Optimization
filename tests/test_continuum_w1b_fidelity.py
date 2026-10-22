@@ -16,7 +16,7 @@ def test_evaluate_accepts_exact_native_input_chain(tmp_path: Path) -> None:
     _write(
         fixture,
         {
-            "expected_request_digests": {"s:turn:1": "digest"},
+            "expected_native_request_digests": {"s:turn:1": "digest"},
             "expected_token_counts": {"s:turn:1": 3},
         },
     )
@@ -56,7 +56,7 @@ def test_evaluate_fails_on_native_token_count_mismatch(tmp_path: Path) -> None:
     _write(
         fixture,
         {
-            "expected_request_digests": {"s:turn:1": "digest"},
+            "expected_native_request_digests": {"s:turn:1": "digest"},
             "expected_token_counts": {"s:turn:1": 3},
         },
     )
@@ -151,3 +151,9 @@ def test_materialize_separates_input_fidelity_from_ttl_costs(tmp_path: Path) -> 
     materialize(freeze_path=freeze_path, output_dir=tmp_path / "fixture")
     config = json.loads((tmp_path / "fixture" / "config.json").read_text())
     assert config["backend_options"]["w1b_native_input_fidelity_only"] is True
+    manifest = json.loads((tmp_path / "fixture" / "manifest.json").read_text())
+    assert manifest["source_request_digests"][requests[0]["request_id"]] == "digest"
+    assert (
+        manifest["expected_native_request_digests"][requests[0]["request_id"]]
+        != "digest"
+    )

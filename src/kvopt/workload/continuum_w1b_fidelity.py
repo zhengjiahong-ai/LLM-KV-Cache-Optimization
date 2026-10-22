@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from .phase2b_fidelity import token_ids_sha256
 from .phase2d_e2_runner import _run_phase2d_stage
 
 STAGE = "W1B_NATIVE_FIDELITY"
@@ -141,8 +142,11 @@ def materialize(*, freeze_path: Path, output_dir: Path) -> Path:
         "trace_sha256": _sha256(trace_path),
         "config": "config.json",
         "config_sha256": _sha256(config_path),
-        "expected_request_digests": {
+        "source_request_digests": {
             row["request_id"]: row["token_ids_sha256"] for row in requests
+        },
+        "expected_native_request_digests": {
+            row["request_id"]: token_ids_sha256(row["token_ids"]) for row in requests
         },
         "expected_token_counts": {row["request_id"]: row["token_count"] for row in requests},
         "comparison_claim_authorized": False,
@@ -168,7 +172,7 @@ def run(config_path: Path, *, output_root: Path, run_id: str) -> Path:
 def evaluate(*, fixture_path: Path, run_dir: Path, output_path: Path) -> dict[str, Any]:
     fixture = _load(fixture_path)
     run_manifest = _load(run_dir / "run.json")
-    expected = fixture["expected_request_digests"]
+    expected = fixture["expected_native_request_digests"]
     expected_counts = fixture["expected_token_counts"]
     materialized: dict[str, dict[str, Any]] = {}
     native: dict[str, dict[str, Any]] = {}
