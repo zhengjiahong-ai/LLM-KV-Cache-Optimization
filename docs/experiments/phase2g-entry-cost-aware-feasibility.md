@@ -4,52 +4,60 @@ M1 授权：Entry-level Cost-Aware Method Research / Existing A1 Model Analysis 
 Mathematical Counterexamples & Lightweight Offline Probes / Candidate Algorithm Proposal —— 已授权。
 A1/A2 实现修改、A3 实现、新 Native Campaign、Workload Redesign —— **未授权**；B1 LOCKED。
 
-本文按 M1 对 PR #70 的复审（RC1–RC3）修订。`src/` 未改动，无 Native 运行。
+**本版修正（M1 复审后）**：删除上一版在 H1 上自建的重算分析。
+A1 与 A2 的实验结果已由各自 PR 正式发布，本文**只引用已公布数据**，
+不再重新构造口径。`src/` 未改动，无 Native 运行。
 
-```bash
-python scripts/probes/a1_structural_gap.py                                        # 合成反例
-python scripts/probes/a1_real_gap.py --q=uniform local/phase2a-h1-level-a-evidence-e3a02fd
-python scripts/probes/a1_real_gap.py --q=deadline local/phase2a-h1-level-a-evidence-e3a02fd
-```
+数据来源：
+
+| 来源 | 内容 |
+|---|---|
+| `docs/experiments/phase2g-a1/README.md` | A1 离线 selection 对照（H1 formal Level-A，120 决策） |
+| `docs/experiments/phase2g-a2-bounded-value-evaluation.md` | A2 bounded native value evaluation（144 runs） |
+| `scripts/probes/a1_structural_gap.py` | 纯合成反例（**不依赖任何语料**） |
 
 ---
 
-## 0. 结论（三层分开陈述）
+## 0. 结论
 
 | 层级 | 结论 |
 |---|---|
-| **事实**：A1 的建模缺口 | **成立**。A1 的 $N_i$ 与实际 Native victim set 不等价，可量化（§2） |
-| **代理模型比较**：该缺口是否造成模型损失差异 | 均匀 $q$ 下 **0/111**；deadline 代理 $q$ 下 48/111，平均 **0.0016 块**（§4） |
-| **实际 Native 收益** | **未测**。本语料无 `aggregate_recomputed_tokens`，本文不作任何 token 结论 |
+| **事实层**：A1 的建模缺口 | **成立**。$N_i$ 与实际 Native victim set 不等价（§2，合成反例，不依赖语料） |
+| **A1 已公布事实**：分歧形态 | 48/120 分歧**由 $\lambda$ 驱动、$\tau$ 不敏感**（§3.1） |
+| **A1 已公布事实**：释放基数 | A1 相对 A0 **从不多释放**（111 例相同 / 9 例少释放）（§3.2） |
+| **物理收益** | **两侧均未验证**：A1 未做 native 配对；A2 已做但未观测到收益（§4） |
+| **ERC / MUS** | 已公布数据**不足以判定** → `INCONCLUSIVE`（§5） |
 
-在此范围内：**ERC/MUS 在该语料与当前 proxy 模型下未显示优势**。
-这**不**等于"Entry-level 优化空间为零"；是否继续投入应由 §7 的有效证据决定，而不是由本文的离线最优性决定。
-
----
-
-## 1. 上一版的三个错误（已修正）
-
-| 错误 | 上一版 | 本版 |
-|---|---|---|
-| **重放语义（RC1）** | 自写"最低分优先"顺序贪心，丢弃了 per-unit / pair-lookahead / deadline-fallback 分支 | 直接调用 `A1EntryCostAwareStrategy` + `replay_decision`，完整梯子 |
-| **决策计数** | 每个 run 目录只取**最后一个** `FORCED_RELEASE_DECISION`，得 90 | 用 `load_decision_snapshots`，得 **123** |
-| **损失口径（RC2）** | 把 candidate `block_ids` 顺序当作内容深度 | 深度只来自 `a2_evidence.prove_chain` 的**已验证**内容链 |
-
-第一条影响所有数字：上一版"48/48 分支不可见"，本版实际分支使用为
-`single_step 123 / per_unit 78`（per-unit 是 A1 的主要路径之一，旧脚本完全没有）。
+> **不宣称** Entry-level 优化空间为零。本文只说明：现有已公布证据无法支持实现 ERC/MUS。
 
 ---
 
-## 2. 事实层：缺口是真实的
+## 1. 上一版的错误（已删除）
 
-`src/kvopt/continuum/selection.py`：
+上一版在 H1 artifacts 上自行重算了一套统计（缺口占比、同 relief 差异、A1 对最优的余量），
+并据此给出"ERC/MUS 已被否证"。该做法有两个问题：
+
+1. **重复且口径自造**：A1 的实验结果已由 `docs/experiments/phase2g-a1/README.md` 正式发布，
+   自建重算只会引入与官方口径不一致的数字（M1 前两轮 RC1/RC2 已指出同类风险）；
+2. **单臂语料**：H1 Level-A 是 A0 决策流，在其上反事实评估 A1 存在选择效应，
+   不能替代 A1 自身的配对实验。
+
+**本版删除该分析及其探针，改为一律引用已公布数据。** 仅保留纯合成反例（§2），
+因为它证明的是模型性质，与语料无关。
+
+---
+
+## 2. 事实层：缺口是真实的（合成反例，不依赖语料）
+
+`src/kvopt/continuum/selection.py` 的实际淘汰规则：
 
 ```text
 virtual_eligible_order = sorted(eligible, key=(eligibility_tier, native_lru_rank))
 selected               = virtual_eligible_order[:target]
+TIER_1 = hashless（恒可回收，无内容）    TIER_2 = hashed 且全部 owner 已释放
 ```
 
-A1（`a1_entry.py`）：
+A1（`src/kvopt/costaware/a1_entry.py`）：
 
 ```text
 N_i    = |newly_eligible_after(i)|
@@ -57,187 +65,249 @@ Rhat_i = q_i * [ min(need, N_i) + λ * (N_i - min(need, N_i))^+ ]
 ```
 
 $N_i$ 数的是「有多少块从受保护变成可回收」，**不读 rank、不区分 tier、不含实际淘汰谁**。
+A1 的 README 也明确记录了这一点（§1「完全不读 `decision_native_lru_position`」）。
 
-`a1_structural_gap.py` 的两个反例：
+### 2.1 反例一：为不会被淘汰的块付费
 
-- **反例一**：`target = 3`，队列前 3 块 hashless ⇒ 目标已满足，释放 `e` 不改变淘汰集，
-  真实重算 **0.0000**，A1 计费 $q_e N_e = 2.7000$（与 $q$ 无关）；
-- **反例二**：两 entry 的 $N_i$ 同为 1，真实损失 **1.5000 vs 0.5000**，A1 评分同为 0.5000。
+`relief_not_eviction()`：队列 rank 0..5，前 3 块 hashless，后 3 块由 entry `e` 独占，
+`target = 3`。
 
-> 事实层结论：**A1 的代价量与代价函数依赖的量不是同一个**。此结论不依赖任何语料。
+```text
+before: eligible = 3, target = 3          <- 目标已满足
+N_e                                      = 3
+释放 e 之后实际被淘汰                     = 那 3 个 hashless 块（无内容）
+释放 e 导致的真实重算                    = 0.0000
+A1 为 e 计费 q_e * N_e                   = 2.7000
+```
+
+此反例与 $q$ 完全无关。
+
+### 2.2 反例二：相同 relief，不同真实损失
+
+`warm_vs_cold()`：`target = 1`，两个 entry 各解锁一个块，$N_i$ 都是 1。
+
+| 释放 | 解锁块在其前缀中的深度 | 真实损失 |
+|---|---:|---:|
+| `cold` | 1 / 3 | **1.5000** |
+| `warm` | 3 / 3 | **0.5000** |
+
+```text
+A1 score cold = 0.5000, warm = 0.5000  -> identical
+```
+
+> **事实层结论**：A1 的代价量与代价函数实际依赖的量不是同一个。
+> 该结论由构造保证，不需要语料支持，也不因语料更换而改变。
 
 ---
 
-## 3. RC1：严格重放冻结 A1
+## 3. A1 已公布数据能告诉我们什么
 
-复用仓库既有语义，不重写策略：
+来源：`docs/experiments/phase2g-a1/README.md`（H1 formal Level-A，**120** 决策）。
 
-```python
-strategy = A1EntryCostAwareStrategy()
-outcome  = replay_decision(snapshot, strategy, rows)   # 完整梯子
-```
+### 3.1 分歧由 $\lambda$ 驱动，$\tau$ 几乎无影响
 
-**Gate**：重放通路自身必须先通过对 A0 的复现检验，否则整份分析作废：
+release-set 差异数：
 
-```text
-raw_runs                 136
-snapshots                123
-a0_decisions_compared    123
-a0_set_match_rate        1.0      <- ExecutedP1BStrategy 精确复现观测 A0
-a0_sequence_match_rate   1.0
-```
-
-A0 保真度 123/123 证明「事件 → snapshot → 淘汰」这条通路正确。
-A1 自身在本语料**没有 selection trace**（这是 A0 语料），因此逐决策一致性只能通过
-「梯子可复算 + 分支可枚举」保证，而不能与 A1 的实跑 trace 对比——这一点如实记录。
-
-分支使用：
-
-```text
-single_step   123        <- 每决策第一步都走 single-step 分支
-per_unit       78        <- 78 个决策的后续步骤走 per-unit 分支
-pair_lookahead  0
-deadline_fallback 0
-```
-
-> `per_unit` 出现 78 次，而这在上一版的简化贪心中完全不存在。这正是 RC1 指出的问题。
-
----
-
-## 4. RC2：五个量分开
-
-| 量 | 定义 | 本文字段 |
-|---|---|---|
-| (1) 新增可回收块 | `ReplayState.newly_eligible_after` 的差 | 用于复现 A1 的 $N_i$ |
-| (2) 实际 Native victim 块 | `(eligibility_tier, native_lru_rank)` 前 `target` 个 | `victim_ids()` |
-| (3) 已验证内容链深度 | `prove_chain` 证明的 `(chain, depth, hash)` | `VerifiedChain.depth_of` |
-| (4) proxy 加权模型损失 | $\sum_c q_c (m_c - j_c + 1)$，$j_c$ 取自 (2)∩(3) | `model_loss()` |
-| (5) Native 实际重算 token | `aggregate_recomputed_tokens` | **本语料无此数据** |
-
-要点：
-
-- **深度不取自 candidate `block_ids` 顺序**。深度来自 `prove_chain`
-  （最新前序快照 + 有序 `block_ids` 相等 + 完整载荷 + 同进程无介入淘汰），
-  与 A2 阶段使用的是同一套身份证明。
-- **本语料 123/123 决策的全部候选链均可证明**，因此 (3) 无缺口；
-  某个决策若触及未验证链，`model_loss()` 返回 `None` 并被排除，而不是按零记。
-- **(4) 不换算为 token**，也不作为 token 上下界。$q$ 未校准、$L$ 为加权块单位、
-  实测存在部分命中（`loss == 16×block_count` 仅 159/207）——这三个理由已在 PR #69 定性。
-- **初始 eligibility** 由冻结规则决定（hashless 恒可回收；hashed 需全部 owner 已释放），
-  并经 A0 保真度校验间接确认与观测一致（123/123）。
-
----
-
-## 5. RC3：有效决策记账与比较
-
-```text
-replay-valid decisions              123
-content-verified decisions          123
-decisions compared against best     111
-undecidable: too_many_candidates_to_enumerate  12
-```
-
-（12 个决策的候选数超过枚举上限 8，未能穷举替代方案，标为不可判定，不纳入统计。）
-
-### 5.1 比较结果
-
-| 权重口径 | A1 差于最优 | A1 优于最优 | 平均 (A1 − best) | 最大 (A1 − best) |
-|---|---:|---:|---:|---:|
-| **均匀 $q$（结构效应）** | **0 / 111** | 0 | **0.000000** | 0.000000 |
-| **deadline 代理 $q$** | **48 / 111** | 0 | **0.001557** | **0.020617** |
-
-结论分为两层：
-
-1. **结构层**：均匀权重下 A1 在 111/111 决策上与最优可行集**损失完全相同**。
-   缺口（§2）真实存在，但不改变模型损失。
-2. **权重层**：用真实 deadline 代理 $q$ 后，48/111 决策存在更优集合，但平均差距
-   **0.0016 块**、最大 0.0206 块。
-
-典型例子（`h1-f1-draw-06-seed-101`，target=32）：
-
-```text
-A1   释放 1 个 entry                      -> 2.4741
-最优 释放 2 个 entry（多释放 h1-agent-1） -> 2.4731     差 0.0010
-```
-
-基数分布（111 个可比较决策）：
-
-| 情形 | 数量 |
-|---|---:|
-| 与最优同为基数，损失相同 | 63 |
-| **与最优同为基数，损失更差** | **39** |
-| 比最优少释放一个 entry | 9 |
-
-⇒ 「多释放换微小改善」只解释 9/48；**其余 39 例在相同释放数下仍然更差**。
-这削弱了上一版「最优解需要多释放所以不是真优」的辩解，也说明缺口在相同基数内
-确实存在模型损失差异——只是均值为 0.0016 块。
-
-### 5.2 不可比较的部分
-
-| 原因 | 数量 |
-|---|---:|
-| 候选数超过枚举上限 | 12 |
-| 缺少已验证内容链 | 0（本语料全部可证） |
-| 缺少 (5) native 实际 token | 全部 123（本语料不含该指标） |
-
-> 因此本文能回答的是「**模型损失**上 A1 是否落后」，不能回答「**真实重算 token** 上
-> 入口层是否还有空间」。后者需要 A1 vs 其他策略的 paired native 测量。
-
----
-
-## 6. ERC / MUS 的重新限定结论
-
-按 RC3，不能再说"已被否证"，应说：
-
-| 候选 | 原判据 | 本语料实测 | 限定结论 |
+| λ | τ=10 | τ=30 | τ=120 |
 |---|---|---|---|
-| **ERC**（以实际淘汰集为代价） | 同 relief 不同淘汰集需产生**模型损失**差异 | 均匀 $q$ 下差异为 **0** | 在该语料与均匀权重下**未显示优势**；deadline 权重下差异存在但均值 0.0016 块 |
-| **MUS**（极小释放集） | 基数差异需产生损失差异 | 最优集与 A1 **同基数**者 102/111，少释放者 0 | 在该语料下 A1 **并未过度释放**；MUS 的前提不成立 |
+| 0.0 | 9 | 9 | 9 |
+| 0.25 | 48 | 48 | 48 |
+| 0.5 | 48 | 48 | 48 |
+| 1.0 | 48 | 48 | 48 |
 
-**因此：`INCONCLUSIVE`** —— 不是"方向无效"，而是"该语料 + 该 proxy 模型不足以判定"。
+两点解读：
 
-$\lambda$ 敏感性的结论保持不变（合成探针）：0/0.5/1.0 → 1.6174 / 1.6408 / 1.7042，
-非单调且差异极小；这支持「问题是 $N_i$ 不是代价，而非 $\lambda$ 取值」，但不构成否证。
+- **$\tau$ 不敏感**：$q$ 的具体温度不影响 A1 的选择，只要单调性保持。
+  这意味着**调整 $q$ 的形状不会改变 A1 的行为**，与 A2 阶段"更精细的 $q$ 无收益"一致；
+- **$\lambda$ 决定分歧**：$\lambda=0$ 时分歧从 48 降到 9，说明分歧主要来自
+  $\lambda$ 对超额 $N_i$ 的惩罚项，而非 $q$ 的重排。
+
+> 这条对本文的意义：A1 的行为空间主要由「$N_i$ 及其惩罚」占据，
+> 而 §2 已证明 $N_i$ 不等于实际淘汰量。这不是说 A1 因此更差，
+> 而是说**任何以 $N_i$ 为基础的改进都继承同一误差**。
+
+### 3.2 A1 相对 A0 从不多释放 —— 但不等于相对最优
+
+```text
+A1 释放次数 − A0      0 次：111 例      −1 次：9 例      （A1 从不多释放）
+branch               single_step 120 次   per_unit 78 次
+```
+
+**必须限定**：这是**相对 A0**（deadline-first）的基数比较，
+不是相对最优基数的比较。因此：
+
+- 它**不能**证明"A1 没有过度释放"；
+- 但它**确实**说明"减少释放次数"这一收益来源（MUS 的动机）在 A1 身上
+  已部分实现：A1 在 9 例中用更少的释放达到了同样的目标
+  （README §3.2 的两个 curated 例证：A0 释放 3 个/2 个 Entry，A1 各释放 1 个，达到相同 eligible）。
+
+### 3.3 暴露量双向偏移，离线不可判优劣
+
+`Δ eligible_final`（A1 − A0，120 决策）：
+
+| Δ | 决策数 | 含义 |
+|---|---:|---|
+| +9 | 3 | A1 用 1 次释放拿到更大可行池 |
+| 0 | 72 | 相同 |
+| −4 … −28 | 45 | A1 暴露更少 |
+
+A1 的 README 明确写道：**两个方向都不是"更好"**——
+少暴露意味着未来压力事件余量更少，多暴露意味着更大的残留风险敞口。
+
+> 这直接限定了本文能做的判断：**已公布数据没有建立"哪种释放集更好"的判据**。
+> 因此任何候选方法（含 ERC）的收益都无法用这批数据判定。
 
 ---
 
-## 7. 需要什么证据才能决定是否继续 ERC/MUS
+## 4. A2 已公布数据：Block 层未观测到收益
 
-M1 的问题应由有效证据回答。按当前缺口，最小证据集是：
+来源：`docs/experiments/phase2g-a2-bounded-value-evaluation.md`。
 
-1. **A1 的 selection trace 与在线事件同源**：本语料没有 A1 trace，只能离线复算。
-   若存在 A1 实跑语料，应先用它做逐决策一致性检验（本版已留出接口）。
-2. **entry 释放的资源代价进入目标**：9/48 例最优解需多释放一个 entry。
-   若该代价不建模，这 9 例的「更优」就不是真实更优；
-   但另 39 例同基数仍更差，这一部分不依赖该建模。
-3. **paired native 测量**：本语料无 `aggregate_recomputed_tokens`，
-   任何 token 层结论都必须另行测量。
-4. **更大候选集的决策**：12/123 已超出枚举上限；真实压力决策的候选数可能更大，
-   需要可扩展的替代方案生成，而不是穷举。
+| 指标 | 结果 |
+|---|---|
+| BETTER / WORSE / TIED | **0 / 3 / 33** |
+| 退化集中 | F4（multi-turn growth / repeated pressure） |
+| A2 决策回退 `content_unverified` | **402 / 778（51.7%）** |
+| 确认的选择分歧 | 2（同一 draw 的两次 repeat） |
+| 最终判定 | `INCONCLUSIVE_BASELINE_COMPARISON_AND_NATIVE_ATTRIBUTION_GAPS_REMAIN` |
 
-**在这些证据到位前，不建议实现 ERC/MUS**；也不建议据本文宣称 Entry-level 空间为零。
+对本文的作用有两点：
+
+1. **先例**：更精细的代价模型（A2 的 proxy-weighted loss）在真实 Native 上
+   **未显示收益**。这不否定 Entry 层，但要求 Entry 层的新方法提供**可判定的证据**，
+   而不是"目标更精细"这一理由；
+2. **风险**：51.7% 的决策因内容身份不可证而回退。
+   Entry 层若同样依赖 block 级内容深度，会继承同一可观测性缺口（见 §5.2）。
 
 ---
 
-## 8. 与 A2 的关系（保留但不扩大）
+## 5. ERC / MUS 的判定
 
-A2 阶段的结论仍然成立且有价值：更精细的代价函数本身不产生收益。
-本报告在 §5.1 观察到相同形态——**结构层差异为 0，权重层差异为 0.0016 块**。
+### 5.1 MUS（极小释放集）
 
-但本文**不**把 A2 的结论外推为「Entry-level 空间为零」：
-A2 测的是 block 层，本报告测的是 H1 语料上的模型损失，
-两者都不能替代 A1 在真实 Native 负载上的 paired 测量。
+| 判据 | 已公布数据 | 判定 |
+|---|---|---|
+| A1 是否相对**最优**过度释放 | **无数据**（官方只给相对 A0 的基数） | 不可判定 |
+| A1 相对 A0 是否过度释放 | 从不多释放（111 相同 / 9 更少） | MUS 的动机在 A1 中已部分实现 |
+
+**判定：`INCONCLUSIVE`**（相对最优无数据），但**动机显著减弱**：
+A1 已在 9/120 例中用更少释放达到同一目标，说明"N_i 排序导致过度释放"这一前提
+在已观测部分不成立。
+
+### 5.2 ERC（以实际淘汰集为代价）
+
+| 判据 | 已公布数据 | 判定 |
+|---|---|---|
+| 实际淘汰集是否与 $N_i$ 解锁集不同 | **无数据**（A1 的离线对照未模拟 Block 层，README §5 明确"Block 层淘汰未模拟"） | 不可判定 |
+| 该差异是否产生重算损失差异 | **无数据** | 不可判定 |
+| 是否具备内容身份可观测性 | A2 回合 51.7% 回退，说明该缺口真实存在 | 风险已知 |
+
+**判定：`INCONCLUSIVE`。** 不是"已否证"，而是**现有已公布数据没有回答这个问题的能力**。
+
+> A1 的 README §5 写得很清楚：`ReplayOutcome` 只有计数没有块集合，`QueueBlock` 无深度，
+> 因此"释放了谁"无法连接到"实际淘汰了哪些块"。ERC 恰恰需要这条连接。
+
+### 5.3 $\lambda$ 敏感性（合成探针）
+
+`a1_structural_gap.py` 的合成结论：λ 从 0 到 1 的 realized loss 为
+1.6174 / 1.6408 / 1.7042（3000 个合成决策），非单调且差异小。
+这**支持**"问题是 $N_i$ 语义而非 $\lambda$ 取值"，但**不构成否证**——
+合成几何赋予差异很大的 $q$ 且随机打乱 rank，不能外推到真实语料。
+
+---
+
+## 6. 回应 M1 的五个问题
+
+### 6.1 Existing A1 Limitation
+
+**可证明**：A1 的 $N_i$ 与实际淘汰量不等价（§2，合成反例，与语料无关）。
+**已公布数据支持的部分**：A1 的分歧由 $\lambda$（即 $N_i$ 惩罚项）驱动，$\tau$ 不敏感（§3.1）。
+**未证明**：该不等价是否导致 A1 在真实负载上更差。A1 未做 native 配对。
+
+### 6.2 Unexploited Information
+
+`native_lru_rank`、tier 组成、解锁块的前缀深度在 A1 中均未被使用（§2，A1 README §1 确认）。
+**但已公布数据无法说明使用它们能带来多少收益**——因为这需要 Block 层模拟，
+而 A1 的对照未做（README §5）。
+
+### 6.3 Optimization Structure
+
+已公布数据支持的结构事实：
+
+- 释放数与暴露量**可以双向解耦**（§3.3：A1 有 3 例多暴露、45 例少暴露）；
+- A1 已在 9/120 例中用更少释放达到目标（§3.2）；
+- 但没有数据表明这些差异对应更好的重算结果。
+
+### 6.4 Candidate Method
+
+原拟两个，均已按 M1 要求做判据检查：
+
+| 候选 | 判定 |
+|---|---|
+| **MUS** | `INCONCLUSIVE`；动机因 A1 从不多释放而显著减弱 |
+| **ERC** | `INCONCLUSIVE`；所需数据（Block 层淘汰集）在已公布对照中不存在 |
+
+按 M1 指示，证据不足时不强行推进实现。
+
+### 6.5 Falsifiability
+
+| 判据 | 当前可否判定 | 所需数据 |
+|---|---|---|
+| A1 相对最优过度释放 | ❌ | A1 语料上的基数最优解 |
+| 解锁集 ≠ 淘汰集 | ❌ | Block 层模拟或 native 淘汰块集合 |
+| 该差异产生损失差异 | ❌ | 内容深度 + 淘汰集（即 A2 的 T1–T3） |
+| 真实重算 token 收益 | ❌ | A1/A0 paired native 测量 |
+
+---
+
+## 7. 建议
+
+1. **不实现 ERC / MUS**：现有已公布数据无法支持任一方，实现会重演 A2 的模式
+   （先做精细模型，再发现无可观测收益）。
+2. **不调整 $\lambda$、$\tau$**：A1 已公布数据显示 $\tau$ 不敏感、$\lambda$ 只改变分歧数量
+   而不改变判据。
+3. **若要继续 Entry 层，先补判据数据**（按成本从低到高）：
+   1. **Block 层淘汰集模拟**：在 A1 已发布的 `released` 序列上补 `QueueBlock` 深度与淘汰集，
+      即可回答"解锁集是否等于淘汰集"；
+   2. **A1 语料上的基数最优解**：回答 MUS 是否有空间；
+   3. **A1/A0 paired native 测量**：唯一能回答 token 收益的层级。
+4. 在 (1)(2) 到位前，Entry 层研究**不具备可判定的下一步**。
+
+---
+
+## 8. 与 A2 的关系
+
+| | A2（已完成的负面分支） | Entry 层（本文） |
+|---|---|---|
+| 已公布结论 | 0 BETTER / 3 WORSE / 33 TIED | A1 只有离线 selection 对照，无物理收益 |
+| 失败/缺口形态 | $q$ 与真实复用无关 | $N_i$ 与实际淘汰集不等价 |
+| 共同风险 | 依赖未校准的 $q$ | 同左（A1 也用 $q$） |
+| 共同的可观测性缺口 | 51.7% 决策内容身份不可证 | Block 层淘汰集未被模拟 |
+
+两层共享同一个未解决的问题：**"选了什么"到"重算了多少 token"的连接尚未建立**。
+在这条连接建立之前，任何 Entry 层改进都无法被判定。
 
 ---
 
 ## 9. 边界声明
 
-- 语料：`local/phase2a-h1-level-a-evidence-e3a02fd`，136 run / **123** 个 forced-release 决策。
-  不是 A2 bounded evaluation 语料，两者不可混算。
-- A0 保真度 123/123 是本报告的前置门；未通过则分析作废。
-- (3) 内容深度全部来自 `prove_chain`，本语料 123/123 可证。
-- (4) 为 proxy 加权模型损失，**不换算 token、不作 token 界**。
-- (5) native 实际重算 token **未测**，本文不对其作任何断言。
-- 合成探针（477/3000 次优）与真实语料（均匀 $q$ 下 0/111）的差异原因见 §1 与 §5：
-  合成生成器赋予差异很大的 $q$ 且随机打乱 rank，真实语料不产生该几何。以真实语料为准。
+- 本文**不再**包含任何自建的 H1 重算统计；所有 A1/A2 数字均逐项引自其已发布文档。
+- 剩余的唯一自建材料是 `a1_structural_gap.py` 的**合成**反例，用于证明模型性质，
+  不用于估计真实收益。
+- A1 的物理收益**未验证**（A1 README §5 原文："aggregate recomputed tokens 改善：未验证"）。
+- A2 的结论保持 `INCONCLUSIVE_BASELINE_COMPARISON_AND_NATIVE_ATTRIBUTION_GAPS_REMAIN`。
 - 未修改 `src/`，未运行 Native，未实现 A3，未改 workload，未动 A1/A2 代码与结果。
+
+---
+
+## 10. 复现
+
+```bash
+# 唯一自建材料：合成反例与结构分析（不读任何实验语料）
+python scripts/probes/a1_structural_gap.py
+
+# A1 已公布结果的复跑方式（见 A1 README §7）
+PYTHONPATH=src python -m kvopt.costaware.a1_compare --controlled
+PYTHONPATH=src python -m kvopt.costaware.a1_compare \
+    --corpus docs/experiments/phase2a-m6-formal/curated-evidence/exemplars
+```
