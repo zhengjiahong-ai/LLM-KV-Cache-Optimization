@@ -127,6 +127,7 @@ def run_one(
         "author_repository_git_sha": _git_sha(source_checkout),
         "dataset": copy.deepcopy(config["dataset"]),
         "model": copy.deepcopy(config["model"]),
+        "server_runtime": copy.deepcopy(config["server_runtime"]),
         "environment": copy.deepcopy(config["environment"]),
     }
     manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")

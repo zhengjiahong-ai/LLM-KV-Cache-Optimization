@@ -158,6 +158,20 @@ def test_acquisition_config_is_bound_to_frozen_w0_sample() -> None:
         "repository_commit"
     ]
     assert config["acquisition"]["formal_native_campaign_authorized"] is False
+    assert config["server_runtime"] == {
+        "backend": "vllm-metal",
+        "vllm_version": "0.27.1+cpu",
+        "vllm_metal_version": "0.3.0",
+        "host": "127.0.0.1",
+        "port": 8100,
+        "max_model_len": 16384,
+        "gpu_memory_utilization": 0.75,
+        "environment": {
+            "HF_HUB_OFFLINE": "1",
+            "TRANSFORMERS_OFFLINE": "1",
+            "VLLM_ENABLE_V1_MULTIPROCESSING": "0",
+        },
+    }
     validate_instance_id("astropy__astropy-12907", sample)
 
 
