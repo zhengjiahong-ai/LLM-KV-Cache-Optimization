@@ -30,6 +30,7 @@ kvopt-phase2b-evidence-pack = "kvopt.profiling.phase2b_evidence:main"
 kvopt-continuum-workload-convert = "kvopt.workload.continuum_source_audit:main"
 kvopt-continuum-w1a-convert = "kvopt.workload.continuum_w1a_conversion:main"
 kvopt-continuum-w1a-run = "kvopt.workload.continuum_w1a_runner:main"
+kvopt-continuum-w1a-report = "kvopt.workload.continuum_w1a_report:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=7", "ruff>=0.5"]
