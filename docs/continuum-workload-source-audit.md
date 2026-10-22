@@ -7,10 +7,10 @@ Scope: source audit and conversion feasibility only; no Native campaign or polic
 
 | Field | Finding |
 |---|---|
-| Paper | *Continuum: Efficiently Serving Agentic Workflows with Elastic KV Cache Management* (`arXiv:2511.02230`) |
+| Paper | *Continuum: Efficient and Robust Multi-Turn LLM Agent Scheduling with KV Cache Time-to-Live* (`arXiv:2511.02230`) |
 | Author repository | `Hanchenli/vllm-continuum`, audited at commit `316a58794a6ff86b216e579b74fd56ed0c5a911f` |
 | Repository license | Apache-2.0 |
-| Workload dataset | `princeton-nlp/SWE-bench_Verified`, `default/test`, 500 rows |
+| Workload dataset | `princeton-nlp/SWE-bench_Verified`, `default/test`, 500 rows, revision `c104f840cc67f8b6eec6f759ebc8b2693d585d4a` |
 | Dataset task | Human-validated GitHub issue resolution; issue text and repository base commit are published |
 | Agent runner | Bundled Mini-SWE-Agent `mini-extra swebench` path |
 | Agent configuration | `swebench.yaml`: cumulative chat messages, shell action/observation loop, step limit 50 |
@@ -29,9 +29,11 @@ The author path loads `princeton-nlp/SWE-bench_Verified` through Hugging Face
 `datasets`, creates one Mini-SWE-Agent job per `instance_id`, and saves a
 `mini-swe-agent-1` trajectory containing `info` and cumulative `messages`.
 Each model call receives the full message list accumulated so far. Assistant
-shell actions are followed by user-role observation messages, which means real
-context growth and tool results can be preserved by converting each assistant
-turn's preceding message list into one Phase 2 request.
+shell actions are followed by user-role observation messages, which means the
+logical message-history growth and tool results can be preserved by converting
+each assistant turn's preceding message list into one Phase 2 request. This does
+not prove that a synthetic JSON representation is a literal byte/token prefix
+of the model-submitted prompt.
 
 The repository does not publish those per-instance paper trajectories. Its
 saved trajectory schema also does not require request timestamps or submitted
@@ -47,9 +49,10 @@ must not be presented as a byte-for-byte recreation of the paper setup.
 ## Frozen W0 sample
 
 `configs/phase2/continuum-swebench-w0-sample-v1.json` freezes ten rows before
-trajectory acquisition. Selection is the first ten records in the published
-`default/test` order; no random sampling is involved, so the seed is explicitly
-`null`. The sample is a source-migration fixture, not an experimental sample.
+trajectory acquisition. Selection is the first ten records in the pinned
+`default/test` revision; no random sampling is involved, so the seed is
+explicitly `null`. The sample is a source-migration fixture, not an experimental
+sample.
 
 At W0 close, the task metadata is publicly accessible, while the corresponding
 paper trajectories are `NOT_MATERIALIZED`. This is deliberately fail-closed:

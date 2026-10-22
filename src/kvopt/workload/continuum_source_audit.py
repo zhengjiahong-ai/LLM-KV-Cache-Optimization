@@ -9,7 +9,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-from collections.abc import Mapping, Sequence
+import math
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -30,7 +31,10 @@ def _message_timestamp(message: Mapping[str, Any]) -> float | None:
     value = message.get("timestamp_seconds")
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
-    return float(value)
+    result = float(value)
+    if not math.isfinite(result):
+        raise ValueError("message timestamp must be finite")
+    return result
 
 
 def convert_mini_swe_trajectory(
@@ -55,20 +59,19 @@ def convert_mini_swe_trajectory(
     ]
     if not assistant_indexes:
         raise ValueError("trajectory has no model requests")
-
-    first_timestamp = next(
-        (
-            timestamp
-            for message in messages
-            if (timestamp := _message_timestamp(message)) is not None
-        ),
-        None,
-    )
+    observed_timestamps = [
+        timestamp
+        for message in messages
+        if (timestamp := _message_timestamp(message)) is not None
+    ]
+    if observed_timestamps != sorted(observed_timestamps):
+        raise ValueError("message timestamps must be non-decreasing")
     requests: list[PlannedRequest] = []
     request_evidence: list[dict[str, object]] = []
     previous_prompt = ""
-    all_timestamps_observed = True
     all_token_ids_observed = True
+    token_prefix_verified = True
+    previous_token_ids: list[int] | None = None
 
     for turn_index, message_index in enumerate(assistant_indexes, start=1):
         assistant_message = messages[message_index]
@@ -77,13 +80,14 @@ def convert_mini_swe_trajectory(
             raise ValueError("assistant message cannot be the first trajectory message")
         prompt = _canonical_json(request_messages)
         timestamp = _message_timestamp(assistant_message)
-        if timestamp is None or first_timestamp is None:
-            arrival = float(turn_index - 1)
-            timing_status = "IMPUTED_ORDINAL_NOT_SOURCE_OBSERVED"
-            all_timestamps_observed = False
-        else:
-            arrival = max(0.0, timestamp - first_timestamp)
-            timing_status = "SOURCE_OBSERVED"
+        # Message timestamps do not have a proven submit/admit semantic.  Phase
+        # 2 timing therefore stays ordinal even when diagnostic timestamps exist.
+        arrival = float(turn_index - 1)
+        timing_status = (
+            "MESSAGE_TIMESTAMP_DIAGNOSTIC_NOT_REQUEST_TIMING"
+            if timestamp is not None
+            else "IMPUTED_ORDINAL_NOT_SOURCE_OBSERVED"
+        )
 
         is_terminal = turn_index == len(assistant_indexes)
         next_user = next(
@@ -98,12 +102,7 @@ def convert_mini_swe_trajectory(
             gap = None
             tool_type = None
         else:
-            next_timestamp = _message_timestamp(next_user) if next_user else None
-            if timestamp is not None and next_timestamp is not None:
-                gap = max(0.0, next_timestamp - timestamp)
-            else:
-                gap = 0.0
-                all_timestamps_observed = False
+            gap = 0.0
             tool_type = "shell"
 
         token_ids = assistant_message.get("input_token_ids")
@@ -112,6 +111,16 @@ def convert_mini_swe_trajectory(
             token_ids = None
             token_status = "NOT_OBSERVABLE_IN_PUBLIC_TRAJECTORY"
             all_token_ids_observed = False
+            previous_prefix_status: bool | None = None
+            token_prefix_verified = False
+        else:
+            previous_prefix_status = (
+                None
+                if previous_token_ids is None
+                else token_ids[: len(previous_token_ids)] == previous_token_ids
+            )
+            if previous_prefix_status is False:
+                token_prefix_verified = False
         request_id = f"{resolved_id}:turn:{turn_index}"
         requests.append(
             PlannedRequest(
@@ -120,7 +129,10 @@ def convert_mini_swe_trajectory(
                 turn_index=turn_index,
                 planned_arrival_offset_seconds=arrival,
                 prompt=prompt,
-                prefix_prompt=previous_prompt,
+                # Canonical JSON arrays do not grow by literal suffix append:
+                # the old closing bracket changes into a comma.  Do not expose
+                # the logical parent as a physical prompt prefix.
+                prefix_prompt="",
                 is_terminal=is_terminal,
                 next_tool_type=tool_type,
                 tool_gap_seconds=gap,
@@ -131,13 +143,22 @@ def convert_mini_swe_trajectory(
                 "request_id": request_id,
                 "source_assistant_message_index": message_index,
                 "materialized_prompt_sha256": _sha256_text(prompt),
-                "prefix_prompt_sha256": _sha256_text(previous_prompt),
+                "logical_parent_prompt_sha256": (
+                    None if turn_index == 1 else _sha256_text(previous_prompt)
+                ),
+                "emitted_prefix_prompt_status": "UNKNOWN_NOT_MODEL_RENDERED",
                 "submitted_token_ids": token_ids,
                 "submitted_token_ids_status": token_status,
+                "previous_submitted_tokens_are_prefix": previous_prefix_status,
                 "timing_status": timing_status,
+                "diagnostic_assistant_message_timestamp_seconds": timestamp,
+                "diagnostic_next_user_message_timestamp_seconds": (
+                    _message_timestamp(next_user) if next_user else None
+                ),
             }
         )
         previous_prompt = prompt
+        previous_token_ids = token_ids
 
     trace = Phase2Trace(
         trace_id=f"continuum-swebench-{resolved_id}",
@@ -153,16 +174,17 @@ def convert_mini_swe_trajectory(
         "request_evidence": request_evidence,
         "fidelity": {
             "message_order_preserved": True,
-            "context_growth_preserved": True,
+            "logical_message_history_growth_preserved": True,
             "tool_observations_preserved_in_prompt": True,
-            "source_timing_complete": all_timestamps_observed,
+            "synthetic_serialization_is_model_submitted_prompt": False,
+            "literal_prompt_prefix_verified": False,
+            "request_timing_complete": False,
             "submitted_token_ids_complete": all_token_ids_observed,
+            "submitted_token_prefix_verified": (
+                all_token_ids_observed and token_prefix_verified
+            ),
         },
-        "conversion_verdict": (
-            "PASS"
-            if all_timestamps_observed and all_token_ids_observed
-            else "CONDITIONAL_PASS_MISSING_SOURCE_OBSERVATIONS"
-        ),
+        "conversion_verdict": "CONDITIONAL_PASS_STRUCTURAL_ONLY",
     }
     return trace, report
 
@@ -170,44 +192,35 @@ def convert_mini_swe_trajectory(
 def validate_conversion(
     trajectory: Mapping[str, Any], trace: Phase2Trace, report: Mapping[str, Any]
 ) -> dict[str, object]:
-    messages = trajectory.get("messages")
-    if not isinstance(messages, Sequence):
-        raise TypeError("trajectory messages must be a sequence")
-    assistant_indexes = [
-        index
-        for index, message in enumerate(messages)
-        if isinstance(message, Mapping) and message.get("role") == "assistant"
-    ]
-    expected_prompts = [_canonical_json(messages[:index]) for index in assistant_indexes]
-    prompts_match = [request.prompt for request in trace.requests] == expected_prompts
-    growth_match = all(
-        request.prefix_prompt == ("" if index == 0 else trace.requests[index - 1].prompt)
+    source_info = trajectory.get("info")
+    source_instance_id = source_info.get("instance_id") if isinstance(source_info, Mapping) else None
+    report_instance_id = report.get("instance_id")
+    identity = source_instance_id or report_instance_id
+    expected_trace, expected_report = convert_mini_swe_trajectory(
+        trajectory,
+        instance_id=str(identity) if identity else None,
+    )
+    trace_matches = trace.to_dict() == expected_trace.to_dict()
+    report_matches = dict(report) == expected_report
+    literal_prefix_safe = all(request.prefix_prompt == "" for request in trace.requests)
+    synthetic_parent_is_not_claimed_prefix = all(
+        not request.prompt.startswith(trace.requests[index - 1].prompt)
         for index, request in enumerate(trace.requests)
+        if index > 0
     )
-    evidence = report.get("request_evidence")
-    identities_match = isinstance(evidence, list) and len(evidence) == len(trace.requests)
-    hard_checks = prompts_match and growth_match and identities_match
-    fidelity = report.get("fidelity", {})
-    complete = (
-        hard_checks
-        and isinstance(fidelity, Mapping)
-        and fidelity.get("source_timing_complete") is True
-        and fidelity.get("submitted_token_ids_complete") is True
-    )
+    hard_checks = trace_matches and report_matches and literal_prefix_safe
     return {
         "schema_version": "continuum.workload_conversion_validation.v1",
         "checks": {
-            "request_prompts_exact": prompts_match,
-            "cumulative_context_growth_exact": growth_match,
-            "request_identity_complete": identities_match,
-            "source_timing_complete": fidelity.get("source_timing_complete", False)
-            if isinstance(fidelity, Mapping)
-            else False,
-            "submitted_token_ids_complete": fidelity.get("submitted_token_ids_complete", False)
-            if isinstance(fidelity, Mapping)
-            else False,
+            "trace_recomputed_from_source": trace_matches,
+            "report_hashes_and_provenance_recomputed": report_matches,
+            "unverified_literal_prefix_not_emitted": literal_prefix_safe,
+            "synthetic_parent_not_misclassified_as_literal_prefix": (
+                synthetic_parent_is_not_claimed_prefix
+            ),
+            "request_timing_fidelity": False,
         },
-        "verdict": "PASS" if complete else "CONDITIONAL_PASS" if hard_checks else "FAIL",
+        "verdict": "CONDITIONAL_PASS" if hard_checks else "FAIL",
     }
 
 

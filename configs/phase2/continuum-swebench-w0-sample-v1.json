@@ -5,11 +5,12 @@
     "name": "princeton-nlp/SWE-bench_Verified",
     "config": "default",
     "split": "test",
+    "revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
     "row_count": 500,
     "source_url": "https://huggingface.co/datasets/princeton-nlp/SWE-bench_Verified"
   },
   "selection": {
-    "rule": "first 10 rows in the published test split order",
+    "rule": "first 10 rows in the pinned test split order",
     "sample_count": 10,
     "seed": null,
     "frozen_before_trajectory_acquisition": true

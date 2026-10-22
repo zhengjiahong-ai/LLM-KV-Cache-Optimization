@@ -11,9 +11,10 @@
 
 Each assistant turn becomes one Phase 2 request. Its input is the canonical JSON
 serialization of all prior messages, preserving the system prompt, task prompt,
-assistant shell commands, tool observations, order, and cumulative context.
-From turn two onward, `prefix_prompt` equals the complete previous request input,
-so context growth is explicit and byte-checkable.
+assistant shell commands, tool observations, order, and logical cumulative
+context. This serialization is diagnostic and is not claimed to be the actual
+chat-template-rendered model input. `prefix_prompt` remains empty until a real
+rendered prompt or submitted token sequence proves literal prefix reuse.
 
 ## Fidelity rules
 
@@ -22,22 +23,26 @@ so context growth is explicit and byte-checkable.
 | Program/session identity | Preserve SWE-bench `instance_id` |
 | Turn order | Preserve assistant-message order |
 | Prompt and tool output | Preserve canonical complete preceding message list |
-| Context growth | Require each later prefix to equal the prior full request input |
+| Logical context growth | Recompute each turn from the exact preceding message list |
+| Literal prompt prefix | Leave empty/unknown without rendered prompt or token-prefix evidence |
 | Token IDs | Preserve only explicit `input_token_ids`; otherwise `NOT_OBSERVABLE_IN_PUBLIC_TRAJECTORY` |
-| Arrival/tool timing | Preserve explicit `timestamp_seconds`; otherwise ordinal/zero placeholders are labelled imputed |
+| Message timing | Preserve explicit values as diagnostic metadata only |
+| Arrival/tool timing | Use labelled ordinal/zero placeholders; never claim request/tool timing fidelity |
 | Deterministic replay | Canonical JSON plus SHA-256 for source trajectory and each request prompt |
 | Pressure stages | None inferred; workload conversion must not invent cache pressure |
 
-The validator returns `PASS` only when message fidelity, source timestamps, and
-submitted token IDs are all complete. Public-schema trajectories without those
-optional observations receive `CONDITIONAL_PASS`; prompt drift receives `FAIL`.
+The validator independently recomputes the trace, trajectory hash, request
+hashes, identities, token observations, and provenance flags from the supplied
+trajectory. W0 output is capped at `CONDITIONAL_PASS`; source/report tampering,
+prompt drift, nonfinite timestamps, and timestamp reordering produce `FAIL` or
+are rejected.
 
 ## Framework compatibility
 
 The converted trace satisfies the existing Phase 2 request lifecycle model:
-contiguous turns, monotonically ordered arrivals, cumulative reusable prefixes,
-and one terminal final turn. It can therefore enter existing materialization
-and validation infrastructure after a runtime config is supplied.
+contiguous turns, diagnostic monotonically ordered ordinal arrivals, and one
+terminal final turn. It can enter structural materialization and validation,
+but it does not yet provide a verified APC-reusable prefix.
 
 The following gaps remain and are not silently repaired:
 
