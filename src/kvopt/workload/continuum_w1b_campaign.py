@@ -162,6 +162,7 @@ def materialize_campaign(
                     "prefill_profile_path": str(profile_path),
                 },
                 "continuum_w1b_stage": {
+                    "stage": "NATIVE_COMPARABILITY_SMOKE",
                     "group_id": group_id,
                     "arm": arm,
                     "repeat": 1,
