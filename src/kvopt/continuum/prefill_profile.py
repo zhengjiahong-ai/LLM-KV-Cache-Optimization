@@ -14,8 +14,10 @@ from .types import InputProvenance, InputSource
 
 TOKEN_GRID = (16, 32, 128, 256, 512)
 EXTENDED_TOKEN_GRID = (*TOKEN_GRID, 544)
+W1B_LONG_CONTEXT_TOKEN_GRID = (256, 1024, 2048, 3072, 4096, 5120)
 _SCHEMA = "continuum.prefill_reload.profile.v1"
 _EXTENDED_SCHEMA = "continuum.prefill_reload.extended_profile.v1"
+_W1B_LONG_CONTEXT_SCHEMA = "continuum.prefill_reload.w1b_long_context_profile.v1"
 _STATUS = "complete"
 _PROVENANCE_REASON = "offline PrefillReload profile"
 
@@ -131,6 +133,8 @@ def load_prefill_reload_provider(
     schema = data.get("schema")
     if schema == _EXTENDED_SCHEMA:
         return _load_extended_prefill_reload_provider(data)
+    if schema == _W1B_LONG_CONTEXT_SCHEMA:
+        return _load_w1b_long_context_provider(data)
     if schema != _SCHEMA:
         raise ValueError("artifact schema does not match frozen profile schema")
     if data.get("status") != _STATUS:
@@ -212,5 +216,40 @@ def _load_extended_prefill_reload_provider(
         InputProvenance(
             InputSource.APPROXIMATED,
             "offline extended PrefillReload profile (legacy points preserved)",
+        ),
+    )
+
+
+def _load_w1b_long_context_provider(
+    artifact: dict[str, Any],
+) -> _ProfilePrefillReloadProvider:
+    if artifact.get("status") != _STATUS:
+        raise ValueError("only complete W1-B long-context profiles are loadable")
+    protocol = _require_mapping(artifact.get("protocol"), "protocol")
+    expected = {
+        "canonical_unit": "seconds",
+        "grid": list(W1B_LONG_CONTEXT_TOKEN_GRID),
+        "warmup_pairs_per_point": 5,
+        "measured_pairs_per_point": 20,
+        "raw_delta_definition": "MISS - HIT TTFT",
+        "interpolation_rule": "piecewise_linear_between_measured_points",
+        "extrapolation": "PROHIBITED",
+    }
+    for field_name, value in expected.items():
+        if protocol.get(field_name) != value:
+            raise ValueError(f"protocol.{field_name} does not match W1-B protocol")
+    points = artifact.get("points")
+    if not isinstance(points, list) or len(points) != len(W1B_LONG_CONTEXT_TOKEN_GRID):
+        raise ValueError("W1-B profile must contain exactly the frozen token grid")
+    values = tuple(
+        _validate_point(point, token_count)
+        for point, token_count in zip(points, W1B_LONG_CONTEXT_TOKEN_GRID, strict=True)
+    )
+    return _ProfilePrefillReloadProvider(
+        W1B_LONG_CONTEXT_TOKEN_GRID,
+        values,
+        InputProvenance(
+            InputSource.APPROXIMATED,
+            "offline W1-B 3B long-context PrefillReload profile",
         ),
     )
