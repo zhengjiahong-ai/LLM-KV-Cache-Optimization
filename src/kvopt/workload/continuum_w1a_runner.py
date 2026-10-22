@@ -178,11 +178,17 @@ def run_one(
     extra_info = None
     try:
         exit_status, result = agent.run(instance["problem_statement"])
-        manifest["status"] = "success"
+        manifest["status"] = "completed"
+        manifest["agent_exit_status"] = exit_status
+        manifest["agent_outcome"] = (
+            "SUBMITTED" if exit_status == "Submitted" else "INCOMPLETE"
+        )
     except Exception as error:  # noqa: BLE001 - the failed attempt is evidence
         exit_status, result = type(error).__name__, str(error)
         extra_info = {"traceback": traceback.format_exc()}
         manifest["status"] = "failed"
+        manifest["agent_exit_status"] = exit_status
+        manifest["agent_outcome"] = "FAILED"
         manifest["failure_reason"] = f"{type(error).__name__}: {error}"
     finally:
         save_traj(
@@ -199,6 +205,7 @@ def run_one(
         manifest["sidecar_sha256"] = _sha256(sidecar_path)
         manifest["model_call_count"] = len(recorder.model_calls)
         manifest["tool_call_count"] = len(recorder.tool_calls)
+        manifest["tool_execution_demonstrated"] = bool(recorder.tool_calls)
         manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
     print(f"{manifest['status']}: {run_dir}")
     return run_dir

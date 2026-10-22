@@ -11,13 +11,18 @@ from .continuum_source_audit import convert_mini_swe_trajectory, validate_conver
 
 
 def _source_instance_id(trajectory: Mapping[str, object]) -> str | None:
+    top_level_value = trajectory.get("instance_id")
+    top_level_id = str(top_level_value) if top_level_value else None
     info = trajectory.get("info")
     if info is None:
-        return None
+        return top_level_id
     if not isinstance(info, Mapping):
         raise TypeError("trajectory info must be an object")
     value = info.get("instance_id")
-    return str(value) if value else None
+    info_id = str(value) if value else None
+    if top_level_id and info_id and top_level_id != info_id:
+        raise ValueError("trajectory top-level and info instance_id conflict")
+    return top_level_id or info_id
 
 
 def resolve_instance_id(

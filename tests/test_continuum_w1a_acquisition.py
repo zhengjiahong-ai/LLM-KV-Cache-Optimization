@@ -116,6 +116,15 @@ def test_external_instance_id_may_fill_but_not_override_source_identity() -> Non
     )
     with pytest.raises(ValueError, match="conflicts"):
         resolve_instance_id({"info": {"instance_id": "source-id"}}, "different-id")
+    assert resolve_instance_id({"instance_id": "top-level-id", "info": {}}, None) == (
+        "top-level-id",
+        "SOURCE_TRAJECTORY",
+    )
+    with pytest.raises(ValueError, match="top-level and info"):
+        resolve_instance_id(
+            {"instance_id": "top-level-id", "info": {"instance_id": "info-id"}},
+            None,
+        )
 
 
 def test_w1a_cli_returns_nonzero_when_validation_fails(
@@ -158,6 +167,8 @@ def test_acquisition_config_is_bound_to_frozen_w0_sample() -> None:
         "repository_commit"
     ]
     assert config["acquisition"]["formal_native_campaign_authorized"] is False
+    assert config["model"]["model_name"] == "Qwen/Qwen2.5-Coder-3B-Instruct"
+    assert config["model"]["model_revision"] == "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225"
     assert config["server_runtime"] == {
         "backend": "vllm-metal",
         "vllm_version": "0.27.1+cpu",
