@@ -99,6 +99,7 @@ _PHASE2G_A2_CAMPAIGN_KINDS = frozenset(
 )
 _PHASE2G_UNIQUE_PROTECTED_BLOCK_CAMPAIGN_KINDS = frozenset(
     {
+        "continuum_w1b_prefill_profile",
         "phase2g_a1_bounded_evaluation",
         "phase2g_a2_prefill_profile_bridge_control",
         *_PHASE2G_A2_CAMPAIGN_KINDS,
