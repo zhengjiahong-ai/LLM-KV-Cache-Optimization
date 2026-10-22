@@ -18,7 +18,10 @@ from .continuum_w1a_acquisition import (
     ObservedModel,
 )
 
-CONFIG_SCHEMA = "continuum.w1a_acquisition_config.v1"
+CONFIG_SCHEMAS = {
+    "continuum.w1a_acquisition_config.v1",
+    "continuum.w1a_acquisition_config.v2",
+}
 
 
 def _sha256(path: Path) -> str:
@@ -39,7 +42,7 @@ def load_acquisition_config(
     path: Path, *, repository: Path
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     config = json.loads(path.read_text(encoding="utf-8"))
-    if config.get("schema_version") != CONFIG_SCHEMA:
+    if config.get("schema_version") not in CONFIG_SCHEMAS:
         raise ValueError("unsupported W1-A acquisition config")
     if config.get("scope") != "W1A_BOUNDED_TRAJECTORY_ACQUISITION_NO_NATIVE_CAMPAIGN":
         raise ValueError("W1-A acquisition scope mismatch")

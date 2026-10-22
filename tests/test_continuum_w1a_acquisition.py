@@ -226,6 +226,18 @@ def test_acquisition_config_is_bound_to_frozen_w0_sample() -> None:
     validate_instance_id("astropy__astropy-12907", sample)
 
 
+def test_v2_acquisition_uses_native_context_without_changing_agent_limit() -> None:
+    config, _sample = load_acquisition_config(
+        ROOT / "configs/phase2/continuum-w1a-acquisition-v2.json",
+        repository=ROOT,
+    )
+
+    assert config["server_runtime"]["max_model_len"] == 32768
+    assert config["author_runner"]["step_limit"] == 50
+    assert config["author_runner"]["step_limit_modified"] is False
+    assert config["acquisition"]["formal_native_campaign_authorized"] is False
+
+
 def test_acquisition_rejects_task_outside_frozen_sample() -> None:
     _config, sample = load_acquisition_config(
         ROOT / "configs/phase2/continuum-w1a-acquisition-v1.json",
