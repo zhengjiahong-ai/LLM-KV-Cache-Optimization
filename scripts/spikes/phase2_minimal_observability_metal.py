@@ -770,6 +770,20 @@ class MinimalMetalObservabilityBackend:
         if not isinstance(mechanism_only, bool):
             raise TypeError("backend_options.h2_native_mechanism_only must be bool")
         self._h2_native_mechanism_only = mechanism_only
+        w1b_fidelity_only = options.get("w1b_native_input_fidelity_only", False)
+        if not isinstance(w1b_fidelity_only, bool):
+            raise TypeError("backend_options.w1b_native_input_fidelity_only must be bool")
+        if w1b_fidelity_only and (
+            config.get("campaign_kind") != "continuum_w1b_native_smoke"
+            or self._w1b_replay_tokens is None
+        ):
+            raise ValueError(
+                "W1-B input-only fidelity mode requires the W1-B campaign and exact tokens"
+            )
+        self._w1b_native_input_fidelity_only = w1b_fidelity_only
+        self._lifecycle_observation_only = (
+            self._h2_native_mechanism_only or self._w1b_native_input_fidelity_only
+        )
         self._h2_interventions = _h2_native_prefix_interventions(options)
         self._applied_h2_interventions: set[str] = set()
         diagnostic_release = options.get("phase2d_diagnostic_first_release_program_id")
@@ -1176,6 +1190,9 @@ class MinimalMetalObservabilityBackend:
                     "execute_planned_timing": self._execute_planned_timing,
                     "h2_native_prefix_intervention_count": len(self._h2_interventions),
                     "h2_native_mechanism_only": self._h2_native_mechanism_only,
+                    "w1b_native_input_fidelity_only": (
+                        self._w1b_native_input_fidelity_only
+                    ),
                     "h2_m4_prefill_curve_bound": h2_m4_prefill_provider is not None,
                     "gpu_memory_utilization": gpu_memory_utilization,
                     "retention_mode": self._retention_mode.value,
@@ -1697,7 +1714,11 @@ class MinimalMetalObservabilityBackend:
         )
 
     def _handle_lifecycle(self, event: object) -> None:
-        if self._h2_native_mechanism_only:
+        if getattr(
+            self,
+            "_lifecycle_observation_only",
+            self._h2_native_mechanism_only,
+        ):
             self._sink.emit(experiment_event_from_lifecycle(event))
             return
         self._runtime.handle(event)
@@ -1821,7 +1842,11 @@ class MinimalMetalObservabilityBackend:
             self._handle_lifecycle(ProgramCompleted(program, finished_at))
             return
 
-        if not self._h2_native_mechanism_only:
+        if not getattr(
+            self,
+            "_lifecycle_observation_only",
+            self._h2_native_mechanism_only,
+        ):
             self._runtime.record_prefill_context_token_count(
                 PrefillContextTokenCountRecord(
                     program_id=program,

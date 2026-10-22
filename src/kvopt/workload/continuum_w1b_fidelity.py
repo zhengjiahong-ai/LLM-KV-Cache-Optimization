@@ -111,6 +111,7 @@ def materialize(*, freeze_path: Path, output_dir: Path) -> Path:
             "executor_mode": "submit_collect",
             "gpu_memory_utilization": 0.8,
             "continuum_w1b_replay_mode": True,
+            "w1b_native_input_fidelity_only": True,
             "replay_token_ids_by_request": token_map,
             "program_prefix_tokens": {session["session_id"]: reusable_max},
             "pressure_prompt_tokens": pressure_tokens,
