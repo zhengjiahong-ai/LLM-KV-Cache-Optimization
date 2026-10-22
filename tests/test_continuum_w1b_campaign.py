@@ -45,3 +45,9 @@ def test_validate_campaign_rejects_cross_arm_token_mismatch(tmp_path: Path) -> N
 def test_prefix_accounting_uses_only_complete_cache_blocks() -> None:
     token_count = 2019
     assert token_count // 16 * 16 == 2016
+
+
+def test_exact_token_mode_does_not_require_logical_segments() -> None:
+    options = {"continuum_w1b_replay_mode": True}
+    assert "phase2c_native_pilot_mode" not in options
+    assert "prefix_segments_by_request" not in options
