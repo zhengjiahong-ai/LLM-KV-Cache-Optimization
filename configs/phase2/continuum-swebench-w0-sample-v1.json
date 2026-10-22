@@ -1,0 +1,39 @@
+{
+  "schema_version": "continuum.workload_source_sample.v1",
+  "audit_scope": "W0_SOURCE_AUDIT_ONLY_NO_NATIVE_CAMPAIGN",
+  "dataset": {
+    "name": "princeton-nlp/SWE-bench_Verified",
+    "config": "default",
+    "split": "test",
+    "revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+    "row_count": 500,
+    "source_url": "https://huggingface.co/datasets/princeton-nlp/SWE-bench_Verified"
+  },
+  "selection": {
+    "rule": "first 10 rows in the pinned test split order",
+    "sample_count": 10,
+    "seed": null,
+    "frozen_before_trajectory_acquisition": true
+  },
+  "instance_ids": [
+    "astropy__astropy-12907",
+    "astropy__astropy-13033",
+    "astropy__astropy-13236",
+    "astropy__astropy-13398",
+    "astropy__astropy-13453",
+    "astropy__astropy-13579",
+    "astropy__astropy-13977",
+    "astropy__astropy-14096",
+    "astropy__astropy-14182",
+    "astropy__astropy-14309"
+  ],
+  "trajectory_source": {
+    "repository": "https://github.com/Hanchenli/vllm-continuum",
+    "repository_commit": "316a58794a6ff86b216e579b74fd56ed0c5a911f",
+    "runner": "mini-swe-agent/src/minisweagent/run/extra/swebench.py",
+    "trajectory_format": "mini-swe-agent-1",
+    "public_paper_trajectory_availability": "NOT_AVAILABLE",
+    "sample_trajectory_status": "NOT_MATERIALIZED",
+    "reason": "The public repository contains runner code and aggregate results, not per-instance paper trajectories."
+  }
+}
