@@ -803,6 +803,7 @@ class MinimalMetalObservabilityBackend:
         if phase2g_release_policy == "A1" and config.get("campaign_kind") not in {
             "phase2g_a1_native_gate1",
             "phase2g_a1_bounded_evaluation",
+            "continuum_w1b_native_smoke",
         }:
             raise ValueError("A1 native release is restricted to authorized Phase 2G campaigns")
         phase2g_a1_lambda = float(options.get("phase2g_a1_lambda", 0.5))

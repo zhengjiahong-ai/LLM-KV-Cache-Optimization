@@ -20,7 +20,12 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def freeze_protocol(*, protocol_path: Path, output_path: Path) -> dict[str, Any]:
+def freeze_protocol(
+    *,
+    protocol_path: Path,
+    output_path: Path,
+    native_fidelity_report_path: Path | None = None,
+) -> dict[str, Any]:
     protocol = _load(protocol_path)
     if protocol.get("schema_version") != "continuum.w1b_native_smoke_protocol.v1":
         raise ValueError("unsupported W1-B smoke protocol")
@@ -31,9 +36,7 @@ def freeze_protocol(*, protocol_path: Path, output_path: Path) -> dict[str, Any]
     if protocol.get("runtime_repeats") != 1:
         raise ValueError("W1-B bounded smoke permits one run per arm and group")
     schedule = protocol.get("schedule")
-    if not isinstance(schedule, dict) or schedule.get("kind") != (
-        "CONTROLLED_REPLAY_SCHEDULE"
-    ):
+    if not isinstance(schedule, dict) or schedule.get("kind") != ("CONTROLLED_REPLAY_SCHEDULE"):
         raise ValueError("W1-B cross-session schedule must be explicitly controlled")
     if schedule.get("mode") != "CAUSAL_REPLAY":
         raise ValueError("W1-B v1 freezes causal replay rather than open-loop timing")
@@ -116,6 +119,17 @@ def freeze_protocol(*, protocol_path: Path, output_path: Path) -> dict[str, Any]
         for group_id in sorted(group_ids)
         for arm in protocol["arms"]
     ]
+    native_fidelity_status = "PENDING"
+    native_fidelity_binding = None
+    if native_fidelity_report_path is not None:
+        fidelity = _load(native_fidelity_report_path)
+        native_fidelity_status = fidelity.get("verdict")
+        if native_fidelity_status != "PASS_NATIVE_INPUT_FIDELITY_ONLY":
+            raise ValueError("W1-B Native fidelity report has not passed")
+        native_fidelity_binding = {
+            "path": str(native_fidelity_report_path),
+            "sha256": _sha256(native_fidelity_report_path),
+        }
     freeze = {
         "schema_version": "continuum.w1b_native_smoke_freeze.v1",
         "scope": protocol["scope"],
@@ -132,14 +146,14 @@ def freeze_protocol(*, protocol_path: Path, output_path: Path) -> dict[str, Any]
         "schedule": schedule,
         "runtime": protocol["runtime"],
         "gates": protocol["gates"],
-        "native_fidelity_status": "PENDING",
-        "execution_authorized_by_freeze": False,
+        "native_fidelity_status": native_fidelity_status,
+        "native_fidelity_binding": native_fidelity_binding,
+        "execution_authorized_by_freeze": native_fidelity_status
+        == "PASS_NATIVE_INPUT_FIDELITY_ONLY",
         "formal_performance_campaign_authorized": False,
     }
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(
-        json.dumps(freeze, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    output_path.write_text(json.dumps(freeze, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return freeze
 
 
@@ -147,8 +161,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--protocol", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--native-fidelity-report", type=Path)
     args = parser.parse_args()
-    freeze = freeze_protocol(protocol_path=args.protocol, output_path=args.output)
+    freeze = freeze_protocol(
+        protocol_path=args.protocol,
+        output_path=args.output,
+        native_fidelity_report_path=args.native_fidelity_report,
+    )
     print(
         f"froze W1-B smoke: {freeze['group_count']} groups, "
         f"{freeze['planned_run_count']} planned runs -> {args.output}"
