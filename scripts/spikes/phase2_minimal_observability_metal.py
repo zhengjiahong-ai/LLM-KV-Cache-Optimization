@@ -334,9 +334,10 @@ def _w1b_replay_token_ids(
         if raw is not None:
             raise ValueError("W1-B replay tokens require continuum_w1b_replay_mode")
         return None
-    if options.get("phase2b_fidelity_mode", False) is not False or options.get(
-        "phase2c_native_pilot_mode", False
-    ) is not False:
+    if (
+        options.get("phase2b_fidelity_mode", False) is not False
+        or options.get("phase2c_native_pilot_mode", False) is not False
+    ):
         raise ValueError("W1-B replay mode is exclusive with Phase 2B/2C content modes")
     if not isinstance(raw, Mapping) or not raw:
         raise ValueError("replay_token_ids_by_request must be a non-empty object")
@@ -347,8 +348,7 @@ def _w1b_replay_token_ids(
         if not isinstance(values, list) or not values:
             raise ValueError("each W1-B replay request requires token IDs")
         if any(
-            isinstance(value, bool) or not isinstance(value, int) or value < 0
-            for value in values
+            isinstance(value, bool) or not isinstance(value, int) or value < 0 for value in values
         ):
             raise ValueError("W1-B replay token IDs must be non-negative integers")
         parsed[request_id] = tuple(values)
@@ -507,10 +507,18 @@ def _validate_native_hash_views(
 ) -> tuple[str, ...]:
     """Validate request BlockHash values against group-qualified cache keys."""
 
-    if request_hashes is None or len(request_hashes) != len(cache_keys):
+    if request_hashes is None or len(request_hashes) not in {
+        len(cache_keys),
+        len(cache_keys) + 1,
+    }:
         raise RuntimeError("native request hash chain and cache-key chain do not align")
+    # A one-token generation can complete the trailing partial prompt block.
+    # The request observation then includes one additional trailing hash while
+    # the reusable prompt snapshot correctly stops at the last complete prompt
+    # block.  Validate and retain only the prompt-aligned leading chain.
+    prompt_hashes = request_hashes[: len(cache_keys)]
     for position, (request_hash, cache_key) in enumerate(
-        zip(request_hashes, cache_keys, strict=True)
+        zip(prompt_hashes, cache_keys, strict=True)
     ):
         try:
             request_bytes = bytes.fromhex(request_hash)
@@ -518,7 +526,7 @@ def _validate_native_hash_views(
             raise RuntimeError(f"native request hash {position} is not hexadecimal") from error
         if len(cache_key) < 5 or cache_key[:-4] != request_bytes:
             raise RuntimeError("native request hash does not match its group-qualified cache key")
-    return request_hashes
+    return prompt_hashes
 
 
 class _CountingForcedReleaseObserver:
@@ -616,9 +624,7 @@ class _ObservedRetentionIntegration:
                     "step_costs": audit.step_costs,
                     "chain_count": audit.chain_count,
                     "shared_block_count": audit.shared_block_count,
-                    "identified_hashed_block_count": (
-                        audit.identified_hashed_block_count
-                    ),
+                    "identified_hashed_block_count": (audit.identified_hashed_block_count),
                     "evidence_problem_counts": dict(audit.evidence_problem_counts),
                     "identity_state_counts": dict(audit.identity_state_counts),
                     "resident_chain_count": audit.resident_chain_count,
@@ -1045,9 +1051,9 @@ class MinimalMetalObservabilityBackend:
                 block_size=_BLOCK_SIZE,
             )
         if self._w1b_replay_tokens is not None and any(
-                token >= self._vocabulary_size
-                for values in self._w1b_replay_tokens.values()
-                for token in values
+            token >= self._vocabulary_size
+            for values in self._w1b_replay_tokens.values()
+            for token in values
         ):
             raise ValueError("W1-B replay token ID exceeds tokenizer vocabulary")
 
@@ -1192,9 +1198,7 @@ class MinimalMetalObservabilityBackend:
                     "execute_planned_timing": self._execute_planned_timing,
                     "h2_native_prefix_intervention_count": len(self._h2_interventions),
                     "h2_native_mechanism_only": self._h2_native_mechanism_only,
-                    "w1b_native_input_fidelity_only": (
-                        self._w1b_native_input_fidelity_only
-                    ),
+                    "w1b_native_input_fidelity_only": (self._w1b_native_input_fidelity_only),
                     "h2_m4_prefill_curve_bound": h2_m4_prefill_provider is not None,
                     "gpu_memory_utilization": gpu_memory_utilization,
                     "retention_mode": self._retention_mode.value,
@@ -1210,9 +1214,7 @@ class MinimalMetalObservabilityBackend:
                         phase2g_a2_tau_seconds if phase2g_block_policy == "A2" else None
                     ),
                     "phase2g_a2_identity_mode": (
-                        self._phase2g_a2_identity_mode
-                        if phase2g_block_policy == "A2"
-                        else None
+                        self._phase2g_a2_identity_mode if phase2g_block_policy == "A2" else None
                     ),
                 },
             )
@@ -1691,8 +1693,7 @@ class MinimalMetalObservabilityBackend:
         )
         selected_ids = tuple(int(value) for value in result["selected_block_ids"])
         selected_keys = tuple(
-            str(result["native_cache_keys_before"][index])
-            for index in result["selected_positions"]
+            str(result["native_cache_keys_before"][index]) for index in result["selected_positions"]
         )
         for block_id, content_hash in zip(selected_ids, selected_keys, strict=True):
             self._phase2g_a2_registry.observe_eviction(
@@ -1733,12 +1734,8 @@ class MinimalMetalObservabilityBackend:
             for entry in entries:
                 if entry.program_id != event.program_id:
                     continue
-                chain_id = (
-                    f"{entry.program_id.value}:{entry.prefix_id.canonical_value}"
-                )
-                stale = self._phase2g_a2_registry.nonresident_block_ids_for_chain(
-                    chain_id
-                )
+                chain_id = f"{entry.program_id.value}:{entry.prefix_id.canonical_value}"
+                stale = self._phase2g_a2_registry.nonresident_block_ids_for_chain(chain_id)
                 if stale:
                     self._runtime.retention.reconcile_entry_evictions(
                         RetentionEntryKey(entry.program_id, entry.prefix_id),
