@@ -1,0 +1,42 @@
+{
+  "schema_version": "continuum.w1a_acquisition_config.v1",
+  "scope": "W1A_BOUNDED_TRAJECTORY_ACQUISITION_NO_NATIVE_CAMPAIGN",
+  "sample_manifest": "configs/phase2/continuum-swebench-w0-sample-v1.json",
+  "dataset": {
+    "name": "princeton-nlp/SWE-bench_Verified",
+    "config": "default",
+    "split": "test",
+    "revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a"
+  },
+  "author_runner": {
+    "repository": "https://github.com/Hanchenli/vllm-continuum",
+    "commit": "316a58794a6ff86b216e579b74fd56ed0c5a911f",
+    "agent_config": "mini-swe-agent/src/minisweagent/config/extra/swebench.yaml"
+  },
+  "model": {
+    "model_class": "vllm",
+    "model_name": "Qwen/Qwen2.5-0.5B-Instruct",
+    "model_revision": "7ae557604adf67be50417f59c2c2f167def9a775",
+    "tokenizer_name": "Qwen/Qwen2.5-0.5B-Instruct",
+    "tokenizer_revision": "7ae557604adf67be50417f59c2c2f167def9a775",
+    "base_url": "http://localhost:8100/v1",
+    "stream": true,
+    "max_completion_tokens": 512,
+    "model_kwargs": {
+      "temperature": 0.0,
+      "seed": 20261022
+    },
+    "paper_example_difference": "Apple M5 Pro 24GB cannot host the README example Llama-3.1-70B-Instruct on four H100 GPUs; this bounded acquisition uses a local 0.5B model and makes no paper-reproduction claim."
+  },
+  "environment": {
+    "environment_class": "docker",
+    "workers": 1,
+    "tool_timeout_seconds": 60
+  },
+  "acquisition": {
+    "overwrite_existing": false,
+    "preserve_failed_attempts": true,
+    "native_cache_observation": false,
+    "formal_native_campaign_authorized": false
+  }
+}
