@@ -35,6 +35,7 @@ kvopt-continuum-w1b-replay = "kvopt.workload.continuum_w1b_replay:main"
 kvopt-continuum-w1b-smoke = "kvopt.workload.continuum_w1b_smoke:main"
 kvopt-continuum-w1b-fidelity = "kvopt.workload.continuum_w1b_fidelity:main"
 kvopt-continuum-w1b-cost-audit = "kvopt.workload.continuum_w1b_cost_audit:main"
+kvopt-continuum-w1b-profile = "kvopt.workload.continuum_w1b_profile:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=7", "ruff>=0.5"]

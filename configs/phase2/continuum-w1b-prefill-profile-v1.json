@@ -1,0 +1,32 @@
+{
+  "schema_version": "continuum.w1b_prefill_profile_protocol.v1",
+  "scope": "W1B_BOUNDED_LONG_CONTEXT_COST_INPUT",
+  "model": {
+    "name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+    "revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225",
+    "tokenizer_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225"
+  },
+  "token_grid": [256, 1024, 2048, 3072, 4096, 5120],
+  "coverage_requirement": {
+    "minimum_query_tokens": 1456,
+    "maximum_query_tokens": 5088,
+    "interpolation_rule": "piecewise_linear_between_measured_points",
+    "extrapolation": "PROHIBITED"
+  },
+  "measurement": {
+    "warmup_pairs_per_point": 5,
+    "measured_pairs_per_point": 20,
+    "raw_delta_definition": "MISS - HIT TTFT",
+    "canonical_unit": "seconds",
+    "pressure_prompt_tokens": 512,
+    "pressure_batch_size": 32,
+    "maximum_pressure_batches": 64,
+    "block_size_tokens": 16,
+    "max_new_tokens": 1,
+    "temperature": 0.0,
+    "gpu_memory_utilization": 0.8,
+    "seed": 20261107
+  },
+  "legacy_phase1b_profile_modified": false,
+  "formal_performance_campaign_authorized": false
+}
