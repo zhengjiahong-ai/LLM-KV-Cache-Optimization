@@ -145,7 +145,7 @@ def materialize_campaign(
                 "policy": policy_name,
                 "trace": trace_path.name,
                 "backend_options": {
-                    "execute_planned_timing": True,
+                    "execute_planned_timing": False,
                     "executor_mode": "submit_collect",
                     "gpu_memory_utilization": 0.75,
                     "capture_terminal_prefix_snapshot": True,
