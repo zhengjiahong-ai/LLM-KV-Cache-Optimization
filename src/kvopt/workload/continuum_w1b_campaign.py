@@ -71,7 +71,8 @@ def materialize_campaign(
             session = _load(session_path)
             selected_turns = selected_session["selected_turns"]
             selected = [session["requests"][turn - 1] for turn in selected_turns]
-            program_prefix_tokens[session_id] = max(row["token_count"] for row in selected)
+            maximum_token_count = max(row["token_count"] for row in selected)
+            program_prefix_tokens[session_id] = maximum_token_count // 16 * 16
             for replay_turn, (source_turn, row) in enumerate(
                 zip(selected_turns, selected, strict=True), start=1
             ):
