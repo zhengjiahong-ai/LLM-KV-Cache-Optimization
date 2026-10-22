@@ -8,7 +8,11 @@ from kvopt.workload.continuum_w1a_acquisition import (
     ObservedEnvironment,
     ObservedModel,
 )
-from kvopt.workload.continuum_w1a_conversion import main, resolve_instance_id
+from kvopt.workload.continuum_w1a_conversion import (
+    build_sidecar_evidence,
+    main,
+    resolve_instance_id,
+)
 from kvopt.workload.continuum_w1a_runner import (
     load_acquisition_config,
     validate_instance_id,
@@ -81,6 +85,42 @@ def test_sidecar_binds_trajectory_and_marks_observation_boundaries(tmp_path: Pat
         "token_ids": "NOT_OBSERVED",
         "native_apc_or_kv_residency": "NOT_OBSERVED",
     }
+
+
+def test_sidecar_conversion_recovers_timing_and_token_growth(tmp_path: Path) -> None:
+    trajectory = tmp_path / "task.traj.json"
+    trajectory.write_text("{}\n", encoding="utf-8")
+    recorder = _recorder()
+    recorder.observe_model_call([{"role": "user", "content": "fix"}], dict)
+    recorder.observe_tool_call("rg bug", lambda: {"output": "ok"})
+    sidecar = recorder.to_dict(trajectory_path=trajectory)
+
+    evidence = build_sidecar_evidence(
+        sidecar,
+        trajectory_path=trajectory,
+        instance_id="astropy__astropy-12907",
+    )
+
+    assert evidence["model_call_count"] == 1
+    assert evidence["tool_call_count"] == 1
+    assert evidence["wrapper_timing_complete"] is True
+    assert evidence["deterministic_tokenization_complete"] is True
+    assert evidence["native_runtime_submitted_token_ids_observed"] is False
+    assert evidence["requests"][0]["tool_evidence"]["status"] == "SUCCESS"
+
+
+def test_sidecar_conversion_rejects_trajectory_hash_mismatch(tmp_path: Path) -> None:
+    trajectory = tmp_path / "task.traj.json"
+    trajectory.write_text("{}\n", encoding="utf-8")
+    sidecar = _recorder(tokenize=False).to_dict(trajectory_path=trajectory)
+    trajectory.write_text('{"changed":true}\n', encoding="utf-8")
+
+    with pytest.raises(ValueError, match="trajectory SHA-256"):
+        build_sidecar_evidence(
+            sidecar,
+            trajectory_path=trajectory,
+            instance_id="astropy__astropy-12907",
+        )
 
 
 def test_recorder_preserves_failed_model_attempt() -> None:
