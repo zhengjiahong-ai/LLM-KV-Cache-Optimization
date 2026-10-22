@@ -1,0 +1,56 @@
+{
+  "schema_version": "continuum.w1a_acquisition_config.v1",
+  "scope": "W1A_BOUNDED_TRAJECTORY_ACQUISITION_NO_NATIVE_CAMPAIGN",
+  "sample_manifest": "configs/phase2/continuum-swebench-w0-sample-v1.json",
+  "dataset": {
+    "name": "princeton-nlp/SWE-bench_Verified",
+    "config": "default",
+    "split": "test",
+    "revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a"
+  },
+  "author_runner": {
+    "repository": "https://github.com/Hanchenli/vllm-continuum",
+    "commit": "316a58794a6ff86b216e579b74fd56ed0c5a911f",
+    "agent_config": "mini-swe-agent/src/minisweagent/config/extra/swebench.yaml"
+  },
+  "model": {
+    "model_class": "vllm",
+    "model_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+    "model_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225",
+    "tokenizer_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+    "tokenizer_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225",
+    "base_url": "http://localhost:8100/v1",
+    "stream": true,
+    "max_completion_tokens": 512,
+    "model_kwargs": {
+      "temperature": 0.0,
+      "seed": 20261022
+    },
+    "paper_example_difference": "Apple M5 Pro 24GB cannot host the README example Llama-3.1-70B-Instruct on four H100 GPUs; after the 0.5B smoke failed to execute any tool action, this bounded acquisition uses a local 3B coder model and makes no paper-reproduction claim."
+  },
+  "server_runtime": {
+    "backend": "vllm-metal",
+    "vllm_version": "0.27.1+cpu",
+    "vllm_metal_version": "0.3.0",
+    "host": "127.0.0.1",
+    "port": 8100,
+    "max_model_len": 16384,
+    "gpu_memory_utilization": 0.75,
+    "environment": {
+      "HF_HUB_OFFLINE": "1",
+      "TRANSFORMERS_OFFLINE": "1",
+      "VLLM_ENABLE_V1_MULTIPROCESSING": "0"
+    }
+  },
+  "environment": {
+    "environment_class": "docker",
+    "workers": 1,
+    "tool_timeout_seconds": 60
+  },
+  "acquisition": {
+    "overwrite_existing": false,
+    "preserve_failed_attempts": true,
+    "native_cache_observation": false,
+    "formal_native_campaign_authorized": false
+  }
+}
