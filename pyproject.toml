@@ -32,6 +32,7 @@ kvopt-continuum-w1a-convert = "kvopt.workload.continuum_w1a_conversion:main"
 kvopt-continuum-w1a-run = "kvopt.workload.continuum_w1a_runner:main"
 kvopt-continuum-w1a-report = "kvopt.workload.continuum_w1a_report:main"
 kvopt-continuum-w1b-replay = "kvopt.workload.continuum_w1b_replay:main"
+kvopt-continuum-w1b-smoke = "kvopt.workload.continuum_w1b_smoke:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=7", "ruff>=0.5"]
