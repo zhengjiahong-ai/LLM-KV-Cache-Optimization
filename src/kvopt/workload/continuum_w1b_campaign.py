@@ -149,6 +149,7 @@ def materialize_campaign(
                     "executor_mode": "submit_collect",
                     "gpu_memory_utilization": 0.75,
                     "phase2c_native_pilot_mode": True,
+                    "phase2c_prefix_generator_version": "phase2c-segmented-prefix-v1",
                     "capture_terminal_prefix_snapshot": True,
                     "continuum_w1b_replay_mode": True,
                     "replay_token_ids_by_request": replay_tokens,
