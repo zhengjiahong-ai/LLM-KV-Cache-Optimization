@@ -523,13 +523,15 @@ def _latest_native_apc_hash_chain(
 def _validate_native_hash_views(
     request_hashes: tuple[str, ...] | None,
     cache_keys: tuple[bytes, ...],
+    *,
+    allow_one_generated_trailing_hash: bool = False,
 ) -> tuple[str, ...]:
     """Validate request BlockHash values against group-qualified cache keys."""
 
-    if request_hashes is None or len(request_hashes) not in {
-        len(cache_keys),
-        len(cache_keys) + 1,
-    }:
+    allowed_lengths = {len(cache_keys)}
+    if allow_one_generated_trailing_hash:
+        allowed_lengths.add(len(cache_keys) + 1)
+    if request_hashes is None or len(request_hashes) not in allowed_lengths:
         raise RuntimeError("native request hash chain and cache-key chain do not align")
     # A one-token generation can complete the trailing partial prompt block.
     # The request observation then includes one additional trailing hash while
@@ -1017,6 +1019,7 @@ class MinimalMetalObservabilityBackend:
             config["generation"]["max_new_tokens"],  # type: ignore[index]
             "config.generation.max_new_tokens",
         )
+        self._max_new_tokens = max_new_tokens
         max_model_len = _required_max_model_len(
             self._program_prefix_tokens,
             self._pressure_tokens,
@@ -1652,6 +1655,12 @@ class MinimalMetalObservabilityBackend:
                 native_id,
             ),
             hashes,
+            allow_one_generated_trailing_hash=(
+                self._w1b_replay_tokens is not None
+                and self._max_new_tokens == 1
+                and len(self._w1b_replay_tokens[request.request_id]) % _BLOCK_SIZE
+                == _BLOCK_SIZE - 1
+            ),
         )
         prefix = PrefixIdentity(prefix_value)
         blocks = tuple(BlockIdentity(block_id) for block_id in block_ids)

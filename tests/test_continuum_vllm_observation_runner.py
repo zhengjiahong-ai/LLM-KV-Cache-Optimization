@@ -805,6 +805,14 @@ def test_request_hashes_match_group_qualified_cache_keys() -> None:
     )
 
 
+def test_request_hashes_reject_unexplained_trailing_block() -> None:
+    request_hashes = ("01" * 32, "02" * 32)
+    cache_keys = (bytes.fromhex(request_hashes[0]) + (0).to_bytes(4, "big"),)
+
+    with pytest.raises(RuntimeError, match="do not align"):
+        phase2_backend._validate_native_hash_views(request_hashes, cache_keys)
+
+
 def test_request_hashes_allow_one_generation_completed_trailing_block() -> None:
     request_hashes = ("01" * 32, "02" * 32, "03" * 32)
     cache_keys = (
@@ -816,6 +824,7 @@ def test_request_hashes_allow_one_generation_completed_trailing_block() -> None:
         phase2_backend._validate_native_hash_views(
             request_hashes,
             cache_keys,
+            allow_one_generated_trailing_hash=True,
         )
         == request_hashes[:2]
     )

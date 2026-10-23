@@ -8,6 +8,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from .phase2b_fidelity import token_ids_sha256
+
 PROFILE_SCHEMA = "continuum.prefill_reload.w1b_long_context_profile.v1"
 
 
@@ -53,6 +55,8 @@ def materialize_campaign(
     if capacity_blocks != 1024 or pressure_blocks != 896:
         raise ValueError("unexpected W1-B v2 capacity contract")
     source_manifest_path = Path(freeze["source_replay_manifest"])
+    if _sha(source_manifest_path) != freeze.get("source_replay_manifest_sha256"):
+        raise ValueError("source replay manifest SHA-256 does not match the freeze")
     source_manifest = _load(source_manifest_path)
     bindings = {row["session_id"]: row for row in source_manifest["sessions"]}
     runs: list[dict[str, Any]] = []
@@ -72,6 +76,18 @@ def materialize_campaign(
             session = _load(session_path)
             selected_turns = selected_session["selected_turns"]
             selected = [session["requests"][turn - 1] for turn in selected_turns]
+            if [row["request_id"] for row in selected] != selected_session.get(
+                "selected_request_ids"
+            ):
+                raise ValueError("selected request IDs do not match the freeze")
+            if [row["token_count"] for row in selected] != selected_session.get(
+                "selected_token_counts"
+            ):
+                raise ValueError("selected request token counts do not match the freeze")
+            frozen_digests = selected_session.get("selected_token_sha256")
+            observed_digests = [row["token_ids_sha256"] for row in selected]
+            if frozen_digests != observed_digests:
+                raise ValueError("selected request token SHA-256 list does not match the freeze")
             maximum_token_count = max(row["token_count"] for row in selected)
             program_prefix_tokens[session_id] = maximum_token_count // 16 * 16
             for replay_turn, (source_turn, row) in enumerate(
@@ -154,6 +170,10 @@ def materialize_campaign(
                     "capture_terminal_prefix_snapshot": True,
                     "continuum_w1b_replay_mode": True,
                     "replay_token_ids_by_request": replay_tokens,
+                    "expected_native_submission_sha256_by_request": {
+                        request_id: token_ids_sha256(token_ids)
+                        for request_id, token_ids in replay_tokens.items()
+                    },
                     "w1b_right_censored_end_request_ids": right_censored_end_request_ids,
                     "program_prefix_tokens": program_prefix_tokens,
                     "pressure_prompt_tokens": pressure_tokens,
@@ -173,7 +193,10 @@ def materialize_campaign(
                     "source_freeze_sha256": _sha(freeze_path),
                     "trace_sha256": trace_sha,
                     "profile_sha256": _sha(profile_path),
-                    "schedule_claim": "CONTROLLED_CAUSAL_REPLAY_NOT_OBSERVED_ARRIVALS",
+                    "schedule_claim": (
+                        "ABSOLUTE_PLANNED_OFFSETS_WITH_PER_SESSION_COMPLETION_BARRIER_"
+                        "ZERO_MINIMUM_POST_COMPLETION_GAP"
+                    ),
                 },
             }
             _write(config_path, config)
@@ -211,11 +234,36 @@ def validate_campaign(*, manifest_path: Path) -> dict[str, Any]:
     manifest = _load(manifest_path)
     root = manifest_path.parent
     problems: list[str] = []
+    freeze_path = Path(str(manifest.get("freeze_path", "")))
+    if not freeze_path.is_file() or _sha(freeze_path) != manifest.get("freeze_sha256"):
+        problems.append("freeze binding mismatch")
+    profile_path = Path(str(manifest.get("profile_path", "")))
+    if not profile_path.is_file() or _sha(profile_path) != manifest.get("profile_sha256"):
+        problems.append("profile binding mismatch")
+    else:
+        profile = _load(profile_path)
+        if profile.get("schema") != PROFILE_SCHEMA or profile.get("status") != "complete":
+            problems.append("profile provenance is not the completed W1-B contract")
     runs = manifest.get("runs", [])
     if manifest.get("planned_run_count") != 12 or len(runs) != 12:
         problems.append("campaign must contain exactly 12 planned runs")
     keys: set[tuple[str, str, int]] = set()
     groups: dict[str, list[dict[str, Any]]] = {}
+    documented_arm_fields = {
+        "policy",
+        "continuum_w1b_stage.arm",
+        "backend_options.phase2g_release_policy",
+        "backend_options.phase2g_block_policy",
+    }
+
+    def policy_independent(value: dict[str, Any]) -> dict[str, Any]:
+        normalized = json.loads(json.dumps(value))
+        normalized.pop("policy", None)
+        normalized.get("continuum_w1b_stage", {}).pop("arm", None)
+        options = normalized.get("backend_options", {})
+        options.pop("phase2g_release_policy", None)
+        options.pop("phase2g_block_policy", None)
+        return normalized
     for run in runs:
         key = (run["group_id"], run["arm"], run["repeat"])
         if key in keys:
@@ -261,6 +309,19 @@ def validate_campaign(*, manifest_path: Path) -> dict[str, Any]:
         ]
         if any(value != fixed[0] for value in fixed[1:]):
             problems.append(f"cross-arm runtime contract mismatch: {group_id}")
+        normalized = [policy_independent(row) for row in configs]
+        if any(value != normalized[0] for value in normalized[1:]):
+            problems.append(f"cross-arm policy-independent config mismatch: {group_id}")
+        expected = {
+            request_id: token_ids_sha256(token_ids)
+            for request_id, token_ids in tokens[0][0].items()
+        }
+        supplied = [
+            row["backend_options"].get("expected_native_submission_sha256_by_request", expected)
+            for row in configs
+        ]
+        if any(value != expected for value in supplied):
+            problems.append(f"frozen source/native digest binding mismatch: {group_id}")
     report = {
         "schema_version": "continuum.w1b_native_smoke_validation.v1",
         "status": "PASS" if not problems else "FAIL",
@@ -269,6 +330,7 @@ def validate_campaign(*, manifest_path: Path) -> dict[str, Any]:
         "checked_group_count": len(groups),
         "problems": problems,
         "comparison_execution_ready": not problems,
+        "documented_arm_specific_fields": sorted(documented_arm_fields),
     }
     _write(root / "validation-report.json", report)
     return report
