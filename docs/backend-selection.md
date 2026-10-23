@@ -1,5 +1,7 @@
 # Backend Selection
 
+> **Decision provenance:** This document records the original Phase 0 backend choice and Phase 1A/1B integration path. The pinned GPU APC / Native BlockPool ownership constraints remain authoritative, but its early-stage work schedule and owner labels are historical. For current W1-B/W1-C execution authorization and M6/M5 responsibilities, use [research status](research-status.md) and [team responsibilities](team-responsibilities.md). This is not a claim that only CUDA is supported: the validated Phase 1B and W1 Native backend work uses the explicitly pinned vLLM-Metal environment and its own model-specific PrefillReload profiles.
+
 ## Decision
 
 The project will use **vLLM 0.27.1** as the primary real LLM inference backend.
