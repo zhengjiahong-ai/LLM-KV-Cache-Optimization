@@ -83,7 +83,7 @@ Next gates: resolve PR #73 RC1–RC4 and review raw evidence; independently comp
 
 ## Provenance and reading order
 
-Read this file for **current state**, then use sealed/final records for exact results:
+Read this file for **current state**, then use the [experiment navigation index](experiments/README.md) and sealed/final records for exact results:
 
 - [Project README](../README.md) and [experimental framing](experiment-plan.md)
 - [Phase 2A H1/H2 closeout](phase2a-h1-h2-closeout-verdict-record.md)
