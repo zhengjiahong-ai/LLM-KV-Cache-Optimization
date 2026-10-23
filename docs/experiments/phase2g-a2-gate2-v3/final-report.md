@@ -1,5 +1,8 @@
 # Phase 2G A2 Native Gate 2 v3 — Root Cause Audit
 
+> **Historical sealed Gate 2 v3 report.** Its 144/144 successful Native runs and `A2 - A0 = 0` token result belong to that frozen iteration; 72/72 selection comparisons were `SELECTION_NOT_OBSERVABLE`, not proven equal. Later fidelity repair and [bounded evaluation](../phase2g-a2-bounded-value-evaluation.md) use separate evidence and must not be merged into this verdict. See the [experiment index](../README.md) and [canonical research status](../../research-status.md).
+
+
 ## Scope
 
 This report records the M1-authorized A0/A2 Native Gate 2 v3 campaign. The

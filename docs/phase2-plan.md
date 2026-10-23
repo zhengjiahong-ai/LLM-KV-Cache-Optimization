@@ -1,5 +1,8 @@
 # Phase 2A — Forced-Release Profiling Plan
 
+> **Historical plan — Phase 2A (superseded as the current execution roadmap).** This file preserves the original forced-release profiling questions and ownership at that time. It is not the active W1-B/W1-C authorization. Read [current Phase 2 research status](research-status.md) and the [experiment index](experiments/README.md) for later Native and Agent-workload work. H1 remains `DIAGNOSTIC_ONLY`; no frozen Phase 2A verdict is changed by this note.
+
+
 ## Goal
 
 Phase 2A validates a candidate research hypothesis before freezing the proposed method:

@@ -150,6 +150,7 @@ Ours-Full = Eviction + Retention + Scheduling
 ## Key Documents
 
 - [**Current Phase 2 research status**](docs/research-status.md) — authoritative stage/gate ledger, evidence boundaries and PR status.
+- [**Phase 2 experiment index**](docs/experiments/README.md) — historical-to-current evidence reading order and algorithm-stage distinctions.
 
 - [`docs/experiment-plan.md`](docs/experiment-plan.md) — research questions and experimental hierarchy.
 - [`docs/baseline-freeze.md`](docs/baseline-freeze.md) — frozen Phase 1B Continuum adaptation scope.

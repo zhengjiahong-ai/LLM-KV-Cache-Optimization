@@ -1,5 +1,8 @@
 # Phase 2G A2 — Cost-Aware Block Victim Selection (algorithm and interface)
 
+> **Historical scope: A2 algorithm and interface freeze.** “Native integration not started” below was true for the original algorithm-stage handoff; subsequent A2 Native Gate 1/Gate 2, fidelity repair and bounded-value experiments exist. See the [experiment index](../README.md), [A2 bounded evaluation](../phase2g-a2-bounded-value-evaluation.md) and [A2 research judgment](../phase2g-a2-research-judgment.md). Current A2 effectiveness remains inconclusive. Do not read this algorithm-layer test report as a physical benefit result.
+
+
 Status: **algorithm + algorithm-layer tests complete; native integration not started.**
 Entry release, legal candidate set and eviction count are all fixed by Continuum;
 A2 changes **only** which legal block is evicted. No native state is touched.
