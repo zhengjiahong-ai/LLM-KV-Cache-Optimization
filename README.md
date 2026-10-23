@@ -135,7 +135,7 @@ EvictionLoss = f(
 )
 ```
 
-The exact function is not yet frozen.
+The **final independently validated Ours-Evict contribution and scoring claim** are not frozen. This conceptual sketch is not an assertion that no Cost-Aware code exists: A1 (entry-level forced release) and A2 (block-level victim selection) have already been implemented and evaluated in bounded studies, with their independent algorithmic value still under investigation. See [current status](docs/research-status.md) and the [experiment index](docs/experiments/README.md).
 
 After the eviction-only method is validated, optional extensions may add:
 

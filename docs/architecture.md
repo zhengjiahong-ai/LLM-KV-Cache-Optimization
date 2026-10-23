@@ -2,6 +2,8 @@
 
 The project studies KV-cache management on **vLLM 0.27.1 GPU APC**, with a clear hierarchy of concerns.
 
+> **Current research/evaluation interpretation:** This architecture records the validated Phase 1A block adapter and the original proposed system hierarchy. The later Phase 2G evaluation explicitly separates **Entry forced-release** from **physical Block victim selection**; the original `Ours-Evict` schematic below is a research goal, **not** a claim that its independent benefit has been established. Read [canonical status](research-status.md), [experiment index](experiments/README.md), and [frozen Phase 1B baseline](baseline-freeze.md) for their different authority levels.
+
 ## Research hierarchy
 
 ```text
@@ -46,7 +48,21 @@ SchedulingPolicyAdapter          EvictionPolicyAdapter
                  GPU APC KV Cache
 ```
 
-## Primary decision boundary — EvictionPolicyAdapter
+## Two decision layers in current Phase 2 evaluation
+
+The Phase 1A `EvictionPolicyAdapter` remains the **validated physical block-victim boundary**. Phase 2G additionally evaluates a logically separate **entry forced-release** choice in the Continuum retention/pressure layer. Releasing a protected entry changes eligibility; it does **not** itself evict a KV block.
+
+| Evaluated arm | Entry-release selection | Physical block-victim selection | Attribution boundary |
+| --- | --- | --- | --- |
+| A0 | Frozen Continuum-style project adaptation | Native LRU | Baseline |
+| A1 | Cost-Aware Entry selector | Same Native LRU as A0 | Entry release / exposed candidate pool |
+| A2 | Same frozen A0 entry release | Cost-Aware Block selector | Physical victim choice |
+
+A2 does **not** combine A1 and A2. Do not compare their recomputation results as if they changed the same choice layer. A1 may change which blocks become eligible; A2 may change which eligible block is selected. The actual evidence chain is: **logical release → selected candidate/victim → Native hashed eviction → later APC prefix status → recomputed tokens**, and each arrow requires runtime evidence. A controlled comparison cannot attribute a token delta to a specific victim from co-occurrence alone.
+
+### Phase 1A physical block adapter
+
+
 
 Phase 1A validated the real backend victim-selection path:
 
@@ -59,7 +75,7 @@ native free cached blocks
     -> native BlockPool eviction bookkeeping
 ```
 
-This is the **main experimental decision boundary** for the proposed algorithm.
+This is the **physical victim-selection boundary** validated by Phase 1A; entry-release selection is a separate upstream Phase 2G research choice (see the preceding section).
 
 It must support at minimum:
 
@@ -135,6 +151,8 @@ explicit program/session identity
 Continuum is intentionally reproduced as a system-level baseline even though the proposed research core is eviction.
 
 ## Proposed architecture
+
+**Original conceptual roadmap, not a completed method/acceptance record.** The staged `Ours-Evict` / `Ours-Full` names below represent the original research hierarchy. Actual evaluated Phase 2G A0/A1/A2 policies have the two-level definitions above; the strong Sufficient-first comparator and formal Native benefit evaluation are not yet complete. See [current research status](research-status.md).
 
 The proposed method should be developed in stages:
 

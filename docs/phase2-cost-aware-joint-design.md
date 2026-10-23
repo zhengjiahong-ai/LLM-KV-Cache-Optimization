@@ -1,5 +1,7 @@
 # Cost-Aware KV 淘汰：Entry + Block 联合设计（最小版）
 
+> **Historical design-stage scope:** The “design draft / not implemented” note below describes this document's **original drafting stage**, not the present repository. Later Phase 2G A1 and A2 were separately implemented and bounded-evaluated, but their independent cost-model value remains unproven. The combined A3 method is **not authorized**. Consult [canonical research status](research-status.md) and [experiment index](experiments/README.md) for the current verdict; do not retrospectively convert this design's illustrative proxy predictions into measured Native token benefit.
+
 > 状态：**设计草案，未实现**
 > 依 M1 裁定：本文只做设计，不做 runtime 策略实现、不做大规模实验。
 > 修订：rev.2 依 M1 RC1 为目标函数补充释放约束 (C1)–(C4)，

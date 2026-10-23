@@ -1,5 +1,7 @@
 # Continuum Baseline Implementation Record
 
+> **Scope:** This is the accepted **Phase 1B implementation record**, not evidence that Continuum paper-run serving requests were reproduced or that any later A1/A2 algorithm improves caching. The frozen baseline is specified in [baseline-freeze.md](baseline-freeze.md); live Phase 2 evidence and permissions are indexed in [research-status.md](research-status.md).
+
 ## Status
 
 **Phase 1B implementation, real-runtime validation, and integration to `main` are COMPLETE. Phase 1B is CLOSED.**

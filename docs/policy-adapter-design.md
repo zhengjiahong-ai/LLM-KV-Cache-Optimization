@@ -1,5 +1,7 @@
 # vLLM Eviction Policy Adapter Design
 
+> **Historical interface contract — Phase 1A:** The four-field `EvictionCandidate` and native `lru_rank` semantics below remain frozen for the original adapter. References to “future Cost-Aware policy” describe the **Phase 1A point in time**, not current implementation status. Phase 2G later implemented and evaluated distinct A1 Entry Release and A2 Block Victim strategies using additional decision-specific observability; this document does **not** authorize back-porting extra fields into the frozen adapter. See [architecture](architecture.md), [research status](research-status.md), and [experiment index](experiments/README.md).
+
 ## Status
 
 **Phase 1A — Common Policy Adapter: PASS.**
