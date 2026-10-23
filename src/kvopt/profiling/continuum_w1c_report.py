@@ -27,6 +27,8 @@ def _lcp(left: list[int], right: list[int]) -> int:
 def _classify(manifest: dict[str, Any]) -> str:
     if manifest.get("agent_outcome") == "SUBMITTED":
         return "NATURAL_COMPLETION"
+    if manifest.get("agent_exit_status") == "ContextLengthExceeded":
+        return "FAILED_CONTEXT_LIMIT"
     if manifest.get("agent_outcome") == "INCOMPLETE":
         return "RIGHT_CENSORED_STEP_LIMIT"
     reason = str(manifest.get("failure_reason", "")).lower()
@@ -77,6 +79,24 @@ def _run_row(run_dir: Path, instance_id: str, condition: str) -> dict[str, Any]:
         ids = [call.get("request_id") for call in calls]
         if len(ids) != len(set(ids)):
             problems.append("duplicate request identity")
+        failed_calls = [call for call in calls if call.get("status") != "SUCCESS"]
+        trajectory_assistant_count = None
+        if trajectory_files:
+            trajectory = json.loads(trajectory_files[0].read_text(encoding="utf-8"))
+            trajectory_assistant_count = sum(
+                message.get("role") == "assistant"
+                for message in trajectory.get("messages", [])
+            )
+            successful_calls = len(calls) - len(failed_calls)
+            if successful_calls != trajectory_assistant_count:
+                problems.append("successful model calls do not match assistant turns")
+            if failed_calls and not (
+                len(failed_calls) == 1
+                and manifest.get("agent_exit_status") == "ContextLengthExceeded"
+                and calls[-1] is failed_calls[0]
+                and "maximum context length" in str(failed_calls[0].get("error", ""))
+            ):
+                problems.append("failed model call is not a bound context-limit observation")
         previous: list[int] | None = None
         for call in calls:
             tokens = call.get("submitted_token_ids")
@@ -108,6 +128,16 @@ def _run_row(run_dir: Path, instance_id: str, condition: str) -> dict[str, Any]:
         "problems": problems,
         "outcome": _classify(manifest),
         "model_call_count": manifest.get("model_call_count", 0),
+        "successful_model_call_count": (
+            sum(call.get("status") == "SUCCESS" for call in sidecar.get("model_calls", []))
+            if sidecar is not None
+            else 0
+        ),
+        "failed_model_call_count": (
+            sum(call.get("status") != "SUCCESS" for call in sidecar.get("model_calls", []))
+            if sidecar is not None
+            else 0
+        ),
         "tool_call_count": manifest.get("tool_call_count", 0),
         "wall_elapsed_seconds": manifest.get("wall_elapsed_seconds"),
         "prompt_token_counts": token_counts,

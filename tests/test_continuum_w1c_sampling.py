@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from kvopt.profiling.continuum_w1c_report import build_report
+from kvopt.profiling.continuum_w1c_report import _classify, build_report
 from kvopt.workload.continuum_w1a_runner import (
     load_acquisition_config,
     validate_instance_id,
@@ -95,3 +95,12 @@ def test_w1c_report_fails_closed_on_missing_frozen_runs(tmp_path: Path) -> None:
     assert audit["decision_time_candidate_count"] == (
         "NOT_OBSERVABLE_FROM_TRAJECTORY_ONLY"
     )
+
+
+def test_w1c_context_limit_is_not_classified_as_step_censoring() -> None:
+    assert _classify(
+        {
+            "agent_outcome": "INCOMPLETE",
+            "agent_exit_status": "ContextLengthExceeded",
+        }
+    ) == "FAILED_CONTEXT_LIMIT"
