@@ -1,6 +1,6 @@
 # Team Responsibilities
 
-This document defines ownership and phase responsibilities for the seven project members.
+This document defines ownership and phase responsibilities for the seven project members. For the **current** phase and its authorized scope, read [`research-status.md`](research-status.md); the baseline responsibilities below remain historical/general guidance where newer M1 authorizations assign narrower operational ownership.
 
 ## Project hierarchy
 
@@ -18,6 +18,18 @@ System coordination
 ```
 
 Retention and scheduling remain in scope because they are required by the Continuum system baseline and may later be evaluated as extensions. They must not displace eviction as the primary proposed algorithm.
+
+## Current Phase 2 W0/W1 ownership overlay
+
+This overlay takes precedence over broad early-phase role labels; it does not modify the frozen Phase 1B baseline.
+
+- **M1:** architecture, phase gates, evidence/claim adjudication, integration, and canonical status documentation.
+- **M4:** cost-aware A1/A2 decision-space analysis, simple-heuristic/Sufficient-first comparator, mechanism and claim review. Does not lead data acquisition.
+- **M6:** Continuum/SWE-bench data source audit, frozen sample, Agent trajectory acquisition, conversion, W1-B native replay/smoke, W1-C stratified sampling and S50/S100 pilot, provenance and analysis.
+- **M5:** common benchmark/runner substrate and concrete integration gaps, rather than default owner of W1-A/W1-C trajectory collection.
+- **M2/M3:** research background/paper-mechanism and frozen baseline support, respectively.
+
+**Current gate:** W0/W1-A closed; W1-B PR #73 still under M1 review; W1-C bounded feasibility authorized; full 100-task acquisition and formal policy-benefit campaign not authorized.
 
 ## Shared rules
 

@@ -25,14 +25,21 @@ Retention and scheduling are included where needed to reproduce strong system ba
 
 ## Current Status
 
+The current **authoritative Phase 2 research/gate ledger** is [`docs/research-status.md`](docs/research-status.md). Older design and phase-plan files remain useful as historical evidence but must not be read as the current authorization.
+
 ```text
-Phase 0   Backend & architecture validation          CLOSED
-Phase 1A  Common block-level eviction adapter        CLOSED
-Phase 1B  Continuum baseline implementation          COMPLETE
-Phase 1B  Real-runtime validation                    COMPLETE
-Phase 1B  Continuum baseline                        CLOSED
-Phase 2   Baseline profiling / Cost-Aware design     ACTIVE
+Phase 0 / 1A / 1B          CLOSED — real vLLM/APC integration and Continuum-style baseline
+Phase 2A H1/H2            CLOSED — H1 DIAGNOSTIC_ONLY; H2 does not unlock B1
+Phase 2B / 2C / 2E       CLOSED — fidelity, workload audit and native-baseline evaluation
+Phase 2G A1               BOUNDED EVALUATION — independent gain vs sufficient-first unproven
+Phase 2G A2               INCONCLUSIVE — no reliable independent block-level value
+W0 / W1-A                 CLOSED — source audit and authentic Agent trajectory acquisition
+W1-B (PR #73)             UNDER REVIEW — M1 RC1–RC4 pending; reported smoke not accepted
+W1-C                      AUTHORIZED BOUNDED PILOT — stratified S50/S100 feasibility only
+Formal benefit campaign    NOT AUTHORIZED
 ```
+
+The W1-A first cohort consists of ten SWE-bench Verified tasks, all from Astropy; nine are right-censored at the 50-step limit. W1-B uses sparse turns and controlled replay pressure, rather than the Continuum paper's original serving arrivals. Do **not** interpret its submitted A1−A0 token delta as a formal improvement estimate.
 
 The real backend is frozen to **vLLM 0.27.1** with GPU Automatic Prefix Caching (APC).
 
@@ -141,6 +148,8 @@ Ours-Full = Eviction + Retention + Scheduling
 `Ours-Evict` must remain an independently meaningful method and experiment.
 
 ## Key Documents
+
+- [**Current Phase 2 research status**](docs/research-status.md) — authoritative stage/gate ledger, evidence boundaries and PR status.
 
 - [`docs/experiment-plan.md`](docs/experiment-plan.md) — research questions and experimental hierarchy.
 - [`docs/baseline-freeze.md`](docs/baseline-freeze.md) — frozen Phase 1B Continuum adaptation scope.

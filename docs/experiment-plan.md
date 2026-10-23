@@ -1,5 +1,25 @@
 # Experimental Plan
 
+## Current Phase 2 execution overlay (2026-10-23)
+
+**Status source:** [`research-status.md`](research-status.md). This section updates the execution roadmap without retroactively changing the originally proposed research questions, the frozen Phase 1B baseline, or historical formal verdicts.
+
+Current evaluated mechanisms are **not identical to an independently demonstrated Ours-Evict method**:
+
+| Arm | Entry forced-release rule | Physical block-victim rule |
+| --- | --- | --- |
+| A0 | frozen Continuum-style project baseline | native LRU |
+| A1 | cost-aware entry selector | native LRU |
+| A2 | A0 entry release | cost-aware block selector |
+
+A1's bounded Native signal does not isolate the value of its q/λ or lookahead model. Historical A1 decisions were reproducible by a simpler **Sufficient-first + earliest-deadline** comparator. A2 remains inconclusive. A complete research contribution requires actual policy divergence, native physical consequences and formal comparison including a strong simple heuristic, not just positive totals versus A0.
+
+**Workload/evidence phases:** W0 source audit and W1-A bounded acquisition are closed; the ten acquired SWE-bench Verified traces are from a single upstream repository and nine reached the configured 50-step limit. W1-B (PR #73) is **under review** with RC1–RC4 and only submitted bounded controlled-pressure smoke results. W1-C may design a cross-project stratified ~100-task cohort but is authorized only for a bounded ~20-task S50/S100 feasibility pilot; the full acquisition and formal multi-arm campaign are **not** authorized. A native-comparable replay must bind frozen token inputs, preserve right censoring and explicitly distinguish observed tool timing from constructed inter-session arrival/pressure.
+
+**Formal benefit gate:** define independent scenario/task groups, freeze all arm-independent runtime parameters, bound confidence/variance and missingness, verify forced-release/victim/APC chains, report `R=E-C`, `W=N-C`, `S=N-E`, and include Sufficient-first. No algorithm retuning after outcome inspection and no implicit extension of W1-B's scope.
+
+---
+
 ## Project Theme
 
 **Cost-Aware KV Cache Eviction for LLM Serving**
@@ -350,11 +370,11 @@ Owns the **Cost-Aware eviction algorithm first**. Retention/scheduling extension
 
 ### Member 5
 
-Owns reproducible workloads/traces, including both eviction-focused traces and multi-turn/session traces.
+Owns shared reproducible workload/benchmark substrate and runner interface support. M6 owns current W0/W1 source-specific Agent acquisition, replay materialization and evidence.
 
 ### Member 6
 
-Owns evaluation and must separate eviction attribution from retention/scheduling/full-system effects.
+Owns evaluation and must separate eviction attribution from retention/scheduling/full-system effects. In current W0/W1 stages, also owns Agent trajectory collection, frozen sample design, source provenance, Native replay and statistical/missingness reporting.
 
 ---
 
@@ -381,7 +401,7 @@ Owns evaluation and must separate eviction attribution from retention/scheduling
 - formal model/dataset/workload matrix;
 - final hyperparameters.
 
-The next project stage is **Phase 2 — bottleneck identification and Cost-Aware eviction**.
+For current authorization and outcome status after these initial freeze notes, consult **[`research-status.md`](research-status.md)**; this section records the original foundational freeze and must not be read as the latest execution authorization.
 
 Before the exact `Ours-Evict` score is frozen:
 
