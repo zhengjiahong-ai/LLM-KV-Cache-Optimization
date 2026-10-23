@@ -1,5 +1,7 @@
 # Ours-Evict — Algorithm Design（rev.5）
 
+> **Historical design decision (2026-10-17):** The `METHOD_BLOCKED_BY_CURRENT_INTERFACE` judgment here is **limited to the original four-field Adapter interface and legacy H1 evidence**, not a verdict on all later vLLM observability or the subsequent A1/A2 Native evaluations. This file preserves the rev.5 decision path without updating its proposals to match later outcomes. Read [current research status](research-status.md), [experiment index](experiments/README.md), and [A2 research judgment](experiments/phase2g-a2-research-judgment.md) before citing it as the current method assessment.
+
 **提交人**：M4　**送审**：M1　**日期**：2026-10-17
 **阶段**：Phase 2 Cost-Aware Eviction 算法设计（**设计 PR，不含 runtime 实现**）
 **主目标**：`aggregate_recomputed_tokens`　**辅助观测**：TTFT / queue delay
