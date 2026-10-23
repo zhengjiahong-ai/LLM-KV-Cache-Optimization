@@ -12,7 +12,7 @@ def test_w1b_evidence_rejects_incomplete_run_set(tmp_path: Path) -> None:
     ]
     for root in roots:
         root.mkdir()
-    (roots[-1] / "comparison-report.json").write_text(
+    (roots[-1] / "comparison-report-v2.json").write_text(
         json.dumps({"gate": "PASS"}), encoding="utf-8"
     )
     with pytest.raises(ValueError, match="exactly 12 run manifests"):

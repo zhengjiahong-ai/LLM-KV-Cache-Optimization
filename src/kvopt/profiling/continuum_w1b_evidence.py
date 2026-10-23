@@ -55,7 +55,7 @@ def package_w1b_evidence(
         )
     )
     archive_path = archive_path.resolve()
-    report_path = run_root.resolve() / "comparison-report.json"
+    report_path = run_root.resolve() / "comparison-report-v2.json"
     if not report_path.is_file():
         raise FileNotFoundError("W1-B comparison report is missing")
     report = json.loads(report_path.read_text(encoding="utf-8"))
@@ -71,6 +71,7 @@ def package_w1b_evidence(
     if statuses != Counter({"success": 12}):
         raise ValueError("W1-B evidence requires 12 successful runs")
     repository_files = (
+        Path("configs/phase2/continuum-w1b-execution-semantics-reconciliation-v1.json"),
         Path("configs/phase2/continuum-w1b-native-smoke-protocol-v2.json"),
         Path("scripts/spikes/phase2_minimal_observability_metal.py"),
         Path("src/kvopt/continuum/prefill_profile.py"),
@@ -86,6 +87,7 @@ def package_w1b_evidence(
         Path("tests/test_continuum_w1b_native_input.py"),
         Path("tests/test_continuum_w1b_report.py"),
         Path("tests/test_continuum_w1b_runner.py"),
+        Path("tests/test_continuum_vllm_observation_runner.py"),
     )
     missing = [str(path) for path in repository_files if not (repository / path).is_file()]
     if missing:
@@ -102,8 +104,8 @@ def package_w1b_evidence(
         )
     sources.extend((repository / path, path) for path in repository_files)
     manifest = {
-        "schema_version": "continuum.w1b_native_comparison_evidence_handoff.v1",
-        "scope": "BOUNDED_NATIVE_COMPARABILITY_SMOKE",
+        "schema_version": "continuum.w1b_native_comparison_evidence_handoff.v2",
+        "scope": "REAL_AGENT_CONTENT_CONTROLLED_SPARSE_TURN_PRESSURE_REPLAY",
         "created_at_utc": datetime.now(UTC).isoformat(),
         "packaging_git_sha": _git(repository, "rev-parse", "HEAD"),
         "packaging_git_dirty": bool(
