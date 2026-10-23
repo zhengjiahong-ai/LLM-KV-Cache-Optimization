@@ -8,7 +8,9 @@ import hashlib
 import json
 import subprocess
 import sys
+import time
 import traceback
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +23,7 @@ from .continuum_w1a_acquisition import (
 CONFIG_SCHEMAS = {
     "continuum.w1a_acquisition_config.v1",
     "continuum.w1a_acquisition_config.v2",
+    "continuum.w1c_acquisition_config.v1",
 }
 
 
@@ -44,24 +47,48 @@ def load_acquisition_config(
     config = json.loads(path.read_text(encoding="utf-8"))
     if config.get("schema_version") not in CONFIG_SCHEMAS:
         raise ValueError("unsupported W1-A acquisition config")
-    if config.get("scope") != "W1A_BOUNDED_TRAJECTORY_ACQUISITION_NO_NATIVE_CAMPAIGN":
-        raise ValueError("W1-A acquisition scope mismatch")
-    acquisition = config.get("acquisition")
-    if not isinstance(acquisition, dict) or acquisition.get("formal_native_campaign_authorized") is not False:
-        raise ValueError("W1-A config must keep Native campaign authorization false")
+    w1c = config.get("schema_version") == "continuum.w1c_acquisition_config.v1"
+    expected_scope = (
+        "W1C_BOUNDED_PAIRED_STEP_LIMIT_FEASIBILITY_PILOT"
+        if w1c
+        else "W1A_BOUNDED_TRAJECTORY_ACQUISITION_NO_NATIVE_CAMPAIGN"
+    )
+    if config.get("scope") != expected_scope:
+        raise ValueError("bounded acquisition scope mismatch")
+    authorization = config.get("execution_budget" if w1c else "acquisition")
+    if not isinstance(authorization, dict) or authorization.get(
+        "formal_native_campaign_authorized"
+    ) is not False:
+        raise ValueError("acquisition config must keep Native campaign authorization false")
+    if w1c and authorization.get("full_100_task_acquisition_authorized") is not False:
+        raise ValueError("W1-C full acquisition must remain unauthorized")
     sample_path = repository / str(config["sample_manifest"])
     sample = json.loads(sample_path.read_text(encoding="utf-8"))
     if config["dataset"]["revision"] != sample["dataset"]["revision"]:
         raise ValueError("dataset revision does not match the W0 frozen sample")
-    if config["author_runner"]["commit"] != sample["trajectory_source"]["repository_commit"]:
+    if w1c:
+        if sample.get("scope") != "W1C_SAMPLING_DESIGN_AND_BOUNDED_S50_S100_PILOT_ONLY":
+            raise ValueError("W1-C sample scope mismatch")
+        condition = config.get("condition")
+        expected_limit = sample.get("pilot_conditions", {}).get(condition, {}).get("step_limit")
+        if expected_limit != config["author_runner"].get("effective_step_limit"):
+            raise ValueError("W1-C step-limit condition does not match the sample freeze")
+        snapshot_path = repository / str(config["candidate_snapshot"])
+        if not snapshot_path.is_file() or _sha256(snapshot_path) != config.get(
+            "candidate_snapshot_sha256"
+        ):
+            raise ValueError("W1-C candidate snapshot binding mismatch")
+    elif config["author_runner"]["commit"] != sample["trajectory_source"][
+        "repository_commit"
+    ]:
         raise ValueError("author runner revision does not match the W0 audit")
     return config, sample
 
 
 def validate_instance_id(instance_id: str, sample: dict[str, Any]) -> None:
-    identities = sample.get("instance_ids")
+    identities = sample.get("pilot_instance_ids", sample.get("instance_ids"))
     if not isinstance(identities, list) or instance_id not in identities:
-        raise ValueError("instance_id is not in the frozen W1-A sample")
+        raise ValueError("instance_id is not in the frozen acquisition sample")
 
 
 def _load_author_path(source_checkout: Path, expected_sha: str) -> Path:
@@ -120,6 +147,7 @@ def run_one(
     manifest_path = run_dir / "run.json"
     trajectory_path = run_dir / f"{instance_id}.traj.json"
     sidecar_path = run_dir / "acquisition-sidecar.json"
+    started_monotonic = time.monotonic()
     manifest: dict[str, object] = {
         "schema_version": "continuum.w1a_acquisition_run.v1",
         "status": "running",
@@ -132,6 +160,13 @@ def run_one(
         "model": copy.deepcopy(config["model"]),
         "server_runtime": copy.deepcopy(config["server_runtime"]),
         "environment": copy.deepcopy(config["environment"]),
+        "condition": config.get("condition", "W1A"),
+        "effective_step_limit": config["author_runner"].get(
+            "effective_step_limit", config["author_runner"].get("step_limit")
+        ),
+        "cost_limit": config["author_runner"].get("cost_limit"),
+        "max_model_len": config["server_runtime"]["max_model_len"],
+        "started_at_utc": datetime.now(UTC).isoformat(),
     }
     manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
 
@@ -154,11 +189,23 @@ def run_one(
 
         author_config_path = source_checkout / config["author_runner"]["agent_config"]
         agent_config = yaml.safe_load(author_config_path.read_text(encoding="utf-8"))
+        effective_step_limit = int(
+            config["author_runner"].get(
+                "effective_step_limit", config["author_runner"].get("step_limit", 0)
+            )
+        )
+        agent_config.setdefault("agent", {})["step_limit"] = effective_step_limit
+        agent_config["agent"]["cost_limit"] = float(
+            config["author_runner"].get(
+                "cost_limit", agent_config["agent"].get("cost_limit", 0.0)
+            )
+        )
         model_config = copy.deepcopy(config["model"])
         model_config.pop("model_revision")
         model_config.pop("tokenizer_name")
         model_config.pop("tokenizer_revision")
         model_config.pop("paper_example_difference")
+        model_config["step_limit"] = effective_step_limit
         model = get_model(config=model_config)
         environment_config = copy.deepcopy(agent_config.get("environment", {}))
         environment_config.update(
@@ -220,6 +267,8 @@ def run_one(
             manifest["model_call_count"] = 0
             manifest["tool_call_count"] = 0
             manifest["tool_execution_demonstrated"] = False
+        manifest["finished_at_utc"] = datetime.now(UTC).isoformat()
+        manifest["wall_elapsed_seconds"] = time.monotonic() - started_monotonic
         manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
     print(f"{manifest['status']}: {run_dir}")
     return run_dir

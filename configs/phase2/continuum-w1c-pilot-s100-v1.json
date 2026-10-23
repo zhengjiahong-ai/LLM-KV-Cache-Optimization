@@ -1,0 +1,65 @@
+{
+  "schema_version": "continuum.w1c_acquisition_config.v1",
+  "scope": "W1C_BOUNDED_PAIRED_STEP_LIMIT_FEASIBILITY_PILOT",
+  "condition": "S100",
+  "sample_manifest": "configs/phase2/continuum-w1c-stratified-sample-v1.json",
+  "candidate_snapshot": "configs/phase2/continuum-w1c-candidate-snapshot-v1.json",
+  "candidate_snapshot_sha256": "941faa719fcfc19da9c0a8f800b8510072934b538734893972a0dc27b23703bb",
+  "dataset": {
+    "name": "princeton-nlp/SWE-bench_Verified",
+    "config": "default",
+    "split": "test",
+    "revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a"
+  },
+  "author_runner": {
+    "repository": "https://github.com/Hanchenli/vllm-continuum",
+    "commit": "316a58794a6ff86b216e579b74fd56ed0c5a911f",
+    "agent_config": "mini-swe-agent/src/minisweagent/config/extra/swebench.yaml",
+    "author_step_limit": 50,
+    "effective_step_limit": 100,
+    "cost_limit": 3.0
+  },
+  "model": {
+    "model_class": "vllm",
+    "model_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+    "model_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225",
+    "tokenizer_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+    "tokenizer_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225",
+    "base_url": "http://localhost:8100/v1",
+    "stream": true,
+    "max_completion_tokens": 512,
+    "model_kwargs": {"temperature": 0.0, "seed": 20261023},
+    "paper_example_difference": "Local Apple GPU and a pinned 3B coder model; no paper-run reproduction claim."
+  },
+  "server_runtime": {
+    "backend": "vllm-metal",
+    "vllm_version": "0.27.1+cpu",
+    "vllm_metal_version": "0.3.0",
+    "host": "127.0.0.1",
+    "port": 8100,
+    "max_model_len": 32768,
+    "gpu_memory_utilization": 0.75,
+    "environment": {
+      "HF_HUB_OFFLINE": "1",
+      "TRANSFORMERS_OFFLINE": "1",
+      "VLLM_ENABLE_V1_MULTIPROCESSING": "0"
+    }
+  },
+  "environment": {
+    "environment_class": "docker",
+    "workers": 1,
+    "tool_timeout_seconds": 60
+  },
+  "execution_budget": {
+    "independent_task_count": 20,
+    "condition_count": 2,
+    "planned_total_runs_across_conditions": 40,
+    "overwrite_existing": false,
+    "preserve_failed_attempts": true,
+    "stop_on_context_overflow": false,
+    "stop_on_individual_task_failure": false,
+    "stop_on_provenance_or_sample_binding_failure": true,
+    "full_100_task_acquisition_authorized": false,
+    "formal_native_campaign_authorized": false
+  }
+}
