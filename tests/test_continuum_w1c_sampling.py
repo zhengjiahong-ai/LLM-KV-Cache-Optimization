@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from kvopt.profiling.continuum_w1c_report import build_report
 from kvopt.workload.continuum_w1a_runner import (
     load_acquisition_config,
     validate_instance_id,
@@ -78,3 +79,19 @@ def test_w1c_paired_configs_bind_same_frozen_pilot() -> None:
     assert s100["author_runner"]["effective_step_limit"] == 100
     assert len(sample50["pilot_instance_ids"]) == 20
     validate_instance_id(sample50["pilot_instance_ids"][0], sample50)
+
+
+def test_w1c_report_fails_closed_on_missing_frozen_runs(tmp_path: Path) -> None:
+    repository = Path(__file__).parents[1]
+    freeze = repository / "configs/phase2/continuum-w1c-stratified-sample-v1.json"
+
+    report = build_report(freeze, tmp_path)
+
+    assert report["observed_expected_run_count"] == 0
+    assert len(report["missing_run_keys"]) == 40
+    assert report["valid_pair_count"] == 0
+    assert report["recommendation"] == "NO_GO_CURRENT_ACQUISITION_CONFIGURATION"
+    audit = report["decision_opportunity_audit"]
+    assert audit["decision_time_candidate_count"] == (
+        "NOT_OBSERVABLE_FROM_TRAJECTORY_ONLY"
+    )
