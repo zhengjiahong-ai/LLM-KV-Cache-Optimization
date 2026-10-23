@@ -1,5 +1,8 @@
 # Phase 2G · A1 结果摘要
 
+> **Historical scope: initial A1 offline selection and algorithm tests only.** Statements below such as “no native validation” and the original “next steps” describe *this document's stage*, not the project's latest state. Later A1 Native Gate 2 evidence and the still-open independent-value question are indexed at [Phase 2 experiment index](../README.md) and [canonical research status](../../research-status.md). The simple Sufficient-first comparator reproduced the recorded 54/54 A1 Gate 2 forced-release selections; the q/λ contribution remains unproven. Original offline measurements below are unchanged.
+
+
 **Scope: offline selection only.** 本轮实现了 A1（Entry-level Cost-Aware Release +
 Native LRU），未实现 A2/A3，未做任何 native 验证。以下所有数字都是**释放选择层面**的
 事实，**不是** aggregate recomputed tokens 的改善。
