@@ -62,9 +62,11 @@ whose error states that prompt plus requested completion exceeded the frozen
 32K limit. These observations are not reclassified as ordinary step-limit
 censoring.
 
-Across paired tasks, S100 minus S50 model-call count had mean `40.15`, median
-`50`, and range `[-42, 50]`. Eighteen tasks had more model calls under S100;
-two had fewer because they naturally completed or hit the context boundary.
+Across paired tasks, S100 minus S50 attempted model-call count had mean
+`40.15`, median `50`, and range `[-42, 50]`. Excluding the three rejected
+context-limit submissions, the successful-call mean delta was `40.00`.
+Eighteen tasks had more model calls under S100; two had fewer because they
+naturally completed or hit the context boundary.
 Thus the longer budget usually produced additional interaction, but did not
 substantially resolve natural-completion missingness.
 
@@ -77,7 +79,12 @@ observations.
 | Condition | Median prompt tokens | Maximum prompt tokens | Median per-task context growth | Median adjacent exact-token LCP | Median adjacent reuse ratio |
 |---|---:|---:|---:|---:|---:|
 | S50 | 5,836 | 19,726 | 9,131.5 | 5,773 | 0.9709 |
-| S100 | 9,252 | 34,085 | 17,495.5 | 9,213 | 0.9829 |
+| S100 | 9,245 | 32,223 | 17,495.5 | 9,209 | 0.9829 |
+
+The attempted rejected prompts for the three context-limit runs contained
+34,085, 32,514 and 32,600 locally tokenized tokens. They are retained as
+attempted-input evidence but excluded from successful/admitted prompt length,
+LCP and context-growth statistics.
 
 The long exact-token common prefixes demonstrate strong replay potential
 within an Agent session. They do not prove Native APC eligibility, KV
@@ -87,10 +94,17 @@ residency, cache hits, or physical reuse.
 
 Thirty-seven trajectories passed the existing W1-A strict source-to-sidecar
 validation with `CONDITIONAL_PASS`, including all 20 S50 runs and the 17 S100
-runs without a failed final model submission. The remaining three S100 runs
-are explicitly represented as valid context-limit observations: all successful
-calls match their serialized trajectory, and the sidecar retains the final
-failed call that cannot have a corresponding assistant response.
+runs without a failed final model submission. The W1-C partial-prefix validator
+also verifies the successful calls and final rejected request for
+`django__django-13569`.
+
+The other two context-limit runs remain fail-closed for full payload
+comparability. Their sidecars preserve valid model request identity, hashes,
+tokens and timing, but earlier oversized tool outputs were serialized into a
+truncated warning representation that cannot be inverted to the original tool
+result hash. Thus 18/20 pairs are fully evidence-comparable, while all 20/20
+pairs remain lifecycle-comparable through their frozen run, trajectory and
+sidecar bindings.
 
 No failed, censored, or context-limited task was silently removed.
 

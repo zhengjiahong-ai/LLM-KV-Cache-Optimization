@@ -33,10 +33,49 @@ def _inputs(repository: Path, s50_path: Path, s100_path: Path) -> dict[str, Any]
         raise ValueError("S50 and S100 do not bind the same sampling freeze")
     if s50.get("condition") != "S50" or s100.get("condition") != "S100":
         raise ValueError("paired configs must be S50 and S100")
+    normalized_s50 = json.loads(json.dumps(s50))
+    normalized_s100 = json.loads(json.dumps(s100))
+    normalized_s50.pop("condition", None)
+    normalized_s100.pop("condition", None)
+    normalized_s50["author_runner"].pop("effective_step_limit", None)
+    normalized_s100["author_runner"].pop("effective_step_limit", None)
+    if normalized_s50 != normalized_s100:
+        raise ValueError("S50/S100 policy-independent configuration drift")
     ids = freeze50.get("pilot_instance_ids")
     if not isinstance(ids, list) or len(ids) != 20 or len(set(ids)) != 20:
         raise ValueError("W1-C pilot must contain exactly 20 unique task IDs")
     return {"S50": s50, "S100": s100, "freeze": freeze50, "ids": ids}
+
+
+def _existing_run_problems(
+    manifest: dict[str, Any], *, instance_id: str, condition: str,
+    config: dict[str, Any], config_path: Path, authorization: dict[str, Any]
+) -> list[str]:
+    problems: list[str] = []
+    expected = {
+        "status": "completed",
+        "instance_id": instance_id,
+        "condition": condition,
+        "config_sha256": _sha256(config_path),
+        "repository_git_sha": authorization.get("repository_git_sha"),
+        "author_repository_git_sha": config["author_runner"]["commit"],
+        "effective_step_limit": config["author_runner"]["effective_step_limit"],
+        "cost_limit": config["author_runner"]["cost_limit"],
+        "max_model_len": config["server_runtime"]["max_model_len"],
+        "dataset": config["dataset"],
+        "model": config["model"],
+        "server_runtime": config["server_runtime"],
+        "environment": config["environment"],
+    }
+    for field, value in expected.items():
+        if manifest.get(field) != value:
+            problems.append(f"existing run {field} binding mismatch")
+    if manifest.get("agent_outcome") not in {"SUBMITTED", "INCOMPLETE"}:
+        problems.append("existing run lacks a completed terminal Agent outcome")
+    for field in ("trajectory_sha256", "sidecar_sha256"):
+        if not isinstance(manifest.get(field), str):
+            problems.append(f"existing run lacks {field}")
+    return problems
 
 
 def build_authorization(
@@ -137,6 +176,18 @@ def execute(
             run_dir = output_root / condition / instance_id
             if (run_dir / "run.json").is_file():
                 manifest = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
+                existing_problems = _existing_run_problems(
+                    manifest,
+                    instance_id=instance_id,
+                    condition=condition,
+                    config=inputs[condition],
+                    config_path=config_path,
+                    authorization=authorization,
+                )
+                if existing_problems:
+                    raise ValueError(
+                        "unsafe existing W1-C attempt: " + "; ".join(existing_problems)
+                    )
                 state = "existing"
             else:
                 run_one(
