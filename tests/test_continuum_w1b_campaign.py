@@ -43,6 +43,9 @@ def test_validate_campaign_rejects_cross_arm_token_mismatch(tmp_path: Path) -> N
     report = validate_campaign(manifest_path=manifest)
     assert report["status"] == "FAIL"
     assert any("token identity mismatch" in item for item in report["problems"])
+    assert any(
+        "missing frozen source/native digest binding" in item for item in report["problems"]
+    )
 
 
 def test_prefix_accounting_uses_only_complete_cache_blocks() -> None:

@@ -294,6 +294,24 @@ def _delta(candidate: dict[str, Any], baseline: dict[str, Any], key: str) -> int
     return None if left is None or right is None else int(left) - int(right)
 
 
+def _mechanism_status(
+    *,
+    native_comparable: bool,
+    forced_release_exposed: bool,
+    post_release_eviction_available: bool,
+    downstream_observation_available: bool,
+) -> str:
+    if not native_comparable:
+        return "INVALID"
+    if not forced_release_exposed:
+        return "VALID_REPLAY_NO_DECISION_EXPOSURE"
+    if not post_release_eviction_available:
+        return "INCOMPLETE_POST_RELEASE_NATIVE_EVICTION_EVIDENCE"
+    if not downstream_observation_available:
+        return "INCOMPLETE_DOWNSTREAM_APC_RECOMPUTATION_EVIDENCE"
+    return "VALID_BOUNDED_MECHANISM_SMOKE"
+
+
 def build_report(*, manifest_path: Path, runs_root: Path) -> dict[str, Any]:
     manifest = _load(manifest_path)
     frozen_inputs = _frozen_input_digests(manifest)
@@ -319,10 +337,16 @@ def build_report(*, manifest_path: Path, runs_root: Path) -> dict[str, Any]:
             and all(item["exposure_complete"] for item in row["forced_release_decisions"])
             for row in arms.values()
         )
-        downstream = all(
+        physical = all(
             all(
                 item["post_release_native_hash_evidence_available"]
-                and item["downstream_evidence_available"]
+                for item in row["forced_release_decisions"]
+            )
+            for row in arms.values()
+        )
+        downstream = all(
+            all(
+                item["downstream_evidence_available"]
                 for item in row["forced_release_decisions"]
             )
             for row in arms.values()
@@ -330,12 +354,11 @@ def build_report(*, manifest_path: Path, runs_root: Path) -> dict[str, Any]:
         groups.append(
             {
                 "group_id": group_id,
-                "status": (
-                    "VALID_BOUNDED_MECHANISM_SMOKE"
-                    if all_valid and inputs_equal and forced
-                    else "VALID_REPLAY_NO_DECISION_EXPOSURE"
-                    if all_valid and inputs_equal
-                    else "INVALID"
+                "status": _mechanism_status(
+                    native_comparable=native_comparable,
+                    forced_release_exposed=forced,
+                    post_release_eviction_available=physical,
+                    downstream_observation_available=downstream,
                 ),
                 "cross_arm_input_identity": inputs_equal,
                 "native_input_and_runtime_comparability": (
@@ -348,9 +371,13 @@ def build_report(*, manifest_path: Path, runs_root: Path) -> dict[str, Any]:
                     if forced
                     else "NOT_DEMONSTRATED"
                 ),
-                "downstream_apc_recomputation_evidence": (
-                    "AVAILABLE" if downstream else "MISSING"
+                "post_release_native_eviction_evidence": (
+                    "AVAILABLE_TEMPORAL_ASSOCIATION_ONLY" if physical else "MISSING"
                 ),
+                "downstream_apc_recomputation_evidence": (
+                    "AVAILABLE_TEMPORAL_ASSOCIATION_ONLY" if downstream else "MISSING"
+                ),
+                "content_level_causal_attribution": "NOT_ESTABLISHED",
                 "selection_sequences": {
                     arm: row["selection_sequence"] for arm, row in arms.items()
                 },

@@ -316,11 +316,21 @@ def validate_campaign(*, manifest_path: Path) -> dict[str, Any]:
             request_id: token_ids_sha256(token_ids)
             for request_id, token_ids in tokens[0][0].items()
         }
+        missing_expected = [
+            row["continuum_w1b_stage"]["arm"]
+            for row in configs
+            if "expected_native_submission_sha256_by_request" not in row["backend_options"]
+        ]
+        if missing_expected:
+            problems.append(
+                f"missing frozen source/native digest binding: {group_id} "
+                f"arms={sorted(missing_expected)}"
+            )
         supplied = [
-            row["backend_options"].get("expected_native_submission_sha256_by_request", expected)
+            row["backend_options"].get("expected_native_submission_sha256_by_request")
             for row in configs
         ]
-        if any(value != expected for value in supplied):
+        if not missing_expected and any(value != expected for value in supplied):
             problems.append(f"frozen source/native digest binding mismatch: {group_id}")
     report = {
         "schema_version": "continuum.w1b_native_smoke_validation.v1",
