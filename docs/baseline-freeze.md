@@ -1,5 +1,7 @@
 # Baseline Freeze Decision Record
 
+> **Scope and authority:** This is the immutable **Phase 1B baseline semantics contract**, not the active Phase 2 experimental authorization or a definition of current A0/A1/A2 research results. Phase 1B is closed and real-runtime validated. For W0/W1, the Phase 2G arm mapping, and which experiments remain unapproved, consult [current research status](research-status.md) and [the experiment index](experiments/README.md). Later cost-aware policy development does not retroactively alter the frozen Continuum-style project adaptation; nor should that adaptation be presented as a byte-for-byte reproduction of the original Continuum paper.
+
 ## Purpose
 
 This document freezes the project-level baseline scope and the minimum faithful-enough Continuum adaptation for vLLM 0.27.1.
