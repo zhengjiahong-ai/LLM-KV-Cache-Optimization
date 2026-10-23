@@ -1,5 +1,8 @@
 # Phase 2G A2 Bounded Native Value Evaluation
 
+> **Historical bounded A2 Native evaluation.** The 0 better / 3 worse / 33 tied result and later offline corrections are specific to this frozen campaign. They neither prove A2 universally equivalent to LRU nor authorize A3/B1. The [research judgment](phase2g-a2-research-judgment.md), [experiment index](README.md) and [canonical status](../research-status.md) give the correct later interpretation without changing these measured artifacts.
+
+
 ## Scope
 
 This record summarizes the M1-authorized exploratory comparison of frozen A0
