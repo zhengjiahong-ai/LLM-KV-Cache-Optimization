@@ -40,6 +40,7 @@ def _run_phase2d_stage(
     stage_field: str = "phase2d_stage",
     run_kind: str = "NON_HOLDOUT_RESEARCH_PILOT",
     schema_namespace: str = "phase2d",
+    required_content_mode: str = "phase2c_native_pilot_mode",
 ) -> Path:
     if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,95}", run_id) is None:
         raise ValueError("run_id must be a safe path component")
@@ -54,8 +55,8 @@ def _run_phase2d_stage(
         raise ValueError(f"config is not a Phase 2D {expected_stage} fixture")
     if expected_stage == "E2" and stage.get("forced_victim") is not None:
         raise ValueError("E2 must not force a victim")
-    if not isinstance(options, dict) or options.get("phase2c_native_pilot_mode") is not True:
-        raise ValueError("E2 requires the accepted segmented-content runtime mode")
+    if not isinstance(options, dict) or options.get(required_content_mode) is not True:
+        raise ValueError(f"run requires backend_options.{required_content_mode}=true")
     trace_path = config_path.parent / str(config["trace"])
     trace = load_phase2_trace(trace_path)
     output = output_root.resolve() / run_id

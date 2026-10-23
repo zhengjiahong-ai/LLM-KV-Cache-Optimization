@@ -91,6 +91,7 @@ _TARGET_PREFIX_TOKENS = 256
 _PRESSURE_TOKENS = 512
 _PHASE2G_A2_CAMPAIGN_KINDS = frozenset(
     {
+        "continuum_w1b_native_smoke",
         "phase2g_a2_native_gate1",
         "phase2g_a2_gate2_bounded_evaluation",
         "phase2g_a2_native_evidence_fidelity",
@@ -98,6 +99,7 @@ _PHASE2G_A2_CAMPAIGN_KINDS = frozenset(
 )
 _PHASE2G_UNIQUE_PROTECTED_BLOCK_CAMPAIGN_KINDS = frozenset(
     {
+        "continuum_w1b_prefill_profile",
         "phase2g_a1_bounded_evaluation",
         "phase2g_a2_prefill_profile_bridge_control",
         *_PHASE2G_A2_CAMPAIGN_KINDS,
@@ -321,6 +323,57 @@ def _phase2c_request_segments(
     return parsed
 
 
+def _w1b_replay_token_ids(
+    options: Mapping[str, object],
+) -> dict[str, tuple[int, ...]] | None:
+    enabled = options.get("continuum_w1b_replay_mode", False)
+    if not isinstance(enabled, bool):
+        raise TypeError("backend_options.continuum_w1b_replay_mode must be bool")
+    raw = options.get("replay_token_ids_by_request")
+    if not enabled:
+        if raw is not None:
+            raise ValueError("W1-B replay tokens require continuum_w1b_replay_mode")
+        return None
+    if (
+        options.get("phase2b_fidelity_mode", False) is not False
+        or options.get("phase2c_native_pilot_mode", False) is not False
+    ):
+        raise ValueError("W1-B replay mode is exclusive with Phase 2B/2C content modes")
+    if not isinstance(raw, Mapping) or not raw:
+        raise ValueError("replay_token_ids_by_request must be a non-empty object")
+    parsed: dict[str, tuple[int, ...]] = {}
+    for request_id, values in raw.items():
+        if not isinstance(request_id, str) or not request_id:
+            raise ValueError("W1-B replay requires non-empty request IDs")
+        if not isinstance(values, list) or not values:
+            raise ValueError("each W1-B replay request requires token IDs")
+        if any(
+            isinstance(value, bool) or not isinstance(value, int) or value < 0 for value in values
+        ):
+            raise ValueError("W1-B replay token IDs must be non-negative integers")
+        parsed[request_id] = tuple(values)
+    return parsed
+
+
+def _w1b_right_censored_end_requests(
+    options: Mapping[str, object],
+    replay_tokens: Mapping[str, tuple[int, ...]] | None,
+) -> frozenset[str]:
+    raw = options.get("w1b_right_censored_end_request_ids", [])
+    if not isinstance(raw, list) or any(
+        not isinstance(request_id, str) or not request_id for request_id in raw
+    ):
+        raise TypeError("w1b_right_censored_end_request_ids must be a list of request IDs")
+    result = frozenset(raw)
+    if len(result) != len(raw):
+        raise ValueError("W1-B right-censored request IDs must be unique")
+    if result and replay_tokens is None:
+        raise ValueError("W1-B right-censored endpoints require exact-token replay mode")
+    if replay_tokens is not None and not result.issubset(replay_tokens):
+        raise ValueError("W1-B right-censored endpoint is missing replay tokens")
+    return result
+
+
 def _expected_profiling_block_override(
     program_prefix_tokens: Mapping[str, int],
     pressure_tokens: int,
@@ -470,13 +523,23 @@ def _latest_native_apc_hash_chain(
 def _validate_native_hash_views(
     request_hashes: tuple[str, ...] | None,
     cache_keys: tuple[bytes, ...],
+    *,
+    allow_one_generated_trailing_hash: bool = False,
 ) -> tuple[str, ...]:
     """Validate request BlockHash values against group-qualified cache keys."""
 
-    if request_hashes is None or len(request_hashes) != len(cache_keys):
+    allowed_lengths = {len(cache_keys)}
+    if allow_one_generated_trailing_hash:
+        allowed_lengths.add(len(cache_keys) + 1)
+    if request_hashes is None or len(request_hashes) not in allowed_lengths:
         raise RuntimeError("native request hash chain and cache-key chain do not align")
+    # A one-token generation can complete the trailing partial prompt block.
+    # The request observation then includes one additional trailing hash while
+    # the reusable prompt snapshot correctly stops at the last complete prompt
+    # block.  Validate and retain only the prompt-aligned leading chain.
+    prompt_hashes = request_hashes[: len(cache_keys)]
     for position, (request_hash, cache_key) in enumerate(
-        zip(request_hashes, cache_keys, strict=True)
+        zip(prompt_hashes, cache_keys, strict=True)
     ):
         try:
             request_bytes = bytes.fromhex(request_hash)
@@ -484,7 +547,7 @@ def _validate_native_hash_views(
             raise RuntimeError(f"native request hash {position} is not hexadecimal") from error
         if len(cache_key) < 5 or cache_key[:-4] != request_bytes:
             raise RuntimeError("native request hash does not match its group-qualified cache key")
-    return request_hashes
+    return prompt_hashes
 
 
 class _CountingForcedReleaseObserver:
@@ -582,9 +645,7 @@ class _ObservedRetentionIntegration:
                     "step_costs": audit.step_costs,
                     "chain_count": audit.chain_count,
                     "shared_block_count": audit.shared_block_count,
-                    "identified_hashed_block_count": (
-                        audit.identified_hashed_block_count
-                    ),
+                    "identified_hashed_block_count": (audit.identified_hashed_block_count),
                     "evidence_problem_counts": dict(audit.evidence_problem_counts),
                     "identity_state_counts": dict(audit.identity_state_counts),
                     "resident_chain_count": audit.resident_chain_count,
@@ -697,8 +758,15 @@ class MinimalMetalObservabilityBackend:
         self._program_prefix_tokens = _program_prefix_sizes(options)
         self._phase2b_content_keys = _phase2b_content_keys(options)
         self._phase2c_request_segments = _phase2c_request_segments(options)
+        self._w1b_replay_tokens = _w1b_replay_token_ids(options)
+        self._w1b_right_censored_end_requests = _w1b_right_censored_end_requests(
+            options,
+            self._w1b_replay_tokens,
+        )
         self._content_evidence_enabled = (
-            self._phase2b_content_keys is not None or self._phase2c_request_segments is not None
+            self._phase2b_content_keys is not None
+            or self._phase2c_request_segments is not None
+            or self._w1b_replay_tokens is not None
         )
         if self._phase2b_content_keys is not None and (
             set(self._phase2b_content_keys) != set(self._program_prefix_tokens)
@@ -734,6 +802,20 @@ class MinimalMetalObservabilityBackend:
         if not isinstance(mechanism_only, bool):
             raise TypeError("backend_options.h2_native_mechanism_only must be bool")
         self._h2_native_mechanism_only = mechanism_only
+        w1b_fidelity_only = options.get("w1b_native_input_fidelity_only", False)
+        if not isinstance(w1b_fidelity_only, bool):
+            raise TypeError("backend_options.w1b_native_input_fidelity_only must be bool")
+        if w1b_fidelity_only and (
+            config.get("campaign_kind") != "continuum_w1b_native_smoke"
+            or self._w1b_replay_tokens is None
+        ):
+            raise ValueError(
+                "W1-B input-only fidelity mode requires the W1-B campaign and exact tokens"
+            )
+        self._w1b_native_input_fidelity_only = w1b_fidelity_only
+        self._lifecycle_observation_only = (
+            self._h2_native_mechanism_only or self._w1b_native_input_fidelity_only
+        )
         self._h2_interventions = _h2_native_prefix_interventions(options)
         self._applied_h2_interventions: set[str] = set()
         diagnostic_release = options.get("phase2d_diagnostic_first_release_program_id")
@@ -752,6 +834,7 @@ class MinimalMetalObservabilityBackend:
         if phase2g_release_policy == "A1" and config.get("campaign_kind") not in {
             "phase2g_a1_native_gate1",
             "phase2g_a1_bounded_evaluation",
+            "continuum_w1b_native_smoke",
         }:
             raise ValueError("A1 native release is restricted to authorized Phase 2G campaigns")
         phase2g_a1_lambda = float(options.get("phase2g_a1_lambda", 0.5))
@@ -936,6 +1019,7 @@ class MinimalMetalObservabilityBackend:
             config["generation"]["max_new_tokens"],  # type: ignore[index]
             "config.generation.max_new_tokens",
         )
+        self._max_new_tokens = max_new_tokens
         max_model_len = _required_max_model_len(
             self._program_prefix_tokens,
             self._pressure_tokens,
@@ -992,6 +1076,12 @@ class MinimalMetalObservabilityBackend:
                 vocabulary_size=self._vocabulary_size,
                 block_size=_BLOCK_SIZE,
             )
+        if self._w1b_replay_tokens is not None and any(
+            token >= self._vocabulary_size
+            for values in self._w1b_replay_tokens.values()
+            for token in values
+        ):
+            raise ValueError("W1-B replay token ID exceeds tokenizer vocabulary")
 
         self._registry = observation_helpers.ProgramRequestRegistry()
         self._external_ids = observation_helpers._external_request_ids_for_internal
@@ -1134,6 +1224,7 @@ class MinimalMetalObservabilityBackend:
                     "execute_planned_timing": self._execute_planned_timing,
                     "h2_native_prefix_intervention_count": len(self._h2_interventions),
                     "h2_native_mechanism_only": self._h2_native_mechanism_only,
+                    "w1b_native_input_fidelity_only": (self._w1b_native_input_fidelity_only),
                     "h2_m4_prefill_curve_bound": h2_m4_prefill_provider is not None,
                     "gpu_memory_utilization": gpu_memory_utilization,
                     "retention_mode": self._retention_mode.value,
@@ -1149,9 +1240,7 @@ class MinimalMetalObservabilityBackend:
                         phase2g_a2_tau_seconds if phase2g_block_policy == "A2" else None
                     ),
                     "phase2g_a2_identity_mode": (
-                        self._phase2g_a2_identity_mode
-                        if phase2g_block_policy == "A2"
-                        else None
+                        self._phase2g_a2_identity_mode if phase2g_block_policy == "A2" else None
                     ),
                 },
             )
@@ -1310,6 +1399,14 @@ class MinimalMetalObservabilityBackend:
             "materialization": "deterministic_token_ids",
             "submitted_token_ids_sha256": token_ids_sha256(token_ids),
         }
+        if self._w1b_replay_tokens is not None and request.kind == "turn":
+            payload.update(
+                {
+                    "w1b_replay_input": True,
+                    "w1b_replay_input_equivalence": "EXACT_TOKEN_SEQUENCE_SUBMITTED",
+                    "w1b_frozen_request_id": request.request_id,
+                }
+            )
         if self._phase2b_content_keys is not None and request.kind == "turn":
             payload.update(
                 {
@@ -1558,6 +1655,12 @@ class MinimalMetalObservabilityBackend:
                 native_id,
             ),
             hashes,
+            allow_one_generated_trailing_hash=(
+                self._w1b_replay_tokens is not None
+                and self._max_new_tokens == 1
+                and len(self._w1b_replay_tokens[request.request_id]) % _BLOCK_SIZE
+                == _BLOCK_SIZE - 1
+            ),
         )
         prefix = PrefixIdentity(prefix_value)
         blocks = tuple(BlockIdentity(block_id) for block_id in block_ids)
@@ -1622,8 +1725,7 @@ class MinimalMetalObservabilityBackend:
         )
         selected_ids = tuple(int(value) for value in result["selected_block_ids"])
         selected_keys = tuple(
-            str(result["native_cache_keys_before"][index])
-            for index in result["selected_positions"]
+            str(result["native_cache_keys_before"][index]) for index in result["selected_positions"]
         )
         for block_id, content_hash in zip(selected_ids, selected_keys, strict=True):
             self._phase2g_a2_registry.observe_eviction(
@@ -1647,7 +1749,11 @@ class MinimalMetalObservabilityBackend:
         )
 
     def _handle_lifecycle(self, event: object) -> None:
-        if self._h2_native_mechanism_only:
+        if getattr(
+            self,
+            "_lifecycle_observation_only",
+            self._h2_native_mechanism_only,
+        ):
             self._sink.emit(experiment_event_from_lifecycle(event))
             return
         self._runtime.handle(event)
@@ -1660,12 +1766,8 @@ class MinimalMetalObservabilityBackend:
             for entry in entries:
                 if entry.program_id != event.program_id:
                     continue
-                chain_id = (
-                    f"{entry.program_id.value}:{entry.prefix_id.canonical_value}"
-                )
-                stale = self._phase2g_a2_registry.nonresident_block_ids_for_chain(
-                    chain_id
-                )
+                chain_id = f"{entry.program_id.value}:{entry.prefix_id.canonical_value}"
+                stale = self._phase2g_a2_registry.nonresident_block_ids_for_chain(chain_id)
                 if stale:
                     self._runtime.retention.reconcile_entry_evictions(
                         RetentionEntryKey(entry.program_id, entry.prefix_id),
@@ -1695,7 +1797,12 @@ class MinimalMetalObservabilityBackend:
 
         self._handle_lifecycle(RequestArrived(program, logical_request, now))
         prefix_tokens = self._prefix_tokens_for(request)
-        if self._phase2c_request_segments is not None:
+        if self._w1b_replay_tokens is not None:
+            token_ids = self._w1b_replay_tokens.get(request.request_id)
+            if token_ids is None:
+                raise ValueError(f"missing W1-B replay tokens for request {request.request_id}")
+            prefix_tokens = len(token_ids) // _BLOCK_SIZE * _BLOCK_SIZE
+        elif self._phase2c_request_segments is not None:
             segments = self._phase2c_request_segments.get(request.request_id)
             if segments is None:
                 raise ValueError(f"missing Phase 2C segments for request {request.request_id}")
@@ -1754,6 +1861,26 @@ class MinimalMetalObservabilityBackend:
             expected_token_count=prefix_tokens,
         )
 
+        if request.request_id in self._w1b_right_censored_end_requests:
+            self._sink.emit(
+                ExperimentEvent.create(
+                    event_type="W1B_RIGHT_CENSORED_REPLAY_WINDOW_ENDED",
+                    timestamp=finished_at,
+                    clock_domain="system_monotonic",
+                    source="phase2.minimal_metal",
+                    program_id=program,
+                    request_id=logical_request,
+                    prefix_id=prefix,
+                    payload={
+                        "source_completion_inferred": False,
+                        "future_demand_created": False,
+                        "ttl_query_performed": False,
+                        "claim_boundary": ("selected replay window ended; source session did not"),
+                    },
+                )
+            )
+            return
+
         if request.is_terminal:
             self._handle_lifecycle(
                 TurnFinished(
@@ -1766,7 +1893,11 @@ class MinimalMetalObservabilityBackend:
             self._handle_lifecycle(ProgramCompleted(program, finished_at))
             return
 
-        if not self._h2_native_mechanism_only:
+        if not getattr(
+            self,
+            "_lifecycle_observation_only",
+            self._h2_native_mechanism_only,
+        ):
             self._runtime.record_prefill_context_token_count(
                 PrefillContextTokenCountRecord(
                     program_id=program,

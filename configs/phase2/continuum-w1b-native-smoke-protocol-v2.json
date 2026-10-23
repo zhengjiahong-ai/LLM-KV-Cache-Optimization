@@ -1,0 +1,44 @@
+{
+  "schema_version": "continuum.w1b_native_smoke_protocol.v1",
+  "scope": "BOUNDED_NATIVE_COMPARABILITY_SMOKE",
+  "source_replay_manifest": "artifacts/continuum-w1b-native-replay-v1/manifest.json",
+  "supersedes": "configs/phase2/continuum-w1b-native-smoke-protocol-v1.json",
+  "revision_reason": "pre-outcome static capacity audit requires bounded pressure to expose a release decision",
+  "arms": ["A0", "A1", "A2"],
+  "runtime_repeats": 1,
+  "schedule": {
+    "kind": "CONTROLLED_REPLAY_SCHEDULE",
+    "mode": "CAUSAL_REPLAY",
+    "cross_session_start_stagger_seconds": 0.25,
+    "within_session_dependency": "PREVIOUS_REQUEST_COMPLETION_PLUS_CONTROLLED_GAP",
+    "controlled_gap_seconds": 1.0,
+    "claim_boundary": "timing is constructed and is not an observed W1-A arrival process"
+  },
+  "runtime": {
+    "model": "Qwen/Qwen2.5-Coder-3B-Instruct",
+    "model_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225",
+    "tokenizer": "Qwen/Qwen2.5-Coder-3B-Instruct",
+    "tokenizer_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225",
+    "max_model_len": 16384,
+    "max_new_tokens": 1,
+    "temperature": 0.0,
+    "block_size_tokens": 16,
+    "cache_capacity_tokens": 16384,
+    "pressure_prompt_tokens": 14336,
+    "pressure_offset_seconds": 0.5,
+    "seed": 20261107
+  },
+  "groups": [
+    {"group_id": "g1-completion-short-growth", "selection_basis": "natural-completion control paired with short right-censored growth", "sessions": [{"session_id": "astropy__astropy-13236", "turns": [1, 2, 3]}, {"session_id": "astropy__astropy-12907", "turns": [1, 2, 3]}]},
+    {"group_id": "g2-medium-growth", "selection_basis": "two right-censored sessions with moderate context growth", "sessions": [{"session_id": "astropy__astropy-13398", "turns": [1, 8, 16]}, {"session_id": "astropy__astropy-13977", "turns": [1, 8, 16]}]},
+    {"group_id": "g3-long-growth", "selection_basis": "two right-censored sessions with longer reusable context growth", "sessions": [{"session_id": "astropy__astropy-14182", "turns": [1, 12, 24]}, {"session_id": "astropy__astropy-14309", "turns": [1, 12, 24]}]},
+    {"group_id": "g4-high-growth", "selection_basis": "high-growth sessions selected before any arm outcome is observed", "sessions": [{"session_id": "astropy__astropy-13033", "turns": [1, 12, 24]}, {"session_id": "astropy__astropy-14096", "turns": [1, 12, 24]}]}
+  ],
+  "gates": {
+    "native_fidelity_required_before_comparison": true,
+    "forced_release_required_for_decision_exposure": true,
+    "no_forced_release_verdict": "VALID_REPLAY_NO_DECISION_EXPOSURE",
+    "automatic_capacity_retuning": false
+  },
+  "formal_performance_campaign_authorized": false
+}

@@ -19,6 +19,7 @@ _RUN_SCHEMA_VERSIONS = frozenset(
         "phase2g.a1_gate1_run.v1",
         "phase2g.a1_bounded_run.v1",
         "phase2g.a2_gate2_preparation_run.v1",
+        "continuum.w1b.native_comparability_smoke_run.v1",
     }
 )
 _TRACE_SCHEMA_VERSION = "phase2.trace.v1"
@@ -52,14 +53,10 @@ def _load_json_object(path: Path) -> dict[str, object]:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as error:
-        raise ArtifactValidationError(
-            f"{path.name} contains invalid JSON"
-        ) from error
+        raise ArtifactValidationError(f"{path.name} contains invalid JSON") from error
 
     if not isinstance(value, dict):
-        raise ArtifactValidationError(
-            f"{path.name} must contain a JSON object"
-        )
+        raise ArtifactValidationError(f"{path.name} must contain a JSON object")
     return value
 
 
@@ -99,39 +96,24 @@ def _validate_events(
         for field in _REQUIRED_EVENT_FIELDS:
             if field not in event:
                 raise ArtifactValidationError(
-                    f"events.jsonl row {position} "
-                    f"is missing required field: {field}"
+                    f"events.jsonl row {position} is missing required field: {field}"
                 )
 
         if event["schema_version"] != _EVENT_SCHEMA_VERSION:
             raise ArtifactValidationError(
-                f"events.jsonl row {position} "
-                "has unsupported event schema_version"
+                f"events.jsonl row {position} has unsupported event schema_version"
             )
 
         event_run_id = event["run_id"]
         if event_run_id != run_id:
-            raise ArtifactValidationError(
-                f"events.jsonl row {position} has mismatched run_id"
-            )
+            raise ArtifactValidationError(f"events.jsonl row {position} has mismatched run_id")
 
         event_index = event["event_index"]
-        if (
-            isinstance(event_index, bool)
-            or not isinstance(event_index, int)
-            or event_index < 0
-        ):
-            raise ArtifactValidationError(
-                f"events.jsonl row {position} has invalid event_index"
-            )
+        if isinstance(event_index, bool) or not isinstance(event_index, int) or event_index < 0:
+            raise ArtifactValidationError(f"events.jsonl row {position} has invalid event_index")
 
-        if (
-            previous_event_index is not None
-            and event_index <= previous_event_index
-        ):
-            raise ArtifactValidationError(
-                "event_index must be unique and strictly increasing"
-            )
+        if previous_event_index is not None and event_index <= previous_event_index:
+            raise ArtifactValidationError("event_index must be unique and strictly increasing")
 
         previous_event_index = event_index
 
@@ -142,9 +124,7 @@ def load_run_artifacts(run_dir: str | Path) -> RawRunArtifacts:
     directory = Path(run_dir)
 
     if not directory.is_dir():
-        raise ArtifactValidationError(
-            f"run directory does not exist: {directory}"
-        )
+        raise ArtifactValidationError(f"run directory does not exist: {directory}")
 
     required_files = (
         "run.json",
@@ -154,9 +134,7 @@ def load_run_artifacts(run_dir: str | Path) -> RawRunArtifacts:
     )
     for filename in required_files:
         if not (directory / filename).is_file():
-            raise ArtifactValidationError(
-                f"required artifact is missing: {filename}"
-            )
+            raise ArtifactValidationError(f"required artifact is missing: {filename}")
 
     manifest = _load_json_object(directory / "run.json")
     trace = _load_json_object(directory / "trace.json")
@@ -164,20 +142,14 @@ def load_run_artifacts(run_dir: str | Path) -> RawRunArtifacts:
     events = _load_jsonl_objects(directory / "events.jsonl")
 
     if manifest.get("schema_version") not in _RUN_SCHEMA_VERSIONS:
-        raise ArtifactValidationError(
-            "unsupported run schema_version"
-        )
+        raise ArtifactValidationError("unsupported run schema_version")
 
     if trace.get("schema_version") != _TRACE_SCHEMA_VERSION:
-        raise ArtifactValidationError(
-            "unsupported trace schema_version"
-        )
+        raise ArtifactValidationError("unsupported trace schema_version")
 
     run_id = manifest.get("run_id")
     if not isinstance(run_id, str) or not run_id.strip():
-        raise ArtifactValidationError(
-            "run.json must contain a non-empty run_id"
-        )
+        raise ArtifactValidationError("run.json must contain a non-empty run_id")
 
     _validate_events(events, run_id)
 

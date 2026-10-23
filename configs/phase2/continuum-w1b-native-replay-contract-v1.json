@@ -1,0 +1,20 @@
+{
+  "schema_version": "continuum.w1b_native_replay_contract.v1",
+  "scope": "W1B_BOUNDED_NATIVE_COMPARABILITY_SMOKE",
+  "source_sample_manifest": "configs/phase2/continuum-swebench-w0-sample-v1.json",
+  "source_acquisition_config": "configs/phase2/continuum-w1a-acquisition-v2.json",
+  "source_runs_root": "artifacts/continuum-w1a-acquisition-runs-v1",
+  "source_conversion_directory": "converted-v2",
+  "replay_semantics": {
+    "input": "OBSERVED_RENDERED_PROMPT_AND_DETERMINISTIC_TOKEN_IDS",
+    "request_order": "OBSERVED_WITHIN_SESSION",
+    "cross_session_schedule": "NOT_YET_FROZEN",
+    "right_censoring": "PRESERVE_W1A_INCOMPLETE_OUTCOME",
+    "native_input_equivalence": "PENDING_NATIVE_FIDELITY_GATE",
+    "native_apc_identity": "NOT_INFERRED_FROM_LOGICAL_HISTORY",
+    "physical_kv_residency": "NOT_OBSERVED_IN_MATERIALIZATION"
+  },
+  "authorized_arms": ["A0", "A1", "A2"],
+  "formal_performance_campaign_authorized": false,
+  "policy_modification_authorized": false
+}

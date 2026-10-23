@@ -269,9 +269,7 @@ def test_native_exception_identity_is_preserved_and_hook_is_restored() -> None:
 
     assert caught.value is error
     assert Native.method is original
-    assert [context.phase for context in contexts] == [
-        ObservationPhase.AFTER_NATIVE_EXCEPTION
-    ]
+    assert [context.phase for context in contexts] == [ObservationPhase.AFTER_NATIVE_EXCEPTION]
     assert contexts[0].native_exception is error
 
 
@@ -462,9 +460,7 @@ def test_vllm_hook_bindings_are_exactly_the_four_audited_boundaries() -> None:
 
     bindings = build_vllm_hook_bindings(Scheduler, BlockPool)
 
-    assert tuple(
-        (binding.target, binding.before, binding.after) for binding in bindings
-    ) == (
+    assert tuple((binding.target, binding.before, binding.after) for binding in bindings) == (
         ("Scheduler.schedule", False, True),
         ("Scheduler._free_request", True, False),
         ("Scheduler._free_blocks", False, True),
@@ -479,12 +475,8 @@ def test_program_registry_uses_enqueue_returned_ids_without_inference() -> None:
         ("native-request-41", "native-request-99"),
     )
 
-    assert registry.program_for("native-request-41") == ProgramIdentity(
-        "external-program-a"
-    )
-    assert registry.request_identity("native-request-99") == RequestIdentity(
-        "native-request-99"
-    )
+    assert registry.program_for("native-request-41") == ProgramIdentity("external-program-a")
+    assert registry.request_identity("native-request-99") == RequestIdentity("native-request-99")
     assert registry.program_for("unknown-native-id") is None
 
 
@@ -804,10 +796,46 @@ def test_request_hashes_match_group_qualified_cache_keys() -> None:
         bytes.fromhex(request_hashes[1]) + (0).to_bytes(4, "big"),
     )
 
-    assert phase2_backend._validate_native_hash_views(
-        request_hashes,
-        cache_keys,
-    ) == request_hashes
+    assert (
+        phase2_backend._validate_native_hash_views(
+            request_hashes,
+            cache_keys,
+        )
+        == request_hashes
+    )
+
+
+def test_request_hashes_reject_unexplained_trailing_block() -> None:
+    request_hashes = ("01" * 32, "02" * 32)
+    cache_keys = (bytes.fromhex(request_hashes[0]) + (0).to_bytes(4, "big"),)
+
+    with pytest.raises(RuntimeError, match="do not align"):
+        phase2_backend._validate_native_hash_views(request_hashes, cache_keys)
+
+
+def test_request_hashes_allow_one_generation_completed_trailing_block() -> None:
+    request_hashes = ("01" * 32, "02" * 32, "03" * 32)
+    cache_keys = (
+        bytes.fromhex(request_hashes[0]) + (0).to_bytes(4, "big"),
+        bytes.fromhex(request_hashes[1]) + (0).to_bytes(4, "big"),
+    )
+
+    assert (
+        phase2_backend._validate_native_hash_views(
+            request_hashes,
+            cache_keys,
+            allow_one_generated_trailing_hash=True,
+        )
+        == request_hashes[:2]
+    )
+
+
+def test_request_hashes_reject_more_than_one_unmatched_trailing_block() -> None:
+    with pytest.raises(RuntimeError, match="do not align"):
+        phase2_backend._validate_native_hash_views(
+            ("01" * 32, "02" * 32, "03" * 32),
+            (bytes.fromhex("01" * 32) + (0).to_bytes(4, "big"),),
+        )
 
 
 def test_request_hash_mismatch_rejects_snapshot_provenance() -> None:

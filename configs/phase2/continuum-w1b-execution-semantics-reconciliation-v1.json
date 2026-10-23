@@ -1,0 +1,17 @@
+{
+  "schema_version": "continuum.w1b_execution_semantics_reconciliation.v1",
+  "applies_to_protocol": "configs/phase2/continuum-w1b-native-smoke-protocol-v2.json",
+  "correction_type": "POST_EXECUTION_CLAIM_NARROWING_NO_RAW_RUN_CHANGE",
+  "executed_schedule": {
+    "arrival_basis": "ABSOLUTE_PLANNED_ARRIVAL_OFFSETS",
+    "within_session_dependency": "PREVIOUS_REQUEST_COMPLETION_BARRIER",
+    "minimum_post_completion_gap_seconds": 0.0,
+    "pressure_execution": "DRAIN_BARRIER"
+  },
+  "superseded_claim": "PREVIOUS_REQUEST_COMPLETION_PLUS_CONTROLLED_GAP",
+  "tool_gap_seconds_interpretation": "LOGICAL_RETENTION_INPUT_NOT_ENFORCED_WALL_CLOCK_DELAY",
+  "observed_agent_arrival_or_tool_gap_replayed": false,
+  "permitted_workload_label": "REAL_AGENT_CONTENT_UNDER_CONTROLLED_SPARSE_TURN_PRESSURE_REPLAY",
+  "raw_runs_changed": false,
+  "formal_performance_claim_authorized": false
+}
