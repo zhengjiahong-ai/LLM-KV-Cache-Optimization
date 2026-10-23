@@ -1,7 +1,7 @@
 # Phase 2 Research Status (M1 canonical status index)
 
-Status: **ACTIVE — W1-B PR #73 under review; W1-C bounded pilot authorized, not yet accepted**  
-As-of baseline: `main` @ `f95fa481ce7eb055089a9cd5da368860d33ef977` (PR #72 merged).  
+Status: **ACTIVE — W1-B ACCEPTED/CLOSED; W1-C bounded pilot authorized, not yet accepted**  
+As-of baseline: `main` @ `fc9626da74e6f9b139f021d9b9b6c6a036857e39` (PR #73 merged, M1 approved 2026-10-23).  
 Owner: M1. This document indexes decisions and evidence; it does **not** amend sealed artifacts or replace their final reports.
 
 ## How to read the evidence
@@ -41,19 +41,21 @@ Current experimental arms must be distinguished by decision layer:
 | Phase 2G A2 | INCONCLUSIVE | Bounded evaluation found 0 better / 3 worse / 33 tied in 36 draws; attribution and decision exposure limitations; neither proof of universal equivalence nor formal benefit |
 | Phase 2 W0 — PR #71 | CLOSED / `CONDITIONAL_GO` | Public Continuum/SWE-bench source and converter path audited; paper-run per-request trajectories absent |
 | Phase 2 W1-A — PR #72 | CLOSED / `CONDITIONAL_GO` | 10 frozen SWE-bench Verified Agent tasks acquired; reported 453 model / 271 tool calls; 1 submitted, 9 right-censored at step limit; local tokenization and wrapper timing have explicit provenance |
-| Phase 2 W1-B — PR #73 | **UNDER REVIEW / CHANGES REQUESTED** | M6 reports 4 groups × A0/A1/A2 = 12 successful runs and A1−A0 aggregate recompute delta −3904 tokens; **not accepted** pending RC1–RC4 |
+| Phase 2 W1-B — PR #73 | **ACCEPTED / CLOSED — `BOUNDED_SMOKE_ONLY`** | M1 approved HEAD `4b902da` and merged as `fc9626da` (2026-10-23). M6 reports 4 groups × A0/A1/A2 = 12 successful runs; A1−A0 recompute delta −3904 tokens and A2−A0 zero. Limited descriptive/native comparability evidence; no formal effect or content-level causal attribution |
 | Phase 2 W1-C | **BOUNDED PILOT AUTHORIZED** | Cross-repository stratified sampling design and S50/S100 feasibility pilot; not an approved 100-task acquisition or formal benefit evaluation |
 
-### Current PR #73 review boundary
+### W1-B closeout — M1 acceptance and evidence boundaries
 
-[PR #73](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/73), submitted HEAD `2145e6703992967d91e8ff49e5f90ff54143a9e3`, remains open and unmerged. M1 requested changes to:
+[PR #73](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/73) was **M1 APPROVED** at HEAD `4b902da69c9da5c4e7f99d6c4be3040d3d017f9b` and **merged** into `main` as `fc9626da74e6f9b139f021d9b9b6c6a036857e39` on 2026-10-23. Review RC1–RC4 were closed within the **bounded Native comparability/mechanism smoke** scope:
 
-1. RC1: causal replay's claimed completion-plus-tool-gap versus actual absolute-offset scheduling;
-2. RC2: full policy-independent cross-arm config, frozen source and per-request token digest bindings;
-3. RC3: event-count-only forced-release gate versus complete decision and downstream APC evidence;
-4. RC4: narrowly justify the extra generated-token native-hash-chain block allowance.
+- RC1: replay semantics reconciled to absolute planned-arrival offsets with a per-session completion barrier; zero enforced minimum post-completion gap. No original Agent timing-reproduction claim or raw-run rewrite.
+- RC2: frozen-source and policy-independent cross-arm input/config binding; missing source/native digest bindings fail closed.
+- RC3: forced-release exposure, subsequent Native hashed eviction and downstream request-observation availability gate the bounded mechanism status. Report explicitly labels **temporal association only**, with content-level causal attribution **NOT_ESTABLISHED**.
+- RC4: trailing Native hash-chain exception narrowly scoped to supported W1-B exact-token/one-token conditions, with negative controls.
 
-The reported per-group A1−A0 deltas are **−1056, 0, −1616, −1232**; A2−A0 are **0 in all four groups**, with no reported A2/native-LRU victim-set divergence. These are **M6-reported, bounded, controlled-pressure smoke observations** (one repeat per arm/group), not formal treatment effects or author-workload reproduction. M1 has not independently rehashed the attached archive or recomputed the 12 raw runs. **Do not promote PR #73's submitted `PASS` to the canonical ledger before RC closure and explicit approval.**
+Reported bounded observations: **12/12 successful runs**, four selected groups with A0/A1/A2 and **one repeat per arm/group**. Per-group A1−A0 recomputed-token deltas: **−1056, 0, −1616, −1232** (descriptive sum **−3904**); A2−A0 is **zero in every group**, with no observed A2-vs-Native-LRU victim-set divergence. The submitted v2 evidence archive/report and 1536-test run were reported by M6; this M1 review did **not** independently rehash the external archive or rerun the raw 12 Native executions. Accepting W1-B does **not** establish a population benefit, superiority to Sufficient-first, individual physical-eviction causality, or reproduction of the Continuum paper's original serving workload.
+
+**Next gates:** M6's already-authorized bounded W1-C (~20-task) S50/S100 feasibility pilot and M4's read-only A1-versus-Sufficient-first decision-discriminability audit; a broader acquisition or formal four-arm performance campaign requires separate M1 authorization.
 
 ### Real Agent workload limitations
 
@@ -79,7 +81,7 @@ Logical release, physical hashed eviction, subsequent APC hit/miss and request-l
 - **M5**: shared workload/runner substrate when a concrete interface gap requires work; not the owner of M6's W1 data acquisition.
 - **M2/M3**: background/source-mechanism review and frozen baseline support, respectively.
 
-Next gates: resolve PR #73 RC1–RC4 and review raw evidence; independently complete W1-C stratification and S50/S100 feasibility; only then propose a pre-registered, adequately sized A0/A1/A2/**Sufficient-first** campaign. No parameter retuning based on preliminary A1 performance, no A3/B1 authorization.
+Next gates: complete authorized W1-C stratification and S50/S100 feasibility pilot, plus an offline A1-versus-Sufficient-first decision-discriminability audit (M4). Only after M1 reviews those results should the team propose a pre-registered, adequately sized A0/A1/A2/**Sufficient-first** campaign. No parameter retuning based on preliminary A1 performance, no A3/B1 authorization.
 
 ## Provenance and reading order
 
@@ -90,6 +92,6 @@ Read this file for **current state**, then use the [experiment navigation index]
 - [Phase 2E measured campaign](phase2e-m6-measured-campaign-report.md)
 - [A1 evidence](experiments/phase2g-a1/README.md), [A2 bounded evaluation](experiments/phase2g-a2-bounded-value-evaluation.md), [A2 research judgment](experiments/phase2g-a2-research-judgment.md)
 - [W0 source audit](continuum-workload-source-audit.md) and [conversion feasibility](continuum-workload-conversion-feasibility.md)
-- [W0 PR #71](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/71), [W1-A PR #72](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/72), [W1-B PR #73 pending](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/73)
+- [W0 PR #71](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/71), [W1-A PR #72](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/72), [W1-B PR #73 merged and accepted](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/73)
 
 Historical plans, negative results, old approvals and sealed hashes are **not modified by this index**. When phase status changes, update this ledger in a new reviewable commit and link the M1-approved verdict.
