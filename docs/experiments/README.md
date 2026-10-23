@@ -6,7 +6,7 @@ This is a **navigation index**, not a replacement for primary evidence, historic
 
 | Topic | Recommended record | Reading boundary |
 | --- | --- | --- |
-| Overall status and current authorization | [Research status](../research-status.md) | PR #73/W1-B remains under M1 review; W1-C is bounded pilot only |
+| Overall status and current authorization | [Research status](../research-status.md) | PR #73/W1-B ACCEPTED and merged at `fc9626da`; W1-C remains bounded pilot only |
 | Phase 2A H1/H2 original verdicts | [H1/H2 closeout](../phase2a-h1-h2-closeout-verdict-record.md) | H1 `DIAGNOSTIC_ONLY`; H2 not all-pass, B1 locked |
 | Phase 2B/2C fidelity lessons | [Phase 2B fidelity repair](../phase2b-m6-experimental-fidelity-repair-spec.md), [Phase 2C audit](../phase2c-m6-workload-reuse-audit.md) | Separate replay fidelity from real Native content sharing and context growth |
 | Phase 2E baseline measurements | [Measured campaign](../phase2e-m6-measured-campaign-report.md) | Native LRU vs Continuum baseline on predefined synthetic grid, **not** A1 benefit |
@@ -17,7 +17,7 @@ This is a **navigation index**, not a replacement for primary evidence, historic
 | A2 bounded Native value and later corrections | [Bounded evaluation](phase2g-a2-bounded-value-evaluation.md), [research judgment](phase2g-a2-research-judgment.md) | 0 BETTER / 3 WORSE / 33 TIED; limited content-level divergence and causal attribution |
 | W0 source audit | [Continuum workload source audit](../continuum-workload-source-audit.md) | Original paper's complete trajectories are **not** public in audited repo |
 | W1-A real Agent acquisition | [PR #72](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/72), [status](../research-status.md) | 10 acquired tasks, mostly right-censored; local tokenizer/wrapper provenance is not Native APC evidence |
-| W1-B Native bounded smoke | [PR #73](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/73) | **UNMERGED / REQUEST_CHANGES** at index creation: RC1–RC4 must close; submitted deltas not accepted as formal evidence |
+| W1-B Native bounded smoke | [PR #73](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/73) | **ACCEPTED / CLOSED** (M1 approved, merged 2026-10-23 as `fc9626da`); 12-run bounded comparability/mechanism smoke only; deltas remain descriptive, not formal performance effects or content-level causal attribution |
 | W1-C expanded Agent workload | [Current authorization](../research-status.md) | Sampling design plus S50/S100 feasibility pilot; full ~100-task acquisition **not authorized** |
 
 ## Interpret the three algorithm layers correctly
