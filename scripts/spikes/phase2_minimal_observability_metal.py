@@ -1056,6 +1056,18 @@ class MinimalMetalObservabilityBackend:
             self._pressure_stage_tokens,
             max_new_tokens,
         )
+        max_num_batched_tokens = _positive_int(
+            options.get("max_num_batched_tokens", max_model_len),
+            "backend_options.max_num_batched_tokens",
+        )
+        enable_chunked_prefill = options.get("enable_chunked_prefill", False)
+        if not isinstance(enable_chunked_prefill, bool):
+            raise TypeError("backend_options.enable_chunked_prefill must be bool")
+        if max_num_batched_tokens < max_model_len and not enable_chunked_prefill:
+            raise ValueError(
+                "max_num_batched_tokens below max_model_len requires "
+                "enable_chunked_prefill=true"
+            )
         llm_kwargs = {
             "model": model["name"],
             "revision": model["revision"],
@@ -1066,7 +1078,8 @@ class MinimalMetalObservabilityBackend:
             "seed": int(config["seed"]),
             "num_gpu_blocks_override": block_override,
             "max_model_len": max_model_len,
-            "max_num_batched_tokens": max_model_len,
+            "max_num_batched_tokens": max_num_batched_tokens,
+            "enable_chunked_prefill": enable_chunked_prefill,
             "disable_log_stats": False,
             "prefix_caching_hash_algo": "sha256",
         }
@@ -1257,6 +1270,8 @@ class MinimalMetalObservabilityBackend:
                     "w1b_native_input_fidelity_only": (self._w1b_native_input_fidelity_only),
                     "h2_m4_prefill_curve_bound": h2_m4_prefill_provider is not None,
                     "gpu_memory_utilization": gpu_memory_utilization,
+                    "max_num_batched_tokens": max_num_batched_tokens,
+                    "enable_chunked_prefill": enable_chunked_prefill,
                     "retention_mode": self._retention_mode.value,
                     "phase2g_release_policy": phase2g_release_policy,
                     "phase2g_a1_lambda": (

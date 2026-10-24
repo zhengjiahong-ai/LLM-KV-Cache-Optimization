@@ -174,8 +174,11 @@ class _MetalPrefillAdapter:
             raise ValueError("seed target material is not present")
         self._seeded.add(token_count)
 
-    def run_pressure_batch(self) -> None:
-        for batch_index in range(PRESSURE_BATCH_SIZE):
+    def run_pressure_batch(self, *, max_requests: int = PRESSURE_BATCH_SIZE) -> int:
+        if type(max_requests) is not int or max_requests <= 0:
+            raise ValueError("max_requests must be positive")
+        submitted = 0
+        for batch_index in range(min(PRESSURE_BATCH_SIZE, max_requests)):
             pressure_index = self._pressure_request_number + batch_index
             vocabulary_size = self._vocabulary_size
             token_ids = (
@@ -198,7 +201,11 @@ class _MetalPrefillAdapter:
             _drain_to_idle(self)
             self._internal_by_external.pop(external_id, None)
             self._observations.pop(external_id, None)
-        self._pressure_request_number += PRESSURE_BATCH_SIZE
+            submitted += 1
+            if not self.read_target_material_presence():
+                break
+        self._pressure_request_number += submitted
+        return submitted
 
 
 def build_adapter(
