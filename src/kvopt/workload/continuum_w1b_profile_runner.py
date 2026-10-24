@@ -85,6 +85,15 @@ def measurement_config(
             "execute_planned_timing": False,
             "executor_mode": "submit_collect",
             "gpu_memory_utilization": float(measurement["gpu_memory_utilization"]),
+            "max_num_batched_tokens": int(
+                measurement.get(
+                    "max_num_batched_tokens",
+                    max(token_count, pressure_tokens) + 1,
+                )
+            ),
+            "enable_chunked_prefill": bool(
+                measurement.get("enable_chunked_prefill", False)
+            ),
             "phase2g_release_policy": "A0",
             "phase2g_block_policy": "A0",
             "program_prefix_tokens": {
