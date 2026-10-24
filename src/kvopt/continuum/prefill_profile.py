@@ -135,6 +135,8 @@ def load_prefill_reload_provider(
         return _load_extended_prefill_reload_provider(data)
     if schema == _W1B_LONG_CONTEXT_SCHEMA:
         return _load_w1b_long_context_provider(data)
+    if schema == "continuum.prefill_reload.formal_long_context_profile.v1":
+        return _load_formal_long_context_provider(data)
     if schema != _SCHEMA:
         raise ValueError("artifact schema does not match frozen profile schema")
     if data.get("status") != _STATUS:
@@ -251,5 +253,48 @@ def _load_w1b_long_context_provider(
         InputProvenance(
             InputSource.APPROXIMATED,
             "offline W1-B 3B long-context PrefillReload profile",
+        ),
+    )
+
+
+def _load_formal_long_context_provider(
+    artifact: dict[str, Any],
+) -> _ProfilePrefillReloadProvider:
+    if artifact.get("status") != _STATUS:
+        raise ValueError("only complete formal long-context profiles are loadable")
+    protocol = _require_mapping(artifact.get("protocol"), "protocol")
+    grid = protocol.get("grid")
+    if (
+        not isinstance(grid, list)
+        or len(grid) < 2
+        or any(isinstance(value, bool) or not isinstance(value, int) for value in grid)
+        or grid != sorted(set(grid))
+    ):
+        raise ValueError("formal profile grid must be unique increasing integers")
+    expected = {
+        "canonical_unit": "seconds",
+        "warmup_pairs_per_point": 5,
+        "measured_pairs_per_point": 20,
+        "raw_delta_definition": "MISS - HIT TTFT",
+        "interpolation_rule": "piecewise_linear_between_measured_points",
+        "extrapolation": "PROHIBITED",
+    }
+    for field_name, value in expected.items():
+        if protocol.get(field_name) != value:
+            raise ValueError(f"protocol.{field_name} does not match formal protocol")
+    points = artifact.get("points")
+    if not isinstance(points, list) or len(points) != len(grid):
+        raise ValueError("formal profile points must match its frozen grid")
+    token_grid = tuple(grid)
+    values = tuple(
+        _validate_point(point, token_count)
+        for point, token_count in zip(points, token_grid, strict=True)
+    )
+    return _ProfilePrefillReloadProvider(
+        token_grid,
+        values,
+        InputProvenance(
+            InputSource.APPROXIMATED,
+            "offline formal 3B long-context PrefillReload profile",
         ),
     )
