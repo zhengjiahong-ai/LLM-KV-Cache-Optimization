@@ -1133,6 +1133,38 @@ def test_coherent_prefix_snapshot_can_require_one_measured_boundary() -> None:
     assert "ref_count" in message
 
 
+def test_coherent_prefix_snapshot_requires_explicit_extended_upper_bound() -> None:
+    block = {
+        "block_id": 7,
+        "ref_count": 1,
+        "native_hash_hex": "aa" * 32,
+        "hash_num_tokens": 32_256,
+        "cache_group_id": 0,
+        "is_null": False,
+    }
+    observation = ({
+        "request_blocks": [{
+            "request_id": "native-long",
+            "availability": "AVAILABLE",
+            "block_groups": [[block]],
+        }]
+    },)
+
+    with pytest.raises(ValidationExecutionError):
+        _coherent_child_request_snapshot(observation, "native-long")
+
+    _prefix, token_count, block_ids, hashes = _coherent_child_request_snapshot(
+        observation,
+        "native-long",
+        expected_token_count=32_256,
+        maximum_token_count=32_256,
+    )
+
+    assert token_count == 32_256
+    assert block_ids == (7,)
+    assert hashes == (bytes.fromhex("aa" * 32),)
+
+
 class _BlockHashToBlockMap:
     def __init__(self, blocks: dict[bytes, object]) -> None:
         self._blocks = blocks

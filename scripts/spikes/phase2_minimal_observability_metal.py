@@ -246,8 +246,8 @@ def _program_prefix_sizes(options: Mapping[str, object]) -> dict[str, int]:
             value,
             f"backend_options.program_prefix_tokens[{program_id!r}]",
         )
-        if not 16 <= size <= 30_720:
-            raise ValueError("profiling prefix size must be between 16 and 30720 tokens")
+        if not 16 <= size <= 32_256:
+            raise ValueError("profiling prefix size must be between 16 and 32256 tokens")
         if size % _BLOCK_SIZE != 0:
             raise ValueError("profiling prefix size must align to the KV block size")
         sizes[program_id] = size
@@ -939,6 +939,36 @@ class MinimalMetalObservabilityBackend:
                 history_observation_enabled=(self._content_evidence_enabled),
             )
         )
+        history_path_value = options.get("continuum_server_gap_history_path")
+        history_sha_value = options.get("continuum_server_gap_history_sha256")
+        if history_path_value is not None or history_sha_value is not None:
+            if config.get("campaign_kind") != "continuum_native_costaware_formal":
+                raise ValueError("history warm-start is restricted to the formal campaign")
+            if not isinstance(history_path_value, str) or not history_path_value:
+                raise ValueError("history warm-start path must be non-empty text")
+            if not isinstance(history_sha_value, str) or len(history_sha_value) != 64:
+                raise ValueError("history warm-start SHA-256 must be bound")
+            history_path = Path(history_path_value)
+            if hashlib.sha256(history_path.read_bytes()).hexdigest() != history_sha_value:
+                raise ValueError("history warm-start SHA-256 mismatch")
+            from kvopt.workload.continuum_native_history import load_history
+
+            history_records = load_history(history_path)
+            self._runtime.seed_server_gap_history(history_records)
+            sink.emit(
+                ExperimentEvent.create(
+                    event_type="SERVER_GAP_HISTORY_WARM_STARTED",
+                    timestamp=self._clock.now(),
+                    clock_domain="system_monotonic",
+                    source="continuum.w1a_history",
+                    payload={
+                        "history_path": str(history_path),
+                        "history_sha256": history_sha_value,
+                        "server_gap_sample_count": len(history_records),
+                        "kv_cache_prewarms": False,
+                    },
+                )
+            )
         self._forced_release_observer = _CountingForcedReleaseObserver(sink)
         self._retention_integration = _ObservedRetentionIntegration(
             self._runtime,
@@ -1026,6 +1056,18 @@ class MinimalMetalObservabilityBackend:
             self._pressure_stage_tokens,
             max_new_tokens,
         )
+        max_num_batched_tokens = _positive_int(
+            options.get("max_num_batched_tokens", max_model_len),
+            "backend_options.max_num_batched_tokens",
+        )
+        enable_chunked_prefill = options.get("enable_chunked_prefill", False)
+        if not isinstance(enable_chunked_prefill, bool):
+            raise TypeError("backend_options.enable_chunked_prefill must be bool")
+        if max_num_batched_tokens < max_model_len and not enable_chunked_prefill:
+            raise ValueError(
+                "max_num_batched_tokens below max_model_len requires "
+                "enable_chunked_prefill=true"
+            )
         llm_kwargs = {
             "model": model["name"],
             "revision": model["revision"],
@@ -1036,7 +1078,8 @@ class MinimalMetalObservabilityBackend:
             "seed": int(config["seed"]),
             "num_gpu_blocks_override": block_override,
             "max_model_len": max_model_len,
-            "max_num_batched_tokens": max_model_len,
+            "max_num_batched_tokens": max_num_batched_tokens,
+            "enable_chunked_prefill": enable_chunked_prefill,
             "disable_log_stats": False,
             "prefix_caching_hash_algo": "sha256",
         }
@@ -1227,6 +1270,8 @@ class MinimalMetalObservabilityBackend:
                     "w1b_native_input_fidelity_only": (self._w1b_native_input_fidelity_only),
                     "h2_m4_prefill_curve_bound": h2_m4_prefill_provider is not None,
                     "gpu_memory_utilization": gpu_memory_utilization,
+                    "max_num_batched_tokens": max_num_batched_tokens,
+                    "enable_chunked_prefill": enable_chunked_prefill,
                     "retention_mode": self._retention_mode.value,
                     "phase2g_release_policy": phase2g_release_policy,
                     "phase2g_a1_lambda": (

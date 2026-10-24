@@ -1,0 +1,33 @@
+{
+  "schema_version": "continuum.native_costaware_prefill_profile_protocol.v1",
+  "scope": "FORMAL_CAMPAIGN_REQUIRED_PREFILL_RELOAD_RESOURCE_MEASUREMENT",
+  "model": {
+    "name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+    "revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225",
+    "tokenizer_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225"
+  },
+  "token_grid": [256, 1024, 2048, 3072, 4096, 5120, 6144, 8192, 12288, 16384, 20480, 24576, 28672, 32256],
+  "coverage_requirement": {
+    "query_source": "NONTERMINAL_SELECTED_REPLAY_PREFILL_CONTEXT_ALIGNED_DOWN_TO_16_TOKENS",
+    "maximum_known_query_tokens": 32144,
+    "interpolation_rule": "piecewise_linear_between_measured_points",
+    "extrapolation": "PROHIBITED",
+    "nonlinearity_check": "REPORT_ADJACENT_SECANT_SLOPES_AND_FAIL_REVIEW_IF_UNEXPLAINED_REVERSAL"
+  },
+  "measurement": {
+    "warmup_pairs_per_point": 5,
+    "measured_pairs_per_point": 20,
+    "raw_delta_definition": "MISS - HIT TTFT",
+    "canonical_unit": "seconds",
+    "pressure_prompt_tokens": 512,
+    "pressure_batch_size": 32,
+    "maximum_pressure_batches": 64,
+    "block_size_tokens": 16,
+    "max_new_tokens": 1,
+    "temperature": 0.0,
+    "gpu_memory_utilization": 1.0,
+    "seed": 20261115
+  },
+  "legacy_w1b_profile_modified": false,
+  "formal_native_outcomes_authorized": false
+}

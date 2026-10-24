@@ -15,6 +15,8 @@ from typing import Any
 
 from .continuum_w1b_profile import W1B_TOKEN_GRID
 
+FORMAL_PROFILE_SCHEMA = "continuum.native_costaware_prefill_profile_protocol.v1"
+
 
 def _load(path: Path) -> dict[str, Any]:
     value = json.loads(path.read_text(encoding="utf-8"))
@@ -46,15 +48,21 @@ class _NativeHashSurface:
 def measurement_config(
     *, base_config: dict[str, Any], protocol: dict[str, Any], token_count: int
 ) -> dict[str, Any]:
-    if token_count not in W1B_TOKEN_GRID:
-        raise ValueError("token count is outside the frozen W1-B profile grid")
+    schema = protocol.get("schema_version")
+    token_grid = protocol.get("token_grid", list(W1B_TOKEN_GRID))
+    if not isinstance(token_grid, list) or token_count not in token_grid:
+        raise ValueError("token count is outside the frozen profile grid")
     config = json.loads(json.dumps(base_config))
     measurement = protocol["measurement"]
     model = protocol["model"]
     pressure_tokens = int(measurement["pressure_prompt_tokens"])
     block_size = int(measurement["block_size_tokens"])
     config.update(
-        campaign_kind="continuum_w1b_prefill_profile",
+        campaign_kind=(
+            "continuum_native_costaware_prefill_profile"
+            if schema == FORMAL_PROFILE_SCHEMA
+            else "continuum_w1b_prefill_profile"
+        ),
         policy="continuum-a0",
         seed=int(measurement["seed"]),
         model={"name": model["name"], "revision": model["revision"]},
@@ -77,9 +85,24 @@ def measurement_config(
             "execute_planned_timing": False,
             "executor_mode": "submit_collect",
             "gpu_memory_utilization": float(measurement["gpu_memory_utilization"]),
+            "max_num_batched_tokens": int(
+                measurement.get(
+                    "max_num_batched_tokens",
+                    max(token_count, pressure_tokens) + 1,
+                )
+            ),
+            "enable_chunked_prefill": bool(
+                measurement.get("enable_chunked_prefill", False)
+            ),
             "phase2g_release_policy": "A0",
             "phase2g_block_policy": "A0",
-            "program_prefix_tokens": {"w1b-profile": token_count},
+            "program_prefix_tokens": {
+                (
+                    "formal-profile"
+                    if schema == FORMAL_PROFILE_SCHEMA
+                    else "w1b-profile"
+                ): token_count
+            },
             "pressure_prompt_tokens": pressure_tokens,
             "prefill_profile_path": (
                 "docs/experiments/phase1b-continuum/artifacts/"
@@ -94,9 +117,15 @@ def measure_point(
     *, base_config_path: Path, protocol_path: Path, token_count: int
 ) -> dict[str, Any]:
     protocol = _load(protocol_path)
-    if protocol.get("schema_version") != "continuum.w1b_prefill_profile_protocol.v1":
-        raise ValueError("unsupported W1-B profile protocol")
-    if protocol.get("token_grid") != list(W1B_TOKEN_GRID):
+    schema = protocol.get("schema_version")
+    if schema not in {
+        "continuum.w1b_prefill_profile_protocol.v1",
+        FORMAL_PROFILE_SCHEMA,
+    }:
+        raise ValueError("unsupported PrefillReload profile protocol")
+    if schema == "continuum.w1b_prefill_profile_protocol.v1" and protocol.get(
+        "token_grid"
+    ) != list(W1B_TOKEN_GRID):
         raise ValueError("W1-B profile token grid changed")
     base_config = _load(base_config_path)
     config = measurement_config(
@@ -116,7 +145,7 @@ def measure_point(
     backend = MinimalMetalObservabilityBackend(config, _DiscardingSink())
     try:
         def registered(external_id: str, internal_id: str) -> None:
-            backend._registry.register_batch(("w1b-profile",), (internal_id,))
+            backend._registry.register_batch(("formal-profile",), (internal_id,))
             backend._registry.register_external_batch((internal_id,), (external_id,))
 
         def observation(internal_id: str) -> object:
@@ -124,6 +153,7 @@ def measure_point(
                 _coherent_child_request_snapshot(
                     backend._native_observations,
                     internal_id,
+                    maximum_token_count=max(token_count, 512),
                 )
             )
             if observed_tokens not in {token_count, 512}:
@@ -137,6 +167,7 @@ def measure_point(
             observation_reader=observation,
             token_grid=(token_count,),
             request_registered=registered,
+            require_zero_cached_prefix=(schema == FORMAL_PROFILE_SCHEMA),
         )
         adapter.ensure_seeded(token_count)
         token_ids = adapter.target_token_ids(token_count)
@@ -173,7 +204,11 @@ def measure_point(
                 )
         deltas = [float(row["raw_delta_seconds"]) for row in measured]
         return {
-            "schema_version": "continuum.w1b_prefill_profile_point.v1",
+            "schema_version": (
+                "continuum.native_costaware_prefill_profile_point.v1"
+                if schema == FORMAL_PROFILE_SCHEMA
+                else "continuum.w1b_prefill_profile_point.v1"
+            ),
             "status": "complete",
             "created_at_utc": datetime.now(UTC).isoformat(),
             "git_sha": subprocess.run(

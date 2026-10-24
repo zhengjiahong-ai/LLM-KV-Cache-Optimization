@@ -108,8 +108,10 @@ class _FakeNativeBoundary:
         self._presence_index += 1
         return present
 
-    def run_pressure_batch(self) -> None:
+    def run_pressure_batch(self, *, max_requests: int) -> int:
+        assert max_requests > 0
         self.pressure_batches += 1
+        return 1
 
 
 def _token_pair(r: int) -> tuple[tuple[int, ...], int]:
@@ -265,3 +267,5 @@ def test_pair_runner_returns_tuple_only_after_validated_pair_and_records_diagnos
     assert diagnostic["miss_num_cached_tokens"] == 0
     assert diagnostic["hit_num_cached_tokens"] == 128
     assert diagnostic["pressure_batches"] == 1
+    assert diagnostic["pressure_requests"] == 1
+    assert diagnostic["pressure_input_tokens"] == 512
