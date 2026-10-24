@@ -134,7 +134,11 @@ class _MetalPrefillAdapter:
     def read_target_material_presence(self) -> bool:
         if not self._target_hashes:
             return False
-        return all(self._native.lookup_hash(native_hash) for native_hash in self._target_hashes)
+        # A validated MISS requires zero reusable cached-prefix tokens.  Losing
+        # only a later block makes the full chain incomplete but still leaves a
+        # leading APC hit, so pressure must continue until the first hash is no
+        # longer resident.
+        return self._native.lookup_hash(self._target_hashes[0])
 
     def target_token_ids(self, token_count: int) -> tuple[int, ...]:
         if token_count not in self._token_grid:
