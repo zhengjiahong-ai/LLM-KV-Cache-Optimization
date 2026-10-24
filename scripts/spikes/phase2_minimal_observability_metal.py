@@ -246,8 +246,8 @@ def _program_prefix_sizes(options: Mapping[str, object]) -> dict[str, int]:
             value,
             f"backend_options.program_prefix_tokens[{program_id!r}]",
         )
-        if not 16 <= size <= 30_720:
-            raise ValueError("profiling prefix size must be between 16 and 30720 tokens")
+        if not 16 <= size <= 32_256:
+            raise ValueError("profiling prefix size must be between 16 and 32256 tokens")
         if size % _BLOCK_SIZE != 0:
             raise ValueError("profiling prefix size must align to the KV block size")
         sizes[program_id] = size

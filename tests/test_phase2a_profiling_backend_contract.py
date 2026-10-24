@@ -94,11 +94,14 @@ def test_expected_block_budget_matches_controlled_scarcity_rule() -> None:
 
 def test_program_prefix_sizes_accept_h2_grid_points_only_when_aligned() -> None:
     assert _program_prefix_sizes(
-        {"program_prefix_tokens": {"agent-a": 192, "agent-b": 30_720}}
-    ) == {"agent-a": 192, "agent-b": 30_720}
+        {"program_prefix_tokens": {"agent-a": 192, "agent-b": 32_256}}
+    ) == {"agent-a": 192, "agent-b": 32_256}
 
     with pytest.raises(ValueError, match="align to the KV block size"):
         _program_prefix_sizes({"program_prefix_tokens": {"agent-a": 191}})
+
+    with pytest.raises(ValueError, match="between 16 and 32256 tokens"):
+        _program_prefix_sizes({"program_prefix_tokens": {"agent-a": 32_272}})
 
 
 def test_materialized_turn_uses_requested_prefix_size() -> None:
