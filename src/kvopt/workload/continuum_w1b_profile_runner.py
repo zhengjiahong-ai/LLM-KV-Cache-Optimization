@@ -157,6 +157,7 @@ def measure_point(
             observation_reader=observation,
             token_grid=(token_count,),
             request_registered=registered,
+            require_zero_cached_prefix=(schema == FORMAL_PROFILE_SCHEMA),
         )
         adapter.ensure_seeded(token_count)
         token_ids = adapter.target_token_ids(token_count)

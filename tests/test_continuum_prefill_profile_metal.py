@@ -13,6 +13,7 @@ def test_target_presence_tracks_reusable_leading_hash_not_full_chain() -> None:
     adapter = object.__new__(_MetalPrefillAdapter)
     adapter._target_hashes = (b"leading", b"trailing")
     adapter._native = _Native({b"leading"})
+    adapter._require_zero_cached_prefix = True
 
     assert adapter.read_target_material_presence() is True
 

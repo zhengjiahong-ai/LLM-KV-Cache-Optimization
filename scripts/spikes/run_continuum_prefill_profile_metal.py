@@ -44,6 +44,7 @@ class _MetalPrefillAdapter:
         sampling_params_factory: Callable[..., Any],
         token_grid: Sequence[int] = TOKEN_GRID,
         request_registered: Callable[[str, str], None] | None = None,
+        require_zero_cached_prefix: bool = False,
     ) -> None:
         if vocabulary_size <= 0:
             raise ValueError("vocabulary_size must be positive")
@@ -55,6 +56,9 @@ class _MetalPrefillAdapter:
         self._vocabulary_size = vocabulary_size
         self._token_grid = tuple(token_grid)
         self._request_registered = request_registered
+        if not isinstance(require_zero_cached_prefix, bool):
+            raise TypeError("require_zero_cached_prefix must be bool")
+        self._require_zero_cached_prefix = require_zero_cached_prefix
         self._reusable_tokens_by_external: dict[str, int] = {}
         self._next_request_number = 0
         self._internal_by_external: dict[str, str] = {}
@@ -138,7 +142,9 @@ class _MetalPrefillAdapter:
         # only a later block makes the full chain incomplete but still leaves a
         # leading APC hit, so pressure must continue until the first hash is no
         # longer resident.
-        return self._native.lookup_hash(self._target_hashes[0])
+        if self._require_zero_cached_prefix:
+            return self._native.lookup_hash(self._target_hashes[0])
+        return all(self._native.lookup_hash(native_hash) for native_hash in self._target_hashes)
 
     def target_token_ids(self, token_count: int) -> tuple[int, ...]:
         if token_count not in self._token_grid:
@@ -205,6 +211,7 @@ def build_adapter(
     sampling_params_factory: Callable[..., Any] | None = None,
     token_grid: Sequence[int] = TOKEN_GRID,
     request_registered: Callable[[str, str], None] | None = None,
+    require_zero_cached_prefix: bool = False,
 ) -> _MetalPrefillAdapter:
     """Build the adapter, lazily loading the pinned vLLM input factories."""
 
@@ -220,6 +227,7 @@ def build_adapter(
         sampling_params_factory=sampling_params_factory,
         token_grid=token_grid,
         request_registered=request_registered,
+        require_zero_cached_prefix=require_zero_cached_prefix,
     )
 
 
