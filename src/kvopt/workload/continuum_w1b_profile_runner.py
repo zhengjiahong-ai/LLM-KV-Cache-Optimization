@@ -153,6 +153,7 @@ def measure_point(
                 _coherent_child_request_snapshot(
                     backend._native_observations,
                     internal_id,
+                    maximum_token_count=max(token_count, 512),
                 )
             )
             if observed_tokens not in {token_count, 512}:
