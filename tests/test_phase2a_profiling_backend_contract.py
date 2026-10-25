@@ -160,3 +160,7 @@ def test_max_model_len_covers_largest_pressure_stage() -> None:
         )
         == 784
     )
+
+
+def test_max_model_len_accepts_only_pressure_prompt_candidate() -> None:
+    assert _required_max_model_len({}, 512, {}, 1) == 528

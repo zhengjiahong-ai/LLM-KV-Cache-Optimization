@@ -450,11 +450,12 @@ def _required_max_model_len(
 ) -> int:
     """Cover the largest materialized prompt and align to a KV block."""
 
-    largest_prompt = max(
+    prompt_lengths = [
         pressure_tokens,
-        *(pressure_stage_tokens.values()),
+        *pressure_stage_tokens.values(),
         *(tokens + 1 for tokens in program_prefix_tokens.values()),
-    )
+    ]
+    largest_prompt = max(prompt_lengths)
     required_tokens = largest_prompt + max_new_tokens
     aligned_tokens = math.ceil(required_tokens / _BLOCK_SIZE) * _BLOCK_SIZE
     return max(_DEFAULT_MAX_MODEL_LEN, aligned_tokens)
