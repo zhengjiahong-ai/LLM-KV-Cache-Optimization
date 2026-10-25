@@ -1,0 +1,112 @@
+{
+  "schema_version": "continuum.native_costaware_bounded_protocol.v1",
+  "scope": "W1C_DERIVED_BOUNDED_NATIVE_COSTAWARE_EVALUATION",
+  "supersedes": "configs/phase2/continuum-native-cost-aware-formal-protocol-v1.json",
+  "superseded_campaign_status": "FORMAL_108_RUN_CAMPAIGN_SUPERSEDED_BY_REFREEZE",
+  "source_runs_root": "artifacts/continuum-w1c-pilot-runs-v1",
+  "source_condition": "S100",
+  "cohort_rule": "ALL_AND_ONLY_W1C_FULL_PAYLOAD_COMPARABLE_PAIRS",
+  "workload_task_count": 18,
+  "workload_group_count": 9,
+  "native_policy_arms": ["A0", "A1", "A2"],
+  "runtime_repeats": 1,
+  "pressure_regimes": ["moderate", "deep"],
+  "planned_native_run_count": 54,
+  "statistical_unit": "DISJOINT_TWO_TASK_WORKLOAD_GROUP",
+  "claim_scope": "EXPLORATORY_PAIRED_COMPARISON_ON_THE_PREDEFINED_NINE_GROUP_GRID",
+  "strong_population_or_stability_claim_authorized": false,
+  "replay": {
+    "content_source": "W1C_S100_EXACT_OBSERVED_REQUEST_CHECKPOINTS",
+    "checkpoints_per_session": 6,
+    "selection_rule": "INTEGER_QUANTILES_INCLUDING_FIRST_AND_LAST_SUCCESSFUL_S100_CALL",
+    "explicit_token_ids": "PRESERVE_WITHOUT_TRUNCATION_COMPRESSION_OR_RETOKENIZATION",
+    "failed_submission_replay": "EXCLUDED_AND_RECORDED_AS_SOURCE_MISSINGNESS",
+    "request_order": "OBSERVED_ORDER_OF_SELECTED_CHECKPOINTS",
+    "cross_session_start_stagger_seconds": 0.25,
+    "within_session_gap": "OBSERVED_COMPLETION_TO_NEXT_SUBMIT_GAP_WHEN_VALID",
+    "maximum_concurrent_requests": 2,
+    "timing_claim": "CONTROLLED_REPLAY_NOT_OBSERVED_PRODUCTION_ARRIVALS"
+  },
+  "workload_groups": [
+    {"group_id": "g01-short-extreme", "task_ids": ["psf__requests-2931", "django__django-13569"]},
+    {"group_id": "g02-low-high", "task_ids": ["sympy__sympy-16886", "pydata__xarray-3993"]},
+    {"group_id": "g03-low-high", "task_ids": ["django__django-14493", "pylint-dev__pylint-6386"]},
+    {"group_id": "g04-low-high", "task_ids": ["django__django-13551", "mwaskom__seaborn-3069"]},
+    {"group_id": "g05-low-high", "task_ids": ["django__django-13023", "sphinx-doc__sphinx-8593"]},
+    {"group_id": "g06-mid-high", "task_ids": ["matplotlib__matplotlib-25311", "pallets__flask-5014"]},
+    {"group_id": "g07-mid-high", "task_ids": ["sympy__sympy-15017", "scikit-learn__scikit-learn-14983"]},
+    {"group_id": "g08-mid-high", "task_ids": ["pytest-dev__pytest-7982", "django__django-16662"]},
+    {"group_id": "g09-near-matched", "task_ids": ["django__django-15554", "django__django-11790"]}
+  ],
+  "pressure": {
+    "moderate": "MINIMUM_SHORTAGE_THAT_REQUIRES_ONE_LEGAL_RELEASE",
+    "deep": "PREDECLARED_SHORTAGE_TARGETING_MULTIPLE_LEGAL_CANDIDATES",
+    "post_pressure_return_required": true,
+    "numeric_capacity_and_shortage": "PENDING_STATIC_24GB_CAPACITY_FREEZE"
+  },
+  "runtime": {
+    "model": "Qwen/Qwen2.5-Coder-1.5B-Instruct",
+    "model_revision": "d18ecad881a290f0c792f1c2b5dbee1820d4a424",
+    "tokenizer": "Qwen/Qwen2.5-Coder-1.5B-Instruct",
+    "tokenizer_revision": "d18ecad881a290f0c792f1c2b5dbee1820d4a424",
+    "max_model_len": 32768,
+    "max_num_batched_tokens": 2048,
+    "enable_chunked_prefill": true,
+    "enforce_eager": true,
+    "max_new_tokens": 1,
+    "temperature": 0.0,
+    "block_size_tokens": 16,
+    "native_backend": "vllm-cuda-0.27.1",
+    "target_gpu": "NVIDIA RTX 4090D 24GB",
+    "runtime_identity": "PENDING_FINAL_RESOURCE_INSTANCE_BINDING"
+  },
+  "profile": {
+    "protocol": "configs/phase2/continuum-native-cost-aware-bounded-prefill-profile-v1.json",
+    "grid": [1024, 4096, 8192, 12288, 16384, 24576, 32256],
+    "warmup_pairs_per_point": 2,
+    "measured_pairs_per_point": 8,
+    "total_pair_count": 70,
+    "status": "PENDING_FINAL_FREEZE"
+  },
+  "metrics": {
+    "primary": "aggregate_recomputed_tokens=sum(E-C)",
+    "secondary": ["aggregate_actual_prefill_tokens=sum(N-C)", "aggregate_new_suffix_tokens=sum(N-E)"],
+    "decision": ["candidate_count", "need_blocks", "marginal_newly_eligible_blocks", "deadline", "q", "q_span", "fallback_reason"],
+    "mechanism_layers": ["LOGICAL_SELECTION", "PHYSICAL_EVICTION", "DOWNSTREAM_APC_AND_RECOMPUTATION"],
+    "causal_claim": "TEMPORAL_ASSOCIATION_UNLESS_CONTENT_IDENTITY_CHAIN_IS_COMPLETE"
+  },
+  "analysis": {
+    "aggregation": "REQUEST_TO_RUN_THEN_PRESSURE_CELLS_TO_WORKLOAD_GROUP",
+    "independent_unit_count": 9,
+    "runtime_repeat_noise_estimation": "NOT_AVAILABLE_ONE_REPEAT_ONLY",
+    "paired_reporting": ["MEAN", "MEDIAN", "BETTER_WORSE_TIED", "FAMILY_AND_GROUP_ROWS"],
+    "confidence_intervals": "DESCRIPTIVE_EXPLORATORY_ONLY",
+    "missing_run_rule": "RETAIN_AND_MARK_GROUP_PRESSURE_ARM_INCOMPLETE",
+    "campaign_incomplete_verdict": "INCONCLUSIVE_WITH_DESCRIPTIVE_COMPLETE_CASE_RESULTS"
+  },
+  "pre_execution_gates": {
+    "m1_final_refreeze": "PENDING",
+    "exact_token_id_compatibility": "PENDING",
+    "longest_32154_token_request": "PENDING",
+    "static_24gb_kv_capacity": "PENDING",
+    "native_content_apc_eviction_recomputation_chain": "PENDING",
+    "cross_arm_config_token_order_capacity_pressure_equality": "PENDING",
+    "measured_sparse_profile_complete": "PENDING",
+    "profile_ranking_sensitivity_implemented": "PENDING",
+    "runner_evaluator_and_config_hash_binding": "PENDING"
+  },
+  "budget": {
+    "gpu_hourly_price_cny": 2.0,
+    "expected_gpu_hours_low": 8,
+    "expected_gpu_hours_high": 20,
+    "expected_cost_cny_low": 16,
+    "expected_cost_cny_high": 40,
+    "recommended_budget_cap_cny": 60,
+    "stop_condition": "STOP_AND_REPORT_BEFORE_EXCEEDING_THE_APPROVED_CAP_OR_AFTER_ANY_SYSTEMATIC_FAILURE"
+  },
+  "bounded_54_run_campaign_status": "PENDING_FINAL_FREEZE",
+  "profile_70_pair_plan_status": "PENDING_FINAL_FREEZE",
+  "execution_authorized": false,
+  "algorithm_or_weight_changes_authorized": false,
+  "a3_or_b1_authorized": false
+}

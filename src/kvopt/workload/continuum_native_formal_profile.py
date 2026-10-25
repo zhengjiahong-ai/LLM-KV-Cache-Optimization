@@ -38,6 +38,11 @@ def assemble(*, protocol_path: Path, points_dir: Path, output_path: Path) -> dic
     bindings: list[dict[str, Any]] = []
     points: list[dict[str, Any]] = []
     protocol_sha = _sha256(protocol_path)
+    measurement_protocol = protocol.get("measurement")
+    if not isinstance(measurement_protocol, dict):
+        raise ValueError("formal profile measurement protocol is missing")
+    warmup_pair_count = int(measurement_protocol["warmup_pairs_per_point"])
+    measured_pair_count = int(measurement_protocol["measured_pairs_per_point"])
     measurement_git_sha: str | None = None
     base_config_sha: str | None = None
     for token_count in grid:
@@ -53,11 +58,11 @@ def assemble(*, protocol_path: Path, points_dir: Path, output_path: Path) -> dic
         warmups = point.get("warmup_pairs")
         measured = point.get("measured_pairs")
         deltas = point.get("measured_raw_deltas_seconds")
-        if not isinstance(warmups, list) or len(warmups) != 5:
-            raise ValueError("profile point must contain five warmup pairs")
-        if not isinstance(measured, list) or len(measured) != 20:
-            raise ValueError("profile point must contain twenty measured pairs")
-        if not isinstance(deltas, list) or len(deltas) != 20 or not all(
+        if not isinstance(warmups, list) or len(warmups) != warmup_pair_count:
+            raise ValueError("profile point warmup-pair count mismatch")
+        if not isinstance(measured, list) or len(measured) != measured_pair_count:
+            raise ValueError("profile point measured-pair count mismatch")
+        if not isinstance(deltas, list) or len(deltas) != measured_pair_count or not all(
             isinstance(value, (int, float))
             and not isinstance(value, bool)
             and math.isfinite(float(value))
@@ -91,8 +96,8 @@ def assemble(*, protocol_path: Path, points_dir: Path, output_path: Path) -> dic
         "protocol": {
             "canonical_unit": "seconds",
             "grid": grid,
-            "warmup_pairs_per_point": 5,
-            "measured_pairs_per_point": 20,
+            "warmup_pairs_per_point": warmup_pair_count,
+            "measured_pairs_per_point": measured_pair_count,
             "raw_delta_definition": "MISS - HIT TTFT",
             "interpolation_rule": "piecewise_linear_between_measured_points",
             "extrapolation": "PROHIBITED",
