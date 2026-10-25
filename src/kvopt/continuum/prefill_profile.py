@@ -62,7 +62,13 @@ def _validate_protocol(protocol: object) -> None:
             raise ValueError(f"protocol.{field_name} does not match frozen protocol")
 
 
-def _validate_point(point: object, expected_token_count: int) -> float:
+def _validate_point(
+    point: object,
+    expected_token_count: int,
+    *,
+    warmup_pair_count: int = 5,
+    measured_pair_count: int = 20,
+) -> float:
     data = _require_mapping(point, "point")
     token_count = data.get("token_count")
     if isinstance(token_count, bool) or not isinstance(token_count, int):
@@ -71,15 +77,15 @@ def _validate_point(point: object, expected_token_count: int) -> float:
         raise ValueError("point token_count does not match frozen grid")
 
     warmup_pairs = data.get("warmup_pairs")
-    if not isinstance(warmup_pairs, list) or len(warmup_pairs) != 5:
-        raise ValueError("each point must contain exactly 5 warmup pairs")
+    if not isinstance(warmup_pairs, list) or len(warmup_pairs) != warmup_pair_count:
+        raise ValueError("point warmup-pair count does not match its protocol")
     measured_pairs = data.get("measured_pairs")
-    if not isinstance(measured_pairs, list) or len(measured_pairs) != 20:
-        raise ValueError("each point must contain exactly 20 measured pairs")
+    if not isinstance(measured_pairs, list) or len(measured_pairs) != measured_pair_count:
+        raise ValueError("point measured-pair count does not match its protocol")
 
     raw_deltas = data.get("measured_raw_deltas_seconds")
-    if not isinstance(raw_deltas, list) or len(raw_deltas) != 20:
-        raise ValueError("each point must contain exactly 20 raw measured deltas")
+    if not isinstance(raw_deltas, list) or len(raw_deltas) != measured_pair_count:
+        raise ValueError("point raw-delta count does not match its protocol")
     normalized_deltas = [
         _require_finite_number(value, "measured_raw_deltas_seconds")
         for value in raw_deltas
@@ -273,8 +279,6 @@ def _load_formal_long_context_provider(
         raise ValueError("formal profile grid must be unique increasing integers")
     expected = {
         "canonical_unit": "seconds",
-        "warmup_pairs_per_point": 5,
-        "measured_pairs_per_point": 20,
         "raw_delta_definition": "MISS - HIT TTFT",
         "interpolation_rule": "piecewise_linear_between_measured_points",
         "extrapolation": "PROHIBITED",
@@ -282,12 +286,31 @@ def _load_formal_long_context_provider(
     for field_name, value in expected.items():
         if protocol.get(field_name) != value:
             raise ValueError(f"protocol.{field_name} does not match formal protocol")
+    warmup_pair_count = protocol.get("warmup_pairs_per_point")
+    measured_pair_count = protocol.get("measured_pairs_per_point")
+    if (
+        isinstance(warmup_pair_count, bool)
+        or not isinstance(warmup_pair_count, int)
+        or warmup_pair_count < 1
+    ):
+        raise ValueError("protocol.warmup_pairs_per_point must be a positive integer")
+    if (
+        isinstance(measured_pair_count, bool)
+        or not isinstance(measured_pair_count, int)
+        or measured_pair_count < 1
+    ):
+        raise ValueError("protocol.measured_pairs_per_point must be a positive integer")
     points = artifact.get("points")
     if not isinstance(points, list) or len(points) != len(grid):
         raise ValueError("formal profile points must match its frozen grid")
     token_grid = tuple(grid)
     values = tuple(
-        _validate_point(point, token_count)
+        _validate_point(
+            point,
+            token_count,
+            warmup_pair_count=warmup_pair_count,
+            measured_pair_count=measured_pair_count,
+        )
         for point, token_count in zip(points, token_grid, strict=True)
     )
     return _ProfilePrefillReloadProvider(

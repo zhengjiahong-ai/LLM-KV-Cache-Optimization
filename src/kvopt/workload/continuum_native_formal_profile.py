@@ -40,7 +40,7 @@ def assemble(*, protocol_path: Path, points_dir: Path, output_path: Path) -> dic
     protocol_sha = _sha256(protocol_path)
     measurement_protocol = protocol.get("measurement")
     if not isinstance(measurement_protocol, dict):
-        raise ValueError("formal profile measurement protocol is missing")
+        raise TypeError("formal profile measurement protocol must be an object")
     warmup_pair_count = int(measurement_protocol["warmup_pairs_per_point"])
     measured_pair_count = int(measurement_protocol["measured_pairs_per_point"])
     measurement_git_sha: str | None = None
