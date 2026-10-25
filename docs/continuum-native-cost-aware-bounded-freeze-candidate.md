@@ -20,6 +20,28 @@ change or reinterpret any earlier Metal, H800, W1-A, W1-B, or W1-C evidence.
 - Statistical unit: one two-task workload group. The single runtime execution
   does not establish run-to-run stability, and all results are exploratory.
 
+## Controlled sparse replay time
+
+The selected W1-C checkpoint timestamps are retained as a monotonic Continuum
+lifecycle clock, but they are not converted into wall-clock sleeps. The
+implementation is `kvopt.continuum.ControlledSparseReplayClock`, which reuses
+the existing `Clock`/`FakeClock` abstraction and records every explicit time
+advance.
+
+Logical time drives Continuum lifecycle, TTL, Deadline, q, retention expiry,
+and pressure decisions. Native vLLM execution continues to use its real
+monotonic clock. Each time advance records `logical_timestamp`,
+`native_monotonic_timestamp`, the source boundary, and actual wall elapsed
+time. The two domains cannot be subtracted or ordered without an explicit
+conversion. Logical time cannot advance while any Native request is inflight,
+and all three arms must bind the identical logical event-sequence SHA-256.
+
+This is **Controlled Sparse Replay with Logical Lifecycle Time**. It does not
+reconstruct the omitted Agent turns or claim to reproduce their production
+cache state and service timing. A runner that cannot preserve the frozen
+ordering, two-request concurrency bound, and zero-inflight time-advance rule
+must fail closed rather than fall back to zero-gap or mixed-clock replay.
+
 The exact machine, driver, PyTorch build, KV capacity, pressure shortage, code
 SHA, configuration SHA, and trace SHA remain pre-execution bindings. A change
 to any bound value invalidates authorization rather than silently rematerializing

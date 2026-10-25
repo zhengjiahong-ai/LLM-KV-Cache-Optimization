@@ -25,7 +25,23 @@
     "cross_session_start_stagger_seconds": 0.25,
     "within_session_gap": "OBSERVED_COMPLETION_TO_NEXT_SUBMIT_GAP_WHEN_VALID",
     "maximum_concurrent_requests": 2,
-    "timing_claim": "CONTROLLED_REPLAY_NOT_OBSERVED_PRODUCTION_ARRIVALS"
+    "timing_claim": "CONTROLLED_SPARSE_REPLAY_WITH_LOGICAL_LIFECYCLE_TIME",
+    "logical_time_contract": {
+      "implementation": "kvopt.continuum.ControlledSparseReplayClock",
+      "logical_clock_domain": "continuum_logical_replay",
+      "native_clock_domain": "system_monotonic",
+      "checkpoint_intervals": "PRESERVE_FROZEN_SOURCE_TIMESTAMPS_AS_LOGICAL_BOUNDARIES_WITHOUT_WALL_SLEEP",
+      "advance_boundary": "ONLY_WITH_ZERO_NATIVE_INFLIGHT_REQUESTS",
+      "clock_mixing": "PROHIBITED_WITHOUT_EXPLICIT_CONVERSION",
+      "cross_arm_sequence": "IDENTICAL_SHA256_REQUIRED",
+      "required_telemetry": [
+        "logical_timestamp",
+        "native_monotonic_timestamp",
+        "time_event_source",
+        "wall_elapsed_seconds"
+      ],
+      "claim_boundary": "DOES_NOT_RECONSTRUCT_OMITTED_AGENT_TURNS_OR_PRODUCTION_CACHE_TIMING"
+    }
   },
   "workload_groups": [
     {"group_id": "g01-short-extreme", "task_ids": ["psf__requests-2931", "django__django-13569"]},
@@ -74,6 +90,18 @@
     "decision": ["candidate_count", "need_blocks", "marginal_newly_eligible_blocks", "deadline", "q", "q_span", "fallback_reason"],
     "mechanism_layers": ["LOGICAL_SELECTION", "PHYSICAL_EVICTION", "DOWNSTREAM_APC_AND_RECOMPUTATION"],
     "causal_claim": "TEMPORAL_ASSOCIATION_UNLESS_CONTENT_IDENTITY_CHAIN_IS_COMPLETE"
+  },
+  "execution_telemetry": {
+    "required_elapsed_fields": [
+      "engine_initialization_seconds",
+      "native_execution_seconds",
+      "pressure_execution_seconds",
+      "replay_idle_seconds",
+      "evidence_writing_seconds",
+      "wall_elapsed_seconds"
+    ],
+    "gpu_work_and_billed_wall_time_are_distinct": true,
+    "missing_field_rule": "FAIL_CLOSED"
   },
   "analysis": {
     "aggregation": "REQUEST_TO_RUN_THEN_PRESSURE_CELLS_TO_WORKLOAD_GROUP",
