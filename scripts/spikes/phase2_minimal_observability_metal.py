@@ -724,19 +724,37 @@ class _ObservedRetentionIntegration:
 
 
 class MinimalMetalObservabilityBackend:
-    """Run a tiny two-prefix real-runtime scenario through the Phase 2 contract."""
+    """Run a real vLLM scenario through the shared Phase 2 observation contract.
+
+    The historical class name remains for compatibility.  Runtime-specific
+    initialization is selected explicitly by ``runtime_mode``; policy,
+    lifecycle, BlockPool ownership and evidence semantics stay shared.
+    """
 
     def __init__(self, config: dict[str, object], sink: ExperimentEventSink) -> None:
-        if config.get("runtime_mode") != "vllm-metal-observability":
-            raise ValueError("runtime_mode must be vllm-metal-observability")
+        runtime_mode = config.get("runtime_mode")
+        if runtime_mode not in {
+            "vllm-metal-observability",
+            "vllm-cuda-observability",
+        }:
+            raise ValueError(
+                "runtime_mode must be vllm-metal-observability or "
+                "vllm-cuda-observability"
+            )
         if not callable(getattr(sink, "emit", None)):
             raise TypeError("sink must provide emit")
         if os.environ.get("VLLM_ENABLE_V1_MULTIPROCESSING") != "0":
             raise RuntimeError(
-                "minimal Metal observation requires VLLM_ENABLE_V1_MULTIPROCESSING=0"
+                "minimal native observation requires VLLM_ENABLE_V1_MULTIPROCESSING=0"
             )
 
         self._sink = sink
+        self._runtime_mode = str(runtime_mode)
+        self._event_source = (
+            "phase2.minimal_cuda"
+            if runtime_mode == "vllm-cuda-observability"
+            else "phase2.minimal_metal"
+        )
         self._clock = SystemMonotonicClock()
         self._retention_mode = _retention_mode_for_config(config)
         options = _backend_options(config)
@@ -985,20 +1003,14 @@ class MinimalMetalObservabilityBackend:
         )
 
         try:
-            import mlx.core as mx
             import vllm
-            import vllm_metal
             from vllm import LLM, SamplingParams
             from vllm.platforms import current_platform
             from vllm.v1.core.block_pool import BlockPool
             from vllm.v1.core.kv_cache_utils import FreeKVCacheBlockQueue
             from vllm.v1.core.sched.scheduler import Scheduler
-            from vllm_metal import MetalPlatform, get_config
-            from vllm_metal.v1.model_runner import MetalModelRunner
         except ImportError as error:
-            raise RuntimeError(
-                "minimal real-runtime test requires the pinned vLLM/Metal environment"
-            ) from error
+            raise RuntimeError("minimal real-runtime test requires pinned vLLM 0.27.1") from error
 
         observation_helpers = importlib.import_module(
             "scripts.spikes.run_continuum_vllm_observation"
@@ -1009,32 +1021,68 @@ class MinimalMetalObservabilityBackend:
         self._coherent_snapshot = validation_helpers._coherent_child_request_snapshot
 
         topology = observation_helpers.require_observation_topology(os.environ)
-        metal_config = get_config()
         platform_plugin_class = (
             f"{type(current_platform).__module__}.{type(current_platform).__qualname__}"
         )
-        runtime_identity = observation_helpers.verify_runtime_identity(
-            vllm_distribution_version=distribution_version("vllm"),
-            vllm_module_version=vllm.__version__,
-            vllm_metal_distribution_version=distribution_version("vllm-metal"),
-            platform_plugin_class=platform_plugin_class,
-            metal_platform_available=MetalPlatform.is_available(),
-            mlx_metal_available=bool(mx.metal.is_available()),
-            mlx_configured_device=metal_config.mlx_device,
-            metal_paged_kv_enabled=metal_config.use_paged_attention,
-        )
-
+        isolated_timing_target: tuple[type[Any], Any] | None = None
         source_identity: dict[str, object]
-        checkout = os.environ.get("VLLM_METAL_SOURCE_CHECKOUT")
-        if checkout:
-            source_identity = observation_helpers.inspect_vllm_metal_source_identity(
-                Path(checkout),
-                Path(vllm_metal.__file__),
+        if runtime_mode == "vllm-metal-observability":
+            try:
+                import mlx.core as mx
+                import vllm_metal
+                from vllm_metal import MetalPlatform, get_config
+                from vllm_metal.v1.model_runner import MetalModelRunner
+            except ImportError as error:
+                raise RuntimeError(
+                    "Metal observation requires the pinned vLLM-Metal environment"
+                ) from error
+            metal_config = get_config()
+            runtime_identity = observation_helpers.verify_runtime_identity(
+                vllm_distribution_version=distribution_version("vllm"),
+                vllm_module_version=vllm.__version__,
+                vllm_metal_distribution_version=distribution_version("vllm-metal"),
+                platform_plugin_class=platform_plugin_class,
+                metal_platform_available=MetalPlatform.is_available(),
+                mlx_metal_available=bool(mx.metal.is_available()),
+                mlx_configured_device=metal_config.mlx_device,
+                metal_paged_kv_enabled=metal_config.use_paged_attention,
             )
+            isolated_timing_target = (MetalModelRunner, mx.eval)
+            checkout = os.environ.get("VLLM_METAL_SOURCE_CHECKOUT")
+            if checkout:
+                source_identity = observation_helpers.inspect_vllm_metal_source_identity(
+                    Path(checkout),
+                    Path(vllm_metal.__file__),
+                )
+            else:
+                source_identity = {
+                    "source_identity_availability": "unavailable",
+                    "source_identity_reason": "VLLM_METAL_SOURCE_CHECKOUT not provided",
+                }
         else:
+            try:
+                import torch
+            except ImportError as error:
+                raise RuntimeError("CUDA observation requires PyTorch") from error
+            if not torch.cuda.is_available():
+                raise RuntimeError("CUDA observation requires an available CUDA GPU")
+            device = torch.cuda.current_device()
+            properties = torch.cuda.get_device_properties(device)
+            runtime_identity = observation_helpers.verify_cuda_runtime_identity(
+                vllm_distribution_version=distribution_version("vllm"),
+                vllm_module_version=vllm.__version__,
+                platform_plugin_class=platform_plugin_class,
+                device_type=str(getattr(current_platform, "device_type", "")),
+                torch_version=torch.__version__,
+                torch_cuda_version=torch.version.cuda,
+                cuda_available=torch.cuda.is_available(),
+                device_name=torch.cuda.get_device_name(device),
+                device_capability=torch.cuda.get_device_capability(device),
+                device_total_memory_bytes=int(properties.total_memory),
+            )
             source_identity = {
-                "source_identity_availability": "unavailable",
-                "source_identity_reason": "VLLM_METAL_SOURCE_CHECKOUT not provided",
+                "source_identity_availability": "wheel_installation",
+                "vllm_imported_module_realpath": str(Path(vllm.__file__).resolve()),
             }
 
         model = config["model"]
@@ -1084,10 +1132,15 @@ class MinimalMetalObservabilityBackend:
             "prefix_caching_hash_algo": "sha256",
         }
         self._llm = LLM(**llm_kwargs)
+        if self._isolated_prefill_timing_enabled and isolated_timing_target is None:
+            raise ValueError(
+                "isolated native prefill timing is not qualified for the CUDA adapter"
+            )
         if self._isolated_prefill_timing_enabled:
+            model_runner_class, synchronize = isolated_timing_target
             self._isolated_prefill_timing_hook = IsolatedPrefillTimingHook(
-                MetalModelRunner,
-                mx.eval,
+                model_runner_class,
+                synchronize,
                 self._record_isolated_prefill_timing,
             )
             self._isolated_prefill_timing_hook.__enter__()
@@ -1242,7 +1295,7 @@ class MinimalMetalObservabilityBackend:
                 event_type="REAL_RUNTIME_READY",
                 timestamp=self._clock.now(),
                 clock_domain="system_monotonic",
-                source="phase2.minimal_metal",
+                source=self._event_source,
                 payload={
                     **topology,
                     **runtime_identity,
@@ -1417,7 +1470,7 @@ class MinimalMetalObservabilityBackend:
                 event_type="PLANNED_ARRIVAL_REACHED",
                 timestamp=observed,
                 clock_domain="system_monotonic",
-                source="phase2.minimal_metal",
+                source=self._event_source,
                 program_id=ProgramIdentity(request.program_id),
                 request_id=RequestIdentity(request.request_id),
                 payload={
@@ -1482,7 +1535,7 @@ class MinimalMetalObservabilityBackend:
                 event_type="BACKEND_INPUT_MATERIALIZED",
                 timestamp=self._clock.now(),
                 clock_domain="system_monotonic",
-                source="phase2.minimal_metal",
+                source=self._event_source,
                 program_id=ProgramIdentity(request.program_id),
                 request_id=RequestIdentity(request.request_id),
                 payload=payload,
@@ -1523,7 +1576,7 @@ class MinimalMetalObservabilityBackend:
                 event_type="VLLM_REQUEST_SUBMITTED",
                 timestamp=submitted_at,
                 clock_domain="system_monotonic",
-                source="phase2.minimal_metal",
+                source=self._event_source,
                 program_id=ProgramIdentity(request.program_id),
                 request_id=RequestIdentity(request.request_id),
                 payload={
@@ -1626,7 +1679,7 @@ class MinimalMetalObservabilityBackend:
                 event_type="VLLM_NATIVE_REQUEST_OBSERVATION",
                 timestamp=native_event_timestamp,
                 clock_domain="engine_core_monotonic",
-                source="phase2.minimal_metal",
+                source=self._event_source,
                 native_request_id=native_id,
                 program_id=ProgramIdentity(request.program_id),
                 request_id=RequestIdentity(request.request_id),
@@ -1663,7 +1716,7 @@ class MinimalMetalObservabilityBackend:
                 event_type="VLLM_REQUEST_COMPLETED",
                 timestamp=finished_at,
                 clock_domain="system_monotonic",
-                source="phase2.minimal_metal",
+                source=self._event_source,
                 program_id=ProgramIdentity(request.program_id),
                 request_id=RequestIdentity(request.request_id),
                 payload={
@@ -1714,7 +1767,7 @@ class MinimalMetalObservabilityBackend:
                 event_type="VLLM_PREFIX_SNAPSHOT",
                 timestamp=self._clock.now(),
                 clock_domain="system_monotonic",
-                source="phase2.minimal_metal",
+                source=self._event_source,
                 program_id=ProgramIdentity(request.program_id),
                 request_id=RequestIdentity(request.request_id),
                 prefix_id=prefix,
@@ -1785,7 +1838,7 @@ class MinimalMetalObservabilityBackend:
                 event_type="H2_NATIVE_PREFIX_INTERVENTION",
                 timestamp=self._clock.now(),
                 clock_domain="system_monotonic",
-                source="phase2.minimal_metal",
+                source=self._event_source,
                 program_id=ProgramIdentity(request.program_id),
                 request_id=RequestIdentity(request.request_id),
                 prefix_id=prefix,
@@ -1912,7 +1965,7 @@ class MinimalMetalObservabilityBackend:
                     event_type="W1B_RIGHT_CENSORED_REPLAY_WINDOW_ENDED",
                     timestamp=finished_at,
                     clock_domain="system_monotonic",
-                    source="phase2.minimal_metal",
+                    source=self._event_source,
                     program_id=program,
                     request_id=logical_request,
                     prefix_id=prefix,
@@ -2007,7 +2060,7 @@ class MinimalMetalObservabilityBackend:
                 event_type="PRESSURE_REQUEST_COMPLETED",
                 timestamp=finished_at,
                 clock_domain="system_monotonic",
-                source="phase2.minimal_metal",
+                source=self._event_source,
                 program_id=ProgramIdentity(request.program_id),
                 request_id=RequestIdentity(request.request_id),
                 payload={

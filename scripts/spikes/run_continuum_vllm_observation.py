@@ -353,6 +353,58 @@ def verify_runtime_identity(
     }
 
 
+def verify_cuda_runtime_identity(
+    *,
+    vllm_distribution_version: str,
+    vllm_module_version: str,
+    platform_plugin_class: str,
+    device_type: str,
+    torch_version: str,
+    torch_cuda_version: str | None,
+    cuda_available: bool,
+    device_name: str,
+    device_capability: tuple[int, int],
+    device_total_memory_bytes: int,
+) -> dict[str, object]:
+    """Validate the pinned CUDA runtime without importing Metal dependencies."""
+
+    try:
+        distribution_release = Version(vllm_distribution_version).release
+        module_release = Version(vllm_module_version).release
+    except InvalidVersion as error:
+        raise RunnerError("vLLM version is not valid PEP 440") from error
+    if (
+        distribution_release != _EXPECTED_VLLM_RELEASE
+        or module_release != _EXPECTED_VLLM_RELEASE
+    ):
+        raise RunnerError("the candidate requires vLLM release 0.27.1")
+    if not platform_plugin_class.startswith("vllm.platforms.cuda."):
+        raise RunnerError("the native vLLM CUDA platform is not active")
+    if device_type != "cuda" or cuda_available is not True:
+        raise RunnerError("CUDA GPU execution is unavailable")
+    if not torch_cuda_version:
+        raise RunnerError("PyTorch does not expose a CUDA runtime version")
+    if device_capability < (7, 5):
+        raise RunnerError("CUDA device compute capability is unsupported")
+    if not device_name or device_total_memory_bytes <= 0:
+        raise RunnerError("CUDA device identity is incomplete")
+    return {
+        "cuda_available": True,
+        "cuda_device_capability": list(device_capability),
+        "cuda_device_name": device_name,
+        "cuda_device_total_memory_bytes": device_total_memory_bytes,
+        "device_type": "cuda",
+        "platform_plugin_class": platform_plugin_class,
+        "platform_plugin_identity": "vllm-cuda",
+        "qualification_status": "PENDING_REVIEW",
+        "torch_cuda_version_raw": torch_cuda_version,
+        "torch_version_raw": torch_version,
+        "vllm_distribution_version_raw": vllm_distribution_version,
+        "vllm_module_version_raw": vllm_module_version,
+        "vllm_release_version": "0.27.1",
+    }
+
+
 def validate_vllm_metal_source_identity(
     *,
     source_checkout: Path,
