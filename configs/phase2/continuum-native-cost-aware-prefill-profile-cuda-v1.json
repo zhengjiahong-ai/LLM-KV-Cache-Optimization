@@ -1,0 +1,69 @@
+{
+  "schema_version": "continuum.native_costaware_prefill_profile_protocol.v1",
+  "protocol_revision": "cuda-v1",
+  "supersedes": "configs/phase2/continuum-native-cost-aware-prefill-profile-v2.json",
+  "revision_reason": "The Metal campaign was stopped after repeatable macOS IOGPU kernel panics. This protocol remeasures the complete frozen grid on one H800 CUDA environment; Metal and CUDA values are never combined.",
+  "scope": "FORMAL_CAMPAIGN_REQUIRED_PREFILL_RELOAD_RESOURCE_MEASUREMENT",
+  "execution_backend": {
+    "runtime_mode": "vllm-cuda-observability",
+    "device": "NVIDIA H800",
+    "device_compute_capability": [9, 0],
+    "device_memory_bytes": 85017755648,
+    "vllm_version": "0.27.1",
+    "torch_version": "2.13.0+cu130",
+    "torch_cuda_version": "13.0",
+    "driver_version": "580.65.06",
+    "max_num_batched_tokens": 2048,
+    "enable_chunked_prefill": true,
+    "enforce_eager": true,
+    "claim_boundary": "CUDA-only profile for the CUDA campaign; not comparable to or mergeable with Metal measurements"
+  },
+  "model": {
+    "name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+    "revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225",
+    "tokenizer_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225"
+  },
+  "token_grid": [1024, 2048, 3072, 4096, 5120, 6144, 8192, 12288, 16384, 20480, 24576, 28672, 32256],
+  "coverage_requirement": {
+    "query_source": "NONTERMINAL_SELECTED_REPLAY_PREFILL_CONTEXT_ALIGNED_DOWN_TO_16_TOKENS",
+    "observed_query_count": 108,
+    "minimum_known_query_tokens": 1248,
+    "maximum_known_query_tokens": 32144,
+    "removed_anchor_tokens": 256,
+    "removed_anchor_reason": "No frozen query is below 1248 tokens; 256 is outside the interpolation domain and is not used by the adjacent-secant nonlinearity check.",
+    "interpolation_rule": "piecewise_linear_between_measured_points",
+    "extrapolation": "PROHIBITED",
+    "nonlinearity_check": "REPORT_ADJACENT_SECANT_SLOPES_AND_FAIL_REVIEW_IF_UNEXPLAINED_REVERSAL"
+  },
+  "measurement": {
+    "warmup_pairs_per_point": 5,
+    "measured_pairs_per_point": 20,
+    "raw_delta_definition": "MISS - HIT TTFT",
+    "canonical_unit": "seconds",
+    "pressure_prompt_tokens": 512,
+    "pressure_batch_size": 32,
+    "maximum_pressure_batches": 64,
+    "maximum_pressure_requests": 64,
+    "pressure_check_frequency": "AFTER_EVERY_NATIVE_PRESSURE_REQUEST",
+    "pressure_stop_condition": "TARGET_FIRST_NATIVE_HASH_ABSENT",
+    "block_size_tokens": 16,
+    "max_new_tokens": 1,
+    "temperature": 0.0,
+    "gpu_memory_utilization": 0.8,
+    "enable_chunked_prefill": true,
+    "max_num_batched_tokens": 2048,
+    "enforce_eager": true,
+    "seed": 20261115
+  },
+  "cuda_native_smoke": {
+    "run_status": "PASS",
+    "event_count": 54,
+    "forced_release_count": 1,
+    "platform_plugin_identity": "vllm-cuda",
+    "request_and_eviction_chain": "PASS",
+    "formal_outcome": false
+  },
+  "legacy_w1b_profile_modified": false,
+  "metal_measurements_preserved_as_diagnostic_only": true,
+  "formal_native_outcomes_authorized": false
+}

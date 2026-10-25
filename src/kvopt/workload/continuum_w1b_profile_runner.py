@@ -94,6 +94,7 @@ def measurement_config(
             "enable_chunked_prefill": bool(
                 measurement.get("enable_chunked_prefill", False)
             ),
+            "enforce_eager": bool(measurement.get("enforce_eager", False)),
             "phase2g_release_policy": "A0",
             "phase2g_block_policy": "A0",
             "program_prefix_tokens": {
@@ -133,16 +134,23 @@ def measure_point(
         protocol=protocol,
         token_count=token_count,
     )
-    from scripts.spikes.phase2_minimal_observability_metal import (
-        MinimalMetalObservabilityBackend,
-    )
+    if config.get("runtime_mode") == "vllm-cuda-observability":
+        from scripts.spikes.phase2_minimal_observability_cuda import (
+            MinimalCudaObservabilityBackend as NativeObservabilityBackend,
+        )
+    elif config.get("runtime_mode") == "vllm-metal-observability":
+        from scripts.spikes.phase2_minimal_observability_metal import (
+            MinimalMetalObservabilityBackend as NativeObservabilityBackend,
+        )
+    else:
+        raise ValueError("profile requires an explicitly qualified native runtime mode")
     from scripts.spikes.run_continuum_phase1b_validation_metal import (
         _coherent_child_request_snapshot,
     )
     from scripts.spikes.run_continuum_prefill_profile import run_prefill_pair
     from scripts.spikes.run_continuum_prefill_profile_metal import build_adapter
 
-    backend = MinimalMetalObservabilityBackend(config, _DiscardingSink())
+    backend = NativeObservabilityBackend(config, _DiscardingSink())
     try:
         def registered(external_id: str, internal_id: str) -> None:
             backend._registry.register_batch(("formal-profile",), (internal_id,))

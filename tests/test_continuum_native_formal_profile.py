@@ -18,6 +18,7 @@ def _protocol() -> dict:
             "gpu_memory_utilization": 0.8,
             "max_num_batched_tokens": 2048,
             "enable_chunked_prefill": True,
+            "enforce_eager": True,
         },
     }
 
@@ -31,6 +32,7 @@ def test_formal_profile_measurement_uses_independent_campaign_identity() -> None
     }
     assert config["backend_options"]["max_num_batched_tokens"] == 2048
     assert config["backend_options"]["enable_chunked_prefill"] is True
+    assert config["backend_options"]["enforce_eager"] is True
 
 
 def test_formal_profile_measurement_rejects_unfrozen_point() -> None:

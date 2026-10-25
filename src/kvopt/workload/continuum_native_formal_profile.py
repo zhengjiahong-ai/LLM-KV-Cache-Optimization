@@ -99,6 +99,7 @@ def assemble(*, protocol_path: Path, points_dir: Path, output_path: Path) -> dic
         },
         "model": protocol["model"],
         "provenance": {
+            "execution_backend": protocol.get("execution_backend"),
             "protocol_path": str(protocol_path),
             "protocol_sha256": protocol_sha,
             "base_config_sha256": base_config_sha,

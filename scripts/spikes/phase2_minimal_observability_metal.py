@@ -1112,6 +1112,9 @@ class MinimalMetalObservabilityBackend:
         enable_chunked_prefill = options.get("enable_chunked_prefill", False)
         if not isinstance(enable_chunked_prefill, bool):
             raise TypeError("backend_options.enable_chunked_prefill must be bool")
+        enforce_eager = options.get("enforce_eager", False)
+        if not isinstance(enforce_eager, bool):
+            raise TypeError("backend_options.enforce_eager must be bool")
         if max_num_batched_tokens < max_model_len and not enable_chunked_prefill:
             raise ValueError(
                 "max_num_batched_tokens below max_model_len requires "
@@ -1129,6 +1132,7 @@ class MinimalMetalObservabilityBackend:
             "max_model_len": max_model_len,
             "max_num_batched_tokens": max_num_batched_tokens,
             "enable_chunked_prefill": enable_chunked_prefill,
+            "enforce_eager": enforce_eager,
             "disable_log_stats": False,
             "prefix_caching_hash_algo": "sha256",
         }
@@ -1326,6 +1330,7 @@ class MinimalMetalObservabilityBackend:
                     "gpu_memory_utilization": gpu_memory_utilization,
                     "max_num_batched_tokens": max_num_batched_tokens,
                     "enable_chunked_prefill": enable_chunked_prefill,
+                    "enforce_eager": enforce_eager,
                     "retention_mode": self._retention_mode.value,
                     "phase2g_release_policy": phase2g_release_policy,
                     "phase2g_a1_lambda": (
