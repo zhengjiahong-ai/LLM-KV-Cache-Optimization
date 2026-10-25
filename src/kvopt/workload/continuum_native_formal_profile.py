@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import math
+import random
 import statistics
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,29 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _uncertainty(
+    values: list[float], *, iterations: int, seed: int
+) -> dict[str, object]:
+    if iterations < 1:
+        raise ValueError("bootstrap iterations must be positive")
+    quartiles = statistics.quantiles(values, n=4, method="inclusive")
+    generator = random.Random(seed)
+    medians = sorted(
+        statistics.median(generator.choices(values, k=len(values)))
+        for _ in range(iterations)
+    )
+    low = medians[int(0.025 * (iterations - 1))]
+    high = medians[int(0.975 * (iterations - 1))]
+    return {
+        "iqr_seconds": quartiles[2] - quartiles[0],
+        "q1_seconds": quartiles[0],
+        "q3_seconds": quartiles[2],
+        "bootstrap_iterations": iterations,
+        "bootstrap_seed": seed,
+        "bootstrap_median_95_percent_interval_seconds": [low, high],
+    }
+
+
 def assemble(*, protocol_path: Path, points_dir: Path, output_path: Path) -> dict[str, Any]:
     protocol = _load(protocol_path)
     if protocol.get("schema_version") != PROTOCOL_SCHEMA:
@@ -45,6 +69,9 @@ def assemble(*, protocol_path: Path, points_dir: Path, output_path: Path) -> dic
     measured_pair_count = int(measurement_protocol["measured_pairs_per_point"])
     measurement_git_sha: str | None = None
     base_config_sha: str | None = None
+    uncertainty = protocol.get("uncertainty_and_nonlinearity", {})
+    bootstrap_iterations = int(uncertainty.get("bootstrap_iterations", 10000))
+    bootstrap_seed = int(uncertainty.get("bootstrap_seed", 20261121))
     for token_count in grid:
         path = points_dir / f"point-{token_count}.json"
         measurement = _load(path)
@@ -83,6 +110,17 @@ def assemble(*, protocol_path: Path, points_dir: Path, output_path: Path) -> dic
             base_config_sha = current_base_sha
         elif current_git_sha != measurement_git_sha or current_base_sha != base_config_sha:
             raise ValueError("profile measurement execution binding changed")
+        point = dict(point)
+        point["uncertainty"] = _uncertainty(
+            [float(value) for value in deltas],
+            iterations=bootstrap_iterations,
+            seed=bootstrap_seed + int(token_count),
+        )
+        point["validity_status"] = (
+            "PASS"
+            if float(point["median_raw_delta_seconds"]) > 0.0
+            else "REVIEW_REQUIRED_NON_POSITIVE_MEDIAN"
+        )
         points.append(point)
         bindings.append({"token_count": token_count, "path": str(path), "sha256": _sha256(path)})
     medians = [float(point["median_raw_delta_seconds"]) for point in points]
@@ -92,7 +130,11 @@ def assemble(*, protocol_path: Path, points_dir: Path, output_path: Path) -> dic
     ]
     profile = {
         "schema": PROFILE_SCHEMA,
-        "status": "complete",
+        "status": (
+            "complete"
+            if all(point["validity_status"] == "PASS" for point in points)
+            else "review_required"
+        ),
         "protocol": {
             "canonical_unit": "seconds",
             "grid": grid,

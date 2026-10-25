@@ -66,7 +66,10 @@ def measurement_config(
         policy="continuum-a0",
         seed=int(measurement["seed"]),
         model={"name": model["name"], "revision": model["revision"]},
-        tokenizer={"name": model["name"], "revision": model["tokenizer_revision"]},
+        tokenizer={
+            "name": model.get("tokenizer_name", model["name"]),
+            "revision": model["tokenizer_revision"],
+        },
         generation={
             "max_new_tokens": int(measurement["max_new_tokens"]),
             "temperature": float(measurement["temperature"]),
@@ -85,6 +88,12 @@ def measurement_config(
             "execute_planned_timing": False,
             "executor_mode": "submit_collect",
             "gpu_memory_utilization": float(measurement["gpu_memory_utilization"]),
+            "max_model_len": int(
+                protocol.get("execution_backend", {}).get(
+                    "max_model_len",
+                    max(token_count, pressure_tokens) + 1,
+                )
+            ),
             "max_num_batched_tokens": int(
                 measurement.get(
                     "max_num_batched_tokens",

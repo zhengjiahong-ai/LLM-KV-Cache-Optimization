@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -46,6 +47,8 @@ class ForcedReleaseCandidateSnapshot:
     prefill_reload_seconds: float
     eta: float
     queue_delay_t_seconds: float
+    ttl_seconds: float | None = None
+    ttl_history_mode: str | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.entry_key, RetentionEntryKey):
@@ -80,12 +83,22 @@ class ForcedReleaseCandidateSnapshot:
         if isinstance(self.eta, bool) or not isinstance(self.eta, (int, float)):
             raise TypeError("eta must be a real number")
         eta = float(self.eta)
-        if eta != eta or eta in (float("inf"), float("-inf")):
+        if not math.isfinite(eta):
             raise ValueError("eta must be finite")
         queue_delay = _as_non_negative_finite_float(
             self.queue_delay_t_seconds,
             "queue_delay_t_seconds",
         )
+        ttl_seconds = (
+            None
+            if self.ttl_seconds is None
+            else _as_non_negative_finite_float(self.ttl_seconds, "ttl_seconds")
+        )
+        if self.ttl_history_mode is not None and (
+            not isinstance(self.ttl_history_mode, str)
+            or not self.ttl_history_mode.strip()
+        ):
+            raise ValueError("ttl_history_mode must be non-empty text or None")
         object.__setattr__(self, "retention_deadline_timestamp", deadline)
         object.__setattr__(self, "block_ids", block_ids)
         object.__setattr__(self, "initially_reclaimable_block_ids", reclaimable)
@@ -93,6 +106,7 @@ class ForcedReleaseCandidateSnapshot:
         object.__setattr__(self, "prefill_reload_seconds", prefill)
         object.__setattr__(self, "eta", eta)
         object.__setattr__(self, "queue_delay_t_seconds", queue_delay)
+        object.__setattr__(self, "ttl_seconds", ttl_seconds)
 
 
 @dataclass(frozen=True, slots=True)
@@ -207,6 +221,8 @@ def build_forced_release_snapshot(
                 prefill_reload_seconds=ttl_input.prefill_reload_seconds,
                 eta=ttl_input.eta,
                 queue_delay_t_seconds=ttl_input.queue_delay_t_seconds,
+                ttl_seconds=entry.ttl_decision.ttl_seconds,
+                ttl_history_mode=entry.ttl_decision.history_mode.value,
             )
         )
 

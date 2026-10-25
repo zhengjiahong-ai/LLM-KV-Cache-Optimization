@@ -8,6 +8,7 @@ import json
 import platform
 import re
 import subprocess
+import time
 import traceback
 import uuid
 from datetime import UTC, datetime
@@ -21,6 +22,11 @@ from kvopt.profiling.experiment_events import (
     NullExperimentEventSink,
 )
 
+from .continuum_bounded_timeline import (
+    BoundaryKind,
+    ReplayBoundary,
+    execute_controlled_sparse_replay,
+)
 from .phase2 import PlannedRequest, PressureStage, load_phase2_trace
 
 
@@ -49,6 +55,17 @@ class PressureObservation(Protocol):
 
     @property
     def forced_release_count(self) -> int: ...
+
+
+class _TimedEventSink:
+    def __init__(self, sink: ExperimentEventSink) -> None:
+        self._sink = sink
+        self.elapsed_seconds = 0.0
+
+    def emit(self, event: ExperimentEvent) -> None:
+        started = time.perf_counter()
+        self._sink.emit(event)
+        self.elapsed_seconds += time.perf_counter() - started
 
 
 CAPABILITY_STATUS_AVAILABLE = "AVAILABLE"
@@ -244,6 +261,7 @@ def run_phase2(
     hardware_provider: HardwareObservationProvider | None = None,
 ) -> Path:
     """Execute one trace and preserve partial evidence if execution fails."""
+    wall_started = time.perf_counter()
     config_path = Path(config_path).resolve()
     config = json.loads(config_path.read_text(encoding="utf-8"))
     if not isinstance(config, dict):
@@ -296,18 +314,26 @@ def run_phase2(
         },
     }
     _save_json(output / "run.json", manifest)
+    _save_json(output / "config.json", config)
     _save_json(output / "trace.json", trace.to_dict())
     backend: Phase2Backend | None = None
     writer: JsonlExperimentEventSink | None = None
+    timed_sink: _TimedEventSink | None = None
     replay = None
     try:
         if hardware_provider is not None:
             manifest["hardware"] = hardware_provider.describe()
             _save_json(output / "run.json", manifest)
         writer = JsonlExperimentEventSink(output / "events.jsonl", identity)
-        sink: ExperimentEventSink = writer if config.get("observe", True) else NullExperimentEventSink()
+        raw_sink: ExperimentEventSink = (
+            writer if config.get("observe", True) else NullExperimentEventSink()
+        )
+        timed_sink = _TimedEventSink(raw_sink)
+        sink: ExperimentEventSink = timed_sink
         replay = (output / "replay.jsonl").open("x", encoding="utf-8", newline="\n")
+        engine_started = time.perf_counter()
         backend = _load_factory(_required_text(config, "backend_factory"))(config, sink)
+        engine_initialization_seconds = time.perf_counter() - engine_started
         if not callable(getattr(backend, "execute", None)):
             raise TypeError("backend must provide execute")
         manifest["observation_availability"] = _normalize_backend_capabilities(
@@ -316,33 +342,78 @@ def run_phase2(
         )
         manifest["observation_capability_contract"]["complete"] = True
         _save_json(output / "run.json", manifest)
-        for action in trace.actions():
-            if isinstance(action, PlannedRequest):
-                _execute(backend, action, replay)
-                continue
-            assert isinstance(action, PressureStage)
-            ceiling = min(action.max_requests, config["pressure"]["safety_ceiling"])
-            observed_before: int | None = None
-            if action.stop_on_forced_release:
-                _require_pressure_capability(backend)
-                observed_before = _pressure_count(backend)
-            for attempt in range(1, ceiling + 1):
-                _execute(backend, action.request(attempt, config["seed"]), replay)
-                selected = _selected_blocks(backend)
-                if selected:
-                    manifest["pressure_selected_block_ids"].append(list(selected))
+        controlled = config.get("controlled_sparse_replay")
+        if controlled is not None:
+            if not isinstance(controlled, dict):
+                raise TypeError("config.controlled_sparse_replay must be an object")
+            boundaries = _controlled_boundaries(controlled)
+            request_by_id = {request.request_id: request for request in trace.requests}
+            for request in trace.requests:
+                replay.write(
+                    json.dumps(request.to_dict(), sort_keys=True, allow_nan=False) + "\n"
+                )
+            replay.flush()
+            clock = getattr(backend, "controlled_replay_clock", None)
+            if clock is None:
+                raise RuntimeError("backend does not expose controlled replay clock")
+            native_started = time.perf_counter()
+            result = execute_controlled_sparse_replay(
+                boundaries=boundaries,
+                requests=request_by_id,
+                backend=backend,  # type: ignore[arg-type]
+                clock=clock,
+                max_inflight=int(controlled["maximum_concurrent_requests"]),
+                timeout_seconds=float(controlled["native_timeout_seconds"]),
+            )
+            native_execution_seconds = time.perf_counter() - native_started
+            pressure_execution_seconds = float(
+                getattr(backend, "controlled_pressure_execution_seconds", 0.0)
+            )
+            manifest["controlled_sparse_replay"] = {
+                "logical_sequence_sha256": result.logical_sequence_sha256,
+                "peak_inflight": result.peak_inflight,
+                "native_submission_count": len(result.native_submissions),
+                "native_completion_count": len(result.native_completions),
+                "replay_idle_seconds": 0.0,
+            }
+            manifest["execution_telemetry"] = {
+                "engine_initialization_seconds": engine_initialization_seconds,
+                "native_execution_seconds": native_execution_seconds,
+                "pressure_execution_seconds": pressure_execution_seconds,
+                "replay_idle_seconds": 0.0,
+                "evidence_writing_seconds": timed_sink.elapsed_seconds,
+                "wall_elapsed_seconds": time.perf_counter() - wall_started,
+            }
+        else:
+            for action in trace.actions():
+                if isinstance(action, PlannedRequest):
+                    _execute(backend, action, replay)
+                    continue
+                assert isinstance(action, PressureStage)
+                ceiling = min(action.max_requests, config["pressure"]["safety_ceiling"])
+                observed_before: int | None = None
                 if action.stop_on_forced_release:
-                    assert observed_before is not None
-                    observed_after = _pressure_count(backend)
-                    if observed_after < observed_before:
-                        raise RuntimeError(
-                            "backend forced_release_count must be monotonic"
+                    _require_pressure_capability(backend)
+                    observed_before = _pressure_count(backend)
+                for attempt in range(1, ceiling + 1):
+                    _execute(backend, action.request(attempt, config["seed"]), replay)
+                    selected = _selected_blocks(backend)
+                    if selected:
+                        manifest["pressure_selected_block_ids"].append(list(selected))
+                    if action.stop_on_forced_release:
+                        assert observed_before is not None
+                        observed_after = _pressure_count(backend)
+                        if observed_after < observed_before:
+                            raise RuntimeError(
+                                "backend forced_release_count must be monotonic"
+                            )
+                        if observed_after > observed_before:
+                            break
+                else:
+                    if action.stop_on_forced_release:
+                        manifest.setdefault("pressure_ceiling_reached", []).append(
+                            action.stage_id
                         )
-                    if observed_after > observed_before:
-                        break
-            else:
-                if action.stop_on_forced_release:
-                    manifest.setdefault("pressure_ceiling_reached", []).append(action.stage_id)
         manifest["status"] = "success"
     except Exception as error:
         manifest["status"] = "failed"
@@ -407,6 +478,33 @@ def _execute(backend: Phase2Backend, request: PlannedRequest, replay) -> None:
     replay.write(json.dumps(request.to_dict(), sort_keys=True, allow_nan=False) + "\n")
     replay.flush()
     backend.execute(request)
+
+
+def _controlled_boundaries(config: dict[str, object]) -> tuple[ReplayBoundary, ...]:
+    raw = config.get("boundaries")
+    if not isinstance(raw, list) or not raw:
+        raise ValueError("controlled sparse replay boundaries must be non-empty")
+    rows: list[ReplayBoundary] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            raise TypeError("controlled sparse replay boundary must be an object")
+        try:
+            kind = BoundaryKind(item["kind"])
+        except (KeyError, ValueError) as error:
+            raise ValueError("unsupported controlled replay boundary kind") from error
+        request_id = item.get("request_id")
+        if request_id is not None and not isinstance(request_id, str):
+            raise TypeError("controlled replay request_id must be text or null")
+        rows.append(
+            ReplayBoundary(
+                boundary_id=str(item.get("boundary_id", "")),
+                logical_timestamp=float(item["logical_timestamp"]),
+                source=str(item.get("source", "")),
+                kind=kind,
+                request_id=request_id,
+            )
+        )
+    return tuple(rows)
 
 
 def _optional_pressure_count(backend: Phase2Backend) -> int | None:
