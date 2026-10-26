@@ -13,6 +13,7 @@ from scripts.spikes.phase2_minimal_observability_metal import (
     _required_max_model_len,
     _retention_mode_for_config,
     _turn_token_ids,
+    _validate_formal_profile_cache_capacity,
 )
 
 
@@ -81,6 +82,34 @@ def test_expected_block_budget_matches_controlled_scarcity_rule() -> None:
         )
         == 69
     )
+
+
+def test_formal_profile_uses_full_runtime_pool_with_reachable_eviction() -> None:
+    _validate_formal_profile_cache_capacity(
+        block_override=2048,
+        max_model_len=32768,
+        program_prefix_tokens={"formal-profile": 1024},
+        pressure_tokens=512,
+        maximum_pressure_requests=64,
+    )
+
+    with pytest.raises(ValueError, match="max-model-length runtime pool"):
+        _validate_formal_profile_cache_capacity(
+            block_override=96,
+            max_model_len=32768,
+            program_prefix_tokens={"formal-profile": 1024},
+            pressure_tokens=512,
+            maximum_pressure_requests=64,
+        )
+
+    with pytest.raises(ValueError, match="cannot evict"):
+        _validate_formal_profile_cache_capacity(
+            block_override=2048,
+            max_model_len=32768,
+            program_prefix_tokens={"formal-profile": 1024},
+            pressure_tokens=512,
+            maximum_pressure_requests=1,
+        )
     assert (
         _expected_profiling_block_override(
             {"agent-a": 256, "agent-b": 256},

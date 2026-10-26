@@ -429,6 +429,31 @@ def _expected_profiling_block_override(
     return protected_blocks + pressure_blocks + 1 - initial_shortage_blocks
 
 
+def _validate_formal_profile_cache_capacity(
+    *,
+    block_override: int,
+    max_model_len: int,
+    program_prefix_tokens: Mapping[str, int],
+    pressure_tokens: int,
+    maximum_pressure_requests: int,
+) -> None:
+    """Validate the fixed 32K pool and its bounded eviction reachability."""
+    required_runtime_blocks = math.ceil(max_model_len / _BLOCK_SIZE)
+    if block_override != required_runtime_blocks:
+        raise ValueError(
+            "formal profile cache.block_override must equal the max-model-length "
+            "runtime pool"
+        )
+    pressure_blocks = pressure_tokens // _BLOCK_SIZE
+    protected_blocks = sum(
+        size // _BLOCK_SIZE for size in program_prefix_tokens.values()
+    )
+    if protected_blocks + maximum_pressure_requests * pressure_blocks <= block_override:
+        raise ValueError(
+            "formal profile pressure ceiling cannot evict the protected prefix"
+        )
+
+
 def _pressure_stage_sizes(options: Mapping[str, object]) -> dict[str, int]:
     raw = options.get("pressure_stage_prompt_tokens")
     if raw is None:
@@ -997,7 +1022,23 @@ class MinimalMetalObservabilityBackend:
                     else None
                 ),
             )
-            if block_override != expected_override:
+            if config.get("campaign_kind") == (
+                "continuum_native_costaware_prefill_profile"
+            ):
+                _validate_formal_profile_cache_capacity(
+                    block_override=block_override,
+                    max_model_len=_positive_int(
+                        options.get("max_model_len"),
+                        "backend_options.max_model_len",
+                    ),
+                    program_prefix_tokens=self._program_prefix_tokens,
+                    pressure_tokens=self._pressure_tokens,
+                    maximum_pressure_requests=_positive_int(
+                        config["pressure"].get("safety_ceiling"),  # type: ignore[index,union-attr]
+                        "config.pressure.safety_ceiling",
+                    ),
+                )
+            elif block_override != expected_override:
                 raise ValueError(
                     "profiling cache.block_override must equal protected-prefix blocks "
                     "+ pressure-demand blocks"
