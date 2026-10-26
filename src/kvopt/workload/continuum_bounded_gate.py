@@ -16,6 +16,7 @@ CODE_BINDINGS = (
     "scripts/spikes/phase2_minimal_observability_cuda.py",
     "scripts/spikes/phase2_minimal_observability_metal.py",
     "src/kvopt/continuum/prefill_profile.py",
+    "src/kvopt/continuum/composition.py",
     "src/kvopt/continuum/replay_clock.py",
     "src/kvopt/profiling/continuum_bounded_report.py",
     "src/kvopt/workload/continuum_bounded_campaign.py",

@@ -192,6 +192,7 @@ def test_authorized_interpretation_preserves_raw_and_projects_only_1024(
     provider = load_prefill_reload_provider(output)
     assert provider.estimate(1024)[0] == 0.0
     assert provider.estimate(4096)[0] == 0.3
+    assert provider.default_ttl_reference()[:2] == (4096, 0.3)
 
 
 def test_interpretation_rejects_unapproved_raw_sha(tmp_path: Path) -> None:

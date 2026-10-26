@@ -127,6 +127,15 @@ class _ProfilePrefillReloadProvider:
         seconds = lower_seconds + fraction * (upper_seconds - lower_seconds)
         return seconds, self.provenance
 
+    def default_ttl_reference(self) -> tuple[int, float, InputProvenance]:
+        """Return the lowest measured strictly-positive default-TTL reference."""
+        for token_count, seconds in zip(
+            self.token_counts, self.reload_seconds, strict=True
+        ):
+            if seconds > 0.0:
+                return token_count, seconds, self.provenance
+        raise ValueError("Profile contains no positive default-TTL reference")
+
 
 def load_prefill_reload_provider(
     path: str | Path,
