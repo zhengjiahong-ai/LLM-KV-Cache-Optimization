@@ -96,6 +96,39 @@ def _run_fidelity_preflight(
     return result
 
 
+def _run_resource_preflight(
+    *, repository: Path, source_freeze_path: Path, output_path: Path
+) -> dict[str, Any]:
+    """Run CUDA resource validation in a disposable process.
+
+    vLLM may retain its CUDA context and allocator reservations after an engine
+    object is closed.  The Profile must therefore never share the process that
+    performed the resource preflight.  Process exit is the ownership boundary
+    that guarantees all device memory is returned before the first measured
+    point starts.
+    """
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "kvopt.workload.continuum_bounded_pipeline",
+            "resource-preflight",
+            "--source-freeze",
+            str(source_freeze_path.resolve()),
+            "--output",
+            str(output_path.resolve()),
+        ],
+        cwd=repository,
+        check=False,
+    )
+    if completed.returncode != 0 or not output_path.is_file():
+        raise RuntimeError("isolated target-resource preflight failed")
+    result = json.loads(output_path.read_text(encoding="utf-8"))
+    if not isinstance(result, dict) or result.get("status") != "PASS":
+        raise RuntimeError("isolated target-resource preflight did not pass")
+    return result
+
+
 def _archive(root: Path, output: Path) -> dict[str, Any]:
     files = sorted(path for path in root.rglob("*") if path.is_file())
     inventory = [
@@ -129,7 +162,11 @@ def run_all(
     output_root.mkdir(parents=True)
     started = time.monotonic()
     resource_path = output_root / "preflight/resource-record.json"
-    run_preflight(source_freeze_path=source_freeze_path, output_path=resource_path)
+    _run_resource_preflight(
+        repository=repository,
+        source_freeze_path=source_freeze_path,
+        output_path=resource_path,
+    )
 
     profile_root = output_root / "profile"
     profile_path = run_profile(
@@ -232,6 +269,9 @@ def main() -> int:
     one.add_argument("--config", type=Path, required=True)
     one.add_argument("--output-root", type=Path, required=True)
     one.add_argument("--run-id", required=True)
+    resource = subparsers.add_parser("resource-preflight")
+    resource.add_argument("--source-freeze", type=Path, required=True)
+    resource.add_argument("--output", type=Path, required=True)
     all_parser = subparsers.add_parser("run-all")
     all_parser.add_argument("--repository", type=Path, required=True)
     all_parser.add_argument("--output-root", type=Path, required=True)
@@ -248,6 +288,13 @@ def main() -> int:
         status = json.loads((output / "run.json").read_text())["status"]
         print(f"{status}: {output}")
         return 0 if status == "success" else 1
+    if args.command == "resource-preflight":
+        result = run_preflight(
+            source_freeze_path=args.source_freeze,
+            output_path=args.output,
+        )
+        print(f"resource preflight {result['status']}: {args.output}")
+        return 0 if result["status"] == "PASS" else 1
     try:
         summary = run_all(
             repository=args.repository,

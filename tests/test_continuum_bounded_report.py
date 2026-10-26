@@ -113,3 +113,26 @@ def test_integrated_fidelity_fails_when_mechanism_is_not_realized(
 
     assert result["status"] == "FAIL"
     assert result["cross_arm_native_prompt_tokens_equal"] is True
+
+
+def test_resource_preflight_runs_in_disposable_process(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    source = tmp_path / "source.json"
+    source.write_text("{}", encoding="utf-8")
+    output = tmp_path / "resource.json"
+
+    def fake_run(command: list[str], **_kwargs: object) -> SimpleNamespace:
+        assert "resource-preflight" in command
+        assert "--source-freeze" in command
+        output.write_text(json.dumps({"status": "PASS"}), encoding="utf-8")
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(pipeline_module.subprocess, "run", fake_run)
+    result = pipeline_module._run_resource_preflight(
+        repository=tmp_path,
+        source_freeze_path=source,
+        output_path=output,
+    )
+
+    assert result == {"status": "PASS"}
