@@ -57,6 +57,20 @@ def measurement_config(
     model = protocol["model"]
     pressure_tokens = int(measurement["pressure_prompt_tokens"])
     block_size = int(measurement["block_size_tokens"])
+    target_and_pressure_blocks = (
+        token_count // block_size + pressure_tokens // block_size
+    )
+    runtime = protocol.get("execution_backend", {})
+    if not isinstance(runtime, dict):
+        raise TypeError("execution_backend must be an object")
+    max_model_len = int(
+        runtime.get("max_model_len", max(token_count, pressure_tokens) + 1)
+    )
+    block_override = (
+        max(target_and_pressure_blocks, (max_model_len + block_size - 1) // block_size)
+        if schema == FORMAL_PROFILE_SCHEMA
+        else target_and_pressure_blocks
+    )
     config.update(
         campaign_kind=(
             "continuum_native_costaware_prefill_profile"
@@ -77,7 +91,7 @@ def measurement_config(
         batching={"max_concurrent_requests": 1},
         cache={
             "block_size": block_size,
-            "block_override": token_count // block_size + pressure_tokens // block_size,
+            "block_override": block_override,
         },
         pressure={
             "initial_shortage_blocks": 1,
@@ -88,12 +102,7 @@ def measurement_config(
             "execute_planned_timing": False,
             "executor_mode": "submit_collect",
             "gpu_memory_utilization": float(measurement["gpu_memory_utilization"]),
-            "max_model_len": int(
-                protocol.get("execution_backend", {}).get(
-                    "max_model_len",
-                    max(token_count, pressure_tokens) + 1,
-                )
-            ),
+            "max_model_len": max_model_len,
             "max_num_batched_tokens": int(
                 measurement.get(
                     "max_num_batched_tokens",

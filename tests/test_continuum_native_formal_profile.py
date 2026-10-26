@@ -1,16 +1,20 @@
 import hashlib
 import json
+from pathlib import Path
 
 import pytest
 
 from kvopt.workload.continuum_native_formal_profile import assemble
 from kvopt.workload.continuum_w1b_profile_runner import measurement_config
 
+ROOT = Path(__file__).resolve().parents[1]
+
 
 def _protocol() -> dict:
     return {
         "schema_version": "continuum.native_costaware_prefill_profile_protocol.v1",
         "token_grid": [256, 32256],
+        "execution_backend": {"max_model_len": 32768},
         "model": {"name": "m", "revision": "r", "tokenizer_revision": "t"},
         "measurement": {
             "pressure_prompt_tokens": 512,
@@ -27,12 +31,17 @@ def _protocol() -> dict:
     }
 
 
-def test_formal_profile_measurement_uses_independent_campaign_identity() -> None:
-    config = measurement_config(base_config={}, protocol=_protocol(), token_count=32256)
+@pytest.mark.parametrize("token_count", [256, 32256])
+def test_formal_profile_measurement_uses_independent_campaign_identity(
+    token_count: int,
+) -> None:
+    config = measurement_config(
+        base_config={}, protocol=_protocol(), token_count=token_count
+    )
     assert config["campaign_kind"] == "continuum_native_costaware_prefill_profile"
     assert config["cache"]["block_override"] == 2048
     assert config["backend_options"]["program_prefix_tokens"] == {
-        "formal-profile": 32256
+        "formal-profile": token_count
     }
     assert config["backend_options"]["max_num_batched_tokens"] == 2048
     assert config["backend_options"]["enable_chunked_prefill"] is True
@@ -42,6 +51,22 @@ def test_formal_profile_measurement_uses_independent_campaign_identity() -> None
 def test_formal_profile_measurement_rejects_unfrozen_point() -> None:
     with pytest.raises(ValueError, match="outside the frozen profile grid"):
         measurement_config(base_config={}, protocol=_protocol(), token_count=16384)
+
+
+def test_bounded_formal_profile_keeps_full_runtime_pool_at_every_anchor() -> None:
+    protocol = json.loads(
+        (
+            ROOT
+            / "configs/phase2/continuum-native-cost-aware-bounded-prefill-profile-v1.json"
+        ).read_text()
+    )
+
+    for token_count in protocol["token_grid"]:
+        config = measurement_config(
+            base_config={}, protocol=protocol, token_count=token_count
+        )
+        assert config["cache"]["block_override"] == 2048
+        assert config["backend_options"]["max_model_len"] == 32768
 
 
 def test_assemble_uses_protocol_pair_counts(tmp_path) -> None:
