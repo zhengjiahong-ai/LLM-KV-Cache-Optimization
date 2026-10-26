@@ -16,6 +16,12 @@ from kvopt.continuum.prefill_profile import load_prefill_reload_provider
 PROTOCOL_SCHEMA = "continuum.native_costaware_prefill_profile_protocol.v1"
 POINT_SCHEMA = "continuum.native_costaware_prefill_profile_point.v1"
 PROFILE_SCHEMA = "continuum.prefill_reload.formal_long_context_profile.v1"
+INTERPRETED_PROFILE_SCHEMA = (
+    "continuum.prefill_reload.formal_long_context_interpreted_profile.v1"
+)
+INTERPRETATION_CONTRACT_SCHEMA = (
+    "continuum.native_costaware_profile_interpretation_contract.v1"
+)
 
 
 def _load(path: Path) -> dict[str, Any]:
@@ -159,9 +165,102 @@ def assemble(*, protocol_path: Path, points_dir: Path, output_path: Path) -> dic
     }
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(profile, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    provider = load_prefill_reload_provider(output_path)
-    provider.estimate(int(protocol["coverage_requirement"]["maximum_known_query_tokens"]))
+    if profile["status"] == "complete":
+        provider = load_prefill_reload_provider(output_path)
+        provider.estimate(
+            int(protocol["coverage_requirement"]["maximum_known_query_tokens"])
+        )
     return profile
+
+
+def interpret_nonnegative_cost(
+    *, raw_profile_path: Path, contract_path: Path, output_path: Path
+) -> dict[str, Any]:
+    """Create the M1-authorized non-negative view without changing raw evidence."""
+    raw = _load(raw_profile_path)
+    contract = _load(contract_path)
+    raw_sha = _sha256(raw_profile_path)
+    if raw.get("schema") != PROFILE_SCHEMA or raw.get("status") != "review_required":
+        raise ValueError("interpretation requires the preserved review-required profile")
+    if contract.get("schema_version") != INTERPRETATION_CONTRACT_SCHEMA:
+        raise ValueError("unsupported Profile Interpretation Contract")
+    if contract.get("raw_profile_sha256") != raw_sha:
+        raise ValueError("raw Profile SHA-256 does not match the approved contract")
+    if contract.get("projection") != {
+        "token_count": 1024,
+        "raw_status": "REVIEW_REQUIRED_NON_POSITIVE_MEDIAN",
+        "interpreted_status": "INDISTINGUISHABLE_FROM_ZERO",
+        "effective_cost_seconds": 0.0,
+    }:
+        raise ValueError("Profile projection differs from the M1-approved rule")
+
+    points: list[dict[str, Any]] = []
+    for source in raw.get("points", []):
+        point = dict(source)
+        token_count = int(point["token_count"])
+        raw_median = float(point["median_raw_delta_seconds"])
+        if token_count == 1024:
+            interval = point.get("uncertainty", {}).get(
+                "bootstrap_median_95_percent_interval_seconds"
+            )
+            if (
+                point.get("validity_status")
+                != "REVIEW_REQUIRED_NON_POSITIVE_MEDIAN"
+                or not isinstance(interval, list)
+                or len(interval) != 2
+                or float(interval[0]) > 0.0
+                or float(interval[1]) < 0.0
+            ):
+                raise ValueError("1024-token raw evidence is not zero-indistinguishable")
+            point["interpretation_status"] = "INDISTINGUISHABLE_FROM_ZERO"
+            point["effective_cost_seconds"] = 0.0
+        else:
+            if point.get("validity_status") != "PASS" or raw_median <= 0.0:
+                raise ValueError("only the approved 1024-token point may be projected")
+            point["interpretation_status"] = "RAW_POSITIVE_MEASUREMENT"
+            point["effective_cost_seconds"] = raw_median
+        points.append(point)
+
+    interpreted = {
+        "schema": INTERPRETED_PROFILE_SCHEMA,
+        "status": "complete",
+        "protocol": raw["protocol"],
+        "model": raw["model"],
+        "provenance": {
+            "raw_profile_path": str(raw_profile_path.resolve()),
+            "raw_profile_sha256": raw_sha,
+            "interpretation_contract_path": str(contract_path.resolve()),
+            "interpretation_contract_sha256": _sha256(contract_path),
+            "raw_measurement_modified": False,
+            "post_outcome_protocol_revision": True,
+        },
+        "interpretation": {
+            "raw_measurement_field": "median_raw_delta_seconds",
+            "runtime_cost_field": "effective_cost_seconds",
+            "projection_rule": "ONLY_1024_TOKEN_POINT_PROJECTED_TO_ZERO",
+            "projection_is_measurement_claim": False,
+            "ranking_sensitivity_status": "INCONCLUSIVE_COST_ORDERING",
+        },
+        "points": points,
+        "adjacent_secant_slopes_seconds_per_token": [
+            (
+                float(points[index + 1]["effective_cost_seconds"])
+                - float(points[index]["effective_cost_seconds"])
+            )
+            / (
+                int(points[index + 1]["token_count"])
+                - int(points[index]["token_count"])
+            )
+            for index in range(len(points) - 1)
+        ],
+    }
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        json.dumps(interpreted, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    provider = load_prefill_reload_provider(output_path)
+    provider.estimate(max(int(point["token_count"]) for point in points))
+    return interpreted
 
 
 def main() -> int:

@@ -4,7 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from kvopt.workload.continuum_native_formal_profile import assemble
+from kvopt.continuum.prefill_profile import load_prefill_reload_provider
+from kvopt.workload.continuum_native_formal_profile import (
+    assemble,
+    interpret_nonnegative_cost,
+)
 from kvopt.workload.continuum_w1b_profile_runner import measurement_config
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -109,3 +113,105 @@ def test_assemble_uses_protocol_pair_counts(tmp_path) -> None:
 
     assert profile["protocol"]["warmup_pairs_per_point"] == 2
     assert profile["protocol"]["measured_pairs_per_point"] == 8
+
+
+def test_authorized_interpretation_preserves_raw_and_projects_only_1024(
+    tmp_path: Path,
+) -> None:
+    raw_path = tmp_path / "raw.json"
+    raw = {
+        "schema": "continuum.prefill_reload.formal_long_context_profile.v1",
+        "status": "review_required",
+        "protocol": {
+            "canonical_unit": "seconds",
+            "grid": [1024, 4096],
+            "warmup_pairs_per_point": 2,
+            "measured_pairs_per_point": 8,
+            "raw_delta_definition": "MISS - HIT TTFT",
+            "interpolation_rule": "piecewise_linear_between_measured_points",
+            "extrapolation": "PROHIBITED",
+        },
+        "model": {"name": "m", "revision": "r"},
+        "points": [
+            {
+                "token_count": 1024,
+                "warmup_pairs": [{}, {}],
+                "measured_pairs": [{} for _ in range(8)],
+                "measured_raw_deltas_seconds": [-0.1] * 4 + [0.1] * 4,
+                "median_raw_delta_seconds": 0.0,
+                "validity_status": "REVIEW_REQUIRED_NON_POSITIVE_MEDIAN",
+                "uncertainty": {
+                    "bootstrap_median_95_percent_interval_seconds": [-0.1, 0.1]
+                },
+            },
+            {
+                "token_count": 4096,
+                "warmup_pairs": [{}, {}],
+                "measured_pairs": [{} for _ in range(8)],
+                "measured_raw_deltas_seconds": [0.3] * 8,
+                "median_raw_delta_seconds": 0.3,
+                "validity_status": "PASS",
+                "uncertainty": {
+                    "bootstrap_median_95_percent_interval_seconds": [0.2, 0.4]
+                },
+            },
+        ],
+    }
+    raw_path.write_text(json.dumps(raw), encoding="utf-8")
+    raw_sha = hashlib.sha256(raw_path.read_bytes()).hexdigest()
+    contract_path = tmp_path / "contract.json"
+    contract_path.write_text(
+        json.dumps(
+            {
+                "schema_version": (
+                    "continuum.native_costaware_profile_interpretation_contract.v1"
+                ),
+                "raw_profile_sha256": raw_sha,
+                "projection": {
+                    "token_count": 1024,
+                    "raw_status": "REVIEW_REQUIRED_NON_POSITIVE_MEDIAN",
+                    "interpreted_status": "INDISTINGUISHABLE_FROM_ZERO",
+                    "effective_cost_seconds": 0.0,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    output = tmp_path / "interpreted.json"
+
+    interpreted = interpret_nonnegative_cost(
+        raw_profile_path=raw_path,
+        contract_path=contract_path,
+        output_path=output,
+    )
+
+    assert raw_path.read_text(encoding="utf-8") == json.dumps(raw)
+    assert interpreted["points"][0]["median_raw_delta_seconds"] == 0.0
+    assert interpreted["points"][0]["effective_cost_seconds"] == 0.0
+    assert interpreted["points"][1]["effective_cost_seconds"] == 0.3
+    provider = load_prefill_reload_provider(output)
+    assert provider.estimate(1024)[0] == 0.0
+    assert provider.estimate(4096)[0] == 0.3
+
+
+def test_interpretation_rejects_unapproved_raw_sha(tmp_path: Path) -> None:
+    raw_path = tmp_path / "raw.json"
+    raw_path.write_text("{}", encoding="utf-8")
+    contract = tmp_path / "contract.json"
+    contract.write_text(
+        json.dumps(
+            {
+                "schema_version": (
+                    "continuum.native_costaware_profile_interpretation_contract.v1"
+                ),
+                "raw_profile_sha256": "0" * 64,
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="review-required"):
+        interpret_nonnegative_cost(
+            raw_profile_path=raw_path,
+            contract_path=contract,
+            output_path=tmp_path / "out.json",
+        )

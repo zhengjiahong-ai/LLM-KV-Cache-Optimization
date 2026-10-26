@@ -14,7 +14,9 @@ from .continuum_bounded_timeline import (
 )
 from .phase2b_fidelity import token_ids_sha256
 
-PROFILE_SCHEMA = "continuum.prefill_reload.formal_long_context_profile.v1"
+PROFILE_SCHEMA = (
+    "continuum.prefill_reload.formal_long_context_interpreted_profile.v1"
+)
 CAMPAIGN_SCHEMA = "continuum.native_costaware_bounded_campaign.v1"
 
 
@@ -125,7 +127,12 @@ def materialize_campaign(
     ):
         raise ValueError("unsupported source workload freeze")
     if profile.get("schema") != PROFILE_SCHEMA or profile.get("status") != "complete":
-        raise ValueError("bounded campaign requires a complete measured profile")
+        raise ValueError("bounded campaign requires the approved interpreted profile")
+    provenance = profile.get("provenance", {})
+    if provenance.get("raw_measurement_modified") is not False or not provenance.get(
+        "raw_profile_sha256"
+    ):
+        raise ValueError("bounded campaign requires preserved raw Profile binding")
     if resource.get("status") != "PASS":
         raise ValueError("target GPU preflight has not passed")
     if resource.get("model") != protocol["runtime"]["model"] or resource.get(
@@ -342,6 +349,10 @@ def materialize_campaign(
         "source_freeze_sha256": _sha(source_freeze_path),
         "profile_path": str(profile_path.resolve()),
         "profile_sha256": _sha(profile_path),
+        "raw_profile_sha256": provenance["raw_profile_sha256"],
+        "profile_interpretation_contract_sha256": provenance[
+            "interpretation_contract_sha256"
+        ],
         "resource_record_path": str(resource_record_path.resolve()),
         "resource_record_sha256": _sha(resource_record_path),
         "planned_run_count": len(runs),

@@ -21,8 +21,31 @@ python -m kvopt.workload.continuum_bounded_pipeline run-all \
   --source-freeze configs/phase2/continuum-native-cost-aware-formal-freeze-candidate-v1.json \
   --profile-protocol configs/phase2/continuum-native-cost-aware-bounded-prefill-profile-v1.json \
   --profile-base-config configs/phase2/continuum-native-cost-aware-bounded-profile-base.json \
+  --profile-interpretation-contract configs/phase2/continuum-native-cost-aware-profile-interpretation-v1.json \
   --budget-hours 30
 ```
+
+The preserved RTX 4090D v4 Profile may be continued without repeating its 70
+pairs. The command below copies the immutable raw Profile and resource record,
+derives the separately identified non-negative cost view authorized by M1, and
+then proceeds through Native fidelity and the 54-run campaign:
+
+```bash
+python -m kvopt.workload.continuum_bounded_pipeline resume-after-profile \
+  --repository . \
+  --output-root artifacts/continuum-native-cost-aware-bounded-runs-v5 \
+  --protocol configs/phase2/continuum-native-cost-aware-bounded-protocol-v1.json \
+  --source-freeze configs/phase2/continuum-native-cost-aware-formal-freeze-candidate-v1.json \
+  --raw-profile artifacts/continuum-native-cost-aware-bounded-runs-v4/profile/prefill-reload-profile.json \
+  --resource-record artifacts/continuum-native-cost-aware-bounded-runs-v4/preflight/resource-record.json \
+  --profile-interpretation-contract configs/phase2/continuum-native-cost-aware-profile-interpretation-v1.json \
+  --budget-hours 30
+```
+
+The raw 1024-token median, raw deltas and uncertainty interval remain intact.
+Only the derived runtime view uses the approved 0-second non-negative estimate;
+non-cold A1 ordering remains `INCONCLUSIVE_COST_ORDERING` where the uncertainty
+envelope can admit another legal selection.
 
 The command is deliberately fail-closed. It stops before formal outcomes when
 resource, exact-token, Profile, Native fidelity, cross-arm, Git, hash, or cost

@@ -183,11 +183,22 @@ def evaluate_run(run_dir: Path, binding: dict[str, Any]) -> dict[str, Any]:
         for event in forced
         for candidate in event.get("payload", {}).get("candidates", [])
     ]
-    profile_ordering_status = (
-        "NOT_APPLICABLE_COLD_START"
-        if ttl_modes and set(ttl_modes) == {"cold_start"}
-        else "INCONCLUSIVE_COST_ORDERING"
-    )
+    arm = str(binding["arm"])
+    if arm != "A1":
+        profile_ordering_status = "NOT_APPLICABLE_NON_A1_ARM"
+        profile_ordering_reason = "Profile cost ordering is an A1 attribution check"
+    elif ttl_modes and set(ttl_modes) == {"cold_start"}:
+        profile_ordering_status = "NOT_APPLICABLE_COLD_START"
+        profile_ordering_reason = "A1 did not consume history-derived Profile costs"
+    else:
+        # The approved Profile has a zero-indistinguishable low anchor. Until a
+        # decision-level interval replay proves invariance, the conservative
+        # fail-closed interpretation is that another legal ordering may exist.
+        profile_ordering_status = "INCONCLUSIVE_COST_ORDERING"
+        profile_ordering_reason = (
+            "Conservative uncertainty-envelope sensitivity: non-cold A1 ordering "
+            "is not claimed invariant to the preserved Profile intervals"
+        )
     time_events = _events(run, "CONTROLLED_REPLAY_TIME_ADVANCED")
     expected_boundaries = config["controlled_sparse_replay"]["boundaries"]
     physical_signature = _eviction_signature(run)
@@ -212,7 +223,6 @@ def evaluate_run(run_dir: Path, binding: dict[str, Any]) -> dict[str, Any]:
         if all(mechanism_checks.values())
         else "NOT_REALIZED"
     )
-    arm = str(binding["arm"])
     return {
         "run_id": run.run_id,
         "group_id": binding["group_id"],
@@ -234,6 +244,7 @@ def evaluate_run(run_dir: Path, binding: dict[str, Any]) -> dict[str, Any]:
         "a2_decision_count": len(_events(run, "COST_AWARE_BLOCK_DECISION")),
         "ttl_history_modes": ttl_modes,
         "profile_cost_ordering_status": profile_ordering_status,
+        "profile_cost_ordering_reason": profile_ordering_reason,
         "execution_telemetry": run.manifest.get("execution_telemetry"),
     }
 

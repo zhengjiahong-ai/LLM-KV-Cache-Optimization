@@ -15,6 +15,7 @@ AUTHORIZATION_SCHEMA = "continuum.native_costaware_bounded_authorization.v1"
 CODE_BINDINGS = (
     "scripts/spikes/phase2_minimal_observability_cuda.py",
     "scripts/spikes/phase2_minimal_observability_metal.py",
+    "src/kvopt/continuum/prefill_profile.py",
     "src/kvopt/continuum/replay_clock.py",
     "src/kvopt/profiling/continuum_bounded_report.py",
     "src/kvopt/workload/continuum_bounded_campaign.py",
@@ -181,6 +182,10 @@ def authorize_campaign(
         "fidelity_report_path": str(fidelity_report_path.resolve()),
         "fidelity_report_sha256": _sha(fidelity_report_path),
         "profile_sha256": manifest["profile_sha256"],
+        "raw_profile_sha256": manifest["raw_profile_sha256"],
+        "profile_interpretation_contract_sha256": manifest[
+            "profile_interpretation_contract_sha256"
+        ],
         "resource_record_sha256": manifest["resource_record_sha256"],
         "config_sha256_by_run_id": {
             row["run_id"]: row["config_sha256"] for row in manifest["runs"]

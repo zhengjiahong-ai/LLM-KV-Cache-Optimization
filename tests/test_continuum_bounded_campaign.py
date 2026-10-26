@@ -20,8 +20,13 @@ def test_materialize_campaign_freezes_54_runs_and_cross_arm_time(tmp_path: Path)
     _write(
         profile,
         {
-            "schema": "continuum.prefill_reload.formal_long_context_profile.v1",
+            "schema": "continuum.prefill_reload.formal_long_context_interpreted_profile.v1",
             "status": "complete",
+            "provenance": {
+                "raw_measurement_modified": False,
+                "raw_profile_sha256": "a" * 64,
+                "interpretation_contract_sha256": "b" * 64,
+            },
         },
     )
     _write(
@@ -70,8 +75,13 @@ def test_validation_rejects_tampered_logical_sequence(tmp_path: Path) -> None:
     _write(
         profile,
         {
-            "schema": "continuum.prefill_reload.formal_long_context_profile.v1",
+            "schema": "continuum.prefill_reload.formal_long_context_interpreted_profile.v1",
             "status": "complete",
+            "provenance": {
+                "raw_measurement_modified": False,
+                "raw_profile_sha256": "a" * 64,
+                "interpretation_contract_sha256": "b" * 64,
+            },
         },
     )
     _write(

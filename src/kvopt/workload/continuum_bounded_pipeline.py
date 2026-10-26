@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -20,6 +21,7 @@ from .continuum_bounded_gate import authorize_campaign, validate_campaign
 from .continuum_bounded_preflight import run_preflight
 from .continuum_bounded_profile_runner import run_profile
 from .continuum_bounded_runner import run_campaign
+from .continuum_native_formal_profile import interpret_nonnegative_cost
 from .phase2_runner import run_phase2
 
 
@@ -153,9 +155,15 @@ def _archive(root: Path, output: Path) -> dict[str, Any]:
 
 
 def run_all(
-    *, repository: Path, output_root: Path, protocol_path: Path,
-    source_freeze_path: Path, profile_protocol_path: Path,
-    profile_base_config_path: Path, budget_hours: float,
+    *,
+    repository: Path,
+    output_root: Path,
+    protocol_path: Path,
+    source_freeze_path: Path,
+    profile_protocol_path: Path,
+    profile_base_config_path: Path,
+    budget_hours: float,
+    profile_interpretation_contract_path: Path,
 ) -> dict[str, Any]:
     if output_root.exists():
         raise FileExistsError(output_root)
@@ -169,13 +177,44 @@ def run_all(
     )
 
     profile_root = output_root / "profile"
-    profile_path = run_profile(
+    raw_profile_path = run_profile(
         base_config_path=profile_base_config_path,
         protocol_path=profile_protocol_path,
         preflight_path=resource_path,
         output_dir=profile_root,
         budget_hours=budget_hours,
     )
+    profile_path = profile_root / "prefill-reload-profile-interpreted.json"
+    interpret_nonnegative_cost(
+        raw_profile_path=raw_profile_path,
+        contract_path=profile_interpretation_contract_path,
+        output_path=profile_path,
+    )
+    return _run_after_profile(
+        repository=repository,
+        output_root=output_root,
+        protocol_path=protocol_path,
+        source_freeze_path=source_freeze_path,
+        profile_path=profile_path,
+        raw_profile_path=raw_profile_path,
+        resource_path=resource_path,
+        budget_hours=budget_hours,
+        started=started,
+    )
+
+
+def _run_after_profile(
+    *,
+    repository: Path,
+    output_root: Path,
+    protocol_path: Path,
+    source_freeze_path: Path,
+    profile_path: Path,
+    raw_profile_path: Path,
+    resource_path: Path,
+    budget_hours: float,
+    started: float,
+) -> dict[str, Any]:
     elapsed_hours = (time.monotonic() - started) / 3600.0
     if elapsed_hours >= budget_hours:
         raise RuntimeError("budget exhausted before campaign materialization")
@@ -243,6 +282,7 @@ def run_all(
             text=True,
         ).stdout.strip(),
         "profile_sha256": _sha(profile_path),
+        "raw_profile_sha256": _sha(raw_profile_path),
         "manifest_sha256": _sha(manifest_path),
         "authorization_sha256": _sha(authorization_path),
         "report_sha256": _sha(report_path),
@@ -262,6 +302,48 @@ def run_all(
     return summary
 
 
+def resume_after_profile(
+    *,
+    repository: Path,
+    output_root: Path,
+    protocol_path: Path,
+    source_freeze_path: Path,
+    raw_profile_path: Path,
+    resource_record_path: Path,
+    interpretation_contract_path: Path,
+    budget_hours: float,
+) -> dict[str, Any]:
+    """Continue from the immutable v4 Profile without repeating measurements."""
+    if output_root.exists():
+        raise FileExistsError(output_root)
+    output_root.mkdir(parents=True)
+    started = time.monotonic()
+    profile_root = output_root / "profile"
+    profile_root.mkdir(parents=True)
+    preserved_raw = profile_root / "prefill-reload-profile-raw.json"
+    preserved_resource = output_root / "preflight/resource-record.json"
+    preserved_resource.parent.mkdir(parents=True)
+    shutil.copy2(raw_profile_path, preserved_raw)
+    shutil.copy2(resource_record_path, preserved_resource)
+    interpreted = profile_root / "prefill-reload-profile-interpreted.json"
+    interpret_nonnegative_cost(
+        raw_profile_path=preserved_raw,
+        contract_path=interpretation_contract_path,
+        output_path=interpreted,
+    )
+    return _run_after_profile(
+        repository=repository,
+        output_root=output_root,
+        protocol_path=protocol_path,
+        source_freeze_path=source_freeze_path,
+        profile_path=interpreted,
+        raw_profile_path=preserved_raw,
+        resource_path=preserved_resource,
+        budget_hours=budget_hours,
+        started=started,
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -279,7 +361,19 @@ def main() -> int:
     all_parser.add_argument("--source-freeze", type=Path, required=True)
     all_parser.add_argument("--profile-protocol", type=Path, required=True)
     all_parser.add_argument("--profile-base-config", type=Path, required=True)
+    all_parser.add_argument(
+        "--profile-interpretation-contract", type=Path, required=True
+    )
     all_parser.add_argument("--budget-hours", type=float, default=30.0)
+    resume = subparsers.add_parser("resume-after-profile")
+    resume.add_argument("--repository", type=Path, required=True)
+    resume.add_argument("--output-root", type=Path, required=True)
+    resume.add_argument("--protocol", type=Path, required=True)
+    resume.add_argument("--source-freeze", type=Path, required=True)
+    resume.add_argument("--raw-profile", type=Path, required=True)
+    resume.add_argument("--resource-record", type=Path, required=True)
+    resume.add_argument("--profile-interpretation-contract", type=Path, required=True)
+    resume.add_argument("--budget-hours", type=float, default=30.0)
     args = parser.parse_args()
     if args.command == "preflight-one":
         output = run_phase2(
@@ -296,15 +390,30 @@ def main() -> int:
         print(f"resource preflight {result['status']}: {args.output}")
         return 0 if result["status"] == "PASS" else 1
     try:
-        summary = run_all(
-            repository=args.repository,
-            output_root=args.output_root,
-            protocol_path=args.protocol,
-            source_freeze_path=args.source_freeze,
-            profile_protocol_path=args.profile_protocol,
-            profile_base_config_path=args.profile_base_config,
-            budget_hours=args.budget_hours,
-        )
+        if args.command == "resume-after-profile":
+            summary = resume_after_profile(
+                repository=args.repository,
+                output_root=args.output_root,
+                protocol_path=args.protocol,
+                source_freeze_path=args.source_freeze,
+                raw_profile_path=args.raw_profile,
+                resource_record_path=args.resource_record,
+                interpretation_contract_path=args.profile_interpretation_contract,
+                budget_hours=args.budget_hours,
+            )
+        else:
+            summary = run_all(
+                repository=args.repository,
+                output_root=args.output_root,
+                protocol_path=args.protocol,
+                source_freeze_path=args.source_freeze,
+                profile_protocol_path=args.profile_protocol,
+                profile_base_config_path=args.profile_base_config,
+                profile_interpretation_contract_path=(
+                    args.profile_interpretation_contract
+                ),
+                budget_hours=args.budget_hours,
+            )
     except Exception as error:  # noqa: BLE001 - preserve every fail-closed attempt
         failure = {
             "schema_version": "continuum.native_costaware_bounded_pipeline_summary.v1",
