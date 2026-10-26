@@ -1149,10 +1149,7 @@ class MinimalMetalObservabilityBackend:
         validation_helpers = importlib.import_module(
             "scripts.spikes.run_continuum_phase1b_validation_metal"
         )
-        self._coherent_snapshot = functools.partial(
-            validation_helpers._coherent_child_request_snapshot,
-            maximum_token_count=max_model_len,
-        )
+        self._coherent_snapshot = validation_helpers._coherent_child_request_snapshot
 
         topology = observation_helpers.require_observation_topology(os.environ)
         platform_plugin_class = (
@@ -1244,6 +1241,10 @@ class MinimalMetalObservabilityBackend:
         )
         if max_model_len < required_model_len:
             raise ValueError("backend_options.max_model_len cannot serve frozen inputs")
+        self._coherent_snapshot = functools.partial(
+            validation_helpers._coherent_child_request_snapshot,
+            maximum_token_count=max_model_len,
+        )
         max_num_batched_tokens = _positive_int(
             options.get("max_num_batched_tokens", max_model_len),
             "backend_options.max_num_batched_tokens",
