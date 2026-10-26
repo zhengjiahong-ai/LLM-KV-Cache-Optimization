@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -23,6 +24,12 @@ from .continuum_bounded_profile_runner import run_profile
 from .continuum_bounded_runner import run_campaign
 from .continuum_native_formal_profile import interpret_nonnegative_cost
 from .phase2_runner import run_phase2
+
+
+def _native_environment() -> dict[str, str]:
+    environment = os.environ.copy()
+    environment["VLLM_ENABLE_V1_MULTIPROCESSING"] = "0"
+    return environment
 
 
 def _write(path: Path, value: object) -> None:
@@ -67,6 +74,7 @@ def _run_fidelity_preflight(
             ],
             cwd=repository,
             check=False,
+            env=_native_environment(),
         )
         run_dir = output_root / run_id
         if completed.returncode != 0 or not (run_dir / "run.json").is_file():
@@ -122,6 +130,7 @@ def _run_resource_preflight(
         ],
         cwd=repository,
         check=False,
+        env=_native_environment(),
     )
     if completed.returncode != 0 or not output_path.is_file():
         raise RuntimeError("isolated target-resource preflight failed")

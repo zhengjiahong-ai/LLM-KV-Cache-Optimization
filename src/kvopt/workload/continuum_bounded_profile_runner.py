@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
@@ -45,6 +46,8 @@ def run_profile(
         output = points_dir / f"point-{token_count}.json"
         if output.exists():
             raise FileExistsError(f"profile point already exists: {output}")
+        environment = os.environ.copy()
+        environment["VLLM_ENABLE_V1_MULTIPROCESSING"] = "0"
         completed = subprocess.run(
             [
                 sys.executable,
@@ -60,6 +63,7 @@ def run_profile(
                 str(output.resolve()),
             ],
             check=False,
+            env=environment,
         )
         if completed.returncode != 0 or not output.is_file():
             raise RuntimeError(f"profile point failed and was preserved: {token_count}")

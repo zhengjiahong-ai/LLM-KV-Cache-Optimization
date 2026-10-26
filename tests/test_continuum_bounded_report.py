@@ -90,7 +90,10 @@ def test_integrated_fidelity_fails_when_mechanism_is_not_realized(
         (manifest_path.parent / row["config"]).write_text("{}", encoding="utf-8")
     output_root = tmp_path / "preflight"
 
-    def fake_run(command: list[str], **_kwargs: object) -> SimpleNamespace:
+    def fake_run(command: list[str], **kwargs: object) -> SimpleNamespace:
+        environment = kwargs["env"]
+        assert isinstance(environment, dict)
+        assert environment["VLLM_ENABLE_V1_MULTIPROCESSING"] == "0"
         run_id = command[command.index("--run-id") + 1]
         run_dir = output_root / run_id
         run_dir.mkdir(parents=True)
@@ -122,9 +125,12 @@ def test_resource_preflight_runs_in_disposable_process(
     source.write_text("{}", encoding="utf-8")
     output = tmp_path / "resource.json"
 
-    def fake_run(command: list[str], **_kwargs: object) -> SimpleNamespace:
+    def fake_run(command: list[str], **kwargs: object) -> SimpleNamespace:
         assert "resource-preflight" in command
         assert "--source-freeze" in command
+        environment = kwargs["env"]
+        assert isinstance(environment, dict)
+        assert environment["VLLM_ENABLE_V1_MULTIPROCESSING"] == "0"
         output.write_text(json.dumps({"status": "PASS"}), encoding="utf-8")
         return SimpleNamespace(returncode=0)
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import time
@@ -102,6 +103,8 @@ def _run_isolated(
     *, repository: Path, manifest_path: Path, authorization_path: Path,
     output_root: Path, run_id: str,
 ) -> Path:
+    environment = os.environ.copy()
+    environment["VLLM_ENABLE_V1_MULTIPROCESSING"] = "0"
     completed = subprocess.run(
         [
             sys.executable,
@@ -119,6 +122,7 @@ def _run_isolated(
             run_id,
         ],
         check=False,
+        env=environment,
     )
     output = output_root.resolve() / run_id
     run_path = output / "run.json"
