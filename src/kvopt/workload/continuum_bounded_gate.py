@@ -15,6 +15,7 @@ AUTHORIZATION_SCHEMA = "continuum.native_costaware_bounded_authorization.v1"
 CODE_BINDINGS = (
     "scripts/spikes/phase2_minimal_observability_cuda.py",
     "scripts/spikes/phase2_minimal_observability_metal.py",
+    "scripts/spikes/run_continuum_phase1b_validation_metal.py",
     "src/kvopt/continuum/prefill_profile.py",
     "src/kvopt/continuum/composition.py",
     "src/kvopt/continuum/replay_clock.py",

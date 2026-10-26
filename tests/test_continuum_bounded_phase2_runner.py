@@ -6,6 +6,16 @@ from pathlib import Path
 from kvopt.continuum import ControlledSparseReplayClock, LogicalTimeBoundary
 from kvopt.workload import phase2_runner
 from kvopt.workload.phase2b_fidelity_runner import RequestCompletion, RequestHandle
+from scripts.spikes.phase2_minimal_observability_metal import (
+    _requires_retention_snapshot,
+)
+
+
+def test_right_censored_return_does_not_require_retention_snapshot() -> None:
+    right_censored = frozenset({"return-request"})
+
+    assert not _requires_retention_snapshot("return-request", right_censored)
+    assert _requires_retention_snapshot("retained-request", right_censored)
 
 
 class _Backend:

@@ -8,6 +8,7 @@ adding a second private-state inspection path.
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import importlib
 import json
@@ -607,6 +608,13 @@ def _validate_native_hash_views(
     return prompt_hashes
 
 
+def _requires_retention_snapshot(
+    request_id: str, right_censored_end_request_ids: frozenset[str]
+) -> bool:
+    """Right-censored observed returns do not create future-retention facts."""
+    return request_id not in right_censored_end_request_ids
+
+
 class _CountingForcedReleaseObserver:
     def __init__(self, sink: ExperimentEventSink) -> None:
         self._delegate = ExperimentForcedReleaseObserver(sink)
@@ -1141,7 +1149,10 @@ class MinimalMetalObservabilityBackend:
         validation_helpers = importlib.import_module(
             "scripts.spikes.run_continuum_phase1b_validation_metal"
         )
-        self._coherent_snapshot = validation_helpers._coherent_child_request_snapshot
+        self._coherent_snapshot = functools.partial(
+            validation_helpers._coherent_child_request_snapshot,
+            maximum_token_count=max_model_len,
+        )
 
         topology = observation_helpers.require_observation_topology(os.environ)
         platform_plugin_class = (
@@ -2085,6 +2096,33 @@ class MinimalMetalObservabilityBackend:
     ) -> None:
         program = ProgramIdentity(request.program_id)
         logical_request = RequestIdentity(request.request_id)
+        if not _requires_retention_snapshot(
+            request.request_id, self._w1b_right_censored_end_requests
+        ):
+            # This is an observed return endpoint, not evidence of a new
+            # future-retention fact. Under bounded dual-session capacity its
+            # complete post-request chain need not remain resident. Native/APC
+            # request evidence was already emitted by the completion path.
+            self._sink.emit(
+                ExperimentEvent.create(
+                    event_type="W1B_RIGHT_CENSORED_REPLAY_WINDOW_ENDED",
+                    timestamp=finished_at,
+                    clock_domain=self._lifecycle_clock_domain,
+                    source=self._event_source,
+                    program_id=program,
+                    request_id=logical_request,
+                    payload={
+                        "source_completion_inferred": False,
+                        "future_demand_created": False,
+                        "ttl_query_performed": False,
+                        "retention_snapshot_required": False,
+                        "claim_boundary": (
+                            "selected replay window ended; source session did not"
+                        ),
+                    },
+                )
+            )
+            return
         if request.is_terminal and not self._capture_terminal_prefix_snapshot:
             self._handle_lifecycle(
                 TurnFinished(
@@ -2101,26 +2139,6 @@ class MinimalMetalObservabilityBackend:
             native_id,
             expected_token_count=prefix_tokens,
         )
-
-        if request.request_id in self._w1b_right_censored_end_requests:
-            self._sink.emit(
-                ExperimentEvent.create(
-                    event_type="W1B_RIGHT_CENSORED_REPLAY_WINDOW_ENDED",
-                    timestamp=finished_at,
-                    clock_domain=self._lifecycle_clock_domain,
-                    source=self._event_source,
-                    program_id=program,
-                    request_id=logical_request,
-                    prefix_id=prefix,
-                    payload={
-                        "source_completion_inferred": False,
-                        "future_demand_created": False,
-                        "ttl_query_performed": False,
-                        "claim_boundary": ("selected replay window ended; source session did not"),
-                    },
-                )
-            )
-            return
 
         if request.is_terminal:
             self._handle_lifecycle(
