@@ -24,6 +24,24 @@ Metric definitions are taken from the W1-C report so the numbers stay comparable
 ``adjacent_exact_lcp_tokens`` is the longest common prefix of consecutive submitted
 token-ID lists, ``adjacent_reuse_ratio`` divides that by the previous prompt length,
 and ``context_growth_tokens`` is last minus first prompt length for one task.
+
+E1 has three non-interchangeable variants, and this script names the one it uses
+every time it prints a number:
+
+``E1a hit rate``
+    fraction of prior same-chain requests whose native cached tokens were > 0. This
+    is the only variant that answers "did reuse actually happen", and it needs
+    native observations. Neither dataset available here provides it, so it is not
+    computed anywhere in this file.
+``E1b reuse ratio``
+    adjacent exact-token LCP divided by the previous prompt length. Near 1.0 whenever
+    context accumulates, which makes it close to a tautology for agent trajectories.
+``E1c reuse magnitude``
+    the adjacent LCP in tokens. Approximately the previous prompt length, therefore
+    largely collinear with the block count the score already consumes.
+
+The earlier H1-based probe reported E1a; this one reports E1b and E1c. The change of
+operationalisation is deliberate and declared rather than silent.
 """
 
 from __future__ import annotations
@@ -140,16 +158,18 @@ def committed_mode() -> int:
         per_call_s50 = s50["median_context_growth"] / calls_s50
         per_call_s100 = s100["median_context_growth"] / calls_s100
         print()
-        print("  E1 at the trajectory layer, adjacent exact-token reuse ratio:")
+        print("  E1b (adjacent exact-token reuse ratio), not E1a:")
         print(
             f"    S50 {s50['median_adjacent_reuse_ratio']:.4f}   "
             f"S100 {s100['median_adjacent_reuse_ratio']:.4f}   "
             f"delta {ratio_delta:+.4f}"
         )
         print("    both are close to 1.0, so the ratio is nearly saturated: as a")
-        print("    ranking feature it has little room to separate candidates.")
+        print("    ranking feature it has little room to separate candidates. On agent")
+        print("    trajectories this is close to tautological, since the next prompt is")
+        print("    the previous prompt plus tool output.")
         print()
-        print("  E1 as a magnitude (LCP tokens) tracks the prompt length:")
+        print("  E1c (adjacent LCP tokens) tracks the prompt length:")
         print(
             f"    median adjacent LCP  S50 {s50['median_adjacent_lcp']:.0f}  "
             f"S100 {s100['median_adjacent_lcp']:.0f} tokens"
@@ -158,8 +178,8 @@ def committed_mode() -> int:
             f"    median prompt        S50 {s50['median_prompt_tokens']:.0f}  "
             f"S100 {s100['median_prompt_tokens']:.0f} tokens"
         )
-        print("    the LCP is roughly the whole previous prompt, so a magnitude form")
-        print("    of E1 is largely collinear with N, which the score already consumes.")
+        print("    the LCP is roughly the whole previous prompt, so E1c is largely")
+        print("    collinear with N, which the score already consumes.")
         print()
         print("  E6, context growth:")
         print(
@@ -177,7 +197,9 @@ def committed_mode() -> int:
         print("    rates differ, which the aggregates cannot show.")
     print()
     print("== what these aggregates cannot settle ==")
-    print("  per-call E1 / E6 coverage, their distributions, and whether they differ")
+    print("  E1a hit rate is not measurable here at all: it needs native cached-token")
+    print("  observations, and neither H1 nor W1-C provides them.")
+    print("  per-call E1b / E1c / E6 coverage and distributions, and whether they differ")
     print("  between the programs that are candidates at the same moment.")
     print("  that needs the sidecars, not the summary table.")
     return 0
@@ -284,8 +306,8 @@ def sidecar_mode(roots: list[Path]) -> int:
     for key in sorted(coverage):
         print(f"    {key:22s} {coverage[key]}")
     print()
-    describe("E1 prior adjacent reuse", e1)
-    describe("E1 prior LCP tokens", e1_magnitude)
+    describe("E1b prior adjacent reuse", e1)
+    describe("E1c prior LCP tokens", e1_magnitude)
     describe("E6 prior growth per call", e6_per_call)
     describe("E6 prior growth per second", e6_per_second)
     print()
