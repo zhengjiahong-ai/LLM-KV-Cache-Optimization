@@ -1,892 +1,546 @@
-# Phase 2G Cost-Aware —— 综合研究判断报告（离线分析）
+# Phase 2G Cost-Aware —— 综合研究判断报告 v2（修订版）
 
-**输入**：PR #82 / v10 Evidence Archive（54/54 runs，`gate: PASS`）。
+**输入**：PR #82 / v10 Evidence Archive（54/54 runs），PR #80（M2 四方向）。
+**修订依据**：M1 对 PR #83 的 RC1–RC7。
+**授权边界**：仅离线只读分析。未改 A0/A1/A2，未覆盖原始归档，未启动 Native。
+**本轮不提出最终研究裁定，也不申请执行任何 Campaign。**
 
-> **来源核对（一处不一致，需 M1 确认）**：M1 通报的归档 SHA-256 为
-> `ac2b910e…`，而本机归档内 `execution-summary.json` 记录的 `archive_sha256`
-> 为 `d4aaf36e…`（`tooling_git_sha = 7d0546ab…`）。
-> 二者可能分别为"运行期生成的 tar.gz"与"分发用的重打包文件"，但本报告
-> **无法验证**这一点。本文全部结论基于**本机解压的这一份**；
-> 若 M1 使用另一份，需先逐文件校验 `sha256-manifest.txt` 确认内容一致。
-**授权边界**：仅离线只读分析。未修改 A0/A1/A2，未覆盖 PR #82 原始数据，未启动 Native Campaign，未实现新算法。
-**分析脚本**：`local/a1_decisions_detail.py`、`local/a4_identity_gap.py`、`local/a4_divergence_check.py`、
-`local/a4_legal_order.py`、`local/a5_a2_attribution.py`、`local/a4_legal_strict.py`、`local/a1_flip_criterion.py`、
-`local/b4_unlocked_vs_evicted.py`、`local/a2_field_variation.py`、
-`local/b2_signal_audit.py`、`local/b3b4_structure.py`、`local/a1_lambda_ablation.py`。
+分析脚本（已入库）：`scripts/probes/entry_costaware_audit/`
+运行前提：归档解压到 `local/continuum-native-cost-aware-bounded-v10-final-evidence/`（`local/` 被 gitignore）。
 
 ---
 
-## 0. 首要结论（先于全部细节）
+## 0. 对 PR #83 的更正（先列错误，再给结论）
 
-本轮分析得到两个**决定性**的审计事实，它们改变了此前所有定性判断：
+上一版有三处**实质错误**，均由 M1 指出或本轮复核发现：
 
-| # | 事实 | 证据 | 影响 |
+| # | PR #83 的说法 | 更正 | 依据 |
 |---|---|---|---|
-| 1 | **A2 的代价模型在本 campaign 中从未重排块** | `selected_victims == legal_block_ids[:N]` 在 **601/601** 次决策成立 | A2 的 block 层实际等价于"取 legal 列表前 N 个"，不是 cost-aware 选择。B1 的 Gate 问题不存在，因为从未介入 |
-| 2 | **`native_lru_victims` 不是独立参照** | `native_lru_victims == legal_block_ids[:N]` 在 **601/601** 成立 | "A2 与 native LRU 一致"是**同义反复**，不能作为证据 |
+| 1 | `native_lru_victims` 是 `legal[:N]` 的回显，"独立参照不存在" | **错误。** 它由 `NativeLRUAdapter().select_victims()` 独立按 `lru_rank` 排序产生（`a2_native.py:543`、`adapter.py`）。两者相同是因为**候选本身按 rank 升序传入**，是一个经验事实而非构造性同义反复 | 源码 + 601/601 |
+| 2 | 复用历史"全部为零"，"该 workload 永不产生历史" | **错误。** 历史**确实被产生与记录**（`ServerGapHistory.record`，约 10 条/run）。为零的是观测事件里暴露的 **eta / queue-delay** 计数器，我误当成全部历史。真正原因是**冷启动阈值 100 在 12 请求/run 的窗口内不可达**，且 history 是 per-process，不跨 run 累积 | §RC4 |
+| 3 | 翻转判据 `q_ratio < N_ratio` 称为"充要条件" | **过强。** 那是 `λ=1` / `N≫need` 的极限形式。精确判据用 `a_i = λN_i + (1−λ)need` | §RC5 |
 
-以及一个**结构性**事实：
+另外三处需要收窄：
 
-| # | 事实 | 证据 |
+- `ttl = 0` 属**设计内截断**（`μ = 1 s` 参考尺度），不是公式缺陷（§RC3）；
+- 单次运行不能证明稳定退化（保留）；`physical_eviction_divergence` 仍建议弃用；
+- 归档存在**具体的一处清单失配**，且 M1 公布的 SHA 在归档内**不存在**（§RC7）。
+
+---
+
+## 1. RC1 —— A2 与 Native-LRU 的正确解释
+
+### 1.1 代码事实
+
+`src/kvopt/costaware/a2_native.py::A2NativeBlockAdapter.select_victims`：
+
+```python
+native = tuple(NativeLRUAdapter().select_victims(candidates, context))   # 独立执行
+...
+else:
+    selected = tuple(outcome.selection.blocks)                            # 代价路径
+audit = A2NativeDecisionAudit(
+    legal_block_ids=tuple(candidate.block_id for candidate in candidates),  # 传入顺序
+    native_lru_victims=native,
+    selected_victims=selected,
+    ...
+)
+```
+
+`src/kvopt/runtime/vllm/adapter.py::NativeLRUAdapter`：
+
+```python
+ordered = sorted(candidates, key=lambda candidate: candidate.lru_rank)
+return [candidate.block_id for candidate in ordered[: context.required_blocks]]
+```
+
+因此 `native_lru_victims` **是一个独立计算的参照**，不是回显。
+
+### 1.2 五个必须分开的量
+
+| 层 | 量 | 本归档实测 |
 |---|---|---|
-| 3 | 受控压力让 `need` 在 moderate 恒为 **1**、deep 为 **28–114**，而单个 Entry 解锁 200–1663 块 | 18 个 A0 forced 窗口，`N_i / need` 中位数 **118.9×**，最大 **993×** |
-| 4 | 复用类中间信号在本归档中**完全缺失** | 540 次 `TTL_HISTORY_INPUT_OBSERVED`，四类样本计数**全部为 0** |
+| L1 | A2 vs **同 Legal Set 上的 Native Rank-LRU** | `selected == native` **601 / 601** |
+| L2 | A2 vs **真正的 A0 Tier-aware 选择** | **无法可靠判定**（见 §1.4） |
+| L3 | A2 是否**实际使用**代价打分 | **434 / 601 是**（`selector=incremental_greedy`, `cost_known=true`）；167 回退 |
+| L4 | 代价打分是否**改变**最终 victim | **0 / 601** |
+| L5 | 最终 victim 是否被 Native **物理执行** | 未验证（无逐块物理归因；`claim_boundary` 明确为 proxy 选择） |
 
-**因此：本轮无法评估 Block 层 cost-aware 的价值（它没有发生），也无法评估任何复用信号的价值（数据不存在）。**
-唯一可以严格评估的是 Entry 层的 λ 项，见 Part A3。
+### 1.3 601/601 一致的真正原因
 
----
+`NativeLRUAdapter` 返回的是"按 `lru_rank` 升序的前 N 个"。它返回的序列恰好等于
+`legal_block_ids[:N]`，**说明传入的候选序列本身已按 `lru_rank` 升序排列**。
+这是一个关于 vLLM 候选传递顺序的**经验事实**，不是定义上的同一。
 
-## 0.1 证据规模与限制
+对 L3/L4 的含义是实质性的：
 
-| 项 | 值 |
-|---|---|
-| Runs | 54 / 54 完成 |
-| 网格 | 9 groups × 2 regimes（moderate / deep）× 3 arms |
-| **Runtime repeat** | **1** |
-| 独立统计单位 | 9（group） |
-| Forced-release decisions | **85**（其中 54 个多候选） |
-| A1 release steps | **29** |
-| A2 block decisions | **601** |
-| 内容级因果归因 | `NOT_ESTABLISHED` |
-| 单 run wall time | 33–36 s（engine init ≈30 s + native ≈3.4 s） |
+> 在 434 个决策中，**代价打分真实执行了**，输入通过契约校验，
+> 而它产出的集合**恰好与 rank-LRU 相同**。
+> 这不是"没有参照"，而是"代价模型在有输入、有执行的情况下没有产生差异"。
 
-三条限制贯穿全文，不再重复：
+### 1.4 L2 无法判定的原因（保留上一版的这条限制）
 
-1. **无 repeat**：任何单 cell 的 token 差都无法与运行间波动区分；
-2. **独立单位只有 9 个**：`mean Δ` 是在 9 个 group 上取均值；
-3. **Controlled Sparse Replay ≠ 在线服务**：`required_blocks` 由注入设定。
-
----
-
-# Part A —— 原有分析的验证与深化
-
-## A1. Entry 层：q 是否提供独立价值？
-
-### A1.1 q 的数学关系（本次严格确认）
-
-冻结公式与配置：
+要比较 A2 的 `legal[:N]` 与 A0 的 `(tier, rank)` 序，需要 legal 列表的排序依据。
+归档没有记录该依据；队列快照只在 `FORCED_RELEASE_DECISION` 事件中出现：
 
 ```text
-ttl_seconds = max(0, ln(prefill_reload_seconds))        # COLD_START 分支
-deadline    = ttl_decision_timestamp + ttl_seconds
-q           = sigmoid((deadline - t) / tau),  tau = 30.0  (phase2g_a1_tau_seconds)
+块决策总数                              601
+可定位队列快照                          229
+legal 中含快照里已不存在的块（快照过期）   151
+严格可比（全部 legal 块都在快照中）          78
+其中 legal 顺序 == (tier, rank)            71
+其中 legal 顺序 != (tier, rank)             7
 ```
 
-实测本归档：
+那 7 例呈 rank **降序**（如 202, 201, 200），与"快照过期"一致，不能当作真实排序依据。
 
-```text
-ttl_seconds == 0          139 / 139   candidate records
-=> deadline - t == -elapsed_since_ttl_decision_seconds
-=> q = sigmoid(-elapsed / tau)
-```
-
-依据：`prefill_reload_seconds` 全部 < 1.0（18 个不同取值），故 `ln(·) < 0`，`max(0, ·) = 0`。
-
-> **结论**：在本归档中，`q` 是 **elapsed 的严格单调递减变换**，
-> 而 elapsed 又是一 -（deadline − t）。三者秩完全一致（此前 H1 上实测 114/114）。
-
-### A1.2 信息冗余与"是否可能改变排序"
-
-必须区分 M1 指出的三个层次：
-
-**(i) q 是否提供新的独立观测信息？**
-**否。** `q = σ(-elapsed/τ)`，而 deadline 是同一变量的线性函数。`q` 不引入任何
-`deadline`/`elapsed` 之外的信息。这一点是**代数结论**，不依赖语料。
-
-**(ii) q 是否改变实际选择？**
-**可以，但仅通过与其他项的乘积。** M1 提醒不可由"确定性变换"直接推断"永不改变排序"，
-这一点完全正确，机制如下：
-
-$$\widehat R_i=q_i\Big[\min(\text{need},N_i)+\lambda(N_i-\min(\text{need},N_i))^+\Big]$$
-
-- 若 $\lambda=0$ 且所有候选都 sufficient（$N_i\ge$ need），则 $\widehat R_i=q_i\cdot\text{need}$，
-  排序 = $q$ 排序 = deadline 排序 → **q 对结果无影响**；
-- 若 $\lambda>0$，则 $\widehat R_i$ 是 $q_i$ 与 $N_i$ 的**乘积**。此时 $q$ 的**数值量级**
-  与 $N_i$ 的相对大小共同决定结果，q 的差异**可以**翻转排序。
-
-实测本归档 29 个 A1 决策的 $q$ 跨度（跨度 = 决策内 max q − min q）：
-
-| 情形 | 决策数 | q span |
-|---|---:|---|
-| 单候选（span 恒为 0） | 11 | 0.0000 |
-| 双候选 | 18 | 0.1472 – 0.5000 |
-
-**(iii) 改变选择是否有可观测价值？**
-见 A1.4。**本归档中唯一的 q 相关翻转是有害的。**
-
-### A1.2b 翻转的定量判据（本报告新增的推导结果）
-
-当所有候选都 sufficient 且 $N_i\gg$ need 时，
-
-$$\widehat R_i=q_i\big(\text{need}+\lambda(N_i-\text{need})\big)\;\approx\;\lambda\,q_iN_i$$
-
-于是：
-
-- **λ=0 的排序** = 最小化 $q_i$（= 最早 deadline）；
-- **λ>0 的排序** = 最小化 $q_iN_i$。
-
-两者**必然不一致的充要条件**是：
-
-$$\frac{q_{\text{high}}}{q_{\text{low}}}\;<\;\frac{N_{\text{low-q}}}{N_{\text{high-q}}}$$
-
-即**"低 q 候选的块数优势超过其 q 优势"时，λ 才会翻转选择**。
-
-**实测验证 18 / 18**（`local/a1_flip_criterion.py`，全部双候选决策）：
-
-| run | need | N 值 | q 比值 | N 比值 | 预测翻转 | 实际翻转 |
-|---|---:|---|---:|---:|---|---|
-| g01 / g02 / g03 / g04 | — | 差 1.6–8.1× | **8.5 – 2.0×10⁸** | 0.12 – 0.63 | 否 | 否 |
-| **g05** | 1 / 114 | 649 / 993 | **1.417** | **1.530** | **是** | **是** |
-| g06 / g07 / g08 / g09 | — | 差 1.0–1.4× | **1.73 – 26.7** | 0.78 – 1.39 | 否 | 否 |
-
-> **这是本报告最有价值的可复用结论**：
-> A1 的分歧概率不是"随负载随机出现"，而是由**两个可测量比值**决定。
-> 在本归档中只有 g05 的 q 比（1.417）小于 N 比（1.530），因此只有它翻转——
-> 而翻转后的选择是错的。
->
-> 推论：**要让 λ 有用，必须存在"低 q 候选同时显著更长"的窗口，
-> 并且低 q 确实意味着更低的复用概率。** 后者正是本归档无法验证的部分
-> （见 A2：无复用数据）。
-
-> **一个必须写明的边界**：$q$ 的跨度达到 0.5（Gate 2 只有 0.008），
-> 说明在本负载上 $q$ 的**数值**确实有区分度。但因为 (i)，这种区分度
-> 完全来自 elapsed，即来自 recency。$q$ 的"量级"之所以开始起作用，
-> 只是因为它进入了乘积，而不是因为它提供了新信息。
-
-### A1.3 29 次 A1 Release Selection 逐项恢复
-
-完整表见 `local/a1_decisions_detail.py` 输出。汇总：
-
-| 判据 | 吻合数 | 说明 |
-|---|---:|---|
-| 以配置值 λ=0.5 重放 == 观测选择 | **29 / 29** | 打分阶梯可**精确**复现引擎行为，重放可信 |
-| 观测 == Earliest Deadline | **27 / 29** | 与 M1 引用的 27/29 一致 |
-| 观测 == Minimum Overshoot（min $N_i$） | 25 / 29 | — |
-| 观测 == λ=0 打分 | **27 / 29** | 即 λ=0 与被观测的差异仅 2 次 |
-
-**2 次不一致全部在 g05**，且两次都是同一对候选：
-
-| run | need | django (N, q) | sphinx (N, q) | 观测 | ED 规则 | λ=0 规则 |
-|---|---:|---|---|---|---|---|
-| g05-deep | 114 | 649, 0.5000 | 993, 0.3528 | **django** | sphinx | sphinx |
-| g05-moderate | 1 | 649, 0.5000 | 993, 0.3528 | **django** | sphinx | sphinx |
-
-打分（need=1）：
-
-$$\widehat R_{\text{django}}=0.5\,(1+0.5\cdot648)=162.5,\qquad
-\widehat R_{\text{sphinx}}=0.3528\,(1+0.5\cdot992)=175.3$$
-
-→ 选 django。**翻转阈值 $\lambda^\ast\approx0.079$，配置值 0.5 是其 6.3 倍。**
-
-若 $\lambda=0$：$\widehat R_{\text{django}}=0.500$ vs $\widehat R_{\text{sphinx}}=0.353$ → 选 sphinx
-（与 ED、与 A0 一致）。
-
-**机制一句话**：A1 在此处选择了 $N_i$ 较小（超额小）的候选；而该候选恰是
-**仍在使用中**的那条前缀，代价是 +3712 tokens。
-
-### A1.4 A1 与 A0 在 2/18 Cell 分歧的条件
-
-| 条件 | 观测 |
-|---|---|
-| 分歧 cell 数 | **2 / 18**（g05 moderate + g05 deep） |
-| 其余 16 cell 的 Entry 释放序列 | 与 A0 **逐项相同** |
-| 分歧的必要条件 | ①≥2 个候选；②$\lambda>0$；③两候选的 $N_i$ 差异足够大以抵消 $q$ 差 |
-| g05 是否唯一满足 | 是。按 A1.2b 的判据，仅 g05 的 q 比值（1.42）小于 N 比值（1.53）；其余 8 组 q 比值 1.73–2.0×10⁸，远大于其 N 比值 |
-
-更精确地：**A1 与 A0 的分歧完全由 λ 产生，而非由 q 产生**，
-且其发生条件已由 A1.2b 给出：
-
-| 组 | q 比值 | N 比值 | q 比值 < N 比值？ | 是否分歧 |
-|---|---:|---:|---|---|
-| g01 | 2.0×10⁸ | 0.12 | 否 | 否 |
-| g02 | 886 | 0.41 | 否 | 否 |
-| g03 | 8.5 | 0.51 | 否 | 否 |
-| g04 | 24.7 | 0.63 | 否 | 否 |
-| **g05** | **1.42** | **1.53** | **是** | **是** |
-| g06 | 5.0 | 1.39 | 否 | 否 |
-| g07 | 1.73 | 0.78 | 否 | 否 |
-| g08 | 1.86 | 0.94 | 否 | 否 |
-| g09 | 26.7 | 1.01 | 否 | 否 |
-
-**九个组中只有 g05 满足翻转条件，且它是四个非零观测中唯一可归因于策略的那个。**
+> **结论**：L1 是确定的（601/601 相同），L2 **不可判定**。
+> 因此"A2 与 A0 差异的来源"在本归档中**不能归因**，只能标 `NOT_ATTRIBUTABLE`。
 
 ---
 
-## A2. Entry 层：能否构造真正的 EntryLoss？
+## 2. RC2 —— A2 的有效决策机会（不再用 601 作分母）
 
-### A2.1 先修正成本语义（M1 的意见成立）
+分类规则（互斥，按证据强度排序）：
 
-若 `reuse_score` 表示**未来复用概率** $p$，则释放造成的期望重算损失应为
-
-$$\text{EntryLoss}_c \;\propto\; p_c \cdot \text{RecomputeCost}_c$$
-
-即 **随复用概率上升而上升**。此前草案的 `(1 − reuse_score) × cost` 方向相反，
-会产生"复用概率越高越该先释放"的错误排序，**已撤回**。
-
-同时必须承认第二点：**Unpin 只是解除保护，不等于立即驱逐**。
-所以以"当前 victim set"计价的模型会低估，以"解锁块数"计价的模型会高估。
-正确口径应是**释放后仍暴露的期望重算**，而这需要下游信息（见 B3）。
-
-### A2.2 决策时可用信号：实测审计
-
-`local/a2_field_variation.py` 对 139 条候选记录逐字段统计：
-
-| 字段 | 不同取值数 | 在多候选决策中变化 | 判定 |
-|---|---:|---:|---|
-| `prefill_reload_seconds` | **18** | **54 / 54** | 可用（但见下） |
-| `elapsed_since_ttl_decision_seconds` | **11** | **54 / 54** | 可用，= deadline 同源 |
-| `retention_deadline_timestamp` | **18** | **54 / 54** | 可用，= elapsed 同源 |
-| `next_tool_type` | **1**（恒 `observed-agent-gap`） | 0 | **零判别力** |
-| `eta` | **1**（恒 1.0） | 0 | 常数 |
-| `queue_delay_t_seconds` | **1**（恒 0.0） | 0 | 常数 |
-| `waiting_followup` | **1**（恒 True） | 0 | 常数 |
-
-**复用历史完全缺失**（`local/b2_signal_audit.py`）：
-
-```text
-TTL_HISTORY_INPUT_OBSERVED 事件          540 次
-  eta_history_sample_count                 540 次观测，正值 0 次
-  queue_delay_history_sample_count         540 次观测，正值 0 次
-  queue_delay_history_recent_sample_count  540 次观测，正值 0 次
-  eta_completed_program_count              540 次观测，正值 0 次
-eta_provenance_reason   FULLY_MEMORYFUL_COLD_START   540 / 540
-right-censored windows  W1B_RIGHT_CENSORED_REPLAY_WINDOW_ENDED  102 次
-```
-
-### A2.3 逐条回答 M1 的 6 个问题
-
-| # | 问题 | 实测答案 |
-|---|---|---|
-| 1 | 能否取到 prefix_id 级历史 APC Hit / 复用次数 / 最近真实命中时间？ | **本归档中不能**。所有历史计数器为 0，且无 prefix 级命中记录 |
-| 2 | 哪些是 Native 观测，哪些是历史推断？ | Native 观测：`block_ids`、`native_lru_rank`、`has_block_hash`、`retention_deadline_timestamp`、`elapsed`。历史/推断：`eta`（`FULLY_MEMORYFUL_COLD_START`，常数 1.0）、`queue_delay`（0.0） |
-| 3 | 历史命中频率样本是否充足？冷启动如何处理？ | **样本为 0**，冷启动即全部状态。F4 类多轮场景在本归档中 forced release 为 0，无法产生历史 |
-4. 前缀共享、连续性、下游 eviction 如何影响实际重算损失？ | 全臂 54 个窗口共 **224** 个候选间共享块（A0 臂 77 个）；`chain_prefix_broken` 证据项出现 **1 100** 次。共享真实存在，但不是本归档的主因 |
-| 5 | 能否构造简单、非负、语义明确的 EntryLoss？ | **不能基于复用来构造**（无数据）。唯一可构造的是 `p_c ≡ 常数` 的退化版，即 `EntryLoss ∝ RecomputeCost_c`——这等价于"按前缀长度排序"，是 A1/$N_i$ 的变体，无信息增量 |
-| 6 | 相对 A1/A0/简单规则是否有信息增量？ | **在本归档中无**。可变化的字段只有 prefill_reload / elapsed / deadline 三者，而 deadline 与 elapsed 同源，prefill_reload 与 block 数高度共线 |
-
-### A2.4 EntryLoss 判定
-
-**`INCONCLUSIVE`（不是被否证，而是数据不足）。**
-
-要求 M1 注意一个不可绕过的前置条件：
-
-> 要验证任何"基于复用概率"的 EntryLoss，**必须先有非零的 gap/hit 样本**。
-> 本归档的 540 次观测全部为零，`FULLY_MEMORYFUL_COLD_START` 100%。
-> 因此**任何新 EntryLoss 都无法用本归档评估**，也无法用"再跑一次同 workload"获得——
-> 因为冷启动状态由 workload 结构决定，不随重复运行改变。
-
-这不是"缺少大规模数据"的问题，而是**该 workload 不产生历史**。
-
----
-
-## A3. λ 项：两个备选方案
-
-### A3.1 方案一：λ = 0
-
-**实测结果**（`local/a1_lambda_ablation.py`，含重放保真度校验）：
-
-| 项 | 值 |
+| 类 | 定义 |
 |---|---|
-| 重放保真（λ=0.5 复现观测） | **29 / 29** |
-| λ 不改变选择 | **27** |
-| λ 改变选择 | **2**（均在 g05） |
-| λ=0 时与观测一致 | 27 / 29 |
-| λ=0 时与被观测差异的 cell | 1（g05 moderate） |
+| S1 | 回退，代价打分未执行 |
+| S2 | 退化几何：无已验证内容链，或损失与全部步进代价为 0 |
+| S3 | 无自由度：legal ≤ 1 或 `required ≥ legal` |
+| S4 | 有代价但**边际代价全相同**（无区分信号） |
+| S5 | 多 legal 块 **且** 边际代价不同 → **真实存在可选差异** |
 
-**M1 要求验证"λ=0 是否一般性等价于 A0"——答案是否定的，条件如下：**
+### 2.1 分布
 
-λ=0 的分数为 $\widehat R_i=q_i\min(\text{need},N_i)$。与 A0 的
-`(deadline, min native_rank of newly eligible, identity)` 等价需要**同时**满足：
+| 类 | 计数 | 占比 | 其中与 rank-LRU 不同 |
+|---|---:|---:|---:|
+| S1 回退 | 167 | 27.8% | 0 |
+| S2 退化几何 | 368 | **61.2%** | 0 |
+| S3 无自由度 | 0 | 0% | — |
+| S4 边际代价全同 | 28 | 4.7% | 0 |
+| **S5 真实可选差异** | **38** | **6.3%** | **0** |
 
-1. **所有候选都 sufficient**（$N_i\ge$ need）。否则 $\widehat R_i=q_iN_i$，
-   排序不再等于 $q$ 排序；
-2. **deadline 无并列**。否则 A1 用 `(program, prefix)` 破平，而 A0 用
-   `min native_rank`，两者可以选出不同 Entry。
+按阶段拆分：
 
-**本归档的实测**：
-
-```text
-multi-candidate decisions        54
-decisions with a deadline tie     0 / 54      <- 条件 2 成立
-candidate N_i 范围                200 – 1627
-need 范围                         1 – 8        <- 条件 1 成立（全部 sufficient）
-```
-
-⇒ **在本归档中，λ=0 的 A1 与 A0 在全部 18 个 cell 上等价。**
-但这个等价性是**条件性的**，不能推广：
-
-- 若 workload 出现"需多轮释放"（`per_unit` 分支），条件 1 失效；
-- 若出现 deadline 并列，条件 2 失效。
-
-> **结论**：λ=0 不是"不会退化的保底策略"，而是"在本归档的几何下退化为 A0"。
-> 它消除了唯一的退化，**但没有产生任何改善**。
-
-### A3.2 方案二：边际释放收益 / 成本模型
-
-**M1 的问题**："每单位重算损失换取多少有效容量"是否可计算、是否优于简单规则？
-
-**(i) 可计算性。** 本归档中 $N_i/\text{need}$ 的中位数是 **118.9×**，最大 **993×**。
-分母（moderate 为 1，deep 为 28–114）相对分子（200–1663）几乎可以忽略，
-因此“每单位容量”这个比值**在本 workload 上退化为 $1/N_i$**，即“偏好最大解锁量”。
-
-**(ii) 与简单规则的关系。** λ=0.5 的分数在 $N_i \gg$ need 时近似为
-$q_i\lambda N_i$，即"最小化 $q\cdot N$"。而在 g05，这等价于"最小化 $N$"
-（因为 $q$ 差异被 $N$ 差异压过）→ A1 选了 $N$ 小的 django。
-
-**这是有害的**：$N$ 小意味着前缀短，而短前缀可能恰是活跃的。
-
-**(iii) 结论。** 在本归档几何下，"每单位容量成本"不构成独立判据：
-它要么退化为 $1/N$（偏好大解锁），要么被 λ 放大成 $qN$（偏好小解锁），
-**两者都不是重算成本的代理**，因为真正决定重算的是**哪条前缀先断**，
-而这与 $N$ 的大小无必然关系。
-
-| 简单规则 | 在本归档的隐含偏好 | 实测后果 |
-|---|---|---|
-| Earliest Deadline | 最旧的前缀 | 27/29 与 A1 一致；g05 未选中 → 该 cell 重算 16 tokens |
-| Minimum Overshoot（min $N$） | 最短前缀 | 25/29 与 A1 一致；g05 选中 → 3712 tokens |
-| Sufficient-first + ED | 与 ED 相同（全 sufficient） | 29/29 与 ED 相同 |
-
----
-
-## A4. Block 层：A2 身份缺口与实际有效介入
-
-### A4.1 核对 167 / 601 的分母与分类
-
-`local/a4_identity_gap.py` 逐事件重建：
-
-| 项 | 值 |
-|---|---|
-| `COST_AWARE_BLOCK_DECISION` 总数 | **601** |
-| `selector = incremental_greedy` | **434**（`cost_known = true`，`fallbacks = []`） |
-| `selector = native_lru_fallback` | **167**（27.8%，`fallbacks = ['content_unverified']`） |
-| `contract_problems` 非空 | 0 |
-| `adapter_problems` 非空 | 0 |
-| `search_truncated = true` | 434（即全部 greedy 决策均超枚举预算） |
-
-**与 Gate 2 的 51.7% 不可直接比较**，理由三条：分母口径不同（本归档 601 次
-块级决策，Gate 2 为 778）；workload 不同；本归档 372 次决策发生在**任何
-forced-release 窗口之前**，Gate 2 的分母以 forced 窗口为主。
-
-回退原因（来自 `evidence_problem_counts`）：
-
-| 证据问题 | 计数（块级） |
-|---|---:|
-| `legal_hashed_candidate_without_membership` | **158 483** |
-| `chain_prefix_broken` | **1 100** |
-
-块身份状态分布（块级累计）：
-
-| 状态 | 计数 |
-|---|---:|
-| `HASHLESS_NO_CONTENT` | 441 994 |
-| `CONTENT_UNVERIFIED` | 158 483 |
-| `CONTENT_VERIFIED_CHAIN_WEIGHTED` | 74 302 |
-
-### A4.2 关键问题：601 次中多少次真正完成了 cost-aware 选择？
-
-**答案：0 次。** 这是本次分析最重要的发现。
-
-```text
-selected_victims == legal_block_ids[:required_blocks]      601 / 601
-selected_victims == native_lru_victims                     601 / 601
-native_lru_victims == legal_block_ids[:required_blocks]    601 / 601
-```
-
-**三条同时成立意味着**：
-1. A2 的代价模型**从未改变过块的顺序或集合**——它总是取给定 legal 列表的前 N 个；
-2. 报告中的 `native_lru_victims` 字段**不是独立参照**，而是 `legal[:N]` 的回声，
-   因此"A2 与 native LRU 一致"是同义反复，**不能作为 A2 保守/正确的证据**；
-3. 因此本 campaign **没有检验过** block 层 cost-aware 决策的价值。
-
-补充：`proxy_weighted_loss == 0.0` 出现在 **368 / 601** 次决策；
-`no verified chain` 出现在 **488 / 601** 次。即多数决策的模型损失恒为零，
-本就没有可优化的差异。
-
-### A4.3 与实际 A0 的分歧：本归档**无法判定**
-
-A2 取 `legal[:N]`，A0 用 `(eligibility_tier, native_lru_rank)`。两者是否一致，
-需要知道 legal 列表的排序依据。**这一点在本归档中不可靠地恢复：**
-
-| 项 | 值 |
-|---|---:|
-| 可定位队列快照的块决策 | 229 |
-| 其中 legal 中含快照里查不到的块（快照已过期） | **151** |
-| **严格可比（全部 legal 块都在快照中）** | **78** |
-| 其中 legal 顺序 == (tier, rank) | 71 |
-| 其中 legal 顺序 != (tier, rank) | **7** |
-
-**为什么不能据此下结论**：
-
-1. 队列快照只在 `FORCED_RELEASE_DECISION` 事件中记录，而块决策发生在其后的任意时刻；
-   105/229 的决策所涉及的块已经不在该快照里，说明快照与决策时刻不同步；
-2. 对那 7 个“不一致”的例子，legal 顺序呈 **rank 降序**（如 202, 201, 200…），
-   这与“快照过期导致 rank 错位”高度一致，**不能当作真实的排序依据**；
-3. 归档没有记录 legal 列表的**生成规则**（排序字段）。
-
-> **准确的结论是**：A2 的代价模型**从未重排**（601/601，不依赖快照，可靠）；
-> 但“`legal[:N]` 是否等于 A0 的 tier-aware 选择”**本归档无法验证**。
-> 因此 A2 的 4 个非零差异**既不能归因于 cost-aware，也不能归因于 tier**，
-> 只能标为 `NOT_ATTRIBUTABLE`。
-
-### A4.4 "同条目内按 LRU Rank 从尾部驱逐"（候选想法）
-
-M1 要求不得预先认定不劣于 A0。据此说明其必须满足的条件：
-
-1. `native_lru_rank` **不等于** prefix depth，不能直接当深度用；
-2. 必须保持物理前缀连续性（断在中段 vs 尾部的重算量差一个数量级）；
-3. 必须正确保持共享引用（一个块被多 Entry 拥有时，只有全部 owner 释放才可回收）；
-4. 必须尊重 eligibility tier（hashless 优先）。
-
-本归档的 `chain_prefix_broken = 1100` 说明断裂确实在发生，但**没有逐块的
-深度证据**可以判定断裂位置，因此**当前数据无法验证该想法**。
-
-### A4.5 身份缺口的性质判定
-
-| 可能性 | 判定 | 依据 |
-|---|---|---|
-| 工程同步问题 | **部分成立** | `legal_hashed_candidate_without_membership` 158 483 次主导，说明 legal 列表中的 hashed 候选未被赋予链成员关系 |
-| 观测缺失问题 | **成立** | 无 prefix 级命中历史、无 per-block 深度 |
-| 算法信息需求超出 Runtime 能力 | **不成立于本归档** | 因 A2 从未重排，算法实际未"需要"这些信息 |
-
----
-
-## A5. 统计与字段问题
-
-### A5.1 Repeats
-
-| 项 | 状态 |
-|---|---|
-| 本 campaign repeats | **1** |
-| 因此可估计的方差 | **无** |
-| 最需要重复验证的观测 | g05 +3712；g02 +1824；g08 +816；g09 +256 |
-| 单次观测能支持什么 | 仅"该 cell 存在差异"这一描述性事实 |
-| 单次观测**不能**支持什么 | 退化稳定存在；算法稳定更差 |
-
-**成本估算**（实测 wall time 33–36 s/run，engine init ≈30 s）：
-
-| 设计 | Runs | GPU 时间 |
+| 类 | forced 之前 | forced 之后 |
 |---|---:|---:|
-| 9 groups × 1 regime × 3 arms × 2 repeats | 54 | ≈ 32 min |
-| 9 groups × 2 regimes × 3 arms × 2 repeats | 108 | ≈ 65 min |
-| 9 groups × 2 regimes × 3 arms × 1 repeat（现状） | 54 | ≈ 32 min |
+| S1 回退 | 4 | 163 |
+| S2 退化几何 | 368 | 0 |
+| S4 边际代价全同 | 0 | 28 |
+| S5 真实可选差异 | 0 | **38** |
 
-> 结论：**GPU 时间不是约束**（一小时级）。约束是授权轮次与独立样本数（仅 9 个 group）。
+**关键观察**：全部 368 个"退化几何"决策都发生在**任何 forced release 之前**，
+此时压力尚未注入，缓存无内容可淘汰；全部 38 个 S5 都发生在 forced 之后。
 
-### A5.2 `physical_eviction_divergence`
+### 2.2 用记录几何做只读反事实（不是改造出来的条件）
 
-| 项 | 发现 |
+对 S5 中满足"内容已验证 + 损失非零"的 **66** 个决策，
+用 payload 里的 `block_memberships` / `effective_chain_lengths` / `decision_reuse_weights`
+重建 `DecisionGeometry`（即引擎当时使用的同一份几何），再跑穷举选择：
+
+```text
+decisions with verified content and nonzero loss:   66
+  geometry rebuildable and scorable:                66
+  every chain is already deepest-first:             66
+  exhaustive counterfactual differs from rank-LRU:  0
+```
+
+**这是对 RC2 核心问题的直接回答**：
+
+> **是的，存在 Cost-Aware 有机会改变选择却未改变的窗口：38 个（6.3%）。**
+> 但即使允许完全穷举，在那 66 个几何上代价最优集合**仍与 rank-LRU 相同**。
+> 原因是结构性的：**每条链内 rank 已是 deepest-first**，
+> 于是"最浅缺口最小"与"rank 最靠前"是同一集合。
+
+因此，缺的不是"决策自由度"，而是**能让代价最优集偏离 rank-LRU 的几何**——
+即链内 rank 与内容深度不单调的窗口。本归档中此类窗口为 **0**。
+
+---
+
+## 3. RC3 —— TTL 与模型尺度退化
+
+### 3.1 公式的设计尺度
+
+`docs/archive/phase1b-continuum/phase1b-continuum-implementation-decisions.md` §1.4：
+
+```text
+T_default = max(0, mu * ln(RepresentativePrefillReload / mu)),   mu = 1 second
+```
+
+`mu = 1 s` 是**参考时间尺度**：只有当代表性 prefill-reload **大于 1 秒**时 TTL 才为正。
+
+### 3.2 本轮的实测输入落在截断区
+
+profile（`prefill-reload-profile-interpreted.json`，`status: complete`）：
+
+| token | effective_cost_seconds | 状态 |
+|---:|---:|---|
+| 1024 | **0.0** | `INDISTINGUISHABLE_FROM_ZERO` |
+| 4096 | 0.303 | `RAW_POSITIVE_MEASUREMENT` |
+| 8192 | 0.454 | 同上 |
+| 12288 | 0.639 | 同上 |
+| **16384** | **0.986** | 同上（≈ μ） |
+| 24576 | 1.323 | 同上（> μ） |
+| 32256 | 1.937 | 同上 |
+
+决策时观测到的 `prefill_reload_seconds`：**0.0095 – 0.1711 s**，全部 < μ = 1 s。
+
+```text
+ln(0.0095..0.1711) < 0    =>  max(0, ·) = 0    =>  ttl_seconds = 0
+实测：ttl_seconds == 0 在 139 / 139 条候选记录上成立
+```
+
+同时还发现：**profile 1024-token 点本身已被判为"与零不可区分"**，
+且 `ranking_sensitivity_status = INCONCLUSIVE_COST_ORDERING`。
+
+### 3.3 因果关系：模型规模 → 输入落到截断区
+
+`prefill_reload` 随模型变小而变快。1.5B 模型下，整个可观测范围（≤ 0.17 s）
+远低于 `μ = 1 s`；按 profile，要超过 μ 需 ≳16k token。
+
+**因此 `ttl = 0` 不是公式错误，而是 `μ` 与当前部署规模不匹配的必然结果。**
+
+### 3.4 一个更重要的、此前未指出的机制
+
+在 `COLD_START` 分支中，`ttl_seconds = ttl_input.default_ttl_seconds`，
+而这个值是**启动时确定的常数**（`runtime.py` 构造参数），对所有请求相同。
+
+于是
+
+$$\text{deadline}_c-t=\underbrace{\text{ttl}_c}_{\text{同一常数}}-\text{elapsed}_c$$
+
+**只要 TTL 是常数，$q$ 的排序就只由 elapsed 决定，与常数取值无关。**
+所以：
+
+- `ttl = 0` 影响的是 **$q$ 的量级**（变成 ~1e-2…1e-9），不是**序**；
+- $q$ 与 recency 同序的根因是 **cold-start 使用常数 TTL**，而不是截断本身。
+
+### 3.5 哪些结论受 TTL 退化条件限制
+
+| 结论 | 是否依赖 TTL 退化 |
 |---|---|
-| 定义位置 | **不在本仓库**（全库 `grep` 无匹配），由外部分析器生成 |
-| 本归档取值 | **18 / 18 cell 全为 `{"A1": true, "A2": true}`** |
-| 其中 A1 与 A0 释放序列相同的 cell | 16 / 18（`selection_sequence` 逐项相同） |
-| 可比性 | `physical_eviction_signature` 含进程内 block_id 与 native hash，**跨 run 不可比** |
-
-**建议**（明确）：**弃用该字段**，或重新定义为"仅在 `selection_sequence` 不同时
-才计算的内容级分歧"，并在文档中写明其定义。当前形式会误导读者认为
-"A1/A2 在 18 个 cell 上都发生了物理淘汰分歧"，而这与事实不符。
-
-### A5.3 非零结果归因
-
-| cell | Δ | 策略上做了什么不同 | 可验证事实 | 是否发生真实前缀丢失 | 可观测重算变化 | 归因判定 |
-|---|---:|---|---|---|---|---|
-| **g05-moderate** | **+3712** | A1 释放 django，A0 释放 sphinx | $N_i$、$q$、need 全部来自事件；λ=0.5 打分可复现 | **是**：A0 侧 `E−C = 16`，A1 侧 `3728` | `aggregate_recomputed_tokens` 直接测量 | **强**（唯一一次可手算的确定差异） |
-| g05-deep | 0 | A1 先 django 再 sphinx（2 步） | 同上 | 最终 victim 集合等价 | 最终相同（10512 两侧） | 弱：多释放一次但被后续决策修正 |
-| g02-moderate | +1824 | Entry 释放序列**与 A0 相同** | 601/601 块选择为 legal 前缀；legal 排序依据不可恢复 | **不可判定**（无逐块证据） | 有 token 差 | **不可归因**（`NOT_ATTRIBUTABLE`）：Entry 相同、块未重排 ⇒ 无法区分快照/排序差异与运行间波动 |
-| g08-moderate | +816 | 同上 | 同上 | 同上 | 有 | 同上 |
-| g09-moderate | +256 | 同上 | 同上 | 同上 | 有 | 同上 |
-
-> 一个必须强调的点：**A2 的 4 个非零差异中，3 个（g02/g08/g09）发生在
-> Entry 序列与 A0 完全相同的 cell，且 A2 的块选择从未重排。**
-> 因此这些差异**在机制上找不到 cost-aware 的来源**。
+| `ttl = 0`（139/139） | 是（`μ` 尺度 + 1.5B） |
+| $q$ 序 == deadline 序 | **是**（cold-start 常数 TTL） |
+| A1 仅在 `q_ratio < a_ratio` 时偏离 | **否**（纯代数，对任意正 $q$ 成立） |
+| A1 偏离的一次是退化（g05） | **否**（该几何的 $q$ 差来自 elapsed，属该负载事实） |
+| A2 代价最优集 == rank-LRU（66/66） | **否**（原因是链内 deepest-first，与 TTL 无关） |
+| 复用信号无判别力 | **是**（cold-start 分支根本不使用 gap 样本） |
 
 ---
 
-# Part B —— M2 四方向的真实数据机会审计
+## 4. RC4 —— 复用历史全零的根因（更正）
 
-## B1. Block Idea 1：条件介入 / Native-LRU fallback
+### 4.1 上一版的错误
 
-| 审计项 | 实测 |
+我把 `TTL_HISTORY_INPUT_OBSERVED` 的四个字段（`eta_history_sample_count`、
+`queue_delay_history_sample_count`、`queue_delay_history_recent_sample_count`、
+`eta_completed_program_count`）当成了"全部历史"，得出"历史全零"。
+
+**这四个字段里没有 server-gap 或 external-tool 的样本计数。** 该观测事件根本
+不暴露它们（`runtime.py` 中 `TTL_HISTORY_INPUT_OBSERVED` 的 payload 只有这些字段）。
+
+### 4.2 实际的产生与消费链路
+
+| 环节 | 事实 |
 |---|---|
-| 身份证据覆盖率 | 434/601 cost_known（72.2%）；167/601 回退（27.8%） |
-| **实际介入（重排）次数** | **0 / 601** |
-| 与 A0 的可验证块级分歧 | 无法建立（`native_lru_victims` 是回显） |
-| 决策时可用的 Gate 特征 | prefill_reload、elapsed、deadline、chain_count、shared_block_count 等 |
-| 是否有观测到"值得偏离 LRU"的窗口 | **无**（从未偏离，故无收益/代价样本） |
+| 产生 | `ServerGapHistory.record` 在 `_handle_request_arrived` 触发，前提是该 program 有 `_pending_server_gaps`（在每次 TTL 决策时写入） |
+| 写入 | 每次"上一轮结束 → 下一轮到达"记一条 gap |
+| 消费 | `runtime.py:365` `self.server_gap_history.global_samples()`；`:367` `samples_for_tool(...)` → 传给 `TTLInput` |
+| 阈值 | `_select_history`：`len(global_samples) <= duration_history_threshold (100)` → **COLD_START** |
+| 生命周期 | history 实例在 per-run runtime 内；每个 run 新进程，**不跨 run 累积** |
+| 右删失 | 102 个 `W1B_RIGHT_CENSORED_REPLAY_WINDOW_ENDED`，说明窗口在 session 结束前被截断 |
 
-**判定：`NOT TESTABLE ON THIS ARCHIVE`（在现有归档上不可检验）。**
+### 4.3 每 run 能产生多少条
 
-理由不是"回退率太高"，而是更基本的：**A2 从未产生过与 legal 前缀不同的选择**。
-要让 Gate 有价值，必须先出现"cost-aware 会选不同的块"的窗口；
-本归档中此类窗口数为 0。
+该 run 有 **12** 个 `REQUEST_ARRIVED`、2 个 `PROGRAM_STARTED`、11 个 `TURN_FINISHED`。
+每个 program 的首次到达无 pending gap，其余每次到达记一条：
 
-> 这也修正了此前"51.7% 回退率是主要障碍"的说法：回退率确实高，
-> 但**在未回退的 434 次决策中，cost-aware 也一次都没有改变选择**。
-> 因此**障碍不是身份缺口，而是"没有可被改变的差异"**。
+```text
+估计上界 = 12 - 2 = 10 条 / run
+阈值     = 100
+可用样本 = 10 << 100  ⇒ _select_history 恒为 COLD_START
+```
 
-**M1 的警告已遵守**：本报告不尝试用已观测收益反推 Gate 阈值。
+### 4.4 根因判定
 
----
-
-## B2. Block Idea 2：Continuum 中间信号
-
-逐项核对（`local/b2_signal_audit.py` + `local/a2_field_variation.py`）：
-
-| 信号 | 决策时可得？ | 本归档变异 | 已知 Deadline 下是否有增量 |
-|---|---|---|---|
-| Tool Type | 字段在，但**恒为** `observed-agent-gap` | 1 个取值 | **无**（常数无法排序） |
-| Tool Duration | **不存在**该字段 | — | **无** |
-| Inter-request Gap History | 计数器存在，**样本数恒为 0** | 0 | **无** |
-| Queue Delay | 字段在，**恒为 0.0** | 1 个取值 | **无** |
-| Program Progress / Eta | 字段在，**恒为 1.0**（`FULLY_MEMORYFUL_COLD_START`） | 1 个取值 | **无** |
-| PrefillReload Cost | 有，18 个取值 | 54/54 决策中变化 | **与 block 数高度共线**；profile 自身标记 `INCONCLUSIVE_COST_ORDERING` |
-| 复用历史（命中次数/最近命中） | **不存在** | — | **无** |
-
-**判定：`NO DATA`。**
-
-三个必须区分的事实（M1 明确要求）：
-
-1. **信号在代码中存在** ≠ 可用：`queue_delay_history`、`eta_history` 类均存在，
-   但本归档 540 次观测全部为 0；
-2. **Runtime 存储过该字段** ≠ Block Selector 可读：`TTL_HISTORY_INPUT_OBSERVED`
-   只是观测事件，Block 决策事件 payload 中不含这些字段；
-3. **需要多少接线工作**：要让 Block 层读 tool type / gap 历史，需要扩展
-   `EvictionCandidate` / `EvictionContext` 契约 —— 属接口改动，不是配置改动。
-
-> 关键：本方向的**绑定约束不是信号质量，而是本 workload 不产生历史**。
-> 重复运行同一 workload 无法改变这一点（冷启动由结构决定）。
-
----
-
-## B3. Entry Idea 3：下游感知的释放排序
-
-| 审计项 | 实测 |
+| 候选原因 | 判定 |
 |---|---|
-| 候选间共享块 | 全部臂 54 个窗口共 **224** 个；A0 臂 18 个窗口共 77 个 |
-| 多候选窗口 | **32 / 54**（全臂） |
-| 不同释放顺序是否可能改变 victim set | **是**（g05 的 2 个决策实际改变了） |
-| A0 的键已包含哪些下游信息 | `(deadline, min native_rank over newly eligible, identity)` —— **已消费下游 rank** |
-| A1 的独立选择数 | 2（全在 g05），且**有害** |
-| One-step lookahead 是否可能优于 SF/ED | **本归档中不可能**：所有候选均 sufficient，单步即可达成目标，lookahead 分支从未触发 |
+| Workload 天然不产生历史 | **否**（每 run 约 10 条） |
+| Runtime 未记录 | **否**（`record` 路径存在且被到达事件触发） |
+| **生命周期错位 / 样本量不足** | **是，主因**：阈值 100 vs 每 run ≈10 条；且 per-process 不累积 |
+| 决策时读取错误 | **否**（`global_samples()` / `samples_for_tool()` 均被调用） |
+| 右删失 | 加剧因素：窗口被截断，无法观察"是否返回" |
 
-**判定：`LIMITED`（可测但机会极小，且需要身份证据）。**
+> **结论**：历史不是"不存在"，而是**样本量级差一个数量级**，
+> 且因为没有跨 run 的状态，重复运行同一 workload **不会**累积样本。
+> 上一版"该 workload 永不产生历史"的说法**撤回**。
 
-两点关键：
+### 4.5 一个可观测性缺陷（需记录）
 
-1. A0 的第二键 `min native_rank of newly eligible` **本身就是下游感知**。
-   因此"下游感知排序"相对 A0 的增量**小于相对纯 deadline 基线的增量**；
-2. 评价单位必须分开（M1 要求）：
-   - **边际单步**：只评估一次假设释放带来的增量；
-   - **完整循环**：继续走完整个释放循环后再评分。
-   本归档中因为单步即满足目标，两者**恰好相同**；但下一个 campaign 若出现多步，
-   必须预先固定使用哪一种。
+归档的 `TTL_HISTORY_INPUT_OBSERVED` **不暴露** `global_server_gap_samples_seconds`
+的长度，因此在归档层面**无法**核实样本数是否如推算的 10 条。
+要验证 RC6 的第 2 项，需要该事件补两个计数字段（属日志改动，非算法改动）。
 
 ---
 
-## B4. Entry Idea 4：部分尾部释放
+## 5. RC5 —— A1 的数学与归因
 
-| 审计项 | 实测 |
+### 5.1 精确翻转判据
+
+对全部 sufficient 候选（$N_i\ge\text{need}$）：
+
+$$\widehat R_i=q_i\,a_i,\qquad a_i=\lambda N_i+(1-\lambda)\,\text{need}$$
+
+$\lambda=0$ 取 $\arg\min q$；$\lambda>0$ 取 $\arg\min q\,a$。两者不一致的**精确条件**：
+
+$$\frac{q_H}{q_L}\;<\;\frac{a_L}{a_H}$$
+
+其中 $L$ 为低 $q$ 候选、$H$ 为高 $q$ 候选。
+
+上一版用 $N_L/N_H$，那是 $\lambda\to1$ 或 $N\gg\text{need}$ 的极限。二者关系：
+
+$$a_L/a_H \in [1,\;N_L/N_H]$$
+
+即近似形式**系统性高估**翻转倾向。本归档中两者结论一致（18/18，近似式假阳性 0），
+但**近似式不作为一般判据**。
+
+### 5.2 验证（精确式）
+
+```text
+forced-release decisions replayed            29
+runs with more than one step                 11     <- 覆盖多步释放
+first observed pick not among candidates      0     <- 用完整 (program, prefix) 键比较，无截断
+two-candidate decisions                      18
+exact ratio (a_L/a_H) correct                18 / 18
+approximate ratio (N_L/N_H) correct          18 / 18
+approximate false positives                   0
+```
+
+g05 两例（唯一翻转）：
+
+| run | need | N | q_ratio | **a_ratio** | N_ratio | flip |
+|---|---:|---|---:|---:|---:|---|
+| g05-deep | 114 | 649 / 993 | 1.4174 | **1.4509** | 1.5300 | 是 |
+| g05-moderate | 1 | 649 / 993 | 1.4174 | **1.5292** | 1.5300 | 是 |
+
+注意 moderate 的 `a_ratio`（1.5292）与 `q_ratio`（1.4174）**只差 7.9%**，
+说明该决策在 λ 变化下**接近临界**——这是"单次运行下不稳定"的另一条理由。
+
+### 5.3 五个层次必须分开（M1 要求）
+
+| 层次 | 本归档状态 |
 |---|---|
-| `need` 范围 | moderate **1**；deep **28–114** |
-| 单 Entry `N_i` 范围 | 200 – 1663 |
-| `N_i / need` 中位数 | **118.90×** |
-| 最大 | **993×** |
-| 最小 | 8.71× |
-| ≥ 2× 的窗口 | **18 / 18** |
-| ≥ 10× 的窗口 | 17 / 18 |
-| **解锁块 / 实际淘汰块**（中位数） | **17.3×**（最大 66.2×） |
+| **代数复算** | 完成：λ=0.5 打分 29/29 复现观测；精确判据 18/18 |
+| **观测选择重现** | 完成：`replay reproduces observed first pick: 29/29` |
+| **离线 λ 反事实** | 完成：λ=0 改变 2 / 29 个选择（均 g05） |
+| **Native 重算结果** | 仅 g05-moderate 有（A0 16 tokens vs A1 3728 tokens） |
+| **具内容身份的因果归因** | **未建立**（`content_level_causal_attribution: NOT_ESTABLISHED`） |
 
-逐窗口数据（A0 臂，18 个 forced 窗口）：
+### 5.4 保留与收窄
 
-| run | need | target | 解锁 | 实际淘汰 |
-|---|---:|---:|---:|---:|
-| g01-deep | 44 | 44 | 1663 | 44 |
-| g01-moderate | 1 | 93 | 200 | 93 |
-| g05-deep | 114 | 128 | 993 | 31 |
-| g05-moderate | 1 | 15 | 993 | 15 |
-| g09-moderate | 1 | 16 | 951 | 16 |
-
-（完整 18 行见 `local/b4_unlocked_vs_evicted.py`）
-
-**理论上限极高**：释放一个 Entry 解锁 200–1663 块，而 moderate 档只需 **1** 块、
-deep 档需 28–114 块。解锁量与需求量的中位数比值为 **118.9×**。
-
-**但必须立即说明三点限制**：
-
-1. **这个超额是 campaign 设计造成的，不是自然现象**。
-   配置中 `pressure.initial_shortage_blocks = 1`，moderate 档的 `need` 恒为 1。
-   真实 agent 服务的压力通常需要释放大量块。因此**不能把 118.9× 当作真实负载的
-   优化空间**；
-2. **超额 ≠ 浪费**。解锁但未立即驱逐的块仍留在缓存中，会在后续压力下被用掉。
-   本归档有 102 个右删失窗口（`W1B_RIGHT_CENSORED_REPLAY_WINDOW_ENDED`），
-   说明观测在 session 结束前被截断，**无法度量"后续是否被用掉"**；
-3. **实现成本高**：`RetentionEntrySnapshot.protected` 是单一 Boolean
-   （`snapshots.py`），`KVCacheManager.free()` 释放整请求。改为深度级保护需要：
-   改保护表示、改 `_eligible_block_ids` 的 per-block 判定、重新定义共享块的
-   "部分保护"语义、并通过全部冻结测试。
-
-**判定：`HIGH COST / HIGH RISK`。** 对课程项目最后一轮**不建议实现**。
+- 保留：g05-moderate 的 **+3712** 是观测事实，且该决策的选择可由打分精确复现；
+- 收窄：**单次运行不能证明稳定退化**；且该决策接近临界（§5.2），λ 微小变化即可翻转。
 
 ---
 
-# Part C —— 综合研究裁定
+## 6. RC6 —— 有界实验可识别性检查方案（不申请 GPU）
 
-## C1. 统一评价表
+### 6.1 第一步（零 GPU）：A2 是否存在真实机会 —— **已完成**
 
-| 方向 | 针对的问题 | 真实数据支持的事实 | 可观测的决策机会 | 新信号决策时可获取 | 能改变真实 Native 选择 | 可验证潜在收益 | 身份/Profile 依赖 | 工程复杂度 | 主要正确性风险 | 适合最后一轮 |
-|---|---|---|---|---|---|---|---|---|---|---|
-| **A1 q 重设计** | q 无独立信息 | q = σ(−elapsed/τ)，代数同一 | 18 个双候选决策，q span 最高 0.5 | ✗（无复用历史） | 只能通过乘积 | **无**（唯一翻转有害） | 中 | 低 | 低 | ✗（不值得） |
-| **A2 新 EntryLoss** | 引入真实复用概率 | 历史样本 **0 / 540** | 0（无数据） | ✗ | 不可测 | 不可测 | **高**（需新信号） | 中 | 中 | ✗（数据不存在） |
-| **A3 λ=0** | 移除有害罚项 | 29/29 重放可复现；λ 仅影响 g05 | 2 个决策 | 无需新信号 | **是**（改为 A0） | 消除 +3712，但不产生改善 | 低 | **零**（配置项） | 低（但需验证条件） | **✓ 作为对照臂** |
-| **A4 身份缺口** | 601 次决策有效性 | **0/601 实际介入** | 0 | — | — | — | — | — | 先修接口与快照同步 | ✗（先修接口） |
-| **B1 条件介入** | A2 该不该总是执行 | 从未偏离，故无窗口 | 0 / 601 | 有候选特征 | 不可测 | 不可测 | 高 | 中 | 中 | ✗ |
-| **B2 中间信号** | 引入 TTL 中间量 | 样本全 0；三个字段为常数 | 0 | ✗ | 不可测 | 不可测 | 高 | 中高（接口改动） | 高（双计） | ✗ |
-| **B3 下游感知排序** | 释放顺序影响 victim | 224 共享块；2/18 分歧 | 32/54 多候选，但全部单步 | 已有 rank | 是（2 次） | 边际极小 | 中 | 中 | 中 | △（仅离线） |
-| **B4 部分尾部释放** | 整 Entry 过度释放 | 超额 118.9×（**但为设计造成**） | 18/18 | 已有 | 是 | 理论大、实测无 | 高 | **高** | **高**（共享语义） | ✗ |
+| 检查 | 结果 |
+|---|---|
+| 有可选差异的窗口（S5） | **38 / 601** |
+| 其中能重建几何并穷举的 | 66（含 S5 与其他非零损失决策） |
+| 穷举结果与 rank-LRU 不同 | **0 / 66** |
+| 链内 rank 已 deepest-first | **66 / 66** |
 
-## C2. M4 与 M2 方案的相互关系（M1 要求逐条回答）
+**结论**：本归档中机会存在（38 个），但**在记录几何上代价模型不可能偏离**
+（因为链内 deepest-first）。这是一个**几何性质的结论**，可推广为：
 
-**① 新 EntryLoss 与 Idea 3 能否互补？**
-**不能在本归档互补。** EntryLoss 需要复用概率（数据为 0），Idea 3 需要下游 victim
-信息（数据部分存在）。两者都指向同一个缺失条件：**需要能区分"哪条前缀还活着"的信号**，
-而本 workload 不产生该信号。若将来有了历史数据，两者可互补：EntryLoss 给
-"该不该放"，Idea 3 给"先放谁"。
+> 只有当某条链内出现"更浅的块反而更冷"时，A2 才可能偏离。
+> 归档需记录这一条件是否出现——当前未记录。
 
-**② λ 的边际收益思路是否已包含在 Idea 3 中？**
-**实质上是。** λ 的项 $\lambda(N_i-\min(\text{need},N_i))^+$ 惩罚"超额解锁"，
-而 Idea 3 的 one-step lookahead 正是评估"这次释放会带来多少下游变化"。
-两者都在估计同一件事：**释放的边际价值**。差别仅在评价单位（单步 vs 完整循环）。
-实测支持这一判断：λ 的唯一作用就是选出"超额小"的候选，与 min-overshoot 规则
-25/29 一致。
+### 6.2 第二步（零 GPU）：TTL / 历史的产生—传递—消费核查
 
-**③ A2 身份缺口是否是 Idea 1/2 的共同前置障碍？**
-**是，但不是主要障碍。** 更主要的障碍是：**A2 的代价模型在本归档中从未产生
-与 legal 前缀不同的顺序**（0/601）。即使身份缺口完全修复，只要模型不改变顺序，
-Idea 1 的 Gate 也无可评之物。Idea 2 另有独立障碍（无历史样本、需接口改动）。
-
-**④ 若 A0/Sufficient-first 已覆盖绝大部分有效选择，是否应优先保留简单规则？**
-**是。** 实测支持：29 个 A1 决策中 27 个与 ED 一致、λ=0 时 27/29 与观测一致；
-A2 的 601 次决策全部等于 legal 前缀。**"简单规则"在本归档中已经覆盖了
-几乎全部实际选择**，而唯一偏离基线的那次是退化的。
-
-**⑤ Idea 4 是否因成本过高不适合本阶段？**
-**是。** 需要改 `RetentionEntrySnapshot.protected` 的语义、`KVCacheManager` 的
-释放粒度、共享块的部分保护定义，并通过全部冻结测试。课程项目最后一轮不应承担。
-
-## C3. 裁定建议
-
-| 方向 | 裁定 | 理由 |
+| 环节 | 现状 | 可否离线验证 |
 |---|---|---|
-| **A1 q 重设计（换 q 输入）** | **放弃** | 代数上无新信息；无复用数据；唯一偏离有害 |
-| **A2 新 EntryLoss** | **暂缓（前提未满足）** | 历史样本 0/540；需先产生非冷启动 workload |
-| **A3 λ=0** | **保留为必测对照** | 零成本（配置项），且是唯一能隔离"λ 是否致因"的手段 |
-| **A4 身份缺口修复** | **暂缓** | 修了也无对象（0/601 介入） |
-| **B1 条件介入 Gate** | **放弃（本阶段）** | 无可介入窗口，无法建立 Gate |
-| **B2 中间信号** | **放弃（本阶段）** | 三个字段为常数，其余无样本，且需接口改动 |
-| **B3 下游感知排序** | **仅保留离线** | 边际机会极小，且 A0 已消费下游 rank |
-| **B4 部分尾部释放** | **放弃（本阶段）** | 工程成本与正确性风险过高 |
+| 产生 | `ServerGapHistory.record` 存在，按到达事件触发 | 代码可读；**归档不记录样本数** |
+| 传递 | `TTLInput.global_server_gap_samples_seconds` | 代码可读；归档不记录 |
+| 消费 | `_select_history` 阈值 100 | 代码可读 |
+| 判定 | `mode == COLD_START` | **归档未记录 `TTLDecision.mode`** |
+| 处置 | `default_ttl_seconds` 为常数 | 可由 `ttl == 0` 反推 |
 
-**保留的候选方法（最多两个）：**
+**需要的最小可观测性补丁（日志，不是算法）**：
 
-1. **Sufficient-first + Earliest Deadline（SFED）** —— 不是新算法，而是
-   **必须被证伪的强基线**。本归档显示它覆盖了 29/29 中 27 个、且 λ=0 时
-   与 A1 完全一致。**它的价值在于：如果 A1 赢不过它，A1 的复杂度就没有依据。**
-2. **λ=0 的 A1（≡ SFED）作为候选最终方法** —— 条件是验证其在
-   `per_unit` 与 deadline 并列情形下不退化为 A0。本归档两条件都成立，
-   故等价；但这不是一般结论。
+1. `TTL_HISTORY_INPUT_OBSERVED` 增加 `global_server_gap_sample_count` 与 `tool_server_gap_sample_count`；
+2. 事件中记录 `TTLDecision.mode`；
+3. 块决策事件记录 `legal` 列表的**排序依据**与**当时的队列快照**（或 `lru_rank`）。
 
-> **明确不接受的方向**：任何以"更精细的代价函数"为核心的新方案。
-> 本归档给出的证据是：代价函数在两个层级都没有产生任何改变选择的实例。
+这三项使 §1.4 的 L2、§4.4 的样本数、§6.1 的几何性质都变成**可离线判定**。
+
+### 6.3 第三步：是否需要受控负载
+
+由 §2–§6.2，两种退化各自有独立的解除条件：
+
+| 退化 | 解除条件 | 现有 workload 能否满足 |
+|---|---|---|
+| 历史样本不足（10 ≪ 100） | 单 run ≥ 100 个 gap 样本（≈100+ 请求），或降低阈值 | **否**（12 请求/run） |
+| 几何不含可选差异 | 出现链内 rank 非单调的窗口 | **否**（66/66 单调） |
+| TTL 截断 | 代表性 prefill-reload > μ = 1 s（≳16k token） | 部分可（`max_model_len=32768`） |
+
+**结论：需要一个受控负载**，其设计目标应仅为"把三种退化解除"，而不是"制造收益"。
+这属于 Workload Redesign —— **未获授权**，本文只提出判据，不提出实现。
+
+### 6.4 第四步：若需 Native，先做机制确认
+
+在完整 campaign 之前，建议**少量机制确认运行**（数量由 M1 定，本文建议个位数）：
+
+| 确认项 | 判据 |
+|---|---|
+| 历史样本确实非零 | `TTL_HISTORY_INPUT_OBSERVED` 的样本计数 > 0 且 `mode != COLD_START` |
+| TTL 非退化 | `ttl_seconds > 0` |
+| 几何含可选差异 | 至少一个窗口的链内 rank 非单调 |
+| A2 确实偏离 | `selected_victims != native_lru_victims` 出现 ≥1 次 |
+
+**只有四项全部为真，才存在可评的"Cost-Aware 是否有效"的问题。**
+
+### 6.5 λ=0 / SFED 的定位
+
+保留为**强基线与消融对照**，但**不**升级为最终研究算法。
+理由：本归档中 λ=0 使 A1 与最早 deadline 一致（27/29），即与 A0 同源；
+它消除退化但不产生收益，因此只能作为"归因工具"。
 
 ---
 
-# Part D —— 最后一轮实验 Freeze Proposal
+## 7. RC7 —— 归档来源核验
 
-## D1. 核心研究假设
+### 7.1 可核对的事实
 
-> **H1**：A1 在 g05 的 +3712 退化由 λ 超额罚项**确定性**造成，而非运行间波动。
->
-> **H2**：在该 workload 上λ=0 的 A1（≡ SFED）与 A0 **完全等价**（无差异、无退化）。
-
-**H3（可预注册的强预测）**：由 A1.2b 的判据，A1 与 SFED 的差异**只能**出现在
-满足 $q_{\text{ratio}}<N_{\text{ratio}}$ 的 group 上。本归档中仅 g05 满足，
-因此预注册预测：**其余 8 组的 A1−SFED 必须为 0**。
-若出现任何偏离，则 A1.2b 的判据被否定，需重新建模。
-
-这两个假设**互相独立可证伪**，且共同回答本项目最关键的未决问题：
-**A1 的加权成本模型是否存在任何可测量的贡献？**
-
-选择该问题而非新算法的理由：
-
-- 本归档已证明 A2 从未介入、复用信号不存在、B1–B4 均不可测；
-- 因此**唯一还能在本预算内产生确定性结论的，是 λ 的因果作用**；
-- 该问题若答案为"λ 是唯一变异源且有害"，则 A1 的复杂度应被判定为无依据，
-  这对课程结题是一个**清晰、可信、可辩护的负结论**。
-
-## D2. 具体算法与信息
-
-| 臂 | `policy` | `phase2g_a1_lambda` | 说明 |
-|---|---|---|---|
-| **A0** | `continuum-a0-entry-native-lru` | — | 冻结基线 |
-| **A1** | `continuum-a1-entry-native-lru` | **0.5** | 冻结原样，不改代码 |
-| **SFED** | `continuum-a1-entry-native-lru` | **0.0** | 同一实现、仅改配置；λ=0 时分式退化为 $q\cdot\min(\text{need},N)$ |
-
-**关键**：SFED 臂**不需要任何代码改动**——`phase2g_a1_lambda` 已是配置项
-（`campaign/*.config.json`），且 λ=0 时若候选全部 sufficient，
-打分等价于"最旧 deadline 优先"。
-
-不使用任何新信号（本归档证明无可用信号）。
-
-## D3. 网格与独立样本
-
-| 项 | 设计 |
+| 检查 | 结果 |
 |---|---|
-| Groups | **全部 9 个**（g01–g09），不做 group 级筛选 |
-| Regime | **moderate only** |
-| Arms | 3（A0 / A1 / SFED） |
-| **Runtime repeats** | **2** |
-| **Runs** | 9 × 1 × 3 × 2 = **54** |
-| 独立统计单位 | **9**（group；repeats 不独立） |
+| `evidence-manifest.json` 条目 | 366 |
+| 逐文件 SHA-256 匹配 | **365** |
+| **不匹配** | **1** |
+| 缺失 | 0 |
+| `sha256-manifest.txt` 行数 | 370 |
+| 可解析且匹配 | **370 / 370** |
+| `sha256(evidence-manifest.json)` | `072d5264…` |
+| `execution-summary.json` 声称的 `inventory_sha256` | `072d5264…` ✓ 一致 |
+| run 目录（含 `run.json`） | **54**，`g01-short-extreme-deep-a0-repeat-1` … `g09-near-matched-moderate-a2-repeat-1` |
 
-**为什么只取 moderate（必须在预注册中写明的设计选择及其风险）**：
+### 7.2 唯一的失配文件
 
-- 依据：本归档 `deep` 档 18 个 cell 的 Δ **全部为 0**（含 A1 与 A2）；
-  所有 4 个非零观测都在 `moderate`；
-- **风险声明**：这是基于已观测结构的筛选，可能引入选择偏差；
-- **缓解**：保留**全部 9 个 group**（不剔除任何组），因此不是"只挑有差异的组"；
-- **代价**：`deep` 档在本次将不再被检验，其"无非零差异"的结论保持不变。
+```text
+evidence-manifest.json 记录的 execution-summary.json:
+  sha256 = 718e6e39…    size = 1091
+实际:
+  sha256 = e3b25be2…    size = 1635
+```
 
-若不接受该筛选，备选为 `9 × 2 regimes × 3 arms × 1 repeat = 54`（无 repeat），
-但那会放弃本轮最需要的方差估计，**不推荐**。
+差异内容为 `result_summary` 与 `wall_elapsed_seconds` 两段（共 +544 字节）。
+这说明 **`execution-summary.json` 在清单生成之后被写入过**——
+最可能是流水线"先写清单、后补最终统计"的顺序产物。
 
-## D4. 指标
+**但这只是推测，本文不把它当成结论**；它恰恰说明该文件不能用于链接外部 SHA。
 
-**主要指标**
+### 7.3 关于两个 archive SHA
 
-| 指标 | 定义 |
+```text
+M1 公布:  ac2b910e...   在解压后的归档树中【完全不出现】
+归档内:   d4aaf36e...   仅出现在 execution-summary.json 的 archive.archive_sha256
+```
+
+因此：
+
+- 本机这一份**内部自洽**（370/370 + 365/366）；
+- 但 **无法证明** 它等于 M1 公布 SHA 所指的 tar.gz；
+- 且唯一记录该 SHA 的文件本身**与清单不符**（§7.2），进一步削弱其可信度。
+
+**可交由 M1 核对的链接字段**（这些字段是归档真实的、且未被修改的部分）：
+
+| 字段 | 值 |
 |---|---|
-| `aggregate_recomputed_tokens` 的 paired Δ | A1−A0、SFED−A0，按 group 配对 |
-| **repeat 一致性** | 同一 (group, arm) 两次重复的 Δ 是否同符号/同量 |
+| `tooling_git_sha` | `7d0546ab6829060fa50fe40f5dcb47dd5212f091` |
+| `manifest_sha256` | `13cba945ddddb3c48f0970e1d0e483bce95a675101ef32aa5db4ceb5881f605d` |
+| `authorization_sha256` | `3ff0cf0294cdf9a6eca35822344c5ee3a4ba6db8c9d5d532c96c81442911c577` |
+| `report_sha256` | `ad879105e21aedbf86b2dd5d4199688be4b7587b051b6be3e45b0100ec643b0e` |
+| `profile_sha256` | `baf4497161e2326c5b884358350515abe35aff22d4d94a92b2acd9004db91cc6` |
+| `raw_profile_sha256` | `24c2d425a1f16164d4428bba09cc8614d6f57f52d17f8280ee92abf78d1aafb0` |
+| run ID 集合 | 见 §7.1（54 个） |
 
-**辅助指标**
-
-- `aggregate_actual_prefill_tokens`、`aggregate_new_suffix_tokens`（应恒为 0 差）；
-- `selection_sequence` 逐项比较（**唯一可信的选择分歧判据**）；
-- forced-release 决策数、`branch` 分布（单步 / per_unit）；
-- per-decision 的 λ 消融（离线，复用 `local/a1_lambda_ablation.py`）。
-
-**明确弃用**
-
-- `physical_eviction_divergence`（语义未定义、18/18 全 true）；
-- `physical_eviction_signature`（含进程内 ID，跨 run 不可比）；
-- `native_lru_victims` 作为"独立参照"（实测为 `legal[:N]` 回显）。
-
-## D5. 证据链要求
-
-| 层级 | 要求 |
-|---|---|
-| 物理决策 | 每臂的 `selection_sequence` 必须逐项记录并可跨 run 比较（逻辑 Entry 键） |
-| Block victim | 必须额外记录 **legal 列表的排序依据**（rank-only / tier-aware），否则无法判断是否重排 |
-| APC | `E`、`C`、`N` 三元组逐请求记录，且 `0 ≤ C ≤ E ≤ N` 校验 |
-| 重算 | 按请求聚合并按 group 配对；禁止用 proxy loss 代替 token |
-| 身份 | 区分 `HASHLESS_NO_CONTENT` / `CONTENT_UNVERIFIED` / `CONTENT_VERIFIED`，并**分别报告**分母 |
-
-## D6. 统计与不确定性
-
-| 项 | 方法 |
-|---|---|
-| 配对单位 | group（n = 9） |
-| 效应量 | 每个 group 的 Δ（两次 repeat 取均值；若两次不一致则**报为不稳定**） |
-| 区间 | 9 个点的 bootstrap 95%（明确标注 exploratory） |
-| **repeat 一致性检验** | 逐 (group, arm) 检验两次 Δ 是否相同；**这是本轮的主检验** |
-| 不做的检验 | 不做跨 group 的显著性检验（n=9，且 group 非随机抽样） |
-
-## D7. 预注册的成功 / 失败 / 不可判定条件
-
-**判据 1（λ 的因果性）**
-
-| 结果 | 判定 |
-|---|---|
-| g05：A1 的 +3712 在两次 repeat 中**均出现**，且 SFED−A0 = 0（两次） | **H1 成立**：λ 是确定性致因 |
-| g05：A1 的差异在两次 repeat 中**不一致** | **H1 被否**：+3712 属运行间波动 |
-| g05：A1 稳定退化但 SFED 也退化 | **H1 被否**：λ 不是唯一原因 |
-
-**判据 2（SFED 与 A0 的等价性）**
-
-| 结果 | 判定 |
-|---|---|
-| SFED 在 9 个 group × 2 repeats 中 Δ **全部为 0** | **H2 成立**：SFED ≡ A0 on this workload |
-| 存在任一 group 的 SFED Δ ≠ 0 | **H2 被否**：λ=0 不等于 A0，需重新审视等价条件 |
-
-**判据 3（整体）**
-
-| 结果 | 课程项目可支持的结论 |
-|---|---|
-| H1 成立 + H2 成立 | **"A1 的加权成本模型在本 workload 上无独立价值；其唯一的偏离是有害的。"** 这是一个完整、可辩护的负结论 |
-| H1 成立 + H2 被否 | 需要进一步分析 λ=0 与 A0 的差异来源（可能是 deadline 并列） |
-| H1 被否 | **所有此前的非零观测都应标记为不稳定**，结论改为"无稳定差异" |
-
-**判据 4（翻转判据 H3 的否证）**
-
-| 结果 | 判定 |
-|---|---|
-| 八个非 g05 组的 A1−SFED **全部为 0**，且 g05 不为 0 | **H3 成立**：判据可推广，可用于**预测**何时该用 λ |
-| 任一组 A1−SFED ≠ 0 但 q_ratio > N_ratio | **H3 被否**：判据失效，A1 的行为不可预测 |
-| g05 的 A1−SFED = 0 | 该 cell 在本次运行中未翻转 → 需查候选/队列是否变化 |
-
-**不可判定条件（必须预先声明）**
-
-- 若某 group 的两次 repeat 执行失败或 `checks` 任一为 false → 该 group 标为
-  `UNEVALUABLE`，不纳入统计，且**不得事后替换**；
-- 若 `selection_sequence` 记录缺失 → 该 group 的分歧判定为 `NOT_OBSERVABLE`。
-
-## D8. 执行成本
-
-| 项 | 估算 |
-|---|---|
-| Runs | 54 |
-| 单 run wall | ≈ 33–36 s（engine init ≈30 s + native ≈3.4 s） |
-| GPU 总计 | **≈ 32 分钟** |
-| 存储 | 与 v10 同量级（archive ≈ 73 MB） |
-| 分析 | 离线，复用现有脚本，≈ 1 小时 |
-
-> GPU 不是瓶颈。真正成本是授权轮次与人工分析。
-
-## D9. 该提案能支持什么结论
-
-**能支持：**
-
-- λ 项是否为本 workload 上唯一的确定性变异源；
-- **A1.2b 的翻转判据是否可预测哪些 group 会翻转**（H3）——这是本提案最可证伪的部分；
-- SFED（sufficient-first + earliest deadline）是否可作为最终方法的
-  **可辩护简化**；
-- 现有 4 个非零观测中哪些是稳定的。
-
-**不能支持：**
-
-- 任何关于 Block 层 cost-aware 价值的结论（本归档 A2 从未介入，且本提案不含 A2 臂）；
-- 任何关于复用信号的结论（无数据）；
-- 任何关于真实（非受控注入）负载的推广。
-
-**若 M1 希望同时检验 Block 层**，需把 A2 臂加入，并**先完成两项修复**：
-①让 `native_lru_victims` 成为真正独立的参照（当前是 `legal[:N]` 回显）；
-②在块决策事件中**记录 legal 列表的排序依据与当时队列快照**，否则无法判断
-是否发生了真实重排。当前 229 个块决策中仅 78 个能找到严格可比的快照。
-这会使 Runs 增至 72（9 × 3 arms × 2 repeats 加 A2 臂 × 2 repeats）或需另行设计。
+**建议**：以 `tooling_git_sha` + `report_sha256` + 54 个 run ID 作为跨份核对键，
+而不是 archive 级的 tarball SHA。
 
 ---
 
-## 附录：全部实测数字的来源
+## 8. Part A / B 的结论（按上述更正重述）
 
-| 数字 | 来源脚本 |
+### 8.1 Entry 层
+
+| 项 | 结论 | 强度 |
+|---|---|---|
+| `ttl = 0` 在 139/139 | 事实 | 强 |
+| $q$ 与 deadline 同序 | 由 cold-start 常数 TTL 推出，**不是 TTL=0 导致** | 强（代数） |
+| A1 精确翻转判据 | 18/18 | 强（代数 + 复算） |
+| λ 改变选择 2 次，均 g05 | 事实 | 强 |
+| g05-moderate = +3712 | 观测事实 | 强（但 n=1 repeat） |
+| 该退化稳定存在 | **不可判定** | — |
+| 复用概率型 EntryLoss | **无法在本归档构造**：样本 10 ≪ 100，非"不存在" | 中（§4） |
+
+### 8.2 Block 层
+
+| 项 | 结论 | 强度 |
+|---|---|---|
+| A2 使用代价打分 | 434/601 | 强 |
+| 代价打分改变 victim | **0/601** | 强 |
+| 有可选差异窗口（S5） | **38/601** | 强 |
+| 穷举反事实仍不偏离 | **0/66** | 强（几何重建 + 复算） |
+| 原因 | 链内 rank 已 deepest-first | 强（66/66） |
+| A2 vs 真正 A0 | **不可判定**（快照过期 151/229） | — |
+| 回退 167/601 | 事实；与 Gate 2 51.7% **不可比** | 强 |
+
+### 8.3 M2 四方向（受上述更正影响的部分）
+
+| 方向 | 修订后判定 |
 |---|---|
-| 29 决策逐项、λ/ED/MO 吻合数、q span | `a1_decisions_detail.py` |
-| **翻转判据 `q_ratio < N_ratio`，18/18 验证** | `a1_flip_criterion.py` |
-| λ 消融（29/29 重放、2 次改变） | `a1_lambda_ablation.py` |
-| 601 决策、434/167、身份状态、证据问题 | `a4_identity_gap.py` |
-| `selected == legal[:N]` 601/601 | `a4_divergence_check.py` |
-| legal 严格可比 78、tier 一致 71 / 不一致 7（**仅作快照同步性参考，不作结论**） | `a4_legal_strict.py` |
-| 字段变异、ttl=0 139/139、deadline 无并列 | `a2_field_variation.py` |
-| TTL 历史样本全 0、102 右删失 | `b2_signal_audit.py` |
-| 共享块 224、超额 118.9×、need 1–114 | `b4_unlocked_vs_evicted.py` |
-| run 耗时、指标复算 | `analysis/campaign-report-v2.json`、`execution-summary.json` |
+| **B1** 条件介入 | **`CONDITIONALLY TESTABLE`**：机会存在（38 个），但在本归档几何上无差异。需先让几何含非单调 rank |
+| **B2** 中间信号 | **`NO DATA BUT NOT ABSENT`**：历史存在（≈10/run），差一个数量级的样本；需 100+ 请求/run 或降阈值 |
+| **B3** 下游感知排序 | 不变：`LIMITED`（A0 已消费下游 rank；单步即满足） |
+| **B4** 部分尾部释放 | 不变：`HIGH COST`（超额是 `initial_shortage_blocks=1` 的设计产物） |
+
+---
+
+## 9. 本轮**不做**的裁定
+
+按 M1 要求，本文**不**给出最终研究方向裁定，也**不**申请执行 Part D 的 54-run Freeze。
+上一版的 Part C/D 视为**撤回**，待 §6 的可识别性检查完成后再提。
+
+---
+
+## 10. 边界
+
+- 未修改 `src/`；未运行 Native；未覆盖归档；
+- 全部 counterfactual 均标注为离线反事实，不是原始真实运行结果；
+- 逆向推断（如"候选按 rank 升序传入"）均给出依据，并标明其为推断；
+- `physical_eviction_divergence` 仍建议弃用（18/18 全 true，含 16 个 A1 序列与 A0 相同的 cell）。
+
+---
+
+## 11. 复现
+
+```bash
+# 需先解压 v10 archive 到 local/continuum-native-cost-aware-bounded-v10-final-evidence/
+python scripts/probes/entry_costaware_audit/rc2_opportunity.py            # S1-S5 分类
+python scripts/probes/entry_costaware_audit/rc3_scale_and_geometry.py     # 尺度 + 几何反事实
+python scripts/probes/entry_costaware_audit/rc5_exact_flip.py             # 精确判据 18/18
+python scripts/probes/entry_costaware_audit/rc7_archive_verify.py         # 归档核验
+python scripts/probes/entry_costaware_audit/a1_decisions_detail.py
+python scripts/probes/entry_costaware_audit/a1_lambda_ablation.py
+python scripts/probes/entry_costaware_audit/a4_identity_gap.py
+python scripts/probes/entry_costaware_audit/a4_divergence_check.py
+python scripts/probes/entry_costaware_audit/a4_legal_strict.py
+python scripts/probes/entry_costaware_audit/a2_field_variation.py
+python scripts/probes/entry_costaware_audit/b2_signal_audit.py
+python scripts/probes/entry_costaware_audit/b4_unlocked_vs_evicted.py
+```
