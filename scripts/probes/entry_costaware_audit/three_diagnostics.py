@@ -17,10 +17,15 @@ native APC hash chain, so it is the only place where all three E1 variants exist
   E1b  reuse ratio   block-level LCP of the native hash chain over the previous length
   E1c  reuse blocks  that LCP in blocks
 
-``v10 bounded`` (54 runs) has no cached-token observation, so E1a cannot be computed
-there at all. It does carry ``elapsed_since_ttl_decision_seconds``,
-``prefill_reload_seconds`` and ``retention_deadline_timestamp`` per candidate, which is
-what diagnostic B and C need.
+``v10 bounded`` (54 runs, 18 per arm) **does** carry ``native_cached_prefix_tokens``
+via ``VLLM_NATIVE_REQUEST_OBSERVATION``: 13 such events per run, 234 per arm. An
+earlier revision of this docstring claimed otherwise and was wrong. What v10 lacks is
+an A1 ``selection_trace`` for most decisions, and its timestamps span five clock
+domains, so precedence has to be taken from ``event_index``.
+
+The A1 arm is analysed separately by ``a1_three_diagnostics.py``, because that is the
+only place where the real per-candidate q, block count and expected cost of an actual
+A1 decision are recorded.
 
 Definition warning: E1a, E1b and E1c are not interchangeable, and this script always
 prints which one a number belongs to.

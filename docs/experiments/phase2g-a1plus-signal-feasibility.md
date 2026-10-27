@@ -10,7 +10,8 @@
 
 分析脚本：
 - `scripts/probes/entry_costaware_audit/m6_signal_feasibility.py`（M6 轨迹层）
-- `scripts/probes/entry_costaware_audit/three_diagnostics.py`（§9 三步诊断）
+- `scripts/probes/entry_costaware_audit/a1_three_diagnostics.py`（**§10，推荐：在 A1 臂上做**）
+- `scripts/probes/entry_costaware_audit/three_diagnostics.py`（§9，H1/v10 全局，仅作对照）
 
 ---
 
@@ -198,7 +199,12 @@ python scripts/probes/entry_costaware_audit/m6_signal_feasibility.py --runs-root
 
 ---
 
-## 9. 三步诊断（M1 指定顺序）
+## 9. 三步诊断（M1 指定顺序）—— H1 / v10 全局口径
+
+> **注**：本节在 H1 与 v10 全量数据上做。**§10 改为在 A1 臂上做**，
+> 因为 A1 臂记录真实 A1 决策（`selection_trace`），而 H1 不记录。
+> 两节结论在 A、B 上一致，在 C 上不同（H1 由块数主导，A1 由 q 主导）。
+> **以 §10 为准**，本节保留作为对照与“H1 为何不适用”的证据。
 
 脚本：`scripts/probes/entry_costaware_audit/three_diagnostics.py`。
 数据：H1（唯一同时有 native cached tokens 与 native hash 链的数据集）+ v10（有 elapsed / prefill 载荷）。
@@ -283,7 +289,8 @@ max |elapsed - (t - deadline)| = 0.000e+00        (n = 471)
    换句话说 H1 的排序实际上由 `prefill_reload × 块数` 决定，q 只是一个近乎常数的乘数。
    这也正是 λ 调参与几何平均都无收益的**实测**原因（不只是代数原因）。
 3. v10 相反：q 跨度中位 0.441（elapsed 最长到 594 s），所以 v10 里 q 是主要杠杆之一。
-   但 v10 没有 native cached-token 观测，E1a 不可算，无法在那里验证信号。
+   而且 v10 **确实有** native cached-token 观测（`VLLM_NATIVE_REQUEST_OBSERVATION`，
+   每 run 13 条），所以 E1a 在那里可算——这一点上一版写错了，已在 §10 更正。
 
 > 三步合起来给出的判断很干脆：
 > **A** 决策时刻 E1 无候选间差异（E1b 退化、E1a 被删失、E1c 就是 N）；
@@ -294,14 +301,149 @@ max |elapsed - (t - deadline)| = 0.000e+00        (n = 471)
 
 ### 9.4 由此产生的实现前门槛（建议由 M1 裁定）
 
-| 门槛 | H1 | v10 |
-|---|---:|---:|
-| 决策时刻 E1a 跨候选有差异的比例 | 0% | 不可算 |
-| q 的决策内 max/min ≥ 1.1× | 中位 1.002×，达标率极低 | 中位 6.78× |
-| 代价最优/最差 ≥ 2× | 71.1% | 87.5% |
+| 门槛 | H1 | v10（全部决策） | **v10 A1 臂（真实 trace）** |
+|---|---:|---:|---:|
+| 决策时刻 E1a 跨候选有差异的比例 | 0% | 可算（见 §10） | **0%**（47 行全为 1.0） |
+| q 的决策内 max/min ≥ 1.1× | 中位 1.002×，达标率极低 | 中位 6.78× | 跨度中位 0.441 |
+| 代价最优/最差 ≥ 2× | 71.1% | 87.5% | 16/18（非退化子集 9.9× 中位） |
 
-H1 同时缺"E1a 有变异"和"q 有杠杆"两项；v10 有"q 有杠杆"但缺 E1a。
-**没有任何一个现有数据集同时满足两项**，这是本轮最硬的结论。
+H1 同时缺"E1a 有变异"和"q 有杠杆"两项；v10 有"q 有杠杆"，
+而且 E1a **可算**——只是算出来恒为 1.0（见 §10）。
+所以"没有任何数据集能回答"这句话要修正为：
+**能测量的地方 E1a 无变异；E1a 有变异的地方（H1 请求级）不在决策时刻。**
+
+---
+
+## 10. 改在 A1 臂上做：三步诊断（替换 H1）
+
+脚本：`scripts/probes/entry_costaware_audit/a1_three_diagnostics.py`。
+数据：v10 bounded 的 **A1 臂**（18 runs），即真实 A1 决策发生的地方。
+
+### 10.1 为什么 A1 臂比 H1 强
+
+| 能力 | H1 | v10 A1 臂 |
+|---|---|---|
+| 真实 A1 决策记录 | **无**（H1 无 `selection_trace`） | **有**，29 条带 trace |
+| 每候选的 q | 需按公式复算 | **直接记录**在 trace 里 |
+| 每候选的 `expected_recompute` / `new_blocks` | 只能从块数推 | **直接记录** |
+| native cached-token 观测 | 有（但决策时刻被删失） | **有**（每 run 13 条） |
+| q 的决策内杠杆 | 中位 1.002×（几乎为常数） | 跨度中位 **0.441** |
+
+先更正上一节的一处事实错误：v10 **有** native cached-token 观测。
+`VLLM_NATIVE_REQUEST_OBSERVATION` 每 run 13 条，三臂各 234 条，带
+`native_cached_prefix_tokens` 与 `native_prompt_tokens`。
+之前写"v10 无 cached token，E1a 不可算"是错的。
+
+### 10.2 覆盖：有效样本是 18 个决策
+
+| 项 | 数量 |
+|---|---:|
+| A1 释放决策 | 600 |
+| 带 `selection_trace` | 29 |
+| **带 ≥2 个候选（真正有选择）** | **18** |
+| 每 trace 候选数 | 1 个 × 11，2 个 × 18 |
+| 有 trace 的 run 数 | 18（每 run 1–2 条） |
+
+571 个决策只释放单一候选，无法承载"信号能否改变排序"的比较。
+**瓶颈是样本量，不是可观测性** —— 这一点与之前几轮的判断不同，需要明确。
+
+### 10.3 A. E1 分布是否集中：是，而且是因为负载本身不产生 miss
+
+先看负载的原始复用结果（agent program，排除 `pressure:*`）：
+
+| | a0 | a1 | a2 |
+|---|---|---|---|
+| 首个请求命中 | 18 / 36 | 18 / 36 | 18 / 36 |
+| 之后所有请求命中 | **180 / 180** | **180 / 180** | **180 / 180** |
+
+两点与 H1 完全不同：
+
+1. **首个请求也会命中**（18/36，`cached = 112` tokens）。原因是 v10 的两个 program
+   共享一段 112 token 的公共前缀，所以"命中"不必来自同 program 的重复。
+   在 H1 里首个请求恒为 miss（537/537）。
+2. **之后所有请求都命中**，三臂一致。也就是说**该负载在首轮之后从不 miss**。
+
+因此按 A1+ 口径计算的 E1a：
+
+| 项 | 值 |
+|---|---|
+| 参与评估的候选行 | 47 |
+| 每行的先验观测数 | **全部为 5** |
+| E1a 取值 | **恒为 1.0**（1 个取值，CV = 0） |
+
+> **结论：E1a 在 A1 臂上可测，但恒为 1.0。
+> 退化来自负载没有复用失败，而不是来自观测窗口被删失。**
+> 这与 H1 的机理不同（H1 是删失），但判定相同：该信号在本数据上无法区分候选。
+
+### 10.4 B. E1 / E6 与 elapsed 的相关性：q 就是 elapsed，E1 不相关（因为不变）
+
+先验证公式，用 trace 里记录的 deadline 与决策时刻重算：
+
+```text
+max |sigmoid((deadline - t)/tau) - 记录 q| = 0.000e+00     (n = 47)
+```
+
+| 配对 | Spearman | n |
+|---|---:|---:|
+| elapsed（= t − deadline）vs **q** | **−1.000000** | 47 |
+
+**q 与 elapsed 是同一个量**：`elapsed = t − deadline`，
+`q = sigmoid((deadline − t)/30) = sigmoid(−elapsed/30)`，代数恒等，不是统计相关。
+
+- E1a 与 elapsed 的相关性**无法计算**，因为 E1a 在这 47 行上没有方差；
+  这不是"相关性低"，是"没有可比较的变异"。
+- **E6 仍不可测**：v10 的前缀长度由 replay materializer 给定，增长速率描述的是生成器。
+- q 的分布在这里是有杠杆的：跨候选 11 个取值，决策内跨度中位 0.441、最大 0.5。
+  **所以 A1 臂是理论上能让新信号起作用的地方**，只是 E1a 恰好没有信息。
+
+### 10.5 C. 候选之间的重算代价差异是否够大：够大，但含退化成分
+
+18 个有 ≥2 候选的真实 A1 决策：
+
+| 量 | p50 | p90 | max |
+|---|---:|---:|---:|
+| `expected_recompute` max/min（全部） | 16.33 | 1.419e+09 | 1.631e+09 |
+| `expected_recompute` max/min（< 1e6） | 9.87 | 2114 | 2144 |
+| `new_blocks` max/min | 1.53 | 8.1 | 8.1 |
+| `expected_recompute` 绝对差（< 1e6） | 235.2 块 | 405.2 | 414 |
+| 最小值为近零的决策 | **2 / 18** | | |
+| 前两名相差 < 2× 的决策 | **4 / 18** | | |
+
+读法：
+
+1. 代价差异总体很大（非退化子集中位 **9.87×**，绝对差中位 235 块），
+   所以"选对"确有实义。
+2. 但 1e9 量级的比值来自 q 塌缩到 ~1e-9 的候选：这类候选的
+   `expected_recompute ≈ 0`，A1 必然选它，**任何新信号都改不了**。
+   把它与正常决策混在一起统计会夸大"差异够大"的印象。
+3. `new_blocks` 的 max/min 只有 1.53（中位），说明在这批决策里候选的块数差异不大，
+   **起决定作用的是 q（即 deadline）**。这与 §9.2 在 H1 上发现的相反。
+
+### 10.6 三步诊断在 A1 臂上的合并判断
+
+| 诊断 | A1 臂结果 | 与 H1 相比 |
+|---|---|---|
+| A 分布集中 | E1a 恒 1.0（负载无 miss） | 机理不同（删失 vs 无失败），结论相同 |
+| B 与 elapsed 相关 | q ≡ elapsed（代数恒等）；E1a 无方差 | 一致 |
+| C 代价差异 | 非退化子集 9.87×，但 2/18 为 q 塌缩 | 杠杆由 q 主导，而非块数 |
+
+由此：
+
+- **A1 臂是可行的实验位置**，因为它记录真实 trace 且 q 有杠杆；
+- **但 E1a 在该负载上无信息**（全部命中），所以在这里也验不出"E1 能否改变排序"；
+- **E6 依旧不可测**；
+- **真正的限制是 18 个选择点**，任何"信号有效/无效"的结论都只有这个样本量。
+
+### 10.7 因此下一步的建议（仍不申请 Campaign）
+
+1. **不要再用 H1 做信号实验** —— 它连 A1 决策都没有记录。
+2. **A1 臂可作为唯一可用的验证位置**，但在动 q 构造之前，先解决两件事：
+   - **样本量**：18 个选择点不足以判定任何信号。需要扩大 run 数，或让 A1 在
+     更多时刻面临 ≥2 候选（当前压力集中在 615 s 一次）。
+   - **E1a 无变异**：需要在会产生 miss 的负载上测（例如真的逐出后继而被复用，
+     而不是首轮之后全命中）。当前 v10 负载在首轮后从不 miss，这是**负载性质**，
+     不是实现问题。
+3. 若坚持在现负载上验证信号，只能验证与 miss 无关的信号；E1a 不在其列。
 
 ---
 
@@ -314,8 +456,11 @@ python scripts/probes/entry_costaware_audit/m6_signal_feasibility.py
 # M6 逐调用模式：需要 M6 的 sidecar 目录
 python scripts/probes/entry_costaware_audit/m6_signal_feasibility.py --runs-root <dir>
 
-# 三步诊断：需要 H1 与 v10 解包（均在 gitignore 目录下）
+# H1 与 v10 的三步诊断（需要两者解包，均在 gitignore 目录下）
 python scripts/probes/entry_costaware_audit/three_diagnostics.py
+
+# A1 臂的三步诊断（只需要 v10 解包，推荐用这个）
+python scripts/probes/entry_costaware_audit/a1_three_diagnostics.py
 ```
 
 脚本只读，不写文件；聚合数字由解析 `docs/continuum-w1c-feasibility-pilot.md` 的表格得到，
