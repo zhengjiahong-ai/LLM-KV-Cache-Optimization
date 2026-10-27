@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 import kvopt.profiling.continuum_bounded_report as report_module
 import kvopt.workload.continuum_bounded_pipeline as pipeline_module
 
@@ -189,6 +191,6 @@ def test_a1_diagnostics_ignore_empty_allocation_traces_and_match_release() -> No
     result = report_module._a1_diagnostics(SimpleNamespace(events=events))
 
     assert result["decision_count"] == 1
-    assert result["q_spans"] == [0.5]
+    assert result["q_spans"] == pytest.approx([0.5])
     assert result["earliest_deadline_match_count"] == 0
     assert result["minimum_overshoot_match_count"] == 1
