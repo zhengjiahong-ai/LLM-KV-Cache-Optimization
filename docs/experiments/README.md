@@ -19,6 +19,7 @@ This is a **navigation index**, not a replacement for primary evidence, historic
 | W1-A real Agent acquisition | [PR #72](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/72), [status](../research-status.md) | 10 acquired tasks, mostly right-censored; local tokenizer/wrapper provenance is not Native APC evidence |
 | W1-B Native bounded smoke | [PR #73](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/73) | **ACCEPTED / CLOSED** (M1 approved, merged 2026-10-23 as `fc9626da`); 12-run bounded comparability/mechanism smoke only; deltas remain descriptive, not formal performance effects or content-level causal attribution |
 | W1-C expanded Agent workload | [Current authorization](../research-status.md) | Sampling design plus S50/S100 feasibility pilot; full ~100-task acquisition **not authorized** |
+| Bounded Native Cost-Aware evaluation | [Final execution report](../continuum-native-cost-aware-bounded-results.md) | 54/54 runs complete; A1 0/1/8 and A2 0/3/6 better/worse/tied across nine groups; pending M1 result review |
 
 ## Interpret the three algorithm layers correctly
 
