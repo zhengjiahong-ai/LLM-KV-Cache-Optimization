@@ -62,6 +62,8 @@ def test_materialize_campaign_freezes_54_runs_and_cross_arm_time(tmp_path: Path)
     assert sample["backend_options"]["phase2g_block_policy"] == "A2"
     assert sample["controlled_sparse_replay"]["maximum_concurrent_requests"] == 2
     assert sample["cache"]["block_override"] == 2048
+    assert sample["backend_options"]["phase2g_unique_protected_blocks"] == 1827
+    assert sample["backend_options"]["pressure_prompt_tokens"] == 428 * 16
     assert sample["backend_options"]["pressure_prompt_tokens"] <= 32768
     validation = validate_campaign(output / "manifest.json")
     assert validation["status"] == "PASS"

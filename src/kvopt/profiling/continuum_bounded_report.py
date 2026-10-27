@@ -204,7 +204,7 @@ def evaluate_run(run_dir: Path, binding: dict[str, Any]) -> dict[str, Any]:
     physical_signature = _eviction_signature(run)
     checks = {
         "execution_success": run.manifest.get("status") == "success",
-        "config_binding": run.manifest.get("config_sha256") == binding["config_sha256"],
+        "config_binding": _sha(run_dir / "config.json") == binding["config_sha256"],
         "trace_binding": run.manifest.get("trace_sha256") == binding["trace_sha256"],
         "request_and_input_completeness": complete,
         "logical_boundary_count": len(time_events) == len(expected_boundaries),

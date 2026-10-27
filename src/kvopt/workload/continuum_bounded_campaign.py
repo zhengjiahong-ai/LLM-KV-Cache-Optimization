@@ -81,11 +81,35 @@ def _selected_calls(session: dict[str, Any]) -> list[dict[str, Any]]:
     return selected
 
 
+def _unique_chained_prefix_blocks(
+    prefix_token_ids: list[list[int]], *, block_size: int = 16
+) -> int:
+    """Count physical prefix blocks while preserving parent-chain identity."""
+
+    trie: dict[tuple[int, ...], dict[Any, Any]] = {}
+    count = 0
+    for tokens in prefix_token_ids:
+        node = trie
+        aligned = len(tokens) // block_size * block_size
+        for offset in range(0, aligned, block_size):
+            block = tuple(tokens[offset : offset + block_size])
+            child = node.get(block)
+            if child is None:
+                child = {}
+                node[block] = child
+                count += 1
+            node = child
+    return count
+
+
 def _pressure_geometry(
-    *, program_prefix_tokens: dict[str, int], regime: str,
+    *,
+    program_prefix_tokens: dict[str, int],
+    unique_protected_blocks: int,
+    regime: str,
     minimum_capacity_blocks: int = 2048,
 ) -> tuple[int, int, int]:
-    protected_blocks = sum(value // 16 for value in program_prefix_tokens.values())
+    protected_blocks = unique_protected_blocks
     if regime == "moderate":
         shortage_blocks = 1
         minimum_pressure_blocks = 32
@@ -165,11 +189,12 @@ def materialize_campaign(
         replay_tokens: dict[str, list[int]] = {}
         right_censored: list[str] = []
         program_prefix_tokens: dict[str, int] = {}
+        program_prefix_token_ids: list[list[int]] = []
         for session, calls in zip(group["sessions"], calls_by_session, strict=True):
             program_id = session["instance_id"]
-            program_prefix_tokens[program_id] = len(
-                calls[-2]["submitted_token_ids"]
-            ) // 16 * 16
+            penultimate_tokens = calls[-2]["submitted_token_ids"]
+            program_prefix_tokens[program_id] = len(penultimate_tokens) // 16 * 16
+            program_prefix_token_ids.append(penultimate_tokens)
             naturally_terminal = session["source_outcome"] == "NATURAL_COMPLETION"
             for replay_turn, call in enumerate(calls, start=1):
                 request_id = call["request_id"]
@@ -192,9 +217,13 @@ def materialize_campaign(
                         "tool_gap_seconds": None if terminal else 0.0,
                     }
                 )
+        unique_protected_blocks = _unique_chained_prefix_blocks(
+            program_prefix_token_ids
+        )
         for regime in protocol["pressure_regimes"]:
             pressure_tokens, shortage_blocks, capacity_blocks = _pressure_geometry(
                 program_prefix_tokens=program_prefix_tokens,
+                unique_protected_blocks=unique_protected_blocks,
                 regime=regime,
             )
             if capacity_blocks > available_blocks:
@@ -304,9 +333,7 @@ def materialize_campaign(
                         "w1b_right_censored_end_request_ids": right_censored,
                         "program_prefix_tokens": program_prefix_tokens,
                         "pressure_prompt_tokens": pressure_tokens,
-                        "phase2g_unique_protected_blocks": sum(
-                            value // 16 for value in program_prefix_tokens.values()
-                        ),
+                        "phase2g_unique_protected_blocks": unique_protected_blocks,
                         "phase2g_release_policy": release_policy,
                         "phase2g_block_policy": block_policy,
                         "phase2g_a1_lambda": 0.5,
