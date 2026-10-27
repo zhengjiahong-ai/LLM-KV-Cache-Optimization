@@ -142,3 +142,53 @@ def test_resource_preflight_runs_in_disposable_process(
     )
 
     assert result == {"status": "PASS"}
+
+
+def test_a1_diagnostics_ignore_empty_allocation_traces_and_match_release() -> None:
+    key = ["program-a", "prefix-a"]
+    events = (
+        {
+            "event_type": "COST_AWARE_RELEASE_DECISION",
+            "payload": {"selection_trace": []},
+        },
+        {
+            "event_type": "FORCED_RELEASE_DECISION",
+            "payload": {
+                "required_blocks": 3,
+                "selected_releases": [
+                    {"program_id": key[0], "prefix_id": key[1]}
+                ],
+            },
+        },
+        {
+            "event_type": "COST_AWARE_RELEASE_DECISION",
+            "payload": {
+                "selection_trace": [
+                    {
+                        "key": key,
+                        "scores": [
+                            {
+                                "key": key,
+                                "reuse_proxy": 0.2,
+                                "new_blocks": 4,
+                                "deadline": 2.0,
+                            },
+                            {
+                                "key": ["program-b", "prefix-b"],
+                                "reuse_proxy": 0.7,
+                                "new_blocks": 5,
+                                "deadline": 1.0,
+                            },
+                        ],
+                    }
+                ]
+            },
+        },
+    )
+
+    result = report_module._a1_diagnostics(SimpleNamespace(events=events))
+
+    assert result["decision_count"] == 1
+    assert result["q_spans"] == [0.5]
+    assert result["earliest_deadline_match_count"] == 0
+    assert result["minimum_overshoot_match_count"] == 1

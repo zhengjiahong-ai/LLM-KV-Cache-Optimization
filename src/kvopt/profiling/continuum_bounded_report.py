@@ -57,17 +57,37 @@ def _eviction_signature(run: object) -> list[str]:
 
 
 def _a1_diagnostics(run: object) -> dict[str, Any]:
-    events = _events(run, "COST_AWARE_RELEASE_DECISION")
+    events = [
+        event
+        for event in _events(run, "COST_AWARE_RELEASE_DECISION")
+        if event.get("payload", {}).get("selection_trace")
+    ]
     spans: list[float] = []
     selected: list[list[str]] = []
     earliest_matches = 0
     overshoot_matches = 0
     comparison_count = 0
     forced = _events(run, "FORCED_RELEASE_DECISION")
-    for event, decision in zip(events, forced, strict=False):
-        traces = event.get("payload", {}).get("selection_trace", [])
-        if not traces:
+    unused = list(events)
+    for decision in forced:
+        selected_release_keys = tuple(
+            (str(row["program_id"]), str(row["prefix_id"]))
+            for row in decision.get("payload", {}).get("selected_releases", [])
+        )
+        matching = [
+            event
+            for event in unused
+            if tuple(
+                (str(trace["key"][0]), str(trace["key"][1]))
+                for trace in event.get("payload", {}).get("selection_trace", [])
+            )
+            == selected_release_keys
+        ]
+        if len(matching) != 1:
             continue
+        event = matching[0]
+        unused.remove(event)
+        traces = event.get("payload", {}).get("selection_trace", [])
         required = int(decision.get("payload", {}).get("required_blocks", 0))
         for trace in traces:
             scores = trace.get("scores", [])
