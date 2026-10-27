@@ -1,8 +1,8 @@
 # Bounded Native Cost-Aware evaluation results
 
-Status: **EXECUTION COMPLETE / PENDING M1 RESULT REVIEW**
+Status: **ACCEPTED / CLOSED — M1 bounded result review (2026-10-27)**
 
-This report closes execution of the M1-authorized low-cost bounded evaluation.
+This report records M1 acceptance of the completed low-cost bounded evaluation.
 It is an exploratory paired comparison on nine predefined two-task workload
 groups, not a population-level performance claim.
 
@@ -95,3 +95,18 @@ must not reinterpret this sealed execution.
 The large archive remains external to Git. Native run data were not modified
 by the offline A1 diagnostics correction; the original report is retained
 beside the authoritative v2 report.
+
+## M1 closeout decision (2026-10-27)
+
+M1 accepts the reported 54/54 successful Native executions and the **bounded,
+exploratory negative finding**: on these nine predefined groups, neither frozen
+A1 nor frozen A2 showed a recomputation-token improvement over A0. This closes
+the Bounded Native Cost-Aware evaluation; it does **not** demonstrate universal
+algorithm inferiority, run-to-run stability, or content-level causal attribution.
+
+The external evidence archive has been handed to M4 for subsequent research
+analysis, as confirmed by M1. The archive bytes were **not independently
+rehashed or replayed as part of this M1 closeout review**; the SHA values above
+are the submitted evidence identifiers. No new Profile or GPU campaign runs
+are requested. Any additional algorithm or evaluation campaign requires a
+separate M1 decision.
