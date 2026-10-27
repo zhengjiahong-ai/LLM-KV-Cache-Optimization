@@ -114,6 +114,21 @@ class RuntimeCoordinator:
             tuple[ProgramIdentity, RequestIdentity], tuple[float, float, str]
         ] = {}
 
+    def seed_server_gap_history(
+        self, records: tuple[ServerInterRequestGapRecord, ...]
+    ) -> None:
+        """Initialize independent observed history before any tested lifecycle."""
+        if not isinstance(records, tuple) or any(
+            not isinstance(record, ServerInterRequestGapRecord) for record in records
+        ):
+            raise TypeError("records must be a tuple of ServerInterRequestGapRecord")
+        if self.server_gap_history.global_samples():
+            raise ValueError("server-gap history is already initialized")
+        if self._request_arrivals or self._served_turn_counts or self._pending_server_gaps:
+            raise ValueError("server-gap history must be seeded before tested lifecycle")
+        for record in records:
+            self.server_gap_history.record(record)
+
     def scheduler_candidates(
         self, request_ids: tuple[RequestIdentity, ...]
     ) -> tuple[SchedulingCandidate, ...]:

@@ -26,6 +26,14 @@ from .logging import (
     StructuredLogEvent,
     StructuredLogRecord,
 )
+from .replay_clock import (
+    LOGICAL_CLOCK_DOMAIN,
+    NATIVE_CLOCK_DOMAIN,
+    ControlledSparseReplayClock,
+    LogicalTimeAdvance,
+    LogicalTimeBoundary,
+    assert_identical_time_sequences,
+)
 from .selection import (
     BlockEligibilitySnapshot,
     EligibilityPreparation,
@@ -56,12 +64,15 @@ from .types import (
 )
 
 __all__ = [
+    "LOGICAL_CLOCK_DOMAIN",
+    "NATIVE_CLOCK_DOMAIN",
     "BlockEligibilitySnapshot",
     "BlockEvicted",
     "BlockIdentity",
     "BlocksObserved",
     "Clock",
     "ContinuumConfig",
+    "ControlledSparseReplayClock",
     "EligibilityPreparation",
     "EligibilityTier",
     "EvictedRequestQueueDelayRecord",
@@ -75,6 +86,8 @@ __all__ = [
     "InputSource",
     "LifecycleEvent",
     "LifecycleEventType",
+    "LogicalTimeAdvance",
+    "LogicalTimeBoundary",
     "NullEventSink",
     "PrefillContextTokenCountRecord",
     "PrefixAssociationSnapshot",
@@ -104,4 +117,5 @@ __all__ = [
     "ToolGapEnded",
     "ToolGapStarted",
     "TurnFinished",
+    "assert_identical_time_sequences",
 ]

@@ -165,10 +165,10 @@ class ExperimentEvent:
         request_id: RequestIdentity | None = None,
         prefix_id: PrefixIdentity | None = None,
         payload: Mapping[str, object] | None = None,
-    ) -> "ExperimentEvent":
+    ) -> ExperimentEvent:
         frozen = _freeze_json({} if payload is None else payload)
         if not isinstance(frozen, FrozenExperimentPayload):
-            raise AssertionError("mapping payload must freeze to FrozenExperimentPayload")
+            raise TypeError("mapping payload must freeze to FrozenExperimentPayload")
         return cls(
             event_type=event_type,
             timestamp=timestamp,
@@ -317,6 +317,8 @@ class ExperimentForcedReleaseObserver:
                 "prefill_reload_seconds": candidate.prefill_reload_seconds,
                 "eta": candidate.eta,
                 "queue_delay_t_seconds": candidate.queue_delay_t_seconds,
+                "ttl_seconds": candidate.ttl_seconds,
+                "ttl_history_mode": candidate.ttl_history_mode,
             }
             for candidate in snapshot.candidates
         )

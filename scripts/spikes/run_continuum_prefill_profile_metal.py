@@ -44,6 +44,7 @@ class _MetalPrefillAdapter:
         sampling_params_factory: Callable[..., Any],
         token_grid: Sequence[int] = TOKEN_GRID,
         request_registered: Callable[[str, str], None] | None = None,
+        require_zero_cached_prefix: bool = False,
     ) -> None:
         if vocabulary_size <= 0:
             raise ValueError("vocabulary_size must be positive")
@@ -55,6 +56,9 @@ class _MetalPrefillAdapter:
         self._vocabulary_size = vocabulary_size
         self._token_grid = tuple(token_grid)
         self._request_registered = request_registered
+        if not isinstance(require_zero_cached_prefix, bool):
+            raise TypeError("require_zero_cached_prefix must be bool")
+        self._require_zero_cached_prefix = require_zero_cached_prefix
         self._reusable_tokens_by_external: dict[str, int] = {}
         self._next_request_number = 0
         self._internal_by_external: dict[str, str] = {}
@@ -134,6 +138,12 @@ class _MetalPrefillAdapter:
     def read_target_material_presence(self) -> bool:
         if not self._target_hashes:
             return False
+        # A validated MISS requires zero reusable cached-prefix tokens.  Losing
+        # only a later block makes the full chain incomplete but still leaves a
+        # leading APC hit, so pressure must continue until the first hash is no
+        # longer resident.
+        if self._require_zero_cached_prefix:
+            return self._native.lookup_hash(self._target_hashes[0])
         return all(self._native.lookup_hash(native_hash) for native_hash in self._target_hashes)
 
     def target_token_ids(self, token_count: int) -> tuple[int, ...]:
@@ -164,8 +174,11 @@ class _MetalPrefillAdapter:
             raise ValueError("seed target material is not present")
         self._seeded.add(token_count)
 
-    def run_pressure_batch(self) -> None:
-        for batch_index in range(PRESSURE_BATCH_SIZE):
+    def run_pressure_batch(self, *, max_requests: int = PRESSURE_BATCH_SIZE) -> int:
+        if type(max_requests) is not int or max_requests <= 0:
+            raise ValueError("max_requests must be positive")
+        submitted = 0
+        for batch_index in range(min(PRESSURE_BATCH_SIZE, max_requests)):
             pressure_index = self._pressure_request_number + batch_index
             vocabulary_size = self._vocabulary_size
             token_ids = (
@@ -188,7 +201,11 @@ class _MetalPrefillAdapter:
             _drain_to_idle(self)
             self._internal_by_external.pop(external_id, None)
             self._observations.pop(external_id, None)
-        self._pressure_request_number += PRESSURE_BATCH_SIZE
+            submitted += 1
+            if not self.read_target_material_presence():
+                break
+        self._pressure_request_number += submitted
+        return submitted
 
 
 def build_adapter(
@@ -201,6 +218,7 @@ def build_adapter(
     sampling_params_factory: Callable[..., Any] | None = None,
     token_grid: Sequence[int] = TOKEN_GRID,
     request_registered: Callable[[str, str], None] | None = None,
+    require_zero_cached_prefix: bool = False,
 ) -> _MetalPrefillAdapter:
     """Build the adapter, lazily loading the pinned vLLM input factories."""
 
@@ -216,6 +234,7 @@ def build_adapter(
         sampling_params_factory=sampling_params_factory,
         token_grid=token_grid,
         request_registered=request_registered,
+        require_zero_cached_prefix=require_zero_cached_prefix,
     )
 
 

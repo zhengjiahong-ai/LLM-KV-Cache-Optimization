@@ -1,0 +1,91 @@
+{
+  "schema_version": "continuum.native_costaware_formal_protocol.v1",
+  "scope": "W1C_DERIVED_FORMAL_NATIVE_COSTAWARE_EVALUATION",
+  "source_runs_root": "artifacts/continuum-w1c-pilot-runs-v1",
+  "source_condition": "S100",
+  "cohort_rule": "ALL_AND_ONLY_W1C_FULL_PAYLOAD_COMPARABLE_PAIRS",
+  "native_policy_arms": ["A0", "A1", "A2"],
+  "simple_rule_comparators": [
+    "SUFFICIENT_FIRST_EARLIEST_DEADLINE",
+    "SUFFICIENT_FIRST_MINIMUM_OVERSHOOT"
+  ],
+  "simple_rule_execution_mode": "OFFLINE_ON_THE_SAME_COMPLETE_A1_DECISION_SNAPSHOT",
+  "runtime_repeats": 2,
+  "statistical_unit": "DISJOINT_TWO_TASK_WORKLOAD_GROUP",
+  "planned_run_count": 108,
+  "replay_selection": {
+    "kind": "EXACT_OBSERVED_REQUEST_CHECKPOINTS",
+    "checkpoints_per_session": 6,
+    "rule": "INTEGER_QUANTILES_INCLUDING_FIRST_AND_LAST_SUCCESSFUL_S100_CALL",
+    "content_rewrite": "PROHIBITED",
+    "failed_submission_replay": "EXCLUDED_AND_RECORDED_AS_SOURCE_MISSINGNESS",
+    "token_semantics": "W1C_DETERMINISTIC_TOKEN_IDS_BECOME_EXPLICIT_NATIVE_REPLAY_INPUT"
+  },
+  "workload_groups": [
+    {"group_id": "g01-short-extreme", "task_ids": ["psf__requests-2931", "django__django-13569"], "pairing_basis": "shortest and longest valid S100 prompt geometry"},
+    {"group_id": "g02-low-high", "task_ids": ["sympy__sympy-16886", "pydata__xarray-3993"], "pairing_basis": "cross-repository low/high context geometry"},
+    {"group_id": "g03-low-high", "task_ids": ["django__django-14493", "pylint-dev__pylint-6386"], "pairing_basis": "cross-repository low/high context geometry"},
+    {"group_id": "g04-low-high", "task_ids": ["django__django-13551", "mwaskom__seaborn-3069"], "pairing_basis": "cross-repository low/high context geometry"},
+    {"group_id": "g05-low-high", "task_ids": ["django__django-13023", "sphinx-doc__sphinx-8593"], "pairing_basis": "cross-repository low/high context geometry"},
+    {"group_id": "g06-mid-high", "task_ids": ["matplotlib__matplotlib-25311", "pallets__flask-5014"], "pairing_basis": "cross-repository mid/high context geometry"},
+    {"group_id": "g07-mid-high", "task_ids": ["sympy__sympy-15017", "scikit-learn__scikit-learn-14983"], "pairing_basis": "cross-repository mid/high context geometry"},
+    {"group_id": "g08-mid-high", "task_ids": ["pytest-dev__pytest-7982", "django__django-16662"], "pairing_basis": "cross-repository mid/high context geometry"},
+    {"group_id": "g09-near-matched", "task_ids": ["django__django-15554", "django__django-11790"], "pairing_basis": "within-repository near-matched context negative control"}
+  ],
+  "schedule": {
+    "claim": "CONTROLLED_REPLAY_NOT_OBSERVED_PRODUCTION_ARRIVALS",
+    "cross_session_start_stagger_seconds": 0.25,
+    "within_session_order": "OBSERVED_ORDER_OF_SELECTED_CHECKPOINTS",
+    "within_session_gap": "OBSERVED_COMPLETION_TO_NEXT_SUBMIT_GAP_WHEN_VALID",
+    "maximum_concurrent_requests": 2,
+    "pressure_anchor": "AFTER_BOTH_SESSIONS_ESTABLISH_RESIDENT_PREFIXES",
+    "runtime_order_balance": "ALTERNATE_A0_A1_A2_AND_REVERSE_BY_GROUP_REPEAT"
+  },
+  "pressure_regimes": [
+    {"id": "moderate", "shortage_rule": "MINIMUM_SHORTAGE_THAT_REQUIRES_ONE_LEGAL_RELEASE", "post_pressure_return_required": true},
+    {"id": "deep", "shortage_rule": "PREDECLARED_SHORTAGE_TARGETING_MULTIPLE_LEGAL_CANDIDATES", "post_pressure_return_required": true}
+  ],
+  "runtime": {
+    "model": "Qwen/Qwen2.5-Coder-3B-Instruct",
+    "model_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225",
+    "tokenizer_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225",
+    "max_model_len": 32768,
+    "max_new_tokens": 1,
+    "temperature": 0.0,
+    "block_size_tokens": 16,
+    "native_backend": "vllm-metal",
+    "cache_capacity_and_pressure": "TO_BE_NUMERICALLY_BOUND_AFTER_STATIC_CAPACITY_AND_PROFILE_AUDIT"
+  },
+  "observability": {
+    "decision": ["candidate_count", "need_blocks", "legal_candidate_blocks", "marginal_newly_eligible_blocks", "deadline", "q", "q_span", "fallback_reason"],
+    "physical": ["native_hash_process", "content_cache_key", "pre_eviction_identity", "hash_removed_after", "event_order"],
+    "request": ["native_prompt_tokens_N", "eligible_prefix_tokens_E", "cached_prefix_tokens_C", "recomputed_tokens_R", "actual_prefill_tokens_W", "new_suffix_tokens_S"],
+    "fail_closed": ["incomplete_request_identity", "missing_decision_snapshot", "unmapped_physical_eviction", "cross_arm_input_mismatch", "unsupported_prefill_profile_query"]
+  },
+  "metrics": {
+    "primary": "aggregate_recomputed_tokens=sum(E-C)",
+    "secondary": ["aggregate_actual_prefill_tokens=sum(N-C)", "aggregate_new_suffix_tokens=sum(N-E)"],
+    "decision_analysis": ["q_span", "A1_vs_earliest_deadline", "A1_vs_minimum_overshoot", "A2_vs_actual_A0_tier_aware_LRU"],
+    "physical_causality": "TEMPORAL_ASSOCIATION_UNLESS_CONTENT_IDENTITY_CHAIN_IS_COMPLETE"
+  },
+  "statistics": {
+    "aggregation": "REQUEST_TO_RUN_THEN_REPEAT_TO_PRESSURE_CELL_THEN_PRESSURE_CELLS_TO_WORKLOAD_GROUP",
+    "independent_unit_count": 9,
+    "bootstrap_iterations": 10000,
+    "bootstrap_seed": 20261115,
+    "confidence_interval": 0.95,
+    "claim_scope": "PREDEFINED_NINE_GROUP_CROSS_REPOSITORY_GRID_NOT_PRODUCTION_POPULATION",
+    "campaign_completeness_gate": "ALL_9_GROUPS_AND_BOTH_PRESSURE_REGIMES_HAVE_COMPLETE_THREE_ARM_ESTIMATES",
+    "incomplete_verdict": "INCONCLUSIVE_WITH_DESCRIPTIVE_COMPLETE_CASE_RESULTS"
+  },
+  "pre_execution_gates": {
+    "m1_protocol_freeze": "PENDING",
+    "exact_numeric_cache_and_pressure_binding": "PENDING",
+    "measured_prefill_profile_coverage": "PENDING",
+    "cross_arm_config_and_token_digest_validation": "PENDING",
+    "runner_evaluator_code_hash_binding": "PENDING"
+  },
+  "formal_execution_authorized": false,
+  "algorithm_or_weight_changes_authorized": false,
+  "a3_or_b1_authorized": false
+}

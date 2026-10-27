@@ -8,6 +8,7 @@ adding a second private-state inspection path.
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import importlib
 import json
@@ -26,10 +27,14 @@ from kvopt.continuum import (
     BlockEvicted,
     BlockIdentity,
     BlocksObserved,
+    Clock,
     ContinuumConfig,
+    ControlledSparseReplayClock,
     FollowupWaiting,
     InputProvenance,
     InputSource,
+    LogicalTimeAdvance,
+    LogicalTimeBoundary,
     PrefillContextTokenCountRecord,
     PrefixIdentity,
     ProgramCompleted,
@@ -70,7 +75,7 @@ from kvopt.runtime.vllm.observer import (
 )
 from kvopt.runtime.vllm.prefill_timing import IsolatedPrefillTimingHook
 from kvopt.runtime.vllm.retention_integration import RetentionRuntimeIntegration
-from kvopt.workload.phase2 import PlannedRequest
+from kvopt.workload.phase2 import PlannedRequest, PressureStage
 from kvopt.workload.phase2b_fidelity import (
     KNOWN_CAPABILITIES,
     PREFIX_GENERATOR_VERSION,
@@ -91,6 +96,7 @@ _TARGET_PREFIX_TOKENS = 256
 _PRESSURE_TOKENS = 512
 _PHASE2G_A2_CAMPAIGN_KINDS = frozenset(
     {
+        "continuum_native_costaware_bounded_evaluation",
         "continuum_w1b_native_smoke",
         "phase2g_a2_native_gate1",
         "phase2g_a2_gate2_bounded_evaluation",
@@ -246,8 +252,8 @@ def _program_prefix_sizes(options: Mapping[str, object]) -> dict[str, int]:
             value,
             f"backend_options.program_prefix_tokens[{program_id!r}]",
         )
-        if not 16 <= size <= 30_720:
-            raise ValueError("profiling prefix size must be between 16 and 30720 tokens")
+        if not 16 <= size <= 32_256:
+            raise ValueError("profiling prefix size must be between 16 and 32256 tokens")
         if size % _BLOCK_SIZE != 0:
             raise ValueError("profiling prefix size must align to the KV block size")
         sizes[program_id] = size
@@ -374,6 +380,32 @@ def _w1b_right_censored_end_requests(
     return result
 
 
+def _controlled_sparse_replay_clock(
+    options: Mapping[str, object],
+    native_clock: Clock,
+) -> ControlledSparseReplayClock | None:
+    raw = options.get("controlled_sparse_replay_boundaries")
+    if raw is None:
+        return None
+    if not isinstance(raw, list) or not raw:
+        raise ValueError("controlled_sparse_replay_boundaries must be a non-empty list")
+    boundaries: list[LogicalTimeBoundary] = []
+    for item in raw:
+        if not isinstance(item, Mapping):
+            raise TypeError("controlled sparse replay boundary must be an object")
+        boundaries.append(
+            LogicalTimeBoundary(
+                boundary_id=str(item.get("boundary_id", "")),
+                logical_timestamp=item.get("logical_timestamp"),  # type: ignore[arg-type]
+                source=str(item.get("source", "")),
+            )
+        )
+    return ControlledSparseReplayClock(
+        boundaries=tuple(boundaries),
+        native_clock=native_clock,
+    )
+
+
 def _expected_profiling_block_override(
     program_prefix_tokens: Mapping[str, int],
     pressure_tokens: int,
@@ -396,6 +428,31 @@ def _expected_profiling_block_override(
         )
     )
     return protected_blocks + pressure_blocks + 1 - initial_shortage_blocks
+
+
+def _validate_formal_profile_cache_capacity(
+    *,
+    block_override: int,
+    max_model_len: int,
+    program_prefix_tokens: Mapping[str, int],
+    pressure_tokens: int,
+    maximum_pressure_requests: int,
+) -> None:
+    """Validate the fixed 32K pool and its bounded eviction reachability."""
+    required_runtime_blocks = math.ceil(max_model_len / _BLOCK_SIZE)
+    if block_override != required_runtime_blocks:
+        raise ValueError(
+            "formal profile cache.block_override must equal the max-model-length "
+            "runtime pool"
+        )
+    pressure_blocks = pressure_tokens // _BLOCK_SIZE
+    protected_blocks = sum(
+        size // _BLOCK_SIZE for size in program_prefix_tokens.values()
+    )
+    if protected_blocks + maximum_pressure_requests * pressure_blocks <= block_override:
+        raise ValueError(
+            "formal profile pressure ceiling cannot evict the protected prefix"
+        )
 
 
 def _pressure_stage_sizes(options: Mapping[str, object]) -> dict[str, int]:
@@ -450,11 +507,12 @@ def _required_max_model_len(
 ) -> int:
     """Cover the largest materialized prompt and align to a KV block."""
 
-    largest_prompt = max(
+    prompt_lengths = [
         pressure_tokens,
-        *(pressure_stage_tokens.values()),
+        *pressure_stage_tokens.values(),
         *(tokens + 1 for tokens in program_prefix_tokens.values()),
-    )
+    ]
+    largest_prompt = max(prompt_lengths)
     required_tokens = largest_prompt + max_new_tokens
     aligned_tokens = math.ceil(required_tokens / _BLOCK_SIZE) * _BLOCK_SIZE
     return max(_DEFAULT_MAX_MODEL_LEN, aligned_tokens)
@@ -550,6 +608,13 @@ def _validate_native_hash_views(
     return prompt_hashes
 
 
+def _requires_retention_snapshot(
+    request_id: str, right_censored_end_request_ids: frozenset[str]
+) -> bool:
+    """Right-censored observed returns do not create future-retention facts."""
+    return request_id not in right_censored_end_request_ids
+
+
 class _CountingForcedReleaseObserver:
     def __init__(self, sink: ExperimentEventSink) -> None:
         self._delegate = ExperimentForcedReleaseObserver(sink)
@@ -567,7 +632,7 @@ class _ObservedRetentionIntegration:
     def __init__(
         self,
         runtime: Any,
-        clock: SystemMonotonicClock,
+        clock: Clock,
         forced_release_observer: _CountingForcedReleaseObserver,
         diagnostic_first_release_program_id: str | None = None,
         *,
@@ -578,9 +643,11 @@ class _ObservedRetentionIntegration:
         phase2g_a2_tau_seconds: float = 30.0,
         phase2g_a2_registry: A2NativeSnapshotRegistry | None = None,
         sink: ExperimentEventSink | None = None,
+        clock_domain: str = "system_monotonic",
     ) -> None:
         self._runtime = runtime
         self._clock = clock
+        self._clock_domain = clock_domain
         if phase2g_release_policy not in {"A0", "A1"}:
             raise ValueError("phase2g_release_policy must be A0 or A1")
         self._phase2g_release_policy = phase2g_release_policy
@@ -627,7 +694,7 @@ class _ObservedRetentionIntegration:
             ExperimentEvent.create(
                 event_type="COST_AWARE_BLOCK_DECISION",
                 timestamp=self._clock.now(),
-                clock_domain="system_monotonic",
+                clock_domain=self._clock_domain,
                 source="phase2g.a2_native",
                 payload={
                     "policy": "A2",
@@ -703,7 +770,7 @@ class _ObservedRetentionIntegration:
                 ExperimentEvent.create(
                     event_type="COST_AWARE_RELEASE_DECISION",
                     timestamp=self._clock.now(),
-                    clock_domain="system_monotonic",
+                    clock_domain=self._clock_domain,
                     source="phase2g.a1_native",
                     payload={
                         "policy": "A1",
@@ -724,22 +791,53 @@ class _ObservedRetentionIntegration:
 
 
 class MinimalMetalObservabilityBackend:
-    """Run a tiny two-prefix real-runtime scenario through the Phase 2 contract."""
+    """Run a real vLLM scenario through the shared Phase 2 observation contract.
+
+    The historical class name remains for compatibility.  Runtime-specific
+    initialization is selected explicitly by ``runtime_mode``; policy,
+    lifecycle, BlockPool ownership and evidence semantics stay shared.
+    """
 
     def __init__(self, config: dict[str, object], sink: ExperimentEventSink) -> None:
-        if config.get("runtime_mode") != "vllm-metal-observability":
-            raise ValueError("runtime_mode must be vllm-metal-observability")
+        runtime_mode = config.get("runtime_mode")
+        if runtime_mode not in {
+            "vllm-metal-observability",
+            "vllm-cuda-observability",
+        }:
+            raise ValueError(
+                "runtime_mode must be vllm-metal-observability or "
+                "vllm-cuda-observability"
+            )
         if not callable(getattr(sink, "emit", None)):
             raise TypeError("sink must provide emit")
         if os.environ.get("VLLM_ENABLE_V1_MULTIPROCESSING") != "0":
             raise RuntimeError(
-                "minimal Metal observation requires VLLM_ENABLE_V1_MULTIPROCESSING=0"
+                "minimal native observation requires VLLM_ENABLE_V1_MULTIPROCESSING=0"
             )
 
         self._sink = sink
-        self._clock = SystemMonotonicClock()
+        self._runtime_mode = str(runtime_mode)
+        self._event_source = (
+            "phase2.minimal_cuda"
+            if runtime_mode == "vllm-cuda-observability"
+            else "phase2.minimal_metal"
+        )
+        self._native_clock = SystemMonotonicClock()
         self._retention_mode = _retention_mode_for_config(config)
         options = _backend_options(config)
+        self._controlled_replay_clock = _controlled_sparse_replay_clock(
+            options, self._native_clock
+        )
+        self._clock: Clock = (
+            self._native_clock
+            if self._controlled_replay_clock is None
+            else self._controlled_replay_clock.logical_clock
+        )
+        self._lifecycle_clock_domain = (
+            "system_monotonic"
+            if self._controlled_replay_clock is None
+            else "continuum_logical_replay"
+        )
         profile_path = _resolve_repo_path(
             options.get(
                 "prefill_profile_path",
@@ -779,6 +877,35 @@ class MinimalMetalObservabilityBackend:
             "backend_options.pressure_prompt_tokens",
         )
         self._pressure_stage_tokens = _pressure_stage_sizes(options)
+        controlled_pressure = options.get("controlled_pressure_stages_by_boundary", {})
+        if not isinstance(controlled_pressure, Mapping):
+            raise TypeError(
+                "backend_options.controlled_pressure_stages_by_boundary must be an object"
+            )
+        self._controlled_pressure_stages: dict[str, PressureStage] = {}
+        for boundary_id, raw_stage in controlled_pressure.items():
+            if not isinstance(boundary_id, str) or not boundary_id:
+                raise ValueError("controlled pressure boundary ID must be non-empty")
+            if not isinstance(raw_stage, Mapping):
+                raise TypeError("controlled pressure stage must be an object")
+            stage_id = str(raw_stage.get("stage_id", ""))
+            prompt = str(raw_stage.get("prompt", ""))
+            if not stage_id or not prompt:
+                raise ValueError("controlled pressure stage identity and prompt are required")
+            stop_on_forced_release = raw_stage.get("stop_on_forced_release", True)
+            if not isinstance(stop_on_forced_release, bool):
+                raise TypeError("controlled pressure stop_on_forced_release must be bool")
+            self._controlled_pressure_stages[boundary_id] = PressureStage(
+                stage_id=stage_id,
+                planned_arrival_offset_seconds=0.0,
+                prompt=prompt,
+                max_requests=_positive_int(
+                    raw_stage.get("max_requests"),
+                    "controlled pressure max_requests",
+                ),
+                stop_on_forced_release=stop_on_forced_release,
+            )
+        self._seed = int(config["seed"])
         timing = options.get("execute_planned_timing", False)
         if not isinstance(timing, bool):
             raise TypeError("backend_options.execute_planned_timing must be bool")
@@ -832,6 +959,7 @@ class MinimalMetalObservabilityBackend:
         if phase2g_release_policy not in {"A0", "A1"}:
             raise ValueError("backend_options.phase2g_release_policy must be A0 or A1")
         if phase2g_release_policy == "A1" and config.get("campaign_kind") not in {
+            "continuum_native_costaware_bounded_evaluation",
             "phase2g_a1_native_gate1",
             "phase2g_a1_bounded_evaluation",
             "continuum_w1b_native_smoke",
@@ -902,7 +1030,23 @@ class MinimalMetalObservabilityBackend:
                     else None
                 ),
             )
-            if block_override != expected_override:
+            if config.get("campaign_kind") == (
+                "continuum_native_costaware_prefill_profile"
+            ):
+                _validate_formal_profile_cache_capacity(
+                    block_override=block_override,
+                    max_model_len=_positive_int(
+                        options.get("max_model_len"),
+                        "backend_options.max_model_len",
+                    ),
+                    program_prefix_tokens=self._program_prefix_tokens,
+                    pressure_tokens=self._pressure_tokens,
+                    maximum_pressure_requests=_positive_int(
+                        config["pressure"].get("safety_ceiling"),  # type: ignore[index,union-attr]
+                        "config.pressure.safety_ceiling",
+                    ),
+                )
+            elif block_override != expected_override:
                 raise ValueError(
                     "profiling cache.block_override must equal protected-prefix blocks "
                     "+ pressure-demand blocks"
@@ -939,6 +1083,36 @@ class MinimalMetalObservabilityBackend:
                 history_observation_enabled=(self._content_evidence_enabled),
             )
         )
+        history_path_value = options.get("continuum_server_gap_history_path")
+        history_sha_value = options.get("continuum_server_gap_history_sha256")
+        if history_path_value is not None or history_sha_value is not None:
+            if config.get("campaign_kind") != "continuum_native_costaware_formal":
+                raise ValueError("history warm-start is restricted to the formal campaign")
+            if not isinstance(history_path_value, str) or not history_path_value:
+                raise ValueError("history warm-start path must be non-empty text")
+            if not isinstance(history_sha_value, str) or len(history_sha_value) != 64:
+                raise ValueError("history warm-start SHA-256 must be bound")
+            history_path = Path(history_path_value)
+            if hashlib.sha256(history_path.read_bytes()).hexdigest() != history_sha_value:
+                raise ValueError("history warm-start SHA-256 mismatch")
+            from kvopt.workload.continuum_native_history import load_history
+
+            history_records = load_history(history_path)
+            self._runtime.seed_server_gap_history(history_records)
+            sink.emit(
+                ExperimentEvent.create(
+                    event_type="SERVER_GAP_HISTORY_WARM_STARTED",
+                    timestamp=self._clock.now(),
+                    clock_domain="system_monotonic",
+                    source="continuum.w1a_history",
+                    payload={
+                        "history_path": str(history_path),
+                        "history_sha256": history_sha_value,
+                        "server_gap_sample_count": len(history_records),
+                        "kv_cache_prewarms": False,
+                    },
+                )
+            )
         self._forced_release_observer = _CountingForcedReleaseObserver(sink)
         self._retention_integration = _ObservedRetentionIntegration(
             self._runtime,
@@ -952,23 +1126,22 @@ class MinimalMetalObservabilityBackend:
             phase2g_a2_tau_seconds=phase2g_a2_tau_seconds,
             phase2g_a2_registry=self._phase2g_a2_registry,
             sink=sink,
+            clock_domain=(
+                "system_monotonic"
+                if self._controlled_replay_clock is None
+                else "continuum_logical_replay"
+            ),
         )
 
         try:
-            import mlx.core as mx
             import vllm
-            import vllm_metal
             from vllm import LLM, SamplingParams
             from vllm.platforms import current_platform
             from vllm.v1.core.block_pool import BlockPool
             from vllm.v1.core.kv_cache_utils import FreeKVCacheBlockQueue
             from vllm.v1.core.sched.scheduler import Scheduler
-            from vllm_metal import MetalPlatform, get_config
-            from vllm_metal.v1.model_runner import MetalModelRunner
         except ImportError as error:
-            raise RuntimeError(
-                "minimal real-runtime test requires the pinned vLLM/Metal environment"
-            ) from error
+            raise RuntimeError("minimal real-runtime test requires pinned vLLM 0.27.1") from error
 
         observation_helpers = importlib.import_module(
             "scripts.spikes.run_continuum_vllm_observation"
@@ -979,32 +1152,68 @@ class MinimalMetalObservabilityBackend:
         self._coherent_snapshot = validation_helpers._coherent_child_request_snapshot
 
         topology = observation_helpers.require_observation_topology(os.environ)
-        metal_config = get_config()
         platform_plugin_class = (
             f"{type(current_platform).__module__}.{type(current_platform).__qualname__}"
         )
-        runtime_identity = observation_helpers.verify_runtime_identity(
-            vllm_distribution_version=distribution_version("vllm"),
-            vllm_module_version=vllm.__version__,
-            vllm_metal_distribution_version=distribution_version("vllm-metal"),
-            platform_plugin_class=platform_plugin_class,
-            metal_platform_available=MetalPlatform.is_available(),
-            mlx_metal_available=bool(mx.metal.is_available()),
-            mlx_configured_device=metal_config.mlx_device,
-            metal_paged_kv_enabled=metal_config.use_paged_attention,
-        )
-
+        isolated_timing_target: tuple[type[Any], Any] | None = None
         source_identity: dict[str, object]
-        checkout = os.environ.get("VLLM_METAL_SOURCE_CHECKOUT")
-        if checkout:
-            source_identity = observation_helpers.inspect_vllm_metal_source_identity(
-                Path(checkout),
-                Path(vllm_metal.__file__),
+        if runtime_mode == "vllm-metal-observability":
+            try:
+                import mlx.core as mx
+                import vllm_metal
+                from vllm_metal import MetalPlatform, get_config
+                from vllm_metal.v1.model_runner import MetalModelRunner
+            except ImportError as error:
+                raise RuntimeError(
+                    "Metal observation requires the pinned vLLM-Metal environment"
+                ) from error
+            metal_config = get_config()
+            runtime_identity = observation_helpers.verify_runtime_identity(
+                vllm_distribution_version=distribution_version("vllm"),
+                vllm_module_version=vllm.__version__,
+                vllm_metal_distribution_version=distribution_version("vllm-metal"),
+                platform_plugin_class=platform_plugin_class,
+                metal_platform_available=MetalPlatform.is_available(),
+                mlx_metal_available=bool(mx.metal.is_available()),
+                mlx_configured_device=metal_config.mlx_device,
+                metal_paged_kv_enabled=metal_config.use_paged_attention,
             )
+            isolated_timing_target = (MetalModelRunner, mx.eval)
+            checkout = os.environ.get("VLLM_METAL_SOURCE_CHECKOUT")
+            if checkout:
+                source_identity = observation_helpers.inspect_vllm_metal_source_identity(
+                    Path(checkout),
+                    Path(vllm_metal.__file__),
+                )
+            else:
+                source_identity = {
+                    "source_identity_availability": "unavailable",
+                    "source_identity_reason": "VLLM_METAL_SOURCE_CHECKOUT not provided",
+                }
         else:
+            try:
+                import torch
+            except ImportError as error:
+                raise RuntimeError("CUDA observation requires PyTorch") from error
+            if not torch.cuda.is_available():
+                raise RuntimeError("CUDA observation requires an available CUDA GPU")
+            device = torch.cuda.current_device()
+            properties = torch.cuda.get_device_properties(device)
+            runtime_identity = observation_helpers.verify_cuda_runtime_identity(
+                vllm_distribution_version=distribution_version("vllm"),
+                vllm_module_version=vllm.__version__,
+                platform_plugin_class=platform_plugin_class,
+                device_type=str(getattr(current_platform, "device_type", "")),
+                torch_version=torch.__version__,
+                torch_cuda_version=torch.version.cuda,
+                cuda_available=torch.cuda.is_available(),
+                device_name=torch.cuda.get_device_name(device),
+                device_capability=torch.cuda.get_device_capability(device),
+                device_total_memory_bytes=int(properties.total_memory),
+            )
             source_identity = {
-                "source_identity_availability": "unavailable",
-                "source_identity_reason": "VLLM_METAL_SOURCE_CHECKOUT not provided",
+                "source_identity_availability": "wheel_installation",
+                "vllm_imported_module_realpath": str(Path(vllm.__file__).resolve()),
             }
 
         model = config["model"]
@@ -1020,12 +1229,37 @@ class MinimalMetalObservabilityBackend:
             "config.generation.max_new_tokens",
         )
         self._max_new_tokens = max_new_tokens
-        max_model_len = _required_max_model_len(
+        required_model_len = _required_max_model_len(
             self._program_prefix_tokens,
             self._pressure_tokens,
             self._pressure_stage_tokens,
             max_new_tokens,
         )
+        max_model_len = _positive_int(
+            options.get("max_model_len", required_model_len),
+            "backend_options.max_model_len",
+        )
+        if max_model_len < required_model_len:
+            raise ValueError("backend_options.max_model_len cannot serve frozen inputs")
+        self._coherent_snapshot = functools.partial(
+            validation_helpers._coherent_child_request_snapshot,
+            maximum_token_count=max_model_len,
+        )
+        max_num_batched_tokens = _positive_int(
+            options.get("max_num_batched_tokens", max_model_len),
+            "backend_options.max_num_batched_tokens",
+        )
+        enable_chunked_prefill = options.get("enable_chunked_prefill", False)
+        if not isinstance(enable_chunked_prefill, bool):
+            raise TypeError("backend_options.enable_chunked_prefill must be bool")
+        enforce_eager = options.get("enforce_eager", False)
+        if not isinstance(enforce_eager, bool):
+            raise TypeError("backend_options.enforce_eager must be bool")
+        if max_num_batched_tokens < max_model_len and not enable_chunked_prefill:
+            raise ValueError(
+                "max_num_batched_tokens below max_model_len requires "
+                "enable_chunked_prefill=true"
+            )
         llm_kwargs = {
             "model": model["name"],
             "revision": model["revision"],
@@ -1036,15 +1270,22 @@ class MinimalMetalObservabilityBackend:
             "seed": int(config["seed"]),
             "num_gpu_blocks_override": block_override,
             "max_model_len": max_model_len,
-            "max_num_batched_tokens": max_model_len,
+            "max_num_batched_tokens": max_num_batched_tokens,
+            "enable_chunked_prefill": enable_chunked_prefill,
+            "enforce_eager": enforce_eager,
             "disable_log_stats": False,
             "prefix_caching_hash_algo": "sha256",
         }
         self._llm = LLM(**llm_kwargs)
+        if self._isolated_prefill_timing_enabled and isolated_timing_target is None:
+            raise ValueError(
+                "isolated native prefill timing is not qualified for the CUDA adapter"
+            )
         if self._isolated_prefill_timing_enabled:
+            model_runner_class, synchronize = isolated_timing_target
             self._isolated_prefill_timing_hook = IsolatedPrefillTimingHook(
-                MetalModelRunner,
-                mx.eval,
+                model_runner_class,
+                synchronize,
                 self._record_isolated_prefill_timing,
             )
             self._isolated_prefill_timing_hook.__enter__()
@@ -1116,13 +1357,18 @@ class MinimalMetalObservabilityBackend:
         self._started_programs: set[str] = set()
         self._pending_tool_gaps: dict[str, str] = {}
         self._phase2b_pending: dict[str, tuple[PlannedRequest, str, int]] = {}
+        self._controlled_prepared: dict[
+            str, tuple[PlannedRequest, tuple[int, ...], int, float]
+        ] = {}
+        self._controlled_completed: dict[str, tuple[PlannedRequest, str, int]] = {}
+        self._controlled_pressure_execution_seconds = 0.0
         self._closed = False
         self._level_b_request_count = 0
         self._level_b_raw_complete = True
         self._level_b_first_token_complete = True
         self._level_b_scheduler_timing_complete = True
         self._isolated_prefill_timing_complete = True
-        self._run_start_timestamp = float(self._clock.now())
+        self._run_start_timestamp = float(self._native_clock.now())
         self.observation_capabilities = {
             "runtime_identity": {
                 "status": "AVAILABLE",
@@ -1197,9 +1443,9 @@ class MinimalMetalObservabilityBackend:
         self._sink.emit(
             ExperimentEvent.create(
                 event_type="REAL_RUNTIME_READY",
-                timestamp=self._clock.now(),
+                timestamp=self._native_clock.now(),
                 clock_domain="system_monotonic",
-                source="phase2.minimal_metal",
+                source=self._event_source,
                 payload={
                     **topology,
                     **runtime_identity,
@@ -1227,6 +1473,9 @@ class MinimalMetalObservabilityBackend:
                     "w1b_native_input_fidelity_only": (self._w1b_native_input_fidelity_only),
                     "h2_m4_prefill_curve_bound": h2_m4_prefill_provider is not None,
                     "gpu_memory_utilization": gpu_memory_utilization,
+                    "max_num_batched_tokens": max_num_batched_tokens,
+                    "enable_chunked_prefill": enable_chunked_prefill,
+                    "enforce_eager": enforce_eager,
                     "retention_mode": self._retention_mode.value,
                     "phase2g_release_policy": phase2g_release_policy,
                     "phase2g_a1_lambda": (
@@ -1259,7 +1508,7 @@ class MinimalMetalObservabilityBackend:
         self._sink.emit(
             ExperimentEvent.create(
                 event_type="VLLM_NATIVE_HASHED_CACHE_ENTRY_EVICTED",
-                timestamp=self._clock.now(),
+                timestamp=self._native_clock.now(),
                 clock_domain="system_monotonic",
                 source="phase2b.native_block_pool",
                 payload={
@@ -1372,7 +1621,7 @@ class MinimalMetalObservabilityBackend:
                 event_type="PLANNED_ARRIVAL_REACHED",
                 timestamp=observed,
                 clock_domain="system_monotonic",
-                source="phase2.minimal_metal",
+                source=self._event_source,
                 program_id=ProgramIdentity(request.program_id),
                 request_id=RequestIdentity(request.request_id),
                 payload={
@@ -1435,9 +1684,9 @@ class MinimalMetalObservabilityBackend:
         self._sink.emit(
             ExperimentEvent.create(
                 event_type="BACKEND_INPUT_MATERIALIZED",
-                timestamp=self._clock.now(),
+                timestamp=self._native_clock.now(),
                 clock_domain="system_monotonic",
-                source="phase2.minimal_metal",
+                source=self._event_source,
                 program_id=ProgramIdentity(request.program_id),
                 request_id=RequestIdentity(request.request_id),
                 payload=payload,
@@ -1472,13 +1721,13 @@ class MinimalMetalObservabilityBackend:
             raise RuntimeError("native request did not expose one external request ID")
         external_id = external_ids[0]
         self._registry.register_external_batch(native_ids, external_ids)
-        submitted_at = float(self._clock.now())
+        submitted_at = float(self._native_clock.now())
         self._sink.emit(
             ExperimentEvent.create(
                 event_type="VLLM_REQUEST_SUBMITTED",
                 timestamp=submitted_at,
                 clock_domain="system_monotonic",
-                source="phase2.minimal_metal",
+                source=self._event_source,
                 program_id=ProgramIdentity(request.program_id),
                 request_id=RequestIdentity(request.request_id),
                 payload={
@@ -1581,7 +1830,7 @@ class MinimalMetalObservabilityBackend:
                 event_type="VLLM_NATIVE_REQUEST_OBSERVATION",
                 timestamp=native_event_timestamp,
                 clock_domain="engine_core_monotonic",
-                source="phase2.minimal_metal",
+                source=self._event_source,
                 native_request_id=native_id,
                 program_id=ProgramIdentity(request.program_id),
                 request_id=RequestIdentity(request.request_id),
@@ -1612,13 +1861,13 @@ class MinimalMetalObservabilityBackend:
                 scheduled_timestamp=native_scheduled,
                 clock_domain="engine_core_monotonic",
             )
-        finished_at = float(self._clock.now())
+        finished_at = float(self._native_clock.now())
         self._sink.emit(
             ExperimentEvent.create(
                 event_type="VLLM_REQUEST_COMPLETED",
                 timestamp=finished_at,
                 clock_domain="system_monotonic",
-                source="phase2.minimal_metal",
+                source=self._event_source,
                 program_id=ProgramIdentity(request.program_id),
                 request_id=RequestIdentity(request.request_id),
                 payload={
@@ -1667,9 +1916,9 @@ class MinimalMetalObservabilityBackend:
         self._sink.emit(
             ExperimentEvent.create(
                 event_type="VLLM_PREFIX_SNAPSHOT",
-                timestamp=self._clock.now(),
+                timestamp=self._native_clock.now(),
                 clock_domain="system_monotonic",
-                source="phase2.minimal_metal",
+                source=self._event_source,
                 program_id=ProgramIdentity(request.program_id),
                 request_id=RequestIdentity(request.request_id),
                 prefix_id=prefix,
@@ -1738,9 +1987,9 @@ class MinimalMetalObservabilityBackend:
         self._sink.emit(
             ExperimentEvent.create(
                 event_type="H2_NATIVE_PREFIX_INTERVENTION",
-                timestamp=self._clock.now(),
+                timestamp=getattr(self, "_native_clock", self._clock).now(),
                 clock_domain="system_monotonic",
-                source="phase2.minimal_metal",
+                source=getattr(self, "_event_source", "phase2.minimal_metal"),
                 program_id=ProgramIdentity(request.program_id),
                 request_id=RequestIdentity(request.request_id),
                 prefix_id=prefix,
@@ -1783,19 +2032,7 @@ class MinimalMetalObservabilityBackend:
                 self._runtime.retention.planning_snapshots(),
             )
 
-    def _start_turn(self, request: PlannedRequest) -> tuple[str, str, float, int]:
-        program = ProgramIdentity(request.program_id)
-        logical_request = RequestIdentity(request.request_id)
-        now = float(self._clock.now())
-        if request.program_id not in self._started_programs:
-            self._handle_lifecycle(ProgramStarted(program, now))
-            self._started_programs.add(request.program_id)
-
-        pending_tool = self._pending_tool_gaps.pop(request.program_id, None)
-        if pending_tool is not None:
-            self._handle_lifecycle(ToolGapEnded(program, pending_tool, now))
-
-        self._handle_lifecycle(RequestArrived(program, logical_request, now))
+    def _turn_material(self, request: PlannedRequest) -> tuple[tuple[int, ...], int]:
         prefix_tokens = self._prefix_tokens_for(request)
         if self._w1b_replay_tokens is not None:
             token_ids = self._w1b_replay_tokens.get(request.request_id)
@@ -1825,6 +2062,22 @@ class MinimalMetalObservabilityBackend:
                 vocabulary_size=self._vocabulary_size,
                 prefix_tokens=prefix_tokens,
             )
+        return token_ids, prefix_tokens
+
+    def _start_turn(self, request: PlannedRequest) -> tuple[str, str, float, int]:
+        program = ProgramIdentity(request.program_id)
+        logical_request = RequestIdentity(request.request_id)
+        now = float(self._clock.now())
+        if request.program_id not in self._started_programs:
+            self._handle_lifecycle(ProgramStarted(program, now))
+            self._started_programs.add(request.program_id)
+
+        pending_tool = self._pending_tool_gaps.pop(request.program_id, None)
+        if pending_tool is not None:
+            self._handle_lifecycle(ToolGapEnded(program, pending_tool, now))
+
+        self._handle_lifecycle(RequestArrived(program, logical_request, now))
+        token_ids, prefix_tokens = self._turn_material(request)
         native_id, external_id, submitted_at = self._enqueue(
             request,
             token_ids,
@@ -1844,6 +2097,33 @@ class MinimalMetalObservabilityBackend:
     ) -> None:
         program = ProgramIdentity(request.program_id)
         logical_request = RequestIdentity(request.request_id)
+        if not _requires_retention_snapshot(
+            request.request_id, self._w1b_right_censored_end_requests
+        ):
+            # This is an observed return endpoint, not evidence of a new
+            # future-retention fact. Under bounded dual-session capacity its
+            # complete post-request chain need not remain resident. Native/APC
+            # request evidence was already emitted by the completion path.
+            self._sink.emit(
+                ExperimentEvent.create(
+                    event_type="W1B_RIGHT_CENSORED_REPLAY_WINDOW_ENDED",
+                    timestamp=finished_at,
+                    clock_domain=self._lifecycle_clock_domain,
+                    source=self._event_source,
+                    program_id=program,
+                    request_id=logical_request,
+                    payload={
+                        "source_completion_inferred": False,
+                        "future_demand_created": False,
+                        "ttl_query_performed": False,
+                        "retention_snapshot_required": False,
+                        "claim_boundary": (
+                            "selected replay window ended; source session did not"
+                        ),
+                    },
+                )
+            )
+            return
         if request.is_terminal and not self._capture_terminal_prefix_snapshot:
             self._handle_lifecycle(
                 TurnFinished(
@@ -1860,26 +2140,6 @@ class MinimalMetalObservabilityBackend:
             native_id,
             expected_token_count=prefix_tokens,
         )
-
-        if request.request_id in self._w1b_right_censored_end_requests:
-            self._sink.emit(
-                ExperimentEvent.create(
-                    event_type="W1B_RIGHT_CENSORED_REPLAY_WINDOW_ENDED",
-                    timestamp=finished_at,
-                    clock_domain="system_monotonic",
-                    source="phase2.minimal_metal",
-                    program_id=program,
-                    request_id=logical_request,
-                    prefix_id=prefix,
-                    payload={
-                        "source_completion_inferred": False,
-                        "future_demand_created": False,
-                        "ttl_query_performed": False,
-                        "claim_boundary": ("selected replay window ended; source session did not"),
-                    },
-                )
-            )
-            return
 
         if request.is_terminal:
             self._handle_lifecycle(
@@ -1962,7 +2222,7 @@ class MinimalMetalObservabilityBackend:
                 event_type="PRESSURE_REQUEST_COMPLETED",
                 timestamp=finished_at,
                 clock_domain="system_monotonic",
-                source="phase2.minimal_metal",
+                source=self._event_source,
                 program_id=ProgramIdentity(request.program_id),
                 request_id=RequestIdentity(request.request_id),
                 payload={
@@ -2013,6 +2273,190 @@ class MinimalMetalObservabilityBackend:
             native_request_id=native_id,
             external_request_id=external_id,
             submitted_at=submitted_at,
+        )
+
+    @property
+    def controlled_replay_clock(self) -> ControlledSparseReplayClock:
+        """Return the single controller shared by lifecycle and runner code."""
+        if self._controlled_replay_clock is None:
+            raise RuntimeError("controlled sparse replay is not configured")
+        return self._controlled_replay_clock
+
+    @property
+    def controlled_pressure_execution_seconds(self) -> float:
+        return self._controlled_pressure_execution_seconds
+
+    def prepare_arrival(self, request: PlannedRequest) -> None:
+        """Record one logical arrival without starting Native execution."""
+        if self._controlled_replay_clock is None:
+            raise RuntimeError("prepare_arrival requires controlled sparse replay")
+        if not isinstance(request, PlannedRequest):
+            raise TypeError("request must be PlannedRequest")
+        if request.kind == "pressure":
+            raise ValueError("pressure requests require a frozen pressure boundary")
+        if request.request_id in self._controlled_prepared:
+            raise RuntimeError("logical arrival was prepared twice")
+
+        program = ProgramIdentity(request.program_id)
+        logical_request = RequestIdentity(request.request_id)
+        logical_now = float(self._clock.now())
+        if request.program_id not in self._started_programs:
+            self._handle_lifecycle(ProgramStarted(program, logical_now))
+            self._started_programs.add(request.program_id)
+        pending_tool = self._pending_tool_gaps.pop(request.program_id, None)
+        if pending_tool is not None:
+            self._handle_lifecycle(ToolGapEnded(program, pending_tool, logical_now))
+        self._handle_lifecycle(RequestArrived(program, logical_request, logical_now))
+        token_ids, prefix_tokens = self._turn_material(request)
+        self._controlled_prepared[request.request_id] = (
+            request,
+            token_ids,
+            prefix_tokens,
+            logical_now,
+        )
+
+    def record_logical_time_advance(self, advance: LogicalTimeAdvance) -> None:
+        if self._controlled_replay_clock is None:
+            raise RuntimeError("logical time telemetry requires controlled replay")
+        self._sink.emit(
+            ExperimentEvent.create(
+                event_type="CONTROLLED_REPLAY_TIME_ADVANCED",
+                timestamp=advance.logical_timestamp,
+                clock_domain=advance.logical_clock_domain,
+                source="continuum.controlled_sparse_replay",
+                payload=advance.to_dict(),
+            )
+        )
+
+    def submit_prepared(self, request_id: str) -> RequestHandle:
+        """Submit one previously prepared request without advancing logical time."""
+        if self._controlled_replay_clock is None:
+            raise RuntimeError("submit_prepared requires controlled sparse replay")
+        prepared = self._controlled_prepared.pop(request_id, None)
+        if prepared is None:
+            raise RuntimeError("request has no prepared logical arrival")
+        request, token_ids, prefix_tokens, logical_arrival = prepared
+        native_id, external_id, submitted_at = self._enqueue(
+            request,
+            token_ids,
+            reusable_prefix_tokens=prefix_tokens,
+        )
+        self._handle_lifecycle(
+            RequestAdmitted(
+                ProgramIdentity(request.program_id),
+                RequestIdentity(request.request_id),
+                logical_arrival,
+            )
+        )
+        if external_id in self._phase2b_pending:
+            raise RuntimeError("duplicate pending external request ID")
+        self._phase2b_pending[external_id] = (request, native_id, prefix_tokens)
+        return RequestHandle(
+            logical_request_id=request.request_id,
+            native_request_id=native_id,
+            external_request_id=external_id,
+            submitted_at=submitted_at,
+        )
+
+    def drain_native(self, *, timeout_seconds: float) -> tuple[RequestCompletion, ...]:
+        """Drain Native work but defer lifecycle completion to logical time."""
+        if self._controlled_replay_clock is None:
+            raise RuntimeError("drain_native requires controlled sparse replay")
+        if not self._phase2b_pending:
+            return ()
+        outputs = self._wait_for_completion_bounded(timeout_seconds)
+        rows: list[RequestCompletion] = []
+        for output in outputs:
+            external_id = getattr(output, "request_id", None)
+            if not isinstance(external_id, str):
+                raise TypeError("native completion lacks external request ID")
+            pending = self._phase2b_pending.pop(external_id, None)
+            if pending is None:
+                raise RuntimeError(
+                    f"native completion has no pending request: {external_id}"
+                )
+            request, native_id, prefix_tokens = pending
+            finished_at = self._observe_completed_output(
+                request,
+                native_id,
+                external_id,
+                output,
+            )
+            if request.request_id in self._controlled_completed:
+                raise RuntimeError("duplicate controlled Native completion")
+            self._controlled_completed[request.request_id] = (
+                request,
+                native_id,
+                prefix_tokens,
+            )
+            rows.append(
+                RequestCompletion(
+                    logical_request_id=request.request_id,
+                    native_request_id=native_id,
+                    external_request_id=external_id,
+                    completed_at=finished_at,
+                )
+            )
+        if self._phase2b_pending:
+            missing = ", ".join(sorted(self._phase2b_pending))
+            raise RuntimeError(
+                f"native drain omitted pending external request IDs: {missing}"
+            )
+        return tuple(rows)
+
+    def finish_logical_completion(self, request_id: str) -> None:
+        """Apply lifecycle completion at the frozen logical-time boundary."""
+        completed = self._controlled_completed.pop(request_id, None)
+        if completed is None:
+            raise RuntimeError("logical completion has no Native completion")
+        request, native_id, prefix_tokens = completed
+        self._finish_turn(
+            request,
+            native_id,
+            float(self._clock.now()),
+            prefix_tokens,
+        )
+
+    def execute_prepared_pressure(self, boundary_id: str) -> None:
+        """Execute one frozen pressure cell while logical time is stationary."""
+        if self._controlled_replay_clock is None:
+            raise RuntimeError("controlled pressure requires controlled sparse replay")
+        stage = self._controlled_pressure_stages.get(boundary_id)
+        if stage is None:
+            raise RuntimeError("pressure boundary has no frozen pressure stage")
+        started = float(self._native_clock.now())
+        observed_before = self.forced_release_count
+        attempts = 0
+        for attempt in range(1, stage.max_requests + 1):
+            attempts += 1
+            request = stage.request(attempt, self._seed)
+            native_id, external_id, _submitted_at = self._start_pressure(request)
+            self._controlled_replay_clock.native_submitted(request.request_id)
+            finished_at = self._complete(request, native_id, external_id)
+            self._controlled_replay_clock.native_completed(request.request_id)
+            self._finish_pressure(request, finished_at)
+            if (
+                stage.stop_on_forced_release
+                and self.forced_release_count > observed_before
+            ):
+                break
+        elapsed = float(self._native_clock.now()) - started
+        self._controlled_pressure_execution_seconds += elapsed
+        self._sink.emit(
+            ExperimentEvent.create(
+                event_type="CONTROLLED_REPLAY_PRESSURE_COMPLETED",
+                timestamp=float(self._clock.now()),
+                clock_domain=self._lifecycle_clock_domain,
+                source="continuum.controlled_sparse_replay",
+                payload={
+                    "boundary_id": boundary_id,
+                    "stage_id": stage.stage_id,
+                    "attempt_count": attempts,
+                    "forced_release_count_before": observed_before,
+                    "forced_release_count_after": self.forced_release_count,
+                    "native_wall_elapsed_seconds": elapsed,
+                },
+            )
         )
 
     def collect_completed(self, *, until: float | None = None) -> tuple[RequestCompletion, ...]:
