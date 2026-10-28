@@ -55,6 +55,23 @@ SHA-256:
 - Fixed pressure token IDs are validated against stage size and model vocabulary;
   runtime policy outcomes cannot alter the pressure input.
 
+## PR #86 correctness closure
+
+- The exact `phase2h_history_rich_native_smoke` campaign kind is allowlisted for
+  the frozen A1 and A2 paths; similar names remain rejected.
+- Gate D rebuilds the decision from the persisted Free Queue, candidate block
+  ownership, required need, deadlines, q inputs, lambda and tau. It independently
+  executes the frozen A1 branch ladder and verifies selected identities, scores,
+  newly eligible blocks and tie-breaking. Tampered score, need and selection
+  controls fail.
+- Gate H compares the recorded History Mode with the mode recomputed by the
+  frozen TTL implementation, in addition to TTL and Deadline.
+- Source loading binds all six sidecar, trajectory and run SHA-256 identities.
+  It requires the original first 60 calls to be an ordered, contiguous success
+  cohort; failed calls cannot be silently removed by filtering.
+- The static count of 117 gaps remains a structural expectation. Gate H uses
+  the actual Native-run events to report the number consumed at each decision.
+
 ## Outstanding Native preflight
 
 The following remain `NOT_RUN_GPU_EXECUTION_NOT_AUTHORIZED` and must be measured

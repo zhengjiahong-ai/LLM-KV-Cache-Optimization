@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 
+import pytest
+
+from kvopt.workload import phase2h_history_rich_preflight as preflight_module
 from kvopt.workload.phase2h_history_rich_materialize import materialize
 from kvopt.workload.phase2h_history_rich_preflight import (
     ARMS,
@@ -37,15 +41,9 @@ def test_real_w1c_preflight_when_evidence_is_available() -> None:
         assert scenario["request_count"] == 180
         assert scenario["boundary_count"] == 363
         assert scenario["global_gap_count_before_first_pressure"] == 117
-        arm_rows = [
-            row
-            for row in result["runs"]
-            if row["scenario_id"] == scenario["scenario_id"]
-        ]
+        arm_rows = [row for row in result["runs"] if row["scenario_id"] == scenario["scenario_id"]]
         assert len(arm_rows) == 3
-        assert {row["timeline_sha256"] for row in arm_rows} == {
-            scenario["timeline_sha256"]
-        }
+        assert {row["timeline_sha256"] for row in arm_rows} == {scenario["timeline_sha256"]}
         assert {row["pressure_input_sha256"] for row in arm_rows} == {
             scenario["pressure_input_sha256"]
         }
@@ -77,3 +75,46 @@ def test_materialized_configs_bind_identical_pressure_and_timeline_across_arms(
         assert len(rows) == 3
         assert len({row["timeline_sha256"] for row in rows}) == 1
         assert len({row["pressure_input_sha256"] for row in rows}) == 1
+
+
+def test_source_hash_tamper_fails_closed(tmp_path: Path) -> None:
+    source = Path("artifacts/continuum-w1c-pilot-runs-v1/S100")
+    if not source.is_dir():
+        return
+    task = "django__django-13023"
+    target = tmp_path / task
+    shutil.copytree(source / task, target)
+    with (target / "acquisition-sidecar.json").open("a", encoding="utf-8") as stream:
+        stream.write(" ")
+    with pytest.raises(ValueError, match="source hash"):
+        preflight_module._load_calls(tmp_path, task)
+
+
+def test_failed_call_inside_first_sixty_is_not_filtered(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = Path("artifacts/continuum-w1c-pilot-runs-v1/S100")
+    if not source.is_dir():
+        return
+    task = "django__django-13023"
+    target = tmp_path / task
+    shutil.copytree(source / task, target)
+    sidecar_path = target / "acquisition-sidecar.json"
+    sidecar = json.loads(sidecar_path.read_text(encoding="utf-8"))
+    sidecar["model_calls"][10]["status"] = "FAILED"
+    sidecar_path.write_text(json.dumps(sidecar), encoding="utf-8")
+    run_path = target / "run.json"
+    trajectory_path = target / f"{task}.traj.json"
+    hashes = (
+        preflight_module._sha(sidecar_path),
+        preflight_module._sha(trajectory_path),
+        preflight_module._sha(run_path),
+    )
+    monkeypatch.setitem(preflight_module.FROZEN_SOURCE_HASHES, task, hashes)
+    run = json.loads(run_path.read_text(encoding="utf-8"))
+    run["sidecar_sha256"] = hashes[0]
+    run_path.write_text(json.dumps(run), encoding="utf-8")
+    hashes = (hashes[0], hashes[1], preflight_module._sha(run_path))
+    monkeypatch.setitem(preflight_module.FROZEN_SOURCE_HASHES, task, hashes)
+    with pytest.raises(ValueError, match="contiguous success cohort"):
+        preflight_module._load_calls(tmp_path, task)

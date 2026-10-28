@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+from itertools import pairwise
 from pathlib import Path
 from typing import Any
 
@@ -34,6 +35,38 @@ ARMS = ("A0", "A1", "A2")
 PRESSURE_ROUNDS = (40, 50, 55)
 BLOCK_SIZE = 16
 CAPACITY_BLOCKS = 2048
+FROZEN_SOURCE_HASHES = {
+    "django__django-13023": (
+        "5d39abd0974cac0921e1b47c4907d2cb0b4d0ca7bd8a881a427b20c8b68f8a31",
+        "ea003eced150c99c576507c0c6548b1ccf27f12c118d2f5950a818b48afe6ae3",
+        "935a75ddd975156f3582fa8894f0979ea8e70fa9f70c4c16088810091bcfc85e",
+    ),
+    "sympy__sympy-15017": (
+        "50ade68d15ae69dc68b716b4a664d44abf51b1483f788c001adf0b24c968c2cd",
+        "5db09e058e7a8fc6170c0ec1ff89276dc62884cc38c0d5f2ec130154237ce6e6",
+        "b15ec236ff837f8ca9464b5f119815598aae3a13af57f6bebd54bfaadd2be009",
+    ),
+    "mwaskom__seaborn-3069": (
+        "c7c9c421af578ee66f2c4a79f2e6df546dba4553880bea0fc1c402d7df0561ce",
+        "4f64f50e6e25949f3519eb726bfbcab528c1b6e1ed9b0423495d29181d9230b7",
+        "1920c879fd4bce1ac5f7adc9c80751412afd0c02f208c966b4c460407971fc73",
+    ),
+    "pylint-dev__pylint-6386": (
+        "9db69a2f8ecbeb61743718bed1ae54a46bd1c1edcc2316d321fd392632d1cc64",
+        "2f8951cbe86aa33cd6eecfa94548ed87739bd1005997925862db2296eb510e7c",
+        "aa094eafc021f23f869c7d1f1e421c1670d48bf098bd6bb7a26ddc9efab65015",
+    ),
+    "pytest-dev__pytest-7982": (
+        "ae8d96f5094c570ba16ab2c67b5080c46aceb883e798d928b55b3b0993db91ca",
+        "c744f93914b17a9fdd9c4ab989831eb260cb17a0066ebb7f3f625c1dc777a45c",
+        "3433e6fab29bffd3d67f7704ada74de4b1a0a8df88db7dde04c60290b867f8c8",
+    ),
+    "pydata__xarray-3993": (
+        "aa3e986a698cb1a13d21abfb53c1077910ccc8e78d69c2edcf81f18b118d3747",
+        "404809eee9be18795d5088dc2808f78a8dfde06fe54347c883f0cde98d78cfa9",
+        "ab8dfd48c90a2d09cacbc998f1748a576c92d177f6058089bcd1429d9ed9aa46",
+    ),
+}
 
 
 def _sha_bytes(value: bytes) -> str:
@@ -45,9 +78,7 @@ def _sha(path: Path) -> str:
 
 
 def _canonical_sha(value: object) -> str:
-    return _sha_bytes(
-        json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
-    )
+    return _sha_bytes(json.dumps(value, sort_keys=True, separators=(",", ":")).encode())
 
 
 def _pressure_token_ids(seed: str, token_count: int) -> tuple[int, ...]:
@@ -80,11 +111,36 @@ def _unique_chain_nodes(chains: list[tuple[tuple[int, ...], ...]]) -> int:
 
 def _load_calls(source_root: Path, task: str) -> tuple[dict[str, Any], ...]:
     path = source_root / task / "acquisition-sidecar.json"
+    run_path = source_root / task / "run.json"
+    trajectory_path = source_root / task / f"{task}.traj.json"
+    expected = FROZEN_SOURCE_HASHES.get(task)
+    if expected is None:
+        raise ValueError(f"{task} is not in the frozen source cohort")
+    actual = (_sha(path), _sha(trajectory_path), _sha(run_path))
+    if actual != expected:
+        raise ValueError(f"{task} source hash does not match the frozen cohort")
     value = json.loads(path.read_text(encoding="utf-8"))
-    calls = tuple(row for row in value["model_calls"] if row.get("status") == "SUCCESS")
+    run = json.loads(run_path.read_text(encoding="utf-8"))
+    calls = tuple(value["model_calls"])
+    if run.get("status") != "completed":
+        raise ValueError(f"{task} source run is not completed")
+    if run.get("sidecar_sha256") != actual[0]:
+        raise ValueError(f"{task} run does not bind the sidecar")
+    if value.get("trajectory_sha256") != actual[1]:
+        raise ValueError(f"{task} sidecar does not bind the trajectory")
+    if run.get("model_call_count") != len(calls):
+        raise ValueError(f"{task} model-call count differs from run evidence")
     if len(calls) < 60:
-        raise ValueError(f"{task} lacks 60 successful calls")
+        raise ValueError(f"{task} lacks 60 calls")
     selected = calls[:60]
+    if any(row.get("status") != "SUCCESS" for row in selected):
+        raise ValueError(f"{task} first 60 calls are not a contiguous success cohort")
+    request_ids = tuple(str(row.get("request_id")) for row in selected)
+    turn_indexes = tuple(int(row.get("turn_index")) for row in selected)
+    if len(set(request_ids)) != 60 or any(
+        current <= previous for previous, current in pairwise(turn_indexes)
+    ):
+        raise ValueError(f"{task} first 60 calls are not strictly ordered and unique")
     if any(not isinstance(row.get("submitted_token_ids"), list) for row in selected):
         raise ValueError(f"{task} lacks explicit token IDs")
     return selected
@@ -149,9 +205,8 @@ def build_preflight(source_root: Path) -> dict[str, object]:
                     "nominal_shortage_without_prior_eviction_blocks": max(
                         0, unique + pressure_blocks - CAPACITY_BLOCKS
                     ),
-                    "largest_single_request_fits": max(
-                        len(chain) for chain in chains
-                    ) <= CAPACITY_BLOCKS,
+                    "largest_single_request_fits": max(len(chain) for chain in chains)
+                    <= CAPACITY_BLOCKS,
                     "native_inflight_at_barrier": 0,
                 }
             )
@@ -190,9 +245,7 @@ def build_preflight(source_root: Path) -> dict[str, object]:
                     row["largest_single_request_fits"] for row in capacity_rows
                 ),
                 "first_pressure_nominal_shortage_matches_freeze": (
-                    capacity_rows[0][
-                        "nominal_shortage_without_prior_eviction_blocks"
-                    ]
+                    capacity_rows[0]["nominal_shortage_without_prior_eviction_blocks"]
                     == spec["target_shortage_blocks"]
                 ),
                 "later_joint_demand_may_exceed_capacity_after_prior_eviction": True,
@@ -213,8 +266,7 @@ def build_preflight(source_root: Path) -> dict[str, object]:
                 }
             )
     passed = all(
-        all(value is True for value in scenario["static_checks"].values())
-        for scenario in scenarios
+        all(value is True for value in scenario["static_checks"].values()) for scenario in scenarios
     )
     return {
         "schema_version": "phase2h.history_rich_native_preflight.v1",
@@ -244,13 +296,10 @@ def main() -> int:
     args = parser.parse_args()
     result = build_preflight(args.source_root)
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(
-        json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    args.output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(f"{result['status']}: {args.output}")
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

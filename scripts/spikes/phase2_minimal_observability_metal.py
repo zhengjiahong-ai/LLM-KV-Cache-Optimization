@@ -94,6 +94,15 @@ from kvopt.workload.phase2c_native_pilot import (
 
 _TARGET_PREFIX_TOKENS = 256
 _PRESSURE_TOKENS = 512
+_PHASE2G_A1_CAMPAIGN_KINDS = frozenset(
+    {
+        "continuum_native_costaware_bounded_evaluation",
+        "continuum_w1b_native_smoke",
+        "phase2g_a1_native_gate1",
+        "phase2g_a1_bounded_evaluation",
+        "phase2h_history_rich_native_smoke",
+    }
+)
 _PHASE2G_A2_CAMPAIGN_KINDS = frozenset(
     {
         "continuum_native_costaware_bounded_evaluation",
@@ -101,6 +110,7 @@ _PHASE2G_A2_CAMPAIGN_KINDS = frozenset(
         "phase2g_a2_native_gate1",
         "phase2g_a2_gate2_bounded_evaluation",
         "phase2g_a2_native_evidence_fidelity",
+        "phase2h_history_rich_native_smoke",
     }
 )
 _PHASE2G_UNIQUE_PROTECTED_BLOCK_CAMPAIGN_KINDS = frozenset(
@@ -115,6 +125,10 @@ _PHASE2G_UNIQUE_PROTECTED_BLOCK_CAMPAIGN_KINDS = frozenset(
 
 def _phase2g_a2_campaign_allowed(campaign_kind: object) -> bool:
     return campaign_kind in _PHASE2G_A2_CAMPAIGN_KINDS
+
+
+def _phase2g_a1_campaign_allowed(campaign_kind: object) -> bool:
+    return campaign_kind in _PHASE2G_A1_CAMPAIGN_KINDS
 
 
 def _phase2g_unique_protected_block_campaign_allowed(campaign_kind: object) -> bool:
@@ -991,12 +1005,9 @@ class MinimalMetalObservabilityBackend:
         phase2g_release_policy = options.get("phase2g_release_policy", "A0")
         if phase2g_release_policy not in {"A0", "A1"}:
             raise ValueError("backend_options.phase2g_release_policy must be A0 or A1")
-        if phase2g_release_policy == "A1" and config.get("campaign_kind") not in {
-            "continuum_native_costaware_bounded_evaluation",
-            "phase2g_a1_native_gate1",
-            "phase2g_a1_bounded_evaluation",
-            "continuum_w1b_native_smoke",
-        }:
+        if phase2g_release_policy == "A1" and not _phase2g_a1_campaign_allowed(
+            config.get("campaign_kind")
+        ):
             raise ValueError("A1 native release is restricted to authorized Phase 2G campaigns")
         phase2g_a1_lambda = float(options.get("phase2g_a1_lambda", 0.5))
         phase2g_a1_tau_seconds = float(options.get("phase2g_a1_tau_seconds", 30.0))

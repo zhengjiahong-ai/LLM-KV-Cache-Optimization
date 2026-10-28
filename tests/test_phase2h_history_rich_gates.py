@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from kvopt.profiling.phase2h_history_rich import evaluate_run
+from kvopt.profiling.phase2h_history_rich import _recompute_a1, evaluate_run
 
 
 def _write_run(path: Path, arm: str) -> None:
@@ -49,38 +49,68 @@ def _write_run(path: Path, arm: str) -> None:
         },
         {
             "event_type": "FORCED_RELEASE_DECISION",
+            "event_index": 3,
+            "timestamp": 10.0,
             "payload": {
-                "candidates": [{"program_id": "a"}, {"program_id": "b"}],
-            },
-        },
-        {
-            "event_type": "COST_AWARE_RELEASE_DECISION",
-            "payload": {
-                "selection_trace": [
+                "required_blocks": 3,
+                "original_free_queue": [
                     {
-                        "key": ["a", "pa"],
-                        "need": 3,
-                        "scores": [
-                            {
-                                "key": ["a", "pa"],
-                                "new_blocks": 4,
-                                "deadline": 10.25,
-                                "reuse_proxy": 0.5,
-                                "expected_recompute": 1.75,
-                            },
-                            {
-                                "key": ["b", "pb"],
-                                "new_blocks": 5,
-                                "deadline": 11.0,
-                                "reuse_proxy": 0.6,
-                                "expected_recompute": 2.4,
-                            },
-                        ],
+                        "block_id": block_id,
+                        "has_block_hash": True,
+                        "native_lru_rank": block_id,
                     }
-                ]
+                    for block_id in range(1, 10)
+                ],
+                "candidates": [
+                    {
+                        "program_id": "a",
+                        "prefix_id": "pa",
+                        "retention_deadline_timestamp": 10.25,
+                        "waiting_followup": True,
+                        "block_ids": [1, 2, 3, 4],
+                        "initially_reclaimable_block_ids": [1, 2, 3, 4],
+                        "next_tool_type": None,
+                        "elapsed_since_ttl_decision_seconds": 1.0,
+                        "prefill_reload_seconds": 1.0,
+                        "eta": 1.0,
+                        "queue_delay_t_seconds": 0.0,
+                    },
+                    {
+                        "program_id": "b",
+                        "prefix_id": "pb",
+                        "retention_deadline_timestamp": 11.0,
+                        "waiting_followup": True,
+                        "block_ids": [5, 6, 7, 8, 9],
+                        "initially_reclaimable_block_ids": [5, 6, 7, 8, 9],
+                        "next_tool_type": None,
+                        "elapsed_since_ttl_decision_seconds": 1.0,
+                        "prefill_reload_seconds": 1.0,
+                        "eta": 1.0,
+                        "queue_delay_t_seconds": 0.0,
+                    },
+                ],
+                "selected_releases": [
+                    {
+                        "program_id": "a",
+                        "prefix_id": "pa",
+                        "newly_eligible_block_ids": [1, 2, 3, 4],
+                    }
+                ],
             },
         },
     ]
+    trace, _releases = _recompute_a1(rows[-1], 0.5, 30.0)
+    rows.append(
+        {
+            "event_type": "COST_AWARE_RELEASE_DECISION",
+            "timestamp": 10.0,
+            "payload": {
+                "lambda": 0.5,
+                "tau_seconds": 30.0,
+                "selection_trace": trace,
+            },
+        }
+    )
     (path / "events.jsonl").write_text(
         "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8"
     )
@@ -105,6 +135,34 @@ def test_a0_does_not_claim_shadow_a1_scoring_as_gate_d(tmp_path: Path) -> None:
 
     assert report["gate_d"]["candidate_opportunity_status"] == "PASS"
     assert report["gate_d"]["status"] == "NOT_APPLICABLE_SHADOW_ONLY"
-    assert report["gate_d"]["scoring_evidence_scope"] == (
-        "SHADOW_DIAGNOSTIC_NOT_EXECUTED"
+    assert report["gate_d"]["scoring_evidence_scope"] == ("SHADOW_DIAGNOSTIC_NOT_EXECUTED")
+
+
+def test_gate_d_rejects_tampered_score_need_and_selection(tmp_path: Path) -> None:
+    for field in ("score", "need", "selection"):
+        run = tmp_path / field
+        _write_run(run, "A1")
+        rows = [json.loads(line) for line in (run / "events.jsonl").read_text().splitlines()]
+        cost = next(row for row in rows if row["event_type"] == "COST_AWARE_RELEASE_DECISION")
+        if field == "score":
+            cost["payload"]["selection_trace"][0]["scores"][0]["expected_recompute"] += 1.0
+        elif field == "need":
+            cost["payload"]["selection_trace"][0]["need"] += 1
+        else:
+            cost["payload"]["selection_trace"][0]["key"] = ["b", "pb"]
+        (run / "events.jsonl").write_text(
+            "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8"
+        )
+        assert evaluate_run(run, arm="A1")["gate_d"]["status"] == "FAIL"
+
+
+def test_gate_h_rejects_tampered_history_mode(tmp_path: Path) -> None:
+    run = tmp_path / "mode"
+    _write_run(run, "A1")
+    rows = [json.loads(line) for line in (run / "events.jsonl").read_text().splitlines()]
+    decision = next(row for row in rows if row["event_type"] == "TTL_DECISION_OBSERVED")
+    decision["payload"]["history_mode"] = "tool_specific"
+    (run / "events.jsonl").write_text(
+        "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8"
     )
+    assert evaluate_run(run, arm="A1")["gate_h"]["status"] == "FAIL"

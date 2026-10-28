@@ -6,6 +6,7 @@ from kvopt.continuum import RetentionMode
 from kvopt.workload.phase2 import PlannedRequest
 from scripts.spikes.phase2_minimal_observability_metal import (
     _expected_profiling_block_override,
+    _phase2g_a1_campaign_allowed,
     _phase2g_a2_campaign_allowed,
     _phase2g_unique_protected_block_campaign_allowed,
     _pressure_stage_sizes,
@@ -15,6 +16,21 @@ from scripts.spikes.phase2_minimal_observability_metal import (
     _turn_token_ids,
     _validate_formal_profile_cache_capacity,
 )
+
+
+def test_phase2h_campaign_is_exactly_allowlisted_for_a1_and_a2() -> None:
+    campaign = "phase2h_history_rich_native_smoke"
+    assert _phase2g_a1_campaign_allowed(campaign)
+    assert _phase2g_a2_campaign_allowed(campaign)
+
+
+@pytest.mark.parametrize(
+    "campaign",
+    ["phase2h_history_rich", "phase2h_history_rich_native", "phase2h-smoke"],
+)
+def test_similar_phase2h_names_are_not_policy_allowlisted(campaign: str) -> None:
+    assert not _phase2g_a1_campaign_allowed(campaign)
+    assert not _phase2g_a2_campaign_allowed(campaign)
 
 
 @pytest.mark.parametrize(
