@@ -475,6 +475,31 @@ def _pressure_stage_sizes(options: Mapping[str, object]) -> dict[str, int]:
     return sizes
 
 
+def _pressure_stage_token_ids(
+    options: Mapping[str, object],
+) -> dict[str, tuple[int, ...]]:
+    raw = options.get("pressure_token_ids_by_stage")
+    if raw is None:
+        return {}
+    if not isinstance(raw, Mapping):
+        raise TypeError("backend_options.pressure_token_ids_by_stage must be an object")
+    parsed: dict[str, tuple[int, ...]] = {}
+    for stage_id, values in raw.items():
+        if not isinstance(stage_id, str) or not stage_id:
+            raise ValueError("pressure token stage IDs must be non-empty")
+        if not isinstance(values, list) or not values:
+            raise ValueError("pressure token stages require non-empty token ID lists")
+        if any(
+            isinstance(value, bool) or not isinstance(value, int) or value < 0
+            for value in values
+        ):
+            raise ValueError("pressure token IDs must be non-negative integers")
+        if len(values) % _BLOCK_SIZE:
+            raise ValueError("pressure token ID count must align to the KV block size")
+        parsed[stage_id] = tuple(values)
+    return parsed
+
+
 def _h2_native_prefix_interventions(
     options: Mapping[str, object],
 ) -> dict[str, tuple[str, int]]:
@@ -877,6 +902,14 @@ class MinimalMetalObservabilityBackend:
             "backend_options.pressure_prompt_tokens",
         )
         self._pressure_stage_tokens = _pressure_stage_sizes(options)
+        self._pressure_stage_token_ids = _pressure_stage_token_ids(options)
+        if set(self._pressure_stage_token_ids) - set(self._pressure_stage_tokens):
+            raise ValueError(
+                "explicit pressure token stages require matching token-count bindings"
+            )
+        for stage_id, token_ids in self._pressure_stage_token_ids.items():
+            if len(token_ids) != self._pressure_stage_tokens[stage_id]:
+                raise ValueError("explicit pressure token count differs from stage size")
         controlled_pressure = options.get("controlled_pressure_stages_by_boundary", {})
         if not isinstance(controlled_pressure, Mapping):
             raise TypeError(
@@ -1046,6 +1079,18 @@ class MinimalMetalObservabilityBackend:
                         "config.pressure.safety_ceiling",
                     ),
                 )
+            elif config.get("campaign_kind") == "phase2h_history_rich_native_smoke":
+                if block_override != 2048:
+                    raise ValueError("Phase 2H history-rich smoke requires 2048 blocks")
+                if len(self._controlled_pressure_stages) != 3:
+                    raise ValueError("Phase 2H history-rich smoke requires three pressure stages")
+                stage_ids = {
+                    stage.stage_id for stage in self._controlled_pressure_stages.values()
+                }
+                if stage_ids != set(self._pressure_stage_token_ids):
+                    raise ValueError(
+                        "Phase 2H pressure stages require frozen explicit token IDs"
+                    )
             elif block_override != expected_override:
                 raise ValueError(
                     "profiling cache.block_override must equal protected-prefix blocks "
@@ -2209,11 +2254,15 @@ class MinimalMetalObservabilityBackend:
             stage_id,
             self._pressure_tokens,
         )
-        token_ids = _pressure_token_ids(
-            request,
-            vocabulary_size=self._vocabulary_size,
-            token_count=pressure_tokens,
-        )
+        token_ids = self._pressure_stage_token_ids.get(stage_id)
+        if token_ids is None:
+            token_ids = _pressure_token_ids(
+                request,
+                vocabulary_size=self._vocabulary_size,
+                token_count=pressure_tokens,
+            )
+        elif any(value >= self._vocabulary_size for value in token_ids):
+            raise ValueError("explicit pressure token ID exceeds model vocabulary")
         return self._enqueue(request, token_ids)
 
     def _finish_pressure(self, request: PlannedRequest, finished_at: float) -> None:

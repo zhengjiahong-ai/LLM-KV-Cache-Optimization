@@ -105,6 +105,7 @@ class A1Selection:
     joint_reuse_proxy: float | None = None
     proposed_partner: CandidateKey | None = None
     joint_cost_proxy: float | None = None
+    need: int = 0
 
 
 def reuse_proxy(deadline: float, timestamp: float, tau: float) -> float:
@@ -198,23 +199,23 @@ class A1EntryCostAwareStrategy:
             # The frozen loop would not be iterating at all; choose the cheapest
             # so the caller still gets a well-defined answer.
             best = min(scores, key=self._order)
-            return A1Selection(best.key, BRANCH_SINGLE_STEP, scores)
+            return A1Selection(best.key, BRANCH_SINGLE_STEP, scores, need=max(need, 0))
 
         sufficient = tuple(s for s in scores if s.new_blocks >= need)
         if sufficient:
             best = min(sufficient, key=self._order)
-            return A1Selection(best.key, BRANCH_SINGLE_STEP, scores)
+            return A1Selection(best.key, BRANCH_SINGLE_STEP, scores, need=need)
 
         positive = tuple(s for s in scores if s.new_blocks > 0)
         if positive:
             best = min(positive, key=self._per_unit_order)
-            return A1Selection(best.key, BRANCH_PER_UNIT, scores)
+            return A1Selection(best.key, BRANCH_PER_UNIT, scores, need=need)
 
         # Every N_i is zero: no lone release unlocks anything.
         pair = self._best_pair(scores, remaining, state, need)
         if pair is None:
             best = min(scores, key=lambda s: (s.deadline, s.key))
-            return A1Selection(best.key, BRANCH_DEADLINE_FALLBACK, scores)
+            return A1Selection(best.key, BRANCH_DEADLINE_FALLBACK, scores, need=need)
 
         (first, second), joint_blocks, joint_q, joint_cost = pair
         return A1Selection(
@@ -225,6 +226,7 @@ class A1EntryCostAwareStrategy:
             joint_reuse_proxy=joint_q,
             proposed_partner=second,
             joint_cost_proxy=joint_cost,
+            need=need,
         )
 
     def _best_pair(
