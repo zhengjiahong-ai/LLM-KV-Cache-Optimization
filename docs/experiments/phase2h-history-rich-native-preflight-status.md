@@ -72,17 +72,107 @@ SHA-256:
 - The static count of 117 gaps remains a structural expectation. Gate H uses
   the actual Native-run events to report the number consumed at each decision.
 
-## Outstanding Native preflight
+## Target CUDA Native preflight result
 
-The following remain `NOT_RUN_GPU_EXECUTION_NOT_AUTHORIZED` and must be measured
-on the target CUDA runtime before M1 execution authorization:
+The authorized minimum Native preflight was executed on an RTX 4090D. It used
+four diagnostic runs rather than the six-run formal Smoke:
 
-- longest-request execution and actual 2,048-block pool binding;
-- three-session Native inflight/barrier behavior;
-- all three fixed pressure stages and forced-release exposure;
-- empirical TTL decisions consuming the recorded history;
-- stable identity joins across eviction, re-request, APC, recomputation, and
-  right-censored content;
-- per-run Gate H and Gate D reports, runtime, and stop-control telemetry.
+- HR01/A0 verifies the second scenario's three-session timeline and fixed
+  pressure geometry;
+- HR02/A0 verifies the longest-context scenario on the baseline arm;
+- HR02/A1 is the only run whose Gate D evidence represents actual A1 Entry
+  scoring and selection;
+- HR02/A2 verifies the frozen block-selection path without mislabelling its
+  shadow Entry diagnostics as executed A1 decisions.
 
-No GPU Smoke was started while producing this record.
+HR01/A1 and HR01/A2 were deliberately not executed. All six frozen runs remain
+unstarted as formal outcomes and, if authorized, must run in a new formal
+output directory.
+
+### Runtime binding
+
+- GPU: NVIDIA GeForce RTX 4090 D, 24,564 MiB
+- Driver: 580.105.08
+- CUDA runtime: 13.0
+- Python: 3.12.4
+- PyTorch: 2.13.0+cu130
+- vLLM: 0.27.1
+- Model and tokenizer: `Qwen/Qwen2.5-Coder-1.5B-Instruct`
+- Frozen revision: `d18ecad881a290f0c792f1c2b5dbee1820d4a424`
+- KV pool: 2,048 blocks of 16 tokens
+- Maximum model length: 32,768 tokens
+- Maximum batched tokens: 2,048
+- Execution code: `55d085e1b66aa75811594d2303d44c2233293961`
+
+### Execution and Gate results
+
+All four runs completed successfully. Each submitted and completed 180 frozen
+Agent requests, observed three fixed pressure stages, used peak Native inflight
+two, and recorded zero replay-idle wall time.
+
+| Run | Wall seconds | Gate H | Gate D | Empirical TTL decisions | Forced multi-candidate decisions |
+|---|---:|---|---|---:|---:|
+| HR01/A0 | 57.713 | PASS | NOT_APPLICABLE_SHADOW_ONLY | 76 | 3 |
+| HR02/A0 | 77.612 | PASS | NOT_APPLICABLE_SHADOW_ONLY | 75 | 3 |
+| HR02/A1 | 74.553 | PASS | PASS | 75 | 3 |
+| HR02/A2 | 131.725 | PASS | NOT_APPLICABLE_SHADOW_ONLY | 75 | 3 |
+
+Every run recorded 177 history and TTL decisions, consumed as many as 176
+global Server Gap samples, and had zero missing or invalid TTL recomputations.
+HR02/A1 independently reconstructed all three actual A1 decisions with zero
+invalid or unmatched decisions. Gate D on A0/A2 remains deliberately
+non-applicable because their Entry evidence is shadow diagnostic, not executed
+A1 scoring.
+
+The aggregate measured wall time was 341.604 seconds. Its instrumented
+components were 95.097 seconds of engine initialization, 235.753 seconds of
+Native request execution, 33.409 seconds of pressure execution, and 7.561
+seconds of evidence writing. Component timers can overlap and therefore must
+not be summed to reconstruct wall time.
+
+### Frozen pressure and physical evidence
+
+All 12 Native pressure submissions (four runs times three barriers) matched the
+frozen pressure Token IDs and SHA-256 identities exactly. No arm-dependent
+pressure compensation occurred.
+
+Every pressure barrier exposed one forced release with multiple legal
+candidates. The Native callback persisted 3,679 hashed evictions for HR01/A0,
+7,467 for each HR02 A0/A2 run, and 7,862 for HR02/A1. Every persisted hashed
+eviction recorded a pre-eviction Native cache key, process identity, block ID,
+and successful hash removal.
+
+All 12 selected releases were followed by a later request from the selected
+program. At the first request after each barrier, the expected reusable prefix
+was only partially cached and recomputation was positive. The observed
+recomputed prefix ranged from 528 to 11,632 tokens. Eleven of the 12 barriers
+also observed eviction of the selected full-prefix Native key. At HR02/A1's
+third barrier, selected block IDs were physically evicted and the following
+request recomputed 11,632 tokens, but the selected full-prefix key itself was
+not among the eviction callbacks.
+
+This supports a bounded stable-identity and temporal join from logical release
+through physical eviction to later APC/recomputation. It does **not** establish
+complete content-level causal attribution for every block: the Native eviction
+callback explicitly does not assign logical ownership. Content with no later
+request before the 60-call boundary remains right-censored and is not counted
+as permanently unreused. The final request of each of the three sessions in
+each run is likewise terminally right-censored by the frozen observation
+window.
+
+## Evidence identity and recommendation
+
+- Raw evidence archive:
+  `artifacts/phase2h-history-rich-native-preflight-v2-evidence.tar.gz`
+- Archive SHA-256:
+  `66d706c37b12d7753a62ca61ef00496a18127a9386579f5795884d11474fa22f`
+- Archive validation: `PASS`
+- Native schema diagnostic SHA-256:
+  `1fd897fe3c29be51098ab321ccad2ea8310120d7509a4c1a18c62c9f35e76b9e`
+
+Recommendation: `GO_FOR_M1_EXECUTION_AUTHORIZATION_REVIEW`. The Native
+preflight demonstrates that Gate H is reachable, actual A1 Gate D decisions
+are independently reproducible, three-session replay and all pressure barriers
+execute under the frozen 2,048-block pool, and the bounded physical evidence
+chain is observable. This recommendation does not itself authorize or start
+the six-run formal Smoke.
