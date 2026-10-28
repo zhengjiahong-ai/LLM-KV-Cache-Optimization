@@ -25,7 +25,7 @@ Gate H 通过不代表 q 已获得预测能力；Gate D 通过也不代表 A1 �
 - 保留原始 Explicit Token IDs、顺序、Prompt 增长和观测 gap；
 - 任务选择在 Native 结果产生前冻结，不按 A1/A0 结果筛选。
 
-每个场景包含 3 个独立 Session，每个 Session 重放成功调用 `1..60`。首次评估压力位于每个 Session 完成第 40 个请求之后；此时每 Session 已产生 39 条 server gap，全局历史为 `3 × 39 = 117`，严格超过冻结阈值 100。随后继续到第 50、60 个请求，并在相同边界重复压力。
+每个场景包含 3 个独立 Session，每个 Session 重放成功调用 `1..60`。首次评估压力位于每个 Session 完成第 40 个请求之后；此时每 Session 已产生 39 条 server gap，全局历史为 `3 × 39 = 117`，严格超过冻结阈值 100。随后继续到第 50、55 个请求，并在相同边界重复压力；第 56–60 个请求作为第三次压力后的真实 Return 观察窗口。
 
 ### 2.2 HR01：balanced-gap
 
@@ -47,14 +47,28 @@ Gate H 通过不代表 q 已获得预测能力；Gate D 通过也不代表 A1 �
 
 该场景共 177 条观测 gap，中位 0.007346 s，p90 0.011759 s，范围 0.002202–0.382832 s。它提供与 HR01 不同的真实历史分布和更高的上下文占用，但不人为加入十秒级排队延迟。
 
-### 2.4 连续 Replay 契约
+### 2.4 三 Session 时间线与调度选择
 
-- 三个 Session 使用冻结的 round-robin 提交顺序：每轮依次 A、B、C；跨臂顺序完全一致。
-- 观测 gap 进入 Continuum 逻辑时间域；不做真实 wall-clock sleep，不缩放、不截断、不归零。
+严格保留三个 Session 各自的原始 gap，通常无法同时保证每轮都按 A、B、C 的 wall-clock Round-Robin 顺序到达。本 Proposal 明确选择以下可复现规则，避免隐式扭曲：
+
+1. 每个 Session 的第一个 submit 归一化到 `session_index × 0.25 s`；
+2. 每个 Session 内使用原始 submit/completion offset，按 source logical time 合并；
+3. 同一逻辑时间的事件按 Session A、B、C 稳定排序；该排序只是 tie-break，不声称原始生产环境采用 Round-Robin；
+4. Pressure Barrier 位于三个 Session 对应轮次全部完成之后、任一 Session 下一轮到达之前；
+5. 若下一轮原始 arrival 早于 Barrier，只增加显式 `CONTROLLED_PRESSURE_JOIN_DELAY`，不缩短原始 gap；新增 delay 按 Session 和边界记录；
+6. A0/A1/A2 使用完全相同的物化时间线及 SHA-256。
+
+因此，冻结语义是 **source-time merge with deterministic session tie-break and explicit pressure-join delay**，不是严格 Round-Robin wall-clock replay。
+
+其他契约：
+
+- 观测 gap 进入 Continuum 逻辑时间域；不做真实 wall-clock sleep，不缩放、不截断、不归零；Pressure Join 产生的额外 delay 单独记录。
 - Native 提交、完成、物理淘汰和 APC 使用真实 monotonic clock；两种时钟不得直接相减或混排。
 - 逻辑时间只在 Native inflight 为零的显式边界推进。
 - 每个 Session 内的 60 个请求连续保留，不再像 v10 一样抽取 6 个稀疏 checkpoint。
 - Run 结束保留右删失状态；尚未再次访问的被逐出内容不得记为“永久未复用”。
+
+只读 Mock 检查由 `phase2h_history_rich_proposal.materialize_history_rich_mock_timeline` 固化：180 个请求形成 360 个 arrival/completion boundaries，加 3 个 Pressure Barriers，共 363 个边界；首次压力前全局 gap 数为 117。
 
 ## 3. Cache capacity 与重复压力
 
@@ -66,15 +80,48 @@ Gate H 通过不代表 q 已获得预测能力；Gate D 通过也不代表 A1 �
 
 Preflight 必须重新证明：最长冻结请求可执行、三 Session 顺序可重放、跨臂 block capacity 完全一致。若实际引擎要求高于 2,048 blocks，Fail Closed，不通过截断或降低 `max_model_len` 绕过。
 
+在每个边界用 16-token chain blocks 做静态 trie 口径估算（仅用于容量可行性，不冒充 Native residency）：
+
+| Scenario / round | Session prefix blocks | Joint blocks before sharing | Shared-prefix saving | Unique chain blocks | 2048-capacity margin |
+|---|---|---:|---:|---:|---:|
+| HR01 / 40 | 368 / 418 / 542 | 1,328 | 14 | 1,314 | +734 |
+| HR01 / 50 | 440 / 502 / 657 | 1,599 | 14 | 1,585 | +463 |
+| HR01 / 55 | 476 / 544 / 713 | 1,733 | 14 | 1,719 | +329 |
+| HR01 / 60 | 512 / 586 / 772 | 1,870 | 14 | 1,856 | +192 |
+| HR02 / 40 | 602 / 491 / 718 | 1,811 | 14 | 1,797 | +251 |
+| HR02 / 50 | 733 / 597 / 881 | 2,211 | 14 | 2,197 | −149 |
+| HR02 / 55 | 799 / 647 / 963 | 2,409 | 14 | 2,395 | −347 |
+| HR02 / 60 | 864 / 700 / 1,044 | 2,608 | 14 | 2,594 | −546 |
+
+边界处没有 Native inflight 请求；表中的 active-request count 为 0。HR02 从 round 50 起不可能让三个完整当前前缀同时驻留于 2,048 blocks，这正是预期的自然容量竞争，不是配置错误。实际 residency、共享链和已淘汰内容必须从 Native Snapshot 读取；若单个请求本身超过容量才 Fail Closed。
+
 ### 3.2 Pressure boundaries
 
 每个 Run 仅在以下冻结边界施加压力：
 
 1. `after_round_40`：历史门槛跨越后的首次机制决策；
 2. `after_round_50`：检查释放、物理淘汰、后续访问后的第二次竞争；
-3. `after_round_60`：检查重复竞争和观察窗口末端右删失。
+3. `after_round_55`：第三次竞争；round 56–60 提供每 Session 5 次下游 Return 机会。
 
-HR01 使用目标 shortage 32 blocks；HR02 使用目标 shortage 128 blocks。压力生成器必须基于边界时实际 free blocks 计算所需输入，并逐请求检查 Native eviction；一旦达到目标 shortage/forced release 即停止，保留 64-request fail-closed ceiling。不得按策略臂修改压力强度，也不得根据首次结果调高压力以制造分歧。
+### 3.3 策略无关的 Pressure 输入
+
+Pressure 不再根据运行时 free blocks 动态生成 Token 请求。每个场景在所有臂和三个边界使用预先物化的、彼此内容不同但长度固定的 Explicit Token IDs：
+
+| Scenario | First-boundary target shortage | Frozen pressure allocation | Frozen pressure tokens | Content seed |
+|---|---:|---:|---:|---|
+| HR01 | 32 blocks | 766 blocks | 12,256 | `phase2h:hr01:{boundary}:pressure-v1` |
+| HR02 | 128 blocks | 379 blocks | 6,064 | `phase2h:hr02:{boundary}:pressure-v1` |
+
+这些长度由 round-40 静态容量估算预先确定；每个 boundary 的 Token IDs 与 SHA-256 必须在 Final Freeze Record 中固化。三个策略臂接收逐位相同的 Pressure Token IDs、边界和请求数。
+
+运行时分别记录但不混用：
+
+- `target_shortage_blocks`：预注册设计目标；
+- `actual_free_blocks_before_pressure` 与 `actual_shortage_blocks`：Native 实测；
+- `native_allocation_blocks`：冻结 Pressure 请求实际申请量；
+- `a1_scoring_need`：A1 决策直接使用的 need。
+
+如果实际 shortage 未达到目标，保留为 `PRESSURE_TARGET_NOT_REACHED`；不得追加 Token、增加请求或按某个策略结果补偿。Pressure 内容本身不得跨边界命中 APC，因此三个边界使用不同 content seed。
 
 `need` 必须由实际 A1 决策直接记录。Pressure generator 的 shortage、Native allocation request 和 A1 scoring `need` 分别保存，不能互相替代。
 
@@ -172,7 +219,7 @@ Score 差距小于 2×、A1 与简单基线分歧、A1 与 A0 分歧均为诊断
 
 ## 7. Preflight、停止条件与缺失性
 
-GPU 执行前必须通过离线/低成本 Preflight：source hashes、60-call 连续性、Token IDs、逻辑时间单调性、跨臂 timeline SHA、2,048-block 容量、三 Session 顺序和三次 pressure materialization。
+GPU 执行前必须通过离线/低成本 Preflight：source hashes、60-call 连续性、Token IDs、逻辑时间单调性、跨臂 timeline SHA、2,048-block 容量、三 Session source-time merge 和三次固定 pressure materialization。
 
 以下任一情况立即停止，不继续增加 run：
 
@@ -183,7 +230,7 @@ GPU 执行前必须通过离线/低成本 Preflight：source hashes、60-call �
 - 直接记录的 `need` 与评分输入不一致；
 - 跨臂 Token IDs、顺序、容量、压力或逻辑时间 SHA 不一致；
 - stable content identity 无法关联 eligible、eviction 和 later request；
-- 三次压力均未形成 Forced Release，导致 Gate D 不可判定；
+- 三次压力均未形成 Forced Release，导致 Gate D 不可判定；未达到单次目标 shortage 本身只标记，不动态补偿；
 - 单 run 超过 30 分钟、总 GPU wall time 超过 4 小时，或出现系统性运行故障。
 
 未再次访问、未形成多候选、fallback、身份未知和运行末端右删失均保留在 Missingness Accounting，不静默删除。
@@ -219,13 +266,17 @@ GPU 执行前必须通过离线/低成本 Preflight：source hashes、60-call �
 请求 M1 审核并明确冻结：
 
 1. 两个三 Session workload 及每 Session 前 60 个连续 S100 请求；
-2. 2,048-block 单容量与 32/128-block 两个场景级 shortage；
-3. round 40/50/60 三个 pressure 边界；
+2. 2,048-block 单容量、固定 Pressure Token 输入与 32/128-block 首边界目标 shortage；
+3. round 40/50/55 三个 pressure 边界及 round 56–60 Return 窗口；
 4. 最多 6 个 Native runs、1 repeat、4 GPU-hour stop limit；
 5. 本文的历史/TTL、Entry decision、physical reuse 观测字段；
 6. Gate H、Gate D 与联合解释规则。
 
 在 M1 明确冻结之前，不实现 GPU Runner 扩展、不启动 Smoke、不修改 A1/A2。
+
+### 10.1 Gate 报告粒度
+
+Gate H 与 Gate D 必须对每个 `scenario × arm × repeat` Run 分别报告 `PASS / FAIL / NOT_OBSERVABLE` 和具体原因，再提供汇总矩阵。任何单个 Run 的通过都不得表述为全部六个 Run 通过；跨臂机制比较只使用对应 Run 均可观察的配对单元。
 
 ## Appendix A. Source artifact bindings
 
