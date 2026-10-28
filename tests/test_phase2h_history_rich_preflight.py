@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from kvopt.workload import phase2h_history_rich_preflight as preflight_module
+from kvopt.workload.phase2 import load_phase2_trace
 from kvopt.workload.phase2h_history_rich_materialize import materialize
 from kvopt.workload.phase2h_history_rich_preflight import (
     ARMS,
@@ -75,6 +76,12 @@ def test_materialized_configs_bind_identical_pressure_and_timeline_across_arms(
         assert len(rows) == 3
         assert len({row["timeline_sha256"] for row in rows}) == 1
         assert len({row["pressure_input_sha256"] for row in rows}) == 1
+    for row in manifest["runs"]:
+        config = json.loads(
+            (tmp_path / "materialized" / row["config"]).read_text(encoding="utf-8")
+        )
+        trace = load_phase2_trace(tmp_path / "materialized" / config["trace"])
+        assert len(trace.requests) == 180
 
 
 def test_source_hash_tamper_fails_closed(tmp_path: Path) -> None:

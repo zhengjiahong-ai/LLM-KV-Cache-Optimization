@@ -93,7 +93,10 @@ def materialize(
                         "prefix_prompt": "",
                         "is_terminal": False,
                         "next_tool_type": "observed-agent-gap",
-                        "tool_gap_seconds": next_gap,
+                        # The Phase 2 trace schema requires a numeric duration.
+                        # This value is never consumed for the final right-censored
+                        # request because no later request closes its server gap.
+                        "tool_gap_seconds": 0.0 if next_gap is None else next_gap,
                         "kind": "turn",
                     }
                 )
