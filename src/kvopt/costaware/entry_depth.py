@@ -130,6 +130,37 @@ class DepthStatus(str, Enum):
     IDENTITY_UNVERIFIED = "IDENTITY_UNVERIFIED"
     CONTENT_MISMATCH = "CONTENT_MISMATCH"
     UNKNOWN_BLOCK = "UNKNOWN_BLOCK"
+    #: Native scoring was requested but the caller supplied no current content
+    #: identity for this block. A recorded proof is *not* a substitute: it only
+    #: says what the slot held when the chain was observed.
+    LIVE_IDENTITY_REQUIRED = "LIVE_IDENTITY_REQUIRED"
+
+
+class DepthVerificationMode(str, Enum):
+    """Which identity standard a depth lookup must meet.
+
+    The two modes are not interchangeable, and the distinction is the whole point
+    of this enum: a result produced in :attr:`HISTORICAL_REPLAY` mode must never be
+    described as native content verification.
+
+    ``HISTORICAL_REPLAY``
+        Offline analysis of an archive. No live content identity exists, so the
+        proof's own recorded identity is used. Sound *for replay*, because the
+        proof must be the latest observation of the chain and any later content
+        change would have produced a later observation. It is nevertheless a
+        statement about the past, so every result is flagged
+        ``content_verified = False``.
+
+    ``NATIVE_LIVE``
+        Real native scoring. The caller must supply the current content identity
+        of every victim, because a block id can be recycled after the snapshot and
+        no new snapshot may ever appear for the old chain. A missing live identity
+        is a fail-closed condition (:attr:`DepthStatus.LIVE_IDENTITY_REQUIRED`),
+        never a reason to fall back to the recorded hash.
+    """
+
+    HISTORICAL_REPLAY = "historical_replay"
+    NATIVE_LIVE = "native_live"
 
 
 #: Statuses that mean "the caller must fall back", as opposed to "this block
@@ -154,6 +185,7 @@ class DepthQuery:
     decision_clock_domain: str = CLOCK_DOMAIN_UNKNOWN
     expected_observation_index: int | None = None
     max_age_seconds: float = DEFAULT_MAX_AGE_SECONDS
+    verification_mode: DepthVerificationMode = DepthVerificationMode.HISTORICAL_REPLAY
 
     def __post_init__(self) -> None:
         if not self.chain_id[0] or not self.chain_id[1]:
@@ -165,6 +197,10 @@ class DepthQuery:
         if self.max_age_seconds <= 0.0:
             raise ValueError("max_age_seconds must be positive")
 
+    @property
+    def requires_live_identity(self) -> bool:
+        return self.verification_mode is DepthVerificationMode.NATIVE_LIVE
+
 
 @dataclass(frozen=True, slots=True)
 class DepthResolution:
@@ -172,6 +208,10 @@ class DepthResolution:
 
     depths: Mapping[int, int]
     failures: Mapping[int, DepthStatus]
+    #: True only when a live content hash was actually compared for every
+    #: resolved block. ``False`` means the depth came from the recorded proof and
+    #: therefore describes the observation, not the present.
+    live_identity_checked: bool = False
 
     @property
     def resolved(self) -> bool:
@@ -182,6 +222,16 @@ class DepthResolution:
         """
 
         return not self.failures
+
+    @property
+    def content_verified(self) -> bool:
+        """True only when the depths were validated against current content.
+
+        Callers must use this, not :attr:`resolved`, when deciding whether a result
+        may be described as native content verification.
+        """
+
+        return self.resolved and self.live_identity_checked
 
 
 @dataclass(frozen=True, slots=True)
@@ -343,16 +393,29 @@ class ChainDepthProof:
     ) -> DepthResolution:
         """Resolve a victim set, splitting resolved from unresolvable blocks.
 
-        ``live_hashes`` is what the caller believes the slots hold now. When it
-        is ``None`` the recorded hashes are used, which is sound because this
-        proof is required to be the latest observation of the chain: a change of
-        content would have produced a later observation and made the proof
-        ``SUPERSEDED``.
+        ``live_hashes`` is what the slots hold **now**. Passing it is mandatory in
+        :attr:`DepthVerificationMode.NATIVE_LIVE`, because a block id can be
+        recycled after the snapshot and the old chain may never produce another
+        observation -- so the recorded hash would then describe content that is no
+        longer there. A missing live hash is
+        :attr:`DepthStatus.LIVE_IDENTITY_REQUIRED`, never a reason to substitute
+        the recorded one.
+
+        In :attr:`DepthVerificationMode.HISTORICAL_REPLAY` a missing ``live_hashes``
+        falls back to the recorded identity, which is sound for replay, and the
+        result is flagged ``live_identity_checked = False`` so it cannot be
+        reported as native content verification.
         """
 
         status = self.status_for(query)
         if status is not None:
             return DepthResolution({}, {int(b): status for b in victim_block_ids})
+
+        if live_hashes is None and query.requires_live_identity:
+            return DepthResolution(
+                {},
+                {int(b): DepthStatus.LIVE_IDENTITY_REQUIRED for b in victim_block_ids},
+            )
 
         depths: dict[int, int] = {}
         failures: dict[int, DepthStatus] = {}
@@ -368,14 +431,14 @@ class ChainDepthProof:
             else:
                 live = live_hashes.get(block_id)
                 if live is None:
-                    failures[block_id] = DepthStatus.IDENTITY_UNVERIFIED
+                    failures[block_id] = DepthStatus.LIVE_IDENTITY_REQUIRED
                     continue
                 if live != self.content_hashes[index]:
                     failures[block_id] = DepthStatus.CONTENT_MISMATCH
                     continue
                 depth = self.depths[index]
             depths[block_id] = depth
-        return DepthResolution(depths, failures)
+        return DepthResolution(depths, failures, live_identity_checked=live_hashes is not None)
 
 
 @dataclass(slots=True)
@@ -444,6 +507,7 @@ class ChainDepthIndex:
         decision_time: float,
         decision_clock_domain: str = CLOCK_DOMAIN_UNKNOWN,
         max_age_seconds: float = DEFAULT_MAX_AGE_SECONDS,
+        verification_mode: DepthVerificationMode = DepthVerificationMode.HISTORICAL_REPLAY,
     ) -> tuple[ChainDepthProof, DepthQuery] | None:
         """Build a query pinned to the current observation, or ``None`` if there is none.
 
@@ -462,6 +526,7 @@ class ChainDepthIndex:
             decision_clock_domain=decision_clock_domain,
             expected_observation_index=proof.observation_index,
             max_age_seconds=max_age_seconds,
+            verification_mode=verification_mode,
         )
         return proof, query
 

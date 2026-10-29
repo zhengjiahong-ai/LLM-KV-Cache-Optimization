@@ -81,6 +81,7 @@ from .entry_depth import (
     CLOCK_DOMAIN_UNKNOWN,
     ChainDepthIndex,
     DepthQuery,
+    DepthVerificationMode,
 )
 from .replay import (
     CandidateKey,
@@ -109,6 +110,10 @@ FAIL_DEPTH_UNAVAILABLE = "DEPTH_UNAVAILABLE"
 FAIL_PREFILL_MISSING = "PREFILL_MISSING"
 FAIL_VICTIM_SHORTFALL = "VICTIM_SHORTFALL"
 FAIL_INVALID_GEOMETRY = "INVALID_GEOMETRY"
+#: Native scoring asked for, but the caller supplied no current content identity.
+#: A recorded proof describes the observation, not the present, so it is not
+#: accepted as a substitute.
+FAIL_LIVE_IDENTITY_MISSING = "LIVE_IDENTITY_MISSING"
 
 #: Selection-level fallback reason: emitted only when Step 2 handed the decision
 #: back to frozen A1.
@@ -156,6 +161,32 @@ def predict_victims(
     return tuple(block_id for _rank, block_id in ordered[:deficit])
 
 
+def _usable_prefill(value: object) -> bool:
+    """True only for a finite, strictly positive real number.
+
+    Deliberately defensive rather than ``math.isfinite(value)``: a missing prefill
+    arrives as ``None`` and a malformed one as a string, and both raise
+    ``TypeError`` inside ``math.isfinite``. A cost proxy that crashes on missing
+    input is worse than one that falls back, so this predicate must never raise.
+    """
+
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    return math.isfinite(value) and value > 0.0
+
+
+def _recorded_prefill(value: object) -> float | None:
+    """The value to persist in an audit row: a real number, or ``None``.
+
+    Booleans are rejected explicitly because ``isinstance(True, int)`` is true and a
+    flag accidentally reaching a cost field would otherwise be recorded as ``1.0``.
+    """
+
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value)
+
+
 @dataclass(frozen=True, slots=True)
 class CandidateCostAudit:
     """Per-candidate record making the score reproducible from frozen inputs.
@@ -179,6 +210,10 @@ class CandidateCostAudit:
     prefill_reload_seconds: float | None
     score: float | None
     evidence: VictimEvidence = VictimEvidence.PREDICTED
+    #: True only when the depth came from a proof validated against the slots'
+    #: **current** content. Offline replay leaves this ``False``, because there the
+    #: recorded proof is the only evidence available and it describes the past.
+    content_verified: bool = False
     selected: bool = False
     fallback_reason: str = FAIL_NONE
 
@@ -246,12 +281,36 @@ class A3SuffixCostStrategy:
 
     Composes :class:`A1EntryCostAwareStrategy` so that Steps 1 and 3-5 are the
     frozen implementation by construction rather than by resemblance.
+
+    Verification boundary (RC1)
+    ---------------------------
+    ``verification_mode`` decides what a depth is allowed to rest on:
+
+    ``HISTORICAL_REPLAY``
+        Offline analysis of an archive, where no live content identity exists. The
+        proof's own recorded identity is used, and every audit row is marked
+        ``content_verified = False``. Results from this mode describe the past and
+        must not be presented as native content verification.
+
+    ``NATIVE_LIVE``
+        Real native scoring. Two things become mandatory and are refused rather
+        than defaulted:
+
+        * ``native_hash_process_id`` must be passed explicitly. Falling back to the
+          process recorded in the proof would make the identity check compare a
+          value with itself, which verifies nothing.
+        * ``content_hashes`` must supply the slots' **current** content, per
+          decision. Without it a depth is unavailable, because a block id recycled
+          after the snapshot leaves the old proof describing content that is no
+          longer in that slot, and the old chain may never be observed again.
     """
 
     depth_index: ChainDepthIndex
     native_hash_process_id: str = CHAIN_PROCESS_UNSET
     decision_clock_domain: str = CLOCK_DOMAIN_UNKNOWN
     max_age_seconds: float | None = None
+    verification_mode: DepthVerificationMode = DepthVerificationMode.HISTORICAL_REPLAY
+    content_hashes: Mapping[int, str] | None = None
     lambda_: float = 0.5
     tau_seconds: float = default_tau_seconds()
     strategy_id: str = STRATEGY_ID
@@ -265,6 +324,19 @@ class A3SuffixCostStrategy:
             raise ValueError("tau_seconds must be positive")
         if self.max_age_seconds is not None and self.max_age_seconds <= 0.0:
             raise ValueError("max_age_seconds must be positive when given")
+        if (
+            self.verification_mode is DepthVerificationMode.NATIVE_LIVE
+            and not self.native_hash_process_id
+        ):
+            raise ValueError(
+                "native scoring requires an explicit native_hash_process_id; "
+                "the proof's own process id cannot stand in for it because that "
+                "would compare a value with itself"
+            )
+
+    @property
+    def is_native_scoring(self) -> bool:
+        return self.verification_mode is DepthVerificationMode.NATIVE_LIVE
 
     # -- delegation ------------------------------------------------------
 
@@ -298,10 +370,15 @@ class A3SuffixCostStrategy:
         ``expected_observation_index`` is what turns a stale proof into an
         explicit ``SUPERSEDED`` failure instead of a silently accepted number.
         """
+        if self.is_native_scoring:
+            # ``__post_init__`` guarantees this is the caller's explicit identity.
+            process_id = self.native_hash_process_id
+        else:
+            # Offline replay: the proof carries the only process that ever observed
+            # the chain, so using it cannot mask a cross-process read. This is a
+            # replay convenience and must not be reachable in native scoring.
+            process_id = self.native_hash_process_id or recorded_process_id
 
-        process_id = (
-            self.native_hash_process_id if self.native_hash_process_id else recorded_process_id
-        )
         kwargs: dict[str, object] = {
             "chain_id": chain_id,
             "native_hash_process_id": process_id,
@@ -309,6 +386,7 @@ class A3SuffixCostStrategy:
             "decision_time": decision_time,
             "decision_clock_domain": self.decision_clock_domain,
             "expected_observation_index": expected_observation_index,
+            "verification_mode": self.verification_mode,
         }
         if self.max_age_seconds is not None:
             kwargs["max_age_seconds"] = self.max_age_seconds
@@ -353,7 +431,22 @@ class A3SuffixCostStrategy:
                 fallback_reason=FAIL_VICTIM_SHORTFALL,
             )
 
-        if not math.isfinite(prefill) or prefill <= 0.0:
+        if not _usable_prefill(prefill):
+            return CandidateCostAudit(
+                **common,
+                victim_depths=(),
+                chain_length=None,
+                d_min=None,
+                suffix_blocks=None,
+                prefill_reload_seconds=_recorded_prefill(prefill),
+                score=None,
+                fallback_reason=FAIL_PREFILL_MISSING,
+            )
+
+        if self.is_native_scoring and not self.content_hashes:
+            # Native scoring has no live content identity to validate against, so no
+            # victim depth is trustworthy. Refusing here keeps the failure at the
+            # granularity of the decision instead of pretending per-block success.
             return CandidateCostAudit(
                 **common,
                 victim_depths=(),
@@ -362,7 +455,7 @@ class A3SuffixCostStrategy:
                 suffix_blocks=None,
                 prefill_reload_seconds=prefill,
                 score=None,
-                fallback_reason=FAIL_PREFILL_MISSING,
+                fallback_reason=FAIL_LIVE_IDENTITY_MISSING,
             )
 
         proof = self.depth_index.latest_before(key, snapshot.decision_event_index)
@@ -386,7 +479,7 @@ class A3SuffixCostStrategy:
             expected_observation_index=proof.observation_index,
         )
 
-        resolution = proof.resolve(query, victims)
+        resolution = proof.resolve(query, victims, self.content_hashes)
         if not resolution.resolved:
             return CandidateCostAudit(
                 **common,
@@ -430,6 +523,10 @@ class A3SuffixCostStrategy:
             suffix_blocks=suffix,
             prefill_reload_seconds=prefill,
             score=score,
+            # Carried straight from the resolution: offline replay legitimately
+            # validates against the recorded identity only, and the audit row must
+            # not overstate that.
+            content_verified=resolution.content_verified,
         )
 
     @staticmethod
@@ -616,11 +713,19 @@ def build_strategy(
     decision_clock_domain: str = CLOCK_DOMAIN_UNKNOWN,
     lambda_: float = 0.5,
     tau_seconds: float = default_tau_seconds(),
+    verification_mode: DepthVerificationMode = DepthVerificationMode.HISTORICAL_REPLAY,
+    content_hashes: Mapping[int, str] | None = None,
 ) -> A3SuffixCostStrategy:
     """Construct the strategy **only** for its explicit strategy id.
 
     Explicit enablement is the point: A0, A1 and A2 keep their own selectors, and
     nothing can opt into this behaviour by merely passing a plausible name.
+
+    ``verification_mode`` defaults to ``HISTORICAL_REPLAY`` so offline analysis keeps
+    working unchanged. Native integration must pass ``NATIVE_LIVE`` together with the
+    current ``native_hash_process_id`` and the per-decision ``content_hashes``;
+    ``NATIVE_LIVE`` without the process id is rejected outright rather than
+    defaulted.
     """
 
     if strategy_id != STRATEGY_ID:
@@ -634,4 +739,6 @@ def build_strategy(
         lambda_=lambda_,
         tau_seconds=tau_seconds,
         strategy_id=strategy_id,
+        verification_mode=verification_mode,
+        content_hashes=content_hashes,
     )

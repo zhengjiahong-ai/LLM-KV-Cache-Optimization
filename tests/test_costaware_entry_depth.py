@@ -23,6 +23,7 @@ from kvopt.costaware.entry_depth import (
     ChainDepthProof,
     DepthQuery,
     DepthStatus,
+    DepthVerificationMode,
     index_from_events,
 )
 
@@ -65,6 +66,7 @@ def _query(
     decision_clock_domain: str = "system_monotonic",
     expected_observation_index: int | None = None,
     max_age_seconds: float = DEFAULT_MAX_AGE_SECONDS,
+    verification_mode: DepthVerificationMode = DepthVerificationMode.HISTORICAL_REPLAY,
 ) -> DepthQuery:
     return DepthQuery(
         chain_id=chain_id,
@@ -74,6 +76,7 @@ def _query(
         decision_clock_domain=decision_clock_domain,
         expected_observation_index=expected_observation_index,
         max_age_seconds=max_age_seconds,
+        verification_mode=verification_mode,
     )
 
 
@@ -283,6 +286,103 @@ def test_observations_must_be_appended_in_order() -> None:
     index.observe(_proof(observation_index=5))
     with pytest.raises(ValueError):
         index.observe(_proof(observation_index=5))
+
+
+# --- verification modes (RC1) --------------------------------------------
+
+
+def test_historical_replay_resolution_is_not_content_verified() -> None:
+    """Offline replay may use the recorded identity, but must say so.
+
+    The result is usable for replay and simultaneously flagged as *not* validated
+    against current content, so it cannot be reported as native verification.
+    """
+
+    proof = _proof()
+    resolution = proof.resolve(_query(), (10, 11))
+    assert resolution.resolved is True
+    assert resolution.depths == {10: 1, 11: 2}
+    assert resolution.live_identity_checked is False
+    assert resolution.content_verified is False
+
+
+def test_live_identity_makes_a_resolution_content_verified() -> None:
+    proof = _proof()
+    resolution = proof.resolve(
+        _query(),
+        (10, 11),
+        live_hashes={10: "key-10", 11: "key-11"},
+    )
+    assert resolution.content_verified is True
+
+
+def test_native_live_mode_requires_live_identity() -> None:
+    """A recorded proof is not a substitute for the slots' current content."""
+
+    proof = _proof()
+    resolution = proof.resolve(
+        _query(verification_mode=DepthVerificationMode.NATIVE_LIVE),
+        (10, 11),
+    )
+    assert resolution.resolved is False
+    assert resolution.content_verified is False
+    assert set(resolution.failures.values()) == {DepthStatus.LIVE_IDENTITY_REQUIRED}
+
+
+def test_native_live_mode_rejects_a_partially_supplied_identity() -> None:
+    proof = _proof()
+    resolution = proof.resolve(
+        _query(verification_mode=DepthVerificationMode.NATIVE_LIVE),
+        (10, 11),
+        live_hashes={10: "key-10"},
+    )
+    assert resolution.resolved is False
+    assert resolution.depths == {10: 1}
+    assert resolution.failures == {11: DepthStatus.LIVE_IDENTITY_REQUIRED}
+
+
+def test_recycled_block_after_observation_is_rejected_without_a_new_snapshot() -> None:
+    """RC1's core case: no later snapshot ever appears for the old chain.
+
+    The proof says slot 12 holds ``key-12`` at depth 3. The slot is then recycled
+    for unrelated content, and the old chain is never observed again, so nothing
+    supersedes the proof. Only the live content comparison can catch it -- and in
+    native mode it must, instead of returning depth 3.
+    """
+
+    proof = _proof()
+    native = _query(verification_mode=DepthVerificationMode.NATIVE_LIVE)
+    depth, status = proof.depth_of(native, 12, "key-something-else")
+    assert depth is None
+    assert status is DepthStatus.CONTENT_MISMATCH
+
+    resolution = proof.resolve(native, (12,), live_hashes={12: "key-something-else"})
+    assert resolution.resolved is False
+    assert resolution.failures == {12: DepthStatus.CONTENT_MISMATCH}
+
+    # The same query in replay mode (no live identity) would have been accepted,
+    # which is exactly why the two modes are kept apart.
+    replay = proof.resolve(_query(), (12,))
+    assert replay.resolved is True
+    assert replay.content_verified is False
+
+
+def test_native_live_mode_still_enforces_every_other_check() -> None:
+    """Turning on live identity must not relax chain, process or ordering checks."""
+
+    proof = _proof()
+    live = {block: f"key-{block}" for block in proof.block_ids}
+    native = DepthVerificationMode.NATIVE_LIVE
+
+    depth, status = (
+        proof.resolve(_query(process_id="pid-other", verification_mode=native), (10,), live).depths,
+        proof.depth_of(_query(process_id="pid-other", verification_mode=native), 10, "key-10"),
+    )
+    assert depth == {}
+    assert status == (None, DepthStatus.WRONG_PROCESS)
+
+    future = proof.resolve(_query(decision_index=5, verification_mode=native), (10,), live)
+    assert future.failures == {10: DepthStatus.FUTURE_OBSERVATION}
 
 
 # --- archive-shaped construction -----------------------------------------

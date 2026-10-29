@@ -21,6 +21,7 @@ when it is absent instead of failing.
 
 from __future__ import annotations
 
+import dataclasses
 import glob
 from dataclasses import dataclass
 from pathlib import Path
@@ -29,11 +30,12 @@ import pytest
 
 from kvopt.costaware.a1_entry import A1EntryCostAwareStrategy
 from kvopt.costaware.a3_suffix import (
+    FAIL_LIVE_IDENTITY_MISSING,
     FAIL_NONE,
     A3SuffixCostStrategy,
     replay_with_audit,
 )
-from kvopt.costaware.entry_depth import index_from_events
+from kvopt.costaware.entry_depth import DepthVerificationMode, index_from_events
 from kvopt.costaware.replay import (
     CandidateKey,
     DecisionSnapshot,
@@ -136,6 +138,59 @@ def test_every_candidate_is_scorable_without_fallback(decisions: list[_Decision]
                 assert audit.victim_count == audit.deficit
                 scored += 1
     assert scored >= 6
+
+
+def test_offline_regression_does_not_claim_native_content_verification(
+    decisions: list[_Decision],
+) -> None:
+    """Every decision here runs in replay mode, and the audit must admit it.
+
+    There is no live content identity in an archive, so the depth comes from the
+    recorded proof alone. That is sound for replay and must never be presented as
+    native content verification, which is why ``content_verified`` stays ``False``
+    on every row rather than defaulting to a stronger claim.
+    """
+
+    checked = 0
+    for decision in decisions:
+        assert decision.strategy.is_native_scoring is False
+        record = replay_with_audit(decision.snapshot, decision.strategy, decision.rows)
+        for audit in record.audits:
+            assert audit.content_verified is False, (
+                f"idx={decision.snapshot.decision_event_index} "
+                f"{audit.key} claimed content verification without live identity"
+            )
+            checked += 1
+    assert checked > 0
+
+
+def test_native_mode_falls_back_on_the_same_archive(decisions: list[_Decision]) -> None:
+    """With native identity demanded and none supplied, the archive must fail closed.
+
+    This is the RC1 guard: the same six decisions that score fine offline cannot be
+    scored in native mode without live content identity, so an integration that
+    forgets to pass it degrades to frozen A1 instead of silently trusting history.
+    """
+
+    for decision in decisions:
+        native = dataclasses.replace(
+            decision.strategy,
+            verification_mode=DepthVerificationMode.NATIVE_LIVE,
+            # M6 would pass the *current* native process here. Any non-empty value
+            # satisfies the identity requirement; what this test checks is the
+            # missing live content identity, which is rejected before the proof is
+            # even consulted.
+            native_hash_process_id="pid-m6-current",
+        )
+        record = replay_with_audit(decision.snapshot, native, decision.rows)
+        # No live identity was passed, so every Step 2 decision must fall back.
+        for selection in record.selections:
+            if selection.step != "step2_sufficient":
+                continue
+            assert selection.fell_back is True
+            assert FAIL_LIVE_IDENTITY_MISSING in selection.fallback_reason
+        # And the replay must still be legal and satisfied via frozen A1.
+        assert record.outcome.satisfied is True
 
 
 def test_new_rule_reproduces_a0_on_all_six_decisions(decisions: list[_Decision]) -> None:

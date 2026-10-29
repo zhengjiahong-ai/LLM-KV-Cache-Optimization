@@ -126,7 +126,8 @@ DepthResolution(depths, failures)          failures 非空 ⇒ 整次决策 Fail
 | 5 | 同钟域时 `decision_time >= observed_at` | `FUTURE_OBSERVATION` |
 | 6 | 同钟域时 `decision_time − observed_at <= max_age` | `STALE_OBSERVATION` |
 | 7 | 证明具备内容标识 | `IDENTITY_UNVERIFIED` |
-| 8 | 槽位存在 / 内容一致 | `UNKNOWN_BLOCK` / `CONTENT_MISMATCH` |
+| 8 | `NATIVE_LIVE` 模式下已提供 live 内容标识 | `LIVE_IDENTITY_REQUIRED` |
+| 9 | 槽位存在 / 内容一致 | `UNKNOWN_BLOCK` / `CONTENT_MISMATCH` |
 | — | 全通过 | `OK` + 真实深度 |
 
 只有 `OK` 返回深度。每一步都返回**单一原因码**，回落日志可以照抄，不需要二次推断。
@@ -144,16 +145,28 @@ DepthResolution(depths, failures)          failures 非空 ⇒ 整次决策 Fail
 顺序 + 最近性承担；这一点由 `test_cross_clock_domain_does_not_apply_the_auxiliary_age_check`
 显式锁死（若误用时间比较，快照时间 49,949,695 与决策时间 158.4 会把所有证明判成 stale）。
 
-### 3.5 Block ID 复用
+### 3.5 Block ID 复用与验证模式（RC1）
 
-复用必然伴随**新的链身份**（冻结 prefix id 内嵌 root native hash）或**该链的新观测**：
+复用可能伴随**新的链身份**（冻结 prefix id 内嵌 root native hash）或**该链的新观测**：
+前者被 `WRONG_CHAIN` 拦住，后者被 `SUPERSEDED` 拦住。
 
-- 前者被 `WRONG_CHAIN` 拦住；
-- 后者被 `SUPERSEDED` + 内容比对拦住。
+但还有第三类情况：**block id 被回收复用了，而旧链再也不会产生新快照。**
+此时既没有新链身份、也没有新观测，`SUPERSEDED` 永远不会触发，
+旧 `Proof` 完全可能被错误接受——这正是 M1 RC1 指出的缺口。
 
-`DepthResolution` 不使用 `proof` 以外的"当前内容"，因此实现中的默认语义是：
-**能用这条证明，就说明没有更新的观测；而内容若要变，必然产生更新观测。**
-显式传入 `live_hashes` 时逐块比对，`CONTENT_MISMATCH` 会被报到具体 block。
+因此深度查询分为两种**不可互换**的验证模式（`DepthVerificationMode`）：
+
+| 模式 | 深度依据 | `content_verified` | 适用范围 |
+|---|---|---|---|
+| `HISTORICAL_REPLAY` | Proof 记录的内容标识 | **恒为 `False`** | 离线归档分析 |
+| `NATIVE_LIVE` | **必须**由调用方提供当前内容标识 | 逐块比对通过才为 `True` | 真实 Native 评分 |
+
+`NATIVE_LIVE` 下若未提供 live 内容标识，返回 `LIVE_IDENTITY_REQUIRED`
+（`FAIL_LIVE_IDENTITY_MISSING`），**不得**回退到 Proof 记录值。
+
+> **措辞纪律**：`HISTORICAL_REPLAY` 的“可用”仅意味着“可用于重放”，
+> **不**意味着已经完成 Native Content 验证。任何把离线回放结果描述为
+> “已验证当前内容”的陈述都不成立。
 
 ### 3.6 真实 Native 生命周期的关系
 
@@ -168,7 +181,7 @@ DepthResolution(depths, failures)          failures 非空 ⇒ 整次决策 Fail
 `CandidateCostAudit` 字段（与授权书逐项对应）：
 `need / deficit / new_blocks(N) / victim_block_ids(V_X) / victim_depths / chain_length(m) /
 d_min / suffix_blocks(S) / reuse_proxy(q) / prefill_reload_seconds / score(L) /
-evidence / selected / fallback_reason`
+evidence / content_verified / selected / fallback_reason`
 
 `A3SuffixSelection` 额外记录 `step`、`branch`、`a1_key`、`a1_branch`、`fell_back`、
 `fallback_reason`，因此"这一步是不是被替换过"与"回落到哪里"都可复算。
@@ -220,6 +233,15 @@ evidence / selected / fallback_reason`
 （`before`/`after` 不接续），本回归**不按 barrier 分组**、不使用未通过配对校验的数据
 宣称跨臂因果关系；所有断言只用决策级事实。
 
+**证据限制（RC1 新增）**：本回归全部在 `HISTORICAL_REPLAY` 模式下运行，
+深度只来自历史 `Proof`，**没有**当前内容标识。因此：
+
+- 每一行 `content_verified` 均为 `False`（`test_offline_regression_does_not_claim_native_content_verification`
+  逐行断言），**不得**把这批结果描述为“已完成 Native Content 验证”；
+- 同一份归档切到 `NATIVE_LIVE` 且不提供 live 内容标识时，Step 2 **全部回落**
+  （`test_native_mode_falls_back_on_the_same_archive`），说明“忘记传当前内容”会退化为冻结 A1，
+  而不是默默信任历史。
+
 ---
 
 ## 6. 新算法与 A0 的独立选择（合成案例）
@@ -254,10 +276,16 @@ evidence / selected / fallback_reason`
 |---|---|---|
 | `NO_OBSERVATION` | 该链在决策前无有效观测 | `test_fallback_records_a_reason_for_every_unscorable_candidate` |
 | `DEPTH_UNAVAILABLE:<block>:<status>` | 任一受害者深度不可解析，状态原样携带 | `test_one_unscorable_candidate_falls_back_the_whole_step_two`、`test_process_mismatch_falls_back_...` |
-| `PREFILL_MISSING` | `prefill` 缺失 / 非有限 / <= 0 | `test_missing_prefill_falls_back_to_frozen_a1` |
+| `PREFILL_MISSING` | `prefill` 缺失 / 非数值 / 非有限 / <= 0 | `test_unusable_prefill_becomes_a_fallback_not_an_exception`（7 组参数） |
+| `LIVE_IDENTITY_MISSING` | `NATIVE_LIVE` 模式未提供 live 内容标识 | `test_native_scoring_without_live_content_hashes_falls_back` |
 | `VICTIM_SHORTFALL` | 可用受害者少于 `deficit` | 代码分支（Step 2 下不可达，防御性） |
 | `INVALID_GEOMETRY` | `m <= 0` / `d_min < 1` / `S` 越界 | 代码分支（防御性） |
-| `STEP2_UNSCORABLE:...` | 决策级：Step 2 整体回落 | 同上两条 |
+| `STEP2_UNSCORABLE:...` | 决策级：Step 2 整体回落 | 同上多条 |
+
+**`PREFILL_MISSING` 的防御性**：`math.isfinite(None)` 与 `math.isfinite("1.0")` 都会抛
+`TypeError`。谓词 `_usable_prefill` 先做类型判定再算 `isfinite`，并把 `bool` 显式排除
+（`isinstance(True, int)` 为真，若不排除会把一个标志位当成 `1.0`）。代价代理在缺失输入上抛异常
+比回落更糟，因此该路径**不得抛异常**。
 
 **回落范围是整次 Step 2 决策**，不是个别候选：只要有一个候选不可评分，全部候选都不参与
 新排序，直接采用冻结 A1 在该步的选择。理由是不可部分评分——少算受害者会得到偏小的 `S`，
@@ -268,6 +296,7 @@ evidence / selected / fallback_reason`
 | 边界 | 说明 |
 |---|---|
 | 内容变化检测依赖"新观测" | 归档中每条链的 `prefix_id` 唯一，每个链只有 1 条快照；因此离线回归里 `CONTENT_MISMATCH` 不会自然出现，它由合成测试覆盖 |
+| **离线无法验证当前内容** | `HISTORICAL_REPLAY` 只比对历史标识，`content_verified` 恒为 `False`；真实校验必须先由 M6 提供 live 内容标识并切到 `NATIVE_LIVE` |
 | 无逐回合物理逐出归属 | 本层只产出 `PREDICTED`；物理逐出与内容归属分别属于 L2/L3，不在本层 |
 | 无 `r_i`、无重算量 | `L` 是 cost proxy，不是实测重算时间 |
 | 跨钟域无时效判断 | 只能靠顺序 + 最近性，见 §3.4 |
@@ -281,27 +310,53 @@ evidence / selected / fallback_reason`
 
 | 字段 | 用途 | 现状 |
 |---|---|---|
-| `native_hash_process_id`（当前进程） | `DepthQuery` 进程身份 | 归档已有，需在决策点透传 |
+| `native_hash_process_id`（当前进程） | `DepthQuery` 进程身份；`NATIVE_LIVE` 下 **必填** | 归档已有，需在决策点透传 |
 | chain 观测：`block_ids`（深度序）+ `ordered_native_cache_keys` + `program_id/prefix_id` + `event_index` | 构造 `ChainDepthProof` | `VLLM_PREFIX_SNAPSHOT` 已具备 |
+| **决策时刻每个受害块的当前内容标识** | `NATIVE_LIVE` 的内容校验（RC1） | **需新增**（M6 提供） |
 | `DecisionSnapshot.decision_event_index` / `timestamp` | 顺序与时效 | 已有 |
 | 决策钟域 | 决定是否做时间比较 | **需新增透传**（当前只能离线指定） |
 | `prefill_reload_seconds` | 代价量纲 | 已有 |
 
-### 8.2 建议新增的观测字段
+### 8.2 M6 调用契约（RC1）
+
+```python
+strategy = build_strategy(
+    "A3_entry_suffix_cost_proxy",
+    depth_index=index,
+    native_hash_process_id=current_native_process_id,   # 必填，不得留空
+    verification_mode=DepthVerificationMode.NATIVE_LIVE, # 显式声明为真实评分
+    content_hashes=current_content_hashes,               # 每个受害块的当前内容标识
+    decision_clock_domain=snapshot_clock_domain,
+)
+```
+
+三条硬约束：
+
+1. `NATIVE_LIVE` 而 `native_hash_process_id` 为空 ⇒ **构造期 `ValueError`**，
+   （不允许回用 Proof 自身的进程 id，那等于拿一个值跟自己比）
+2. `NATIVE_LIVE` 而 `content_hashes` 为空 ⇒ 所有候选 `LIVE_IDENTITY_MISSING`
+   ⇒ 整次 Step 2 回落冻结 A1
+3. `content_hashes` 中缺失某受害者 ⇒ 该块 `LIVE_IDENTITY_REQUIRED` ⇒ 整次 Step 2 回落
+
+### 8.3 建议新增的观测字段
 
 | 字段 | 理由 |
 |---|---|
 | 决策点 `decision_clock_domain` | 让 `max_age` 可判定，目前只能靠配置声明 |
+| **决策点当前内容标识（block id → content key）** | `NATIVE_LIVE` 必需；没有它就只能走离线回放 |
 | `last_selected_block_ids` **逐压力回合**写入 | RC9 遗留项：现在同 run 内规模恒定，导致 M3-1 只 1/6 可验证 |
 | 逐回合 forced-release 计数器自洽性 | HR02 的 `before`/`after` 不接续，需先修才能做屏障级跨臂对照 |
 
-### 8.3 决策日志建议字段
+### 8.4 决策日志建议字段
 
 `per-candidate:` `program_id / prefix_id / need / deficit / N / V_X / m / d_min / S / q /
-prefill / L / selected`；`per-decision:` `step / branch / a1_key / fell_back / fallback_reason`。
-与 `CandidateCostAudit` / `A3SuffixSelection` 一一对应，便于离线复算。
+prefill / L / content_verified / selected`；`per-decision:` `step / branch / a1_key /
+fell_back / fallback_reason`。与 `CandidateCostAudit` / `A3SuffixSelection` 一一对应，便于离线复算。
 
-### 8.4 M6 不得改变的部分
+**`content_verified` 必须写入日志**：它是区分“离线回放”与“Native 内容验证”的唯一标识，
+不得用 `selected` 或 `score is not None` 代替。
+
+### 8.5 M6 不得改变的部分
 
 `ChainDepthProof` / `ChainDepthIndex` 必须保持只读；不得由它们触发或否决逐出，
 不得修改 `BlockPool`、free queue、ref count、hash cleanup、scheduler ownership
@@ -313,9 +368,9 @@ prefill / L / selected`；`per-decision:` `step / branch / a1_key / fell_back / 
 
 | 文件 | 覆盖 | 用例数 |
 |---|---|---|
-| `tests/test_costaware_entry_depth.py` | B：深度不漂移、链长、回收/内容、跨链/跨进程、未来/过期/边界、跨钟域、superseded、内容缺失、未知块、索引与归档构造 | 20 |
-| `tests/test_costaware_a3_suffix.py` | A：Steps 1/3/4/5 与冻结 A1 一致、各类 Fallback、Step 2 公式与 Tie-break；C：受害者预测；D：独立选择 | 27 |
-| `tests/test_phase2i_snapshot_regression.py` | E：六次决策离线回归 | 6 |
+| `tests/test_costaware_entry_depth.py` | B：深度不漂移、链长、回收/内容、跨链/跨进程、未来/过期/边界、跨钟域、superseded、内容缺失、未知块、索引与归档构造；**RC1：验证模式与 live 内容标识** | 26 |
+| `tests/test_costaware_a3_suffix.py` | A：Steps 1/3/4/5 与冻结 A1 一致、各类 Fallback、Step 2 公式与 Tie-break；C：受害者预测；D：独立选择；**RC1：Native 模式契约与 prefill 防御** | 40 |
+| `tests/test_phase2i_snapshot_regression.py` | E：六次决策离线回归；**RC1：离线不宣称内容验证、Native 模式必回落** | 8 |
 
 运行：
 

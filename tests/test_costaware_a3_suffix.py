@@ -31,6 +31,8 @@ from kvopt.costaware.a1_entry import (
 )
 from kvopt.costaware.a1_scenarios import DECISION_TIMESTAMP, all_scenarios
 from kvopt.costaware.a3_suffix import (
+    FAIL_DEPTH_UNAVAILABLE,
+    FAIL_LIVE_IDENTITY_MISSING,
     FAIL_NO_OBSERVATION,
     FAIL_PREFILL_MISSING,
     STEP_FALLBACK,
@@ -46,7 +48,11 @@ from kvopt.costaware.a3_suffix import (
     replay_with_audit,
     step_for_branch,
 )
-from kvopt.costaware.entry_depth import ChainDepthIndex, DepthQuery
+from kvopt.costaware.entry_depth import (
+    ChainDepthIndex,
+    DepthQuery,
+    DepthVerificationMode,
+)
 from kvopt.costaware.replay import (
     DecisionSnapshot,
     ExecutedP1BStrategy,
@@ -658,6 +664,143 @@ def test_replay_with_audit_records_every_release_iteration() -> None:
     assert len(record.selections) == record.outcome.iterations
     assert record.outcome.released
     assert record.outcome.satisfied is True
+
+
+# --- verification boundary: offline replay vs native scoring (RC1) --------
+
+
+def _native(index: ChainDepthIndex, **overrides: object) -> A3SuffixCostStrategy:
+    kwargs: dict[str, object] = {"verification_mode": DepthVerificationMode.NATIVE_LIVE}
+    kwargs.update(overrides)
+    return _strategy(index, **kwargs)
+
+
+def _two_entry_snapshot():
+    return _snapshot(
+        {"a": (1, 2, 3, 4), "b": (5, 6, 7, 8)},
+        deadlines={"a": 120.0, "b": 130.0},
+        required_blocks=3,
+    )
+
+
+def test_native_scoring_requires_an_explicit_process_identity() -> None:
+    """The proof's own process id must not stand in for the caller's identity."""
+
+    index = _index({("a", PREFIX): (1, 2, 3, 4)})
+    with pytest.raises(ValueError, match="explicit native_hash_process_id"):
+        A3SuffixCostStrategy(
+            depth_index=index,
+            native_hash_process_id="",
+            verification_mode=DepthVerificationMode.NATIVE_LIVE,
+        )
+    # Offline replay is allowed to leave it unset.
+    assert _strategy(index).native_hash_process_id == PROCESS
+    assert A3SuffixCostStrategy(depth_index=index).is_native_scoring is False
+
+
+def test_native_scoring_without_live_content_hashes_falls_back() -> None:
+    """No current content identity => no trustworthy depth => fail closed."""
+
+    snapshot, rows = _two_entry_snapshot()
+    index = _index({("a", PREFIX): (1, 2, 3, 4, 5), ("b", PREFIX): (6, 7, 8, 9)})
+    state = _state(snapshot)
+    selection = _native(index).select(_remaining(snapshot, rows, state), state)
+    assert selection.fell_back is True
+    assert selection.key == selection.a1_key
+    assert {a.fallback_reason for a in selection.audits} == {FAIL_LIVE_IDENTITY_MISSING}
+    assert all(a.content_verified is False for a in selection.audits)
+
+
+def test_native_scoring_catches_a_recycled_block_with_no_new_snapshot() -> None:
+    """RC1: the block id is reused after the snapshot, and no new snapshot appears.
+
+    Nothing supersedes the proof, so only the live content comparison can reject
+    it. In native mode it must reject rather than inherit the old depth.
+    """
+
+    snapshot, rows = _two_entry_snapshot()
+    index = _index({("a", PREFIX): (1, 2, 3, 4), ("b", PREFIX): (5, 6, 7, 8)})
+    # Block 1 was observed holding "key-1"; it now holds recycled content.
+    live = {1: "recycled", 2: "key-2", 3: "key-3", 4: "key-4"}
+    state = _state(snapshot)
+    selection = _native(index, content_hashes=live).select(_remaining(snapshot, rows, state), state)
+    assert selection.fell_back is True
+    assert selection.key == selection.a1_key
+    audit = selection.audit_for(("a", PREFIX))
+    assert audit is not None
+    assert audit.fallback_reason.startswith(FAIL_DEPTH_UNAVAILABLE)
+    assert "1:CONTENT_MISMATCH" in audit.fallback_reason
+    assert audit.score is None
+
+
+def test_native_scoring_with_current_content_scores_as_verified() -> None:
+    snapshot, rows = _two_entry_snapshot()
+    index = _index({("a", PREFIX): (1, 2, 3, 4), ("b", PREFIX): (5, 6, 7, 8)})
+    live = {block: f"key-{block}" for block in range(1, 9)}
+    state = _state(snapshot)
+    selection = _native(index, content_hashes=live).select(_remaining(snapshot, rows, state), state)
+    assert selection.fell_back is False
+    assert selection.audits
+    assert all(a.scorable for a in selection.audits)
+    assert all(a.content_verified is True for a in selection.audits)
+
+
+def test_offline_replay_scores_but_is_not_marked_content_verified() -> None:
+    """The same decision scores offline, and the audit says what that means."""
+
+    snapshot, rows = _two_entry_snapshot()
+    index = _index({("a", PREFIX): (1, 2, 3, 4), ("b", PREFIX): (5, 6, 7, 8)})
+    state = _state(snapshot)
+    selection = _strategy(index).select(_remaining(snapshot, rows, state), state)
+    assert selection.fell_back is False
+    assert all(a.scorable for a in selection.audits)
+    assert all(a.content_verified is False for a in selection.audits)
+
+
+def test_build_strategy_forwards_the_verification_mode() -> None:
+    index = _index({("a", PREFIX): (1, 2, 3, 4)})
+    native = build_strategy(
+        STRATEGY_ID,
+        depth_index=index,
+        native_hash_process_id=PROCESS,
+        verification_mode=DepthVerificationMode.NATIVE_LIVE,
+        content_hashes={1: "key-1"},
+    )
+    assert native.is_native_scoring is True
+    assert native.content_hashes == {1: "key-1"}
+    with pytest.raises(ValueError, match="explicit native_hash_process_id"):
+        build_strategy(
+            STRATEGY_ID,
+            depth_index=index,
+            verification_mode=DepthVerificationMode.NATIVE_LIVE,
+        )
+
+
+@pytest.mark.parametrize(
+    "prefill",
+    [None, "1.0", True, float("nan"), float("inf"), 0.0, -1.0],
+)
+def test_unusable_prefill_becomes_a_fallback_not_an_exception(prefill: object) -> None:
+    """Missing or malformed prefill must produce PREFILL_MISSING, never a crash."""
+
+    snapshot, rows = _snapshot(
+        {"a": (1, 2, 3, 4)},
+        deadlines={"a": 120.0},
+        required_blocks=3,
+    )
+    rows[("a", PREFIX)] = dataclasses.replace(rows[("a", PREFIX)], prefill_reload_seconds=prefill)
+    index = _index({("a", PREFIX): (1, 2, 3, 4)})
+    state = _state(snapshot)
+    selection = _strategy(index).select(_remaining(snapshot, rows, state), state)
+    assert selection.fell_back is True
+    audit = selection.audits[0]
+    assert audit.fallback_reason == FAIL_PREFILL_MISSING
+    assert audit.score is None
+    # Only a genuine number can be recorded; anything else is recorded as absent.
+    if isinstance(prefill, bool) or not isinstance(prefill, (int, float)):
+        assert audit.prefill_reload_seconds is None
+    else:
+        assert audit.prefill_reload_seconds is not None
 
 
 def test_build_strategy_requires_the_explicit_id() -> None:
