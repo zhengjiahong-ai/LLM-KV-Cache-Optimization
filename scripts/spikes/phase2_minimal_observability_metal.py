@@ -59,6 +59,8 @@ from kvopt.costaware.a2_native import (
     A2NativeSelectionCoordinator,
     A2NativeSnapshotRegistry,
 )
+from kvopt.costaware.a3_native import A3NativeSelectionCoordinator
+from kvopt.costaware.entry_depth import ChainDepthIndex
 from kvopt.profiling.experiment_events import (
     ExperimentEvent,
     ExperimentEventSink,
@@ -113,12 +115,14 @@ _PHASE2G_A2_CAMPAIGN_KINDS = frozenset(
         "phase2h_history_rich_native_smoke",
     }
 )
+_PHASE2I_A3_CAMPAIGN_KINDS = frozenset({"phase2i_a3_native_integration"})
 _PHASE2G_UNIQUE_PROTECTED_BLOCK_CAMPAIGN_KINDS = frozenset(
     {
         "continuum_w1b_prefill_profile",
         "phase2g_a1_bounded_evaluation",
         "phase2g_a2_prefill_profile_bridge_control",
         *_PHASE2G_A2_CAMPAIGN_KINDS,
+        *_PHASE2I_A3_CAMPAIGN_KINDS,
     }
 )
 
@@ -129,6 +133,10 @@ def _phase2g_a2_campaign_allowed(campaign_kind: object) -> bool:
 
 def _phase2g_a1_campaign_allowed(campaign_kind: object) -> bool:
     return campaign_kind in _PHASE2G_A1_CAMPAIGN_KINDS
+
+
+def _phase2i_a3_campaign_allowed(campaign_kind: object) -> bool:
+    return campaign_kind in _PHASE2I_A3_CAMPAIGN_KINDS
 
 
 def _phase2g_unique_protected_block_campaign_allowed(campaign_kind: object) -> bool:
@@ -654,15 +662,53 @@ def _requires_retention_snapshot(
     return request_id not in right_censored_end_request_ids
 
 
-class _CountingForcedReleaseObserver:
+class _IndexedEventSink:
+    """Expose the persisted event ordinal without changing event serialization."""
+
     def __init__(self, sink: ExperimentEventSink) -> None:
+        self._sink = sink
+        self.next_event_index = 0
+
+    def emit(self, event: ExperimentEvent) -> None:
+        self._sink.emit(event)
+        self.next_event_index += 1
+
+
+class _CountingForcedReleaseObserver:
+    def __init__(self, sink: ExperimentEventSink, event_index: _IndexedEventSink) -> None:
         self._delegate = ExperimentForcedReleaseObserver(sink)
+        self._sink = sink
+        self._event_index = event_index
         self.count = 0
+        self._decision_context: dict[str, object] | None = None
+
+    def begin_decision(self, context: Mapping[str, object]) -> None:
+        if self._decision_context is not None:
+            raise RuntimeError("forced-release decisions must not be nested")
+        self._decision_context = dict(context)
+
+    def end_decision(self) -> None:
+        self._decision_context = None
 
     def observe(self, snapshot: Any) -> None:
+        forced_release_event_index = self._event_index.next_event_index
         self._delegate.observe(snapshot)
         if tuple(snapshot.selected_releases):
             self.count += 1
+        self._sink.emit(
+            ExperimentEvent.create(
+                event_type="FORCED_RELEASE_DECISION_BINDING",
+                timestamp=snapshot.timestamp,
+                clock_domain="continuum_pressure",
+                source="phase2i.native_decision_binding",
+                payload={
+                    **(self._decision_context or {}),
+                    "forced_release_event_index": forced_release_event_index,
+                    "forced_release_counter_after": self.count,
+                    "selected_release_count": len(tuple(snapshot.selected_releases)),
+                },
+            )
+        )
 
 
 class _ObservedRetentionIntegration:
@@ -681,14 +727,23 @@ class _ObservedRetentionIntegration:
         phase2g_block_policy: str = "A0",
         phase2g_a2_tau_seconds: float = 30.0,
         phase2g_a2_registry: A2NativeSnapshotRegistry | None = None,
+        phase2i_a3_depth_index: ChainDepthIndex | None = None,
+        event_index: _IndexedEventSink | None = None,
         sink: ExperimentEventSink | None = None,
         clock_domain: str = "system_monotonic",
     ) -> None:
         self._runtime = runtime
         self._clock = clock
         self._clock_domain = clock_domain
-        if phase2g_release_policy not in {"A0", "A1"}:
-            raise ValueError("phase2g_release_policy must be A0 or A1")
+        self._forced_release_observer = forced_release_observer
+        if phase2g_release_policy not in {"A0", "A1", "A3"}:
+            raise ValueError("phase2g_release_policy must be A0, A1, or A3")
+        if phase2g_release_policy == "A3" and (
+            phase2g_a2_registry is None
+            or phase2i_a3_depth_index is None
+            or event_index is None
+        ):
+            raise ValueError("A3 release policy requires live depth and event evidence")
         self._phase2g_release_policy = phase2g_release_policy
         self._sink = sink
         self._a1_coordinator = (
@@ -698,6 +753,23 @@ class _ObservedRetentionIntegration:
                 tau_seconds=phase2g_a1_tau_seconds,
             )
             if phase2g_release_policy == "A1"
+            else None
+        )
+        self._a3_coordinator = (
+            A3NativeSelectionCoordinator(
+                forced_release_observer,
+                depth_index=phase2i_a3_depth_index,
+                content_registry=phase2g_a2_registry,
+                decision_event_index=lambda: event_index.next_event_index,
+                decision_clock_domain="continuum_pressure",
+                native_hash_process_id=str(os.getpid()),
+                lambda_=phase2g_a1_lambda,
+                tau_seconds=phase2g_a1_tau_seconds,
+            )
+            if phase2g_release_policy == "A3"
+            and phase2g_a2_registry is not None
+            and phase2i_a3_depth_index is not None
+            and event_index is not None
             else None
         )
         if phase2g_block_policy not in {"A0", "A2"}:
@@ -721,10 +793,54 @@ class _ObservedRetentionIntegration:
                 if diagnostic_first_release_program_id is None
                 else ProgramIdentity(diagnostic_first_release_program_id)
             ),
-            selection_coordinator=self._a1_coordinator,
+            selection_coordinator=(self._a3_coordinator or self._a1_coordinator),
             block_selection_coordinator=self._a2_coordinator,
         )
         self.last_selected_block_ids: tuple[int, ...] = ()
+        self._decision_sequence = 0
+        self._active_pressure_context: dict[str, object] | None = None
+        self._active_decision_id: str | None = None
+        self._selection_plans: list[dict[str, object]] = []
+
+    def begin_pressure_context(
+        self, *, boundary_id: str, stage_id: str, pressure_request_id: str
+    ) -> None:
+        if self._active_pressure_context is not None:
+            raise RuntimeError("pressure contexts must not be nested")
+        self._active_pressure_context = {
+            "boundary_id": boundary_id,
+            "stage_id": stage_id,
+            "pressure_request_id": pressure_request_id,
+        }
+
+    def end_pressure_context(self) -> None:
+        self._active_pressure_context = None
+
+    def selection_plans_for(self, pressure_request_id: str) -> tuple[dict[str, object], ...]:
+        return tuple(
+            plan
+            for plan in self._selection_plans
+            if plan.get("pressure_request_id") == pressure_request_id
+        )
+
+    def selection_plans_for_boundary(
+        self, boundary_id: str
+    ) -> tuple[dict[str, object], ...]:
+        return tuple(
+            plan
+            for plan in self._selection_plans
+            if plan.get("boundary_id") == boundary_id
+        )
+
+    def current_decision_context(self) -> Mapping[str, object]:
+        return {
+            **(self._active_pressure_context or {}),
+            **(
+                {"decision_id": self._active_decision_id}
+                if self._active_decision_id is not None
+                else {}
+            ),
+        }
 
     def _observe_a2_decision(self, audit: A2NativeDecisionAudit) -> None:
         if self._sink is None:
@@ -802,7 +918,20 @@ class _ObservedRetentionIntegration:
         )
 
     def apply_pressure(self, **kwargs: object) -> Any:
-        result = self._delegate.apply_pressure(**kwargs)
+        self._decision_sequence += 1
+        decision_id = f"native-entry-release-{self._decision_sequence}"
+        context = {
+            "decision_id": decision_id,
+            **(self._active_pressure_context or {}),
+            "forced_release_counter_before": self._forced_release_observer.count,
+        }
+        self._forced_release_observer.begin_decision(context)
+        self._active_decision_id = decision_id
+        try:
+            result = self._delegate.apply_pressure(**kwargs)
+        finally:
+            self._active_decision_id = None
+            self._forced_release_observer.end_decision()
         self.last_selected_block_ids = tuple(result.selected_block_ids)
         if self._a1_coordinator is not None and self._sink is not None:
             self._sink.emit(
@@ -819,6 +948,71 @@ class _ObservedRetentionIntegration:
                         "selection_trace": self._a1_coordinator.selection_trace(),
                         "selected_native_block_ids": self.last_selected_block_ids,
                     },
+                )
+            )
+        a3_trace = (
+            self._a3_coordinator.a3_selection_trace()
+            if self._a3_coordinator is not None
+            else ()
+        )
+        if self._a3_coordinator is not None and self._sink is not None:
+            self._sink.emit(
+                ExperimentEvent.create(
+                    event_type="A3_SUFFIX_RELEASE_DECISION",
+                    timestamp=self._clock.now(),
+                    clock_domain=self._clock_domain,
+                    source="phase2i.a3_native",
+                    payload={
+                        **context,
+                        "policy": "A3",
+                        "verification_mode": "native_live",
+                        "native_hash_process_id": str(os.getpid()),
+                        "decision_event_index": (
+                            self._a3_coordinator.latest_decision_event_index
+                        ),
+                        "decision_clock_domain": (
+                            self._a3_coordinator.decision_clock_domain
+                        ),
+                        "selection_trace": a3_trace,
+                    },
+                )
+            )
+        selected_a3_audit = next(
+            (
+                audit
+                for audit in (a3_trace[-1].get("audits", ()) if a3_trace else ())
+                if isinstance(audit, Mapping) and audit.get("selected") is True
+            ),
+            None,
+        )
+        plan = {
+            **context,
+            "forced_release_counter_after": self._forced_release_observer.count,
+            "forced_release_observed": (
+                self._forced_release_observer.count
+                > int(context["forced_release_counter_before"])
+            ),
+            "selected_native_block_ids": self.last_selected_block_ids,
+            "selection_evidence": "native_selection",
+            "predicted_victims_are_physical_evictions": False,
+            "a3_selected_entry": (
+                a3_trace[-1].get("key") if a3_trace else None
+            ),
+            "a3_predicted_victim_block_ids": tuple(
+                selected_a3_audit.get("victim_block_ids", ())
+                if selected_a3_audit is not None
+                else ()
+            ),
+        }
+        self._selection_plans.append(plan)
+        if self._sink is not None:
+            self._sink.emit(
+                ExperimentEvent.create(
+                    event_type="NATIVE_ENTRY_RELEASE_SELECTION_PLAN",
+                    timestamp=self._clock.now(),
+                    clock_domain=self._clock_domain,
+                    source="phase2i.native_selection_plan",
+                    payload=plan,
                 )
             )
         return result
@@ -854,6 +1048,8 @@ class MinimalMetalObservabilityBackend:
                 "minimal native observation requires VLLM_ENABLE_V1_MULTIPROCESSING=0"
             )
 
+        self._event_index = _IndexedEventSink(sink)
+        sink = self._event_index
         self._sink = sink
         self._runtime_mode = str(runtime_mode)
         self._event_source = (
@@ -1003,12 +1199,20 @@ class MinimalMetalObservabilityBackend:
             raise ValueError("Phase 2D diagnostic release is restricted to its pilot")
         self._phase2d_diagnostic_release_program = diagnostic_release
         phase2g_release_policy = options.get("phase2g_release_policy", "A0")
-        if phase2g_release_policy not in {"A0", "A1"}:
-            raise ValueError("backend_options.phase2g_release_policy must be A0 or A1")
+        if phase2g_release_policy not in {"A0", "A1", "A3"}:
+            raise ValueError(
+                "backend_options.phase2g_release_policy must be A0, A1, or A3"
+            )
         if phase2g_release_policy == "A1" and not _phase2g_a1_campaign_allowed(
             config.get("campaign_kind")
         ):
             raise ValueError("A1 native release is restricted to authorized Phase 2G campaigns")
+        if phase2g_release_policy == "A3" and not _phase2i_a3_campaign_allowed(
+            config.get("campaign_kind")
+        ):
+            raise ValueError("A3 native release is restricted to Phase 2I integration")
+        if phase2g_release_policy == "A3" and not self._content_evidence_enabled:
+            raise ValueError("A3 native release requires content evidence mode")
         phase2g_a1_lambda = float(options.get("phase2g_a1_lambda", 0.5))
         phase2g_a1_tau_seconds = float(options.get("phase2g_a1_tau_seconds", 30.0))
         phase2g_block_policy = options.get("phase2g_block_policy", "A0")
@@ -1025,6 +1229,7 @@ class MinimalMetalObservabilityBackend:
             "backend_options.phase2g_a2_tau_seconds",
         )
         self._phase2g_a2_registry = A2NativeSnapshotRegistry()
+        self._phase2i_a3_depth_index = ChainDepthIndex()
         phase2g_a2_identity_mode = options.get("phase2g_a2_identity_mode", "normal")
         if phase2g_a2_identity_mode not in {"normal", "missing", "stale"}:
             raise ValueError(
@@ -1090,11 +1295,14 @@ class MinimalMetalObservabilityBackend:
                         "config.pressure.safety_ceiling",
                     ),
                 )
-            elif config.get("campaign_kind") == "phase2h_history_rich_native_smoke":
+            elif config.get("campaign_kind") in {
+                "phase2h_history_rich_native_smoke",
+                "phase2i_a3_native_integration",
+            }:
                 if block_override != 2048:
-                    raise ValueError("Phase 2H history-rich smoke requires 2048 blocks")
+                    raise ValueError("history-rich Native integration requires 2048 blocks")
                 if len(self._controlled_pressure_stages) != 3:
-                    raise ValueError("Phase 2H history-rich smoke requires three pressure stages")
+                    raise ValueError("history-rich Native integration requires three pressure stages")
                 stage_ids = {
                     stage.stage_id for stage in self._controlled_pressure_stages.values()
                 }
@@ -1169,7 +1377,9 @@ class MinimalMetalObservabilityBackend:
                     },
                 )
             )
-        self._forced_release_observer = _CountingForcedReleaseObserver(sink)
+        self._forced_release_observer = _CountingForcedReleaseObserver(
+            sink, self._event_index
+        )
         self._retention_integration = _ObservedRetentionIntegration(
             self._runtime,
             self._clock,
@@ -1181,6 +1391,8 @@ class MinimalMetalObservabilityBackend:
             phase2g_block_policy=str(phase2g_block_policy),
             phase2g_a2_tau_seconds=phase2g_a2_tau_seconds,
             phase2g_a2_registry=self._phase2g_a2_registry,
+            phase2i_a3_depth_index=self._phase2i_a3_depth_index,
+            event_index=self._event_index,
             sink=sink,
             clock_domain=(
                 "system_monotonic"
@@ -1535,10 +1747,14 @@ class MinimalMetalObservabilityBackend:
                     "retention_mode": self._retention_mode.value,
                     "phase2g_release_policy": phase2g_release_policy,
                     "phase2g_a1_lambda": (
-                        phase2g_a1_lambda if phase2g_release_policy == "A1" else None
+                        phase2g_a1_lambda
+                        if phase2g_release_policy in {"A1", "A3"}
+                        else None
                     ),
                     "phase2g_a1_tau_seconds": (
-                        phase2g_a1_tau_seconds if phase2g_release_policy == "A1" else None
+                        phase2g_a1_tau_seconds
+                        if phase2g_release_policy in {"A1", "A3"}
+                        else None
                     ),
                     "phase2g_block_policy": phase2g_block_policy,
                     "phase2g_a2_tau_seconds": (
@@ -1568,6 +1784,7 @@ class MinimalMetalObservabilityBackend:
                 clock_domain="system_monotonic",
                 source="phase2b.native_block_pool",
                 payload={
+                    **self._retention_integration.current_decision_context(),
                     "block_id": observation.block_id,
                     "native_cache_key_before": (observation.native_cache_key_before),
                     "native_hash_process_id": str(os.getpid()),
@@ -1969,10 +2186,13 @@ class MinimalMetalObservabilityBackend:
         )
         prefix = PrefixIdentity(prefix_value)
         blocks = tuple(BlockIdentity(block_id) for block_id in block_ids)
+        snapshot_event_index = self._event_index.next_event_index
+        snapshot_timestamp = float(self._native_clock.now())
+        content_hashes = tuple(native_hash.hex() for native_hash in hashes)
         self._sink.emit(
             ExperimentEvent.create(
                 event_type="VLLM_PREFIX_SNAPSHOT",
-                timestamp=self._native_clock.now(),
+                timestamp=snapshot_timestamp,
                 clock_domain="system_monotonic",
                 source=self._event_source,
                 program_id=ProgramIdentity(request.program_id),
@@ -1982,7 +2202,7 @@ class MinimalMetalObservabilityBackend:
                     "reusable_token_count": token_count,
                     "block_ids": tuple(block.block_id for block in blocks),
                     "ordered_native_hashes": request_hashes,
-                    "ordered_native_cache_keys": tuple(native_hash.hex() for native_hash in hashes),
+                    "ordered_native_cache_keys": content_hashes,
                     "hash_num_tokens": token_count,
                     "native_hash_block_size": _BLOCK_SIZE,
                     "native_hash_process_id": str(os.getpid()),
@@ -1990,12 +2210,21 @@ class MinimalMetalObservabilityBackend:
                 },
             )
         )
+        self._phase2i_a3_depth_index.observe_chain(
+            (request.program_id, prefix.canonical_value),
+            str(os.getpid()),
+            block_ids,
+            content_hashes=content_hashes,
+            observation_index=snapshot_event_index,
+            observed_at=snapshot_timestamp,
+            clock_domain="system_monotonic",
+        )
         if self._phase2g_a2_identity_mode != "missing":
             self._phase2g_a2_registry.observe(
                 A2NativeChainSnapshot(
                     chain_id=f"{request.program_id}:{prefix.canonical_value}",
                     block_ids=tuple(block_ids),
-                    content_hashes=tuple(native_hash.hex() for native_hash in hashes),
+                    content_hashes=content_hashes,
                     native_hash_process_id=str(os.getpid()),
                 )
             )
@@ -2277,6 +2506,9 @@ class MinimalMetalObservabilityBackend:
         return self._enqueue(request, token_ids)
 
     def _finish_pressure(self, request: PlannedRequest, finished_at: float) -> None:
+        selection_plans = self._retention_integration.selection_plans_for(
+            request.request_id
+        )
         self._sink.emit(
             ExperimentEvent.create(
                 event_type="PRESSURE_REQUEST_COMPLETED",
@@ -2287,16 +2519,33 @@ class MinimalMetalObservabilityBackend:
                 request_id=RequestIdentity(request.request_id),
                 payload={
                     "forced_release_count": self.forced_release_count,
-                    "last_selected_block_ids": self.last_selected_block_ids,
+                    "pressure_request_id": request.request_id,
+                    "bound_decision_count": len(selection_plans),
+                    "bound_decision_ids": tuple(
+                        str(plan["decision_id"]) for plan in selection_plans
+                    ),
+                    "selected_block_ids_by_decision": tuple(
+                        tuple(plan["selected_native_block_ids"])
+                        for plan in selection_plans
+                    ),
+                    "legacy_last_selected_block_ids": self.last_selected_block_ids,
                 },
             )
         )
 
     def _execute_pressure(self, request: PlannedRequest) -> None:
         self._wait_for_planned_arrival(request)
-        native_id, external_id, _submitted_at = self._start_pressure(request)
-        finished_at = self._complete(request, native_id, external_id)
-        self._finish_pressure(request, finished_at)
+        self._retention_integration.begin_pressure_context(
+            boundary_id=f"direct:{request.request_id}",
+            stage_id=request.program_id.removeprefix("pressure:"),
+            pressure_request_id=request.request_id,
+        )
+        try:
+            native_id, external_id, _submitted_at = self._start_pressure(request)
+            finished_at = self._complete(request, native_id, external_id)
+            self._finish_pressure(request, finished_at)
+        finally:
+            self._retention_integration.end_pressure_context()
 
     def execute(self, request: PlannedRequest) -> None:
         if not isinstance(request, PlannedRequest):
@@ -2490,17 +2739,28 @@ class MinimalMetalObservabilityBackend:
         for attempt in range(1, stage.max_requests + 1):
             attempts += 1
             request = stage.request(attempt, self._seed)
-            native_id, external_id, _submitted_at = self._start_pressure(request)
-            self._controlled_replay_clock.native_submitted(request.request_id)
-            finished_at = self._complete(request, native_id, external_id)
-            self._controlled_replay_clock.native_completed(request.request_id)
-            self._finish_pressure(request, finished_at)
+            self._retention_integration.begin_pressure_context(
+                boundary_id=boundary_id,
+                stage_id=stage.stage_id,
+                pressure_request_id=request.request_id,
+            )
+            try:
+                native_id, external_id, _submitted_at = self._start_pressure(request)
+                self._controlled_replay_clock.native_submitted(request.request_id)
+                finished_at = self._complete(request, native_id, external_id)
+                self._controlled_replay_clock.native_completed(request.request_id)
+                self._finish_pressure(request, finished_at)
+            finally:
+                self._retention_integration.end_pressure_context()
             if (
                 stage.stop_on_forced_release
                 and self.forced_release_count > observed_before
             ):
                 break
         elapsed = float(self._native_clock.now()) - started
+        bound_plans = self._retention_integration.selection_plans_for_boundary(
+            boundary_id
+        )
         self._controlled_pressure_execution_seconds += elapsed
         self._sink.emit(
             ExperimentEvent.create(
@@ -2514,6 +2774,14 @@ class MinimalMetalObservabilityBackend:
                     "attempt_count": attempts,
                     "forced_release_count_before": observed_before,
                     "forced_release_count_after": self.forced_release_count,
+                    "bound_decision_count": len(bound_plans),
+                    "bound_forced_release_count": sum(
+                        int(plan.get("forced_release_observed") is True)
+                        for plan in bound_plans
+                    ),
+                    "bound_decision_ids": tuple(
+                        str(plan["decision_id"]) for plan in bound_plans
+                    ),
                     "native_wall_elapsed_seconds": elapsed,
                 },
             )
