@@ -1,0 +1,31 @@
+{
+  "claim_scope": "CPU/MOCK_STATIC_ONLY_NOT_GPU_NATIVE_OUTCOME",
+  "gates": {
+    "C": {
+      "content_verified_non_fallback_count": 1,
+      "formula_recomputed": true,
+      "status": "PASS"
+    },
+    "D": {
+      "a1_a3_intervention_count": 1,
+      "actual_release_match_count": 1,
+      "decision_join_valid": true,
+      "joined_intervention_count": 1,
+      "status": "PASS"
+    },
+    "I": {
+      "a3_decision_event_count": 1,
+      "native_live_only": true,
+      "status": "PASS"
+    },
+    "O": {
+      "barrier_binding_valid": true,
+      "counter_chain_valid": true,
+      "physical_eviction_join_count": 2,
+      "physical_eviction_join_valid": true,
+      "status": "PASS"
+    }
+  },
+  "schema_version": "phase2i.a3_native_static_preflight.v1",
+  "status": "PASS_STATIC_PREFLIGHT"
+}
