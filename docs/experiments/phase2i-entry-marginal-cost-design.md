@@ -1,10 +1,11 @@
-# Phase 2I — Entry-level Marginal Cost-Aware Algorithm Design（修订版 v3）
+# Phase 2I — Entry-level Marginal Cost-Aware Algorithm Design（修订版 v4）
 
 **分支**：`design/phase2i-entry-marginal-cost`
-**输入**：Phase 2H Formal History-Rich Native Smoke（6/6 runs），M1 对 PR #87 的 RC1–RC7（两轮）。
+**输入**：Phase 2H Formal History-Rich Native Smoke（6/6 runs），M1 对 PR #87 的 RC1–RC9（三轮）。
 **边界**：纯离线设计与分析。未修改冻结 A1/A2，未新增 Native Run，未提交实现。
 **脚本**：`scripts/probes/entry_costaware_audit/phase2i_marginal_probe.py`（只读）
-**契约检查**：`scripts/probes/entry_costaware_audit/phase2i_depth_contract.py`（只读，5/5 PASS）
+**契约检查**：`scripts/probes/entry_costaware_audit/phase2i_depth_contract.py`（只读，9/9 PASS）
+**证据分级**：`scripts/probes/entry_costaware_audit/phase2i_m3_evidence.py`（只读）
 
 > v2 按 RC1–RC4 修正了四处：基线语义、as-of 快照与跨臂关联、成本代理的定位、
 > 不足量回退路径与结论强度。
@@ -13,6 +14,9 @@
 > v2 的 §6.1 前提作废，替换为内容键控的 `ChainDepthProof` 契约；
 > RC6 恢复与 A0 分歧的精确不等式，`q×S` 降为近似；
 > RC7 把物理证据分为 L1–L4 四档并重新分档判读 M3。
+> **v4 按 RC8–RC9 完成两项闭环**：深度证明的身份与时效**被校验**而不只是被存储；
+> 屏障配对增加区间与计数器链检查，并因此**发现 hr02 的计数器不自洽**（整 run 排除）；
+> M3 拆成四类互不等价的证据，不再用单一“通过/失败”概括。
 > §0.5 列出具体改动。
 
 ---
@@ -86,8 +90,20 @@ $$L(X)\;=\;q_X\cdot\text{prefill}_X\cdot\frac{S_X}{m_X}$$
 | **RC6** §5.5 的下界结论 | "任何块几何都无法偏离 A0" | **限定前提**：仅在 **A0 选中项的 `q`/`prefill`/`m`/几何保持不变** 时成立；并标注 hr01 idx=4244 裕度仅 3.7%，小于 14% 带，结论对该带不稳健（§5.5） |
 | **RC7** 屏障配对 | 按位置顺序配对 | 增加 **数量 / 事件顺序 / 唯一 `boundary_id` / 阶段归属** 四项检查，任一失败整 run 排除（§6.3 条件 6） |
 | **RC7** 物理证据 | 未分级；曾把整跑 `BLOCK_EVICTED` 全命中当作归属证据 | 建立 **L1 预计受害者 / L2 真实 Native Eviction / L3 完整内容级 Attribution / L4 重算代价** 四档；明确整跑交集是**时间关联而非因果归属**（§2.4、§7.1） |
-| **RC7** M3 门 | 单一判据 | **分档判读 A/B/C/D**；本轮实测 **1 A / 5 B / 0 C / 0 D**，即"未发现推算错误，也未能逐块确认"（§7.1） |
+| **RC7** M3 门 | 单一判据 | **分档判读 A/B/C/D**；本轮实测 **1 A / 5 B / 0 C / 0 D**，即"未发现推算错误，也未能逐块确认"（§7.1）。**v4 认为该分档仍是错误的抽象，已改为四类主张，见 §0.6 与 §7.1** |
 | **RC7** 缺口措辞 | "无回调 ⇒ `r_i` 不可算" | 改为分级陈述：属**回调完整性**限制，既非算法错误证据也非正确证据（§2.4） |
+
+### 0.6 v4 相对 v3 的改动（RC8–RC9）
+
+| 项 | v3 | v4 |
+|---|---|---|
+| **RC8** 身份校验 | `ChainDepthProof` 存了 `native_hash_process_id` / `chain_id` / `observed_at`，但 `depth_of()` **不校验**它们 | 查询改为携带 `DepthQuery(chain_id, native_hash_process_id, decision_at)`，四项逐一拒绝：跨链 `WRONG_CHAIN`、跨进程 `WRONG_PROCESS`、未来证明 `FUTURE_PROOF`、过期 `STALE_PROOF`；内容不符 `CONTENT_MISMATCH`（§6.1.5） |
+| **RC8** 部分逐出用例的复合条件 | `real_depth != depths[i] and real_depth != {...}[block_id]` —— 两个候选值任一命中即 PASS，且 `survivors.index()` 本身就是压缩下标 | 改为对每个幸存块**逐一断言**预期深度，并反向检查“确实至少有 3 个块的深度不等于下标”（§6.1.4） |
+| **RC8** 离线身份不足 | 未定义 | 新增 `IDENTITY_UNVERIFIED`：内容键缺失时**不返回深度**，不得以仅深度记录冒充已验证。本轮实测内容键齐全，未被触发（§7.1） |
+| **RC9** 屏障区间 | 只要求 release 早于自己的 completion | 增加 `previous_completion < release < current_completion` 的**区间包含**检查（§6.3 条件 6） |
+| **RC9** 计数器 | 旧检查为 `after == position + 1`，**恰好**在 hr02 上误通过 | 改为 `before == 上一 completion 的 after` 且 `after == before + 1`。**该检查在 hr02 上失败**（§5.2、§6.3） |
+| **RC9** 冻结身份 | 只查 `stage_id` 非空 | `boundary_id` 与 `stage_id` 均需非空且全局唯一（§6.3） |
+| **RC9** M3 | 单一档位 A/B/C/D | 拆为 **M3-1 选择一致 / M3-2 真实逐出 / M3-3 内容身份 / M3-4 重算后果** 四类，互不等价（§7.1） |
 
 ---
 
@@ -208,36 +224,58 @@ v2 此处"深度不需要新状态、下标即深度"的说法错误，已撤回
 
 | 信息 | 观察 |
 |---|---|
-| 跨 Entry 共享块 | 每对候选恒共享 **7** 块（公共前缀），从不落入受害者窗口 |
+| 跨 Entry 共享块 | 每对候选恒共享 **7** 块（公共前缀），且 **0/179 个受害者落入该共享前缀** |
 | `waiting_followup` | 6/6 决策的全部候选均为 `True` |
 | `eta` | 恒 1.0；`queue_delay_t_seconds` 恒 0.0 |
 
-### 2.4 缺口（RC7：按证据等级分档，不作过强缺失断言）
+共享前缀这一项在 v4 中被重新测量（`phase2i_m3_evidence.py`）：每个 run 有 **177 条**请求级
+prefix 快照，其中恰有 **7** 个内容键出现在**全部** 177 条快照里，即真正的公共前缀；
+对 6 次决策的 179 个受害者逐一比对，**0 个**落在该 7 块共享前缀内。
+这直接支持 §3.4 假设 3（共享内容外部性未触发），而不再只是断言。
 
-先固定一个证据分级，后文一律按此措辞，不得混用：
+### 2.4 证据分级与缺口（RC7 + RC9：四类主张互不等价）
+
+先固定分级，后文一律按此措辞，**不得混用、不得由前一级推出后一级**：
 
 | 等级 | 含义 | 本轮状态 |
 |---|---|---|
-| **L1 预计受害者** | 由冻结资格规则 + `native_lru_rank` 推算的受害者集合 | **可算**，6/6 次决策 |
-| **L2 真实 Native 逐出** | 归档中真实记录的 `BLOCK_EVICTED` 事件 | **可观测**，hr01 3679 事件、hr02 7862 事件 |
-| **L3 完整内容级 Attribution** | 逐块把 L1 的预测与 L2 的真实逐出**在同一压力回合内**按 block id 对齐 | **仅部分可验证**，见下 |
-| **L4 重算代价** | 被逐内容是否真的导致下游 APC miss / 重算 | **不可观测**，本轮完全不涉及 |
+| **L1** 预计受害者 | 由冻结资格规则 + `native_lru_rank` 推算 | 可算，6/6 决策 |
+| **L2** 真实 Native 逐出 | 归档中真实记录的 `BLOCK_EVICTED`，限定在**同一压力回合窗口**内 | **可观测**，受害者 **179/179** 命中 |
+| **L3** 内容身份 | 逐出时的 `native_cache_key_before` 与该链快照在该槽位记录的内容键是否一致 | **可观测**，**179/179** 一致 |
+| **L4** 重算代价 | 被逐内容是否真的导致下游 APC miss / 重算 | **不可观测** |
 
-L3 的具体状态必须写清楚，因为本轮实测结果与"看起来 100%"的直觉相反：
+**关键界线**：L3 成立**不等于**归属成立。归档自己在
+`VLLM_NATIVE_HASHED_CACHE_ENTRY_EVICTED` 里写明
+`attribution_reason = "native hash identity does not prove logical ownership"`、
+`logical_owner_attribution = null`。本轮实测同一内容键同时出现在 **5–31 条**不同
+请求前缀中，因此「这个块属于哪条链」在内容层面**原则上不可判定**。
+**L3 = 内容身份已证明，归属未证明**。
 
-- 归档里直接记录选择结果的是 `PRESSURE_REQUEST_COMPLETED.last_selected_block_ids`，它比"事后拿全部 `BLOCK_EVICTED` 求交集"强得多，因为后者在一个长跑里**恒真**（整跑逐出 1382/1473 个不同 block，任何预测集合都会被"找到"），属于典型的时间关联而非因果归属，本轮**不采用**该口径。
-- 用该字段按压力回合逐次核对：**6 次决策中仅有 1 次（hr01 ep1，`idx=2170`，126/126）与 L1 预测完全一致**；其余 5 次的记录规模恒为 126（hr01）/ 123（hr02），与当次 `original_free_queue` 的 TIER_1 总体**完全不相交**。
-- 由于记录规模在同一 run 内恒定而 `need` 在变（128/18/17），可以判断该回调字段并非逐回合独立写入，或写入的是与本次受害者不同的对象。**这属于回调证据不完整的限制，不构成"算法推算错误"的证据，也不构成"逐块因果确认"。**本轮据此把 L3 记为"1/6 verified, 5/6 unverifiable"，并在 §7 的 M3 门设置对应档位。
+M3 因此拆成四类主张（v3 曾把它们压成一个"通过/失败"）：
+
+| 主张 | 定义 | 本轮实测 | 说明了什么 |
+|---|---|---|---|
+| **M3-1** 选择一致 | 项目层 `SelectionPlan` 记录 `last_selected_block_ids` 与 L1 全选择集是否相同 | **1 精确 / 5 不符** | 两个计算之间的一致性；**不是**物理观测 |
+| **M3-2** 真实逐出 | L1 受害者是否在窗口内被真实逐出 | **179/179** | 物理发生，但**无归属** |
+| **M3-3** 内容身份 | 逐出内容键与链快照记录是否一致 | **179/179** | 内容已确认；**归属不可确认** |
+| **M3-4** 重算后果 | 逐出是否导致重算 | **不可观测** | 本轮不谈 |
+
+M3-1 的 5 次"不符"记录规模在同一 run 内恒为 126（hr01）/ 123（hr02），而 `need` 在变
+（128/18/17），说明该回调不逐回合写入。**这属回调完整性限制**：
+既**不**构成"算法推算错误"的证据，也**不**构成"逐块因果确认"。
+因此**不能用 1/6 精确去声明已完成内容级物理因果归因**。
 
 其余缺口：
 
 | 缺口 | 影响 | 严重程度 |
 |---|---|---|
-| 无"逐出后是否被重取"记录 | `r_i` 不可算；本轮**不对 `r_i` 作任何数值主张** | 结构性，不影响 §3 的决策规则（该规则不含 `r_i`） |
+| 无"逐出后是否被重取"记录 | `r_i` 不可算；本轮**不对 `r_i` 作任何数值主张** | 结构性，不影响 §3 决策规则（该规则不含 `r_i`） |
 | 无 L4（重算后果） | 无法把"逐出"换算成"算力损失" | 结构性；本轮结论不依赖它 |
 | 无右删失标记 | 窗口结束时未重取的内容无法区分"不回来"与"还没回来"；因此本轮**不报告任何"未重取"计数或比例** | 结构性 |
 
-> 措辞纪律（RC7）：上述三行**不得**被引用为"本方案无效"的证据。它们只说明"某些量在本归档里不可测"，而不可测的量既不能支持也不能否证任何算法主张。
+> 措辞纪律（RC7/RC9）：上述三行**不得**被引用为"本方案无效"的证据。它们只说明
+> "某些量在本归档里不可测"，而不可测的量既不能支持也不能否证任何算法主张。
+> 同理，**不得**把 L2 的全命中称作"因果确认"，也**不得**把 L3 的内容一致称作"归属确认"。
 
 ---
 
@@ -399,6 +437,12 @@ $$L(X)=q_X\cdot\text{prefill}_X\cdot\frac{S_X}{m_X}=q_X\,S_X\cdot\underbrace{\fr
 as-of 复核后的 `d_min`、`S`、规则选择与 v1 **完全一致** —— 说明 v1 使用末条快照
 在这 6 次决策上恰好未引入未来信息，但**方法上不安全**，已改为按 index 查询。
 
+> **RC9 注记**：本表的 `barrier` 列对 hr01 是**已校验的配对结果**，对 hr02 仅为
+> **标签**——hr02 的屏障配对未通过计数器链检查，已整 run 排除（§5.2）。
+> 本表所有行（含 hr02）的结论来自 `FORCED_RELEASE_DECISION` 自身携带的
+> `original_free_queue` / `candidates` / `selected_releases` 与 as-of 快照，
+> **不依赖屏障配对**，因此不受该排除影响。
+
 一致率（与 A1 实际释放）：
 
 | 规则 | 一致 |
@@ -408,19 +452,44 @@ as-of 复核后的 `d_min`、`S`、规则选择与 v1 **完全一致** —— �
 | Earliest Deadline | 5 / 6 |
 | **本方案（Cost Proxy）** | **5 / 6** |
 
-### 5.2 跨臂对照（按 `boundary_id` 严格匹配）
+### 5.2 跨臂对照（RC9：屏障配对先过检查，再谈匹配）
+
+RC9 的计数器链检查**推翻了 v3 对 hr02 的跨臂结论的可信度**：
+
+| scenario | barrier | `before` | `after` | 计数器链 |
+|---|---|---:|---:|---|
+| hr01 | round-40 | 0 | 1 | OK |
+| hr01 | round-50 | 1 | 2 | OK |
+| hr01 | round-55 | 2 | 3 | OK |
+| hr02 | round-40 | 0 | 1 | OK |
+| hr02 | round-50 | **2** | **2** | **断链 + 未消耗释放** |
+| hr02 | round-55 | **3** | **3** | **断链 + 未消耗释放** |
+
+hr02 的三次 completion 中，后两次的计数既不等于上一次的 `after`（2 ≠ 1，3 ≠ 2），
+且 `after == before`（未消耗任何 forced release）。v3 使用的
+`after == position + 1` 检查在这里**恰好误通过**——这正是 RC9 要求换成
+before/after 语义的原因。
+
+按 RC9 的 Fail Closed 要求，**hr02 整 run 排除在屏障级跨臂对照之外**。
+排除后可由 `boundary_id` 严格匹配的只有 hr01：
 
 | scenario | barrier | A0 | A1 | A2 | 结论 |
 |---|---|---|---|---|---|
 | hr01-balanced-gap | round-40 | django | django | django | 一致 |
 | hr01-balanced-gap | round-50 | django | django | django | 一致 |
 | hr01-balanced-gap | round-55 | django | django | django | 一致 |
-| hr02-short-gap-long-context | round-40 | pytest | pytest | pytest | 一致 |
-| hr02-short-gap-long-context | round-50 | pytest | pytest | pytest | 一致 |
-| hr02-short-gap-long-context | **round-55** | pytest | **pylint** | pytest | **分歧** |
+| hr02-short-gap-long-context | round-40/50/55 | — | — | — | **EXCLUDED（配对未通过）** |
 
-与 M1 审阅的"唯一分歧位于 HR02 round 55"一致，且现在由 `boundary_id`
-而非最近 event index 建立对应关系。
+**三点必须同时说明（不得省略任何一点）**：
+
+1. hr02 的**区间**条件其实成立：`2166 < 2430 < 4384 < 5296 < 10388 < 11200`，
+   每个 release 都严格落在唯一一个 completion 区间内，配对在顺序上无歧义；
+2. 失败的是**计数器**不变量，原因未知（可能是计数器来源不同或存在未记录的内部释放），
+   本轮**不推测原因**；
+3. 因此 v3 中"唯一分歧位于 HR02 round 55"这句话**不能再由屏障配对支撑**。
+   该分歧本身仍然成立，但依据是 `FORCED_RELEASE_DECISION.payload.selected_releases`
+   直接记录的选择（§1.3），**不依赖**屏障配对。这一点必须写清，否则会把一个
+   决策级事实误挂在一个已失效的配对论证上。
 
 ### 5.3 本方案与各基线可能分歧的**真实**条件（RC1 修正）
 
@@ -577,76 +646,126 @@ v2 的 §6.1 写的是「`entry.block_ids` 下标即 Prefix Depth，`m_X = len(e
 
 ```python
 @dataclass(frozen=True, slots=True)
+class DepthQuery:
+    chain_id: tuple[str, str]              # 查询方所属的链
+    native_hash_process_id: str            # 查询方所属的 native 哈希进程
+    decision_at: float                     # 该深度将被用于的时刻
+
+@dataclass(frozen=True, slots=True)
 class ChainDepthProof:
     chain_id: tuple[str, str]              # (program_id, prefix_id)
     native_hash_process_id: str            # 该快照所属的 native 哈希进程
     block_ids: tuple[int, ...]             # 观测时刻的链内块，按深度升序
-    content_hashes: tuple[str, ...]        # 与 block_ids 逐位对齐的内容标识
-    depths: tuple[int, ...]                # 权威深度，1..n，与上面两者逐位对齐
+    content_hashes: tuple[str | None, ...]  # 与 block_ids 逐位对齐
+    depths: tuple[int, ...]                # 权威深度，1..n，逐位对齐
     observed_at: float
+    max_age_seconds: float = 600.0
 
     @property
     def chain_length(self) -> int:
         """m。取自记录，永远不等于当前存活块数。"""
         return len(self.depths)
 
-    def depth_of(self, block_id: int, content_hash: str) -> int | None:
-        """返回真实深度；内容标识不符时返回 None（拒绝继承）。"""
-        ...   # 先比 content_hash，再比 block_id
+    @property
+    def identity_verified(self) -> bool:
+        """任一槽位缺少可用内容标识时为 False。"""
 
-    def depths_for(self, block_ids, live_hashes) -> tuple[dict[int, int], tuple[int, ...]]:
-        """返回 (已解析, 无法解析)；后者非空即整次决策 Fail Closed。"""
-        ...
+    def depth_of(self, query: DepthQuery, block_id: int, content_hash: str
+                 ) -> tuple[int | None, DepthStatus]:
+        """按 chain → process → 时间 → 内容 → 槽位的顺序逐项校验。"""
+
+    def depths_for(self, query: DepthQuery, victims, live_hashes
+                   ) -> tuple[dict[int, int], dict[int, DepthStatus]]:
+        """返回 (已解析, 无法解析→原因)；后者非空即整次决策 Fail Closed。"""
 ```
 
 这个结构并非新发明：冻结的 `A2NativeChainSnapshot` 已经同时携带
 `block_ids` + `content_hashes` + `native_hash_process_id`，本方案只是把
 `depths` 一并固化，并把**查询方式从「按下标」改为「按（block_id, content_hash）双键」**。
+RC8 又补上了此前只存不验的三项：链身份、进程身份、时效。
 
-#### 6.1.3 四条必须成立的性质（RC5 逐条要求，均已可执行验证）
+#### 6.1.3 九条必须成立的性质（RC5 + RC8，均已可执行验证）
 
 | # | 性质 | 失败后果 | 契约检查 | 结果 |
 |---|---|---|---|---|
-| P1 | **内部逐出不导致深度漂移** | `d_min` 低估 → `S` 高估 → 选错 | `check_partial_eviction_does_not_drift_depth` | PASS |
-| P2 | **block id 回收不继承旧深度** | 复用槽位拿到过期深度 → 乐观偏差 | `check_recycled_block_id_does_not_inherit_depth` | PASS |
-| P3 | **无法验证的深度单独上报，不被静默丢弃** | 悄悄少算受害者 → 假阴性 | `check_resolution_reports_unresolvable_separately` | PASS |
-| P4 | **后缀用记录链长而非存活块数** | `S` 系统性低估 | `check_suffix_uses_recorded_length_not_live_count` | PASS |
+| P1 | 内部逐出不导致深度漂移 | `d_min` 低估 → `S` 高估 → 选错 | `check_partial_eviction_does_not_drift_depth` | PASS |
+| P2 | block id 回收不继承旧深度 | 复用槽位拿到过期深度 → 乐观偏差 | `check_recycled_block_id_does_not_inherit_depth` | PASS |
+| P3 | 无法验证的深度单独上报，不被静默丢弃 | 悄悄少算受害者 → 假阴性 | `check_resolution_reports_unresolvable_separately` | PASS |
+| P4 | 后缀用记录链长而非存活块数 | `S` 系统性低估 | `check_suffix_uses_recorded_length_not_live_count` | PASS |
+| P5 | 退化几何可被识别 | 把 `S=1` 的极深受害者误当无害 | `check_degenerate_geometry_is_detected` | PASS |
+| P6 | **查询须属同一 Native Process 与 Chain** | 跨链/跨进程借用到他人深度 | `check_query_must_match_chain_and_process` | PASS |
+| P7 | **证明须早于决策且未过期** | 用未来或陈旧观测为当下定价 | `check_proof_must_precede_decision_and_stay_fresh` | PASS |
+| P8 | **内容标识缺失 ⇒ `IDENTITY_UNVERIFIED`** | 只有深度就冒充已验证身份 | `check_missing_content_identity_is_unverified_not_ok` | PASS |
+| P9 | 归档形状的证明可自洽还原 | 离线构造与运行时语义不一致 | `check_archive_shaped_proof_round_trips` | PASS |
 
-补充第 5 项退化探测：`check_degenerate_geometry_is_detected`（全体最深受害者 ⇒ `S=1`；
-中间层受害者 ⇒ `S=3`），PASS。
+**可执行证明**：`python scripts/probes/entry_costaware_audit/phase2i_depth_contract.py`
+→ `all contract checks passed`，**9/9 PASS**。该文件同时充当最小单元测试：
 
-**可执行证明**：`scripts/probes/entry_costaware_audit/phase2i_depth_contract.py`
-（`python scripts/probes/entry_costaware_audit/phase2i_depth_contract.py` →
-输出 `all contract checks passed`，5/5 PASS）。该文件同时充当最小单元测试：
+- P1 用例：6 块链（深度 1..6），淘汰深度 3；**逐个断言**存活块 13/14/15 的深度是
+  **4/5/6** 而非数组位置 3/4/5，并反向检查"恰有 3 个块的深度不等于其下标"。
+- P2 用例：槽位 21 被写入内容 `"zz"` → 状态必须是 `CONTENT_MISMATCH` 且深度为 `None`；
+  用原内容 `"a2"` 查询 → `(2, OK)`。
+- P3 用例：受害者 99 内容未知 → 必须出现在 `unresolved` 且原因为 `UNKNOWN_BLOCK`。
+- P4 用例：10 块链中淘汰 4 块，从深度 5 起的后缀按记录算 **5**，按存活块数算只有 **2**。
+- P6 用例：换成 `("program-f","prefix-OTHER")` → `WRONG_CHAIN`；
+  换成 `pid-B` → `WRONG_PROCESS`；两者都必须返回 `None`。
+- P7 用例：`decision_at=999 < observed_at=1000` → `FUTURE_PROOF`；
+  `decision_at − observed_at = max_age + 1` → `STALE_PROOF`；
+  恰好等于 `observed_at` 与恰好等于 `max_age` 都必须**仍然可用**（边界不误杀）。
+- P8 用例：`content_hashes=("g1", None, "g3")` → `identity_verified=False`，
+  两个受害者都解析失败且原因保留为 `IDENTITY_UNVERIFIED`。
+- P9 用例：按 `VLLM_PREFIX_SNAPSHOT` 形状（`block_ids` + `ordered_native_cache_keys` +
+  `native_hash_process_id`）构造，内部逐出后块 84 必须仍是深度 5。
 
-- P1 用例：6 块链（深度 1..6），淘汰深度 3；断言存活块 13/14/15 的深度是 **4/5/6**
-  而非数组位置 3/4/5。
-- P2 用例：槽位 21 被写入内容 `"zz"` 后，`depth_of(21, "zz")` 必须返回 `None`；
-  用原内容 `"a2"` 查询则返回 `2`。
-- P3 用例：受害者 99 内容未知，必须出现在 `unresolved` 中而非被静默跳过。
-- P4 用例：10 块链中淘汰 4 块，从深度 5 起的后缀长度按记录算 **5**，
-  按存活块数算只有 **2**。
+#### 6.1.4 身份与时效校验（RC8 的核心要求）
 
-#### 6.1.4 Fail Closed 契约
+存储而不校验等于没有约束。`depth_of` 按固定顺序逐项判定，**每一项都返回单一原因**，
+以便把"为什么不可评分"如实上报，而不是笼统地置空：
 
-> **任何一个受害者的深度无法在 `ChainDepthProof` 中解析（内容标识缺失、不匹配，
-> 或该块不在观测记录内），整次决策即不可评分**；此时回落到冻结 A1 排序并
-> 记录 `depth_unresolved` 原因，**不得猜测、不得按下标兜底、不得只算能算的那部分**。
+| 序 | 检查 | 不通过时的状态 |
+|---|---|---|
+| 1 | `query.chain_id == proof.chain_id` | `WRONG_CHAIN` |
+| 2 | `query.native_hash_process_id == proof.native_hash_process_id` | `WRONG_PROCESS` |
+| 3 | `query.decision_at >= observed_at`（证明不得来自未来） | `FUTURE_PROOF` |
+| 4 | `decision_at − observed_at <= max_age_seconds` | `STALE_PROOF` |
+| 5 | `proof.identity_verified`（该证明具备可用内容标识） | `IDENTITY_UNVERIFIED` |
+| 6 | 槽位存在且内容键一致 | `UNKNOWN_BLOCK` / `CONTENT_MISMATCH` |
+| — | 全部通过 | `OK`，并返回真实深度 |
+
+**时效上限的性质**：`max_age_seconds` 是**正确性上限，不是调参旋钮**。它约束的是
+"这条证明是否仍描述同一条链"。更强、更结构化的要求（证明必须是该链在决策前
+**最近一次**观测）由调用方在取 proof 时保证（离线等价于 `asof_chains` 的
+`event_index < 决策 index` 语义）。两者都满足才可解析。
+
+**关于 `IDENTITY_UNVERIFIED`（RC8 明确允许的降级）**：若离线事件不足以完成内容身份
+校验，则必须标记为 `IDENTITY_UNVERIFIED` 并 Fail Closed，**不得**退化为"只看深度"。
+本轮实测归档内容键**齐全**（`VLLM_PREFIX_SNAPSHOT.ordered_native_cache_keys` 与
+`block_ids` 逐位对齐），因此该降级路径**未被触发**；它仍然必须实现，
+因为静默退化会让内容复用重新变成不可检测的风险。
+
+#### 6.1.5 Fail Closed 契约
+
+> **任何一个受害者的深度无法解析——链或进程不符、证明来自未来、证明已过期、
+> 内容标识缺失、内容不匹配、或该块不在观测记录内——整次决策即不可评分**；
+> 此时回落到冻结 A1 排序，并记录**具体原因码**，**不得猜测、不得按下标兜底、
+> 不得只算能算的那部分**。
 
 理由：部分解析会产生一个**偏小**的 `S`，而偏小的 `S` 会让该候选看起来更便宜，
 从而系统性地偏向"深度信息缺失"的候选。宁可回落到基线，也不能让缺失信息变成优势。
+同理，**不得**把"证明过期但仍能返回一个数"当作可用证据——那正是 RC8 指出的漏洞。
 
-#### 6.1.5 状态来源汇总
+#### 6.1.6 状态来源汇总
 
 | 状态 | 来源 | 是否新增 |
 |---|---|---|
-| `ChainDepthProof`（含 `depths`、`chain_length`） | **项目层新增元数据**，观测链时固化 | **是**，但**不改动 Native BlockPool / Eviction Ownership** |
+| `ChainDepthProof`（含 `depths`、`chain_length`、`observed_at`、`max_age`） | **项目层新增元数据**，观测链时固化 | **是**，但**不改动 Native BlockPool / Eviction Ownership** |
+| `DepthQuery`（`chain_id` / `native_hash_process_id` / `decision_at`） | 决策点当场的身份与时间 | 仅查询参数 |
 | `block_id → native_lru_rank` | `EligibilityPreparation.original_free_queue` | 否 |
 | `\|TIER_1\|` | 同一队列按 `eligibility_tier == 0` 计数 | 否 |
 | 候选 `newly_eligible_block_ids` | `PressureReleaseEffect` | 否 |
 | 候选 `prefill_reload_seconds` | 决策时已有 | 否 |
 | `deadline` | `RetentionEntrySnapshot.deadline_timestamp` | 否 |
-| **日志新增**：`deficit / V_X / d_min / m / S / L(X) / unresolved` | 决策点计算 | 仅日志 |
+| **日志新增**：`deficit / V_X / d_min / m / S / L(X) / unresolved(含原因码)` | 决策点计算 | 仅日志 |
 
 **结论**：新增的只有一份**只读的深度证明**，不引入新的淘汰权、不改 Native 状态机，
 也不触碰 `src/kvopt/continuum/*`。v2 中"不需要任何新状态"的说法不成立，已撤回。
@@ -674,24 +793,33 @@ class ChainDepthProof:
 | 2 | 在**同一压力回合内**，推算的受害者集合与 `last_selected_block_ids` **逐块不一致** | L3 | 推算规则错误；本方案全部代价建立在其上。**证据缺席不算触发**，见下 |
 | 3 | 全部决策**实际 Score / Selection 无法区分**本方案与 A0 | L1 | 本负载上不可区分。**`S` 恒定既不是充分条件也不是必要条件**，见下 |
 | 4 | 任一候选 `prefill_reload` 缺失或为 0 | L1 | 代价量纲失效 |
-| 5 | 任一受害者深度在 `ChainDepthProof` 中不可解析 | L1 | Fail Closed（§6.1.4）：该决策回落冻结 A1 并记录原因 |
-| 6 | 屏障配对（数量 / 顺序 / 唯一 ID / 阶段归属）任一检查失败 | L2 | 跨臂对照不可信，整 run 排除 |
+| 5 | 任一受害者深度在 `ChainDepthProof` 中不可解析 | L1 | Fail Closed（§6.1.5）：该决策回落冻结 A1 并记录**原因码** |
+| 6 | 屏障配对任一检查失败：数量 / 区间 / 计数器链 / `boundary_id` 唯一 / `stage_id` 唯一 | L2 | 跨臂对照不可信，**整 run 排除** |
 
-**条件 2 的证据纪律（RC7）**：必须区分四种情况，不可混为一谈。
+**条件 2 的证据纪律（RC7 + RC9）**：四类情况必须分开，不可混为一谈。
 
-| 情况 | 判读 |
-|---|---|
-| 预计 Selected Victims（L1，由 tier/rank 推算） | 预测，本身不是事实 |
-| 真实 Native Eviction（L2，`BLOCK_EVICTED`） | 可观测，但**整跑全量**求交集是恒真的，不可用作归属 |
-| 完整内容级 Attribution（L3，同回合 `last_selected_block_ids` 逐块对齐） | 唯一可接受的确认口径 |
-| 缺失或无法验证 | **不构成"算法错误"，也不构成"算法正确"** |
+| 情况 | 判读 | 本轮实测 |
+|---|---|---|
+| **M3-1** Selected Victim Agreement（L1↔项目层记录） | 两个计算之间的一致性，**不是**物理观测 | 1 精确 / 5 不符 |
+| **M3-2** Native Eviction（L2） | 物理逐出，但**无归属** | 179/179 窗口内命中 |
+| **M3-3** Content Identity（L3） | 内容身份已证明，**归属仍未证明** | 179/179 内容键一致 |
+| **M3-4** Downstream Recompute（L4） | 不可观测 | 无数据 |
 
-> 本轮 L3 实测结果见 §2.4：6 次决策中 **1 次 EXACT（hr01 `idx=2170`，126/126），5 次不可验证**。
-> 这 5 次的原因是回调字段在同一 run 内规模恒定（126 / 123），与当次 `q`/`need` 变化不对应，
-> 属**回调不完整**，因此**本轮不把条件 2 判为通过，也不判为失败**，而是标记为
-> `L3 partially verified`，并在下一轮实现中把该回调改为逐回合写入。
-> **绝不可**把"回调不完整"解释成"推算错了"；同样**绝不可**把纯 Temporal Association
-> （整跑 `BLOCK_EVICTED` 全命中）解释成逐块因果确认。
+> **条件 2 的判据取自 M3-1**，而 M3-1 在本轮为 **1 精确 / 5 不符**。
+> 这 5 次的原因是回调字段在同一 run 内规模恒定（126 / 123），与当次 `need` 变化不对应，
+> 属**回调不完整**。因此本轮**不把条件 2 判为通过，也不判为失败**，标记为
+> `M3-1 partially verified`，并把"该回调改为逐回合写入"列为下一轮工程项。
+>
+> 三条禁令（RC9 明确要求）：
+> 1. **不得**把"回调不完整"解释成"推算错了"；
+> 2. **不得**把 M3-2 的窗口内全命中（179/179）称作"内容级物理因果归因"——
+>    它只说明这些块确实被逐出，不说明它们是被**本次释放**逐出的；
+> 3. **不得**把 M3-3 的内容键一致（179/179）称作"归属确认"——
+>    归档自己写明 `native hash identity does not prove logical ownership`，
+>    且同一内容键同时出现在 5–31 条不同请求前缀中。
+>
+> 特别地：**1/6 精确不能被表述为"已完成内容级物理因果归因"**。
+> 它能支持的最强结论是"这一次的两个 SelectionPlan 计算一致"。
 
 **条件 3 的判定必须基于可区分性，而非 `S` 是否恒定（RC6）**：
 
@@ -717,6 +845,25 @@ v2 把条件 3 写成"全部决策 `S_X = |V_X| = deficit`"，并据此宣布"�
 `q` 与 `S` 方向恰好相反**，是负载选择问题；Score 本身不可区分（条件 3）
 说明**代价对象在该负载上退化**，是更深一层的问题。两者都不应通过改公式解决。
 
+**条件 6 的判定细节（RC9）**：`barrier_for()` 按顺序检查五项，任一失败即整 run 排除。
+
+| 序 | 检查 | 本轮结果 |
+|---|---|---|
+| 1 | **数量**：`len(releases) == len(completions)` | 6/6 通过 |
+| 2 | **区间**：`previous_completion < release < current_completion` | 6/6 通过 |
+| 3 | **计数器链**：`before == 上一 completion 的 after` 且 `after == before + 1` | **hr01 3/3 通过；hr02 1/3 通过** |
+| 4 | **`boundary_id` 唯一且非空** | 6/6 通过 |
+| 5 | **`stage_id` 唯一且非空** | 6/6 通过 |
+
+hr02 的失败明细：`round-50` 为 `before=2, after=2`，`round-55` 为 `before=3, after=3`，
+且 `round-40` 的 `after=1` 与 `round-50` 的 `before=2` 之间缺一次增量。
+v3 使用的 `after == position + 1` 在 hr02 上**恰好全部成立**，因此完全掩盖了这个缺陷——
+这就是 RC9 要求改为 before/after 语义的直接原因。
+
+**结论**：hr02 整 run 排除在**屏障级**跨臂对照之外（§5.2）。注意其**区间**条件其实成立，
+配对在顺序上无歧义；失败的是计数器不变量，本轮**不推测其原因**。
+按 RC9 的 Fail Closed 要求，"无法验证"必须按"不可用"处理，不能按"可接受"处理。
+
 ### 6.4 明确不做
 
 - 不引入 `r_i`（缺口未补）、不做多信号组合、不改 τ / λ / `need` / `N` 语义；
@@ -733,42 +880,52 @@ v2 把条件 3 写成"全部决策 `S_X = |V_X| = deficit`"，并据此宣布"�
 | **H** 历史机制 | `TTL_DECISION_OBSERVED` 中至少一个决策 `global_server_gap_sample_count > 100` 且 `history_mode ≠ cold_start`；可用记录历史复现记录的 `ttl_seconds` | L1 | 硬门禁 |
 | **M1** 资格一致 | `deficit` 与 `V_X` 可由 `original_free_queue` + `newly_eligible_block_ids` 复算一致（±0） | L1 | 硬门禁 |
 | **M2** 深度可解 | 每个 `V_X` 的块都能在 `ChainDepthProof` 中以 `(block_id, content_hash)` 解析出深度；缺失即 Fail Closed 并计入 `unresolved` | L1 | 硬门禁 |
-| **M3** 逐出一致 | **同回合** `last_selected_block_ids` 与推算 `V_X` 逐块相同 | **L3** | 硬门禁，但分档判读 |
+| **M3** 逐出证据 | 拆为四类：**M3-1** 选择一致（L1↔记录）／**M3-2** 真实逐出（L2）／**M3-3** 内容身份（L3）／**M3-4** 重算后果（L4）；**四者不得互相代替** | L2–L4 | 分档判读（§7.1） |
 | **D** 决策机会 | ≥2 合法候选，**且至少一次出现：A0 会选的那个 Entry（最早 deadline）带着比另一候选更长的后缀，且该劣势按完整不等式越出 `q` 优势与 1.14 倍 `prefill/m` 带**（§5.3/§5.5） | L1 | 硬门禁（否则不可判别） |
 | **E** 效果 | 仅在 H、M1–M3、D 全部通过后才有意义；**不要求产生收益** | L4 | 记录 |
 
-### 7.1 M3 的分档判读（RC7 要求）
+### 7.1 M3 的四类证据（RC7 + RC9）
 
-M3 是唯一需要物理证据的门，**不能只用 `BLOCK_EVICTED` 的全量交集**，
-因为整跑会逐出 1382（hr01）/ 1473（hr02）个不同 block，
-与任何预测集合的交集都必然接近 100%——那是**时间关联，不是因果归属**。
+M3 曾经是一个单一门，这本身就是错误的抽象："选择一致""真实逐出""内容身份""重算后果"
+四件事的证据强度与含义完全不同，任何一件成立都推不出下一件。v4 把它拆开并分别判读。
 
-| 档位 | 观测 | 判读 |
-|---|---|---|
-| **M3-A** | 同回合 `last_selected_block_ids` 与 `V_X` **逐块完全相同** | 内容级 Attribution 成立 |
-| **M3-B** | 该字段存在但规模在同一 run 内恒定、与当次 `need`/`q` 不联动 | **回调不完整** → 记为 `L3 unverifiable`，**不判失败** |
-| **M3-C** | 该字段缺失 | 同上，`L3 unavailable` |
-| **M3-D** | 同回合字段存在且规模随 `need` 变化，但内容与 `V_X` 不符 | **判失败**（条件 2 触发）→ 推算规则有误 |
+| 主张 | 怎么算 | 说明了什么 | 不能推出什么 |
+|---|---|---|---|
+| **M3-1** 选择一致 | `last_selected_block_ids`（项目层 SelectionPlan 输出） vs L1 全选择集 | 两个**计算**一致 | 不能推出物理逐出，更不能推出因果归属 |
+| **M3-2** 真实逐出 | L1 受害者是否在**同回合窗口**内出现于 `BLOCK_EVICTED` | 物理逐出确实发生 | 不能推出"是本候选导致的" |
+| **M3-3** 内容身份 | 逐出事件 `native_cache_key_before` vs 该链快照记录的槽位内容键 | 逐出时该槽位的**内容**与记录一致 | 不能推出归属（同内容属多条链） |
+| **M3-4** 重算后果 | 下游 APC miss / 重算 | 真正的代价 | 本归档无数据 |
 
-**本轮实测（§复现输出第 3b 段）**：
+**本轮实测（`phase2i_m3_evidence.py`）**：
 
-| scenario | idx | L1 预测 | 同回合记录 | 交集 | 档位 |
-|---|---:|---:|---:|---:|---|
-| hr01 | 2170 | 126 | 126 | 126 | **M3-A** |
-| hr01 | 4244 | 128 | 126 | 0 | M3-B |
-| hr01 | 7305 | 128 | 126 | 0 | M3-B |
-| hr02 | 2166 | 128 | 123 | 0 | M3-B |
-| hr02 | 4384 | 18 | 123 | 0 | M3-B |
-| hr02 | 10388 | 17 | 123 | 0 | M3-B |
+| scenario | idx | need | deficit | M3-1 选择一致 | M3-2 受害块逐出 | M3-3 内容键一致 |
+|---|---:|---:|---:|---|---|---|
+| hr01 | 2170 | 126 | 33 | **EXACT (126)** | 33/33 | 33/33 |
+| hr01 | 4244 | 128 | 50 | MISMATCH (128 vs 126) | 50/50 | 50/50 |
+| hr01 | 7305 | 128 | 56 | MISMATCH (128 vs 126) | 56/56 | 56/56 |
+| hr02 | 2166 | 128 | 6 | MISMATCH (128 vs 123) | 6/6 | 6/6 |
+| hr02 | 4384 | 18 | 17 | MISMATCH (18 vs 123) | 17/17 | 17/17 |
+| hr02 | 10388 | 17 | 17 | MISMATCH (17 vs 123) | 17/17 | 17/17 |
+| **合计** | | | | **1 精确 / 5 不符** | **179/179** | **179/179** |
 
-**结论：M3 = 1 A / 5 B，无 C、无 D。** 即：
+三条必须同时写出的限定：
 
-- **未发现任何推算错误**（无 M3-D）；
-- **也未能对 5 次决策给出逐块因果确认**（M3-B）；
-- 这 **不构成** "算法错误" 的证据，也 **不构成** "算法正确" 的证据。
+1. **M3-1 的 5 次不符不代表推算错误**。记录规模在同一 run 内恒为 126（hr01）/ 123（hr02），
+   而 `need` 在变（128/18/17），因此是**回调不逐回合写入**，属证据完整性限制。
+   本轮既**不判通过也不判失败**，记为 `M3-1 partially verified`。
+2. **M3-2 的 179/179 不是因果确认**。窗口内确实发生了大量逐出
+   （单次回合可见 33–510 次），所以"出现在窗口内"只是**必要条件**，不是充分条件。
+3. **M3-3 的 179/179 也不是归属确认**。归档自己写明
+   `attribution_reason = "native hash identity does not prove logical ownership"`、
+   `logical_owner_attribution = null`；且同一内容键同时出现在 **5–31** 条不同请求前缀中。
+   另外 **0/179** 个受害者落在全 run 共享的 7 块公共前缀内，
+   因此 §3.4 假设 3（共享内容外部性未触发）在本负载上成立。
+
+**因此 M3 的正确表述是**：*L2 与 L3-内容均已确认，L3-归属与 L4 不可确认，M3-1 证据不完整*。
+**不得**写成“M3 通过”，也**不得**用 1/6 精确去声明已完成内容级物理因果归因。
 
 下一轮实现必须把 `last_selected_block_ids` 改为**逐压力回合写入**，
-使 M3 可以升到 A 或降到 D，从而脱离 B 档。这是 RC7 留给下一轮的具体工程项，
+并在原生层提供逐回合同一性，使 M3-1 与归属级证据可以升档。
 本轮不实施（授权边界：只改设计文档与只读验证代码）。
 
 ### 7.2 机制判断 vs 性能判断（RC4，措辞纪律）
@@ -794,7 +951,8 @@ M3 是唯一需要物理证据的门，**不能只用 `BLOCK_EVICTED` 的全量�
 ## 8. 复现
 
 ```bash
-python scripts/probes/entry_costaware_audit/phase2i_depth_contract.py    # 5/5 PASS
+python scripts/probes/entry_costaware_audit/phase2i_depth_contract.py    # 9/9 PASS
+python scripts/probes/entry_costaware_audit/phase2i_m3_evidence.py       # M3 四类证据
 python scripts/probes/entry_costaware_audit/phase2i_marginal_probe.py
 ```
 
@@ -807,10 +965,13 @@ python scripts/probes/entry_costaware_audit/phase2i_marginal_probe.py
 3. **规则比较**：A0（真实 deadline 规则）／MinOvershoot／EarliestDL／本方案 vs A1 实际释放；
    **2b** 另给 proxy vs A0、proxy vs MinOvershoot 的成对一致率；
 4. **跨臂对照**：按 `boundary_id` 匹配的 A0/A1/A2 实际释放，以及后缀是否退化；
+   配对先过五项检查，不过则整 run 标为 `EXCLUDED`（§5.2、§6.3 条件 6）；
 5. **结构余量**：每候选在 `S = |V|` 下界处的 `L_min`，判定“是否连最好的块几何都无法偏离 A0”（§5.5）；
-   **3b** 另给出 L1/L2/L3/L4 四级证据分级：同回合 `last_selected_block_ids` 逐块对齐（M3-A）
-   与整跑 `BLOCK_EVICTED` 全命中的对照，明确指出后者**不是**归属证据（§7.1）；
+   **3b** 另给出 L1/L2/L3 分级与“整跑全量交集”的反例对照，明确指出后者**不是**归属证据；
 6. **`prefill/m` 跨度**：验证 `prefill` 是否与 `m` 成正比，从而 `L` 是否**近似**为 `q·S`（§3.5）。
+
+`phase2i_m3_evidence.py` 单独输出 M3-1/M3-2/M3-3/M3-4 四类证据，
+并按**释放集 / 逐出集**拆分分母（TIER_1 是被释放到 free queue，不是被逐出）。
 
 深度由 as-of `VLLM_PREFIX_SNAPSHOT` 的 `block_ids` 顺序恢复（**观测时刻的位置 = 深度**，
 这一点只在快照刚建立时成立）；运行时**不得**改由 `RetentionEntrySnapshot.block_ids`
@@ -827,17 +988,30 @@ python scripts/probes/entry_costaware_audit/phase2i_marginal_probe.py
 | 2 | 修正后的完整评分与 Fallback 规则 | §3.2–§3.3（只改 Step 2，Step 1/3/4/5 保持冻结） |
 | 3 | 在线实现所需的最小状态与时间复杂度 | §6.1.2（`ChainDepthProof`）、§6.2（`O(|Q| + k·m)`） |
 | 4 | 与 A0、MinOvershoot 结构上可能分歧的条件 | §5.3（完整不等式）与 §5.5（本轮为何不可能，附前提） |
-| 5 | 可验证的机制 Smoke 判据与停止条件 | §7（H/M1–M3/D/E，含 M3 分档）与 §6.3（六条停止条件） |
+| 5 | 可验证的机制 Smoke 判据与停止条件 | §7（H/M1–M3/D/E，M3 拆为四类）与 §6.3（六条停止条件） |
 
-**RC5 交回项（本轮新增）**：深度契约的可执行证明
-`scripts/probes/entry_costaware_audit/phase2i_depth_contract.py`，5/5 PASS，
+**RC5 交回项**：深度契约的可执行证明
+`scripts/probes/entry_costaware_audit/phase2i_depth_contract.py`，
 覆盖内部逐出漂移、槽位回收继承、无法解析上报、后缀用记录长度四条性质（§6.1.3）。
+
+**RC8 交回项（v4 新增）**：同一文件扩到 **9/9 PASS**。
+`depth_of()` 现在按 chain → process → 时间 → 内容 → 槽位逐项校验，
+分别返回 `WRONG_CHAIN` / `WRONG_PROCESS` / `FUTURE_PROOF` / `STALE_PROOF` /
+`IDENTITY_UNVERIFIED` / `CONTENT_MISMATCH` / `UNKNOWN_BLOCK`；
+部分逐出用例的复合条件已改为**逐块显式断言**（§6.1.3、§6.1.4）。
+`IDENTITY_UNVERIFIED` 降级路径已实现且经测试，本轮归档内容键齐全故**未触发**。
+
+**RC9 交回项（v4 新增）**：`barrier_for()` 增加区间与计数器链检查（§6.3 条件 6），
+并因此发现 **hr02 计数器不自洽**，整 run 在屏障级跨臂对照中 **Fail Closed**（§5.2）；
+M3 拆为四类且不再用单一“通过/失败”概括（§7.1）。
+**本轮明确不用 1/6 精确声明内容级物理因果归因。**
 
 **RC6 交回项**：完整不等式保留在 §3.5 与 §5.3；`q·S` 仅作近似并附 1.1421 跨度声明；
 §5.5 已限定前提；停止条件 3 已改为按 Score/Selection 可区分性判定（§6.3）。
 
-**RC7 交回项**：L1–L4 证据分级（§2.4、§7.1）；M3 实测 **1 A / 5 B / 0 C / 0 D**；
-屏障配对四项检查（§6.3 条件 6）。
+**RC7 交回项**：L1–L4 证据分级（§2.4、§7.1）；M3 由单一档位改为四类主张，实测
+M3-1 **1 精确 / 5 不符**、M3-2 **179/179**、M3-3 **179/179**、M3-4 无数据；
+屏障配对五项检查（§6.3 条件 6）。
 **本轮明确不对"回调不完整"作算法层面的解读**：既不当作出错，也不当作正确。
 
 深度由 as-of `VLLM_PREFIX_SNAPSHOT` 的 `block_ids` **观测时刻**顺序恢复；

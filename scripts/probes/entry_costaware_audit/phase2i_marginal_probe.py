@@ -78,32 +78,36 @@ def asof_chains(events: list[dict], before_index: int) -> dict[tuple[str, str], 
 
 
 def barrier_for(events: list[dict]) -> tuple[dict[int, str], list[str]]:
-    """Map each forced-release event index to the barrier id that triggered it.
+    """Map each forced-release event index to the barrier that causally contains it.
 
-    Alignment is checked, not assumed. Pairing by position alone would silently accept a
-    run where a pressure completed twice, a release happened outside any pressure, or a
-    boundary id repeats. The four checks below must all hold; anything else is returned
-    as a problem and the caller must fail closed for that run.
+    Alignment is checked, not assumed. Pairing the n-th release with the n-th completion
+    is only valid if the release actually happened inside that completion's interval and
+    the pressure consumed exactly one forced release. Four independent invariants are
+    checked below; any violation is returned as a problem and the caller must fail closed
+    for the whole run rather than report a possibly mispaired cross-arm row.
 
     Checks
     ------
-    1. **count** -- every pressure completion consumed exactly one release, and the
-       completion's ``forced_release_count_after`` increases by one each time.
-    2. **order** -- each release precedes its own completion, and completions are
-       themselves ordered.
-    3. **unique barrier id** -- no ``boundary_id`` appears twice in a run.
-    4. **stage attribution** -- the completion's ``stage_id`` is non-empty, so each
-       barrier can be traced to a replay stage.
+    1. **count** -- releases and completions are equal in number.
+    2. **interval** -- ``previous_completion < release < current_completion``. This is the
+       real causal constraint: a release after its "own" completion did not cause it.
+    3. **counter chain** -- ``before`` must equal the previous completion's ``after``,
+       and ``after == before + 1``. A completion that leaves the counter unchanged
+       consumed no forced release, and a gap means an increment happened outside any
+       pressure; either way the pairing is unverifiable.
+    4. **identity** -- ``boundary_id`` and ``stage_id`` are both present and globally
+       unique, so a barrier can be traced back to exactly one frozen replay stage.
     """
     problems: list[str] = []
     releases = [int(event["event_index"]) for event in events if event["event_type"] == FORCED]
-    completions = [
-        (
-            int(event["event_index"]),
-            str(event["payload"].get("boundary_id")),
-            str(event["payload"].get("stage_id")),
-            int(event["payload"].get("forced_release_count_after") or 0),
-        )
+    completions: list[dict] = [
+        {
+            "index": int(event["event_index"]),
+            "boundary_id": str(event["payload"].get("boundary_id")),
+            "stage_id": str(event["payload"].get("stage_id")),
+            "before": int(event["payload"].get("forced_release_count_before") or 0),
+            "after": int(event["payload"].get("forced_release_count_after") or 0),
+        }
         for event in events
         if event["event_type"] == PRESSURE_DONE
     ]
@@ -115,35 +119,44 @@ def barrier_for(events: list[dict]) -> tuple[dict[int, str], list[str]]:
             f"{len(completions)} pressure completions"
         )
 
-    # 2. order, plus the monotone release counter as an independent check
-    for position, (completion_index, _boundary, _stage, count_after) in enumerate(completions):
-        if position >= len(releases):
-            break
-        if releases[position] > completion_index:
+    # 2. interval containment, and 3. the counter chain
+    previous_after = 0
+    previous_index: int | None = None
+    for position, completion in enumerate(completions):
+        if position < len(releases):
+            release_index = releases[position]
+            lower = -1 if previous_index is None else previous_index
+            if not (lower < release_index < completion["index"]):
+                problems.append(
+                    f"interval violation at barrier {position}: release {release_index} "
+                    f"is not inside ({lower}, {completion['index']})"
+                )
+        if completion["before"] != previous_after:
             problems.append(
-                f"order mismatch: release {releases[position]} follows its "
-                f"completion {completion_index}"
+                f"counter chain broken at barrier {position} "
+                f"({completion['boundary_id']}): before={completion['before']} but the "
+                f"previous completion left the counter at {previous_after}"
             )
-        if count_after != position + 1:
+        if completion["after"] != completion["before"] + 1:
             problems.append(
-                f"release counter mismatch at barrier {position}: "
-                f"forced_release_count_after={count_after}, expected {position + 1}"
+                f"barrier {position} ({completion['boundary_id']}) consumed no forced "
+                f"release: before={completion['before']} after={completion['after']}"
             )
+        previous_after = completion["after"]
+        previous_index = completion["index"]
 
-    # 3. unique barrier id
-    boundaries = [entry[1] for entry in completions]
-    if len(set(boundaries)) != len(boundaries):
-        problems.append(f"duplicate boundary ids: {boundaries}")
-
-    # 4. stage attribution
-    for _index, boundary, stage, _count in completions:
-        if not stage or stage == "None":
-            problems.append(f"barrier {boundary} has no stage_id")
+    # 4. frozen barrier / stage identity
+    for field in ("boundary_id", "stage_id"):
+        values = [completion[field] for completion in completions]
+        if any(not value or value == "None" for value in values):
+            problems.append(f"barrier with empty {field}: {values}")
+        if len(set(values)) != len(values):
+            problems.append(f"duplicate {field} values: {values}")
 
     mapping: dict[int, str] = {}
     for position, release_index in enumerate(releases):
         if position < len(completions):
-            mapping[release_index] = completions[position][1]
+            mapping[release_index] = completions[position]["boundary_id"]
     return mapping, problems
 
 
@@ -419,25 +432,22 @@ def main() -> int:
                 print(f"    {arm.upper()} {row[arm]}")
     print()
 
-    # ------------------------------------------------------- evidence grading (RC7)
-    print("== 3b. physical evidence grading (RC7) ==")
-    print("  Four distinct claims, not to be conflated:")
-    print("    L1 predicted victims    -- computed here from tier/rank; a PREDICTION")
-    print("    L2 native eviction      -- BLOCK_EVICTED events actually RECORDED")
-    print("    L3 content attribution  -- per-block identity join L1 <-> L2, only")
-    print("                               meaningful inside the pressure episode that")
-    print("                               the release caused")
-    print("    L4 recompute consequence-- downstream APC/recompute, NOT observable here")
+    # ------------------------------------------------------- evidence grading (RC9)
+    print("== 3b. evidence grading (RC9: four distinct claims) ==")
+    print("  These are not interchangeable, and none implies the next:")
+    print("    M3-1 selection agreement -- project-level SelectionPlan record vs the")
+    print("         predicted selection. Two computations compared; NOT an observation.")
+    print("    M3-2 native eviction     -- were the *victims* evicted inside the")
+    print("         episode window? Physical, but unowned.")
+    print("    M3-3 content identity    -- does the eviction's content key match the")
+    print("         chain snapshot's key for that slot? Content proven, ownership not.")
+    print("    M3-4 recompute consequence -- downstream APC/recompute; NOT observable.")
     print()
-    print("  Two joins are available and only one of them is admissible:")
-    print("    (a) join against ALL BLOCK_EVICTED ids in the whole run. This is")
-    print("        TAUTOLOGICAL and must not be reported as attribution: a long run")
-    print("        evicts thousands of blocks, so every predicted block is 'found'")
-    print("        eventually no matter which candidate was selected.")
-    print("    (b) join against the recorded last_selected_block_ids of the pressure")
-    print("        episode in the same window. This is a direct record of what the")
-    print("        native path selected, so it is the only admissible join -- but it")
-    print("        is only available where that callback actually fired per episode.")
+    print("  TIER_1 blocks are released to the free queue; only the surplus beyond")
+    print("  TIER_1 is evicted. Using the whole selection as the eviction denominator")
+    print("  inflates it by the entire TIER_1 population.")
+    print("  `phase2i_m3_evidence.py` measures all four; this section only checks that")
+    print("  the whole-run overlap is tautological and must not be quoted as attribution.")
     print()
     for scenario in sorted(by_scenario):
         events = by_scenario[scenario]["a1"]
@@ -450,7 +460,7 @@ def main() -> int:
         print(f"    L2 eviction events recorded          {len(evicted_ids)}")
         print(f"    L2 distinct evicted block ids        {len(set(evicted_ids))}")
         recorded_selections = _recorded_selections(events)
-        print(f"    L2 pressure-completion callbacks     {len(recorded_selections)}")
+        print(f"    M3-1 pressure-completion callbacks   {len(recorded_selections)}")
         for episode, event in enumerate([e for e in events if e["event_type"] == FORCED], start=1):
             payload = event["payload"]
             queue = payload["original_free_queue"]
@@ -465,33 +475,36 @@ def main() -> int:
                     chosen = cand
             if chosen is None:
                 continue
-            # Full eligibility-rule prediction: TIER_1 by rank first, then the
-            # released entry's reclaimable blocks by rank, until `need` is met.
+            # Full selection: TIER_1 by rank (released), then the surplus from the
+            # released entry (evicted). ``last_selected_block_ids`` records the whole
+            # selection, so M3-1 uses ``selected``; M3-2 only concerns ``victims``.
             tier1_by_rank = sorted(tier1, key=lambda b: rank_of[b])
             reclaimable = [b for b in chosen["initially_reclaimable_block_ids"] if b in rank_of]
             reclaimable.sort(key=lambda b: rank_of[b])
-            predicted = set(tier1_by_rank[:need]) | set(reclaimable[:deficit])
-            naive = predicted & set(evicted_ids)
+            victims = set(reclaimable[:deficit])
+            selected = set(tier1_by_rank[:need]) | victims
+            naive = victims & set(evicted_ids)
             recorded = recorded_selections.get(episode)
             if recorded is None:
-                grade = "L3 UNAVAILABLE (no per-episode selection callback)"
+                grade = "M3-1 UNAVAILABLE (no per-episode selection callback)"
                 detail = ""
-            elif predicted == recorded:
-                grade = "L3 EXACT"
-                detail = f"({len(predicted)}/{len(recorded)})"
+            elif selected == recorded:
+                grade = "M3-1 EXACT"
+                detail = f"({len(selected)}/{len(recorded)})"
             else:
-                grade = "L3 DISJOINT/STALE"
+                grade = "M3-1 MISMATCH"
                 detail = (
-                    f"(pred {len(predicted)} vs rec {len(recorded)}, "
-                    f"inter {len(predicted & recorded)})"
+                    f"(sel {len(selected)} vs rec {len(recorded)}, "
+                    f"inter {len(selected & recorded)})"
                 )
             print(
                 f"    ep{episode} idx={event['event_index']:6d} need={need:4d} "
-                f"|tier1|={len(tier1):3d} L1 predicted={len(predicted):4d}"
+                f"|tier1|={len(tier1):3d} victims={len(victims):3d} "
+                f"selected={len(selected):4d}"
             )
-            print(f"      naive whole-run overlap {len(naive):4d}  <-- NOT attribution")
+            print(f"      whole-run victim overlap {len(naive):4d}  <-- NOT attribution")
             print(f"      {grade} {detail}")
-        print("    L4 recompute consequence            NOT OBSERVABLE in this archive")
+        print("    M3-4 recompute consequence           NOT OBSERVABLE in this archive")
         print()
 
     # ------------------------------------------------------- degeneracy summary
