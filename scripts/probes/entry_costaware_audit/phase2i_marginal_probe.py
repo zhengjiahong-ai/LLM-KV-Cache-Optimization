@@ -77,24 +77,96 @@ def asof_chains(events: list[dict], before_index: int) -> dict[tuple[str, str], 
     return {key: blocks for key, (_index, blocks) in latest.items()}
 
 
-def barrier_for(events: list[dict]) -> dict[int, str]:
+def barrier_for(events: list[dict]) -> tuple[dict[int, str], list[str]]:
     """Map each forced-release event index to the barrier id that triggered it.
 
-    The pressure completes *after* the release it caused, and reports
-    ``forced_release_count_after``. Walking the pressure completions in order gives a
-    1:1 correspondence with the forced-release events of the same run.
+    Alignment is checked, not assumed. Pairing by position alone would silently accept a
+    run where a pressure completed twice, a release happened outside any pressure, or a
+    boundary id repeats. The four checks below must all hold; anything else is returned
+    as a problem and the caller must fail closed for that run.
+
+    Checks
+    ------
+    1. **count** -- every pressure completion consumed exactly one release, and the
+       completion's ``forced_release_count_after`` increases by one each time.
+    2. **order** -- each release precedes its own completion, and completions are
+       themselves ordered.
+    3. **unique barrier id** -- no ``boundary_id`` appears twice in a run.
+    4. **stage attribution** -- the completion's ``stage_id`` is non-empty, so each
+       barrier can be traced to a replay stage.
     """
+    problems: list[str] = []
     releases = [int(event["event_index"]) for event in events if event["event_type"] == FORCED]
     completions = [
-        (int(event["event_index"]), str(event["payload"].get("boundary_id")))
+        (
+            int(event["event_index"]),
+            str(event["payload"].get("boundary_id")),
+            str(event["payload"].get("stage_id")),
+            int(event["payload"].get("forced_release_count_after") or 0),
+        )
         for event in events
         if event["event_type"] == PRESSURE_DONE
     ]
+
+    # 1. count
+    if len(releases) != len(completions):
+        problems.append(
+            f"count mismatch: {len(releases)} forced releases vs "
+            f"{len(completions)} pressure completions"
+        )
+
+    # 2. order, plus the monotone release counter as an independent check
+    for position, (completion_index, _boundary, _stage, count_after) in enumerate(completions):
+        if position >= len(releases):
+            break
+        if releases[position] > completion_index:
+            problems.append(
+                f"order mismatch: release {releases[position]} follows its "
+                f"completion {completion_index}"
+            )
+        if count_after != position + 1:
+            problems.append(
+                f"release counter mismatch at barrier {position}: "
+                f"forced_release_count_after={count_after}, expected {position + 1}"
+            )
+
+    # 3. unique barrier id
+    boundaries = [entry[1] for entry in completions]
+    if len(set(boundaries)) != len(boundaries):
+        problems.append(f"duplicate boundary ids: {boundaries}")
+
+    # 4. stage attribution
+    for _index, boundary, stage, _count in completions:
+        if not stage or stage == "None":
+            problems.append(f"barrier {boundary} has no stage_id")
+
     mapping: dict[int, str] = {}
     for position, release_index in enumerate(releases):
         if position < len(completions):
             mapping[release_index] = completions[position][1]
-    return mapping
+    return mapping, problems
+
+
+def _recorded_selections(events: list[dict]) -> dict[int, set[int]]:
+    """Per-episode recorded victim sets, keyed by 1-based forced-release ordinal.
+
+    ``PRESSURE_REQUEST_COMPLETED`` carries ``last_selected_block_ids``, the blocks the
+    native path reports it selected. That is a direct record rather than an inference,
+    so it is the only admissible content-attribution source. It is returned per episode
+    because the field is not self-describing about which episode it belongs to; the
+    caller must compare each entry against the prediction and treat a mismatch as
+    missing evidence rather than as a refutation.
+    """
+    recorded: dict[int, set[int]] = {}
+    episode = 0
+    for event in events:
+        if event["event_type"] == FORCED:
+            episode += 1
+        elif event["event_type"] == "PRESSURE_REQUEST_COMPLETED":
+            ids = event["payload"].get("last_selected_block_ids")
+            if episode and ids is not None:
+                recorded[episode] = {int(block_id) for block_id in ids}
+    return recorded
 
 
 def evaluate_decision(events: list[dict], event: dict) -> dict:
@@ -183,10 +255,17 @@ def main() -> int:
     print("== 0. as-of snapshot and identity checks ==")
     total_decisions = 0
     unscorable_total = 0
+    barrier_problems_total = 0
     decisions: list[dict] = []
     for scenario in sorted(by_scenario):
         events = by_scenario[scenario]["a1"]
-        barriers = barrier_for(events)
+        barriers, barrier_problems = barrier_for(events)
+        if barrier_problems:
+            barrier_problems_total += len(barrier_problems)
+            print(f"  {scenario}: BARRIER ALIGNMENT FAILED, run excluded from cross-arm")
+            for problem in barrier_problems:
+                print(f"    {problem}")
+            continue
         for event in events:
             if event["event_type"] != FORCED:
                 continue
@@ -314,7 +393,12 @@ def main() -> int:
             events = by_scenario[scenario].get(arm)
             if events is None:
                 continue
-            mapping = barrier_for(events)
+            mapping, problems = barrier_for(events)
+            if problems:
+                print(f"  {scenario} {arm.upper()}: excluded, barrier alignment failed")
+                for problem in problems:
+                    print(f"    {problem}")
+                continue
             chosen = {}
             for event in events:
                 if event["event_type"] != FORCED:
@@ -334,6 +418,81 @@ def main() -> int:
             for arm in sorted(row):
                 print(f"    {arm.upper()} {row[arm]}")
     print()
+
+    # ------------------------------------------------------- evidence grading (RC7)
+    print("== 3b. physical evidence grading (RC7) ==")
+    print("  Four distinct claims, not to be conflated:")
+    print("    L1 predicted victims    -- computed here from tier/rank; a PREDICTION")
+    print("    L2 native eviction      -- BLOCK_EVICTED events actually RECORDED")
+    print("    L3 content attribution  -- per-block identity join L1 <-> L2, only")
+    print("                               meaningful inside the pressure episode that")
+    print("                               the release caused")
+    print("    L4 recompute consequence-- downstream APC/recompute, NOT observable here")
+    print()
+    print("  Two joins are available and only one of them is admissible:")
+    print("    (a) join against ALL BLOCK_EVICTED ids in the whole run. This is")
+    print("        TAUTOLOGICAL and must not be reported as attribution: a long run")
+    print("        evicts thousands of blocks, so every predicted block is 'found'")
+    print("        eventually no matter which candidate was selected.")
+    print("    (b) join against the recorded last_selected_block_ids of the pressure")
+    print("        episode in the same window. This is a direct record of what the")
+    print("        native path selected, so it is the only admissible join -- but it")
+    print("        is only available where that callback actually fired per episode.")
+    print()
+    for scenario in sorted(by_scenario):
+        events = by_scenario[scenario]["a1"]
+        evicted_ids = [
+            int(event["payload"]["block_id"])
+            for event in events
+            if event["event_type"] == "BLOCK_EVICTED"
+        ]
+        print(f"  {scenario}")
+        print(f"    L2 eviction events recorded          {len(evicted_ids)}")
+        print(f"    L2 distinct evicted block ids        {len(set(evicted_ids))}")
+        recorded_selections = _recorded_selections(events)
+        print(f"    L2 pressure-completion callbacks     {len(recorded_selections)}")
+        for episode, event in enumerate([e for e in events if e["event_type"] == FORCED], start=1):
+            payload = event["payload"]
+            queue = payload["original_free_queue"]
+            need = int(payload["required_blocks"])
+            rank_of = {row["block_id"]: row["native_lru_rank"] for row in queue}
+            tier1 = [row["block_id"] for row in queue if row["eligibility_tier"] == 0]
+            deficit = max(0, need - len(tier1))
+            released = [str(r["program_id"]) for r in payload.get("selected_releases") or []]
+            chosen = None
+            for cand in payload["candidates"]:
+                if str(cand["program_id"]) in released:
+                    chosen = cand
+            if chosen is None:
+                continue
+            # Full eligibility-rule prediction: TIER_1 by rank first, then the
+            # released entry's reclaimable blocks by rank, until `need` is met.
+            tier1_by_rank = sorted(tier1, key=lambda b: rank_of[b])
+            reclaimable = [b for b in chosen["initially_reclaimable_block_ids"] if b in rank_of]
+            reclaimable.sort(key=lambda b: rank_of[b])
+            predicted = set(tier1_by_rank[:need]) | set(reclaimable[:deficit])
+            naive = predicted & set(evicted_ids)
+            recorded = recorded_selections.get(episode)
+            if recorded is None:
+                grade = "L3 UNAVAILABLE (no per-episode selection callback)"
+                detail = ""
+            elif predicted == recorded:
+                grade = "L3 EXACT"
+                detail = f"({len(predicted)}/{len(recorded)})"
+            else:
+                grade = "L3 DISJOINT/STALE"
+                detail = (
+                    f"(pred {len(predicted)} vs rec {len(recorded)}, "
+                    f"inter {len(predicted & recorded)})"
+                )
+            print(
+                f"    ep{episode} idx={event['event_index']:6d} need={need:4d} "
+                f"|tier1|={len(tier1):3d} L1 predicted={len(predicted):4d}"
+            )
+            print(f"      naive whole-run overlap {len(naive):4d}  <-- NOT attribution")
+            print(f"      {grade} {detail}")
+        print("    L4 recompute consequence            NOT OBSERVABLE in this archive")
+        print()
 
     # ------------------------------------------------------- degeneracy summary
     print("== 4. when does the proxy rule have depth information to use? ==")
