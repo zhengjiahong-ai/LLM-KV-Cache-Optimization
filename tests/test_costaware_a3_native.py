@@ -66,6 +66,7 @@ def _run(
     proof_process: str = "native-process",
     native_process: str = "native-process",
     registry_process: str | None = None,
+    recycle_first_block: bool = False,
 ):
     manager = RetentionManager(FakeClock())
     chains = {"a": tuple(range(1, 9)), "b": (9, 10)}
@@ -93,6 +94,20 @@ def _run(
                     native_hash_process_id=registry_process or proof_process,
                 )
             )
+    if recycle_first_block:
+        registry.observe_eviction(
+            1,
+            content_hash="hash-1",
+            native_hash_process_id=proof_process,
+        )
+        registry.observe(
+            A2NativeChainSnapshot(
+                chain_id="reused-slot-without-new-original-chain-snapshot",
+                block_ids=(1,),
+                content_hashes=("recycled-content",),
+                native_hash_process_id=native_process,
+            )
+        )
     observer = InMemoryForcedReleaseObserver()
     coordinator = A3NativeSelectionCoordinator(
         observer,
@@ -158,3 +173,13 @@ def test_a3_native_wrong_process_content_falls_back() -> None:
     selection = coordinator.a3_selection_trace()[0]
     assert selection["fell_back"] is True
     assert "WRONG_PROCESS" in str(selection["fallback_reason"])
+
+
+def test_block_id_reuse_without_new_chain_snapshot_falls_back_whole_step2() -> None:
+    blocks, programs, coordinator = _run(recycle_first_block=True)
+
+    assert programs == ("b",)
+    assert blocks == (9, 10)
+    selection = coordinator.a3_selection_trace()[0]
+    assert selection["fell_back"] is True
+    assert "CONTENT_MISMATCH" in str(selection["fallback_reason"])

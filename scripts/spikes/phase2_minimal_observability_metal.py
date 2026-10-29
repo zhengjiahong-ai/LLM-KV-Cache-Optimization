@@ -746,6 +746,7 @@ class _ObservedRetentionIntegration:
             raise ValueError("A3 release policy requires live depth and event evidence")
         self._phase2g_release_policy = phase2g_release_policy
         self._sink = sink
+        self._content_registry = phase2g_a2_registry
         self._a1_coordinator = (
             A1NativeSelectionCoordinator(
                 forced_release_observer,
@@ -801,6 +802,7 @@ class _ObservedRetentionIntegration:
         self._active_pressure_context: dict[str, object] | None = None
         self._active_decision_id: str | None = None
         self._selection_plans: list[dict[str, object]] = []
+        self._pending_physical_plans: list[dict[str, object]] = []
 
     def begin_pressure_context(
         self, *, boundary_id: str, stage_id: str, pressure_request_id: str
@@ -814,7 +816,142 @@ class _ObservedRetentionIntegration:
         }
 
     def end_pressure_context(self) -> None:
+        if self._active_pressure_context is not None:
+            request_id = self._active_pressure_context["pressure_request_id"]
+            closing = tuple(
+                plan
+                for plan in self._pending_physical_plans
+                if plan["pressure_request_id"] == request_id
+            )
+            for plan in closing:
+                if self._sink is not None:
+                    self._sink.emit(
+                        ExperimentEvent.create(
+                            event_type="NATIVE_SELECTION_PLAN_CLOSED",
+                            timestamp=self._clock.now(),
+                            clock_domain=self._clock_domain,
+                            source="phase2i.native_selection_plan",
+                            payload={
+                                "decision_id": plan["decision_id"],
+                                "boundary_id": plan["boundary_id"],
+                                "stage_id": plan["stage_id"],
+                                "pressure_request_id": request_id,
+                                "matched_block_ids": tuple(plan["matched_block_ids"]),
+                                "unmatched_block_ids": tuple(
+                                    sorted(plan["expected_content_by_block"])
+                                ),
+                            },
+                        )
+                    )
+                self._pending_physical_plans.remove(plan)
         self._active_pressure_context = None
+
+    def observe_native_selection_returned(
+        self, selected: tuple[tuple[int, str | None], ...]
+    ) -> None:
+        """Bind the returned Native objects before their later physical cleanup."""
+        if self._active_pressure_context is None or not selected:
+            return
+        request_id = str(self._active_pressure_context["pressure_request_id"])
+        plans = [
+            plan
+            for plan in self._selection_plans
+            if plan.get("pressure_request_id") == request_id
+            and plan.get("native_return_bound") is not True
+        ]
+        if len(plans) != 1:
+            return
+        plan = plans[0]
+        selected_ids = tuple(block_id for block_id, _content_hash in selected)
+        if selected_ids != tuple(plan["selected_native_block_ids"]):
+            return
+        expected: dict[int, str] = {}
+        for block_id, native_content_hash in selected:
+            if native_content_hash is None:
+                # Tier-1 free/unhashed blocks have no physical hash eviction to
+                # attribute; they remain part of the SelectionPlan only.
+                continue
+            identity = (
+                self._content_registry.content_identity(block_id)
+                if self._content_registry is not None
+                else None
+            )
+            if (
+                identity is None
+                or identity.native_hash_process_id != str(os.getpid())
+                or identity.content_hash != native_content_hash
+            ):
+                return
+            expected[block_id] = native_content_hash
+        if not expected:
+            return
+        plan["native_return_bound"] = True
+        pending = {
+            "decision_id": plan["decision_id"],
+            "boundary_id": plan["boundary_id"],
+            "stage_id": plan["stage_id"],
+            "pressure_request_id": request_id,
+            "expected_content_by_block": expected,
+            "matched_block_ids": [],
+        }
+        self._pending_physical_plans.append(pending)
+        if self._sink is not None:
+            self._sink.emit(
+                ExperimentEvent.create(
+                    event_type="NATIVE_SELECTION_PLAN_PENDING",
+                    timestamp=self._clock.now(),
+                    clock_domain=self._clock_domain,
+                    source="phase2i.native_selection_plan",
+                    payload={
+                        "decision_id": pending["decision_id"],
+                        "boundary_id": pending["boundary_id"],
+                        "stage_id": pending["stage_id"],
+                        "pressure_request_id": request_id,
+                        "selected_block_ids": tuple(sorted(expected)),
+                        "content_identity_by_block": tuple(
+                            {
+                                "block_id": block_id,
+                                "native_cache_key": content_hash,
+                            }
+                            for block_id, content_hash in sorted(expected.items())
+                        ),
+                    },
+                )
+            )
+
+    def match_physical_eviction(
+        self, observation: NativeHashedEvictionObservation
+    ) -> dict[str, object]:
+        """Consume one unique pending block/content match or leave it unattributed."""
+        active = self._active_pressure_context
+        candidates = []
+        if active is not None:
+            for plan in self._pending_physical_plans:
+                if (
+                    plan["pressure_request_id"] == active["pressure_request_id"]
+                    and plan["boundary_id"] == active["boundary_id"]
+                    and plan["stage_id"] == active["stage_id"]
+                    and plan["expected_content_by_block"].get(observation.block_id)
+                    == observation.native_cache_key_before
+                ):
+                    candidates.append(plan)
+        if len(candidates) != 1:
+            return {
+                "physical_attribution": "UNATTRIBUTED",
+                "physical_attribution_reason": (
+                    "NO_UNIQUE_PENDING_SELECTION_PLAN_CONTENT_MATCH"
+                ),
+            }
+        plan = candidates[0]
+        del plan["expected_content_by_block"][observation.block_id]
+        plan["matched_block_ids"].append(observation.block_id)
+        return {
+            "physical_attribution": "MATCHED_PENDING_SELECTION_PLAN",
+            "decision_id": plan["decision_id"],
+            "boundary_id": plan["boundary_id"],
+            "stage_id": plan["stage_id"],
+            "pressure_request_id": plan["pressure_request_id"],
+        }
 
     def selection_plans_for(self, pressure_request_id: str) -> tuple[dict[str, object], ...]:
         return tuple(
@@ -1772,6 +1909,9 @@ class MinimalMetalObservabilityBackend:
         observation: NativeHashedEvictionObservation,
     ) -> None:
         """Persist native hash cleanup without inferring logical ownership."""
+        physical_attribution = self._retention_integration.match_physical_eviction(
+            observation
+        )
         self._phase2g_a2_registry.observe_eviction(
             observation.block_id,
             content_hash=observation.native_cache_key_before,
@@ -1784,7 +1924,7 @@ class MinimalMetalObservabilityBackend:
                 clock_domain="system_monotonic",
                 source="phase2b.native_block_pool",
                 payload={
-                    **self._retention_integration.current_decision_context(),
+                    **physical_attribution,
                     "block_id": observation.block_id,
                     "native_cache_key_before": (observation.native_cache_key_before),
                     "native_hash_process_id": str(os.getpid()),

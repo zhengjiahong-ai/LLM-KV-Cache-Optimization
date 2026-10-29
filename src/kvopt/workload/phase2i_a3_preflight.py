@@ -35,6 +35,7 @@ def evaluate_a3_native_preflight(
     }
     binding_events = _events_by_type(rows, "FORCED_RELEASE_DECISION_BINDING")
     plans = _events_by_type(rows, "NATIVE_ENTRY_RELEASE_SELECTION_PLAN")
+    pending_plans = _events_by_type(rows, "NATIVE_SELECTION_PLAN_PENDING")
     evictions = _events_by_type(rows, "VLLM_NATIVE_HASHED_CACHE_ENTRY_EVICTED")
     barriers = _events_by_type(rows, "CONTROLLED_REPLAY_PRESSURE_COMPLETED")
 
@@ -45,6 +46,9 @@ def evaluate_a3_native_preflight(
     intervention_count = 0
     intervention_decision_ids: set[str] = set()
     selected_key_by_decision: dict[str, tuple[str, str]] = {}
+    a3_payload_by_id: dict[str, Mapping[str, object]] = {}
+    pressure_a3_decision_ids: set[str] = set()
+    pressure_a3_event_count = 0
     non_fallback_count = 0
     for event in a3_events:
         payload = _payload(event)
@@ -53,6 +57,11 @@ def evaluate_a3_native_preflight(
         native_live_only &= payload.get("decision_clock_domain") == "continuum_pressure"
         native_live_only &= isinstance(payload.get("decision_event_index"), int)
         trace = payload.get("selection_trace")
+        if payload.get("pressure_request_id") and payload.get("decision_id"):
+            pressure_a3_event_count += 1
+            decision_id = str(payload["decision_id"])
+            pressure_a3_decision_ids.add(decision_id)
+            a3_payload_by_id[decision_id] = payload
         if not isinstance(trace, (list, tuple)):
             formula_valid = False
             continue
@@ -104,7 +113,18 @@ def evaluate_a3_native_preflight(
         for event in plans
         if _payload(event).get("decision_id")
     }
-    decision_ids = set(bindings_by_id) & set(plans_by_id)
+    pending_by_id = {
+        str(_payload(event).get("decision_id")): _payload(event)
+        for event in pending_plans
+        if _payload(event).get("decision_id")
+    }
+    identifiers_unique = (
+        len(a3_payload_by_id) == pressure_a3_event_count
+        and len(bindings_by_id) == len(binding_events)
+        and len(plans_by_id) == len(plans)
+        and len(pending_by_id) == len(pending_plans)
+    )
+    decision_ids = set(bindings_by_id) & set(plans_by_id) & set(pending_by_id)
     intervened_decisions_joined = intervention_decision_ids & decision_ids
     actual_release_match_count = 0
     for decision_id in intervened_decisions_joined:
@@ -127,33 +147,125 @@ def evaluate_a3_native_preflight(
         actual_release_match_count += int(
             selected_key_by_decision.get(decision_id) in actual_keys
         )
-    decision_join_valid = bool(decision_ids) and all(
-        bindings_by_id[decision_id].get("pressure_request_id")
-        == plans_by_id[decision_id].get("pressure_request_id")
-        for decision_id in decision_ids
-    )
-    counter_valid = all(
-        int(payload.get("forced_release_counter_after", -1))
-        >= int(payload.get("forced_release_counter_before", -1))
-        for decision_id, payload in bindings_by_id.items()
-        if decision_id in plans_by_id
-    )
-    barrier_binding_valid = bool(barriers) and all(
-        int(_payload(event).get("bound_decision_count", 0))
-        == len(tuple(_payload(event).get("bound_decision_ids") or ()))
-        and int(_payload(event).get("bound_forced_release_count", -1))
-        == sum(
-            int(bindings_by_id.get(str(decision_id), {}).get("selected_release_count", 0) > 0)
-            for decision_id in tuple(_payload(event).get("bound_decision_ids") or ())
+    context_fields = ("boundary_id", "stage_id", "pressure_request_id")
+    decision_join_valid = (
+        bool(decision_ids)
+        and pressure_a3_decision_ids == decision_ids
+        and identifiers_unique
+        and all(
+            all(
+                a3_payload_by_id[decision_id].get(field)
+                == bindings_by_id[decision_id].get(field)
+                == plans_by_id[decision_id].get(field)
+                == pending_by_id[decision_id].get(field)
+                for field in context_fields
+            )
+            for decision_id in decision_ids
         )
-        for event in barriers
+        and all(
+            a3_payload_by_id[decision_id].get("decision_event_index")
+            == bindings_by_id[decision_id].get("forced_release_event_index")
+            for decision_id in decision_ids
+        )
     )
-    physical_join_count = sum(
-        1
-        for event in evictions
-        if _payload(event).get("decision_id") in decision_ids
-        and _payload(event).get("native_cache_key_before")
+
+    ordered_bindings = sorted(
+        bindings_by_id.values(),
+        key=lambda payload: int(payload.get("forced_release_event_index", -1)),
     )
+    counter_valid = True
+    forced_indexes = tuple(
+        payload.get("forced_release_event_index") for payload in ordered_bindings
+    )
+    counter_valid &= all(isinstance(value, int) for value in forced_indexes)
+    counter_valid &= len(forced_indexes) == len(set(forced_indexes))
+    previous_after: int | None = None
+    for payload in ordered_bindings:
+        try:
+            before = int(payload["forced_release_counter_before"])
+            after = int(payload["forced_release_counter_after"])
+            selected_count = int(payload["selected_release_count"])
+            counter_valid &= after - before == int(selected_count > 0)
+            if previous_after is not None:
+                counter_valid &= before == previous_after
+            previous_after = after
+            forced_index = int(payload["forced_release_event_index"])
+            forced_event = forced_events.get(forced_index)
+            forced_selected = tuple(
+                _payload(forced_event).get("selected_releases") or ()
+            ) if forced_event is not None else ()
+            counter_valid &= selected_count == len(forced_selected)
+        except (KeyError, TypeError, ValueError):
+            counter_valid = False
+
+    barrier_binding_valid = bool(barriers)
+    for event in barriers:
+        payload = _payload(event)
+        bound_ids = tuple(str(value) for value in payload.get("bound_decision_ids") or ())
+        expected_ids = tuple(
+            decision_id
+            for decision_id, binding in bindings_by_id.items()
+            if binding.get("boundary_id") == payload.get("boundary_id")
+            and binding.get("stage_id") == payload.get("stage_id")
+        )
+        barrier_binding_valid &= len(bound_ids) == len(set(bound_ids))
+        barrier_binding_valid &= set(bound_ids) == set(expected_ids)
+        barrier_binding_valid &= int(payload.get("bound_decision_count", -1)) == len(
+            bound_ids
+        )
+        barrier_binding_valid &= int(
+            payload.get("bound_forced_release_count", -1)
+        ) == sum(
+            int(bindings_by_id[decision_id].get("selected_release_count", 0) > 0)
+            for decision_id in bound_ids
+        )
+
+    physical_join_count = 0
+    physical_join_valid = True
+    matched_blocks_by_decision: dict[str, set[int]] = {}
+    for event in evictions:
+        payload = _payload(event)
+        if payload.get("physical_attribution") != "MATCHED_PENDING_SELECTION_PLAN":
+            continue
+        decision_id = str(payload.get("decision_id") or "")
+        block_id = payload.get("block_id")
+        native_key = payload.get("native_cache_key_before")
+        pending = pending_by_id.get(decision_id)
+        plan = plans_by_id.get(decision_id)
+        if (
+            pending is None
+            or plan is None
+            or not isinstance(block_id, int)
+            or not isinstance(native_key, str)
+        ):
+            physical_join_valid = False
+            continue
+        expected_content = {
+            int(item["block_id"]): str(item["native_cache_key"])
+            for item in tuple(pending.get("content_identity_by_block") or ())
+            if isinstance(item, Mapping)
+            and isinstance(item.get("block_id"), int)
+            and isinstance(item.get("native_cache_key"), str)
+        }
+        same_context = all(
+            payload.get(field) == pending.get(field) == plan.get(field)
+            for field in context_fields
+        )
+        legal_block = block_id in tuple(plan.get("selected_native_block_ids") or ())
+        content_match = expected_content.get(block_id) == native_key
+        duplicate = block_id in matched_blocks_by_decision.setdefault(decision_id, set())
+        physical_join_valid &= same_context and legal_block and content_match and not duplicate
+        if same_context and legal_block and content_match and not duplicate:
+            matched_blocks_by_decision[decision_id].add(block_id)
+            physical_join_count += 1
+    for decision_id in decision_ids:
+        expected_blocks = {
+            int(value)
+            for value in tuple(
+                pending_by_id[decision_id].get("selected_block_ids") or ()
+            )
+        }
+        physical_join_valid &= matched_blocks_by_decision.get(decision_id, set()) == expected_blocks
 
     gates = {
         "I": {
@@ -189,12 +301,14 @@ def evaluate_a3_native_preflight(
                 if decision_join_valid
                 and counter_valid
                 and barrier_binding_valid
+                and physical_join_valid
                 and physical_join_count
                 else "FAIL"
             ),
             "counter_chain_valid": counter_valid,
             "barrier_binding_valid": barrier_binding_valid,
             "physical_eviction_join_count": physical_join_count,
+            "physical_eviction_join_valid": physical_join_valid,
         },
     }
     return {

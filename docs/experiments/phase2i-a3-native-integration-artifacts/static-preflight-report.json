@@ -21,7 +21,8 @@
     "O": {
       "barrier_binding_valid": true,
       "counter_chain_valid": true,
-      "physical_eviction_join_count": 1,
+      "physical_eviction_join_count": 2,
+      "physical_eviction_join_valid": true,
       "status": "PASS"
     }
   },

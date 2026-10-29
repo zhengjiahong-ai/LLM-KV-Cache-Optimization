@@ -10,6 +10,7 @@ def _events() -> list[dict[str, object]]:
     decision_id = "native-entry-release-1"
     boundary_id = "pressure:round-40"
     request_id = "pressure-request-1"
+    stage_id = "round-40"
     return [
         {
             "event_index": 10,
@@ -26,6 +27,7 @@ def _events() -> list[dict[str, object]]:
             "payload": {
                 "decision_id": decision_id,
                 "boundary_id": boundary_id,
+                "stage_id": stage_id,
                 "pressure_request_id": request_id,
                 "verification_mode": "native_live",
                 "native_hash_process_id": "123",
@@ -55,6 +57,7 @@ def _events() -> list[dict[str, object]]:
             "payload": {
                 "decision_id": decision_id,
                 "boundary_id": boundary_id,
+                "stage_id": stage_id,
                 "pressure_request_id": request_id,
                 "forced_release_counter_before": 0,
                 "forced_release_counter_after": 1,
@@ -67,8 +70,23 @@ def _events() -> list[dict[str, object]]:
             "payload": {
                 "decision_id": decision_id,
                 "boundary_id": boundary_id,
+                "stage_id": stage_id,
                 "pressure_request_id": request_id,
                 "selected_native_block_ids": [3, 4],
+            },
+        },
+        {
+            "event_type": "NATIVE_SELECTION_PLAN_PENDING",
+            "payload": {
+                "decision_id": decision_id,
+                "boundary_id": boundary_id,
+                "stage_id": stage_id,
+                "pressure_request_id": request_id,
+                "selected_block_ids": [3, 4],
+                "content_identity_by_block": [
+                    {"block_id": 3, "native_cache_key": "content-3"},
+                    {"block_id": 4, "native_cache_key": "content-4"},
+                ],
             },
         },
         {
@@ -76,15 +94,30 @@ def _events() -> list[dict[str, object]]:
             "payload": {
                 "decision_id": decision_id,
                 "boundary_id": boundary_id,
+                "stage_id": stage_id,
                 "pressure_request_id": request_id,
                 "block_id": 3,
                 "native_cache_key_before": "content-3",
+                "physical_attribution": "MATCHED_PENDING_SELECTION_PLAN",
+            },
+        },
+        {
+            "event_type": "VLLM_NATIVE_HASHED_CACHE_ENTRY_EVICTED",
+            "payload": {
+                "decision_id": decision_id,
+                "boundary_id": boundary_id,
+                "stage_id": stage_id,
+                "pressure_request_id": request_id,
+                "block_id": 4,
+                "native_cache_key_before": "content-4",
+                "physical_attribution": "MATCHED_PENDING_SELECTION_PLAN",
             },
         },
         {
             "event_type": "CONTROLLED_REPLAY_PRESSURE_COMPLETED",
             "payload": {
                 "boundary_id": boundary_id,
+                "stage_id": stage_id,
                 "bound_decision_count": 1,
                 "bound_forced_release_count": 1,
                 "bound_decision_ids": [decision_id],
@@ -132,7 +165,26 @@ def test_gate_o_rejects_stale_or_unbound_pressure_selection() -> None:
 
 def test_gate_o_rejects_pressure_counter_chain_anomaly() -> None:
     events = copy.deepcopy(_events())
-    events[5]["payload"]["bound_forced_release_count"] = 0
+    events[7]["payload"]["bound_forced_release_count"] = 0
+
+    result = evaluate_a3_native_preflight(events)
+
+    assert result["gates"]["O"]["status"] == "FAIL"
+
+
+def test_gate_o_rejects_no_counter_increment_for_forced_release() -> None:
+    events = copy.deepcopy(_events())
+    events[2]["payload"]["forced_release_counter_before"] = 2
+    events[2]["payload"]["forced_release_counter_after"] = 2
+
+    result = evaluate_a3_native_preflight(events)
+
+    assert result["gates"]["O"]["status"] == "FAIL"
+
+
+def test_gate_o_rejects_physical_block_outside_native_selection_plan() -> None:
+    events = copy.deepcopy(_events())
+    events[3]["payload"]["selected_native_block_ids"] = [99, 4]
 
     result = evaluate_a3_native_preflight(events)
 

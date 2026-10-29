@@ -168,6 +168,23 @@ def install_retention_hook(
             timestamp=_read_clock_timestamp(clock),
             remove_selected=callback,
         )
+        observe_returned = getattr(
+            integration, "observe_native_selection_returned", None
+        )
+        if callable(observe_returned):
+            observe_returned(
+                tuple(
+                    (
+                        int(block.block_id),
+                        (
+                            None
+                            if type(getattr(block, "block_hash", None)) is not bytes
+                            else encode_native_hash(block.block_hash)
+                        ),
+                    )
+                    for block in selected_objects
+                )
+            )
         if mode is RetentionMode.SHADOW:
             return original_popleft(queue, required_blocks)
         return selected_objects
