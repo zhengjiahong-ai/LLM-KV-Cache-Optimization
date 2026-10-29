@@ -23,6 +23,8 @@ def _events_by_type(
 
 def evaluate_a3_native_preflight(
     events: Iterable[Mapping[str, object]],
+    *,
+    require_a1_a3_intervention: bool = True,
 ) -> dict[str, object]:
     """Evaluate frozen I/C/D/O gates from Native-integration evidence."""
 
@@ -45,7 +47,9 @@ def evaluate_a3_native_preflight(
     content_valid = True
     intervention_count = 0
     intervention_decision_ids: set[str] = set()
-    selected_key_by_decision: dict[str, tuple[str, str]] = {}
+    executed_decision_ids: set[str] = set()
+    multi_candidate_decision_ids: set[str] = set()
+    selected_keys_by_decision: dict[str, set[tuple[str, str]]] = {}
     a3_payload_by_id: dict[str, Mapping[str, object]] = {}
     pressure_a3_decision_ids: set[str] = set()
     pressure_a3_event_count = 0
@@ -75,16 +79,22 @@ def evaluate_a3_native_preflight(
             non_fallback_count += 1
             intervened = raw_selection.get("key") != raw_selection.get("a1_key")
             intervention_count += int(intervened)
-            if intervened and payload.get("decision_id"):
+            if payload.get("decision_id"):
                 decision_id = str(payload["decision_id"])
-                intervention_decision_ids.add(decision_id)
+                executed_decision_ids.add(decision_id)
+                if intervened:
+                    intervention_decision_ids.add(decision_id)
                 key = raw_selection.get("key")
                 if isinstance(key, (list, tuple)) and len(key) == 2:
-                    selected_key_by_decision[decision_id] = (str(key[0]), str(key[1]))
+                    selected_keys_by_decision.setdefault(decision_id, set()).add(
+                        (str(key[0]), str(key[1]))
+                    )
             audits = raw_selection.get("audits")
             if not isinstance(audits, (list, tuple)):
                 formula_valid = False
                 continue
+            if payload.get("decision_id") and len(audits) >= 2:
+                multi_candidate_decision_ids.add(str(payload["decision_id"]))
             for audit in audits:
                 if not isinstance(audit, Mapping) or audit.get("score") is None:
                     formula_valid = False
@@ -125,9 +135,14 @@ def evaluate_a3_native_preflight(
         and len(pending_by_id) == len(pending_plans)
     )
     decision_ids = set(bindings_by_id) & set(plans_by_id) & set(pending_by_id)
-    intervened_decisions_joined = intervention_decision_ids & decision_ids
+    required_decision_ids = (
+        intervention_decision_ids
+        if require_a1_a3_intervention
+        else executed_decision_ids & multi_candidate_decision_ids
+    )
+    required_decisions_joined = required_decision_ids & decision_ids
     actual_release_match_count = 0
-    for decision_id in intervened_decisions_joined:
+    for decision_id in required_decisions_joined:
         forced_index = bindings_by_id[decision_id].get("forced_release_event_index")
         forced_event = (
             forced_events.get(int(forced_index))
@@ -144,9 +159,8 @@ def evaluate_a3_native_preflight(
             for item in selected_releases
             if isinstance(item, Mapping)
         }
-        actual_release_match_count += int(
-            selected_key_by_decision.get(decision_id) in actual_keys
-        )
+        expected_keys = selected_keys_by_decision.get(decision_id, set())
+        actual_release_match_count += int(bool(expected_keys) and expected_keys <= actual_keys)
     context_fields = ("boundary_id", "stage_id", "pressure_request_id")
     decision_join_valid = (
         bool(decision_ids)
@@ -283,15 +297,18 @@ def evaluate_a3_native_preflight(
         "D": {
             "status": (
                 "PASS"
-                if intervention_count
-                and intervened_decisions_joined
-                and actual_release_match_count == len(intervened_decisions_joined)
+                if required_decision_ids
+                and required_decisions_joined == required_decision_ids
+                and actual_release_match_count == len(required_decisions_joined)
                 and formula_valid
                 and decision_join_valid
                 else "FAIL"
             ),
             "a1_a3_intervention_count": intervention_count,
-            "joined_intervention_count": len(intervened_decisions_joined),
+            "require_a1_a3_intervention": require_a1_a3_intervention,
+            "executed_non_fallback_decision_count": len(executed_decision_ids),
+            "multi_candidate_decision_count": len(multi_candidate_decision_ids),
+            "joined_required_decision_count": len(required_decisions_joined),
             "actual_release_match_count": actual_release_match_count,
             "decision_join_valid": decision_join_valid,
         },

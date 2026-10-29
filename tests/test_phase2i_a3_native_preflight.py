@@ -153,6 +153,31 @@ def test_gate_d_rejects_a3_choice_not_committed_as_actual_release() -> None:
     assert result["gates"]["D"]["status"] == "FAIL"
 
 
+def test_native_gate_d_accepts_nonfallback_multi_candidate_same_choice() -> None:
+    events = copy.deepcopy(_events())
+    selection = events[1]["payload"]["selection_trace"][0]
+    selection["a1_key"] = selection["key"]
+    selection["audits"].append(
+        {
+            "reuse_proxy": 0.5,
+            "prefill_reload_seconds": 1.0,
+            "suffix_blocks": 2,
+            "chain_length": 4,
+            "score": 0.25,
+            "content_verified": True,
+        }
+    )
+
+    static_result = evaluate_a3_native_preflight(events)
+    native_result = evaluate_a3_native_preflight(
+        events, require_a1_a3_intervention=False
+    )
+
+    assert static_result["gates"]["D"]["status"] == "FAIL"
+    assert native_result["gates"]["D"]["status"] == "PASS"
+    assert native_result["gates"]["D"]["multi_candidate_decision_count"] == 1
+
+
 def test_gate_o_rejects_stale_or_unbound_pressure_selection() -> None:
     events = copy.deepcopy(_events())
     events[3]["payload"]["pressure_request_id"] = "another-request"
