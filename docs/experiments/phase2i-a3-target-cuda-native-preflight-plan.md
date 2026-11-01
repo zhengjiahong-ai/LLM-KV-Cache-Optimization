@@ -130,10 +130,10 @@ extracting it, validates its original v1 Freeze Record, failed Native Preflight
 Report and Native Run Manifest as one coherent execution, and compares the HR02
 config, trace, explicit request tokens, pressure tokens, logical timeline and
 profile SHA-256 bindings field by field. It then emits an authorization request.
-Only a separately signed M1 authorization record can enable execution. The
-Freeze Candidate embeds the reviewed M1 SSH-Ed25519 public key and its SHA-256;
-the Runner verifies the detached signature. Editing the request or merely
-setting `execution_authorized=true` is insufficient. The signed record binds
+Only a separate M1-reviewed authorization record can enable execution.
+Preparation never self-authorizes. After M1's written approval, the simplified
+record must copy the approved binding values exactly; the Runner independently
+checks every field before consuming it. The record binds
 the reviewed Git SHA, replacement Freeze Record SHA, predecessor Archive SHA,
 Run ID, one-execution limit, 1,800-second timeout and 60-second termination
 grace.

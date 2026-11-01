@@ -3,7 +3,6 @@ from __future__ import annotations
 import hashlib
 import io
 import json
-import subprocess
 import tarfile
 from pathlib import Path
 from types import SimpleNamespace
@@ -16,33 +15,6 @@ from scripts.spikes import run_phase2i_a3_cuda_preflight as runner
 
 def _write(path: Path, value: object) -> None:
     path.write_text(json.dumps(value), encoding="utf-8")
-
-
-def _m1_keys(tmp_path: Path) -> tuple[Path, Path]:
-    private = tmp_path / "m1-ed25519"
-    public = tmp_path / "m1-ed25519.pub"
-    if private.is_file() and public.is_file():
-        return private, public
-    subprocess.run(
-        ("ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", private),
-        check=True,
-    )
-    return private, public
-
-
-def _sign_authorization(value: dict[str, object], private_key: Path, tmp_path: Path) -> None:
-    payload = tmp_path / "authorization-payload.bin"
-    signature = tmp_path / "authorization-payload.bin.sig"
-    signature.unlink(missing_ok=True)
-    payload.write_bytes(json.dumps(value, sort_keys=True, separators=(",", ":")).encode())
-    subprocess.run(
-        (
-            "ssh-keygen", "-Y", "sign", "-q", "-f", private_key,
-            "-n", "phase2i-replacement-preflight", str(payload),
-        ),
-        check=True,
-    )
-    value["signature"] = signature.read_text(encoding="utf-8")
 
 
 def _source(tmp_path: Path) -> tuple[Path, Path, Path]:
@@ -225,7 +197,6 @@ def test_materialize_changes_only_authorized_runtime_identity(
         source_trace_path=trace,
         profile_path=profile,
         predecessor_archive_path=predecessor,
-        m1_public_key_path=_m1_keys(tmp_path)[1],
         output_dir=output,
         repository=tmp_path,
     )
@@ -277,7 +248,6 @@ def test_materialize_rejects_pressure_or_explicit_token_drift(
             source_trace_path=trace,
             profile_path=profile,
             predecessor_archive_path=predecessor,
-            m1_public_key_path=_m1_keys(tmp_path)[1],
             output_dir=tmp_path / "prepared",
             repository=tmp_path,
         )
@@ -301,7 +271,6 @@ def test_verify_freeze_rejects_git_or_file_drift(
         source_trace_path=trace,
         profile_path=profile,
         predecessor_archive_path=predecessor,
-        m1_public_key_path=_m1_keys(tmp_path)[1],
         output_dir=output,
         repository=tmp_path,
     )
@@ -331,7 +300,6 @@ def test_verify_freeze_rejects_predecessor_archive_drift(
         source_trace_path=trace,
         profile_path=profile,
         predecessor_archive_path=predecessor,
-        m1_public_key_path=_m1_keys(tmp_path)[1],
         output_dir=output,
         repository=tmp_path,
     )
@@ -359,7 +327,6 @@ def test_materialize_rejects_archive_without_original_freeze(
             source_trace_path=trace,
             profile_path=profile,
             predecessor_archive_path=predecessor,
-            m1_public_key_path=_m1_keys(tmp_path)[1],
             output_dir=tmp_path / "prepared",
             repository=tmp_path,
         )
@@ -385,7 +352,6 @@ def test_materialize_rejects_freeze_only_archive_without_failed_execution(
             source_trace_path=trace,
             profile_path=profile,
             predecessor_archive_path=predecessor,
-            m1_public_key_path=_m1_keys(tmp_path)[1],
             output_dir=tmp_path / "prepared",
             repository=tmp_path,
         )
@@ -409,7 +375,6 @@ def test_materialize_accepts_actual_v1_offline_failure_report(
         source_trace_path=trace,
         profile_path=profile,
         predecessor_archive_path=predecessor,
-        m1_public_key_path=_m1_keys(tmp_path)[1],
         output_dir=tmp_path / "prepared",
         repository=tmp_path,
     )
@@ -429,14 +394,12 @@ def test_authorization_is_independent_bound_and_consumed_once(
     predecessor = _predecessor(
         tmp_path / "predecessor.tar.gz", config, trace, profile
     )
-    private_key, public_key = _m1_keys(tmp_path)
     output = tmp_path / "prepared"
     freeze = module.materialize_preflight(
         source_config_path=config,
         source_trace_path=trace,
         profile_path=profile,
         predecessor_archive_path=predecessor,
-        m1_public_key_path=public_key,
         output_dir=output,
         repository=tmp_path,
     )
@@ -449,7 +412,6 @@ def test_authorization_is_independent_bound_and_consumed_once(
         "execution_authorized": True,
         "authorization_id": "m1-approved-replacement-02",
     }
-    _sign_authorization(authorization, private_key, tmp_path)
     authorization_path = tmp_path / "m1-authorization.json"
     _write(authorization_path, authorization)
 
@@ -473,8 +435,6 @@ def test_authorization_is_independent_bound_and_consumed_once(
         )
     changed = dict(authorization)
     changed["authorization_id"] = "m1-approved-replacement-02-renamed"
-    changed.pop("signature")
-    _sign_authorization(changed, private_key, tmp_path)
     changed_path = tmp_path / "m1-authorization-renamed.json"
     _write(changed_path, changed)
     verified_again, same_ledger, changed_sha = module._verify_authorization(
@@ -502,14 +462,12 @@ def test_authorization_rejects_unapproved_or_mismatched_record(
     predecessor = _predecessor(
         tmp_path / "predecessor.tar.gz", config, trace, profile
     )
-    _private_key, public_key = _m1_keys(tmp_path)
     output = tmp_path / "prepared"
     freeze = module.materialize_preflight(
         source_config_path=config,
         source_trace_path=trace,
         profile_path=profile,
         predecessor_archive_path=predecessor,
-        m1_public_key_path=public_key,
         output_dir=output,
         repository=tmp_path,
     )
@@ -533,7 +491,7 @@ def test_authorization_rejects_unapproved_or_mismatched_record(
         )
 
 
-def test_authorization_rejects_signed_record_tampering(
+def test_authorization_rejects_binding_tampering(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     config, trace, profile = _source(tmp_path)
@@ -543,14 +501,12 @@ def test_authorization_rejects_signed_record_tampering(
         lambda _repository, *arguments: "" if arguments[0] == "status" else "abc123",
     )
     predecessor = _predecessor(tmp_path / "predecessor.tar.gz", config, trace, profile)
-    private, public = _m1_keys(tmp_path)
     output = tmp_path / "prepared"
     freeze = module.materialize_preflight(
         source_config_path=config,
         source_trace_path=trace,
         profile_path=profile,
         predecessor_archive_path=predecessor,
-        m1_public_key_path=public,
         output_dir=output,
         repository=tmp_path,
     )
@@ -562,12 +518,11 @@ def test_authorization_rejects_signed_record_tampering(
             "authorization_id": "m1-authentic",
         }
     )
-    _sign_authorization(authorization, private, tmp_path)
-    authorization["authorization_id"] = "m6-edited"
+    authorization["git_sha"] = "tampered"
     path = tmp_path / "tampered.json"
     _write(path, authorization)
 
-    with pytest.raises(ValueError, match="signature verification failed"):
+    with pytest.raises(ValueError, match="git_sha"):
         module._verify_authorization(path, input_dir=output, freeze=freeze)
 
 

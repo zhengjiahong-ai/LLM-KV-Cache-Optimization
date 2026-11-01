@@ -21,7 +21,6 @@ RUN_ID = "phase2i-a3-target-cuda-native-replacement-preflight-02"
 FIRST_PREFLIGHT_RUN_ID = "phase2i-a3-target-cuda-native-preflight"
 FIRST_PREFLIGHT_FREEZE_SCHEMA = "phase2i.a3_target_cuda_preflight_freeze.v1"
 AUTHORIZATION_SCHEMA = "phase2i.a3_replacement_execution_authorization.v1"
-AUTHORIZATION_ALGORITHM = "SSH-ED25519"
 EXPECTED_ENVIRONMENT = {
     "gpu_name": "NVIDIA GeForce RTX 4090 D",
     "vllm": "0.27.1",
@@ -273,7 +272,6 @@ def materialize_preflight(
     source_trace_path: Path,
     profile_path: Path,
     predecessor_archive_path: Path,
-    m1_public_key_path: Path,
     output_dir: Path,
     repository: Path,
 ) -> dict[str, object]:
@@ -289,11 +287,6 @@ def materialize_preflight(
         raise FileNotFoundError(profile_path)
     if not predecessor_archive_path.is_file():
         raise FileNotFoundError(predecessor_archive_path)
-    if not m1_public_key_path.is_file():
-        raise FileNotFoundError(m1_public_key_path)
-    public_key_pem = m1_public_key_path.read_text(encoding="utf-8")
-    if not public_key_pem.strip().startswith("ssh-ed25519 "):
-        raise ValueError("M1 Ed25519 public key is not an OpenSSH public key")
     predecessor_freeze, predecessor_freeze_members, predecessor_report, predecessor_run = _load_predecessor_evidence(
         predecessor_archive_path
     )
@@ -333,11 +326,6 @@ def materialize_preflight(
         ),
         "run_id": RUN_ID,
         "git_sha": git_sha,
-        "m1_authorization_trust": {
-            "algorithm": AUTHORIZATION_ALGORITHM,
-            "public_key_pem": public_key_pem,
-            "public_key_sha256": hashlib.sha256(public_key_pem.encode()).hexdigest(),
-        },
         "predecessor": {
             "execution_id": "PHASE2I_A3_TARGET_CUDA_PREFLIGHT_01",
             "status": "FAIL_CLOSED",
@@ -405,8 +393,6 @@ def materialize_preflight(
             "maximum_execution_count": 1,
             "timeout_seconds": 1800,
             "termination_grace_seconds": 60,
-            "signature_algorithm": AUTHORIZATION_ALGORITHM,
-            "m1_public_key_sha256": manifest["m1_authorization_trust"]["public_key_sha256"],
         },
     )
     return manifest
@@ -516,40 +502,6 @@ def _verify_authorization(
     authorization_id = authorization.get("authorization_id")
     if not isinstance(authorization_id, str) or not authorization_id:
         raise ValueError("M1 execution authorization ID is missing")
-    trust = freeze.get("m1_authorization_trust")
-    if not isinstance(trust, Mapping):
-        raise TypeError("freeze M1 authorization trust root is missing")
-    if authorization.get("signature_algorithm") != AUTHORIZATION_ALGORITHM:
-        raise ValueError("M1 execution authorization signature algorithm mismatch")
-    signature = authorization.get("signature")
-    if not isinstance(signature, str) or not signature:
-        raise ValueError("M1 execution authorization signature is missing")
-    signed = dict(authorization)
-    signed.pop("signature", None)
-    payload = json.dumps(signed, sort_keys=True, separators=(",", ":")).encode()
-    public_key = str(trust.get("public_key_pem", ""))
-    if hashlib.sha256(public_key.encode()).hexdigest() != trust.get("public_key_sha256"):
-        raise ValueError("M1 public-key trust root hash mismatch")
-    import tempfile
-    with tempfile.TemporaryDirectory(prefix="phase2i-m1-signature-") as directory:
-        root = Path(directory)
-        (root / "allowed_signers").write_text(
-            f"M1 {public_key.strip()}\n", encoding="utf-8"
-        )
-        (root / "payload.bin").write_bytes(payload)
-        (root / "payload.bin.sig").write_text(signature, encoding="utf-8")
-        verification = subprocess.run(
-            (
-                "ssh-keygen", "-Y", "verify", "-f", str(root / "allowed_signers"),
-                "-I", "M1", "-n", "phase2i-replacement-preflight",
-                "-s", str(root / "payload.bin.sig"),
-            ),
-            input=payload,
-            check=False,
-            capture_output=True,
-        )
-    if verification.returncode != 0:
-        raise ValueError("M1 execution authorization signature verification failed")
     authorization_sha = _sha(authorization_path)
     predecessor_path = Path(str(predecessor["archive_path"]))
     ledger = (
