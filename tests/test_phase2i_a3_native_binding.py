@@ -119,6 +119,7 @@ def test_entry_release_without_hashed_native_victim_is_explicitly_observed() -> 
     assert len(outcomes) == 1
     assert outcomes[0].payload["status"] == "NO_PHYSICAL_EVICTION_OBSERVED"
     assert outcomes[0].payload["boundary_type"] == "NATIVE_DRAIN_BATCH"
+    assert outcomes[0].payload["hashless_block_ids"] == (1, 2)
 
 
 def test_pure_native_allocation_attempt_never_creates_entry_pending_plan() -> None:

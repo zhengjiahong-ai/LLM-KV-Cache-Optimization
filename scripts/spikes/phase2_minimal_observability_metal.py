@@ -865,6 +865,7 @@ class _ObservedRetentionIntegration:
         reason: str,
         matched_block_ids: tuple[int, ...] = (),
         unmatched_block_ids: tuple[int, ...] = (),
+        hashless_block_ids: tuple[int, ...] = (),
     ) -> None:
         if self._sink is None:
             return
@@ -892,6 +893,7 @@ class _ObservedRetentionIntegration:
                     "reason": reason,
                     "matched_block_ids": matched_block_ids,
                     "unmatched_block_ids": unmatched_block_ids,
+                    "hashless_block_ids": hashless_block_ids,
                 },
             )
         )
@@ -977,6 +979,7 @@ class _ObservedRetentionIntegration:
                 plan,
                 status="NO_PHYSICAL_EVICTION_OBSERVED",
                 reason="NATIVE_SELECTION_RETURN_CONTAINED_NO_HASHED_BLOCKS",
+                hashless_block_ids=selected_ids,
             )
             return
         plan["native_return_bound"] = True

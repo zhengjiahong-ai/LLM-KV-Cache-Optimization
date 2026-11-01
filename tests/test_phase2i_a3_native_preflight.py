@@ -47,19 +47,25 @@ def _events() -> list[dict[str, object]]:
                         "fell_back": False,
                         "audits": [
                             {
+                                "key": ["program-a", "prefix-a"],
                                 "reuse_proxy": 0.25,
                                 "prefill_reload_seconds": 2.0,
                                 "suffix_blocks": 4,
                                 "chain_length": 8,
                                 "score": 0.25,
+                                "deadline": 1.0,
+                                "selected": True,
                                 "content_verified": True,
                             },
                             {
+                                "key": ["program-b", "prefix-b"],
                                 "reuse_proxy": 0.5,
                                 "prefill_reload_seconds": 1.0,
                                 "suffix_blocks": 2,
                                 "chain_length": 4,
                                 "score": 0.25,
+                                "deadline": 2.0,
+                                "selected": False,
                                 "content_verified": True,
                             },
                         ],
@@ -262,19 +268,25 @@ def _real_failure_shape_events() -> list[dict[str, object]]:
                                     if fell_back
                                     else [
                                         {
+                                            "key": ["program-a", "prefix-a"],
                                             "reuse_proxy": 0.25,
                                             "prefill_reload_seconds": 2.0,
                                             "suffix_blocks": 4,
                                             "chain_length": 8,
                                             "score": 0.25,
+                                            "deadline": 1.0,
+                                            "selected": True,
                                             "content_verified": True,
                                         },
                                         {
+                                            "key": ["program-b", "prefix-b"],
                                             "reuse_proxy": 0.5,
                                             "prefill_reload_seconds": 1.0,
                                             "suffix_blocks": 2,
                                             "chain_length": 4,
                                             "score": 0.25,
+                                            "deadline": 2.0,
+                                            "selected": False,
                                             "content_verified": True,
                                         },
                                     ]
@@ -311,6 +323,7 @@ def _real_failure_shape_events() -> list[dict[str, object]]:
                         "reason": "NATIVE_SELECTION_RETURN_CONTAINED_NO_HASHED_BLOCKS",
                         "matched_block_ids": [],
                         "unmatched_block_ids": [],
+                        "hashless_block_ids": [3, 4],
                     },
                 },
             )
@@ -388,6 +401,41 @@ def test_gate_c_rejects_nonfallback_selection_with_empty_audits() -> None:
     assert result["gates"]["C"]["status"] == "FAIL"
 
 
+def test_gate_c_rejects_wrong_winner_and_tie_break() -> None:
+    events = copy.deepcopy(_events())
+    selection = events[1]["payload"]["selection_trace"][0]
+    selection["key"] = ["program-b", "prefix-b"]
+    selection["audits"][0]["selected"] = False
+    selection["audits"][1]["selected"] = True
+
+    result = evaluate_a3_native_preflight(events)
+
+    assert result["gates"]["C"]["status"] == "FAIL"
+    assert result["gates"]["C"]["ordering_recomputed"] is False
+
+
+def test_gate_c_rejects_missing_or_duplicate_selected_marker() -> None:
+    missing = copy.deepcopy(_events())
+    del missing[1]["payload"]["selection_trace"][0]["audits"][0]["selected"]
+    assert evaluate_a3_native_preflight(missing)["gates"]["C"]["status"] == "FAIL"
+
+    duplicate = copy.deepcopy(_events())
+    duplicate[1]["payload"]["selection_trace"][0]["audits"][1]["selected"] = True
+    assert evaluate_a3_native_preflight(duplicate)["gates"]["C"]["status"] == "FAIL"
+
+
+def test_gate_c_rejects_boolean_numeric_and_implicit_integer_inputs() -> None:
+    boolean_score = copy.deepcopy(_events())
+    boolean_score[1]["payload"]["selection_trace"][0]["audits"][0]["score"] = True
+    assert evaluate_a3_native_preflight(boolean_score)["gates"]["C"]["status"] == "FAIL"
+
+    float_geometry = copy.deepcopy(_events())
+    float_geometry[1]["payload"]["selection_trace"][0]["audits"][0][
+        "suffix_blocks"
+    ] = 4.0
+    assert evaluate_a3_native_preflight(float_geometry)["gates"]["C"]["status"] == "FAIL"
+
+
 def test_gate_d_rejects_a3_choice_not_committed_as_actual_release() -> None:
     events = copy.deepcopy(_events())
     events[0]["payload"]["selected_releases"][0]["program_id"] = "program-b"
@@ -413,16 +461,6 @@ def test_native_gate_d_accepts_nonfallback_multi_candidate_same_choice() -> None
     events = copy.deepcopy(_events())
     selection = events[1]["payload"]["selection_trace"][0]
     selection["a1_key"] = selection["key"]
-    selection["audits"].append(
-        {
-            "reuse_proxy": 0.5,
-            "prefill_reload_seconds": 1.0,
-            "suffix_blocks": 2,
-            "chain_length": 4,
-            "score": 0.25,
-            "content_verified": True,
-        }
-    )
 
     static_result = evaluate_a3_native_preflight(events)
     native_result = evaluate_a3_native_preflight(
@@ -534,6 +572,59 @@ def test_gate_o_rejects_unknown_or_incomplete_physical_outcome() -> None:
         evaluate_a3_native_preflight(incomplete)["gates"]["O"]["status"]
         == "FAIL"
     )
+
+
+def test_gate_o_rejects_missing_pending_plan_disguised_as_no_physical() -> None:
+    events = copy.deepcopy(_events())
+    events.pop(4)
+    outcome = next(
+        event
+        for event in events
+        if event["event_type"] == "NATIVE_ENTRY_RELEASE_PHYSICAL_OUTCOME"
+    )
+    outcome["payload"].update(
+        {
+            "status": "NO_PHYSICAL_EVICTION_OBSERVED",
+            "reason": "NATIVE_SELECTION_RETURN_CONTAINED_NO_HASHED_BLOCKS",
+            "matched_block_ids": [],
+            "unmatched_block_ids": [],
+            "hashless_block_ids": [],
+        }
+    )
+
+    result = evaluate_a3_native_preflight(events)
+
+    assert result["gates"]["O"]["status"] == "FAIL"
+    assert result["gates"]["O"]["physical_outcomes_valid"] is False
+
+
+def test_gate_o_accepts_no_pending_only_with_complete_hashless_block_ids() -> None:
+    events = copy.deepcopy(_events())
+    events = [
+        event
+        for event in events
+        if event["event_type"]
+        not in {"NATIVE_SELECTION_PLAN_PENDING", "VLLM_NATIVE_HASHED_CACHE_ENTRY_EVICTED"}
+    ]
+    outcome = next(
+        event
+        for event in events
+        if event["event_type"] == "NATIVE_ENTRY_RELEASE_PHYSICAL_OUTCOME"
+    )
+    outcome["payload"].update(
+        {
+            "status": "NO_PHYSICAL_EVICTION_OBSERVED",
+            "reason": "NATIVE_SELECTION_RETURN_CONTAINED_NO_HASHED_BLOCKS",
+            "matched_block_ids": [],
+            "unmatched_block_ids": [],
+            "hashless_block_ids": [3, 4],
+        }
+    )
+
+    result = evaluate_a3_native_preflight(events)
+
+    assert result["gates"]["O"]["physical_outcomes_valid"] is True
+    assert result["gates"]["O"]["status"] == "FAIL"  # no physical eviction observed
 
 
 def test_gate_o_rejects_no_counter_increment_for_forced_release() -> None:

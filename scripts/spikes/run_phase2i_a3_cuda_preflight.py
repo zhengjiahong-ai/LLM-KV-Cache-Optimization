@@ -6,7 +6,6 @@ import argparse
 import hashlib
 import json
 import os
-import secrets
 import signal
 import subprocess
 import sys
@@ -15,8 +14,10 @@ import time
 from pathlib import Path
 
 from kvopt.workload.phase2i_a3_cuda_preflight import (
+    RUN_ID,
     _write_sha_manifest,
     materialize_preflight,
+    read_bounded_parent_capability,
     run_preflight,
 )
 
@@ -47,10 +48,39 @@ def _archive_execution(
     archive_path = output_root.parent / f"{output_root.name}-evidence.tar.gz"
     if archive_path.exists():
         raise FileExistsError(archive_path)
-    with tarfile.open(archive_path, "x:gz") as archive:
-        archive.add(input_dir, arcname=f"inputs/{input_dir.name}")
-        archive.add(output_root, arcname=f"outputs/{output_root.name}")
-        archive.add(authorization_record, arcname="authorization/m1-authorization.json")
+    temporary = archive_path.with_name(f".{archive_path.name}.tmp-{os.getpid()}")
+    if temporary.exists():
+        raise FileExistsError(temporary)
+    try:
+        with tarfile.open(temporary, "x:gz") as archive:
+            archive.add(input_dir, arcname=f"inputs/{input_dir.name}")
+            archive.add(output_root, arcname=f"outputs/{output_root.name}")
+            archive.add(
+                authorization_record,
+                arcname="authorization/m1-authorization.json",
+            )
+        with tarfile.open(temporary, "r:gz") as archive:
+            names = set(archive.getnames())
+            required = {
+                f"inputs/{input_dir.name}/freeze-record.json",
+                f"outputs/{output_root.name}/execution-envelope.json",
+                "authorization/m1-authorization.json",
+            }
+            if not required <= names:
+                raise RuntimeError("temporary evidence archive is incomplete")
+            for member in archive.getmembers():
+                if member.isfile():
+                    stream = archive.extractfile(member)
+                    if stream is None:
+                        raise RuntimeError("temporary evidence archive is unreadable")
+                    while stream.read(1024 * 1024):
+                        pass
+        if archive_path.exists():
+            raise FileExistsError(archive_path)
+        os.replace(temporary, archive_path)
+    except BaseException:
+        temporary.unlink(missing_ok=True)
+        raise
     digest = hashlib.sha256(archive_path.read_bytes()).hexdigest()
     print(f"EVIDENCE_ARCHIVE: {archive_path}")
     print(f"EVIDENCE_ARCHIVE_SHA256: {digest}")
@@ -58,15 +88,28 @@ def _archive_execution(
 
 
 def _run_bounded(arguments: argparse.Namespace) -> int:
-    parent_token = secrets.token_hex(32)
+    if arguments.output_root.exists():
+        raise FileExistsError(arguments.output_root)
+    final_archive = (
+        arguments.output_root.parent / f"{arguments.output_root.name}-evidence.tar.gz"
+    )
+    if final_archive.exists():
+        raise FileExistsError(final_archive)
+    read_descriptor, write_descriptor = os.pipe()
+    capability = {
+        "schema_version": "phase2i.bounded_parent_capability.v1",
+        "parent_pid": os.getpid(),
+        "run_id": RUN_ID,
+        "nonce": os.urandom(32).hex(),
+    }
     command = (
         sys.executable,
         "-u",
         "-m",
         "scripts.spikes.run_phase2i_a3_cuda_preflight",
         "_run-once",
-        "--parent-token",
-        parent_token,
+        "--capability-fd",
+        str(read_descriptor),
         "--input-dir",
         str(arguments.input_dir.resolve()),
         "--output-root",
@@ -77,21 +120,27 @@ def _run_bounded(arguments: argparse.Namespace) -> int:
         str(arguments.repository.resolve()),
     )
     started = time.monotonic()
-    environment = dict(os.environ)
-    environment["PHASE2I_BOUNDED_PARENT_TOKEN"] = parent_token
-    process = subprocess.Popen(command, env=environment)
+    with os.fdopen(write_descriptor, "wb", closefd=True) as stream:
+        stream.write(json.dumps(capability, sort_keys=True).encode())
+    process = subprocess.Popen(
+        command,
+        env=dict(os.environ),
+        pass_fds=(read_descriptor,),
+        start_new_session=True,
+    )
+    os.close(read_descriptor)
     timed_out = False
     forced_kill = False
     try:
         return_code = process.wait(timeout=TIMEOUT_SECONDS)
     except subprocess.TimeoutExpired:
         timed_out = True
-        process.send_signal(signal.SIGINT)
+        os.killpg(process.pid, signal.SIGINT)
         try:
             return_code = process.wait(timeout=TERMINATION_GRACE_SECONDS)
         except subprocess.TimeoutExpired:
             forced_kill = True
-            process.kill()
+            os.killpg(process.pid, signal.SIGKILL)
             return_code = process.wait()
     elapsed = time.monotonic() - started
     outcome = {
@@ -121,13 +170,14 @@ def main() -> int:
     prepare.add_argument("--source-trace", type=Path, required=True)
     prepare.add_argument("--profile", type=Path, required=True)
     prepare.add_argument("--predecessor-archive", type=Path, required=True)
+    prepare.add_argument("--m1-public-key", type=Path, required=True)
     prepare.add_argument("--output-dir", type=Path, required=True)
     prepare.add_argument("--repository", type=Path, default=Path.cwd())
     execute = subparsers.add_parser("run")
     _add_run_arguments(execute)
     execute_once = subparsers.add_parser("_run-once", help=argparse.SUPPRESS)
     _add_run_arguments(execute_once)
-    execute_once.add_argument("--parent-token", required=True)
+    execute_once.add_argument("--capability-fd", type=int, required=True)
     arguments = parser.parse_args()
     if arguments.command == "prepare":
         result = materialize_preflight(
@@ -135,6 +185,7 @@ def main() -> int:
             source_trace_path=arguments.source_trace,
             profile_path=arguments.profile,
             predecessor_archive_path=arguments.predecessor_archive,
+            m1_public_key_path=arguments.m1_public_key,
             output_dir=arguments.output_dir,
             repository=arguments.repository,
         )
@@ -143,13 +194,13 @@ def main() -> int:
         return 0
     if arguments.command == "run":
         return _run_bounded(arguments)
-    if os.environ.get("PHASE2I_BOUNDED_PARENT_TOKEN") != arguments.parent_token:
-        raise RuntimeError("internal execution requires the bounded parent wrapper")
+    capability = read_bounded_parent_capability(arguments.capability_fd)
     result = run_preflight(
         input_dir=arguments.input_dir,
         output_root=arguments.output_root,
         repository=arguments.repository,
         authorization_path=arguments.authorization_record,
+        bounded_capability=capability,
     )
     print(f"{result['status']}: {arguments.output_root}")
     return 0

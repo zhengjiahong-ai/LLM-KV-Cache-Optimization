@@ -21,6 +21,7 @@ RUN_ID = "phase2i-a3-target-cuda-native-replacement-preflight-02"
 FIRST_PREFLIGHT_RUN_ID = "phase2i-a3-target-cuda-native-preflight"
 FIRST_PREFLIGHT_FREEZE_SCHEMA = "phase2i.a3_target_cuda_preflight_freeze.v1"
 AUTHORIZATION_SCHEMA = "phase2i.a3_replacement_execution_authorization.v1"
+AUTHORIZATION_ALGORITHM = "SSH-ED25519"
 EXPECTED_ENVIRONMENT = {
     "gpu_name": "NVIDIA GeForce RTX 4090 D",
     "vllm": "0.27.1",
@@ -34,6 +35,57 @@ PRESSURE_BOUNDARIES = frozenset(
         "pressure:after-round-55",
     }
 )
+_CAPABILITY_SENTINEL = object()
+
+
+class _InheritedExecutionCapability:
+    __slots__ = ("nonce", "parent_pid", "run_id")
+
+    def __init__(self, sentinel: object, *, parent_pid: int, run_id: str, nonce: str):
+        if sentinel is not _CAPABILITY_SENTINEL:
+            raise RuntimeError("bounded execution capability cannot be constructed directly")
+        self.parent_pid = parent_pid
+        self.run_id = run_id
+        self.nonce = nonce
+
+
+def read_bounded_parent_capability(descriptor: int) -> _InheritedExecutionCapability:
+    """Consume a capability delivered only through an inherited anonymous pipe."""
+    if descriptor < 3:
+        raise RuntimeError("bounded execution capability descriptor is invalid")
+    with os.fdopen(descriptor, "rb", closefd=True) as stream:
+        raw = stream.read(4096)
+    try:
+        value = json.loads(raw)
+    except json.JSONDecodeError as error:
+        raise RuntimeError("bounded execution capability is invalid") from error
+    if (
+        not isinstance(value, dict)
+        or value.get("schema_version") != "phase2i.bounded_parent_capability.v1"
+        or value.get("run_id") != RUN_ID
+        or type(value.get("parent_pid")) is not int
+        or value.get("parent_pid") != os.getppid()
+        or not isinstance(value.get("nonce"), str)
+        or len(value["nonce"]) < 32
+    ):
+        raise RuntimeError("bounded execution capability parent binding failed")
+    command_path = Path(f"/proc/{value['parent_pid']}/cmdline")
+    try:
+        parent_command = command_path.read_bytes().split(b"\0")
+    except OSError as error:
+        raise RuntimeError("bounded execution parent command is not observable") from error
+    if (
+        b"scripts.spikes.run_phase2i_a3_cuda_preflight" not in parent_command
+        or b"run" not in parent_command
+        or b"_run-once" in parent_command
+    ):
+        raise RuntimeError("bounded execution capability did not originate from run parent")
+    return _InheritedExecutionCapability(
+        _CAPABILITY_SENTINEL,
+        parent_pid=value["parent_pid"],
+        run_id=value["run_id"],
+        nonce=value["nonce"],
+    )
 
 
 def _sha(path: Path) -> str:
@@ -54,27 +106,38 @@ def _write(path: Path, value: object) -> None:
     )
 
 
-def _load_predecessor_freeze(archive_path: Path) -> tuple[dict[str, object], dict[str, str]]:
-    """Read, but never extract, the authoritative freeze record from run 01."""
-    candidates: list[tuple[str, bytes, dict[str, object]]] = []
+def _archive_json_members(archive_path: Path) -> dict[str, tuple[bytes, dict[str, object]]]:
+    members: dict[str, tuple[bytes, dict[str, object]]] = {}
     try:
         with tarfile.open(archive_path, "r:gz") as archive:
             for member in archive.getmembers():
-                if not member.isfile() or not member.name.endswith("freeze-record.json"):
+                if not member.isfile() or not member.name.endswith(".json"):
                     continue
                 stream = archive.extractfile(member)
                 if stream is None:
                     continue
                 raw = stream.read()
                 value = json.loads(raw)
-                if (
-                    isinstance(value, dict)
-                    and value.get("schema_version") == FIRST_PREFLIGHT_FREEZE_SCHEMA
-                    and value.get("run_id") == FIRST_PREFLIGHT_RUN_ID
-                ):
-                    candidates.append((member.name, raw, value))
+                if isinstance(value, dict):
+                    members[member.name] = (raw, value)
     except (tarfile.TarError, json.JSONDecodeError) as error:
         raise ValueError("predecessor archive is not valid Phase 2I evidence") from error
+    return members
+
+
+def _load_predecessor_evidence(
+    archive_path: Path,
+) -> tuple[dict[str, object], dict[str, str], dict[str, object], dict[str, object]]:
+    """Read the immutable run-01 freeze, report, and Native run manifest."""
+    members = _archive_json_members(archive_path)
+    candidates: list[tuple[str, bytes, dict[str, object]]] = []
+    for name, (raw, value) in members.items():
+        if (
+            name.endswith("freeze-record.json")
+            and value.get("schema_version") == FIRST_PREFLIGHT_FREEZE_SCHEMA
+            and value.get("run_id") == FIRST_PREFLIGHT_RUN_ID
+        ):
+            candidates.append((name, raw, value))
     if not candidates:
         raise ValueError("predecessor archive lacks the original authoritative freeze record")
     canonical = {_canonical_sha(value) for _name, _raw, value in candidates}
@@ -82,7 +145,31 @@ def _load_predecessor_freeze(archive_path: Path) -> tuple[dict[str, object], dic
         raise ValueError("predecessor archive contains conflicting freeze records")
     freeze = candidates[0][2]
     member_hashes = {name: hashlib.sha256(raw).hexdigest() for name, raw, _ in candidates}
-    return freeze, member_hashes
+    reports = [
+        value
+        for name, (_raw, value) in members.items()
+        if name.endswith("native-preflight-report.json")
+        and value.get("status") == "FAIL_CLOSED"
+        and value.get("run_id") == FIRST_PREFLIGHT_RUN_ID
+    ]
+    run_manifests = [
+        value
+        for name, (_raw, value) in members.items()
+        if name.endswith(f"/{FIRST_PREFLIGHT_RUN_ID}/run.json")
+        and value.get("run_id") == FIRST_PREFLIGHT_RUN_ID
+    ]
+    if len(reports) != 1 or len(run_manifests) != 1:
+        raise ValueError(
+            "predecessor archive requires one failed Native report and one run manifest"
+        )
+    report, run_manifest = reports[0], run_manifests[0]
+    if (
+        report.get("git_sha") != freeze.get("git_sha")
+        or report.get("freeze_record_sha256") != _canonical_sha(freeze)
+        or report.get("run_status") != run_manifest.get("status")
+    ):
+        raise ValueError("predecessor freeze, report, and run manifest do not cohere")
+    return freeze, member_hashes, report, run_manifest
 
 
 def _validate_predecessor_bindings(
@@ -182,6 +269,7 @@ def materialize_preflight(
     source_trace_path: Path,
     profile_path: Path,
     predecessor_archive_path: Path,
+    m1_public_key_path: Path,
     output_dir: Path,
     repository: Path,
 ) -> dict[str, object]:
@@ -197,7 +285,12 @@ def materialize_preflight(
         raise FileNotFoundError(profile_path)
     if not predecessor_archive_path.is_file():
         raise FileNotFoundError(predecessor_archive_path)
-    predecessor_freeze, predecessor_freeze_members = _load_predecessor_freeze(
+    if not m1_public_key_path.is_file():
+        raise FileNotFoundError(m1_public_key_path)
+    public_key_pem = m1_public_key_path.read_text(encoding="utf-8")
+    if not public_key_pem.strip().startswith("ssh-ed25519 "):
+        raise ValueError("M1 Ed25519 public key is not an OpenSSH public key")
+    predecessor_freeze, predecessor_freeze_members, predecessor_report, predecessor_run = _load_predecessor_evidence(
         predecessor_archive_path
     )
     _validate_predecessor_bindings(
@@ -234,6 +327,11 @@ def materialize_preflight(
         ),
         "run_id": RUN_ID,
         "git_sha": git_sha,
+        "m1_authorization_trust": {
+            "algorithm": AUTHORIZATION_ALGORITHM,
+            "public_key_pem": public_key_pem,
+            "public_key_sha256": hashlib.sha256(public_key_pem.encode()).hexdigest(),
+        },
         "predecessor": {
             "execution_id": "PHASE2I_A3_TARGET_CUDA_PREFLIGHT_01",
             "status": "FAIL_CLOSED",
@@ -244,6 +342,8 @@ def materialize_preflight(
             "internal_freeze_run_id": predecessor_freeze["run_id"],
             "internal_freeze_canonical_sha256": _canonical_sha(predecessor_freeze),
             "internal_freeze_member_sha256": predecessor_freeze_members,
+            "native_report_canonical_sha256": _canonical_sha(predecessor_report),
+            "run_manifest_canonical_sha256": _canonical_sha(predecessor_run),
         },
         "source": {
             "config_sha256": _sha(source_config_path),
@@ -299,6 +399,8 @@ def materialize_preflight(
             "maximum_execution_count": 1,
             "timeout_seconds": 1800,
             "termination_grace_seconds": 60,
+            "signature_algorithm": AUTHORIZATION_ALGORITHM,
+            "m1_public_key_sha256": manifest["m1_authorization_trust"]["public_key_sha256"],
         },
     )
     return manifest
@@ -331,7 +433,7 @@ def _verify_freeze(input_dir: Path, repository: Path) -> tuple[dict[str, object]
         or _sha(predecessor_path) != predecessor.get("archive_sha256")
     ):
         raise ValueError("replacement preflight predecessor archive binding mismatch")
-    predecessor_freeze, predecessor_members = _load_predecessor_freeze(
+    predecessor_freeze, predecessor_members, predecessor_report, predecessor_run = _load_predecessor_evidence(
         predecessor_path
     )
     if (
@@ -340,6 +442,13 @@ def _verify_freeze(input_dir: Path, repository: Path) -> tuple[dict[str, object]
         or predecessor_members != predecessor.get("internal_freeze_member_sha256")
     ):
         raise ValueError("replacement predecessor internal freeze binding mismatch")
+    if (
+        _canonical_sha(predecessor_report)
+        != predecessor.get("native_report_canonical_sha256")
+        or _canonical_sha(predecessor_run)
+        != predecessor.get("run_manifest_canonical_sha256")
+    ):
+        raise ValueError("replacement predecessor execution evidence binding mismatch")
     predecessor_source = predecessor_freeze.get("source")
     replacement_source = manifest.get("source")
     if not isinstance(predecessor_source, Mapping) or not isinstance(
@@ -401,12 +510,46 @@ def _verify_authorization(
     authorization_id = authorization.get("authorization_id")
     if not isinstance(authorization_id, str) or not authorization_id:
         raise ValueError("M1 execution authorization ID is missing")
+    trust = freeze.get("m1_authorization_trust")
+    if not isinstance(trust, Mapping):
+        raise TypeError("freeze M1 authorization trust root is missing")
+    if authorization.get("signature_algorithm") != AUTHORIZATION_ALGORITHM:
+        raise ValueError("M1 execution authorization signature algorithm mismatch")
+    signature = authorization.get("signature")
+    if not isinstance(signature, str) or not signature:
+        raise ValueError("M1 execution authorization signature is missing")
+    signed = dict(authorization)
+    signed.pop("signature", None)
+    payload = json.dumps(signed, sort_keys=True, separators=(",", ":")).encode()
+    public_key = str(trust.get("public_key_pem", ""))
+    if hashlib.sha256(public_key.encode()).hexdigest() != trust.get("public_key_sha256"):
+        raise ValueError("M1 public-key trust root hash mismatch")
+    import tempfile
+    with tempfile.TemporaryDirectory(prefix="phase2i-m1-signature-") as directory:
+        root = Path(directory)
+        (root / "allowed_signers").write_text(
+            f"M1 {public_key.strip()}\n", encoding="utf-8"
+        )
+        (root / "payload.bin").write_bytes(payload)
+        (root / "payload.bin.sig").write_text(signature, encoding="utf-8")
+        verification = subprocess.run(
+            (
+                "ssh-keygen", "-Y", "verify", "-f", str(root / "allowed_signers"),
+                "-I", "M1", "-n", "phase2i-replacement-preflight",
+                "-s", str(root / "payload.bin.sig"),
+            ),
+            input=payload,
+            check=False,
+            capture_output=True,
+        )
+    if verification.returncode != 0:
+        raise ValueError("M1 execution authorization signature verification failed")
     authorization_sha = _sha(authorization_path)
     predecessor_path = Path(str(predecessor["archive_path"]))
     ledger = (
         predecessor_path.parent
         / ".phase2i-authorization-ledger"
-        / f"{authorization_sha}.consumed.json"
+        / f"{_canonical_sha({'run_id': RUN_ID, 'freeze': expected['freeze_record_sha256']})}.consumed.json"
     )
     return authorization, ledger, authorization_sha
 
@@ -525,8 +668,15 @@ def run_preflight(
     output_root: Path,
     repository: Path,
     authorization_path: Path,
+    bounded_capability: _InheritedExecutionCapability,
 ) -> dict[str, object]:
     """Run once and independently evaluate persisted CUDA Native evidence."""
+    if (
+        not isinstance(bounded_capability, _InheritedExecutionCapability)
+        or bounded_capability.parent_pid != os.getppid()
+        or bounded_capability.run_id != RUN_ID
+    ):
+        raise RuntimeError("GPU execution requires the bounded parent capability")
     freeze, config_path = _verify_freeze(input_dir, repository)
     authorization, ledger_path, authorization_sha = _verify_authorization(
         authorization_path,
@@ -589,7 +739,9 @@ def run_preflight(
             "ONE_REPLACEMENT_TARGET_CUDA_NATIVE_PREFLIGHT_NOT_EFFECT_CAMPAIGN"
         ),
         "run_status": run_manifest.get("status"),
+        "run_id": RUN_ID,
         "git_sha": freeze["git_sha"],
+        "freeze_record_sha256": _canonical_sha(freeze),
         "authorization_sha256": authorization_sha,
         "gates": gates,
         "a3_decision_event_count": len(a3_events),

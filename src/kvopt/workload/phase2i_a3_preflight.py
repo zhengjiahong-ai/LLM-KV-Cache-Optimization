@@ -37,6 +37,24 @@ def _events_by_type(
     return tuple(event for event in events if event.get("event_type") == event_type)
 
 
+def _finite_float(value: object) -> bool:
+    return type(value) is float and math.isfinite(value)
+
+
+def _positive_int(value: object) -> bool:
+    return type(value) is int and value > 0
+
+
+def _candidate_key(value: object) -> tuple[str, str] | None:
+    if (
+        not isinstance(value, (list, tuple))
+        or len(value) != 2
+        or not all(isinstance(item, str) and item for item in value)
+    ):
+        return None
+    return str(value[0]), str(value[1])
+
+
 def evaluate_a3_native_preflight(
     events: Iterable[Mapping[str, object]],
     *,
@@ -62,6 +80,7 @@ def evaluate_a3_native_preflight(
 
     selections: list[Mapping[str, object]] = []
     formula_valid = True
+    ordering_valid = True
     native_live_only = True
     content_valid = True
     intervention_count = 0
@@ -105,9 +124,10 @@ def evaluate_a3_native_preflight(
                 str(payload["decision_id"]) if payload.get("decision_id") else None
             )
             key = raw_selection.get("key")
-            if decision_id is not None and isinstance(key, (list, tuple)) and len(key) == 2:
+            normalized_key = _candidate_key(key)
+            if decision_id is not None and normalized_key is not None:
                 selected_keys_by_decision.setdefault(decision_id, set()).add(
-                    (str(key[0]), str(key[1]))
+                    normalized_key
                 )
             if raw_selection.get("fell_back") is True:
                 if decision_id is not None:
@@ -130,24 +150,52 @@ def evaluate_a3_native_preflight(
                 continue
             if decision_id is not None:
                 multi_candidate_decision_ids.add(decision_id)
+            ordered_candidates: list[tuple[float, float, tuple[str, str], bool]] = []
             for audit in audits:
-                if not isinstance(audit, Mapping) or audit.get("score") is None:
+                if not isinstance(audit, Mapping):
                     formula_valid = False
                     continue
-                content_valid &= audit.get("content_verified") is True
-                try:
-                    expected = (
-                        float(audit["reuse_proxy"])
-                        * float(audit["prefill_reload_seconds"])
-                        * int(audit["suffix_blocks"])
-                        / int(audit["chain_length"])
-                    )
-                    formula_valid &= math.isclose(
-                        float(audit["score"]), expected, rel_tol=1e-12, abs_tol=1e-12
-                    )
-                except (KeyError, TypeError, ValueError, ZeroDivisionError):
+                audit_key = _candidate_key(audit.get("key"))
+                score = audit.get("score")
+                deadline = audit.get("deadline")
+                selected = audit.get("selected")
+                if (
+                    audit_key is None
+                    or not _finite_float(score)
+                    or not _finite_float(deadline)
+                    or type(selected) is not bool
+                    or not _finite_float(audit.get("reuse_proxy"))
+                    or not _finite_float(audit.get("prefill_reload_seconds"))
+                    or not _positive_int(audit.get("suffix_blocks"))
+                    or not _positive_int(audit.get("chain_length"))
+                ):
                     formula_valid = False
-            if decision_id is not None and formula_valid and content_valid:
+                    ordering_valid = False
+                    continue
+                content_valid &= audit.get("content_verified") is True
+                expected = (
+                    audit["reuse_proxy"]
+                    * audit["prefill_reload_seconds"]
+                    * audit["suffix_blocks"]
+                    / audit["chain_length"]
+                )
+                formula_valid &= math.isclose(
+                    score, expected, rel_tol=1e-12, abs_tol=1e-12
+                )
+                ordered_candidates.append((score, deadline, audit_key, selected))
+            if len(ordered_candidates) != len(audits):
+                ordering_valid = False
+            else:
+                winner = min(ordered_candidates, key=lambda row: row[:3])
+                marked = tuple(row for row in ordered_candidates if row[3] is True)
+                ordering_valid &= normalized_key == winner[2]
+                ordering_valid &= len(marked) == 1 and marked[0][2] == winner[2]
+            if (
+                decision_id is not None
+                and formula_valid
+                and content_valid
+                and ordering_valid
+            ):
                 valid_nonfallback_multi_decision_ids.add(decision_id)
 
     bindings_by_id = {
@@ -357,35 +405,63 @@ def evaluate_a3_native_preflight(
             return False
         matched_values = tuple(outcome.get("matched_block_ids") or ())
         unmatched_values = tuple(outcome.get("unmatched_block_ids") or ())
-        if not all(isinstance(value, int) for value in (*matched_values, *unmatched_values)):
+        hashless_values = tuple(outcome.get("hashless_block_ids") or ())
+        if not all(
+            type(value) is int
+            for value in (*matched_values, *unmatched_values, *hashless_values)
+        ):
             return False
         matched = set(matched_values)
         unmatched = set(unmatched_values)
+        hashless = set(hashless_values)
         if (
             len(matched) != len(matched_values)
             or len(unmatched) != len(unmatched_values)
+            or len(hashless) != len(hashless_values)
             or matched & unmatched
+            or matched & hashless
+            or unmatched & hashless
         ):
             return False
         pending = pending_by_id.get(decision_id)
+        plan = plans_by_id.get(decision_id)
+        if plan is None:
+            return False
+        planned = set(plan.get("selected_native_block_ids") or ())
         expected = (
             set(pending.get("selected_block_ids") or ()) if pending is not None else set()
         )
         if status == "PHYSICAL_EVICTION_OBSERVED":
-            return bool(matched) and not unmatched and pending is not None and matched == expected
+            return (
+                bool(matched)
+                and not unmatched
+                and not hashless
+                and pending is not None
+                and matched == expected
+                and matched <= planned
+            )
         if status == "PARTIAL_PHYSICAL_EVICTION_OBSERVED":
             return (
                 bool(matched)
                 and bool(unmatched)
+                and not hashless
                 and pending is not None
                 and matched | unmatched == expected
+                and expected <= planned
             )
         if status == "NO_PHYSICAL_EVICTION_OBSERVED":
-            return not matched and (
-                (pending is None and not unmatched)
-                or (pending is not None and unmatched == expected)
-            )
-        return not matched
+            if matched:
+                return False
+            if pending is None:
+                return (
+                    not unmatched
+                    and bool(hashless)
+                    and hashless == planned
+                    and outcome.get("reason")
+                    == "NATIVE_SELECTION_RETURN_CONTAINED_NO_HASHED_BLOCKS"
+                )
+            return not hashless and unmatched == expected and expected <= planned
+        return not matched and not hashless
 
     physical_outcomes_valid = (
         set(outcomes_by_id) == decision_ids
@@ -414,6 +490,7 @@ def evaluate_a3_native_preflight(
                 if valid_nonfallback_multi_decision_ids
                 and content_valid
                 and formula_valid
+                and ordering_valid
                 else "FAIL"
             ),
             "content_verified_non_fallback_count": non_fallback_count,
@@ -421,6 +498,7 @@ def evaluate_a3_native_preflight(
                 valid_nonfallback_multi_decision_ids
             ),
             "formula_recomputed": formula_valid,
+            "ordering_recomputed": ordering_valid,
         },
         "D": {
             "status": (
@@ -429,6 +507,7 @@ def evaluate_a3_native_preflight(
                 and required_decisions_joined == required_decision_ids
                 and actual_release_match_count == len(decision_ids)
                 and formula_valid
+                and ordering_valid
                 and fallback_valid
                 and decision_join_valid
                 else "FAIL"

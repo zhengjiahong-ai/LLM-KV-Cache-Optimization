@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import subprocess
 import tarfile
 from pathlib import Path
 from types import SimpleNamespace
@@ -15,6 +16,33 @@ from scripts.spikes import run_phase2i_a3_cuda_preflight as runner
 
 def _write(path: Path, value: object) -> None:
     path.write_text(json.dumps(value), encoding="utf-8")
+
+
+def _m1_keys(tmp_path: Path) -> tuple[Path, Path]:
+    private = tmp_path / "m1-ed25519"
+    public = tmp_path / "m1-ed25519.pub"
+    if private.is_file() and public.is_file():
+        return private, public
+    subprocess.run(
+        ("ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", private),
+        check=True,
+    )
+    return private, public
+
+
+def _sign_authorization(value: dict[str, object], private_key: Path, tmp_path: Path) -> None:
+    payload = tmp_path / "authorization-payload.bin"
+    signature = tmp_path / "authorization-payload.bin.sig"
+    signature.unlink(missing_ok=True)
+    payload.write_bytes(json.dumps(value, sort_keys=True, separators=(",", ":")).encode())
+    subprocess.run(
+        (
+            "ssh-keygen", "-Y", "sign", "-q", "-f", private_key,
+            "-n", "phase2i-replacement-preflight", str(payload),
+        ),
+        check=True,
+    )
+    value["signature"] = signature.read_text(encoding="utf-8")
 
 
 def _source(tmp_path: Path) -> tuple[Path, Path, Path]:
@@ -117,6 +145,7 @@ def _predecessor(path: Path, config: Path, trace: Path, profile: Path) -> Path:
     freeze = {
         "schema_version": module.FIRST_PREFLIGHT_FREEZE_SCHEMA,
         "run_id": module.FIRST_PREFLIGHT_RUN_ID,
+        "git_sha": "first-git-sha",
         "source": {
             "config_sha256": module._sha(config),
             "trace_sha256": module._sha(trace),
@@ -132,11 +161,25 @@ def _predecessor(path: Path, config: Path, trace: Path, profile: Path) -> Path:
             ],
         },
     }
-    raw = (json.dumps(freeze, sort_keys=True) + "\n").encode()
+    report = {
+        "schema_version": "phase2i.a3_target_cuda_native_preflight.v1",
+        "status": "FAIL_CLOSED",
+        "run_id": module.FIRST_PREFLIGHT_RUN_ID,
+        "run_status": "success",
+        "git_sha": "first-git-sha",
+        "freeze_record_sha256": module._canonical_sha(freeze),
+    }
+    run = {"run_id": module.FIRST_PREFLIGHT_RUN_ID, "status": "success"}
     with tarfile.open(path, "w:gz") as archive:
-        member = tarfile.TarInfo("artifacts/first/freeze-record.json")
-        member.size = len(raw)
-        archive.addfile(member, io.BytesIO(raw))
+        for name, value in (
+            ("artifacts/first/freeze-record.json", freeze),
+            ("artifacts/first/native-preflight-report.json", report),
+            (f"artifacts/first/runs/{module.FIRST_PREFLIGHT_RUN_ID}/run.json", run),
+        ):
+            raw = (json.dumps(value, sort_keys=True) + "\n").encode()
+            member = tarfile.TarInfo(name)
+            member.size = len(raw)
+            archive.addfile(member, io.BytesIO(raw))
     return path
 
 
@@ -159,6 +202,7 @@ def test_materialize_changes_only_authorized_runtime_identity(
         source_trace_path=trace,
         profile_path=profile,
         predecessor_archive_path=predecessor,
+        m1_public_key_path=_m1_keys(tmp_path)[1],
         output_dir=output,
         repository=tmp_path,
     )
@@ -204,6 +248,7 @@ def test_materialize_rejects_pressure_or_explicit_token_drift(
             source_trace_path=trace,
             profile_path=profile,
             predecessor_archive_path=predecessor,
+            m1_public_key_path=_m1_keys(tmp_path)[1],
             output_dir=tmp_path / "prepared",
             repository=tmp_path,
         )
@@ -227,6 +272,7 @@ def test_verify_freeze_rejects_git_or_file_drift(
         source_trace_path=trace,
         profile_path=profile,
         predecessor_archive_path=predecessor,
+        m1_public_key_path=_m1_keys(tmp_path)[1],
         output_dir=output,
         repository=tmp_path,
     )
@@ -256,6 +302,7 @@ def test_verify_freeze_rejects_predecessor_archive_drift(
         source_trace_path=trace,
         profile_path=profile,
         predecessor_archive_path=predecessor,
+        m1_public_key_path=_m1_keys(tmp_path)[1],
         output_dir=output,
         repository=tmp_path,
     )
@@ -283,6 +330,33 @@ def test_materialize_rejects_archive_without_original_freeze(
             source_trace_path=trace,
             profile_path=profile,
             predecessor_archive_path=predecessor,
+            m1_public_key_path=_m1_keys(tmp_path)[1],
+            output_dir=tmp_path / "prepared",
+            repository=tmp_path,
+        )
+
+
+def test_materialize_rejects_freeze_only_archive_without_failed_execution(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config, trace, profile = _source(tmp_path)
+    monkeypatch.setattr(module, "_git", lambda *_args: "abc123")
+    complete = _predecessor(tmp_path / "complete.tar.gz", config, trace, profile)
+    freeze = module._load_predecessor_evidence(complete)[0]
+    predecessor = tmp_path / "freeze-only.tar.gz"
+    with tarfile.open(predecessor, "w:gz") as archive:
+        raw = json.dumps(freeze).encode()
+        member = tarfile.TarInfo("freeze-record.json")
+        member.size = len(raw)
+        archive.addfile(member, io.BytesIO(raw))
+
+    with pytest.raises(ValueError, match="failed Native report"):
+        module.materialize_preflight(
+            source_config_path=config,
+            source_trace_path=trace,
+            profile_path=profile,
+            predecessor_archive_path=predecessor,
+            m1_public_key_path=_m1_keys(tmp_path)[1],
             output_dir=tmp_path / "prepared",
             repository=tmp_path,
         )
@@ -300,12 +374,14 @@ def test_authorization_is_independent_bound_and_consumed_once(
     predecessor = _predecessor(
         tmp_path / "predecessor.tar.gz", config, trace, profile
     )
+    private_key, public_key = _m1_keys(tmp_path)
     output = tmp_path / "prepared"
     freeze = module.materialize_preflight(
         source_config_path=config,
         source_trace_path=trace,
         profile_path=profile,
         predecessor_archive_path=predecessor,
+        m1_public_key_path=public_key,
         output_dir=output,
         repository=tmp_path,
     )
@@ -318,6 +394,7 @@ def test_authorization_is_independent_bound_and_consumed_once(
         "execution_authorized": True,
         "authorization_id": "m1-approved-replacement-02",
     }
+    _sign_authorization(authorization, private_key, tmp_path)
     authorization_path = tmp_path / "m1-authorization.json"
     _write(authorization_path, authorization)
 
@@ -339,6 +416,23 @@ def test_authorization_is_independent_bound_and_consumed_once(
             authorization_sha256=authorization_sha,
             output_root=tmp_path / "run-output-b",
         )
+    changed = dict(authorization)
+    changed["authorization_id"] = "m1-approved-replacement-02-renamed"
+    changed.pop("signature")
+    _sign_authorization(changed, private_key, tmp_path)
+    changed_path = tmp_path / "m1-authorization-renamed.json"
+    _write(changed_path, changed)
+    verified_again, same_ledger, changed_sha = module._verify_authorization(
+        changed_path, input_dir=output, freeze=freeze
+    )
+    assert same_ledger == ledger
+    with pytest.raises(RuntimeError, match="already consumed"):
+        module._consume_authorization(
+            same_ledger,
+            authorization=verified_again,
+            authorization_sha256=changed_sha,
+            output_root=tmp_path / "run-output-c",
+        )
 
 
 def test_authorization_rejects_unapproved_or_mismatched_record(
@@ -353,12 +447,14 @@ def test_authorization_rejects_unapproved_or_mismatched_record(
     predecessor = _predecessor(
         tmp_path / "predecessor.tar.gz", config, trace, profile
     )
+    _private_key, public_key = _m1_keys(tmp_path)
     output = tmp_path / "prepared"
     freeze = module.materialize_preflight(
         source_config_path=config,
         source_trace_path=trace,
         profile_path=profile,
         predecessor_archive_path=predecessor,
+        m1_public_key_path=public_key,
         output_dir=output,
         repository=tmp_path,
     )
@@ -380,6 +476,44 @@ def test_authorization_rejects_unapproved_or_mismatched_record(
             input_dir=output,
             freeze=freeze,
         )
+
+
+def test_authorization_rejects_signed_record_tampering(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config, trace, profile = _source(tmp_path)
+    monkeypatch.setattr(
+        module,
+        "_git",
+        lambda _repository, *arguments: "" if arguments[0] == "status" else "abc123",
+    )
+    predecessor = _predecessor(tmp_path / "predecessor.tar.gz", config, trace, profile)
+    private, public = _m1_keys(tmp_path)
+    output = tmp_path / "prepared"
+    freeze = module.materialize_preflight(
+        source_config_path=config,
+        source_trace_path=trace,
+        profile_path=profile,
+        predecessor_archive_path=predecessor,
+        m1_public_key_path=public,
+        output_dir=output,
+        repository=tmp_path,
+    )
+    authorization = json.loads((output / "m1-authorization-request.json").read_text())
+    authorization.update(
+        {
+            "schema_version": module.AUTHORIZATION_SCHEMA,
+            "execution_authorized": True,
+            "authorization_id": "m1-authentic",
+        }
+    )
+    _sign_authorization(authorization, private, tmp_path)
+    authorization["authorization_id"] = "m6-edited"
+    path = tmp_path / "tampered.json"
+    _write(path, authorization)
+
+    with pytest.raises(ValueError, match="signature verification failed"):
+        module._verify_authorization(path, input_dir=output, freeze=freeze)
 
 
 def test_target_environment_is_exact_and_fail_closed() -> None:
@@ -424,6 +558,7 @@ def test_execution_wrapper_enforces_timeout_grace_and_archives(
         def __init__(self) -> None:
             self.wait_count = 0
             self.signals: list[int] = []
+            self.pid = 4242
 
         def wait(self, *, timeout: int | None = None) -> int:
             self.wait_count += 1
@@ -431,15 +566,20 @@ def test_execution_wrapper_enforces_timeout_grace_and_archives(
                 raise runner.subprocess.TimeoutExpired("phase2i", timeout)
             return 130
 
-        def send_signal(self, value: int) -> None:
-            self.signals.append(value)
-
-        def kill(self) -> None:
-            raise AssertionError("graceful SIGINT exit should not require kill")
-
     process = _TimedOutProcess()
+    popen_kwargs: dict[str, object] = {}
+
+    def fake_popen(_command, **kwargs):
+        popen_kwargs.update(kwargs)
+        return process
+
     monkeypatch.setattr(
-        runner.subprocess, "Popen", lambda _command, **_kwargs: process
+        runner.subprocess, "Popen", fake_popen
+    )
+    monkeypatch.setattr(
+        runner.os,
+        "killpg",
+        lambda pid, value: process.signals.append(value) if pid == process.pid else None,
     )
     captured: dict[str, object] = {}
     monkeypatch.setattr(
@@ -458,5 +598,112 @@ def test_execution_wrapper_enforces_timeout_grace_and_archives(
 
     assert runner._run_bounded(arguments) == 130
     assert process.signals == [runner.signal.SIGINT]
+    assert popen_kwargs["start_new_session"] is True
+    assert len(popen_kwargs["pass_fds"]) == 1
     assert captured["outcome"]["status"] == "TIMEOUT"
     assert captured["outcome"]["termination_grace_seconds"] == 2
+
+
+def test_internal_capability_cannot_be_replaced_by_environment_variable(
+    monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PHASE2I_BOUNDED_PARENT_TOKEN", "forged")
+    read_descriptor, write_descriptor = runner.os.pipe()
+    with runner.os.fdopen(write_descriptor, "wb") as stream:
+        stream.write(b'{}')
+    with pytest.raises(RuntimeError, match="parent binding failed"):
+        module.read_bounded_parent_capability(read_descriptor)
+
+
+def test_timeout_kills_entire_process_group_after_grace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class _HungProcess:
+        pid = 5151
+
+        def __init__(self) -> None:
+            self.wait_count = 0
+
+        def wait(self, *, timeout=None):
+            self.wait_count += 1
+            if self.wait_count <= 2:
+                raise runner.subprocess.TimeoutExpired("phase2i", timeout)
+            return -9
+
+    process = _HungProcess()
+    signals: list[tuple[int, int]] = []
+    monkeypatch.setattr(runner.subprocess, "Popen", lambda *_args, **_kwargs: process)
+    monkeypatch.setattr(runner.os, "killpg", lambda pid, signal: signals.append((pid, signal)))
+    monkeypatch.setattr(runner, "TIMEOUT_SECONDS", 1)
+    monkeypatch.setattr(runner, "TERMINATION_GRACE_SECONDS", 1)
+    monkeypatch.setattr(
+        runner,
+        "_archive_execution",
+        lambda **_kwargs: tmp_path / "evidence.tar.gz",
+    )
+    arguments = SimpleNamespace(
+        input_dir=tmp_path / "inputs",
+        output_root=tmp_path / "outputs",
+        authorization_record=tmp_path / "authorization.json",
+        repository=tmp_path,
+    )
+
+    assert runner._run_bounded(arguments) == -9
+    assert signals == [
+        (process.pid, runner.signal.SIGINT),
+        (process.pid, runner.signal.SIGKILL),
+    ]
+
+
+def test_direct_import_cannot_call_gpu_executor_without_parent_capability(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(TypeError, match="bounded_capability"):
+        module.run_preflight(
+            input_dir=tmp_path / "inputs",
+            output_root=tmp_path / "outputs",
+            repository=tmp_path,
+            authorization_path=tmp_path / "authorization.json",
+        )
+
+
+def test_atomic_archive_rejects_conflict_and_removes_interrupted_temporary(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inputs = tmp_path / "inputs"
+    outputs = tmp_path / "outputs"
+    authorization = tmp_path / "authorization.json"
+    inputs.mkdir()
+    _write(inputs / "freeze-record.json", {"freeze": True})
+    _write(authorization, {"authorized": True})
+    final = tmp_path / "outputs-evidence.tar.gz"
+    final.write_bytes(b"occupied")
+    with pytest.raises(FileExistsError):
+        runner._archive_execution(
+            input_dir=inputs,
+            output_root=outputs,
+            authorization_record=authorization,
+            outcome={"status": "FAILED"},
+        )
+
+    final.unlink()
+    original_add = tarfile.TarFile.add
+    calls = 0
+
+    def interrupted_add(self, *args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise OSError("compression interrupted")
+        return original_add(self, *args, **kwargs)
+
+    monkeypatch.setattr(tarfile.TarFile, "add", interrupted_add)
+    with pytest.raises(OSError, match="compression interrupted"):
+        runner._archive_execution(
+            input_dir=inputs,
+            output_root=outputs,
+            authorization_record=authorization,
+            outcome={"status": "FAILED"},
+        )
+    assert not final.exists()
+    assert not tuple(tmp_path.glob(".outputs-evidence.tar.gz.tmp-*"))

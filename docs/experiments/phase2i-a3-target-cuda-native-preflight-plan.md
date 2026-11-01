@@ -79,13 +79,21 @@ identity, performs one Native run, and then reloads `events.jsonl` from disk.
 The persisted evidence is independently evaluated as follows:
 
 - Gate I: Native-live process, event-index and pressure-clock binding;
-- Gate C: content-verified ChainDepth proof and independent
-  `q × prefill × S / m` recomputation;
+- Gate C: content-verified ChainDepth proof, independent
+  `q × prefill × S / m` recomputation, and independent strict
+  `(score, deadline, key)` ordering reconstruction. Numeric booleans, implicit
+  integer conversion, missing/duplicate selected markers, and winner/marker
+  disagreement all fail closed;
 - Gate D: at least one non-fallback multi-candidate A3 decision, exact candidate
   score/selection recomputation, and equality with the submitted Entry Release
   and Native SelectionPlan. A1/A3 divergence is diagnostic, not required;
 - Gate O: unique Decision/Boundary/Stage/Pressure/Counter/Pending-Plan join and
   exact Block ID plus Content Identity physical-eviction attribution.
+
+A `NO_PHYSICAL_EVICTION_OBSERVED` result without a Pending Plan is valid only
+for a genuinely hashless Native return. It must list every hashless Block ID and
+that set must exactly equal the SelectionPlan set. Missing Pending evidence or
+an empty fabricated outcome cannot masquerade as a hashless result.
 
 Any failed run or gate produces `FAIL_CLOSED`. Unmatched physical events are
 counted as missingness and never inferred as attributable. The run preserves
@@ -104,21 +112,36 @@ change is allowed.
 
 The replacement Freeze Record is deliberately emitted with
 `execution_authorized=false`. Preparation opens the predecessor archive without
-extracting it, validates its original v1 Freeze Record, and compares the HR02
+extracting it, validates its original v1 Freeze Record, failed Native Preflight
+Report and Native Run Manifest as one coherent execution, and compares the HR02
 config, trace, explicit request tokens, pressure tokens, logical timeline and
 profile SHA-256 bindings field by field. It then emits an authorization request.
-Only a separate M1 authorization record can enable execution. That record binds
+Only a separately signed M1 authorization record can enable execution. The
+Freeze Candidate embeds the reviewed M1 SSH-Ed25519 public key and its SHA-256;
+the Runner verifies the detached signature. Editing the request or merely
+setting `execution_authorized=true` is insufficient. The signed record binds
 the reviewed Git SHA, replacement Freeze Record SHA, predecessor Archive SHA,
 Run ID, one-execution limit, 1,800-second timeout and 60-second termination
 grace.
 
-The authorization SHA has one atomic consumption receipt stored beside the
-immutable predecessor archive. Changing the output directory cannot consume it
-again. The public `run` command is a bounded parent process; its internal child
-cannot be invoked without the per-launch parent capability. The parent sends
+The `(Replacement Run ID, Freeze SHA)` pair has one atomic `O_EXCL` consumption
+receipt stored beside the immutable predecessor archive. Changing the
+authorization file, authorization ID or output directory cannot consume it
+again. The public `run` command is a bounded parent process; its child requires
+a one-use capability delivered through an inherited anonymous file descriptor
+and bound to the actual parent PID. Environment variables and direct `_run-once`
+invocation cannot mint it. The parent creates an independent process session,
+sends
 SIGINT at 30 minutes, kills after the 60-second grace if necessary, and packages
 inputs, authorization, partial or complete output, execution envelope and
 recursive hashes for success, failure or timeout.
+
+The final archive path and output directory are checked before GPU startup.
+Packaging writes to a same-directory temporary archive, rereads every member,
+verifies required evidence members and only then atomically renames it into
+place. Path collisions, compression interruption and incomplete archives leave
+no final archive. Process-group termination prevents GPU grandchildren from
+surviving a timeout.
 
 The deliverable contains the freeze record, environment record, raw run files,
 Native gate report and recursive SHA-256 manifest. The replacement archive must
