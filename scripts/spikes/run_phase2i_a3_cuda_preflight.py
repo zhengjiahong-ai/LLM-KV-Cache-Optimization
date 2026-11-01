@@ -18,6 +18,7 @@ def main() -> int:
     prepare.add_argument("--source-config", type=Path, required=True)
     prepare.add_argument("--source-trace", type=Path, required=True)
     prepare.add_argument("--profile", type=Path, required=True)
+    prepare.add_argument("--predecessor-archive", type=Path, required=True)
     prepare.add_argument("--output-dir", type=Path, required=True)
     prepare.add_argument("--repository", type=Path, default=Path.cwd())
     execute = subparsers.add_parser("run")
@@ -30,6 +31,7 @@ def main() -> int:
             source_config_path=arguments.source_config,
             source_trace_path=arguments.source_trace,
             profile_path=arguments.profile,
+            predecessor_archive_path=arguments.predecessor_archive,
             output_dir=arguments.output_dir,
             repository=arguments.repository,
         )

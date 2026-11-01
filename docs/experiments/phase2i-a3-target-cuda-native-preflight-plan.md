@@ -1,10 +1,52 @@
 # Phase 2I A3 Target CUDA Native Preflight
 
-Status: **AUTHORIZED / NOT YET EXECUTED**.
+Status: **PREFLIGHT_01 FAIL_CLOSED / RUNTIME-EVIDENCE REPAIR UNDER REVIEW**.
 
 This is one bounded CUDA Native correctness run, not an A3 effect campaign.
 The implementation branch starts from merged `main` commit
 `35af35a2e06e67cc126f780395966a83cbd5f444`.
+
+## First execution and immutable failure record
+
+`PHASE2I_A3_TARGET_CUDA_PREFLIGHT_01` completed the 180-request HR02 Native
+Replay but failed the persisted-evidence gates. Gate C passed with two
+content-verified, non-fallback multi-candidate A3 decisions. Gate O failed:
+756 physical evictions could not be uniquely attributed to the three A3 Entry
+decisions and therefore remain non-causal observations. The first archive is
+immutable and is not an input to an effect claim.
+
+The persisted lifecycle exposed three distinct cases that the original event
+scope had conflated:
+
+- decision 123: a real non-fallback A3 Entry decision inside the round-40
+  controlled-pressure context, with no pending physical plan;
+- decision 153: a real non-fallback A3 Entry decision during an ordinary
+  two-request Native drain batch;
+- decision 188: an A1-fallback Entry decision during another ordinary drain
+  batch;
+- unrelated allocation attempts at the pressure barriers, with empty A3
+  traces, which must not be reported as A3 Entry decisions.
+
+The repair does not change the workload, pressure, A3 formula, A1 fallback or
+Native ownership. It introduces one explicit Native execution context with a
+deterministic ID, boundary type and real request-ID set. Controlled pressure,
+ordinary single-request execution and multi-request drain batches remain
+distinct. Every queue-selection callback consumes only the immediately
+preceding plan.
+
+Only a Forced Release creates `NATIVE_ENTRY_RELEASE_SELECTION_PLAN`. A pure
+allocator call creates `NATIVE_ALLOCATION_ATTEMPT`. A real Entry plan either
+creates a content-bound pending plan or records one explicit outcome:
+`PHYSICAL_EVICTION_OBSERVED`, `PARTIAL_PHYSICAL_EVICTION_OBSERVED`,
+`NO_PHYSICAL_EVICTION_OBSERVED`, or `EVIDENCE_MISSING`. Pending plans expire at
+their exact Native execution-context boundary and cannot be borrowed by a
+later request.
+
+Gate D now joins A3 Decision, Forced Release and Entry SelectionPlan without
+requiring a physical outcome. Gate O independently requires at least one
+required A3 decision to have complete Block ID and Content Identity physical
+attribution. An explicit no-eviction outcome remains valid evidence but cannot
+make Gate O pass.
 
 ## Frozen source and permitted derivation
 
@@ -53,9 +95,14 @@ right-censoring and makes no benefit claim.
 
 Target: the previously bound RTX 4090D CUDA environment, vLLM 0.27.1, PyTorch
 2.13.0+cu130. The outer invocation must use a 30-minute timeout with a 60-second
-forced termination grace period. Only one Native run is authorized. No parameter,
-pressure, workload or strategy change is allowed after preparation.
+forced termination grace period. The first Native run has already been
+consumed. This repair PR does not start another run. After CPU/Mock review, at
+most one separately authorized `REPLACEMENT_PREFLIGHT_02` may run with a new
+Freeze Record, output directory and archive. Its record must bind the immutable
+first-failure archive SHA-256. No parameter, pressure, workload or strategy
+change is allowed.
 
 The deliverable contains the freeze record, environment record, raw run files,
-Native gate report and recursive SHA-256 manifest. The archive is produced only
-after `PASS_NATIVE_PREFLIGHT`.
+Native gate report and recursive SHA-256 manifest. The replacement archive must
+be produced for either PASS or FAIL and preserve all explicit missingness and
+physical-outcome states. No third GPU preflight is permitted.

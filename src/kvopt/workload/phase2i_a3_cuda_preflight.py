@@ -15,7 +15,7 @@ from .phase2_runner import run_phase2
 from .phase2i_a3_preflight import evaluate_a3_native_preflight
 
 MODEL_REVISION = "d18ecad881a290f0c792f1c2b5dbee1820d4a424"
-RUN_ID = "phase2i-a3-target-cuda-native-preflight"
+RUN_ID = "phase2i-a3-target-cuda-native-replacement-preflight-02"
 PRESSURE_BOUNDARIES = frozenset(
     {
         "pressure:after-round-40",
@@ -107,6 +107,7 @@ def materialize_preflight(
     source_config_path: Path,
     source_trace_path: Path,
     profile_path: Path,
+    predecessor_archive_path: Path,
     output_dir: Path,
     repository: Path,
 ) -> dict[str, object]:
@@ -120,6 +121,8 @@ def materialize_preflight(
     _validate_frozen_source(source_config, source_trace)
     if not profile_path.is_file():
         raise FileNotFoundError(profile_path)
+    if not predecessor_archive_path.is_file():
+        raise FileNotFoundError(predecessor_archive_path)
 
     output_dir.mkdir(parents=True)
     trace_path = output_dir / "hr02-short-gap-long-context.trace.json"
@@ -140,11 +143,20 @@ def materialize_preflight(
     if _git(repository, "status", "--porcelain"):
         raise ValueError("execution freeze requires a clean Git worktree")
     manifest = {
-        "schema_version": "phase2i.a3_target_cuda_preflight_freeze.v1",
+        "schema_version": "phase2i.a3_target_cuda_replacement_preflight_freeze.v2",
         "execution_authorized": True,
-        "authorization_scope": "ONE_TARGET_CUDA_NATIVE_PREFLIGHT_NOT_EFFECT_CAMPAIGN",
+        "authorization_scope": (
+            "ONE_REPLACEMENT_TARGET_CUDA_NATIVE_PREFLIGHT_NOT_EFFECT_CAMPAIGN"
+        ),
         "run_id": RUN_ID,
         "git_sha": git_sha,
+        "predecessor": {
+            "execution_id": "PHASE2I_A3_TARGET_CUDA_PREFLIGHT_01",
+            "status": "FAIL_CLOSED",
+            "archive_path": str(predecessor_archive_path.resolve()),
+            "archive_sha256": _sha(predecessor_archive_path),
+            "immutable": True,
+        },
         "source": {
             "config_sha256": _sha(source_config_path),
             "trace_sha256": _sha(source_trace_path),
@@ -192,7 +204,9 @@ def materialize_preflight(
 def _verify_freeze(input_dir: Path, repository: Path) -> tuple[dict[str, object], Path]:
     manifest_path = input_dir / "freeze-record.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    if manifest.get("schema_version") != "phase2i.a3_target_cuda_preflight_freeze.v1":
+    if manifest.get("schema_version") != (
+        "phase2i.a3_target_cuda_replacement_preflight_freeze.v2"
+    ):
         raise ValueError("unsupported Phase 2I preflight freeze record")
     if manifest.get("execution_authorized") is not True:
         raise ValueError("Phase 2I target CUDA preflight is not authorized")
@@ -203,6 +217,17 @@ def _verify_freeze(input_dir: Path, repository: Path) -> tuple[dict[str, object]
     derived = manifest.get("derived")
     if not isinstance(derived, dict):
         raise TypeError("freeze record derived bindings are missing")
+    predecessor = manifest.get("predecessor")
+    if not isinstance(predecessor, dict):
+        raise TypeError("replacement preflight predecessor binding is missing")
+    predecessor_path = Path(str(predecessor.get("archive_path")))
+    if (
+        predecessor.get("status") != "FAIL_CLOSED"
+        or predecessor.get("immutable") is not True
+        or not predecessor_path.is_file()
+        or _sha(predecessor_path) != predecessor.get("archive_sha256")
+    ):
+        raise ValueError("replacement preflight predecessor archive binding mismatch")
     config_path = input_dir / str(derived["config"])
     trace_path = input_dir / str(derived["trace"])
     profile_path = Path(str(derived["profile_path"]))
@@ -305,9 +330,11 @@ def run_preflight(
         if selection.get("fell_back") is not True
     )
     report = {
-        "schema_version": "phase2i.a3_target_cuda_native_preflight.v1",
+        "schema_version": "phase2i.a3_target_cuda_native_replacement_preflight.v2",
         "status": "PASS_NATIVE_PREFLIGHT" if passed else "FAIL_CLOSED",
-        "claim_scope": "ONE_TARGET_CUDA_NATIVE_PREFLIGHT_NOT_EFFECT_CAMPAIGN",
+        "claim_scope": (
+            "ONE_REPLACEMENT_TARGET_CUDA_NATIVE_PREFLIGHT_NOT_EFFECT_CAMPAIGN"
+        ),
         "run_status": run_manifest.get("status"),
         "git_sha": freeze["git_sha"],
         "gates": gates,

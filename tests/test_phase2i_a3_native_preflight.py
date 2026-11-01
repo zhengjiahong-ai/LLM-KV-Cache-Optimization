@@ -11,6 +11,15 @@ def _events() -> list[dict[str, object]]:
     boundary_id = "pressure:round-40"
     request_id = "pressure-request-1"
     stage_id = "round-40"
+    context_id = f"controlled-pressure:{request_id}"
+    context = {
+        "execution_context_id": context_id,
+        "boundary_type": "CONTROLLED_PRESSURE",
+        "request_ids": [request_id],
+        "boundary_id": boundary_id,
+        "stage_id": stage_id,
+        "pressure_request_id": request_id,
+    }
     return [
         {
             "event_index": 10,
@@ -26,9 +35,7 @@ def _events() -> list[dict[str, object]]:
             "event_type": "A3_SUFFIX_RELEASE_DECISION",
             "payload": {
                 "decision_id": decision_id,
-                "boundary_id": boundary_id,
-                "stage_id": stage_id,
-                "pressure_request_id": request_id,
+                **context,
                 "verification_mode": "native_live",
                 "native_hash_process_id": "123",
                 "decision_event_index": 10,
@@ -56,9 +63,7 @@ def _events() -> list[dict[str, object]]:
             "event_type": "FORCED_RELEASE_DECISION_BINDING",
             "payload": {
                 "decision_id": decision_id,
-                "boundary_id": boundary_id,
-                "stage_id": stage_id,
-                "pressure_request_id": request_id,
+                **context,
                 "forced_release_counter_before": 0,
                 "forced_release_counter_after": 1,
                 "forced_release_event_index": 10,
@@ -69,9 +74,7 @@ def _events() -> list[dict[str, object]]:
             "event_type": "NATIVE_ENTRY_RELEASE_SELECTION_PLAN",
             "payload": {
                 "decision_id": decision_id,
-                "boundary_id": boundary_id,
-                "stage_id": stage_id,
-                "pressure_request_id": request_id,
+                **context,
                 "selected_native_block_ids": [3, 4],
             },
         },
@@ -79,9 +82,7 @@ def _events() -> list[dict[str, object]]:
             "event_type": "NATIVE_SELECTION_PLAN_PENDING",
             "payload": {
                 "decision_id": decision_id,
-                "boundary_id": boundary_id,
-                "stage_id": stage_id,
-                "pressure_request_id": request_id,
+                **context,
                 "selected_block_ids": [3, 4],
                 "content_identity_by_block": [
                     {"block_id": 3, "native_cache_key": "content-3"},
@@ -93,9 +94,7 @@ def _events() -> list[dict[str, object]]:
             "event_type": "VLLM_NATIVE_HASHED_CACHE_ENTRY_EVICTED",
             "payload": {
                 "decision_id": decision_id,
-                "boundary_id": boundary_id,
-                "stage_id": stage_id,
-                "pressure_request_id": request_id,
+                **context,
                 "block_id": 3,
                 "native_cache_key_before": "content-3",
                 "physical_attribution": "MATCHED_PENDING_SELECTION_PLAN",
@@ -105,12 +104,21 @@ def _events() -> list[dict[str, object]]:
             "event_type": "VLLM_NATIVE_HASHED_CACHE_ENTRY_EVICTED",
             "payload": {
                 "decision_id": decision_id,
-                "boundary_id": boundary_id,
-                "stage_id": stage_id,
-                "pressure_request_id": request_id,
+                **context,
                 "block_id": 4,
                 "native_cache_key_before": "content-4",
                 "physical_attribution": "MATCHED_PENDING_SELECTION_PLAN",
+            },
+        },
+        {
+            "event_type": "NATIVE_ENTRY_RELEASE_PHYSICAL_OUTCOME",
+            "payload": {
+                "decision_id": decision_id,
+                **context,
+                "status": "PHYSICAL_EVICTION_OBSERVED",
+                "reason": "ALL_HASHED_SELECTION_PLAN_BLOCKS_MATCHED",
+                "matched_block_ids": [3, 4],
+                "unmatched_block_ids": [],
             },
         },
         {
@@ -124,6 +132,198 @@ def _events() -> list[dict[str, object]]:
             },
         },
     ]
+
+
+def _real_failure_shape_events() -> list[dict[str, object]]:
+    """Replay the persisted 123/153/188 lifecycle shape without block dumps."""
+    rows: list[dict[str, object]] = []
+    decisions = (
+        (
+            "native-entry-release-123",
+            2288,
+            0,
+            "CONTROLLED_PRESSURE",
+            "controlled-pressure:pressure-40",
+            ["pressure-40"],
+            "pressure:after-round-40",
+            "round-40",
+            "pressure-40",
+            False,
+        ),
+        (
+            "native-entry-release-153",
+            4537,
+            1,
+            "NATIVE_DRAIN_BATCH",
+            "native-drain-batch:request-a|request-b",
+            ["request-a", "request-b"],
+            None,
+            None,
+            None,
+            False,
+        ),
+        (
+            "native-entry-release-188",
+            10583,
+            2,
+            "NATIVE_DRAIN_BATCH",
+            "native-drain-batch:request-c|request-d",
+            ["request-c", "request-d"],
+            None,
+            None,
+            None,
+            True,
+        ),
+    )
+    for (
+        decision_id,
+        event_index,
+        counter_before,
+        boundary_type,
+        context_id,
+        request_ids,
+        boundary_id,
+        stage_id,
+        pressure_request_id,
+        fell_back,
+    ) in decisions:
+        context = {
+            "execution_context_id": context_id,
+            "boundary_type": boundary_type,
+            "request_ids": request_ids,
+        }
+        if boundary_id is not None:
+            context.update(
+                {
+                    "boundary_id": boundary_id,
+                    "stage_id": stage_id,
+                    "pressure_request_id": pressure_request_id,
+                }
+            )
+        selected = {"program_id": "program-a", "prefix_id": "prefix-a"}
+        rows.extend(
+            (
+                {
+                    "event_index": event_index,
+                    "event_type": "FORCED_RELEASE_DECISION",
+                    "payload": {"selected_releases": [selected]},
+                },
+                {
+                    "event_type": "A3_SUFFIX_RELEASE_DECISION",
+                    "payload": {
+                        "decision_id": decision_id,
+                        **context,
+                        "verification_mode": "native_live",
+                        "native_hash_process_id": "123",
+                        "decision_event_index": event_index,
+                        "decision_clock_domain": "continuum_pressure",
+                        "selection_trace": [
+                            {
+                                "key": ["program-a", "prefix-a"],
+                                "a1_key": ["program-b", "prefix-b"],
+                                "fell_back": fell_back,
+                                "audits": (
+                                    []
+                                    if fell_back
+                                    else [
+                                        {
+                                            "reuse_proxy": 0.25,
+                                            "prefill_reload_seconds": 2.0,
+                                            "suffix_blocks": 4,
+                                            "chain_length": 8,
+                                            "score": 0.25,
+                                            "content_verified": True,
+                                        },
+                                        {
+                                            "reuse_proxy": 0.5,
+                                            "prefill_reload_seconds": 1.0,
+                                            "suffix_blocks": 2,
+                                            "chain_length": 4,
+                                            "score": 0.25,
+                                            "content_verified": True,
+                                        },
+                                    ]
+                                ),
+                            }
+                        ],
+                    },
+                },
+                {
+                    "event_type": "FORCED_RELEASE_DECISION_BINDING",
+                    "payload": {
+                        "decision_id": decision_id,
+                        **context,
+                        "forced_release_counter_before": counter_before,
+                        "forced_release_counter_after": counter_before + 1,
+                        "forced_release_event_index": event_index,
+                        "selected_release_count": 1,
+                    },
+                },
+                {
+                    "event_type": "NATIVE_ENTRY_RELEASE_SELECTION_PLAN",
+                    "payload": {
+                        "decision_id": decision_id,
+                        **context,
+                        "selected_native_block_ids": [3, 4],
+                    },
+                },
+                {
+                    "event_type": "NATIVE_ENTRY_RELEASE_PHYSICAL_OUTCOME",
+                    "payload": {
+                        "decision_id": decision_id,
+                        **context,
+                        "status": "NO_PHYSICAL_EVICTION_OBSERVED",
+                        "reason": "NATIVE_SELECTION_RETURN_CONTAINED_NO_HASHED_BLOCKS",
+                        "matched_block_ids": [],
+                        "unmatched_block_ids": [],
+                    },
+                },
+            )
+        )
+    rows.extend(
+        (
+            {
+                "event_type": "NATIVE_ALLOCATION_ATTEMPT",
+                "payload": {
+                    "decision_id": "native-entry-release-124",
+                    "execution_context_id": "controlled-pressure:pressure-40",
+                    "boundary_type": "CONTROLLED_PRESSURE",
+                    "request_ids": ["pressure-40"],
+                },
+            },
+            {
+                "event_type": "CONTROLLED_REPLAY_PRESSURE_COMPLETED",
+                "payload": {
+                    "boundary_id": "pressure:after-round-40",
+                    "stage_id": "round-40",
+                    "bound_decision_count": 1,
+                    "bound_forced_release_count": 1,
+                    "bound_decision_ids": ["native-entry-release-123"],
+                },
+            },
+            {
+                "event_type": "CONTROLLED_REPLAY_PRESSURE_COMPLETED",
+                "payload": {
+                    "boundary_id": "pressure:after-round-50",
+                    "stage_id": "round-50",
+                    "bound_decision_count": 0,
+                    "bound_forced_release_count": 0,
+                    "bound_decision_ids": [],
+                },
+            },
+            {
+                "event_type": "CONTROLLED_REPLAY_PRESSURE_COMPLETED",
+                "payload": {
+                    "boundary_id": "pressure:after-round-55",
+                    "stage_id": "round-55",
+                    "bound_decision_count": 0,
+                    "bound_forced_release_count": 0,
+                    "bound_decision_ids": [],
+                },
+            },
+        )
+    )
+    return rows
 
 
 def test_static_preflight_passes_only_with_recomputable_intervention_and_joins() -> None:
@@ -190,7 +390,7 @@ def test_gate_o_rejects_stale_or_unbound_pressure_selection() -> None:
 
 def test_gate_o_rejects_pressure_counter_chain_anomaly() -> None:
     events = copy.deepcopy(_events())
-    events[7]["payload"]["bound_forced_release_count"] = 0
+    events[8]["payload"]["bound_forced_release_count"] = 0
 
     result = evaluate_a3_native_preflight(events)
 
@@ -199,14 +399,26 @@ def test_gate_o_rejects_pressure_counter_chain_anomaly() -> None:
 
 def test_gate_o_rejects_unknown_barrier_decision_without_crashing() -> None:
     events = copy.deepcopy(_events())
-    events[7]["payload"]["bound_decision_ids"].append("native-entry-release-122")
-    events[7]["payload"]["bound_decision_count"] = 2
+    events[8]["payload"]["bound_decision_ids"].append("native-entry-release-122")
+    events[8]["payload"]["bound_decision_count"] = 2
 
     result = evaluate_a3_native_preflight(events)
 
     assert result["status"] == "FAIL_CLOSED"
     assert result["gates"]["O"]["status"] == "FAIL"
     assert result["gates"]["O"]["barrier_binding_valid"] is False
+
+
+def test_real_123_153_188_shape_separates_decision_from_physical_outcome() -> None:
+    result = evaluate_a3_native_preflight(
+        _real_failure_shape_events(), require_a1_a3_intervention=False
+    )
+
+    assert result["gates"]["I"]["status"] == "PASS"
+    assert result["gates"]["C"]["status"] == "PASS"
+    assert result["gates"]["D"]["status"] == "PASS"
+    assert result["gates"]["O"]["status"] == "FAIL"
+    assert result["gates"]["O"]["no_physical_eviction_decision_count"] == 3
 
 
 def test_gate_o_rejects_no_counter_increment_for_forced_release() -> None:

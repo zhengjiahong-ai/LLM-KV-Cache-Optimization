@@ -117,11 +117,14 @@ def test_materialize_changes_only_authorized_runtime_identity(
         lambda _repository, *arguments: "" if arguments[0] == "status" else "abc123",
     )
     output = tmp_path / "prepared"
+    predecessor = tmp_path / "predecessor.tar.gz"
+    predecessor.write_bytes(b"immutable failed preflight")
 
     manifest = module.materialize_preflight(
         source_config_path=config,
         source_trace_path=trace,
         profile_path=profile,
+        predecessor_archive_path=predecessor,
         output_dir=output,
         repository=tmp_path,
     )
@@ -130,6 +133,8 @@ def test_materialize_changes_only_authorized_runtime_identity(
         (output / f"{module.RUN_ID}.config.json").read_text(encoding="utf-8")
     )
     assert manifest["git_sha"] == "abc123"
+    assert manifest["predecessor"]["status"] == "FAIL_CLOSED"
+    assert manifest["predecessor"]["archive_sha256"] == module._sha(predecessor)
     assert derived["campaign_kind"] == "phase2i_a3_native_integration"
     assert derived["backend_options"]["phase2g_release_policy"] == "A3"
     assert derived["backend_options"]["phase2g_block_policy"] == "A0"
@@ -150,12 +155,15 @@ def test_materialize_rejects_pressure_or_explicit_token_drift(
     value["pressure"]["required_blocks"] = 378
     _write(config, value)
     monkeypatch.setattr(module, "_git", lambda *_args: "abc123")
+    predecessor = tmp_path / "predecessor.tar.gz"
+    predecessor.write_bytes(b"immutable failed preflight")
 
     with pytest.raises(ValueError, match="pressure geometry drifted"):
         module.materialize_preflight(
             source_config_path=config,
             source_trace_path=trace,
             profile_path=profile,
+            predecessor_archive_path=predecessor,
             output_dir=tmp_path / "prepared",
             repository=tmp_path,
         )
@@ -171,10 +179,13 @@ def test_verify_freeze_rejects_git_or_file_drift(
         lambda _repository, *arguments: "" if arguments[0] == "status" else "abc123",
     )
     output = tmp_path / "prepared"
+    predecessor = tmp_path / "predecessor.tar.gz"
+    predecessor.write_bytes(b"immutable failed preflight")
     module.materialize_preflight(
         source_config_path=config,
         source_trace_path=trace,
         profile_path=profile,
+        predecessor_archive_path=predecessor,
         output_dir=output,
         repository=tmp_path,
     )
@@ -183,4 +194,30 @@ def test_verify_freeze_rejects_git_or_file_drift(
     )
 
     with pytest.raises(ValueError, match="trace_sha256"):
+        module._verify_freeze(output, tmp_path)
+
+
+def test_verify_freeze_rejects_predecessor_archive_drift(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config, trace, profile = _source(tmp_path)
+    monkeypatch.setattr(
+        module,
+        "_git",
+        lambda _repository, *arguments: "" if arguments[0] == "status" else "abc123",
+    )
+    predecessor = tmp_path / "predecessor.tar.gz"
+    predecessor.write_bytes(b"immutable failed preflight")
+    output = tmp_path / "prepared"
+    module.materialize_preflight(
+        source_config_path=config,
+        source_trace_path=trace,
+        profile_path=profile,
+        predecessor_archive_path=predecessor,
+        output_dir=output,
+        repository=tmp_path,
+    )
+    predecessor.write_bytes(b"mutated")
+
+    with pytest.raises(ValueError, match="predecessor archive binding mismatch"):
         module._verify_freeze(output, tmp_path)

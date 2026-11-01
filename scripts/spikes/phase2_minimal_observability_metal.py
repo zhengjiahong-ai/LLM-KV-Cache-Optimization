@@ -799,71 +799,155 @@ class _ObservedRetentionIntegration:
         )
         self.last_selected_block_ids: tuple[int, ...] = ()
         self._decision_sequence = 0
-        self._active_pressure_context: dict[str, object] | None = None
+        self._active_execution_context: dict[str, object] | None = None
         self._active_decision_id: str | None = None
         self._selection_plans: list[dict[str, object]] = []
         self._pending_physical_plans: list[dict[str, object]] = []
+        self._selection_awaiting_native_return: dict[str, object] | None = None
+
+    def _begin_execution_context(self, context: Mapping[str, object]) -> None:
+        if self._active_execution_context is not None:
+            raise RuntimeError("Native execution contexts must not be nested")
+        normalized = dict(context)
+        context_id = normalized.get("execution_context_id")
+        boundary_type = normalized.get("boundary_type")
+        request_ids = normalized.get("request_ids")
+        if not isinstance(context_id, str) or not context_id:
+            raise ValueError("Native execution context requires an ID")
+        if boundary_type not in {
+            "CONTROLLED_PRESSURE",
+            "ORDINARY_REQUEST",
+            "NATIVE_DRAIN_BATCH",
+        }:
+            raise ValueError("unsupported Native execution boundary type")
+        if not isinstance(request_ids, tuple) or not request_ids or not all(
+            isinstance(value, str) and value for value in request_ids
+        ):
+            raise ValueError("Native execution context requires request IDs")
+        self._active_execution_context = normalized
+
+    def begin_request_context(self, request_ids: tuple[str, ...]) -> None:
+        """Bind ordinary Native allocation to an explicit request or drain batch."""
+        if not request_ids:
+            raise ValueError("ordinary Native context requires request IDs")
+        boundary_type = (
+            "ORDINARY_REQUEST" if len(request_ids) == 1 else "NATIVE_DRAIN_BATCH"
+        )
+        self._begin_execution_context(
+            {
+                "execution_context_id": (
+                    f"{boundary_type.lower()}:{'|'.join(request_ids)}"
+                ),
+                "boundary_type": boundary_type,
+                "request_ids": request_ids,
+            }
+        )
 
     def begin_pressure_context(
         self, *, boundary_id: str, stage_id: str, pressure_request_id: str
     ) -> None:
-        if self._active_pressure_context is not None:
-            raise RuntimeError("pressure contexts must not be nested")
-        self._active_pressure_context = {
-            "boundary_id": boundary_id,
-            "stage_id": stage_id,
-            "pressure_request_id": pressure_request_id,
-        }
+        self._begin_execution_context(
+            {
+                "execution_context_id": f"controlled-pressure:{pressure_request_id}",
+                "boundary_type": "CONTROLLED_PRESSURE",
+                "request_ids": (pressure_request_id,),
+                "boundary_id": boundary_id,
+                "stage_id": stage_id,
+                "pressure_request_id": pressure_request_id,
+            }
+        )
+
+    def _emit_physical_outcome(
+        self,
+        plan: Mapping[str, object],
+        *,
+        status: str,
+        reason: str,
+        matched_block_ids: tuple[int, ...] = (),
+        unmatched_block_ids: tuple[int, ...] = (),
+    ) -> None:
+        if self._sink is None:
+            return
+        self._sink.emit(
+            ExperimentEvent.create(
+                event_type="NATIVE_ENTRY_RELEASE_PHYSICAL_OUTCOME",
+                timestamp=self._clock.now(),
+                clock_domain=self._clock_domain,
+                source="phase2i.native_selection_plan",
+                payload={
+                    **{
+                        field: plan[field]
+                        for field in (
+                            "decision_id",
+                            "execution_context_id",
+                            "boundary_type",
+                            "request_ids",
+                            "boundary_id",
+                            "stage_id",
+                            "pressure_request_id",
+                        )
+                        if field in plan
+                    },
+                    "status": status,
+                    "reason": reason,
+                    "matched_block_ids": matched_block_ids,
+                    "unmatched_block_ids": unmatched_block_ids,
+                },
+            )
+        )
+
+    def end_execution_context(self) -> None:
+        active = self._active_execution_context
+        if active is None:
+            return
+        context_id = active["execution_context_id"]
+        closing = tuple(
+            plan
+            for plan in self._pending_physical_plans
+            if plan["execution_context_id"] == context_id
+        )
+        for plan in closing:
+            matched = tuple(plan["matched_block_ids"])
+            unmatched = tuple(sorted(plan["expected_content_by_block"]))
+            self._emit_physical_outcome(
+                plan,
+                status=(
+                    "PARTIAL_PHYSICAL_EVICTION_OBSERVED"
+                    if matched
+                    else "NO_PHYSICAL_EVICTION_OBSERVED"
+                ),
+                reason="NATIVE_EXECUTION_CONTEXT_CLOSED_WITH_UNMATCHED_BLOCKS",
+                matched_block_ids=matched,
+                unmatched_block_ids=unmatched,
+            )
+            self._pending_physical_plans.remove(plan)
+        if self._selection_awaiting_native_return is not None:
+            raise RuntimeError("Native selection return was not observed before context close")
+        self._active_execution_context = None
 
     def end_pressure_context(self) -> None:
-        if self._active_pressure_context is not None:
-            request_id = self._active_pressure_context["pressure_request_id"]
-            closing = tuple(
-                plan
-                for plan in self._pending_physical_plans
-                if plan["pressure_request_id"] == request_id
-            )
-            for plan in closing:
-                if self._sink is not None:
-                    self._sink.emit(
-                        ExperimentEvent.create(
-                            event_type="NATIVE_SELECTION_PLAN_CLOSED",
-                            timestamp=self._clock.now(),
-                            clock_domain=self._clock_domain,
-                            source="phase2i.native_selection_plan",
-                            payload={
-                                "decision_id": plan["decision_id"],
-                                "boundary_id": plan["boundary_id"],
-                                "stage_id": plan["stage_id"],
-                                "pressure_request_id": request_id,
-                                "matched_block_ids": tuple(plan["matched_block_ids"]),
-                                "unmatched_block_ids": tuple(
-                                    sorted(plan["expected_content_by_block"])
-                                ),
-                            },
-                        )
-                    )
-                self._pending_physical_plans.remove(plan)
-        self._active_pressure_context = None
+        active = self._active_execution_context
+        if active is not None and active.get("boundary_type") != "CONTROLLED_PRESSURE":
+            raise RuntimeError("active Native context is not controlled pressure")
+        self.end_execution_context()
 
     def observe_native_selection_returned(
         self, selected: tuple[tuple[int, str | None], ...]
     ) -> None:
         """Bind the returned Native objects before their later physical cleanup."""
-        if self._active_pressure_context is None or not selected:
+        plan = self._selection_awaiting_native_return
+        self._selection_awaiting_native_return = None
+        if plan is None:
             return
-        request_id = str(self._active_pressure_context["pressure_request_id"])
-        plans = [
-            plan
-            for plan in self._selection_plans
-            if plan.get("pressure_request_id") == request_id
-            and plan.get("native_return_bound") is not True
-        ]
-        if len(plans) != 1:
-            return
-        plan = plans[0]
         selected_ids = tuple(block_id for block_id, _content_hash in selected)
         if selected_ids != tuple(plan["selected_native_block_ids"]):
+            self._emit_physical_outcome(
+                plan,
+                status="EVIDENCE_MISSING",
+                reason="NATIVE_SELECTION_RETURN_DOES_NOT_MATCH_SELECTION_PLAN",
+            )
+            return
+        if plan.get("plan_kind") != "A3_ENTRY_RELEASE":
             return
         expected: dict[int, str] = {}
         for block_id, native_content_hash in selected:
@@ -881,16 +965,35 @@ class _ObservedRetentionIntegration:
                 or identity.native_hash_process_id != str(os.getpid())
                 or identity.content_hash != native_content_hash
             ):
+                self._emit_physical_outcome(
+                    plan,
+                    status="EVIDENCE_MISSING",
+                    reason="NATIVE_SELECTION_CONTENT_IDENTITY_MISMATCH",
+                )
                 return
             expected[block_id] = native_content_hash
         if not expected:
+            self._emit_physical_outcome(
+                plan,
+                status="NO_PHYSICAL_EVICTION_OBSERVED",
+                reason="NATIVE_SELECTION_RETURN_CONTAINED_NO_HASHED_BLOCKS",
+            )
             return
         plan["native_return_bound"] = True
         pending = {
-            "decision_id": plan["decision_id"],
-            "boundary_id": plan["boundary_id"],
-            "stage_id": plan["stage_id"],
-            "pressure_request_id": request_id,
+            **{
+                field: plan[field]
+                for field in (
+                    "decision_id",
+                    "execution_context_id",
+                    "boundary_type",
+                    "request_ids",
+                    "boundary_id",
+                    "stage_id",
+                    "pressure_request_id",
+                )
+                if field in plan
+            },
             "expected_content_by_block": expected,
             "matched_block_ids": [],
         }
@@ -904,9 +1007,14 @@ class _ObservedRetentionIntegration:
                     source="phase2i.native_selection_plan",
                     payload={
                         "decision_id": pending["decision_id"],
-                        "boundary_id": pending["boundary_id"],
-                        "stage_id": pending["stage_id"],
-                        "pressure_request_id": request_id,
+                        "execution_context_id": pending["execution_context_id"],
+                        "boundary_type": pending["boundary_type"],
+                        "request_ids": pending["request_ids"],
+                        **{
+                            field: pending[field]
+                            for field in ("boundary_id", "stage_id", "pressure_request_id")
+                            if field in pending
+                        },
                         "selected_block_ids": tuple(sorted(expected)),
                         "content_identity_by_block": tuple(
                             {
@@ -923,14 +1031,12 @@ class _ObservedRetentionIntegration:
         self, observation: NativeHashedEvictionObservation
     ) -> dict[str, object]:
         """Consume one unique pending block/content match or leave it unattributed."""
-        active = self._active_pressure_context
+        active = self._active_execution_context
         candidates = []
         if active is not None:
             for plan in self._pending_physical_plans:
                 if (
-                    plan["pressure_request_id"] == active["pressure_request_id"]
-                    and plan["boundary_id"] == active["boundary_id"]
-                    and plan["stage_id"] == active["stage_id"]
+                    plan["execution_context_id"] == active["execution_context_id"]
                     and plan["expected_content_by_block"].get(observation.block_id)
                     == observation.native_cache_key_before
                 ):
@@ -945,12 +1051,24 @@ class _ObservedRetentionIntegration:
         plan = candidates[0]
         del plan["expected_content_by_block"][observation.block_id]
         plan["matched_block_ids"].append(observation.block_id)
+        if not plan["expected_content_by_block"]:
+            self._emit_physical_outcome(
+                plan,
+                status="PHYSICAL_EVICTION_OBSERVED",
+                reason="ALL_HASHED_SELECTION_PLAN_BLOCKS_MATCHED",
+                matched_block_ids=tuple(plan["matched_block_ids"]),
+            )
+            self._pending_physical_plans.remove(plan)
         return {
             "physical_attribution": "MATCHED_PENDING_SELECTION_PLAN",
             "decision_id": plan["decision_id"],
-            "boundary_id": plan["boundary_id"],
-            "stage_id": plan["stage_id"],
-            "pressure_request_id": plan["pressure_request_id"],
+            "execution_context_id": plan["execution_context_id"],
+            "boundary_type": plan["boundary_type"],
+            **{
+                field: plan[field]
+                for field in ("boundary_id", "stage_id", "pressure_request_id")
+                if field in plan
+            },
         }
 
     def selection_plans_for(self, pressure_request_id: str) -> tuple[dict[str, object], ...]:
@@ -971,7 +1089,7 @@ class _ObservedRetentionIntegration:
 
     def current_decision_context(self) -> Mapping[str, object]:
         return {
-            **(self._active_pressure_context or {}),
+            **(self._active_execution_context or {}),
             **(
                 {"decision_id": self._active_decision_id}
                 if self._active_decision_id is not None
@@ -1059,7 +1177,7 @@ class _ObservedRetentionIntegration:
         decision_id = f"native-entry-release-{self._decision_sequence}"
         context = {
             "decision_id": decision_id,
-            **(self._active_pressure_context or {}),
+            **(self._active_execution_context or {}),
             "forced_release_counter_before": self._forced_release_observer.count,
         }
         self._forced_release_observer.begin_decision(context)
@@ -1092,7 +1210,7 @@ class _ObservedRetentionIntegration:
             if self._a3_coordinator is not None
             else ()
         )
-        if self._a3_coordinator is not None and self._sink is not None:
+        if self._a3_coordinator is not None and self._sink is not None and a3_trace:
             self._sink.emit(
                 ExperimentEvent.create(
                     event_type="A3_SUFFIX_RELEASE_DECISION",
@@ -1141,11 +1259,29 @@ class _ObservedRetentionIntegration:
                 else ()
             ),
         }
-        self._selection_plans.append(plan)
-        if self._sink is not None:
+        forced_release_observed = plan["forced_release_observed"] is True
+        plan["plan_kind"] = (
+            "A3_ENTRY_RELEASE" if forced_release_observed else "NATIVE_ALLOCATION_ATTEMPT"
+        )
+        if self._selection_awaiting_native_return is not None:
+            raise RuntimeError("previous Native selection return was not observed")
+        self._selection_awaiting_native_return = plan
+        if forced_release_observed:
+            self._selection_plans.append(plan)
+        if self._sink is not None and forced_release_observed:
             self._sink.emit(
                 ExperimentEvent.create(
                     event_type="NATIVE_ENTRY_RELEASE_SELECTION_PLAN",
+                    timestamp=self._clock.now(),
+                    clock_domain=self._clock_domain,
+                    source="phase2i.native_selection_plan",
+                    payload=plan,
+                )
+            )
+        elif self._sink is not None:
+            self._sink.emit(
+                ExperimentEvent.create(
+                    event_type="NATIVE_ALLOCATION_ATTEMPT",
                     timestamp=self._clock.now(),
                     clock_domain=self._clock_domain,
                     source="phase2i.native_selection_plan",
@@ -2624,9 +2760,13 @@ class MinimalMetalObservabilityBackend:
 
     def _execute_turn(self, request: PlannedRequest) -> None:
         self._wait_for_planned_arrival(request)
-        native_id, external_id, _submitted_at, prefix_tokens = self._start_turn(request)
-        finished_at = self._complete(request, native_id, external_id)
-        self._finish_turn(request, native_id, finished_at, prefix_tokens)
+        self._retention_integration.begin_request_context((request.request_id,))
+        try:
+            native_id, external_id, _submitted_at, prefix_tokens = self._start_turn(request)
+            finished_at = self._complete(request, native_id, external_id)
+            self._finish_turn(request, native_id, finished_at, prefix_tokens)
+        finally:
+            self._retention_integration.end_execution_context()
 
     def _start_pressure(self, request: PlannedRequest) -> tuple[str, str, float]:
         stage_id = request.program_id.removeprefix("pressure:")
@@ -2813,45 +2953,52 @@ class MinimalMetalObservabilityBackend:
             raise RuntimeError("drain_native requires controlled sparse replay")
         if not self._phase2b_pending:
             return ()
-        outputs = self._wait_for_completion_bounded(timeout_seconds)
-        rows: list[RequestCompletion] = []
-        for output in outputs:
-            external_id = getattr(output, "request_id", None)
-            if not isinstance(external_id, str):
-                raise TypeError("native completion lacks external request ID")
-            pending = self._phase2b_pending.pop(external_id, None)
-            if pending is None:
+        request_ids = tuple(
+            sorted(pending[0].request_id for pending in self._phase2b_pending.values())
+        )
+        self._retention_integration.begin_request_context(request_ids)
+        try:
+            outputs = self._wait_for_completion_bounded(timeout_seconds)
+            rows: list[RequestCompletion] = []
+            for output in outputs:
+                external_id = getattr(output, "request_id", None)
+                if not isinstance(external_id, str):
+                    raise TypeError("native completion lacks external request ID")
+                pending = self._phase2b_pending.pop(external_id, None)
+                if pending is None:
+                    raise RuntimeError(
+                        f"native completion has no pending request: {external_id}"
+                    )
+                request, native_id, prefix_tokens = pending
+                finished_at = self._observe_completed_output(
+                    request,
+                    native_id,
+                    external_id,
+                    output,
+                )
+                if request.request_id in self._controlled_completed:
+                    raise RuntimeError("duplicate controlled Native completion")
+                self._controlled_completed[request.request_id] = (
+                    request,
+                    native_id,
+                    prefix_tokens,
+                )
+                rows.append(
+                    RequestCompletion(
+                        logical_request_id=request.request_id,
+                        native_request_id=native_id,
+                        external_request_id=external_id,
+                        completed_at=finished_at,
+                    )
+                )
+            if self._phase2b_pending:
+                missing = ", ".join(sorted(self._phase2b_pending))
                 raise RuntimeError(
-                    f"native completion has no pending request: {external_id}"
+                    f"native drain omitted pending external request IDs: {missing}"
                 )
-            request, native_id, prefix_tokens = pending
-            finished_at = self._observe_completed_output(
-                request,
-                native_id,
-                external_id,
-                output,
-            )
-            if request.request_id in self._controlled_completed:
-                raise RuntimeError("duplicate controlled Native completion")
-            self._controlled_completed[request.request_id] = (
-                request,
-                native_id,
-                prefix_tokens,
-            )
-            rows.append(
-                RequestCompletion(
-                    logical_request_id=request.request_id,
-                    native_request_id=native_id,
-                    external_request_id=external_id,
-                    completed_at=finished_at,
-                )
-            )
-        if self._phase2b_pending:
-            missing = ", ".join(sorted(self._phase2b_pending))
-            raise RuntimeError(
-                f"native drain omitted pending external request IDs: {missing}"
-            )
-        return tuple(rows)
+            return tuple(rows)
+        finally:
+            self._retention_integration.end_execution_context()
 
     def finish_logical_completion(self, request_id: str) -> None:
         """Apply lifecycle completion at the frozen logical-time boundary."""
