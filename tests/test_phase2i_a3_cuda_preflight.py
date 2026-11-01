@@ -183,6 +183,29 @@ def _predecessor(path: Path, config: Path, trace: Path, profile: Path) -> Path:
     return path
 
 
+def _actual_v1_predecessor(
+    path: Path, config: Path, trace: Path, profile: Path
+) -> Path:
+    complete = _predecessor(path.with_name("complete-v1.tar.gz"), config, trace, profile)
+    freeze, _members, _report, run = module._load_predecessor_evidence(complete)
+    offline_report = {
+        "schema_version": "phase2i.a3_native_static_preflight.v1",
+        "status": "FAIL_CLOSED",
+        "gates": {"O": {"status": "FAIL"}},
+    }
+    with tarfile.open(path, "w:gz") as archive:
+        for name, value in (
+            ("artifacts/first/freeze-record.json", freeze),
+            ("artifacts/first/offline-gate-diagnostic.json", offline_report),
+            (f"artifacts/first/runs/{module.FIRST_PREFLIGHT_RUN_ID}/run.json", run),
+        ):
+            raw = (json.dumps(value, sort_keys=True) + "\n").encode()
+            member = tarfile.TarInfo(name)
+            member.size = len(raw)
+            archive.addfile(member, io.BytesIO(raw))
+    return path
+
+
 def test_materialize_changes_only_authorized_runtime_identity(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -228,6 +251,12 @@ def test_materialize_changes_only_authorized_runtime_identity(
         "safety_ceiling": 1,
     }
     assert (output / "hr02-short-gap-long-context.trace.json").read_bytes() == trace.read_bytes()
+    copied_profile = output / "prefill-profile.json"
+    assert copied_profile.read_bytes() == profile.read_bytes()
+    assert derived["backend_options"]["prefill_profile_path"] == str(
+        copied_profile.resolve()
+    )
+    assert manifest["derived"]["profile_sha256"] == module._sha(copied_profile)
 
 
 def test_materialize_rejects_pressure_or_explicit_token_drift(
@@ -360,6 +389,32 @@ def test_materialize_rejects_freeze_only_archive_without_failed_execution(
             output_dir=tmp_path / "prepared",
             repository=tmp_path,
         )
+
+
+def test_materialize_accepts_actual_v1_offline_failure_report(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config, trace, profile = _source(tmp_path)
+    monkeypatch.setattr(
+        module,
+        "_git",
+        lambda _repository, *arguments: "" if arguments[0] == "status" else "abc123",
+    )
+    predecessor = _actual_v1_predecessor(
+        tmp_path / "actual-v1.tar.gz", config, trace, profile
+    )
+
+    result = module.materialize_preflight(
+        source_config_path=config,
+        source_trace_path=trace,
+        profile_path=profile,
+        predecessor_archive_path=predecessor,
+        m1_public_key_path=_m1_keys(tmp_path)[1],
+        output_dir=tmp_path / "prepared",
+        repository=tmp_path,
+    )
+
+    assert result["predecessor"]["status"] == "FAIL_CLOSED"
 
 
 def test_authorization_is_independent_bound_and_consumed_once(

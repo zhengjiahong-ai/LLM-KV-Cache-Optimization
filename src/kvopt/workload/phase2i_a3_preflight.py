@@ -390,7 +390,9 @@ def evaluate_a3_native_preflight(
             int(value)
             for value in tuple(pending.get("selected_block_ids") or ())
         }
-        physical_join_valid &= matched_blocks_by_decision.get(decision_id, set()) == expected_blocks
+        physical_join_valid &= matched_blocks_by_decision.get(
+            decision_id, set()
+        ) <= expected_blocks
 
     physical_decision_ids = {
         decision_id

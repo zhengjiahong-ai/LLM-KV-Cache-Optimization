@@ -15,6 +15,14 @@ content-verified, non-fallback multi-candidate A3 decisions. Gate O failed:
 decisions and therefore remain non-causal observations. The first archive is
 immutable and is not an input to an effect claim.
 
+The immutable v1 archive predates the replacement-report schema. Its persisted
+failure report is `offline-gate-diagnostic.json` rather than the later
+`native-preflight-report.json`, and it does not carry the later report-level
+Run/Freeze binding fields. Preparation accepts this specific historical shape,
+requires its `FAIL_CLOSED` status plus the original Freeze Record and successful
+Native Run Manifest, and records their hashes without retroactively rewriting
+the archive.
+
 The persisted lifecycle exposed three distinct cases that the original event
 scope had conflated:
 
@@ -68,6 +76,12 @@ Only the reviewed integration identity changes: campaign kind becomes
 remains A0, and the backend/policy labels identify this preflight. The derived
 configuration, unchanged trace, profile and execution Git commit are sealed in
 `freeze-record.json` before GPU execution.
+
+Preparation copies the exact PrefillReload Profile bytes into the frozen input
+directory, binds the copied file SHA-256, and points the derived configuration
+to that copy. The final evidence archive therefore contains the executable
+Profile alongside the Config and Trace instead of depending on an external
+absolute-path artifact.
 
 ## Fail-closed execution
 

@@ -574,6 +574,38 @@ def test_gate_o_rejects_unknown_or_incomplete_physical_outcome() -> None:
     )
 
 
+def test_gate_o_accepts_partial_join_but_still_requires_one_complete_decision() -> None:
+    events = copy.deepcopy(_events())
+    events = [
+        event
+        for event in events
+        if not (
+            event["event_type"] == "VLLM_NATIVE_HASHED_CACHE_ENTRY_EVICTED"
+            and event["payload"].get("block_id") == 4
+        )
+    ]
+    outcome = next(
+        event
+        for event in events
+        if event["event_type"] == "NATIVE_ENTRY_RELEASE_PHYSICAL_OUTCOME"
+    )
+    outcome["payload"].update(
+        {
+            "status": "PARTIAL_PHYSICAL_EVICTION_OBSERVED",
+            "reason": "NATIVE_EXECUTION_CONTEXT_CLOSED_WITH_UNMATCHED_BLOCKS",
+            "matched_block_ids": [3],
+            "unmatched_block_ids": [4],
+        }
+    )
+
+    result = evaluate_a3_native_preflight(events)
+
+    assert result["gates"]["O"]["physical_eviction_join_valid"] is True
+    assert result["gates"]["O"]["physical_outcomes_valid"] is True
+    assert result["gates"]["O"]["required_physical_observed"] is False
+    assert result["gates"]["O"]["status"] == "FAIL"
+
+
 def test_gate_o_rejects_missing_pending_plan_disguised_as_no_physical() -> None:
     events = copy.deepcopy(_events())
     events.pop(4)

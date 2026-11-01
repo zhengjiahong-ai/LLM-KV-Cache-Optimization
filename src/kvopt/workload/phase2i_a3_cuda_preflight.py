@@ -148,9 +148,9 @@ def _load_predecessor_evidence(
     reports = [
         value
         for name, (_raw, value) in members.items()
-        if name.endswith("native-preflight-report.json")
+        if name.endswith(("native-preflight-report.json", "offline-gate-diagnostic.json"))
         and value.get("status") == "FAIL_CLOSED"
-        and value.get("run_id") == FIRST_PREFLIGHT_RUN_ID
+        and value.get("run_id", FIRST_PREFLIGHT_RUN_ID) == FIRST_PREFLIGHT_RUN_ID
     ]
     run_manifests = [
         value
@@ -163,10 +163,14 @@ def _load_predecessor_evidence(
             "predecessor archive requires one failed Native report and one run manifest"
         )
     report, run_manifest = reports[0], run_manifests[0]
-    if (
-        report.get("git_sha") != freeze.get("git_sha")
-        or report.get("freeze_record_sha256") != _canonical_sha(freeze)
-        or report.get("run_status") != run_manifest.get("status")
+    if report.get("git_sha", freeze.get("git_sha")) != freeze.get("git_sha"):
+        raise ValueError("predecessor freeze and report Git SHA do not cohere")
+    if report.get("freeze_record_sha256", _canonical_sha(freeze)) != _canonical_sha(
+        freeze
+    ):
+        raise ValueError("predecessor freeze and report Freeze SHA do not cohere")
+    if report.get("run_status", run_manifest.get("status")) != run_manifest.get(
+        "status"
     ):
         raise ValueError("predecessor freeze, report, and run manifest do not cohere")
     return freeze, member_hashes, report, run_manifest
@@ -304,6 +308,8 @@ def materialize_preflight(
     output_dir.mkdir(parents=True)
     trace_path = output_dir / "hr02-short-gap-long-context.trace.json"
     trace_path.write_bytes(source_trace_path.read_bytes())
+    copied_profile_path = output_dir / "prefill-profile.json"
+    copied_profile_path.write_bytes(profile_path.read_bytes())
     config = copy.deepcopy(source_config)
     config["campaign_kind"] = "phase2i_a3_native_integration"
     config["backend_revision"] = "phase2i-a3-target-cuda-native-preflight-v1"
@@ -312,7 +318,7 @@ def materialize_preflight(
     backend = config["backend_options"]
     assert isinstance(backend, dict)
     backend["phase2g_release_policy"] = "A3"
-    backend["prefill_profile_path"] = str(profile_path.resolve())
+    backend["prefill_profile_path"] = str(copied_profile_path.resolve())
     config_path = output_dir / f"{RUN_ID}.config.json"
     _write(config_path, config)
 
@@ -364,8 +370,8 @@ def materialize_preflight(
             "config_sha256": _sha(config_path),
             "trace": trace_path.name,
             "trace_sha256": _sha(trace_path),
-            "profile_path": str(profile_path.resolve()),
-            "profile_sha256": _sha(profile_path),
+            "profile_path": str(copied_profile_path.resolve()),
+            "profile_sha256": _sha(copied_profile_path),
             "explicit_token_ids_sha256": _canonical_sha(
                 backend["replay_token_ids_by_request"]
             ),
