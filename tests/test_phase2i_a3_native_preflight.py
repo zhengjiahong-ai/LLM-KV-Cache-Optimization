@@ -197,6 +197,18 @@ def test_gate_o_rejects_pressure_counter_chain_anomaly() -> None:
     assert result["gates"]["O"]["status"] == "FAIL"
 
 
+def test_gate_o_rejects_unknown_barrier_decision_without_crashing() -> None:
+    events = copy.deepcopy(_events())
+    events[7]["payload"]["bound_decision_ids"].append("native-entry-release-122")
+    events[7]["payload"]["bound_decision_count"] = 2
+
+    result = evaluate_a3_native_preflight(events)
+
+    assert result["status"] == "FAIL_CLOSED"
+    assert result["gates"]["O"]["status"] == "FAIL"
+    assert result["gates"]["O"]["barrier_binding_valid"] is False
+
+
 def test_gate_o_rejects_no_counter_increment_for_forced_release() -> None:
     events = copy.deepcopy(_events())
     events[2]["payload"]["forced_release_counter_before"] = 2

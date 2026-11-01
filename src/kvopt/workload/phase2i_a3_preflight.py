@@ -216,6 +216,8 @@ def evaluate_a3_native_preflight(
     for event in barriers:
         payload = _payload(event)
         bound_ids = tuple(str(value) for value in payload.get("bound_decision_ids") or ())
+        bound_bindings = tuple(bindings_by_id.get(decision_id) for decision_id in bound_ids)
+        all_bound_ids_resolve = all(binding is not None for binding in bound_bindings)
         expected_ids = tuple(
             decision_id
             for decision_id, binding in bindings_by_id.items()
@@ -223,6 +225,7 @@ def evaluate_a3_native_preflight(
             and binding.get("stage_id") == payload.get("stage_id")
         )
         barrier_binding_valid &= len(bound_ids) == len(set(bound_ids))
+        barrier_binding_valid &= all_bound_ids_resolve
         barrier_binding_valid &= set(bound_ids) == set(expected_ids)
         barrier_binding_valid &= int(payload.get("bound_decision_count", -1)) == len(
             bound_ids
@@ -230,8 +233,9 @@ def evaluate_a3_native_preflight(
         barrier_binding_valid &= int(
             payload.get("bound_forced_release_count", -1)
         ) == sum(
-            int(bindings_by_id[decision_id].get("selected_release_count", 0) > 0)
-            for decision_id in bound_ids
+            int(binding.get("selected_release_count", 0) > 0)
+            for binding in bound_bindings
+            if binding is not None
         )
 
     physical_join_count = 0
