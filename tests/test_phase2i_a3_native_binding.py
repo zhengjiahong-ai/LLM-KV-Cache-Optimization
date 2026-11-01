@@ -141,15 +141,14 @@ def test_pure_native_allocation_attempt_never_creates_entry_pending_plan() -> No
         timestamp=1.0,
         remove_selected=lambda _ids: None,
     )
-    integration.observe_native_selection_returned(
-        ((1, "content-1"), (2, "content-2"))
-    )
+    integration.observe_native_selection_returned(((99, "unrelated"),))
     integration.end_pressure_context()
 
     event_types = tuple(event.event_type for event in sink.snapshot())
     assert "NATIVE_ALLOCATION_ATTEMPT" in event_types
     assert "NATIVE_ENTRY_RELEASE_SELECTION_PLAN" not in event_types
     assert "NATIVE_SELECTION_PLAN_PENDING" not in event_types
+    assert "NATIVE_ENTRY_RELEASE_PHYSICAL_OUTCOME" not in event_types
 
 
 def test_wrong_block_or_content_never_inherits_pending_pressure_decision() -> None:

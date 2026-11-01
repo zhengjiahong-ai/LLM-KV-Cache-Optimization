@@ -8,7 +8,7 @@ from scripts.spikes.phase2_minimal_observability_metal import (
 
 def _events() -> list[dict[str, object]]:
     decision_id = "native-entry-release-1"
-    boundary_id = "pressure:round-40"
+    boundary_id = "pressure:after-round-40"
     request_id = "pressure-request-1"
     stage_id = "round-40"
     context_id = f"controlled-pressure:{request_id}"
@@ -53,7 +53,15 @@ def _events() -> list[dict[str, object]]:
                                 "chain_length": 8,
                                 "score": 0.25,
                                 "content_verified": True,
-                            }
+                            },
+                            {
+                                "reuse_proxy": 0.5,
+                                "prefill_reload_seconds": 1.0,
+                                "suffix_blocks": 2,
+                                "chain_length": 4,
+                                "score": 0.25,
+                                "content_verified": True,
+                            },
                         ],
                     }
                 ],
@@ -131,6 +139,26 @@ def _events() -> list[dict[str, object]]:
                 "bound_decision_ids": [decision_id],
             },
         },
+        {
+            "event_type": "CONTROLLED_REPLAY_PRESSURE_COMPLETED",
+            "payload": {
+                "boundary_id": "pressure:after-round-50",
+                "stage_id": "round-50",
+                "bound_decision_count": 0,
+                "bound_forced_release_count": 0,
+                "bound_decision_ids": [],
+            },
+        },
+        {
+            "event_type": "CONTROLLED_REPLAY_PRESSURE_COMPLETED",
+            "payload": {
+                "boundary_id": "pressure:after-round-55",
+                "stage_id": "round-55",
+                "bound_decision_count": 0,
+                "bound_forced_release_count": 0,
+                "bound_decision_ids": [],
+            },
+        },
     ]
 
 
@@ -200,7 +228,10 @@ def _real_failure_shape_events() -> list[dict[str, object]]:
                     "pressure_request_id": pressure_request_id,
                 }
             )
-        selected = {"program_id": "program-a", "prefix_id": "prefix-a"}
+        selected = {
+            "program_id": "program-b" if fell_back else "program-a",
+            "prefix_id": "prefix-b" if fell_back else "prefix-a",
+        }
         rows.extend(
             (
                 {
@@ -219,7 +250,11 @@ def _real_failure_shape_events() -> list[dict[str, object]]:
                         "decision_clock_domain": "continuum_pressure",
                         "selection_trace": [
                             {
-                                "key": ["program-a", "prefix-a"],
+                                "key": (
+                                    ["program-b", "prefix-b"]
+                                    if fell_back
+                                    else ["program-a", "prefix-a"]
+                                ),
                                 "a1_key": ["program-b", "prefix-b"],
                                 "fell_back": fell_back,
                                 "audits": (
@@ -344,9 +379,30 @@ def test_gate_c_fails_closed_on_score_tamper() -> None:
     assert result["gates"]["D"]["status"] == "FAIL"
 
 
+def test_gate_c_rejects_nonfallback_selection_with_empty_audits() -> None:
+    events = copy.deepcopy(_events())
+    events[1]["payload"]["selection_trace"][0]["audits"] = []
+
+    result = evaluate_a3_native_preflight(events)
+
+    assert result["gates"]["C"]["status"] == "FAIL"
+
+
 def test_gate_d_rejects_a3_choice_not_committed_as_actual_release() -> None:
     events = copy.deepcopy(_events())
     events[0]["payload"]["selected_releases"][0]["program_id"] = "program-b"
+
+    result = evaluate_a3_native_preflight(events)
+
+    assert result["gates"]["D"]["status"] == "FAIL"
+
+
+def test_gate_d_requires_exact_entry_set_not_subset() -> None:
+    events = copy.deepcopy(_events())
+    events[0]["payload"]["selected_releases"].append(
+        {"program_id": "program-extra", "prefix_id": "prefix-extra"}
+    )
+    events[2]["payload"]["selected_release_count"] = 2
 
     result = evaluate_a3_native_preflight(events)
 
@@ -419,6 +475,65 @@ def test_real_123_153_188_shape_separates_decision_from_physical_outcome() -> No
     assert result["gates"]["D"]["status"] == "PASS"
     assert result["gates"]["O"]["status"] == "FAIL"
     assert result["gates"]["O"]["no_physical_eviction_decision_count"] == 3
+
+
+def test_gate_d_rejects_fallback_that_does_not_select_a1_key() -> None:
+    events = _real_failure_shape_events()
+    fallback = next(
+        event
+        for event in events
+        if event.get("event_type") == "A3_SUFFIX_RELEASE_DECISION"
+        and event.get("payload", {}).get("decision_id") == "native-entry-release-188"
+    )
+    fallback["payload"]["selection_trace"][0]["key"] = ["program-a", "prefix-a"]
+
+    result = evaluate_a3_native_preflight(
+        events, require_a1_a3_intervention=False
+    )
+
+    assert result["gates"]["D"]["status"] == "FAIL"
+    assert result["gates"]["D"]["fallback_selection_valid"] is False
+
+
+def test_gate_d_rejects_fallback_release_not_equal_to_a1_key() -> None:
+    events = _real_failure_shape_events()
+    forced = next(
+        event
+        for event in events
+        if event.get("event_index") == 10583
+    )
+    forced["payload"]["selected_releases"] = [
+        {"program_id": "program-a", "prefix_id": "prefix-a"}
+    ]
+
+    result = evaluate_a3_native_preflight(
+        events, require_a1_a3_intervention=False
+    )
+
+    assert result["gates"]["D"]["status"] == "FAIL"
+
+
+def test_gate_o_requires_each_frozen_barrier_once() -> None:
+    events = copy.deepcopy(_events())
+    events.pop()
+
+    result = evaluate_a3_native_preflight(events)
+
+    assert result["gates"]["O"]["status"] == "FAIL"
+    assert result["gates"]["O"]["barrier_binding_valid"] is False
+
+
+def test_gate_o_rejects_unknown_or_incomplete_physical_outcome() -> None:
+    unknown = copy.deepcopy(_events())
+    unknown[7]["payload"]["status"] = "MADE_UP"
+    assert evaluate_a3_native_preflight(unknown)["gates"]["O"]["status"] == "FAIL"
+
+    incomplete = copy.deepcopy(_events())
+    incomplete[7]["payload"]["matched_block_ids"] = [3]
+    assert (
+        evaluate_a3_native_preflight(incomplete)["gates"]["O"]["status"]
+        == "FAIL"
+    )
 
 
 def test_gate_o_rejects_no_counter_increment_for_forced_release() -> None:

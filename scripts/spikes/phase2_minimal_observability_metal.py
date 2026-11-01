@@ -939,6 +939,8 @@ class _ObservedRetentionIntegration:
         self._selection_awaiting_native_return = None
         if plan is None:
             return
+        if plan.get("plan_kind") != "A3_ENTRY_RELEASE":
+            return
         selected_ids = tuple(block_id for block_id, _content_hash in selected)
         if selected_ids != tuple(plan["selected_native_block_ids"]):
             self._emit_physical_outcome(
@@ -946,8 +948,6 @@ class _ObservedRetentionIntegration:
                 status="EVIDENCE_MISSING",
                 reason="NATIVE_SELECTION_RETURN_DOES_NOT_MATCH_SELECTION_PLAN",
             )
-            return
-        if plan.get("plan_kind") != "A3_ENTRY_RELEASE":
             return
         expected: dict[int, str] = {}
         for block_id, native_content_hash in selected:

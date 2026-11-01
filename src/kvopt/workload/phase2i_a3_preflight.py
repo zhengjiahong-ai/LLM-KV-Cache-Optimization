@@ -9,6 +9,22 @@ from __future__ import annotations
 import math
 from collections.abc import Iterable, Mapping
 
+EXPECTED_PRESSURE_BOUNDARIES = frozenset(
+    {
+        "pressure:after-round-40",
+        "pressure:after-round-50",
+        "pressure:after-round-55",
+    }
+)
+PHYSICAL_OUTCOME_STATUSES = frozenset(
+    {
+        "PHYSICAL_EVICTION_OBSERVED",
+        "PARTIAL_PHYSICAL_EVICTION_OBSERVED",
+        "NO_PHYSICAL_EVICTION_OBSERVED",
+        "EVIDENCE_MISSING",
+    }
+)
+
 
 def _payload(event: Mapping[str, object]) -> Mapping[str, object]:
     value = event.get("payload")
@@ -52,6 +68,9 @@ def evaluate_a3_native_preflight(
     intervention_decision_ids: set[str] = set()
     executed_decision_ids: set[str] = set()
     multi_candidate_decision_ids: set[str] = set()
+    valid_nonfallback_multi_decision_ids: set[str] = set()
+    fallback_decision_ids: set[str] = set()
+    fallback_valid = True
     selected_keys_by_decision: dict[str, set[tuple[str, str]]] = {}
     a3_payload_by_id: dict[str, Mapping[str, object]] = {}
     a3_event_count_with_id = 0
@@ -82,27 +101,35 @@ def evaluate_a3_native_preflight(
                 formula_valid = False
                 continue
             selections.append(raw_selection)
+            decision_id = (
+                str(payload["decision_id"]) if payload.get("decision_id") else None
+            )
+            key = raw_selection.get("key")
+            if decision_id is not None and isinstance(key, (list, tuple)) and len(key) == 2:
+                selected_keys_by_decision.setdefault(decision_id, set()).add(
+                    (str(key[0]), str(key[1]))
+                )
             if raw_selection.get("fell_back") is True:
+                if decision_id is not None:
+                    fallback_decision_ids.add(decision_id)
+                fallback_valid &= key == raw_selection.get("a1_key")
                 continue
             non_fallback_count += 1
             intervened = raw_selection.get("key") != raw_selection.get("a1_key")
             intervention_count += int(intervened)
-            if payload.get("decision_id"):
-                decision_id = str(payload["decision_id"])
+            if decision_id is not None:
                 executed_decision_ids.add(decision_id)
                 if intervened:
                     intervention_decision_ids.add(decision_id)
-                key = raw_selection.get("key")
-                if isinstance(key, (list, tuple)) and len(key) == 2:
-                    selected_keys_by_decision.setdefault(decision_id, set()).add(
-                        (str(key[0]), str(key[1]))
-                    )
             audits = raw_selection.get("audits")
             if not isinstance(audits, (list, tuple)):
                 formula_valid = False
                 continue
-            if payload.get("decision_id") and len(audits) >= 2:
-                multi_candidate_decision_ids.add(str(payload["decision_id"]))
+            if len(audits) < 2:
+                formula_valid = False
+                continue
+            if decision_id is not None:
+                multi_candidate_decision_ids.add(decision_id)
             for audit in audits:
                 if not isinstance(audit, Mapping) or audit.get("score") is None:
                     formula_valid = False
@@ -120,6 +147,8 @@ def evaluate_a3_native_preflight(
                     )
                 except (KeyError, TypeError, ValueError, ZeroDivisionError):
                     formula_valid = False
+            if decision_id is not None and formula_valid and content_valid:
+                valid_nonfallback_multi_decision_ids.add(decision_id)
 
     bindings_by_id = {
         str(_payload(event).get("decision_id")): _payload(event)
@@ -156,7 +185,7 @@ def evaluate_a3_native_preflight(
     )
     required_decisions_joined = required_decision_ids & decision_ids
     actual_release_match_count = 0
-    for decision_id in required_decisions_joined:
+    for decision_id in decision_ids:
         forced_index = bindings_by_id[decision_id].get("forced_release_event_index")
         forced_event = (
             forced_events.get(int(forced_index))
@@ -174,7 +203,7 @@ def evaluate_a3_native_preflight(
             if isinstance(item, Mapping)
         }
         expected_keys = selected_keys_by_decision.get(decision_id, set())
-        actual_release_match_count += int(bool(expected_keys) and expected_keys <= actual_keys)
+        actual_release_match_count += int(bool(expected_keys) and expected_keys == actual_keys)
     def same_context(*payloads: Mapping[str, object]) -> bool:
         if not payloads:
             return False
@@ -237,7 +266,14 @@ def evaluate_a3_native_preflight(
         except (KeyError, TypeError, ValueError):
             counter_valid = False
 
-    barrier_binding_valid = bool(barriers)
+    barrier_boundaries = tuple(
+        str(_payload(event).get("boundary_id")) for event in barriers
+    )
+    barrier_binding_valid = (
+        len(barriers) == len(EXPECTED_PRESSURE_BOUNDARIES)
+        and len(barrier_boundaries) == len(set(barrier_boundaries))
+        and set(barrier_boundaries) == EXPECTED_PRESSURE_BOUNDARIES
+    )
     for event in barriers:
         payload = _payload(event)
         bound_ids = tuple(str(value) for value in payload.get("bound_decision_ids") or ())
@@ -313,21 +349,56 @@ def evaluate_a3_native_preflight(
         for decision_id, outcome in outcomes_by_id.items()
         if outcome.get("status") == "PHYSICAL_EVICTION_OBSERVED"
     }
+    def physical_outcome_valid(
+        decision_id: str, outcome: Mapping[str, object]
+    ) -> bool:
+        status = outcome.get("status")
+        if status not in PHYSICAL_OUTCOME_STATUSES:
+            return False
+        matched_values = tuple(outcome.get("matched_block_ids") or ())
+        unmatched_values = tuple(outcome.get("unmatched_block_ids") or ())
+        if not all(isinstance(value, int) for value in (*matched_values, *unmatched_values)):
+            return False
+        matched = set(matched_values)
+        unmatched = set(unmatched_values)
+        if (
+            len(matched) != len(matched_values)
+            or len(unmatched) != len(unmatched_values)
+            or matched & unmatched
+        ):
+            return False
+        pending = pending_by_id.get(decision_id)
+        expected = (
+            set(pending.get("selected_block_ids") or ()) if pending is not None else set()
+        )
+        if status == "PHYSICAL_EVICTION_OBSERVED":
+            return bool(matched) and not unmatched and pending is not None and matched == expected
+        if status == "PARTIAL_PHYSICAL_EVICTION_OBSERVED":
+            return (
+                bool(matched)
+                and bool(unmatched)
+                and pending is not None
+                and matched | unmatched == expected
+            )
+        if status == "NO_PHYSICAL_EVICTION_OBSERVED":
+            return not matched and (
+                (pending is None and not unmatched)
+                or (pending is not None and unmatched == expected)
+            )
+        return not matched
+
     physical_outcomes_valid = (
         set(outcomes_by_id) == decision_ids
         and set(pending_by_id) <= decision_ids
         and all(
         same_context(outcome, plans_by_id[decision_id])
-        and (
-            outcome.get("status") != "PHYSICAL_EVICTION_OBSERVED"
-            or (
-                decision_id in pending_by_id
-                and set(outcome.get("matched_block_ids") or ())
-                == set(pending_by_id[decision_id].get("selected_block_ids") or ())
-            )
-        )
+        and physical_outcome_valid(decision_id, outcome)
         for decision_id, outcome in outcomes_by_id.items()
         )
+    )
+    evidence_missing_outcome_count = sum(
+        outcome.get("status") == "EVIDENCE_MISSING"
+        for outcome in outcomes_by_id.values()
     )
     required_physical_observed = bool(required_decision_ids & physical_decision_ids)
 
@@ -339,9 +410,16 @@ def evaluate_a3_native_preflight(
         },
         "C": {
             "status": (
-                "PASS" if non_fallback_count and content_valid and formula_valid else "FAIL"
+                "PASS"
+                if valid_nonfallback_multi_decision_ids
+                and content_valid
+                and formula_valid
+                else "FAIL"
             ),
             "content_verified_non_fallback_count": non_fallback_count,
+            "valid_nonfallback_multi_candidate_decision_count": len(
+                valid_nonfallback_multi_decision_ids
+            ),
             "formula_recomputed": formula_valid,
         },
         "D": {
@@ -349,8 +427,9 @@ def evaluate_a3_native_preflight(
                 "PASS"
                 if required_decision_ids
                 and required_decisions_joined == required_decision_ids
-                and actual_release_match_count == len(required_decisions_joined)
+                and actual_release_match_count == len(decision_ids)
                 and formula_valid
+                and fallback_valid
                 and decision_join_valid
                 else "FAIL"
             ),
@@ -360,6 +439,8 @@ def evaluate_a3_native_preflight(
             "multi_candidate_decision_count": len(multi_candidate_decision_ids),
             "joined_required_decision_count": len(required_decisions_joined),
             "actual_release_match_count": actual_release_match_count,
+            "fallback_decision_count": len(fallback_decision_ids),
+            "fallback_selection_valid": fallback_valid,
             "decision_join_valid": decision_join_valid,
         },
         "O": {
@@ -370,6 +451,7 @@ def evaluate_a3_native_preflight(
                 and barrier_binding_valid
                 and physical_join_valid
                 and physical_outcomes_valid
+                and evidence_missing_outcome_count == 0
                 and required_physical_observed
                 else "FAIL"
             ),
@@ -378,6 +460,7 @@ def evaluate_a3_native_preflight(
             "physical_eviction_join_count": physical_join_count,
             "physical_eviction_join_valid": physical_join_valid,
             "physical_outcomes_valid": physical_outcomes_valid,
+            "evidence_missing_outcome_count": evidence_missing_outcome_count,
             "required_physical_observed": required_physical_observed,
             "no_physical_eviction_decision_count": sum(
                 outcome.get("status") == "NO_PHYSICAL_EVICTION_OBSERVED"

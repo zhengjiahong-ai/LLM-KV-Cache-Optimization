@@ -102,7 +102,30 @@ Freeze Record, output directory and archive. Its record must bind the immutable
 first-failure archive SHA-256. No parameter, pressure, workload or strategy
 change is allowed.
 
+The replacement Freeze Record is deliberately emitted with
+`execution_authorized=false`. Preparation opens the predecessor archive without
+extracting it, validates its original v1 Freeze Record, and compares the HR02
+config, trace, explicit request tokens, pressure tokens, logical timeline and
+profile SHA-256 bindings field by field. It then emits an authorization request.
+Only a separate M1 authorization record can enable execution. That record binds
+the reviewed Git SHA, replacement Freeze Record SHA, predecessor Archive SHA,
+Run ID, one-execution limit, 1,800-second timeout and 60-second termination
+grace.
+
+The authorization SHA has one atomic consumption receipt stored beside the
+immutable predecessor archive. Changing the output directory cannot consume it
+again. The public `run` command is a bounded parent process; its internal child
+cannot be invoked without the per-launch parent capability. The parent sends
+SIGINT at 30 minutes, kills after the 60-second grace if necessary, and packages
+inputs, authorization, partial or complete output, execution envelope and
+recursive hashes for success, failure or timeout.
+
 The deliverable contains the freeze record, environment record, raw run files,
 Native gate report and recursive SHA-256 manifest. The replacement archive must
 be produced for either PASS or FAIL and preserve all explicit missingness and
 physical-outcome states. No third GPU preflight is permitted.
+
+Runtime startup fails closed unless the environment reports exactly RTX 4090D,
+vLLM 0.27.1, PyTorch 2.13.0+cu130 and CUDA 13.0. Right-censoring status is
+derived by comparing frozen endpoint IDs with persisted endpoint events; it is
+not a constant report field.
