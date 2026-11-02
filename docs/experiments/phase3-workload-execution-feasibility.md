@@ -255,8 +255,10 @@ It must support:
 Hypothesis Evaluation is independent of G0–G4: H1 is A3 versus A0 (full
 strategy), H2 is A3 versus E0 (cost-model contribution), and H3 is A0 versus
 N0 (forced-release contribution). Record S2A/B/C for every relevant decision.
-If S2B exceeds 20% or S2A is absent, H2 interpretation is limited but H1
-remains defined.
+The G2 decision applies to H2, not H1. If `S2B / (S2A + S2B) >= 20%`
+over the full campaign, or `S2A_count == 0`, then `H2 = NOT_EVALUABLE`.
+H1 remains evaluable under its independent sample-size and Headroom
+conditions, regardless of the S2B proportion.
 
 For H2, persist uncertainty-envelope reordering as `PROFILE_ROBUST` or
 `PROFILE_SENSITIVE`. Only robust decisions count as discriminable; fewer than
