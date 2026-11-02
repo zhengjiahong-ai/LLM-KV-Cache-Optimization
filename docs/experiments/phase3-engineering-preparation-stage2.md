@@ -18,7 +18,11 @@ For every frozen request:
 
 `E` never uses `C` as a fallback, lower bound, replacement, or repair. A missing
 or incompatible prior content-identity chain fails the affected cell closed
-when `C > 0`; the evaluator does not substitute `N-C` as the primary outcome.
+whenever the frozen enqueue order says earlier request history exists. This is
+independent of C: `C=0` neither proves that history is complete nor justifies
+deriving `E=0`. The first enqueued request may legitimately have no preceding
+history; in that specific case `E=0` is derived from the frozen history state,
+not from C. The evaluator never substitutes `N-C` as the primary outcome.
 
 The request invariant is `0 <= C <= E <= N`. The aggregate identity is:
 
@@ -47,6 +51,13 @@ provenance, incomplete chains, invalid token ordering, aggregate identity
 failure, or any cross-arm `N/E` drift yields `FAIL_CLOSED` for the cell. Empty
 frozen request sets and any arm set other than the fixed six-arm matrix are
 also rejected.
+
+`frozen_requests` is ordered and must exactly follow the deterministic Native
+enqueue order. It is not completion order: concurrency may change completion
+order without changing the frozen history contract. Stage 3 Deterministic
+Cohort Seal must bind the Frozen Request Order, Native Enqueue Order, Replay
+Timeline, Session pairing, and deterministic reserve-substitution rule by
+SHA-256 before this evaluator is used for formal cells.
 
 APC outcomes (`NO_REUSE_ELIGIBLE_PREFIX`, `FULL_HIT`, `PARTIAL_HIT`, `MISS`)
 are derived from the independently validated N/E/C tuple. Physical eviction

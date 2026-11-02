@@ -369,7 +369,13 @@ def evaluate_phase3_nec_cell(
     frozen_requests: Sequence[tuple[str, str]],
     cell_manifest: Mapping[str, object],
 ) -> dict[str, object]:
-    """Evaluate one Phase 3 cell and fail closed on any evidence defect."""
+    """Evaluate one Phase 3 cell and fail closed on any evidence defect.
+
+    ``frozen_requests`` is an ordered contract, not an unordered cohort: its
+    order must equal the deterministic Native enqueue order frozen for the
+    cell.  Snapshot completeness is evaluated against that enqueue order and
+    must not be inferred from Native completion order.
+    """
 
     required = _PHASE3_ARMS
     issues: list[str] = []
@@ -418,6 +424,7 @@ def evaluate_phase3_nec_cell(
         "status": "PASS" if not issues else "FAIL_CLOSED",
         "primary_metric": "aggregate_recomputed_tokens",
         "primary_metric_formula": "sum(E-C)",
+        "frozen_request_order_contract": "DETERMINISTIC_NATIVE_ENQUEUE_ORDER",
         "eligibility_is_arm_independent": not issues,
         "c_used_as_eligibility_fallback": False,
         "ownership_level_attribution": "NOT_ESTABLISHED",

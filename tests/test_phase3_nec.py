@@ -136,6 +136,48 @@ def test_missing_history_does_not_fall_back_to_c() -> None:
     assert any("prior request-history" in issue for issue in report["issues"])
 
 
+def test_first_enqueued_request_without_prior_history_has_zero_e() -> None:
+    first_request_events = {
+        arm: [_observation(1, "request-1", prompt=32, cached=0)]
+        for arm in ARMS
+    }
+
+    report = evaluate_phase3_nec_cell(
+        events_by_arm=first_request_events,
+        frozen_requests=(REQUESTS[0],),
+    )
+
+    assert report["status"] == "PASS"
+    assert report["frozen_request_order_contract"] == (
+        "DETERMINISTIC_NATIVE_ENQUEUE_ORDER"
+    )
+    for arm in ARMS:
+        request = report["arms"][arm]["requests"][0]
+        assert request["eligible_prefix_tokens"] == 0
+        assert request["native_cached_prefix_tokens"] == 0
+        assert request["eligibility_source"] == (
+            "FROZEN_HISTORY_NO_PRIOR_ELIGIBLE_CONTENT"
+        )
+
+
+def test_zero_c_does_not_hide_missing_prior_history() -> None:
+    cell = _cell(second_cached=0)
+    for events in cell.values():
+        events[:] = [
+            event
+            for event in events
+            if event["event_type"] != "VLLM_PREFIX_SNAPSHOT"
+        ]
+
+    report = evaluate_phase3_nec_cell(
+        events_by_arm=cell, frozen_requests=REQUESTS
+    )
+
+    assert report["status"] == "FAIL_CLOSED"
+    assert report["c_used_as_eligibility_fallback"] is False
+    assert any("prior request-history" in issue for issue in report["issues"])
+
+
 def test_cross_arm_content_identity_drift_fails_closed() -> None:
     cell = _cell(second_cached=0)
     cell["A2"][1]["payload"]["ordered_native_hashes"][0] = "ff" * 32
