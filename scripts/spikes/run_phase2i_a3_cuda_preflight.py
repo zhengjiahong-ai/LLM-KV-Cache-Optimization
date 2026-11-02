@@ -14,6 +14,7 @@ import time
 from pathlib import Path
 
 from kvopt.workload.phase2i_a3_cuda_preflight import (
+    ADMIN_RETRY_RUN_ID,
     RUN_ID,
     _write_sha_manifest,
     materialize_preflight,
@@ -96,10 +97,12 @@ def _run_bounded(arguments: argparse.Namespace) -> int:
     if final_archive.exists():
         raise FileExistsError(final_archive)
     read_descriptor, write_descriptor = os.pipe()
+    freeze = json.loads((arguments.input_dir / "freeze-record.json").read_text())
+    run_id = freeze["run_id"]
     capability = {
         "schema_version": "phase2i.bounded_parent_capability.v1",
         "parent_pid": os.getpid(),
-        "run_id": RUN_ID,
+        "run_id": run_id,
         "nonce": os.urandom(32).hex(),
     }
     command = (
@@ -172,6 +175,7 @@ def main() -> int:
     prepare.add_argument("--predecessor-archive", type=Path, required=True)
     prepare.add_argument("--output-dir", type=Path, required=True)
     prepare.add_argument("--repository", type=Path, default=Path.cwd())
+    prepare.add_argument("--admin-retry-archive", type=Path)
     execute = subparsers.add_parser("run")
     _add_run_arguments(execute)
     execute_once = subparsers.add_parser("_run-once", help=argparse.SUPPRESS)
@@ -186,13 +190,19 @@ def main() -> int:
             predecessor_archive_path=arguments.predecessor_archive,
             output_dir=arguments.output_dir,
             repository=arguments.repository,
+            run_id=(ADMIN_RETRY_RUN_ID if arguments.admin_retry_archive else RUN_ID),
+            administrative_predecessor_archive_path=arguments.admin_retry_archive,
         )
         print(f"PREPARED: {arguments.output_dir}")
         print(f"git_sha: {result['git_sha']}")
         return 0
     if arguments.command == "run":
         return _run_bounded(arguments)
-    capability = read_bounded_parent_capability(arguments.capability_fd)
+    freeze = json.loads((arguments.input_dir / "freeze-record.json").read_text())
+    capability = read_bounded_parent_capability(
+        arguments.capability_fd,
+        expected_run_id=freeze["run_id"],
+    )
     result = run_preflight(
         input_dir=arguments.input_dir,
         output_root=arguments.output_root,

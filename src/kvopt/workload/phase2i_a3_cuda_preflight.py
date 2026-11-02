@@ -18,6 +18,8 @@ from .phase2i_a3_preflight import evaluate_a3_native_preflight
 
 MODEL_REVISION = "d18ecad881a290f0c792f1c2b5dbee1820d4a424"
 RUN_ID = "phase2i-a3-target-cuda-native-replacement-preflight-02"
+ADMIN_RETRY_RUN_ID = f"{RUN_ID}-admin-retry-01"
+ALLOWED_RUN_IDS = frozenset({RUN_ID, ADMIN_RETRY_RUN_ID})
 FIRST_PREFLIGHT_RUN_ID = "phase2i-a3-target-cuda-native-preflight"
 FIRST_PREFLIGHT_FREEZE_SCHEMA = "phase2i.a3_target_cuda_preflight_freeze.v1"
 AUTHORIZATION_SCHEMA = "phase2i.a3_replacement_execution_authorization.v1"
@@ -48,7 +50,9 @@ class _InheritedExecutionCapability:
         self.nonce = nonce
 
 
-def read_bounded_parent_capability(descriptor: int) -> _InheritedExecutionCapability:
+def read_bounded_parent_capability(
+    descriptor: int, *, expected_run_id: str = RUN_ID
+) -> _InheritedExecutionCapability:
     """Consume a capability delivered only through an inherited anonymous pipe."""
     if descriptor < 3:
         raise RuntimeError("bounded execution capability descriptor is invalid")
@@ -61,7 +65,8 @@ def read_bounded_parent_capability(descriptor: int) -> _InheritedExecutionCapabi
     if (
         not isinstance(value, dict)
         or value.get("schema_version") != "phase2i.bounded_parent_capability.v1"
-        or value.get("run_id") != RUN_ID
+        or expected_run_id not in ALLOWED_RUN_IDS
+        or value.get("run_id") != expected_run_id
         or type(value.get("parent_pid")) is not int
         or value.get("parent_pid") != os.getppid()
         or not isinstance(value.get("nonce"), str)
@@ -274,8 +279,16 @@ def materialize_preflight(
     predecessor_archive_path: Path,
     output_dir: Path,
     repository: Path,
+    run_id: str = RUN_ID,
+    administrative_predecessor_archive_path: Path | None = None,
 ) -> dict[str, object]:
     """Derive one A3 run while preserving the frozen HR02 execution inputs."""
+    if run_id not in ALLOWED_RUN_IDS:
+        raise ValueError("unsupported Phase 2I administrative execution identity")
+    if (run_id == ADMIN_RETRY_RUN_ID) != (
+        administrative_predecessor_archive_path is not None
+    ):
+        raise ValueError("administrative retry requires its failed execution archive")
     if output_dir.exists():
         raise FileExistsError(output_dir)
     source_config = json.loads(source_config_path.read_text(encoding="utf-8"))
@@ -312,7 +325,7 @@ def materialize_preflight(
     assert isinstance(backend, dict)
     backend["phase2g_release_policy"] = "A3"
     backend["prefill_profile_path"] = str(copied_profile_path.resolve())
-    config_path = output_dir / f"{RUN_ID}.config.json"
+    config_path = output_dir / f"{run_id}.config.json"
     _write(config_path, config)
 
     git_sha = _git(repository, "rev-parse", "HEAD")
@@ -324,7 +337,7 @@ def materialize_preflight(
         "authorization_scope": (
             "ONE_REPLACEMENT_TARGET_CUDA_NATIVE_PREFLIGHT_NOT_EFFECT_CAMPAIGN"
         ),
-        "run_id": RUN_ID,
+        "run_id": run_id,
         "git_sha": git_sha,
         "predecessor": {
             "execution_id": "PHASE2I_A3_TARGET_CUDA_PREFLIGHT_01",
@@ -379,21 +392,71 @@ def materialize_preflight(
             "block_policy": "A0",
         },
     }
+    if administrative_predecessor_archive_path is not None:
+        if not administrative_predecessor_archive_path.is_file():
+            raise FileNotFoundError(administrative_predecessor_archive_path)
+        members = _archive_json_members(administrative_predecessor_archive_path)
+        prior_freezes = [
+            (raw, value)
+            for name, (raw, value) in members.items()
+            if name.endswith("freeze-record.json")
+            and value.get("run_id") == RUN_ID
+        ]
+        prior_runs = [
+            value
+            for name, (_raw, value) in members.items()
+            if name.endswith(f"/{RUN_ID}/run.json")
+            and value.get("run_id") == RUN_ID
+            and value.get("status") == "failed"
+        ]
+        envelopes = [
+            value
+            for name, (_raw, value) in members.items()
+            if name.endswith("execution-envelope.json")
+            and value.get("status") == "FAILED"
+        ]
+        freeze_hashes = {hashlib.sha256(raw).hexdigest() for raw, _ in prior_freezes}
+        if (
+            not prior_freezes
+            or len(freeze_hashes) != 1
+            or len(prior_runs) != 1
+            or len(envelopes) != 1
+        ):
+            raise ValueError(
+                "administrative predecessor lacks one coherent failed execution"
+            )
+        prior_raw, prior_freeze = prior_freezes[0]
+        manifest["administrative_retry"] = {
+            "exception_kind": "CUDA_LINKER_INITIALIZATION_FAILURE",
+            "original_run_id": RUN_ID,
+            "original_git_sha": prior_freeze.get("git_sha"),
+            "original_freeze_sha256": hashlib.sha256(prior_raw).hexdigest(),
+            "failed_archive_path": str(
+                administrative_predecessor_archive_path.resolve()
+            ),
+            "failed_archive_sha256": _sha(administrative_predecessor_archive_path),
+            "immutable": True,
+        }
     freeze_path = output_dir / "freeze-record.json"
     _write(freeze_path, manifest)
+    authorization_request = {
+        "schema_version": "phase2i.a3_execution_authorization_request.v1",
+        "execution_authorized": False,
+        "run_id": run_id,
+        "git_sha": git_sha,
+        "freeze_record_sha256": _sha(freeze_path),
+        "predecessor_archive_sha256": manifest["predecessor"]["archive_sha256"],
+        "maximum_execution_count": 1,
+        "timeout_seconds": 1800,
+        "termination_grace_seconds": 60,
+    }
+    if administrative_predecessor_archive_path is not None:
+        authorization_request["administrative_failed_archive_sha256"] = manifest[
+            "administrative_retry"
+        ]["failed_archive_sha256"]
     _write(
         output_dir / "m1-authorization-request.json",
-        {
-            "schema_version": "phase2i.a3_execution_authorization_request.v1",
-            "execution_authorized": False,
-            "run_id": RUN_ID,
-            "git_sha": git_sha,
-            "freeze_record_sha256": _sha(freeze_path),
-            "predecessor_archive_sha256": manifest["predecessor"]["archive_sha256"],
-            "maximum_execution_count": 1,
-            "timeout_seconds": 1800,
-            "termination_grace_seconds": 60,
-        },
+        authorization_request,
     )
     return manifest
 
@@ -407,10 +470,27 @@ def _verify_freeze(input_dir: Path, repository: Path) -> tuple[dict[str, object]
         raise ValueError("unsupported Phase 2I preflight freeze record")
     if manifest.get("execution_authorized") is not False:
         raise ValueError("replacement freeze candidate must not self-authorize execution")
+    run_id = manifest.get("run_id")
+    if run_id not in ALLOWED_RUN_IDS:
+        raise ValueError("unsupported Phase 2I execution identity")
     if _git(repository, "rev-parse", "HEAD") != manifest.get("git_sha"):
         raise ValueError("execution Git SHA does not match freeze record")
     if _git(repository, "status", "--porcelain"):
         raise ValueError("execution requires a clean Git worktree")
+    administrative = manifest.get("administrative_retry")
+    if run_id == ADMIN_RETRY_RUN_ID:
+        if not isinstance(administrative, Mapping):
+            raise TypeError("administrative retry binding is missing")
+        failed_path = Path(str(administrative.get("failed_archive_path")))
+        if (
+            administrative.get("original_run_id") != RUN_ID
+            or administrative.get("immutable") is not True
+            or not failed_path.is_file()
+            or _sha(failed_path) != administrative.get("failed_archive_sha256")
+        ):
+            raise ValueError("administrative retry archive binding mismatch")
+    elif administrative is not None:
+        raise ValueError("ordinary replacement freeze cannot contain admin retry binding")
     derived = manifest.get("derived")
     if not isinstance(derived, dict):
         raise TypeError("freeze record derived bindings are missing")
@@ -485,10 +565,13 @@ def _verify_authorization(
     predecessor = freeze.get("predecessor")
     if not isinstance(predecessor, Mapping):
         raise TypeError("freeze predecessor binding is missing")
+    run_id = freeze.get("run_id")
+    if run_id not in ALLOWED_RUN_IDS:
+        raise ValueError("unsupported Phase 2I execution identity")
     expected = {
         "schema_version": AUTHORIZATION_SCHEMA,
         "execution_authorized": True,
-        "run_id": RUN_ID,
+        "run_id": run_id,
         "git_sha": freeze["git_sha"],
         "freeze_record_sha256": _sha(input_dir / "freeze-record.json"),
         "predecessor_archive_sha256": predecessor["archive_sha256"],
@@ -496,6 +579,11 @@ def _verify_authorization(
         "timeout_seconds": 1800,
         "termination_grace_seconds": 60,
     }
+    administrative = freeze.get("administrative_retry")
+    if isinstance(administrative, Mapping):
+        expected["administrative_failed_archive_sha256"] = administrative[
+            "failed_archive_sha256"
+        ]
     for field, value in expected.items():
         if authorization.get(field) != value:
             raise ValueError(f"M1 execution authorization mismatch: {field}")
@@ -507,7 +595,7 @@ def _verify_authorization(
     ledger = (
         predecessor_path.parent
         / ".phase2i-authorization-ledger"
-        / f"{_canonical_sha({'run_id': RUN_ID, 'freeze': expected['freeze_record_sha256']})}.consumed.json"
+        / f"{_canonical_sha({'run_id': run_id, 'freeze': expected['freeze_record_sha256']})}.consumed.json"
     )
     return authorization, ledger, authorization_sha
 
@@ -524,7 +612,7 @@ def _consume_authorization(
         "schema_version": "phase2i.a3_execution_authorization_consumption.v1",
         "authorization_id": authorization["authorization_id"],
         "authorization_sha256": authorization_sha256,
-        "run_id": RUN_ID,
+        "run_id": authorization["run_id"],
         "output_root": str(output_root.resolve()),
         "consumed_at_unix_seconds": time.time(),
     }
@@ -629,13 +717,14 @@ def run_preflight(
     bounded_capability: _InheritedExecutionCapability,
 ) -> dict[str, object]:
     """Run once and independently evaluate persisted CUDA Native evidence."""
+    freeze, config_path = _verify_freeze(input_dir, repository)
+    run_id = str(freeze["run_id"])
     if (
         not isinstance(bounded_capability, _InheritedExecutionCapability)
         or bounded_capability.parent_pid != os.getppid()
-        or bounded_capability.run_id != RUN_ID
+        or bounded_capability.run_id != run_id
     ):
         raise RuntimeError("GPU execution requires the bounded parent capability")
-    freeze, config_path = _verify_freeze(input_dir, repository)
     authorization, ledger_path, authorization_sha = _verify_authorization(
         authorization_path,
         input_dir=input_dir,
@@ -663,7 +752,7 @@ def run_preflight(
     run_path = run_phase2(
         config_path,
         output_root=output_root / "runs",
-        run_id=RUN_ID,
+        run_id=run_id,
     )
     wall_seconds = time.perf_counter() - started
     run_manifest = json.loads((run_path / "run.json").read_text(encoding="utf-8"))
@@ -697,7 +786,7 @@ def run_preflight(
             "ONE_REPLACEMENT_TARGET_CUDA_NATIVE_PREFLIGHT_NOT_EFFECT_CAMPAIGN"
         ),
         "run_status": run_manifest.get("status"),
-        "run_id": RUN_ID,
+        "run_id": run_id,
         "git_sha": freeze["git_sha"],
         "freeze_record_sha256": _canonical_sha(freeze),
         "authorization_sha256": authorization_sha,

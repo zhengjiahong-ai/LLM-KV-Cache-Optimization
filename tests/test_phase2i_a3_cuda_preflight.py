@@ -230,6 +230,62 @@ def test_materialize_changes_only_authorized_runtime_identity(
     assert manifest["derived"]["profile_sha256"] == module._sha(copied_profile)
 
 
+def test_materialize_admin_retry_binds_failed_environment_attempt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config, trace, profile = _source(tmp_path)
+    monkeypatch.setattr(
+        module,
+        "_git",
+        lambda _repository, *arguments: "" if arguments[0] == "status" else "new-head",
+    )
+    predecessor = _predecessor(
+        tmp_path / "predecessor.tar.gz", config, trace, profile
+    )
+    prior_freeze = {
+        "schema_version": "phase2i.a3_target_cuda_replacement_preflight_freeze.v2",
+        "run_id": module.RUN_ID,
+        "git_sha": "old-head",
+    }
+    admin_archive = tmp_path / "environment-failure.tar.gz"
+    with tarfile.open(admin_archive, "w:gz") as archive:
+        for name, value in (
+            ("inputs/freeze-record.json", prior_freeze),
+            (
+                f"outputs/runs/{module.RUN_ID}/run.json",
+                {"run_id": module.RUN_ID, "status": "failed"},
+            ),
+            ("outputs/execution-envelope.json", {"status": "FAILED"}),
+        ):
+            raw = (json.dumps(value, sort_keys=True) + "\n").encode()
+            member = tarfile.TarInfo(name)
+            member.size = len(raw)
+            archive.addfile(member, io.BytesIO(raw))
+
+    output = tmp_path / "admin-prepared"
+    result = module.materialize_preflight(
+        source_config_path=config,
+        source_trace_path=trace,
+        profile_path=profile,
+        predecessor_archive_path=predecessor,
+        output_dir=output,
+        repository=tmp_path,
+        run_id=module.ADMIN_RETRY_RUN_ID,
+        administrative_predecessor_archive_path=admin_archive,
+    )
+
+    request = json.loads((output / "m1-authorization-request.json").read_text())
+    assert result["run_id"] == module.ADMIN_RETRY_RUN_ID
+    assert result["git_sha"] == "new-head"
+    assert result["administrative_retry"]["original_git_sha"] == "old-head"
+    assert result["administrative_retry"]["failed_archive_sha256"] == module._sha(
+        admin_archive
+    )
+    assert request["administrative_failed_archive_sha256"] == module._sha(
+        admin_archive
+    )
+
+
 def test_materialize_rejects_pressure_or_explicit_token_drift(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -605,6 +661,8 @@ def test_execution_wrapper_enforces_timeout_grace_and_archives(
         authorization_record=tmp_path / "authorization.json",
         repository=tmp_path,
     )
+    arguments.input_dir.mkdir()
+    _write(arguments.input_dir / "freeze-record.json", {"run_id": module.RUN_ID})
 
     assert runner._run_bounded(arguments) == 130
     assert process.signals == [runner.signal.SIGINT]
@@ -657,6 +715,8 @@ def test_timeout_kills_entire_process_group_after_grace(
         authorization_record=tmp_path / "authorization.json",
         repository=tmp_path,
     )
+    arguments.input_dir.mkdir()
+    _write(arguments.input_dir / "freeze-record.json", {"run_id": module.RUN_ID})
 
     assert runner._run_bounded(arguments) == -9
     assert signals == [
