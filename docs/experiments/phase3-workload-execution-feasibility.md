@@ -1,6 +1,6 @@
 # Phase 3 Workload & Execution Feasibility Report
 
-Status: **DESIGN / DATA AUDIT ONLY — FORMAL GPU CAMPAIGN NOT AUTHORIZED**
+Status: **ENGINEERING PREPARATION AUTHORIZED — ACQUISITION AND GPU CAMPAIGN NOT AUTHORIZED**
 
 Protocol dependency: M4 Phase 3 Final Evaluation Protocol v3, PR #90, review
 HEAD `3a8c3882ad248715b2f5ea90e34baa3875ea0226`. This report assesses M6
@@ -13,10 +13,11 @@ stack without a new Agent framework. The repository already provides the
 replay clock, fixed pressure, Native observations, policy hooks, evidence
 archive, and paired evaluator substrate. The remaining material work is:
 
-1. seal 40 qualified W1-C tasks into 20 disjoint cross-repository pairs;
+1. prepare a deterministic seal for 40 new qualified W1-C tasks and 24
+   pre-registered reserves from the 80 unacquired candidates;
 2. implement and test E0 and N0 campaign integration under M4's frozen
    semantics;
-3. run independent A0 load/noise calibration before the main campaign; and
+3. prepare independent A0 load/noise calibration for later authorization; and
 4. harden the evaluator around the corrected request-level N/E/C contract.
 
 The current evidence supports neither a public Continuum reproduction claim
@@ -111,23 +112,29 @@ capture and validation path.
 
 ## 5. Cohort acquisition and deterministic seal
 
-Twenty independent groups require 40 qualified tasks, two tasks from different
-repositories per group, and at least ten repositories overall. M1 must choose
-between two non-equivalent interpretations:
+Twenty independent groups require 40 **new** qualified tasks, two tasks from
+different repositories per group, and at least ten repositories overall. M1
+has rejected reuse of the 18 historical full-payload-comparable tasks in the
+formal cohort. They remain available only for engineering regression,
+evaluator tests and non-formal validation; they do not enter Phase 3 effect
+estimates.
 
-| Interpretation | Reusable historical tasks | Minimum new qualified tasks | Recommended acquisition reserve |
-| --- | ---: | ---: | ---: |
-| reuse full-payload historical W1-C | 18 | 22 | 24 |
-| require an entirely new Phase 3 cohort | 0 | 40 | acquire from the remaining 80 with a pre-frozen reserve plan |
+The deterministic sampling plan contains 64 ordered IDs from the remaining 80
+frozen candidates:
 
-These alternatives must not be conflated. M6 recommends the first because it
-preserves authentic traces and reduces acquisition cost without selecting on
-policy outcomes. If M1 rejects historical reuse, the second remains feasible
-within the 80 unacquired frozen candidates.
+- 40 Primary candidates;
+- 24 Reserve candidates.
 
-Before acquisition, materialize a deterministic task list that excludes all
-previously acquired task IDs and stratifies by repository and static issue
-length. Bind its ordered IDs and strata to SHA-256. Preserve every success,
+The complete Primary/Reserve assignment, acquisition order, qualification
+rules and pairing rules must be frozen before acquisition. Reserve promotion
+may occur only under those pre-registered qualification rules, never because
+of Native policy outcomes. If the list cannot yield 40 qualified tasks and 20
+legal groups, execution stops for M1 review; M6 must not expand the frame.
+
+Engineering preparation must materialize this deterministic task list while
+excluding all previously acquired task IDs and stratifying by repository and
+static issue length. Bind its ordered IDs, roles and strata to SHA-256. Actual
+Agent acquisition is not authorized by this report. Once authorized, preserve every success,
 failure, context-limit event, incomplete sidecar and right-censored trajectory;
 do not replace a task after observing runtime or policy outcomes. Qualification
 and pair construction use only pre-Native trace properties. Freeze membership,
@@ -159,8 +166,9 @@ pre-frozen headroom subset.
 
 The existing W1-C distribution and 32,768-token model boundary make 24
 requests/cell feasible. The permitted degradation is six checkpoints/session
-(12 requests/cell), frozen before outcomes if static cohort analysis shows the
-24-request form cannot satisfy capacity or budget. This halves request work
+(12 requests/cell) only after M1 reviews concrete pre-execution feasibility
+evidence and explicitly approves the degradation. It must be frozen before
+Calibration or Main Campaign begins. This halves request work
 and decision exposure and therefore weakens APC/recompute and S2A opportunity;
 it does not reduce the number of engine initializations or planned runs.
 
@@ -179,6 +187,13 @@ For every evaluated request:
 - `E` is **offline derived**, not a Native raw field. It is reconstructed at
   the request's observation boundary from the Native APC hash chain and the
   matching historical `VLLM_PREFIX_SNAPSHOT` identity/time evidence.
+
+The Phase 3 evaluator must compute E independently from the frozen request
+history and content-identity chain. It must not reuse the existing
+`runtime_evidence.py::_eligible_prefix_tokens` behavior that uses C as a
+fallback or lower bound. C is arm-dependent execution evidence and cannot
+define or complete an arm-invariant E. Missing independent evidence makes E
+unavailable and fails the affected comparison closed.
 
 The derivation must bind run/group/load/arm/request/program, hash function,
 block size, ordered hash chain, snapshot event index and clock boundary. If no
@@ -287,8 +302,9 @@ and introduces unvalidated infrastructure.
 
 ## 10. Fail-closed conditions and recommendation
 
-**GO for engineering preparation and cohort acquisition; NOT YET for formal
-GPU execution.** Stop or exclude the affected unit, with explicit missingness,
+**GO for engineering preparation only; Agent acquisition, calibration, smoke
+and formal GPU execution remain unauthorized.** Stop or exclude the affected
+unit, with explicit missingness,
 when any of the following occurs:
 
 - source task, sidecar, Explicit Token IDs or frozen request subset changes;
@@ -297,14 +313,17 @@ when any of the following occurs:
 - 24-to-12 request degradation is made after outcome inspection;
 - load target is changed using non-A0 results;
 - E is missing/non-unique, N/E/C invariants fail or E differs across arms;
+- E was completed, bounded or replaced using C;
 - N0 alters pressure timing/ownership or produces a forced Entry Release;
 - E0 reads q/profile data or violates the frozen S2 ladder;
 - formal runtime exceeds the frozen GPU ceiling or a request is not legal in
   the 2,048-block, 32,768-token configuration.
 
-Before M1 authorizes execution, M6 should deliver: the deterministic cohort
-seal and reserve accounting; six-arm materializer tests; E0/N0 CPU/mock
+The authorized engineering-preparation deliverables are: the deterministic
+64-ID Primary/Reserve sampling plan and cohort-seal tooling; six-arm
+materializer tests; E0/N0 CPU/mock
 acceptance; N/E/C evaluator and negative tests; static first-token capability
-record; A0 calibration specification; immutable run plan; and a recalculated
-budget from the sealed cohort. No additional Phase 2I repair or GPU pilot is
-required by this feasibility assessment.
+record; A0 calibration specification; and immutable run-plan tooling. Actual
+Agent acquisition, the 40-run Load Calibration, 30-run Noise Calibration,
+240-run Main Campaign and any GPU Smoke require later M1 authorization. No
+additional Phase 2I repair is required by this feasibility assessment.
