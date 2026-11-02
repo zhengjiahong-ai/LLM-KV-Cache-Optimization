@@ -32,9 +32,21 @@ auxiliary and never replace the primary metric.
 
 The evaluator requires the exact frozen request set and all six arms
 `N0/A0/A1/A2/A3/E0`. It verifies request-level `N` and `E` equality across the
-arms. Duplicate or missing observations, malformed identities, incompatible
-hash provenance, invalid token ordering, aggregate identity failure, or any
-cross-arm `N/E` drift yields `FAIL_CLOSED` for the cell.
+arms. The only Native observations excluded from effect estimation are request
+IDs explicitly frozen in the Stage 1 Manifest's `pressure_request_contract`;
+any other unknown observation fails closed.
+
+Every content hash must be a 64-character lowercase SHA-256 digest. A current
+request chain must cover every complete prompt block. The sole permitted extra
+tail hash follows the existing Native rule: a one-token completion may finish
+a prompt whose length is one token short of a complete block. Prior snapshots
+must contain a non-empty chain and a positive, chain-consistent token count.
+
+Duplicate or missing observations, malformed identities, incompatible hash
+provenance, incomplete chains, invalid token ordering, aggregate identity
+failure, or any cross-arm `N/E` drift yields `FAIL_CLOSED` for the cell. Empty
+frozen request sets and any arm set other than the fixed six-arm matrix are
+also rejected.
 
 APC outcomes (`NO_REUSE_ELIGIBLE_PREFIX`, `FULL_HIT`, `PARTIAL_HIT`, `MISS`)
 are derived from the independently validated N/E/C tuple. Physical eviction

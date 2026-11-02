@@ -67,12 +67,12 @@ def _hashes(value: object, name: str) -> tuple[str, ...]:
     for item in value:
         text = _text(item, f"{name} item")
         if (
-            len(text) % 2
+            len(text) != 64
             or text != text.lower()
             or any(character not in "0123456789abcdef" for character in text)
         ):
             raise ArtifactValidationError(
-                f"{name} items must be lowercase hexadecimal bytes"
+                f"{name} items must be 64-character lowercase SHA-256 digests"
             )
         result.append(text)
     return tuple(result)
@@ -125,6 +125,8 @@ def _common_prefix(left: Sequence[str], right: Sequence[str]) -> int:
 def _derive_request(
     observation: Mapping[str, object],
     prior_snapshots: Sequence[Mapping[str, object]],
+    *,
+    completion_output_tokens: int | None,
 ) -> NECRequestResult:
     program_id, request_id = _identity(observation, "native observation")
     payload = _object(observation.get("payload"), "native observation payload")
@@ -138,10 +140,25 @@ def _derive_request(
         hashes_field="native_apc_block_hashes",
         label="native observation",
     )
-    if len(current.hashes) * current.block_size > n:
+    complete_prompt_blocks = n // current.block_size
+    expected_hash_count = complete_prompt_blocks
+    generated_tail_allowed = (
+        n % current.block_size == current.block_size - 1
+        and completion_output_tokens == 1
+    )
+    if len(current.hashes) not in {
+        expected_hash_count,
+        expected_hash_count + int(generated_tail_allowed),
+    }:
         raise ArtifactValidationError(
-            f"{request_id} Native hash chain exceeds prompt length"
+            f"{request_id} Native hash chain does not cover all complete prompt blocks"
         )
+    current = _HashChain(
+        hashes=current.hashes[:expected_hash_count],
+        block_size=current.block_size,
+        process_id=current.process_id,
+        hash_function=current.hash_function,
+    )
 
     compatible: list[_HashChain] = []
     for snapshot in prior_snapshots:
@@ -157,6 +174,10 @@ def _derive_request(
             snapshot_payload.get("hash_num_tokens"),
             "prior prefix snapshot hash_num_tokens",
         )
+        if not evidence.hashes or hash_tokens == 0:
+            raise ArtifactValidationError(
+                "prior prefix snapshot hash chain must be non-empty"
+            )
         if hash_tokens != len(evidence.hashes) * evidence.block_size:
             raise ArtifactValidationError(
                 "prior prefix snapshot token count disagrees with its hash chain"
@@ -221,6 +242,7 @@ def _evaluate_arm(
     arm: str,
     events: Sequence[Mapping[str, object]],
     frozen_requests: Sequence[tuple[str, str]],
+    pressure_request_ids: frozenset[str],
 ) -> dict[str, object]:
     expected = tuple(frozen_requests)
     if len(expected) != len(set(expected)):
@@ -230,14 +252,33 @@ def _evaluate_arm(
         events, key=lambda event: _event_index(event, f"{arm} event")
     )
     observations: dict[tuple[str, str], Mapping[str, object]] = {}
+    completions: dict[tuple[str, str], int] = {}
     for event in indexed_events:
+        if event.get("event_type") == "VLLM_REQUEST_COMPLETED":
+            identity = _identity(event, f"{arm} request completion")
+            if identity in expected_set:
+                payload = _object(
+                    event.get("payload"), f"{arm} request completion payload"
+                )
+                if identity in completions:
+                    raise ArtifactValidationError(
+                        f"{arm} request {identity} has duplicate completions"
+                    )
+                completions[identity] = _integer(
+                    payload.get("output_token_count"), "output_token_count"
+                )
+            continue
         if event.get("event_type") != _NATIVE_OBSERVATION:
             continue
         identity = _identity(event, f"{arm} native observation")
         # Pressure requests are persisted in the same event stream but are not
         # members of the frozen effect-estimation request set.
         if identity not in expected_set:
-            continue
+            if identity[1] in pressure_request_ids:
+                continue
+            raise ArtifactValidationError(
+                f"{arm} has unknown non-pressure Native observation {identity}"
+            )
         if identity in observations:
             raise ArtifactValidationError(
                 f"{arm} request {identity} has duplicate Native observations"
@@ -264,7 +305,13 @@ def _evaluate_arm(
             raise ArtifactValidationError(
                 f"{identity} is missing frozen prior request-history snapshots"
             )
-        rows.append(_derive_request(observation, prior_snapshots))
+        rows.append(
+            _derive_request(
+                observation,
+                prior_snapshots,
+                completion_output_tokens=completions.get(identity),
+            )
+        )
 
     sum_n = sum(row.native_prompt_tokens for row in rows)
     sum_c = sum(row.native_cached_prefix_tokens for row in rows)
@@ -290,18 +337,49 @@ def _evaluate_arm(
     }
 
 
+def _pressure_request_ids(cell_manifest: Mapping[str, object]) -> frozenset[str]:
+    if cell_manifest.get("schema_version") != "phase3.six_arm_cell_manifest.v1":
+        raise ArtifactValidationError("unsupported Phase 3 cell manifest")
+    if cell_manifest.get("arms") != list(_PHASE3_ARMS):
+        raise ArtifactValidationError("cell manifest must freeze all six Phase 3 arms")
+    contract = cell_manifest.get("pressure_request_contract")
+    if not isinstance(contract, list) or not contract:
+        raise ArtifactValidationError(
+            "cell manifest pressure_request_contract must be a non-empty array"
+        )
+    result: list[str] = []
+    for row in contract:
+        mapping = _object(row, "pressure request contract row")
+        request_ids = mapping.get("request_ids")
+        if not isinstance(request_ids, list) or not request_ids:
+            raise ArtifactValidationError(
+                "pressure request contract request_ids must be a non-empty array"
+            )
+        result.extend(
+            _text(value, "pressure request id") for value in request_ids
+        )
+    if len(result) != len(set(result)):
+        raise ArtifactValidationError("pressure request IDs must be unique")
+    return frozenset(result)
+
+
 def evaluate_phase3_nec_cell(
     *,
     events_by_arm: Mapping[str, Sequence[Mapping[str, object]]],
     frozen_requests: Sequence[tuple[str, str]],
-    required_arms: Sequence[str] = _PHASE3_ARMS,
+    cell_manifest: Mapping[str, object],
 ) -> dict[str, object]:
     """Evaluate one Phase 3 cell and fail closed on any evidence defect."""
 
-    required = tuple(required_arms)
+    required = _PHASE3_ARMS
     issues: list[str] = []
-    if len(required) != len(set(required)):
-        issues.append("required arms must be unique")
+    pressure_ids: frozenset[str] = frozenset()
+    if not frozen_requests:
+        issues.append("frozen request set must not be empty")
+    try:
+        pressure_ids = _pressure_request_ids(cell_manifest)
+    except (ArtifactValidationError, TypeError, ValueError) as error:
+        issues.append(f"manifest: {error}")
     if set(events_by_arm) != set(required):
         issues.append(
             "arm set mismatch: "
@@ -312,7 +390,7 @@ def evaluate_phase3_nec_cell(
         for arm in required:
             try:
                 arm_reports[arm] = _evaluate_arm(
-                    arm, events_by_arm[arm], frozen_requests
+                    arm, events_by_arm[arm], frozen_requests, pressure_ids
                 )
             except (ArtifactValidationError, TypeError, ValueError) as error:
                 issues.append(f"{arm}: {error}")

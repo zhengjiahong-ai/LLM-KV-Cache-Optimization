@@ -2,13 +2,42 @@ from __future__ import annotations
 
 from copy import deepcopy
 
-from kvopt.profiling.phase3_nec import evaluate_phase3_nec_cell
+from kvopt.profiling.phase3_nec import (
+    evaluate_phase3_nec_cell as _evaluate_phase3_nec_cell,
+)
 
 ARMS = ("N0", "A0", "A1", "A2", "A3", "E0")
 HASH_A = "01" * 32
 HASH_B = "02" * 32
 HASH_C = "03" * 32
 REQUESTS = (("program-a", "request-1"), ("program-a", "request-2"))
+
+
+def _manifest() -> dict:
+    return {
+        "schema_version": "phase3.six_arm_cell_manifest.v1",
+        "arms": list(ARMS),
+        "pressure_request_contract": [
+            {
+                "boundary_id": "pressure:stage-1",
+                "stage_id": "stage-1",
+                "request_ids": ["pressure:stage-1:1"],
+            }
+        ],
+    }
+
+
+def evaluate_phase3_nec_cell(
+    *,
+    events_by_arm: dict[str, list[dict]],
+    frozen_requests: tuple[tuple[str, str], ...],
+    cell_manifest: dict | None = None,
+) -> dict:
+    return _evaluate_phase3_nec_cell(
+        events_by_arm=events_by_arm,
+        frozen_requests=frozen_requests,
+        cell_manifest=_manifest() if cell_manifest is None else cell_manifest,
+    )
 
 
 def _event(index: int, event_type: str, request: str, payload: dict) -> dict:
@@ -51,6 +80,15 @@ def _snapshot(index: int) -> dict:
             "native_hash_process_id": "native-1",
             "native_hash_function": "sha256",
         },
+    )
+
+
+def _completion(index: int, request: str, output_tokens: int) -> dict:
+    return _event(
+        index,
+        "VLLM_REQUEST_COMPLETED",
+        request,
+        {"output_token_count": output_tokens},
     )
 
 
@@ -163,7 +201,7 @@ def test_arm_set_and_frozen_request_set_are_strict() -> None:
 def test_pressure_native_observations_are_not_effect_requests() -> None:
     cell = _cell()
     for events in cell.values():
-        pressure = _observation(4, "pressure-request", prompt=16, cached=0)
+        pressure = _observation(4, "pressure:stage-1:1", prompt=16, cached=0)
         pressure["program_id"] = "pressure:stage-1"
         events.append(pressure)
 
@@ -173,6 +211,20 @@ def test_pressure_native_observations_are_not_effect_requests() -> None:
 
     assert report["status"] == "PASS"
     assert all(report["arms"][arm]["request_count"] == 2 for arm in ARMS)
+
+
+def test_unknown_non_pressure_observation_fails_closed() -> None:
+    cell = _cell()
+    cell["A1"].append(
+        _observation(4, "unknown-formal-request", prompt=16, cached=0)
+    )
+
+    report = evaluate_phase3_nec_cell(
+        events_by_arm=cell, frozen_requests=REQUESTS
+    )
+
+    assert report["status"] == "FAIL_CLOSED"
+    assert any("unknown non-pressure" in issue for issue in report["issues"])
 
 
 def test_c_may_vary_while_n_and_e_remain_arm_independent() -> None:
@@ -190,3 +242,92 @@ def test_c_may_vary_while_n_and_e_remain_arm_independent() -> None:
         report["arms"][arm]["requests"][1]["eligible_prefix_tokens"]
         for arm in ARMS
     } == {32}
+
+
+def test_empty_frozen_request_set_fails_closed() -> None:
+    report = evaluate_phase3_nec_cell(
+        events_by_arm={arm: [] for arm in ARMS}, frozen_requests=()
+    )
+
+    assert report["status"] == "FAIL_CLOSED"
+    assert "frozen request set must not be empty" in report["issues"]
+
+
+def test_single_arm_call_fails_closed() -> None:
+    report = evaluate_phase3_nec_cell(
+        events_by_arm={"A0": _events()}, frozen_requests=REQUESTS
+    )
+
+    assert report["status"] == "FAIL_CLOSED"
+    assert any("arm set mismatch" in issue for issue in report["issues"])
+
+
+def test_empty_current_hash_chain_for_multiblock_prompt_fails_closed() -> None:
+    cell = _cell()
+    cell["A0"][0]["payload"]["native_apc_block_hashes"] = []
+
+    report = evaluate_phase3_nec_cell(
+        events_by_arm=cell, frozen_requests=REQUESTS
+    )
+
+    assert report["status"] == "FAIL_CLOSED"
+    assert any("complete prompt blocks" in issue for issue in report["issues"])
+
+
+def test_short_current_hash_chain_fails_closed() -> None:
+    cell = _cell()
+    cell["E0"][-1]["payload"]["native_apc_block_hashes"] = [HASH_A, HASH_B]
+
+    report = evaluate_phase3_nec_cell(
+        events_by_arm=cell, frozen_requests=REQUESTS
+    )
+
+    assert report["status"] == "FAIL_CLOSED"
+    assert any("complete prompt blocks" in issue for issue in report["issues"])
+
+
+def test_empty_snapshot_hash_chain_fails_closed() -> None:
+    cell = _cell()
+    cell["N0"][1]["payload"]["ordered_native_hashes"] = []
+    cell["N0"][1]["payload"]["hash_num_tokens"] = 0
+
+    report = evaluate_phase3_nec_cell(
+        events_by_arm=cell, frozen_requests=REQUESTS
+    )
+
+    assert report["status"] == "FAIL_CLOSED"
+    assert any("must be non-empty" in issue for issue in report["issues"])
+
+
+def test_snapshot_hash_must_be_sha256_length() -> None:
+    cell = _cell()
+    cell["A3"][1]["payload"]["ordered_native_hashes"][0] = "ab"
+
+    report = evaluate_phase3_nec_cell(
+        events_by_arm=cell, frozen_requests=REQUESTS
+    )
+
+    assert report["status"] == "FAIL_CLOSED"
+    assert any("64-character" in issue for issue in report["issues"])
+
+
+def test_one_generated_tail_hash_requires_exact_native_rule() -> None:
+    allowed = _cell()
+    rejected = _cell()
+    for cell, output_tokens in ((allowed, 1), (rejected, 0)):
+        for events in cell.values():
+            events[0]["payload"]["native_prompt_tokens"] = 15
+            events[0]["payload"]["native_apc_block_hashes"] = [HASH_A]
+            events[1]["event_index"] = 3
+            events[2]["event_index"] = 4
+            events.insert(1, _completion(2, "request-1", output_tokens))
+
+    allowed_report = evaluate_phase3_nec_cell(
+        events_by_arm=allowed, frozen_requests=REQUESTS
+    )
+    rejected_report = evaluate_phase3_nec_cell(
+        events_by_arm=rejected, frozen_requests=REQUESTS
+    )
+
+    assert allowed_report["status"] == "PASS"
+    assert rejected_report["status"] == "FAIL_CLOSED"
