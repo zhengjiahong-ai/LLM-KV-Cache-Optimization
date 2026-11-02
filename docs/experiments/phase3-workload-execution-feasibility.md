@@ -2,26 +2,53 @@
 
 Status: **DESIGN / DATA AUDIT ONLY — FORMAL GPU CAMPAIGN NOT AUTHORIZED**
 
+Protocol dependency: M4 Phase 3 Final Evaluation Protocol v3, PR #90, review
+HEAD `3a8c3882ad248715b2f5ea90e34baa3875ea0226`. This report assesses M6
+workload and execution feasibility; it does not redefine M4 policy semantics.
+
 ## 1. Executive finding
 
-The repository already contains enough authentic multi-turn data and Native
-instrumentation to build a 20-group Phase 3 campaign without creating a new
-agent framework. It does **not** yet contain 20 independent, fully frozen
-groups: the strongest existing cross-repository source is the 20-task W1-C
-S100 acquisition, while the prior bounded campaign used 18 of those tasks in
-nine groups. Reaching 20 disjoint groups therefore requires either acquiring
-at least 22 additional tasks (for two-session groups) or adopting larger
-multi-session groups with fewer independent units, which would not meet M1's
-20-group target.
+The six-arm, 20-group Phase 3 design is feasible on the existing RTX 4090D
+stack without a new Agent framework. The repository already provides the
+replay clock, fixed pressure, Native observations, policy hooks, evidence
+archive, and paired evaluator substrate. The remaining material work is:
 
-Recommendation: acquire and seal a deterministic extension from the already
-frozen 100-task W1-C sampling frame, retain W1-C's Mini-SWE-Agent capture path,
-then form 20 disjoint two-session groups. Do not substitute public issue rows
-for missing trajectories.
+1. seal 40 qualified W1-C tasks into 20 disjoint cross-repository pairs;
+2. implement and test E0 and N0 campaign integration under M4's frozen
+   semantics;
+3. run independent A0 load/noise calibration before the main campaign; and
+4. harden the evaluator around the corrected request-level N/E/C contract.
 
-## 2. Existing workload inventory
+The current evidence supports neither a public Continuum reproduction claim
+nor ownership-level physical attribution. Phase 3 can still answer the effect
+question using request-level Aggregate Recomputed Tokens.
 
-### W1-A — authentic single-repository acquisition
+## 2. Frozen comparison boundary
+
+| Arm | Frozen meaning | M6 integration consequence |
+| --- | --- | --- |
+| N0 | no-op forced Entry Release; pressure request, barrier, timeline, Native LRU and APC remain active | inject a no-op at the forced Entry Release decision, not by deleting pressure stages |
+| A0 | project-side Continuum-style Entry Release + Native LRU | internal baseline; **not** a reproduction of public Continuum |
+| A1 | frozen Cost-Aware Entry Release + Native LRU | reuse frozen runtime path |
+| A2 | A0 Entry Release + frozen block selector | reuse frozen runtime path |
+| A3 | suffix cost-aware Entry Release + Native LRU | reuse accepted A3 decision path; physical causality remains unestablished |
+| E0 | A1 branch ladder with deadline-only Step 2 + Native LRU | M4 owns semantics; M6 owns materialization, runtime wiring and evidence |
+
+E0 uses the same candidates, `need`, `N_i`, sufficient-set construction and
+fallback ladder as A1/A3. In S2A it orders by `(deadline, identity)` and never
+reads q or the cost profile. S2B uses the same fallback determination as A3
+and then frozen A1 Step 2. S2C uses frozen A1 Steps 3/4/5. Only S2A may differ
+from A3. CPU/mock acceptance must prove E0/A3 equality in S2B and E0/A1
+equality in S2C.
+
+The campaign materializer must create one immutable cell plan with the same
+requests, Explicit Token IDs, pressure inputs, logical-time boundaries,
+model/runtime configuration and resource limits for all six arms. Arm-specific
+configuration is limited to the frozen policy selector.
+
+## 3. Existing workload inventory
+
+### 3.1 W1-A
 
 | Property | Audited value |
 | --- | ---: |
@@ -33,212 +60,251 @@ for missing trajectories.
 | Median prompt tokens | 7,868 |
 | Adjacent server-gap samples | 443 |
 
-W1-A has trajectories, acquisition sidecars, explicit locally tokenized prompt
-IDs, request/tool timing, converted traces, and validation reports. It is high
-quality but repository-homogeneous and uses the historical 3B model/revision.
-It is useful for history calibration and regression, not as the sole Phase 3
-population.
+W1-A has authentic trajectories, sidecars, Explicit Token IDs and timing. Its
+single-repository population and historical 3B identity make it suitable for
+history/regression checks, not the Phase 3 population.
 
-### W1-B — replay/profile layer, not a new population
+### 3.2 W1-B
 
-W1-B materializes ten W1-A sessions into Native replay and supplies the
-PrefillReload profile, cache-pressure machinery, APC observations, and
-request-level evidence. It adds no independent tasks or repositories. Its
-constructed timing and selected checkpoints must not be counted as new Agent
-workload observations.
+W1-B is a replay/profile layer over W1-A. It contributes PrefillReload,
+pressure and APC machinery but no independent tasks. Constructed checkpoints
+must not be counted as new Agent observations.
 
-### W1-C — strongest reusable cross-repository source
+### 3.3 W1-C
 
 | Property | S50 | S100 |
 | --- | ---: | ---: |
-| Independent tasks | 20 | 20 |
-| Repositories covered | 12 | 12 in the paired design |
+| Frozen candidate frame | 100 tasks | 100 tasks |
+| Acquired tasks | 20 | 20 |
+| Repositories represented | 12 | 12 |
 | Successful model calls | 1,000 | 1,800 |
 | Failed model calls | 0 | 3 |
 | Tool calls | 464 | 943 |
 | Median prompt tokens | 5,836 | 9,245 |
 | Maximum admitted prompt tokens | 19,726 | 32,223 |
-| Median per-task context growth | 9,131.5 | 17,495.5 |
 | Median adjacent exact-token LCP | 5,773 | 9,209 |
 | Median adjacent reuse ratio | 0.9709 | 0.9829 |
 
-All 20 tasks have paired lifecycle records. Thirty-seven trajectories passed
-the strict source-to-sidecar validator: all 20 S50 trajectories and 17 S100
-trajectories without a rejected final submission. Eighteen of the 20 pairs are
-fully evidence-comparable; all 20 remain lifecycle-comparable. Three S100 runs
-hit the frozen 32K context boundary. The existing formal bounded cohort reused
-18 tasks as nine groups; it must not be treated as 54 independent samples.
+The acquisition produced 20 paired tasks. Eighteen are full-payload comparable;
+all 20 retain lifecycle evidence. The remaining 80 frozen candidates are
+unacquired. W1-C preserves request order, logical gaps, Explicit Token IDs,
+tool observations, failures and sidecars, so it is the only currently local
+cross-repository source suitable for Phase 3.
 
-The trace records preserve request order, logical gaps, explicit token IDs,
-tool observations, and model-call identities. Native runtime-submitted token
-identity was subsequently checked by the CUDA replay path. W1-C is therefore
-the preferred Phase 3 seed.
+Phase 2H/2I reuse six W1-C tasks and do not add an independent population.
+Their value is execution feasibility: 180-request, three-session Native replay,
+three pressure barriers, empirical TTL history and A3 execution were observed.
 
-### Phase 2H/2I history-rich data
+## 4. Public source and trace availability
 
-Phase 2H froze two three-session scenarios, each with 180 requests and pressure
-at rounds 40/50/55. These runs prove that three-session replay, empirical TTL
-history, fixed pressure, and Native request observation are feasible. They use
-only six W1-C tasks and are mechanism-focused, so they add no new independent
-task source. Phase 2I reuses HR02 and adds A3 evidence; it is not additional
-workload.
+| Source | Task descriptions | Complete replayable Agent traces | Phase 3 role |
+| --- | --- | --- | --- |
+| Continuum public repository | yes, via SWE-bench loader | audited checkout does not publish paper-run exact trajectories | provenance/implementation reference only |
+| SWE-bench Verified | 500 verified task rows | no conversations, Explicit Token IDs or Agent timing | frozen acquisition frame |
+| Mini-SWE-Agent | agent and trajectory writer | yes only after pinned execution with this project's sidecar capture | preferred acquisition scaffold |
+| Existing W1-C | yes | yes for acquired tasks | immediate seed |
 
-## 3. Public-source trace availability
+Issue descriptions are not traces. Aggregate benchmark results cannot recover
+messages, exact submissions, tool gaps, failures or timing. New qualified data
+therefore require pinned Mini-SWE-Agent acquisition through the existing W1-C
+capture and validation path.
 
-Primary source references used by this audit:
+## 5. Cohort acquisition and deterministic seal
 
-- SWE-bench dataset guide:
-  <https://github.com/SWE-bench/SWE-bench/blob/main/docs/guides/datasets.md>
-- SWE-bench evaluation harness and resource requirements:
-  <https://github.com/SWE-bench/SWE-bench/blob/main/docs/reference/harness.md>
-- Mini-SWE-Agent repository:
-  <https://github.com/swe-agent/mini-swe-agent>
-- audited Continuum repository:
-  <https://github.com/Hanchenli/vllm-continuum>
+Twenty independent groups require 40 qualified tasks, two tasks from different
+repositories per group, and at least ten repositories overall. M1 must choose
+between two non-equivalent interpretations:
 
-| Source | Task descriptions | Complete Agent trajectories | Exact submitted token IDs/timing | Phase 3 use |
-| --- | --- | --- | --- | --- |
-| Continuum public repository | Yes, via SWE-bench Verified loader | **No** paper-run trajectories published in the audited checkout | No | implementation/provenance reference only |
-| SWE-bench Verified | Yes, 500 engineer-verified task rows | No; it is a task/evaluation dataset | No | deterministic acquisition frame |
-| Mini-SWE-Agent | Agent and trajectory writer available | Yes **after executing acquisition** | only if this project's sidecar instrumentation is enabled | preferred acquisition scaffold |
-| Existing W1-C | Yes | Yes, 20 S50 + 20 S100 executions | Yes in sidecars/converted replay, with declared local-vs-Native boundary | immediate reusable seed |
+| Interpretation | Reusable historical tasks | Minimum new qualified tasks | Recommended acquisition reserve |
+| --- | ---: | ---: | ---: |
+| reuse full-payload historical W1-C | 18 | 22 | 24 |
+| require an entirely new Phase 3 cohort | 0 | 40 | acquire from the remaining 80 with a pre-frozen reserve plan |
 
-The audited Continuum repository saves Mini-SWE-Agent-style trajectories when
-it runs, but does not publish the paper experiment's per-task trajectories.
-Aggregate results cannot reconstruct message content, exact tokens, arrivals,
-or tool gaps. SWE-bench Verified likewise supplies issue/repository/test data,
-not conversations. Only newly executed, pinned Mini-SWE-Agent acquisition (or
-the existing W1-C artifacts) satisfies the complete Trace requirement.
+These alternatives must not be conflated. M6 recommends the first because it
+preserves authentic traces and reduces acquisition cost without selecting on
+policy outcomes. If M1 rejects historical reuse, the second remains feasible
+within the 80 unacquired frozen candidates.
 
-## 4. Path to 20 independent groups
+Before acquisition, materialize a deterministic task list that excludes all
+previously acquired task IDs and stratifies by repository and static issue
+length. Bind its ordered IDs and strata to SHA-256. Preserve every success,
+failure, context-limit event, incomplete sidecar and right-censored trajectory;
+do not replace a task after observing runtime or policy outcomes. Qualification
+and pair construction use only pre-Native trace properties. Freeze membership,
+request subsets and pairing before any formal Native outcome.
 
-For two-session groups, 20 disjoint groups require 40 independent tasks. W1-C
-currently supplies 20, so the minimal extension is 20 more eligible tasks; a
-22–24 task acquisition reserve is prudent because context-limit or sidecar
-failures must remain recorded rather than silently replaced.
+The final cohort report must include repository count, per-repository tasks,
+request counts, prompt length/LCP distributions, source gaps, failure classes,
+right-censoring and source/sidecar hashes.
 
-Reuse the existing 100-task W1-C frozen sample and acquisition tooling:
+## 6. Load and replay feasibility
 
-1. exclude the 20 already acquired task IDs;
-2. preselect a deterministic 24-task extension using repository and static
-   length strata, before any policy result exists;
-3. run the same pinned Mini-SWE-Agent capture contract;
-4. retain every success, failure, context-limit, and right-censored record;
-5. seal at least 40 eligible tasks and form 20 disjoint pairs with repository,
-   length, call-count, and gap diversity;
-6. freeze group membership before Native execution.
+The default cell is two sessions, 12 checkpoints per session, 24 requests,
+maximum Native inflight 2, a 0.25-second cross-session start stagger and
+`ControlledSparseReplayClock`. Source gaps remain logical lifecycle data; no
+wall-clock idle is introduced.
 
-Estimated engineering work is low-to-moderate because sampling, acquisition,
-conversion, sidecar validation, timeline, fixed pressure, five policy hooks,
-and evaluator components already exist. New work should be limited to a
-five-arm materializer, Native-only baseline mode, group freeze, and unified
-Phase 3 evaluator. The dominant cost is acquisition/validation, not algorithm
-development.
+Load is defined by independent A0-only calibration, not by session count:
 
-## 5. Load, timing, and concurrency feasibility
+- L-low: baseline recompute ratio `rho0` in 5–15%;
+- L-high: baseline recompute ratio `rho0` in 25–45%;
+- `rho0 = R0 / W0`, `R0 = sum(E-C)`, `W0 = sum(N-C)`.
 
-Existing W1-C acquisition is one Agent worker and therefore does not itself
-contain production concurrency. Phase 2H proves deterministic three-session
-source-time merge with peak Native inflight 2 and no wall-clock replay idle.
-For Phase 3, two load regimes should use the same frozen per-session requests:
+Calibration may adjust only pre-registered pressure inputs before the main
+campaign. Any affected A0 calibration must be rerun, and the final inputs must
+be frozen without reference to other arms. An eligible headroom cell has
+`rho0 >= 5%` and `R0 >= 512`; the headroom list is SHA-bound. The main campaign
+still executes all 40 group/load cells and reports both the full set and the
+pre-frozen headroom subset.
 
-- **moderate**: two concurrent sessions, native inflight ceiling 2;
-- **deep**: three concurrent sessions or the same sessions with a pre-frozen
-  arrival compression/pressure boundary.
+The existing W1-C distribution and 32,768-token model boundary make 24
+requests/cell feasible. The permitted degradation is six checkpoints/session
+(12 requests/cell), frozen before outcomes if static cohort analysis shows the
+24-request form cannot satisfy capacity or budget. This halves request work
+and decision exposure and therefore weakens APC/recompute and S2A opportunity;
+it does not reduce the number of engine initializations or planned runs.
 
-The transformation must be fixed before outcomes, identical across arms, and
-retain source gaps as logical lifecycle time. The report must distinguish
-source-time gaps, logical replay gaps, native timestamps, and wall time. Public
-SWE-bench rows alone cannot supply these timing fields.
+N0 must preserve the identical pressure request, `boundary_id`, logical time
+and barrier while returning `NO_FORCED_RELEASE = VALID`. Tests must prove zero
+N0 forced Entry Releases and no change to Native ownership behavior.
 
-## 6. RTX 4090D and capacity feasibility
+## 7. Request-level effect evidence
 
-The qualified environment is one RTX 4090D (24,564 MiB), CUDA 13.0, PyTorch
-2.13.0+cu130, and vLLM 0.27.1. The frozen Phase 2 model is non-quantized
-`Qwen2.5-Coder-1.5B-Instruct`, 32,768 context, 2,048-token chunked prefill,
-16-token blocks, and a 2,048-block KV pool (32,768 tokens). It successfully ran
-180-request three-session replays and the 54-run bounded campaign.
+### 7.1 Correct N/E/C contract
 
-Capacity consequence: a single near-32K request can occupy essentially the
-entire deliberately constrained 2,048-block pool. Multi-session legality is
-provided by chunked execution and sequential/inflight control, not by capacity
-for several simultaneous 32K resident chains. The final protocol must preserve
-the same pool across arms and fail closed if an admitted request cannot run;
-increasing capacity after seeing an arm outcome is forbidden.
+For every evaluated request:
 
-The completed 54-run bounded campaign took 38m54s end to end. Phase 2H/2I
-three-session runs typically took roughly 1–2 minutes per arm after environment
-setup. A candidate `20 groups × 2 loads × 5 arms × 3 repeats` matrix is 600
-Native runs. At 1–3 minutes/run plus initialization and evidence writing, the
-planning range is approximately **15–40 GPU-hours**. At 2 CNY/hour this is
-**30–80 CNY**, excluding Agent acquisition and CPU SWE-bench grading. A sixth
-arm raises the matrix to 720 runs and approximately **18–48 GPU-hours**.
+- `N` is the length of Native `prompt_token_ids` returned by vLLM;
+- `C` is Native `num_cached_tokens`;
+- `E` is **offline derived**, not a Native raw field. It is reconstructed at
+  the request's observation boundary from the Native APC hash chain and the
+  matching historical `VLLM_PREFIX_SNAPSHOT` identity/time evidence.
 
-This estimate is not an authorization or measured forecast. Before freeze,
-calculate total requests/tokens from the sealed 40-task cohort and enforce a
-hard GPU-hour ceiling. Engine initialization currently dominates short runs;
-cross-run engine reuse is not recommended because it risks cross-arm cache
-contamination and adds new infrastructure.
+The derivation must bind run/group/load/arm/request/program, hash function,
+block size, ordered hash chain, snapshot event index and clock boundary. If no
+unique prior matching snapshot exists, or chain length/content/time is
+inconsistent, E is missing and the request cannot contribute to the primary
+metric. It is forbidden to substitute `N-C` for recomputation.
 
-## 7. Native evidence capability
+Required per-request checks are `0 <= C <= E <= N` and strict cross-arm E
+equality for the same frozen request. Required aggregate identity is:
 
-### Available and suitable for the primary outcome
+`sum(N-C) = sum(E-C) + sum(N-E)`.
 
-- `VLLM_NATIVE_REQUEST_OBSERVATION` exposes N (prompt), E (eligible prefix),
-  and C (cached prefix) with `0 <= C <= E <= N` validation.
-- Actual request recomputation is `E - C`; new suffix work is `N - E`; actual
-  prefill work is `N - C`.
-- Stable request/program/run/group/arm identities and explicit-token hashes are
-  persisted.
-- Native request submission/completion, queue duration, APC classification,
-  pressure completion, Entry decisions, and execution telemetry are available.
+Primary outcome is Aggregate Recomputed Tokens `sum(E-C)`. Auxiliary measures
+are total prefill `sum(N-C)`, new suffix `sum(N-E)`, APC reuse ratio and
+recompute ratio. APC labels are derived from N/E/C when no stable Native
+per-request APC outcome event exists: no eligible prefix, full hit, partial hit
+or miss. `16 * |refetched blocks|` is not a primary metric.
 
-Aggregate Recomputed Tokens can therefore be measured independently of a
-content-level physical join and is feasible as the Phase 3 primary metric.
+### 7.2 Native timing
 
-### Available but claim-limited
+Static inspection confirms the CUDA adapter reads
+`output.metrics.first_token_ts`, together with `queued_ts` and `scheduled_ts`,
+and persists it as `native_first_token_timestamp` in the
+`engine_core_monotonic` domain. Before formal execution, CPU/mock fixtures must
+verify type/missingness handling and a minimal authorized configuration check
+must verify the target vLLM path populates it. It remains an auxiliary metric.
+Logical `REQUEST_ADMITTED` must never be treated as Native admission or used in
+a cross-clock subtraction.
 
-- Hashed physical eviction callbacks and content identity fields are recorded.
-- Phase 2I final execution observed 7,862 hashed evictions and three physical
-  outcomes, but Gate O accepted zero complete decision-to-physical joins and
-  reported 7,822 unattributed evictions.
-- Right-censoring is explicitly observable and must be preserved.
+### 7.3 Physical evidence limitation
 
-Thus physical evictions may be reported descriptively, but Phase 3 cannot claim
-that a selected A3 block caused a later recomputation unless a separately
-frozen identity gate passes. Gate O failure must not invalidate valid N/E/C
-request measurements, and request measurements must not be relabeled as
-per-block causal attribution.
+Phase 2I closed with Gate O failed. Hashed evictions and physical outcomes may
+be reported diagnostically, but they do not establish that a policy-owned
+selection caused a later recomputation. Phase 3 effect attribution therefore
+uses L4 request-level N/E/C only. Every final summary must state:
 
-### Remaining limitations
+`ownership_level_attribution = NOT_ESTABLISHED`.
 
-- Native first-token timestamp was unavailable in the historical
-  `wait_for_completion` adapter; TTFT needs a real Native timestamp or must be
-  declared unavailable.
-- Native APC hit/miss was historically derived from N/E/C rather than a stable
-  per-request engine event. The derivation and categories must be frozen.
-- Logical `REQUEST_ADMITTED` is not a Native scheduler admission timestamp.
-- Unattributed eviction events and content never re-requested remain missing or
-  right-censored, not permanent non-reuse.
+The optional `last_selected_block_ids` repair is not a prerequisite and must
+not reopen Phase 2I runtime engineering.
 
-## 8. Feasibility gates and recommendation
+## 8. Evaluator and hypothesis support
 
-**GO for protocol freeze preparation, NOT YET for GPU execution.**
+The independent evaluator must reconstruct the six-arm cell from persisted
+artifacts and reject mismatched plan/input/model/runtime/trace/pressure hashes.
+It must support:
 
-Before M1 authorizes the campaign:
+- G0: execution, completeness, identical inputs and missingness;
+- G1: request-level N/E/C and aggregate identities;
+- G2: arm policy and decision correctness, including E0 and N0;
+- G3: paired outcomes for A3-A0, A3-E0 and A0-N0;
+- G3-CM: S2A/S2B/S2C and profile sensitivity;
+- G4: descriptive Native timing and physical diagnostics.
 
-1. seal 40 eligible authentic tasks and 20 disjoint groups;
-2. publish repository/task/request/token/gap distributions for the final seal;
-3. freeze two load transformations and identical arm inputs;
-4. qualify the Native-only arm without changing Native ownership;
-5. freeze N/E/C/APC derivation and missingness rules;
-6. either add true Native TTFT or remove TTFT from confirmatory metrics;
-7. bind model/cache/runtime/environment and offline Hugging Face cache;
-8. calculate the final token-based 4090D budget and hard stop;
-9. keep physical attribution diagnostic unless an independent Gate O successor
-   passes before outcomes are inspected.
+H1 is A3 versus A0 (full strategy), H2 is A3 versus E0 (cost-model
+contribution), and H3 is A0 versus N0 (forced-release contribution). Record
+S2A/B/C for every relevant decision. If S2B exceeds 20% or S2A is absent, H2
+interpretation is limited but H1 remains defined.
 
-No new GPU pilot is required to establish basic runtime feasibility; existing
-Phase 2H/2I and bounded evidence already do that. Any preliminary execution
-should be limited to non-outcome-bearing configuration validation explicitly
-authorized by M1.
+For H2, persist uncertainty-envelope reordering as `PROFILE_ROBUST` or
+`PROFILE_SENSITIVE`. Only robust decisions count as discriminable; fewer than
+eight robust discriminable decisions makes H2 `NOT_EVALUABLE`. Loads and
+parameters must not be changed to manufacture differences.
+
+The statistical unit is the Workload Group. Analyze each load separately at
+`n=20`; do not combine loads into `n=40`. Report paired group effects and a
+10,000-resample group bootstrap as exploratory estimates, without a
+confirmatory significance claim.
+
+## 9. Scale and budget
+
+| Stage | Runs |
+| --- | ---: |
+| A0 load calibration: 20 Groups × 2 loads | 40 |
+| A0 noise calibration: 5 Groups × 2 loads × 3 repeats | 30 |
+| Main: 20 Groups × 2 loads × 6 arms | 240 |
+| **Total** | **310** |
+
+The former 600/720-run and 15–40 GPU-hour estimates are obsolete.
+
+Observed RTX 4090D history provides the planning basis. Six Phase 2H formal
+180-request runs took approximately 64, 65, 100, 77, 81 and 125 seconds
+(mean about 85 seconds/run), including roughly 20–30 seconds of engine
+initialization. The 54-run bounded pipeline completed in 38m54s (about 43
+seconds/run end to end). A 24-request Phase 3 run should therefore remain
+initialization-dominated and is conservatively budgeted at 30–50 seconds;
+failures and archive work add contingency.
+
+For 310 runs this yields 2.6–4.3 GPU-hours of direct execution. A planning
+envelope of **3–5 GPU-hours** is credible, with a **6 GPU-hour hard ceiling**
+recommended until calibration replaces the estimate. At 2 CNY/hour this is
+approximately 6–10 CNY planned, 12 CNY at the ceiling. The 12-request fallback
+can reduce Native request work but will save much less than 50% because engine
+initialization remains per-run.
+
+Budget categories must remain separate:
+
+- Agent acquisition: CPU/network/container time and SWE-bench validation;
+- data conversion/static qualification: CPU only;
+- 310 Native runs: RTX 4090D billable wall time;
+- evaluator/bootstrap/archive verification: CPU only;
+- failed runs: retained and charged; retry only under a pre-frozen rule.
+
+Cross-run engine reuse is not recommended because it risks cache contamination
+and introduces unvalidated infrastructure.
+
+## 10. Fail-closed conditions and recommendation
+
+**GO for engineering preparation and cohort acquisition; NOT YET for formal
+GPU execution.** Stop or exclude the affected unit, with explicit missingness,
+when any of the following occurs:
+
+- source task, sidecar, Explicit Token IDs or frozen request subset changes;
+- fewer than 40 qualified tasks, 20 disjoint groups or ten repositories;
+- cross-arm plan/input/trace/pressure/model/runtime hashes differ;
+- 24-to-12 request degradation is made after outcome inspection;
+- load target is changed using non-A0 results;
+- E is missing/non-unique, N/E/C invariants fail or E differs across arms;
+- N0 alters pressure timing/ownership or produces a forced Entry Release;
+- E0 reads q/profile data or violates the frozen S2 ladder;
+- formal runtime exceeds the frozen GPU ceiling or a request is not legal in
+  the 2,048-block, 32,768-token configuration.
+
+Before M1 authorizes execution, M6 should deliver: the deterministic cohort
+seal and reserve accounting; six-arm materializer tests; E0/N0 CPU/mock
+acceptance; N/E/C evaluator and negative tests; static first-token capability
+record; A0 calibration specification; immutable run plan; and a recalculated
+budget from the sealed cohort. No additional Phase 2I repair or GPU pilot is
+required by this feasibility assessment.
