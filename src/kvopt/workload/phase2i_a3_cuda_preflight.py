@@ -19,7 +19,9 @@ from .phase2i_a3_preflight import evaluate_a3_native_preflight
 MODEL_REVISION = "d18ecad881a290f0c792f1c2b5dbee1820d4a424"
 RUN_ID = "phase2i-a3-target-cuda-native-replacement-preflight-02"
 ADMIN_RETRY_RUN_ID = f"{RUN_ID}-admin-retry-01"
-ALLOWED_RUN_IDS = frozenset({RUN_ID, ADMIN_RETRY_RUN_ID})
+ADMIN_RETRY_02_RUN_ID = f"{RUN_ID}-admin-retry-02"
+ADMIN_RETRY_RUN_IDS = frozenset({ADMIN_RETRY_RUN_ID, ADMIN_RETRY_02_RUN_ID})
+ALLOWED_RUN_IDS = frozenset({RUN_ID, *ADMIN_RETRY_RUN_IDS})
 FIRST_PREFLIGHT_RUN_ID = "phase2i-a3-target-cuda-native-preflight"
 FIRST_PREFLIGHT_FREEZE_SCHEMA = "phase2i.a3_target_cuda_preflight_freeze.v1"
 AUTHORIZATION_SCHEMA = "phase2i.a3_replacement_execution_authorization.v1"
@@ -285,7 +287,7 @@ def materialize_preflight(
     """Derive one A3 run while preserving the frozen HR02 execution inputs."""
     if run_id not in ALLOWED_RUN_IDS:
         raise ValueError("unsupported Phase 2I administrative execution identity")
-    if (run_id == ADMIN_RETRY_RUN_ID) != (
+    if (run_id in ADMIN_RETRY_RUN_IDS) != (
         administrative_predecessor_archive_path is not None
     ):
         raise ValueError("administrative retry requires its failed execution archive")
@@ -396,17 +398,20 @@ def materialize_preflight(
         if not administrative_predecessor_archive_path.is_file():
             raise FileNotFoundError(administrative_predecessor_archive_path)
         members = _archive_json_members(administrative_predecessor_archive_path)
+        prior_run_id = (
+            RUN_ID if run_id == ADMIN_RETRY_RUN_ID else ADMIN_RETRY_RUN_ID
+        )
         prior_freezes = [
             (raw, value)
             for name, (raw, value) in members.items()
             if name.endswith("freeze-record.json")
-            and value.get("run_id") == RUN_ID
+            and value.get("run_id") == prior_run_id
         ]
         prior_runs = [
             value
             for name, (_raw, value) in members.items()
-            if name.endswith(f"/{RUN_ID}/run.json")
-            and value.get("run_id") == RUN_ID
+            if name.endswith(f"/{prior_run_id}/run.json")
+            and value.get("run_id") == prior_run_id
             and value.get("status") == "failed"
         ]
         envelopes = [
@@ -428,7 +433,7 @@ def materialize_preflight(
         prior_raw, prior_freeze = prior_freezes[0]
         manifest["administrative_retry"] = {
             "exception_kind": "CUDA_LINKER_INITIALIZATION_FAILURE",
-            "original_run_id": RUN_ID,
+            "original_run_id": prior_run_id,
             "original_git_sha": prior_freeze.get("git_sha"),
             "original_freeze_sha256": hashlib.sha256(prior_raw).hexdigest(),
             "failed_archive_path": str(
@@ -478,12 +483,13 @@ def _verify_freeze(input_dir: Path, repository: Path) -> tuple[dict[str, object]
     if _git(repository, "status", "--porcelain"):
         raise ValueError("execution requires a clean Git worktree")
     administrative = manifest.get("administrative_retry")
-    if run_id == ADMIN_RETRY_RUN_ID:
+    if run_id in ADMIN_RETRY_RUN_IDS:
         if not isinstance(administrative, Mapping):
             raise TypeError("administrative retry binding is missing")
         failed_path = Path(str(administrative.get("failed_archive_path")))
         if (
-            administrative.get("original_run_id") != RUN_ID
+            administrative.get("original_run_id")
+            != (RUN_ID if run_id == ADMIN_RETRY_RUN_ID else ADMIN_RETRY_RUN_ID)
             or administrative.get("immutable") is not True
             or not failed_path.is_file()
             or _sha(failed_path) != administrative.get("failed_archive_sha256")

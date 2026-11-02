@@ -285,6 +285,39 @@ def test_materialize_admin_retry_binds_failed_environment_attempt(
         admin_archive
     )
 
+    retry_02_archive = tmp_path / "retry-01-environment-failure.tar.gz"
+    with tarfile.open(retry_02_archive, "w:gz") as archive:
+        for name, raw in (
+            ("inputs/freeze-record.json", (output / "freeze-record.json").read_bytes()),
+            (
+                f"outputs/runs/{module.ADMIN_RETRY_RUN_ID}/run.json",
+                (json.dumps({"run_id": module.ADMIN_RETRY_RUN_ID, "status": "failed"}) + "\n").encode(),
+            ),
+            (
+                "outputs/execution-envelope.json",
+                (json.dumps({"status": "FAILED"}) + "\n").encode(),
+            ),
+        ):
+            member = tarfile.TarInfo(name)
+            member.size = len(raw)
+            archive.addfile(member, io.BytesIO(raw))
+
+    retry_02_output = tmp_path / "admin-retry-02-prepared"
+    retry_02 = module.materialize_preflight(
+        source_config_path=config,
+        source_trace_path=trace,
+        profile_path=profile,
+        predecessor_archive_path=predecessor,
+        output_dir=retry_02_output,
+        repository=tmp_path,
+        run_id=module.ADMIN_RETRY_02_RUN_ID,
+        administrative_predecessor_archive_path=retry_02_archive,
+    )
+    assert retry_02["run_id"] == module.ADMIN_RETRY_02_RUN_ID
+    assert retry_02["administrative_retry"]["original_run_id"] == (
+        module.ADMIN_RETRY_RUN_ID
+    )
+
 
 def test_materialize_rejects_pressure_or_explicit_token_drift(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch

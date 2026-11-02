@@ -14,6 +14,7 @@ import time
 from pathlib import Path
 
 from kvopt.workload.phase2i_a3_cuda_preflight import (
+    ADMIN_RETRY_02_RUN_ID,
     ADMIN_RETRY_RUN_ID,
     RUN_ID,
     _write_sha_manifest,
@@ -176,6 +177,10 @@ def main() -> int:
     prepare.add_argument("--output-dir", type=Path, required=True)
     prepare.add_argument("--repository", type=Path, default=Path.cwd())
     prepare.add_argument("--admin-retry-archive", type=Path)
+    prepare.add_argument(
+        "--admin-retry-run-id",
+        choices=(ADMIN_RETRY_RUN_ID, ADMIN_RETRY_02_RUN_ID),
+    )
     execute = subparsers.add_parser("run")
     _add_run_arguments(execute)
     execute_once = subparsers.add_parser("_run-once", help=argparse.SUPPRESS)
@@ -183,6 +188,10 @@ def main() -> int:
     execute_once.add_argument("--capability-fd", type=int, required=True)
     arguments = parser.parse_args()
     if arguments.command == "prepare":
+        if bool(arguments.admin_retry_archive) != bool(arguments.admin_retry_run_id):
+            parser.error(
+                "--admin-retry-archive and --admin-retry-run-id must be used together"
+            )
         result = materialize_preflight(
             source_config_path=arguments.source_config,
             source_trace_path=arguments.source_trace,
@@ -190,7 +199,7 @@ def main() -> int:
             predecessor_archive_path=arguments.predecessor_archive,
             output_dir=arguments.output_dir,
             repository=arguments.repository,
-            run_id=(ADMIN_RETRY_RUN_ID if arguments.admin_retry_archive else RUN_ID),
+            run_id=arguments.admin_retry_run_id or RUN_ID,
             administrative_predecessor_archive_path=arguments.admin_retry_archive,
         )
         print(f"PREPARED: {arguments.output_dir}")
