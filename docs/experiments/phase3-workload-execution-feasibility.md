@@ -241,22 +241,30 @@ The independent evaluator must reconstruct the six-arm cell from persisted
 artifacts and reject mismatched plan/input/model/runtime/trace/pressure hashes.
 It must support:
 
-- G0: execution, completeness, identical inputs and missingness;
-- G1: request-level N/E/C and aggregate identities;
-- G2: arm policy and decision correctness, including E0 and N0;
-- G3: paired outcomes for A3-A0, A3-E0 and A0-N0;
-- G3-CM: S2A/S2B/S2C and profile sensitivity;
-- G4: descriptive Native timing and physical diagnostics.
+- G0 — Freeze: verify that the Cohort, six arms, metrics, loads, Headroom,
+  Profile and Replay rules are frozen and SHA-256 bound;
+- G1 — Isolation: verify cross-arm input, configuration, E and N0 Boundary
+  consistency;
+- G2 — A3 Branch Composition: report S2A/S2B/S2C over the complete campaign
+  and separately for each Load;
+- G3-CM — Cost-model Discriminability: verify S2A decisions, actual A3/E0
+  selection differences and Profile Robustness;
+- G4 — Headroom: freeze the Headroom subset from the independent A0 Load
+  Calibration results.
 
-H1 is A3 versus A0 (full strategy), H2 is A3 versus E0 (cost-model
-contribution), and H3 is A0 versus N0 (forced-release contribution). Record
-S2A/B/C for every relevant decision. If S2B exceeds 20% or S2A is absent, H2
-interpretation is limited but H1 remains defined.
+Hypothesis Evaluation is independent of G0–G4: H1 is A3 versus A0 (full
+strategy), H2 is A3 versus E0 (cost-model contribution), and H3 is A0 versus
+N0 (forced-release contribution). Record S2A/B/C for every relevant decision.
+If S2B exceeds 20% or S2A is absent, H2 interpretation is limited but H1
+remains defined.
 
 For H2, persist uncertainty-envelope reordering as `PROFILE_ROBUST` or
 `PROFILE_SENSITIVE`. Only robust decisions count as discriminable; fewer than
 eight robust discriminable decisions makes H2 `NOT_EVALUABLE`. Loads and
 parameters must not be changed to manufacture differences.
+
+Native Timing and Physical Diagnostics are separate auxiliary evidence
+outputs. They do not define G4 or replace any frozen Gate criterion.
 
 The statistical unit is the Workload Group. Analyze each load separately at
 `n=20`; do not combine loads into `n=40`. Report paired group effects and a
