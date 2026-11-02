@@ -112,3 +112,44 @@ def test_wrong_block_or_content_never_inherits_pending_pressure_decision() -> No
     )
     assert wrong_block["physical_attribution"] == "UNATTRIBUTED"
     assert wrong_content["physical_attribution"] == "UNATTRIBUTED"
+
+
+def test_n0_preserves_native_pressure_but_never_forces_entry_release() -> None:
+    clock = FakeClock()
+    sink = InMemoryExperimentEventSink()
+    indexed = _IndexedEventSink(sink)
+    observer = _CountingForcedReleaseObserver(indexed, indexed)
+    runtime = SimpleNamespace(retention=RetentionManager(clock))
+    integration = _ObservedRetentionIntegration(
+        runtime,
+        clock,
+        observer,
+        phase2g_release_policy="N0",
+        event_index=indexed,
+        sink=indexed,
+        clock_domain="continuum_pressure",
+    )
+    integration.begin_pressure_context(
+        boundary_id="pressure:40",
+        stage_id="round-40",
+        pressure_request_id="pressure-request-1",
+    )
+
+    result = integration.apply_pressure(
+        mode=RetentionMode.CONTROLLED,
+        blocks=(_Block(1), _Block(2)),
+        required_blocks=1,
+        timestamp=1.0,
+        remove_selected=lambda _ids: None,
+    )
+
+    assert result.selected_block_ids == (1,)
+    assert observer.count == 0
+    events = sink.snapshot()
+    no_op = [event for event in events if event.event_type == "N0_NO_FORCED_RELEASE"]
+    assert len(no_op) == 1
+    assert no_op[0].payload["boundary_id"] == "pressure:40"
+    assert no_op[0].payload["status"] == "NO_FORCED_RELEASE"
+    assert not any(
+        event.event_type == "FORCED_RELEASE_DECISION" for event in events
+    )

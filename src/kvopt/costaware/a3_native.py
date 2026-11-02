@@ -8,7 +8,7 @@ change the A1 ladder, or mutate Native block ownership.
 from __future__ import annotations
 
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import asdict, replace
 from enum import Enum
 
@@ -79,6 +79,10 @@ class A3NativeSelectionCoordinator(A1NativeSelectionCoordinator):
             _json_safe(asdict(selection)) for selection in self._a3_selection_trace
         )  # type: ignore[return-value]
 
+    def selection_trace(self) -> tuple[dict[str, object], ...]:
+        """Policy-neutral alias used by Phase 3 A3/E0 evidence wiring."""
+        return self.a3_selection_trace()
+
     @property
     def latest_decision_event_index(self) -> int | None:
         return self._latest_decision_event_index
@@ -86,6 +90,21 @@ class A3NativeSelectionCoordinator(A1NativeSelectionCoordinator):
     @property
     def decision_clock_domain(self) -> str:
         return self._decision_clock_domain
+
+    def _build_strategy(
+        self, live_hashes: Mapping[int, str]
+    ) -> A3SuffixCostStrategy:
+        """Construct the reviewed live strategy; E0 overrides only this hook."""
+
+        return A3SuffixCostStrategy(
+            depth_index=self._depth_index,
+            native_hash_process_id=self._native_hash_process_id,
+            decision_clock_domain=self._decision_clock_domain,
+            verification_mode=DepthVerificationMode.NATIVE_LIVE,
+            content_hashes=live_hashes,
+            lambda_=self.strategy.lambda_,
+            tau_seconds=self.strategy.tau_seconds,
+        )
 
     def _pick_pressure_release(
         self,
@@ -156,15 +175,7 @@ class A3NativeSelectionCoordinator(A1NativeSelectionCoordinator):
                 and identity.native_hash_process_id == self._native_hash_process_id
             ):
                 live_hashes[queue_block.block_id] = identity.content_hash
-        strategy = A3SuffixCostStrategy(
-            depth_index=self._depth_index,
-            native_hash_process_id=self._native_hash_process_id,
-            decision_clock_domain=self._decision_clock_domain,
-            verification_mode=DepthVerificationMode.NATIVE_LIVE,
-            content_hashes=live_hashes,
-            lambda_=self.strategy.lambda_,
-            tau_seconds=self.strategy.tau_seconds,
-        )
+        strategy = self._build_strategy(live_hashes)
         selection = strategy.select(rows, state)
         self._a3_selection_trace.append(selection)
         selected_program, selected_prefix = selection.key

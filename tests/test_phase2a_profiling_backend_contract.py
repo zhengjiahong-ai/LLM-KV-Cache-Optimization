@@ -9,6 +9,7 @@ from scripts.spikes.phase2_minimal_observability_metal import (
     _phase2g_a1_campaign_allowed,
     _phase2g_a2_campaign_allowed,
     _phase2g_unique_protected_block_campaign_allowed,
+    _phase2i_a3_campaign_allowed,
     _pressure_stage_sizes,
     _program_prefix_sizes,
     _required_max_model_len,
@@ -22,6 +23,23 @@ def test_phase2h_campaign_is_exactly_allowlisted_for_a1_and_a2() -> None:
     campaign = "phase2h_history_rich_native_smoke"
     assert _phase2g_a1_campaign_allowed(campaign)
     assert _phase2g_a2_campaign_allowed(campaign)
+
+
+def test_phase3_campaign_is_exactly_allowlisted_for_all_existing_policy_layers() -> None:
+    campaign = "phase3_final_evaluation"
+    assert _phase2g_a1_campaign_allowed(campaign)
+    assert _phase2g_a2_campaign_allowed(campaign)
+    assert _phase2i_a3_campaign_allowed(campaign)
+
+
+@pytest.mark.parametrize(
+    "campaign",
+    ["phase3", "phase3_final", "phase3-final-evaluation"],
+)
+def test_similar_phase3_names_are_not_policy_allowlisted(campaign: str) -> None:
+    assert not _phase2g_a1_campaign_allowed(campaign)
+    assert not _phase2g_a2_campaign_allowed(campaign)
+    assert not _phase2i_a3_campaign_allowed(campaign)
 
 
 @pytest.mark.parametrize(
