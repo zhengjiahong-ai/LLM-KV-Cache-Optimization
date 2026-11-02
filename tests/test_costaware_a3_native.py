@@ -17,6 +17,7 @@ from kvopt.continuum.clock import FakeClock
 from kvopt.continuum.retention import RetentionManager
 from kvopt.costaware.a2_native import A2NativeChainSnapshot, A2NativeSnapshotRegistry
 from kvopt.costaware.a3_native import A3NativeSelectionCoordinator
+from kvopt.costaware.e0_native import E0NativeSelectionCoordinator
 from kvopt.costaware.entry_depth import ChainDepthIndex
 from kvopt.profiling import InMemoryForcedReleaseObserver
 from kvopt.runtime.vllm.retention_integration import RetentionRuntimeIntegration
@@ -67,6 +68,7 @@ def _run(
     native_process: str = "native-process",
     registry_process: str | None = None,
     recycle_first_block: bool = False,
+    coordinator_type: type[A3NativeSelectionCoordinator] = A3NativeSelectionCoordinator,
 ):
     manager = RetentionManager(FakeClock())
     chains = {"a": tuple(range(1, 9)), "b": (9, 10)}
@@ -109,7 +111,7 @@ def _run(
             )
         )
     observer = InMemoryForcedReleaseObserver()
-    coordinator = A3NativeSelectionCoordinator(
+    coordinator = coordinator_type(
         observer,
         depth_index=depth_index,
         content_registry=registry,
@@ -149,6 +151,21 @@ def test_a3_native_intervenes_with_live_content_and_records_formula_inputs() -> 
     assert selected["d_min"] == 1
     assert selected["suffix_blocks"] == 8
     assert selected["content_verified"] is True
+
+
+def test_e0_native_uses_same_live_evidence_boundary() -> None:
+    blocks, programs, coordinator = _run(
+        coordinator_type=E0NativeSelectionCoordinator
+    )
+
+    assert programs == ("a",)
+    assert blocks == (1, 2)
+    selection = coordinator.selection_trace()[0]
+    assert selection["step"] == "step2_sufficient"
+    assert selection["fell_back"] is False
+    assert [audit["key"] for audit in selection["audits"] if audit["selected"]] == [
+        ("a", "prefix")
+    ]
 
 
 def test_a3_native_missing_live_identity_falls_back_for_whole_step2() -> None:

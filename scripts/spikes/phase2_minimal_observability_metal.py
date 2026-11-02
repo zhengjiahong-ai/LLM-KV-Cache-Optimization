@@ -60,6 +60,7 @@ from kvopt.costaware.a2_native import (
     A2NativeSnapshotRegistry,
 )
 from kvopt.costaware.a3_native import A3NativeSelectionCoordinator
+from kvopt.costaware.e0_native import E0NativeSelectionCoordinator
 from kvopt.costaware.entry_depth import ChainDepthIndex
 from kvopt.profiling.experiment_events import (
     ExperimentEvent,
@@ -96,6 +97,7 @@ from kvopt.workload.phase2c_native_pilot import (
 
 _TARGET_PREFIX_TOKENS = 256
 _PRESSURE_TOKENS = 512
+_PHASE3_CAMPAIGN_KIND = "phase3_final_evaluation"
 _PHASE2G_A1_CAMPAIGN_KINDS = frozenset(
     {
         "continuum_native_costaware_bounded_evaluation",
@@ -103,6 +105,7 @@ _PHASE2G_A1_CAMPAIGN_KINDS = frozenset(
         "phase2g_a1_native_gate1",
         "phase2g_a1_bounded_evaluation",
         "phase2h_history_rich_native_smoke",
+        _PHASE3_CAMPAIGN_KIND,
     }
 )
 _PHASE2G_A2_CAMPAIGN_KINDS = frozenset(
@@ -113,9 +116,12 @@ _PHASE2G_A2_CAMPAIGN_KINDS = frozenset(
         "phase2g_a2_gate2_bounded_evaluation",
         "phase2g_a2_native_evidence_fidelity",
         "phase2h_history_rich_native_smoke",
+        _PHASE3_CAMPAIGN_KIND,
     }
 )
-_PHASE2I_A3_CAMPAIGN_KINDS = frozenset({"phase2i_a3_native_integration"})
+_PHASE2I_A3_CAMPAIGN_KINDS = frozenset(
+    {"phase2i_a3_native_integration", _PHASE3_CAMPAIGN_KIND}
+)
 _PHASE2G_UNIQUE_PROTECTED_BLOCK_CAMPAIGN_KINDS = frozenset(
     {
         "continuum_w1b_prefill_profile",
@@ -736,14 +742,14 @@ class _ObservedRetentionIntegration:
         self._clock = clock
         self._clock_domain = clock_domain
         self._forced_release_observer = forced_release_observer
-        if phase2g_release_policy not in {"A0", "A1", "A3"}:
-            raise ValueError("phase2g_release_policy must be A0, A1, or A3")
-        if phase2g_release_policy == "A3" and (
+        if phase2g_release_policy not in {"N0", "A0", "A1", "A3", "E0"}:
+            raise ValueError("phase2g_release_policy must be N0, A0, A1, A3, or E0")
+        if phase2g_release_policy in {"A3", "E0"} and (
             phase2g_a2_registry is None
             or phase2i_a3_depth_index is None
             or event_index is None
         ):
-            raise ValueError("A3 release policy requires live depth and event evidence")
+            raise ValueError("A3/E0 release policy requires live depth and event evidence")
         self._phase2g_release_policy = phase2g_release_policy
         self._sink = sink
         self._content_registry = phase2g_a2_registry
@@ -773,6 +779,23 @@ class _ObservedRetentionIntegration:
             and event_index is not None
             else None
         )
+        self._e0_coordinator = (
+            E0NativeSelectionCoordinator(
+                forced_release_observer,
+                depth_index=phase2i_a3_depth_index,
+                content_registry=phase2g_a2_registry,
+                decision_event_index=lambda: event_index.next_event_index,
+                decision_clock_domain="continuum_pressure",
+                native_hash_process_id=str(os.getpid()),
+                lambda_=phase2g_a1_lambda,
+                tau_seconds=phase2g_a1_tau_seconds,
+            )
+            if phase2g_release_policy == "E0"
+            and phase2g_a2_registry is not None
+            and phase2i_a3_depth_index is not None
+            and event_index is not None
+            else None
+        )
         if phase2g_block_policy not in {"A0", "A2"}:
             raise ValueError("phase2g_block_policy must be A0 or A2")
         if phase2g_block_policy == "A2" and phase2g_a2_registry is None:
@@ -794,7 +817,9 @@ class _ObservedRetentionIntegration:
                 if diagnostic_first_release_program_id is None
                 else ProgramIdentity(diagnostic_first_release_program_id)
             ),
-            selection_coordinator=(self._a3_coordinator or self._a1_coordinator),
+            selection_coordinator=(
+                self._a3_coordinator or self._e0_coordinator or self._a1_coordinator
+            ),
             block_selection_coordinator=self._a2_coordinator,
         )
         self.last_selected_block_ids: tuple[int, ...] = ()
@@ -1062,6 +1087,30 @@ class _ObservedRetentionIntegration:
             **(self._active_pressure_context or {}),
             "forced_release_counter_before": self._forced_release_observer.count,
         }
+        if self._phase2g_release_policy == "N0":
+            native_kwargs = dict(kwargs)
+            native_kwargs["mode"] = RetentionMode.NATIVE
+            result = self._delegate.apply_pressure(**native_kwargs)
+            self.last_selected_block_ids = tuple(result.selected_block_ids)
+            if self._sink is not None:
+                self._sink.emit(
+                    ExperimentEvent.create(
+                        event_type="N0_NO_FORCED_RELEASE",
+                        timestamp=self._clock.now(),
+                        clock_domain=self._clock_domain,
+                        source="phase3.n0_native",
+                        payload={
+                            **context,
+                            "policy": "N0",
+                            "status": "NO_FORCED_RELEASE",
+                            "forced_release_counter_after": (
+                                self._forced_release_observer.count
+                            ),
+                            "selected_native_block_ids": self.last_selected_block_ids,
+                        },
+                    )
+                )
+            return result
         self._forced_release_observer.begin_decision(context)
         self._active_decision_id = decision_id
         try:
@@ -1092,6 +1141,11 @@ class _ObservedRetentionIntegration:
             if self._a3_coordinator is not None
             else ()
         )
+        e0_trace = (
+            self._e0_coordinator.selection_trace()
+            if self._e0_coordinator is not None
+            else ()
+        )
         if self._a3_coordinator is not None and self._sink is not None:
             self._sink.emit(
                 ExperimentEvent.create(
@@ -1114,10 +1168,38 @@ class _ObservedRetentionIntegration:
                     },
                 )
             )
-        selected_a3_audit = next(
+        if self._e0_coordinator is not None and self._sink is not None:
+            self._sink.emit(
+                ExperimentEvent.create(
+                    event_type="E0_DEADLINE_RELEASE_DECISION",
+                    timestamp=self._clock.now(),
+                    clock_domain=self._clock_domain,
+                    source="phase3.e0_native",
+                    payload={
+                        **context,
+                        "policy": "E0",
+                        "strategy_id": "E0_entry_deadline_step2",
+                        "verification_mode": "native_live",
+                        "native_hash_process_id": str(os.getpid()),
+                        "decision_event_index": (
+                            self._e0_coordinator.latest_decision_event_index
+                        ),
+                        "decision_clock_domain": (
+                            self._e0_coordinator.decision_clock_domain
+                        ),
+                        "selection_trace": e0_trace,
+                    },
+                )
+            )
+        active_cost_trace = a3_trace or e0_trace
+        selected_cost_audit = next(
             (
                 audit
-                for audit in (a3_trace[-1].get("audits", ()) if a3_trace else ())
+                for audit in (
+                    active_cost_trace[-1].get("audits", ())
+                    if active_cost_trace
+                    else ()
+                )
                 if isinstance(audit, Mapping) and audit.get("selected") is True
             ),
             None,
@@ -1136,9 +1218,12 @@ class _ObservedRetentionIntegration:
                 a3_trace[-1].get("key") if a3_trace else None
             ),
             "a3_predicted_victim_block_ids": tuple(
-                selected_a3_audit.get("victim_block_ids", ())
-                if selected_a3_audit is not None
+                selected_cost_audit.get("victim_block_ids", ())
+                if selected_cost_audit is not None
                 else ()
+            ),
+            "e0_selected_entry": (
+                e0_trace[-1].get("key") if e0_trace else None
             ),
         }
         self._selection_plans.append(plan)
@@ -1336,9 +1421,9 @@ class MinimalMetalObservabilityBackend:
             raise ValueError("Phase 2D diagnostic release is restricted to its pilot")
         self._phase2d_diagnostic_release_program = diagnostic_release
         phase2g_release_policy = options.get("phase2g_release_policy", "A0")
-        if phase2g_release_policy not in {"A0", "A1", "A3"}:
+        if phase2g_release_policy not in {"N0", "A0", "A1", "A3", "E0"}:
             raise ValueError(
-                "backend_options.phase2g_release_policy must be A0, A1, or A3"
+                "backend_options.phase2g_release_policy must be N0, A0, A1, A3, or E0"
             )
         if phase2g_release_policy == "A1" and not _phase2g_a1_campaign_allowed(
             config.get("campaign_kind")
@@ -1348,8 +1433,16 @@ class MinimalMetalObservabilityBackend:
             config.get("campaign_kind")
         ):
             raise ValueError("A3 native release is restricted to Phase 2I integration")
-        if phase2g_release_policy == "A3" and not self._content_evidence_enabled:
-            raise ValueError("A3 native release requires content evidence mode")
+        if phase2g_release_policy == "E0" and config.get("campaign_kind") != (
+            _PHASE3_CAMPAIGN_KIND
+        ):
+            raise ValueError("E0 native release is restricted to Phase 3")
+        if phase2g_release_policy == "N0" and config.get("campaign_kind") != (
+            _PHASE3_CAMPAIGN_KIND
+        ):
+            raise ValueError("N0 no-op release is restricted to Phase 3")
+        if phase2g_release_policy in {"A3", "E0"} and not self._content_evidence_enabled:
+            raise ValueError("A3/E0 native release requires content evidence mode")
         phase2g_a1_lambda = float(options.get("phase2g_a1_lambda", 0.5))
         phase2g_a1_tau_seconds = float(options.get("phase2g_a1_tau_seconds", 30.0))
         phase2g_block_policy = options.get("phase2g_block_policy", "A0")
@@ -1885,12 +1978,12 @@ class MinimalMetalObservabilityBackend:
                     "phase2g_release_policy": phase2g_release_policy,
                     "phase2g_a1_lambda": (
                         phase2g_a1_lambda
-                        if phase2g_release_policy in {"A1", "A3"}
+                        if phase2g_release_policy in {"A1", "A3", "E0"}
                         else None
                     ),
                     "phase2g_a1_tau_seconds": (
                         phase2g_a1_tau_seconds
-                        if phase2g_release_policy in {"A1", "A3"}
+                        if phase2g_release_policy in {"A1", "A3", "E0"}
                         else None
                     ),
                     "phase2g_block_policy": phase2g_block_policy,
