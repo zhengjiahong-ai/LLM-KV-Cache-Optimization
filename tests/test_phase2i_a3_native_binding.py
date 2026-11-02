@@ -21,6 +21,17 @@ class _Block:
     block_hash: object = object()
 
 
+class _ForcedSelectionDelegate:
+    def __init__(self, observer: _CountingForcedReleaseObserver) -> None:
+        self._observer = observer
+
+    def apply_pressure(self, **kwargs):
+        self._observer.count += 1
+        selected = tuple(block.block_id for block in kwargs["blocks"])
+        kwargs["remove_selected"](selected)
+        return SimpleNamespace(selected_block_ids=selected)
+
+
 def _integration():
     clock = FakeClock()
     sink = InMemoryExperimentEventSink()
@@ -47,6 +58,7 @@ def _integration():
         sink=indexed,
         clock_domain="continuum_pressure",
     )
+    integration._delegate = _ForcedSelectionDelegate(observer)
     return integration, sink
 
 
@@ -84,6 +96,60 @@ def test_late_physical_eviction_consumes_unique_pending_plan_content_match() -> 
         NativeHashedEvictionObservation(2, "content-2", 0, True)
     )
     assert later["physical_attribution"] == "UNATTRIBUTED"
+
+
+def test_entry_release_without_hashed_native_victim_is_explicitly_observed() -> None:
+    integration, sink = _integration()
+    integration.begin_request_context(("program:turn:40", "program-b:turn:40"))
+    integration.apply_pressure(
+        mode=RetentionMode.CONTROLLED,
+        blocks=(_Block(1), _Block(2)),
+        required_blocks=2,
+        timestamp=1.0,
+        remove_selected=lambda _ids: None,
+    )
+    integration.observe_native_selection_returned(((1, None), (2, None)))
+    integration.end_execution_context()
+
+    outcomes = tuple(
+        event
+        for event in sink.snapshot()
+        if event.event_type == "NATIVE_ENTRY_RELEASE_PHYSICAL_OUTCOME"
+    )
+    assert len(outcomes) == 1
+    assert outcomes[0].payload["status"] == "NO_PHYSICAL_EVICTION_OBSERVED"
+    assert outcomes[0].payload["boundary_type"] == "NATIVE_DRAIN_BATCH"
+    assert outcomes[0].payload["hashless_block_ids"] == (1, 2)
+
+
+def test_pure_native_allocation_attempt_never_creates_entry_pending_plan() -> None:
+    integration, sink = _integration()
+    integration._forced_release_observer.count = 0
+    integration._delegate = SimpleNamespace(
+        apply_pressure=lambda **kwargs: SimpleNamespace(
+            selected_block_ids=tuple(block.block_id for block in kwargs["blocks"])
+        )
+    )
+    integration.begin_pressure_context(
+        boundary_id="pressure:40",
+        stage_id="round-40",
+        pressure_request_id="pressure-request-1",
+    )
+    integration.apply_pressure(
+        mode=RetentionMode.CONTROLLED,
+        blocks=(_Block(1), _Block(2)),
+        required_blocks=2,
+        timestamp=1.0,
+        remove_selected=lambda _ids: None,
+    )
+    integration.observe_native_selection_returned(((99, "unrelated"),))
+    integration.end_pressure_context()
+
+    event_types = tuple(event.event_type for event in sink.snapshot())
+    assert "NATIVE_ALLOCATION_ATTEMPT" in event_types
+    assert "NATIVE_ENTRY_RELEASE_SELECTION_PLAN" not in event_types
+    assert "NATIVE_SELECTION_PLAN_PENDING" not in event_types
+    assert "NATIVE_ENTRY_RELEASE_PHYSICAL_OUTCOME" not in event_types
 
 
 def test_wrong_block_or_content_never_inherits_pending_pressure_decision() -> None:
