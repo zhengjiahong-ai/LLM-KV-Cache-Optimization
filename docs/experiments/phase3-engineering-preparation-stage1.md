@@ -15,6 +15,11 @@ into N0/A0/A1/A2/A3/E0 configurations. It:
 
 - preserves the common trace, Explicit Token IDs, pressure inputs and replay
   boundaries;
+- copies the real frozen Trace into the cell directory, rewrites every config
+  to that local path and binds its SHA-256 in the manifest;
+- freezes the complete Pressure Request identity/attempt sequence with
+  `stop_on_forced_release=false`, so all arms submit the same requests
+  regardless of policy outcomes;
 - changes only the frozen Entry/Block policy fields and run identity;
 - gives all arms one canonical `shared_input_sha256`;
 - always writes `execution_authorized=false`;
@@ -32,8 +37,11 @@ permitted policy difference to a fully scorable S2A decision:
 
 S2B returns the A3-classified frozen-A1 fallback unchanged. S2C returns the
 frozen-A1 delegated decision unchanged. The A3 default strategy and event
-schema are not changed. Native E0 emits `E0_DEADLINE_RELEASE_DECISION` with the
-same live content/depth verification boundary used by A3.
+schema are not changed. E0 reuses A3's classifier only to determine whether the
+evidence is scorable and thereby keep S2B aligned; E0 does not use the Cost
+Score to choose an S2A candidate. Native E0 emits
+`E0_DEADLINE_RELEASE_DECISION` with the same live content/depth verification
+boundary used by A3.
 
 ### N0
 
@@ -62,6 +70,8 @@ The implementation does not remove pressure stages or alter Native ownership.
 Targeted regression covers:
 
 - six-arm mapping and shared input identity;
+- N0/A0 multi-attempt Pressure Request count, identity and Boundary equality;
+- real Trace path resolution and Trace SHA equality across all six configs;
 - N0 pressure execution with zero forced releases;
 - E0 S2A deadline ordering independent of cost ordering;
 - E0/A3 S2B identity;
