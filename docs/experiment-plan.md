@@ -13,7 +13,7 @@
 | Six-arm Materializer, E0/N0 | MERGED — Stage 1 complete | [PR #93](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/93) |
 | Independent N/E/C Evaluator | MERGED — Stage 2 complete | [PR #94](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/94) |
 | Final data readiness | NEXT — M6 | [M1 data-readiness decision](experiments/phase3-data-readiness-decision.md) |
-| Final Evaluation | NOT STARTED / NOT AUTHORIZED | 310-run plan remains unchanged |
+| Final Evaluation | CONDITIONALLY AUTHORIZED | M6 must freeze a compliant cohort/run manifest; applicable protocol gates still control Main Campaign start |
 
 ### Final cohort requirement
 
