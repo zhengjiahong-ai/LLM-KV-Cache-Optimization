@@ -11,6 +11,7 @@ from kvopt.workload.continuum_w1a_runner import (
     load_acquisition_config,
     validate_instance_id,
 )
+from kvopt.workload.phase3_acquisition import pending_candidates
 from kvopt.workload.phase3_cohort import (
     build_candidate_plan,
     validate_candidate_plan,
@@ -148,3 +149,27 @@ def test_phase3_acquisition_config_rejects_plan_hash_drift(tmp_path: Path) -> No
 
     with pytest.raises(ValueError, match="candidate-plan SHA-256 mismatch"):
         load_acquisition_config(config_path, repository=tmp_path)
+
+
+def test_phase3_pending_candidates_preserve_rank_and_attempts(tmp_path: Path) -> None:
+    plan = build_candidate_plan(_freeze(), source_sha256="a" * 64)
+    candidates = plan["candidates"]
+    first_id = str(candidates[0]["instance_id"])
+    attempted = tmp_path / first_id
+    attempted.mkdir()
+    (attempted / "run.json").write_text('{"status":"failed"}', encoding="utf-8")
+
+    pending = pending_candidates(plan, runs_root=tmp_path)
+
+    assert len(pending) == 39
+    assert pending[0]["acquisition_rank"] == 2
+    assert all(row["role"] == "PRIMARY" for row in pending)
+
+
+def test_phase3_pending_candidates_fail_on_incomplete_attempt(tmp_path: Path) -> None:
+    plan = build_candidate_plan(_freeze(), source_sha256="a" * 64)
+    first_id = str(plan["candidates"][0]["instance_id"])
+    (tmp_path / first_id).mkdir()
+
+    with pytest.raises(ValueError, match="lacks run.json"):
+        pending_candidates(plan, runs_root=tmp_path)
