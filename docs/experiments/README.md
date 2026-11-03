@@ -6,7 +6,7 @@ This is a **navigation index**, not a replacement for primary evidence, historic
 
 | Topic | Recommended record | Reading boundary |
 | --- | --- | --- |
-| Overall status and current authorization | [Research status](../research-status.md) | Phase 3 Stage 1/2 merged; M6 data-readiness confirmation next; formal evaluation not yet authorized |
+| Overall status and current authorization | [Research status](../research-status.md) | Protocol v3 frozen; Stage 1/2 merged; M6 formal dataset selection next; 310-run evaluation conditionally authorized after cohort freeze and gates |
 | Phase 2A H1/H2 original verdicts | [H1/H2 closeout](../phase2a-h1-h2-closeout-verdict-record.md) | H1 `DIAGNOSTIC_ONLY`; H2 not all-pass, B1 locked |
 | Phase 2B/2C fidelity lessons | [Phase 2B fidelity repair](../phase2b-m6-experimental-fidelity-repair-spec.md), [Phase 2C audit](../phase2c-m6-workload-reuse-audit.md) | Separate replay fidelity from real Native content sharing and context growth |
 | Phase 2E baseline measurements | [Measured campaign](../phase2e-m6-measured-campaign-report.md) | Native LRU vs Continuum baseline on predefined synthetic grid, **not** A1 benefit |
