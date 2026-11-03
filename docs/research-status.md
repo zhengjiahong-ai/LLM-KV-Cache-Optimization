@@ -1,4 +1,4 @@
-# Phase 2 Research Status (M1 canonical status index)
+# Research Status (M1 canonical status index)
 
 Status: **ACTIVE — W1-C and Bounded Native Cost-Aware evaluation ACCEPTED / CLOSED; next method decision pending**  
 As-of decision: M1 review 2026-10-27, [PR #82](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/82), evaluated HEAD `673da7f0631085942abbb932559af243b7c03dbf`.  
@@ -12,6 +12,56 @@ Owner: M1. This document indexes decisions and evidence; it does **not** amend s
 - `AUTHORIZED` means an explicitly bounded operation may start; it does not imply measurements have been collected.
 - Unit of inference matters: independent scenario draws or independently sampled tasks/session groups, **not** runtime repeats, turns or request rows.
 - No source-generated Agent trace is the author's original paper-run serving trace unless independently established.
+
+## Current Phase 3 status (M1 reconciliation, 2026-11-03)
+
+Current main: `8d51897fb90d310e322d347c6e4fb23cf7512b87`.
+
+| PR | Delivered scope | Current state | Boundary |
+| --- | --- | --- | --- |
+| [#90](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/90) | M4 Final Evaluation Protocol v3 | **OPEN / DESIGN_ONLY** | M4 completed two protocol-revision rounds; no M1 final approval or merge. Its branch is based on an old main and must be synchronized before formal freeze. |
+| [#92](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/92) | M6 Workload & Execution Feasibility Report | **MERGED** as `67e5e29` | Establishes execution feasibility and a proposed cohort/budget; it does not mean 40 new traces have been acquired. |
+| [#93](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/93) | Stage 1 six-arm Materializer, E0 and N0 integration | **MERGED** as `d0db0c7` | CPU/Mock engineering only. Materializes a supplied cell; it does not acquire tasks or construct the final cohort. |
+| [#94](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/94) | Stage 2 independent N/E/C Evaluator | **MERGED** as `8d51897` | RC1–RC4 closed, including timeline-aware history predecessors and duplicate-Snapshot rejection. No calibration or GPU campaign. |
+
+### Data inventory and what is still missing
+
+The frozen W1-C sample contains 100 task candidates. Twenty were acquired for the S50/S100 pilot across 12 repositories; 18 are full-payload comparable. Those historical pilot tasks are restricted to engineering regression and evaluator validation and are not eligible for the formal Phase 3 cohort.
+
+The remaining 80 IDs are **unacquired candidates**, not complete Agent traces. The current frozen frame distributes them across ten repositories:
+
+| Repository | Remaining candidates |
+| --- | ---: |
+| django/django | 40 |
+| sympy/sympy | 12 |
+| sphinx-doc/sphinx | 7 |
+| matplotlib/matplotlib | 6 |
+| scikit-learn/scikit-learn | 5 |
+| pytest-dev/pytest | 3 |
+| pydata/xarray | 3 |
+| astropy/astropy | 2 |
+| psf/requests | 1 |
+| pylint-dev/pylint | 1 |
+| **Total** | **80 across 10 repositories** |
+
+No final 40-task Phase 3 trace cohort or materialized 64-ID Primary/Reserve manifest is present in the current main tree. PR #92 records the proposed 40 Primary + 24 Reserve sampling plan; PR #93 is a six-arm cell materializer, not a cohort builder.
+
+### Current M1 data decision
+
+The formal target remains **40 new qualified tasks arranged into 20 independent Workload Groups**, with two tasks from different repositories in every group. The minimum repository coverage is now **8 repositories**, not 10. This M1 ruling supersedes the earlier 10-repository minimum in the PR #92 feasibility report and the still-open PR #90 protocol draft. If fewer than 8 repositories or fewer than 40 qualified tasks can be obtained from the existing frozen candidate frame, M6 must report the actual result and blockers; the threshold must not be silently lowered and the candidate frame must not be expanded without M1 approval.
+
+The 18 historical full-payload-comparable pilot tasks remain excluded from formal effect estimates. The existing 80-candidate W1-C frame is the acquisition boundary. The PR #92 plan of 40 Primary candidates and 24 pre-registered Reserve candidates remains the planning baseline unless M1 explicitly changes it.
+
+### Next action and authorization
+
+M6's next deliverable is **Final Evaluation Data Readiness Confirmation** against the existing 80-candidate frame. The report must distinguish candidate IDs from acquired traces and give, per task, repository, acquisition/qualification state, Full Payload completeness, Explicit Token ID and sidecar availability, Prefill Profile availability, Native Replay feasibility, request/session order, token/context limits, and source/model/tokenizer provenance. It must propose 20 legal cross-repository groups, report repository coverage, and identify any gaps or right-censoring.
+
+M6 is authorized to perform this data confirmation and the Agent-trace acquisition/validation needed to establish the proposed cohort **within the existing frozen 80-candidate frame**. This does not authorize Native Load Calibration, Noise Calibration, GPU Smoke, or the Main Campaign.
+
+The separate Stage 3 Cohort Seal engineering milestone is not required. The final task membership, group pairing, request order, Native enqueue order, Replay Timeline, Session pairing and per-request History Predecessors must still be frozen in the final data/run manifest and SHA-256 bound before formal cells execute. This is a pre-run data freeze using the merged Stage 1/2 substrate, not another standalone engineering phase.
+
+After M1 accepts M6's data-readiness report and M4 reconciles Protocol v3 with this decision, proceed directly to the Final Evaluation. The planned matrix remains six arms (N0/A0/A1/A2/A3/E0), 20 groups × 2 loads × 6 arms = 240 main runs, plus 40 A0 load-calibration and 30 A0 noise-calibration runs (310 total). PR #92's 3–5 GPU-hour estimate and 6-hour ceiling are planning estimates and must be reconfirmed against the actual qualified cohort.
+
 
 ## Research objective and decision layers
 
@@ -82,7 +132,7 @@ Logical release, physical hashed eviction, subsequent APC hit/miss and request-l
 - **M5**: shared workload/runner substrate when a concrete interface gap requires work; not the owner of M6's W1 data acquisition.
 - **M2/M3**: background/source-mechanism review and frozen baseline support, respectively.
 
-Next decision: M4 may analyze the already transferred bounded evidence and propose one targeted follow-up study. Any algorithm redesign, new data acquisition, or new Native campaign requires separate M1 authorization and a pre-registered comparison. Do not retune the frozen A1/A2 against the just-observed results; no A3/B1 authorization is implied.
+Next decision: M6 completes the authorized Final Evaluation Data Readiness Confirmation within the existing W1-C candidate frame. M1 reviews the qualified 40-task / 20-group cohort and repository coverage (minimum 8). M4 synchronizes and reconciles Protocol v3 PR #90. Once both are accepted, proceed directly to the 310-run Final Evaluation; no separate Stage 3 Cohort Seal engineering phase is required. Native calibration and the formal GPU campaign remain unauthorized until that M1 go/no-go.
 
 ## Provenance and reading order
 
