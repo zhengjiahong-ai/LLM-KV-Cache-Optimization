@@ -25,24 +25,42 @@ Retention and scheduling are included where needed to reproduce strong system ba
 
 ## Current Status
 
-The current **authoritative Phase 2 research/gate ledger** is [`docs/research-status.md`](docs/research-status.md). Older design and phase-plan files remain useful as historical evidence but must not be read as the current authorization.
+The authoritative **M1 project and authorization ledger** is
+[`docs/research-status.md`](docs/research-status.md). Phase 3 execution history
+and the current data-readiness decision are indexed in
+[`docs/experiments/README.md`](docs/experiments/README.md).
 
 ```text
-Phase 0 / 1A / 1B          CLOSED — real vLLM/APC integration and Continuum-style baseline
-Phase 2A H1/H2            CLOSED — H1 DIAGNOSTIC_ONLY; H2 does not unlock B1
-Phase 2B / 2C / 2E       CLOSED — fidelity, workload audit and native-baseline evaluation
-Phase 2G A1               BOUNDED EVALUATION — independent gain vs sufficient-first unproven
-Phase 2G A2               INCONCLUSIVE — no reliable independent block-level value
-W0 / W1-A                 CLOSED — source audit and authentic Agent trajectory acquisition
-W1-B (PR #73)             UNDER REVIEW — M1 RC1–RC4 pending; reported smoke not accepted
-W1-C                      AUTHORIZED BOUNDED PILOT — stratified S50/S100 feasibility only
-Formal benefit campaign    NOT AUTHORIZED
+Phase 0 / 1A / 1B             CLOSED — real vLLM/APC integration and baseline
+Phase 2A–2I                   CLOSED / bounded findings preserved; see ledger
+Phase 3 Protocol v3           PR #90 MERGED — FROZEN by M1 (reviewed HEAD 3a8c388)
+Phase 3 Workload Feasibility  PR #92 MERGED — feasibility established, not a final dataset
+Phase 3 Stage 1               PR #93 MERGED — six-arm materializer, E0/N0 CPU/Mock
+Phase 3 Stage 2               PR #94 MERGED — independent N/E/C evaluator (RC1–RC4)
+Final dataset                 NEXT — M6 selects/acquires 40 tasks + 24 reserves from 80 candidates
+Final evaluation              CONDITIONALLY AUTHORIZED — after cohort seal and frozen gates
 ```
 
-The W1-A first cohort consists of ten SWE-bench Verified tasks, all from Astropy; nine are right-censored at the 50-step limit. W1-B uses sparse turns and controlled replay pressure, rather than the Continuum paper's original serving arrivals. Do **not** interpret its submitted A1−A0 token delta as a formal improvement estimate.
+Current data boundary:
+- W1-C froze 100 candidate task IDs; 20 were acquired for the S50/S100 pilot.
+- 18 pilot tasks are full-payload comparable, but all historical pilot tasks are
+  excluded from the formal Phase 3 cohort.
+- The remaining 80 IDs are candidates, not acquired Agent traces. They span
+  ten repositories in the current frozen frame.
+- M1's current minimum for the final cohort is **at least 8 repositories**
+  (superseding the earlier 10-repository target), with 20 groups and two tasks
+  from different repositories per group.
+- M6's next deliverable is an evidence-backed data-readiness report. No Native
+  calibration or GPU campaign has started.
 
-The real backend is frozen to **vLLM 0.27.1** with GPU Automatic Prefix Caching (APC).
+The Phase 3 comparison remains six arms: N0/A0/A1/A2/A3/E0. The planned
+evaluation remains 40 A0 load-calibration runs + 30 A0 noise-calibration runs
++ 240 main-campaign runs = 310 runs. The estimate in M6 PR #92 is 3–5 RTX
+4090D GPU-hours with a 6-hour planning ceiling; M6 must reconfirm against the
+actual qualified cohort before formal execution.
 
+The real backend is frozen to **vLLM 0.27.1** with GPU Automatic Prefix
+Caching (APC).
 ## Research Structure
 
 ### Core contribution path
