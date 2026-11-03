@@ -1,6 +1,6 @@
 # Phase 3 Engineering Preparation — Stage 1
 
-Status: **CPU/MOCK IMPLEMENTED — NO ACQUISITION OR GPU EXECUTION AUTHORIZED**
+Status: **CLOSED / MERGED — PR #93.** At Stage 1 closeout, acquisition and GPU execution were not authorized; current M1 authorization is recorded in [the Phase 3 Data Readiness Decision](phase3-data-readiness-decision.md).
 
 Baseline: main merge `67e5e29b93d547040500f1205c5a2aeb8f469d6e`.
 Protocol authority: M4 Final Evaluation Protocol v3, reviewed HEAD
