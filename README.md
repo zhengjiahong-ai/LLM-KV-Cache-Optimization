@@ -33,12 +33,12 @@ and the current data-readiness decision are indexed in
 ```text
 Phase 0 / 1A / 1B             CLOSED — real vLLM/APC integration and baseline
 Phase 2A–2I                   CLOSED / bounded findings preserved; see ledger
-Phase 3 Protocol v3           PR #90 OPEN — awaiting M1 final freeze
-Phase 3 Workload Feasibility  PR #92 MERGED — feasibility report, not acquired data
+Phase 3 Protocol v3           PR #90 MERGED — FROZEN by M1 (reviewed HEAD 3a8c388)
+Phase 3 Workload Feasibility  PR #92 MERGED — feasibility established, not a final dataset
 Phase 3 Stage 1               PR #93 MERGED — six-arm materializer, E0/N0 CPU/Mock
 Phase 3 Stage 2               PR #94 MERGED — independent N/E/C evaluator (RC1–RC4)
-Final data readiness          NEXT — M6 to verify/acquire 40 new qualified tasks
-Final evaluation              NOT STARTED — 310-run campaign awaits M1 approval
+Final dataset                 NEXT — M6 selects/acquires 40 tasks + 24 reserves from 80 candidates
+Final evaluation              CONDITIONALLY AUTHORIZED — after cohort seal and frozen gates
 ```
 
 Current data boundary:
