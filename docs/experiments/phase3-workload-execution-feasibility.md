@@ -1,10 +1,49 @@
 # Phase 3 Workload & Execution Feasibility Report
 
-Status: **ENGINEERING PREPARATION AUTHORIZED — ACQUISITION AND GPU CAMPAIGN NOT AUTHORIZED**
+Status: **M1 DATA-READINESS CONFIRMATION AUTHORIZED — NATIVE CALIBRATION AND GPU CAMPAIGN NOT AUTHORIZED**
 
 Protocol dependency: M4 Phase 3 Final Evaluation Protocol v3, PR #90, review
 HEAD `3a8c3882ad248715b2f5ea90e34baa3875ea0226`. This report assesses M6
 workload and execution feasibility; it does not redefine M4 policy semantics.
+
+## M1 decision addendum (2026-11-03)
+
+This addendum supersedes only the earlier repository-count minimum and the
+proposed standalone engineering sequence. The original M6 feasibility findings
+and their historical context remain preserved below.
+
+- The final cohort target remains 40 **new qualified tasks** in 20 independent
+  Workload Groups, with two tasks from different repositories in each group.
+- Minimum repository coverage is **8 repositories**, not 10. This M1 ruling
+  supersedes the earlier ten-repository requirement in this report and the
+  still-open M4 Protocol v3 PR #90. If fewer than 8 repositories or fewer than
+  40 qualified tasks can be obtained, M6 must report the actual shortfall;
+  neither threshold may be silently relaxed.
+- The 18 historical W1-C full-payload-comparable pilot tasks remain excluded
+  from formal effect estimates. The remaining 80 W1-C task IDs are candidates,
+  not acquired Agent traces. The current frozen frame contains candidates from
+  ten repositories, but task-level trace qualification remains to be confirmed.
+- The 40 Primary + 24 Reserve plan remains the working sampling baseline within
+  the existing 80-candidate frame. Do not expand that frame without M1 approval.
+- M6's next task is Final Evaluation Data Readiness Confirmation, including
+  verification/acquisition of the required Agent traces from the existing
+  candidate frame, task qualification, repository distribution, legal
+  cross-repository grouping, Full Payload/Explicit Token ID/sidecar/Profile/
+  Native Replay completeness, and source/model/tokenizer provenance.
+- Stage 1 (PR #93) and Stage 2 (PR #94) are complete. A separate Stage 3 Cohort
+  Seal engineering milestone is not required. The final data/run manifest must
+  still freeze and SHA-256 bind task membership, group pairing, Frozen Request
+  Order, Native Enqueue Order, Replay Timeline, Session pairing and per-request
+  History Predecessors before formal cells execute.
+- After M1 accepts the data-readiness report and M4 reconciles Protocol v3,
+  proceed directly to Final Evaluation. The 310-run matrix remains unchanged:
+  40 A0 load-calibration + 30 A0 noise-calibration + 240 six-arm main runs.
+- M6's PR #92 estimate of 3–5 RTX 4090D GPU-hours (6-hour ceiling) is a planning
+  estimate; reconfirm it against the actual qualified cohort.
+- M6 is authorized to confirm and acquire/validate Agent traces within the
+  existing 80-candidate frame. Native Load Calibration, Noise Calibration,
+  GPU Smoke and Main Campaign remain unauthorized pending M1 acceptance.
+
 
 ## 1. Executive finding
 
