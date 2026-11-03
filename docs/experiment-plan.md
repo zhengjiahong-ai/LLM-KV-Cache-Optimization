@@ -1,22 +1,45 @@
 # Experimental Plan
 
-## Current Phase 2 execution overlay (2026-10-23)
+## Current Phase 3 execution overlay (2026-11-03)
 
-**Status source:** [`research-status.md`](research-status.md). This section updates the execution roadmap without retroactively changing the originally proposed research questions, the frozen Phase 1B baseline, or historical formal verdicts.
+**Canonical status:** [`docs/research-status.md`](research-status.md). This overlay records the current M1-approved Phase 3 direction. Historical research questions and Phase 2 verdicts below remain historical and are not retroactively changed.
 
-Current evaluated mechanisms are **not identical to an independently demonstrated Ours-Evict method**:
+### Phase 3 delivery status
 
-| Arm | Entry forced-release rule | Physical block-victim rule |
+| Item | Status | Evidence |
 | --- | --- | --- |
-| A0 | frozen Continuum-style project baseline | native LRU |
-| A1 | cost-aware entry selector | native LRU |
-| A2 | A0 entry release | cost-aware block selector |
+| M4 Final Evaluation Protocol v3 | MERGED / FROZEN | [PR #90](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/90); M1 freeze recorded on merge 2026-11-03 |
+| M6 workload/execution feasibility | MERGED | [PR #92](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/92) |
+| Six-arm Materializer, E0/N0 | MERGED — Stage 1 complete | [PR #93](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/93) |
+| Independent N/E/C Evaluator | MERGED — Stage 2 complete | [PR #94](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/94) |
+| Final data readiness | NEXT — M6 | [M1 data-readiness decision](experiments/phase3-data-readiness-decision.md) |
+| Final Evaluation | NOT STARTED / NOT AUTHORIZED | 310-run plan remains unchanged |
 
-A1's bounded Native signal does not isolate the value of its q/λ or lookahead model. Historical A1 decisions were reproducible by a simpler **Sufficient-first + earliest-deadline** comparator. A2 remains inconclusive. A complete research contribution requires actual policy divergence, native physical consequences and formal comparison including a strong simple heuristic, not just positive totals versus A0.
+### Final cohort requirement
 
-**Workload/evidence phases:** W0 source audit and W1-A bounded acquisition are closed; the ten acquired SWE-bench Verified traces are from a single upstream repository and nine reached the configured 50-step limit. W1-B (PR #73) is **under review** with RC1–RC4 and only submitted bounded controlled-pressure smoke results. W1-C may design a cross-project stratified ~100-task cohort but is authorized only for a bounded ~20-task S50/S100 feasibility pilot; the full acquisition and formal multi-arm campaign are **not** authorized. A native-comparable replay must bind frozen token inputs, preserve right censoring and explicitly distinguish observed tool timing from constructed inter-session arrival/pressure.
+- 40 **new qualified Agent tasks** arranged into 20 independent Workload Groups.
+- Two tasks per group, from different repositories.
+- Minimum repository coverage: **10 repositories**, as required by frozen Protocol v3 and M6 PR #92.
+- Existing W1-C's 20 acquired pilot tasks (18 full-payload comparable) are engineering/regression data only and are excluded from the formal cohort.
+- M6 must confirm the real Full Payload, Explicit Token IDs, sidecars, Prefill Profile and Native Replay readiness of each selected task. The remaining 80 W1-C IDs are candidates, not acquired traces.
+- If fewer than 40 qualified tasks or fewer than 10 repositories are available, report the actual shortfall; do not lower the threshold or expand the frozen candidate frame without M1 approval.
 
-**Formal benefit gate:** define independent scenario/task groups, freeze all arm-independent runtime parameters, bound confidence/variance and missingness, verify forced-release/victim/APC chains, report `R=E-C`, `W=N-C`, `S=N-E`, and include Sufficient-first. No algorithm retuning after outcome inspection and no implicit extension of W1-B's scope.
+### Final experiment plan
+
+The six arms remain N0/A0/A1/A2/A3/E0. The planned scale remains:
+
+| Set | Runs |
+| --- | ---: |
+| A0 Load Calibration | 40 |
+| A0 Noise Calibration | 30 |
+| Main Campaign (20 groups × 2 loads × 6 arms) | 240 |
+| **Total** | **310** |
+
+The PR #92 estimate is 3–5 RTX 4090D GPU-hours with a 6-hour ceiling; M6 must reconfirm the estimate against the actual qualified cohort.
+
+M6 is authorized to select, acquire and qualify the formal dataset within the existing 80-candidate W1-C frame. Once 40 qualified tasks / 20 cross-repository groups / at least 10 repositories are frozen in a SHA-256-bound cohort/run manifest, M6 may proceed with the 40-run A0 load calibration and 30-run A0 noise calibration. After the applicable frozen protocol gates and G0 manifest are satisfied, proceed to the 240-run Main Campaign under this M1 authorization. Any shortfall or protocol deviation returns to M1; do not reopen the frozen protocol or expand the candidate frame.
+
+No separate Stage 3 Cohort Seal engineering milestone is required. The final run manifest must still SHA-256 bind task membership, group pairing, Frozen Request Order, Native Enqueue Order, Replay Timeline, Session pairing and per-request History Predecessors before formal execution.
 
 ---
 
