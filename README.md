@@ -47,9 +47,8 @@ Current data boundary:
   excluded from the formal Phase 3 cohort.
 - The remaining 80 IDs are candidates, not acquired Agent traces. They span
   ten repositories in the current frozen frame.
-- M1's current minimum for the final cohort is **at least 8 repositories**
-  (superseding the earlier 10-repository target), with 20 groups and two tasks
-  from different repositories per group.
+- The frozen minimum for the final cohort is **at least 10 repositories**,
+  with 20 groups and two tasks from different repositories per group.
 - M6's next deliverable is an evidence-backed data-readiness report. No Native
   calibration or GPU campaign has started.
 
