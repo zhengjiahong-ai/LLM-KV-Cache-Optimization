@@ -2,7 +2,7 @@
 
 Status: **ACTIVE — Phase 3 Protocol v3 frozen; Stage 1/2 complete; M6 formal dataset selection is next; 310-run evaluation conditionally authorized after cohort freeze**  
 As-of decision: M1 reconciliation 2026-11-03, `main` @ `27249ab93953f531544ec8e226fc891adda60457`; [PR #90](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/90), [PR #92](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/92), [PR #93](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/93), [PR #94](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/94).  
-Owner: M1. This document indexes decisions and evidence; it does **not** amend sealed artifacts or replace their final reports. This document indexes decisions and evidence; it does **not** amend sealed artifacts or replace their final reports.
+Owner: M1. This document indexes decisions and evidence; it does **not** amend sealed artifacts or replace their final reports.
 
 ## How to read the evidence
 
