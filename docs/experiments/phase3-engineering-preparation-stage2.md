@@ -1,5 +1,9 @@
 # Phase 3 Engineering Preparation — Stage 2 Independent N/E/C Evaluator
 
+Status: **IMPLEMENTED AND MERGED** — PR #94, main merge `8d51897fb90d310e322d347c6e4fb23cf7512b87`.
+Current Phase 3 authorization and next action are recorded in [the M1 Data Readiness Decision](phase3-data-readiness-decision.md).
+
+
 ## Scope
 
 This stage implements the offline request-level evidence path required by the
@@ -64,10 +68,12 @@ Prefix-Snapshot availability boundary before each enqueue. Every declared
 predecessor must have one valid, identity-matched Snapshot; inflight requests
 must not be declared as predecessors.
 
-Stage 3 Deterministic Cohort Seal must bind the Frozen Request Order, Native
-Enqueue Order, Replay Timeline, Session pairing, deterministic
-reserve-substitution rule, and per-request expected Snapshot predecessor
-relation by SHA-256 before this evaluator is used for formal cells.
+Before formal cell execution, the accepted final data/run manifest must
+bind the Frozen Request Order, Native Enqueue Order, Replay Timeline, Session
+pairing, deterministic reserve-substitution rule, and per-request expected
+Snapshot predecessor relation by SHA-256. M1 does not require a separate
+Stage 3 Cohort Seal engineering milestone; this freeze is part of final
+pre-run data/run preparation.
 
 APC outcomes (`NO_REUSE_ELIGIBLE_PREFIX`, `FULL_HIT`, `PARTIAL_HIT`, `MISS`)
 are derived from the independently validated N/E/C tuple. Physical eviction
