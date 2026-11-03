@@ -1,7 +1,16 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from copy import deepcopy
+from pathlib import Path
 
+import pytest
+
+from kvopt.workload.continuum_w1a_runner import (
+    load_acquisition_config,
+    validate_instance_id,
+)
 from kvopt.workload.phase3_cohort import (
     build_candidate_plan,
     validate_candidate_plan,
@@ -97,3 +106,45 @@ def test_candidate_plan_rejects_non_eighty_candidate_frame() -> None:
         assert "exactly 80" in str(error)
     else:
         raise AssertionError("an incomplete candidate frame must fail closed")
+
+
+def _write_phase3_acquisition_fixture(root: Path) -> tuple[Path, dict[str, object]]:
+    plan = build_candidate_plan(_freeze(), source_sha256="a" * 64)
+    plan_path = root / "candidate-plan.json"
+    plan_path.write_text(json.dumps(plan), encoding="utf-8")
+    config = {
+        "schema_version": "phase3.agent_acquisition_config.v1",
+        "scope": "PHASE3_FROZEN_COHORT_AGENT_ACQUISITION_NO_NATIVE_CAMPAIGN",
+        "sample_manifest": plan_path.name,
+        "candidate_plan_sha256": hashlib.sha256(plan_path.read_bytes()).hexdigest(),
+        "dataset": {"revision": "frozen-revision"},
+        "author_runner": {"effective_step_limit": 100},
+        "execution_budget": {
+            "agent_acquisition_authorized": True,
+            "formal_native_campaign_authorized": False,
+        },
+    }
+    config_path = root / "acquisition.json"
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+    return config_path, plan
+
+
+def test_phase3_acquisition_config_binds_candidate_plan(tmp_path: Path) -> None:
+    config_path, plan = _write_phase3_acquisition_fixture(tmp_path)
+
+    config, loaded = load_acquisition_config(config_path, repository=tmp_path)
+
+    assert config["schema_version"] == "phase3.agent_acquisition_config.v1"
+    assert loaded == plan
+    validate_instance_id(str(plan["candidates"][0]["instance_id"]), loaded)
+    with pytest.raises(ValueError, match="frozen acquisition sample"):
+        validate_instance_id("unregistered__task-1", loaded)
+
+
+def test_phase3_acquisition_config_rejects_plan_hash_drift(tmp_path: Path) -> None:
+    config_path, _plan = _write_phase3_acquisition_fixture(tmp_path)
+    plan_path = tmp_path / "candidate-plan.json"
+    plan_path.write_text(plan_path.read_text() + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="candidate-plan SHA-256 mismatch"):
+        load_acquisition_config(config_path, repository=tmp_path)
