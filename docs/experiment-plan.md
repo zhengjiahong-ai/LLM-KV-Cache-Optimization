@@ -8,7 +8,7 @@
 
 | Item | Status | Evidence |
 | --- | --- | --- |
-| M4 Final Evaluation Protocol v3 | OPEN / DESIGN_ONLY | [PR #90](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/90); requires M1 final freeze and synchronization with current main |
+| M4 Final Evaluation Protocol v3 | MERGED / FROZEN | [PR #90](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/90); M1 freeze recorded on merge 2026-11-03 |
 | M6 workload/execution feasibility | MERGED | [PR #92](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/92) |
 | Six-arm Materializer, E0/N0 | MERGED — Stage 1 complete | [PR #93](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/93) |
 | Independent N/E/C Evaluator | MERGED — Stage 2 complete | [PR #94](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/94) |
@@ -19,10 +19,10 @@
 
 - 40 **new qualified Agent tasks** arranged into 20 independent Workload Groups.
 - Two tasks per group, from different repositories.
-- Minimum repository coverage: **8 repositories**. This supersedes the earlier ten-repository target in PR #92 and PR #90.
+- Minimum repository coverage: **10 repositories**, as required by frozen Protocol v3 and M6 PR #92.
 - Existing W1-C's 20 acquired pilot tasks (18 full-payload comparable) are engineering/regression data only and are excluded from the formal cohort.
 - M6 must confirm the real Full Payload, Explicit Token IDs, sidecars, Prefill Profile and Native Replay readiness of each selected task. The remaining 80 W1-C IDs are candidates, not acquired traces.
-- If fewer than 40 qualified tasks or fewer than 8 repositories are available, report the actual shortfall; do not lower the threshold or expand the frozen candidate frame without M1 approval.
+- If fewer than 40 qualified tasks or fewer than 10 repositories are available, report the actual shortfall; do not lower the threshold or expand the frozen candidate frame without M1 approval.
 
 ### Final experiment plan
 
@@ -37,7 +37,7 @@ The six arms remain N0/A0/A1/A2/A3/E0. The planned scale remains:
 
 The PR #92 estimate is 3–5 RTX 4090D GPU-hours with a 6-hour ceiling; M6 must reconfirm the estimate against the actual qualified cohort.
 
-M6 is authorized to confirm and acquire/validate Agent traces within the existing 80-candidate W1-C frame. Native calibration, GPU Smoke and Main Campaign remain unauthorized until M1 accepts the data-readiness report and freezes the final protocol/run manifest.
+M6 is authorized to select, acquire and qualify the formal dataset within the existing 80-candidate W1-C frame. Once 40 qualified tasks / 20 cross-repository groups / at least 10 repositories are frozen in a SHA-256-bound cohort/run manifest, M6 may proceed with the 40-run A0 load calibration and 30-run A0 noise calibration. After the applicable frozen protocol gates and G0 manifest are satisfied, proceed to the 240-run Main Campaign under this M1 authorization. Any shortfall or protocol deviation returns to M1; do not reopen the frozen protocol or expand the candidate frame.
 
 No separate Stage 3 Cohort Seal engineering milestone is required. The final run manifest must still SHA-256 bind task membership, group pairing, Frozen Request Order, Native Enqueue Order, Replay Timeline, Session pairing and per-request History Predecessors before formal execution.
 
