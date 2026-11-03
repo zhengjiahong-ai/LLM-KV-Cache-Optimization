@@ -25,8 +25,11 @@ into N0/A0/A1/A2/A3/E0 configurations. It:
 - always writes `execution_authorized=false`;
 - rejects an input that attempts to grant execution authority.
 
-It is deliberately a cell expander, not a Cohort acquisition tool. The later
-Cohort Seal stage supplies the frozen 40-task inputs.
+It is deliberately a cell expander, not a Cohort acquisition tool. M6's
+Final Evaluation Data Readiness Confirmation supplies the qualified 40-task
+inputs. The final task/group/request/replay manifest is frozen as part of
+pre-run preparation; no separate Stage 3 Cohort Seal engineering milestone is
+required.
 
 ### E0
 
