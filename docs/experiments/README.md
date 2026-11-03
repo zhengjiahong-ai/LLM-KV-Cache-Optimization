@@ -25,14 +25,14 @@ This is a **navigation index**, not a replacement for primary evidence, historic
 
 | Topic | Primary record | Current reading boundary |
 | --- | --- | --- |
-| M1 current data decision | [Phase 3 Data Readiness Decision](phase3-data-readiness-decision.md) | 40 new qualified tasks / 20 groups; minimum 8 repositories; M6 data confirmation is next |
-| M4 Final Evaluation Protocol v3 | [PR #90](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/90) | Open / DESIGN_ONLY; two M4 revision rounds completed; no M1 final freeze yet |
+| M1 current data decision | [Phase 3 Data Readiness Decision](phase3-data-readiness-decision.md) | 40 new qualified tasks / 20 groups; minimum 10 repositories; M6 formal dataset selection/acquisition is next |
+| M4 Final Evaluation Protocol v3 | [PR #90](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/90) | Merged and frozen by M1 on 2026-11-03; protocol HEAD `3a8c388` |
 | M6 Workload & Execution Feasibility | [PR #92](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/92), [report](phase3-workload-execution-feasibility.md) | Merged; feasibility report only. 20 pilot tasks acquired, 18 comparable; remaining 80 are candidate IDs, not traces |
 | Stage 1 — six-arm Materializer, E0/N0 | [PR #93](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/93), [closeout](phase3-engineering-preparation-stage1.md) | Merged; CPU/Mock only; cell materializer does not build/acquire the final cohort |
 | Stage 2 — independent N/E/C Evaluator | [PR #94](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/94), [closeout](phase3-engineering-preparation-stage2.md) | Merged; RC1–RC4 closed; E independent of C; history predecessor relation is timeline-derived |
-| Final Evaluation matrix | [M4 Protocol v3 PR #90](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/90), [M6 feasibility report](phase3-workload-execution-feasibility.md) | Six arms; 40 load calibration + 30 noise calibration + 240 main = 310 runs; not yet authorized |
+| Final Evaluation matrix | [M4 Protocol v3 PR #90](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/90), [M6 feasibility report](phase3-workload-execution-feasibility.md) | Six arms; 40 load calibration + 30 noise calibration + 240 main = 310 runs; conditionally authorized after cohort freeze and applicable gates |
 
-The earlier M6 report and PR #90 protocol draft specified ten repositories. M1's 2026-11-03 decision supersedes that minimum with **at least eight repositories**. If the existing candidate frame cannot produce 40 new qualified tasks across at least eight repositories, M6 must report the actual shortfall rather than lower the threshold. The 18 historical W1-C pilot tasks remain excluded from formal effect estimates.
+The frozen M6 feasibility report and Protocol v3 require **at least ten repositories**. M6 must not lower this threshold. If the existing candidate frame cannot produce 40 new qualified tasks across at least ten repositories, report the actual shortfall for M1 review. The 18 historical W1-C pilot tasks remain excluded from formal effect estimates.
 
 
 ## Interpret the three algorithm layers correctly
