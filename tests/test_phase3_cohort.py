@@ -14,6 +14,7 @@ from kvopt.workload.continuum_w1a_runner import (
 from kvopt.workload.phase3_acquisition import pending_candidates
 from kvopt.workload.phase3_cohort import (
     build_candidate_plan,
+    select_reserve_promotions,
     validate_candidate_plan,
 )
 
@@ -173,3 +174,45 @@ def test_phase3_pending_candidates_fail_on_incomplete_attempt(tmp_path: Path) ->
 
     with pytest.raises(ValueError, match="lacks run.json"):
         pending_candidates(plan, runs_root=tmp_path)
+
+
+def test_phase3_reserve_promotions_are_same_repository_first() -> None:
+    plan = build_candidate_plan(_freeze(), source_sha256="a" * 64)
+    primary = [row for row in plan["candidates"] if row["role"] == "PRIMARY"]
+    failed = [
+        next(row for row in primary if row["repository"] == "owner/repo-a"),
+        next(row for row in primary if row["repository"] == "owner/repo-b"),
+    ]
+
+    promoted = select_reserve_promotions(
+        plan, [str(row["instance_id"]) for row in failed]
+    )
+
+    assert [row["repository"] for row in promoted] == [
+        "owner/repo-a",
+        "owner/repo-b",
+    ]
+    assert [row["replaces_primary_instance_id"] for row in promoted] == [
+        row["instance_id"] for row in failed
+    ]
+
+
+def test_phase3_explicit_reserve_selection_is_exact(tmp_path: Path) -> None:
+    plan = build_candidate_plan(_freeze(), source_sha256="a" * 64)
+    reserve = next(row for row in plan["candidates"] if row["role"] == "RESERVE")
+
+    pending = pending_candidates(
+        plan,
+        runs_root=tmp_path,
+        roles=("RESERVE",),
+        instance_ids=(str(reserve["instance_id"]),),
+    )
+
+    assert [row["instance_id"] for row in pending] == [reserve["instance_id"]]
+    with pytest.raises(ValueError, match="does not match the selected role"):
+        pending_candidates(
+            plan,
+            runs_root=tmp_path,
+            roles=("PRIMARY",),
+            instance_ids=(str(reserve["instance_id"]),),
+        )

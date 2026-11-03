@@ -256,6 +256,59 @@ def validate_candidate_plan(
     return problems
 
 
+def select_reserve_promotions(
+    plan: Mapping[str, object], failed_primary_ids: Sequence[str]
+) -> list[dict[str, object]]:
+    """Apply the preregistered same-repository-first Reserve promotion rule."""
+
+    candidates = plan.get("candidates")
+    if not isinstance(candidates, list):
+        raise TypeError("candidate plan candidates must be an array")
+    primary = {
+        str(row.get("instance_id")): row
+        for row in candidates
+        if isinstance(row, dict) and row.get("role") == "PRIMARY"
+    }
+    reserves = sorted(
+        (
+            dict(row)
+            for row in candidates
+            if isinstance(row, dict) and row.get("role") == "RESERVE"
+        ),
+        key=lambda row: int(row["role_rank"]),
+    )
+    failed = list(failed_primary_ids)
+    if len(failed) != len(set(failed)):
+        raise ValueError("failed Primary identities must be unique")
+    unknown = sorted(set(failed) - set(primary))
+    if unknown:
+        raise ValueError(f"failed identity is not a Primary candidate: {unknown[0]}")
+    used: set[str] = set()
+    promotions: list[dict[str, object]] = []
+    for instance_id in failed:
+        repository = str(primary[instance_id]["repository"])
+        eligible = [
+            row
+            for row in reserves
+            if str(row["instance_id"]) not in used
+            and str(row["repository"]) == repository
+        ]
+        if not eligible:
+            eligible = [row for row in reserves if str(row["instance_id"]) not in used]
+        if not eligible:
+            raise ValueError("Reserve candidates are exhausted")
+        selected = eligible[0]
+        used.add(str(selected["instance_id"]))
+        promotions.append(
+            {
+                **selected,
+                "replaces_primary_instance_id": instance_id,
+                "promotion_reason": "PRIMARY_FAILED_PREREGISTERED_QUALIFICATION",
+            }
+        )
+    return promotions
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)

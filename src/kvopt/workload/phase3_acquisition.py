@@ -15,6 +15,7 @@ def pending_candidates(
     *,
     runs_root: Path,
     roles: Sequence[str] = ("PRIMARY",),
+    instance_ids: Sequence[str] | None = None,
 ) -> list[dict[str, object]]:
     """Return unattempted candidates without changing the frozen order."""
 
@@ -31,6 +32,19 @@ def pending_candidates(
     expected_ranks = list(range(1, len(ordered) + 1))
     if [int(row["acquisition_rank"]) for row in ordered] != expected_ranks:
         raise ValueError("candidate acquisition ranks are not contiguous")
+    selected_ids = set(instance_ids) if instance_ids is not None else None
+    if selected_ids is not None and len(selected_ids) != len(instance_ids):
+        raise ValueError("explicit candidate identities must be unique")
+    known_ids = {str(row.get("instance_id", "")) for row in ordered}
+    allowed_ids = {
+        str(row.get("instance_id", ""))
+        for row in ordered
+        if row.get("role") in allowed
+    }
+    if selected_ids is not None and not selected_ids <= known_ids:
+        raise ValueError("explicit candidate identity is not preregistered")
+    if selected_ids is not None and not selected_ids <= allowed_ids:
+        raise ValueError("explicit candidate identity does not match the selected role")
     result: list[dict[str, object]] = []
     for row in ordered:
         if row.get("role") not in allowed:
@@ -38,6 +52,8 @@ def pending_candidates(
         instance_id = str(row.get("instance_id", ""))
         if not instance_id:
             raise ValueError("candidate identity must be non-empty")
+        if selected_ids is not None and instance_id not in selected_ids:
+            continue
         run_dir = runs_root / instance_id
         if run_dir.exists():
             manifest = run_dir / "run.json"
@@ -56,13 +72,14 @@ def run_batch(
     output_root: Path,
     roles: Sequence[str],
     maximum_tasks: int,
+    instance_ids: Sequence[str] | None = None,
 ) -> list[Path]:
     if maximum_tasks <= 0:
         raise ValueError("maximum_tasks must be positive")
     _config, plan = load_acquisition_config(config_path, repository=repository)
-    selected = pending_candidates(plan, runs_root=output_root, roles=roles)[
-        :maximum_tasks
-    ]
+    selected = pending_candidates(
+        plan, runs_root=output_root, roles=roles, instance_ids=instance_ids
+    )[:maximum_tasks]
     outputs: list[Path] = []
     for row in selected:
         outputs.append(
@@ -87,6 +104,7 @@ def main() -> int:
     parser.add_argument(
         "--role", choices=("PRIMARY", "RESERVE"), default="PRIMARY"
     )
+    parser.add_argument("--instance-id", action="append")
     arguments = parser.parse_args()
     outputs = run_batch(
         repository=arguments.repository.resolve(),
@@ -95,6 +113,7 @@ def main() -> int:
         output_root=arguments.output_root.resolve(),
         roles=(arguments.role,),
         maximum_tasks=arguments.maximum_tasks,
+        instance_ids=arguments.instance_id,
     )
     print(
         json.dumps(
