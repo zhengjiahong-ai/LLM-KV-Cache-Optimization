@@ -310,17 +310,20 @@ def _evaluate_arm(
         observation_index = _event_index(observation, "native observation")
         prior_snapshots: list[Mapping[str, object]] = []
         for predecessor in history_predecessors[identity]:
-            matches = [
-                snapshot
-                for snapshot in snapshots_by_identity.get(predecessor, [])
-                if _event_index(snapshot, "prefix snapshot") < observation_index
-            ]
+            matches = snapshots_by_identity.get(predecessor, [])
             if len(matches) != 1:
                 raise ArtifactValidationError(
-                    f"{identity} requires exactly one prior snapshot for "
+                    f"{identity} requires exactly one snapshot for "
                     f"history predecessor {predecessor}; observed={len(matches)}"
                 )
-            prior_snapshots.append(matches[0])
+            snapshot = matches[0]
+            snapshot_index = _event_index(snapshot, "prefix snapshot")
+            if snapshot_index >= observation_index:
+                raise ArtifactValidationError(
+                    f"{identity} history predecessor {predecessor} Snapshot "
+                    "does not precede the current Native observation"
+                )
+            prior_snapshots.append(snapshot)
         rows.append(
             _derive_request(
                 observation,
