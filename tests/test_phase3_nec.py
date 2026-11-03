@@ -32,10 +32,26 @@ def evaluate_phase3_nec_cell(
     events_by_arm: dict[str, list[dict]],
     frozen_requests: tuple[tuple[str, str], ...],
     cell_manifest: dict | None = None,
+    native_enqueue_order: tuple[tuple[str, str], ...] | None = None,
+    history_predecessors: dict[
+        tuple[str, str], tuple[tuple[str, str], ...]
+    ]
+    | None = None,
 ) -> dict:
+    if history_predecessors is None:
+        history_predecessors = {
+            identity: tuple(frozen_requests[:index])
+            for index, identity in enumerate(frozen_requests)
+        }
     return _evaluate_phase3_nec_cell(
         events_by_arm=events_by_arm,
         frozen_requests=frozen_requests,
+        native_enqueue_order=(
+            frozen_requests
+            if native_enqueue_order is None
+            else native_enqueue_order
+        ),
+        history_predecessors=history_predecessors,
         cell_manifest=_manifest() if cell_manifest is None else cell_manifest,
     )
 
@@ -133,7 +149,7 @@ def test_missing_history_does_not_fall_back_to_c() -> None:
     )
 
     assert report["status"] == "FAIL_CLOSED"
-    assert any("prior request-history" in issue for issue in report["issues"])
+    assert any("history predecessor" in issue for issue in report["issues"])
 
 
 def test_first_enqueued_request_without_prior_history_has_zero_e() -> None:
@@ -160,6 +176,48 @@ def test_first_enqueued_request_without_prior_history_has_zero_e() -> None:
         )
 
 
+def test_same_drain_inflight_requests_have_no_history_predecessors() -> None:
+    cell: dict[str, list[dict]] = {}
+    for arm in ARMS:
+        cell[arm] = [
+            _observation(1, "request-1", prompt=32, cached=0),
+            _observation(2, "request-2", prompt=48, cached=0),
+            # The first Snapshot is written only after both requests in this
+            # Native drain were already enqueued/observed.
+            _snapshot(3),
+        ]
+
+    report = evaluate_phase3_nec_cell(
+        events_by_arm=cell,
+        frozen_requests=REQUESTS,
+        history_predecessors={REQUESTS[0]: (), REQUESTS[1]: ()},
+    )
+
+    assert report["status"] == "PASS"
+    for arm in ARMS:
+        assert [
+            request["eligible_prefix_tokens"]
+            for request in report["arms"][arm]["requests"]
+        ] == [0, 0]
+
+
+def test_completed_history_predecessor_supplies_snapshot_evidence() -> None:
+    report = evaluate_phase3_nec_cell(
+        events_by_arm=_cell(),
+        frozen_requests=REQUESTS,
+        history_predecessors={
+            REQUESTS[0]: (),
+            REQUESTS[1]: (REQUESTS[0],),
+        },
+    )
+
+    assert report["status"] == "PASS"
+    assert all(
+        report["arms"][arm]["requests"][1]["eligible_prefix_tokens"] == 32
+        for arm in ARMS
+    )
+
+
 def test_zero_c_does_not_hide_missing_prior_history() -> None:
     cell = _cell(second_cached=0)
     for events in cell.values():
@@ -175,7 +233,31 @@ def test_zero_c_does_not_hide_missing_prior_history() -> None:
 
     assert report["status"] == "FAIL_CLOSED"
     assert report["c_used_as_eligibility_fallback"] is False
-    assert any("prior request-history" in issue for issue in report["issues"])
+    assert any("history predecessor" in issue for issue in report["issues"])
+
+
+def test_enqueue_order_and_history_predecessors_are_frozen_contracts() -> None:
+    enqueue_mismatch = evaluate_phase3_nec_cell(
+        events_by_arm=_cell(),
+        frozen_requests=REQUESTS,
+        native_enqueue_order=tuple(reversed(REQUESTS)),
+    )
+    predecessor_mismatch = evaluate_phase3_nec_cell(
+        events_by_arm=_cell(),
+        frozen_requests=REQUESTS,
+        history_predecessors={
+            REQUESTS[0]: (REQUESTS[1],),
+            REQUESTS[1]: (),
+        },
+    )
+
+    assert enqueue_mismatch["status"] == "FAIL_CLOSED"
+    assert predecessor_mismatch["status"] == "FAIL_CLOSED"
+    assert any("enqueue order" in issue for issue in enqueue_mismatch["issues"])
+    assert any(
+        "invalid history predecessors" in issue
+        for issue in predecessor_mismatch["issues"]
+    )
 
 
 def test_cross_arm_content_identity_drift_fails_closed() -> None:

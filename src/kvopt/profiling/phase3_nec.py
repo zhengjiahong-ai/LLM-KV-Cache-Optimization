@@ -243,6 +243,9 @@ def _evaluate_arm(
     events: Sequence[Mapping[str, object]],
     frozen_requests: Sequence[tuple[str, str]],
     pressure_request_ids: frozenset[str],
+    history_predecessors: Mapping[
+        tuple[str, str], tuple[tuple[str, str], ...]
+    ],
 ) -> dict[str, object]:
     expected = tuple(frozen_requests)
     if len(expected) != len(set(expected)):
@@ -292,19 +295,32 @@ def _evaluate_arm(
         )
 
     rows: list[NECRequestResult] = []
-    for request_position, identity in enumerate(expected):
+    snapshots_by_identity: dict[
+        tuple[str, str], list[Mapping[str, object]]
+    ] = {}
+    for event in indexed_events:
+        if event.get("event_type") != _PREFIX_SNAPSHOT:
+            continue
+        snapshot_identity = _identity(event, f"{arm} prefix snapshot")
+        if snapshot_identity in expected_set:
+            snapshots_by_identity.setdefault(snapshot_identity, []).append(event)
+
+    for identity in expected:
         observation = observations[identity]
         observation_index = _event_index(observation, "native observation")
-        prior_snapshots = [
-            event
-            for event in indexed_events
-            if event.get("event_type") == _PREFIX_SNAPSHOT
-            and _event_index(event, "prefix snapshot") < observation_index
-        ]
-        if request_position > 0 and not prior_snapshots:
-            raise ArtifactValidationError(
-                f"{identity} is missing frozen prior request-history snapshots"
-            )
+        prior_snapshots: list[Mapping[str, object]] = []
+        for predecessor in history_predecessors[identity]:
+            matches = [
+                snapshot
+                for snapshot in snapshots_by_identity.get(predecessor, [])
+                if _event_index(snapshot, "prefix snapshot") < observation_index
+            ]
+            if len(matches) != 1:
+                raise ArtifactValidationError(
+                    f"{identity} requires exactly one prior snapshot for "
+                    f"history predecessor {predecessor}; observed={len(matches)}"
+                )
+            prior_snapshots.append(matches[0])
         rows.append(
             _derive_request(
                 observation,
@@ -367,21 +383,59 @@ def evaluate_phase3_nec_cell(
     *,
     events_by_arm: Mapping[str, Sequence[Mapping[str, object]]],
     frozen_requests: Sequence[tuple[str, str]],
+    native_enqueue_order: Sequence[tuple[str, str]],
+    history_predecessors: Mapping[
+        tuple[str, str], Sequence[tuple[str, str]]
+    ],
     cell_manifest: Mapping[str, object],
 ) -> dict[str, object]:
     """Evaluate one Phase 3 cell and fail closed on any evidence defect.
 
-    ``frozen_requests`` is an ordered contract, not an unordered cohort: its
-    order must equal the deterministic Native enqueue order frozen for the
-    cell.  Snapshot completeness is evaluated against that enqueue order and
-    must not be inferred from Native completion order.
+    ``frozen_requests`` and ``native_enqueue_order`` must be identical ordered
+    contracts.  ``history_predecessors`` comes from the frozen Replay Timeline
+    and names only requests whose logical completion boundary makes their
+    Snapshot available before the current Native enqueue.  Snapshot
+    completeness must not be inferred from Native completion or event-write
+    order.
     """
 
     required = _PHASE3_ARMS
     issues: list[str] = []
     pressure_ids: frozenset[str] = frozenset()
+    normalized_predecessors: dict[
+        tuple[str, str], tuple[tuple[str, str], ...]
+    ] = {}
     if not frozen_requests:
         issues.append("frozen request set must not be empty")
+    frozen_order = tuple(frozen_requests)
+    if tuple(native_enqueue_order) != frozen_order:
+        issues.append(
+            "native enqueue order must exactly equal frozen request order"
+        )
+    frozen_set = set(frozen_order)
+    if set(history_predecessors) != frozen_set:
+        issues.append(
+            "history predecessor keys must exactly equal the frozen request set"
+        )
+    if not issues:
+        positions = {identity: index for index, identity in enumerate(frozen_order)}
+        for identity in frozen_order:
+            predecessors = tuple(history_predecessors[identity])
+            if len(predecessors) != len(set(predecessors)):
+                issues.append(f"{identity} has duplicate history predecessors")
+                continue
+            invalid = [
+                predecessor
+                for predecessor in predecessors
+                if predecessor not in frozen_set
+                or positions[predecessor] >= positions[identity]
+            ]
+            if invalid:
+                issues.append(
+                    f"{identity} has invalid history predecessors: {invalid}"
+                )
+                continue
+            normalized_predecessors[identity] = predecessors
     try:
         pressure_ids = _pressure_request_ids(cell_manifest)
     except (ArtifactValidationError, TypeError, ValueError) as error:
@@ -396,7 +450,11 @@ def evaluate_phase3_nec_cell(
         for arm in required:
             try:
                 arm_reports[arm] = _evaluate_arm(
-                    arm, events_by_arm[arm], frozen_requests, pressure_ids
+                    arm,
+                    events_by_arm[arm],
+                    frozen_requests,
+                    pressure_ids,
+                    normalized_predecessors,
                 )
             except (ArtifactValidationError, TypeError, ValueError) as error:
                 issues.append(f"{arm}: {error}")
@@ -425,6 +483,7 @@ def evaluate_phase3_nec_cell(
         "primary_metric": "aggregate_recomputed_tokens",
         "primary_metric_formula": "sum(E-C)",
         "frozen_request_order_contract": "DETERMINISTIC_NATIVE_ENQUEUE_ORDER",
+        "history_predecessor_contract": "FROZEN_REPLAY_TIMELINE",
         "eligibility_is_arm_independent": not issues,
         "c_used_as_eligibility_fallback": False,
         "ownership_level_attribution": "NOT_ESTABLISHED",

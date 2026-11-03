@@ -18,11 +18,14 @@ For every frozen request:
 
 `E` never uses `C` as a fallback, lower bound, replacement, or repair. A missing
 or incompatible prior content-identity chain fails the affected cell closed
-whenever the frozen enqueue order says earlier request history exists. This is
-independent of C: `C=0` neither proves that history is complete nor justifies
-deriving `E=0`. The first enqueued request may legitimately have no preceding
-history; in that specific case `E=0` is derived from the frozen history state,
-not from C. The evaluator never substitutes `N-C` as the primary outcome.
+whenever the frozen Replay Timeline declares an available history predecessor.
+This is independent of C: `C=0` neither proves that history is complete nor
+justifies deriving `E=0`. Any request with no declared history predecessor may
+legitimately have `E=0`, including multiple requests enqueued in one Native
+drain before any peer crosses the logical Snapshot-availability boundary. That
+zero is derived from the frozen timeline state, not from global request
+position, completion order, event-write order, or C. The evaluator never
+substitutes `N-C` as the primary outcome.
 
 The request invariant is `0 <= C <= E <= N`. The aggregate identity is:
 
@@ -54,10 +57,17 @@ also rejected.
 
 `frozen_requests` is ordered and must exactly follow the deterministic Native
 enqueue order. It is not completion order: concurrency may change completion
-order without changing the frozen history contract. Stage 3 Deterministic
-Cohort Seal must bind the Frozen Request Order, Native Enqueue Order, Replay
-Timeline, Session pairing, and deterministic reserve-substitution rule by
-SHA-256 before this evaluator is used for formal cells.
+order without changing the frozen history contract. The separate
+`history_predecessors` mapping must be derived from the frozen Replay Timeline
+and name exactly the requests whose logical lifecycle has crossed the
+Prefix-Snapshot availability boundary before each enqueue. Every declared
+predecessor must have one valid, identity-matched Snapshot; inflight requests
+must not be declared as predecessors.
+
+Stage 3 Deterministic Cohort Seal must bind the Frozen Request Order, Native
+Enqueue Order, Replay Timeline, Session pairing, deterministic
+reserve-substitution rule, and per-request expected Snapshot predecessor
+relation by SHA-256 before this evaluator is used for formal cells.
 
 APC outcomes (`NO_REUSE_ELIGIBLE_PREFIX`, `FULL_HIT`, `PARTIAL_HIT`, `MISS`)
 are derived from the independently validated N/E/C tuple. Physical eviction
