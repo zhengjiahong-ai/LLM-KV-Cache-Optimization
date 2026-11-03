@@ -1,7 +1,7 @@
 # Phase 3 Engineering Preparation — Stage 2 Independent N/E/C Evaluator
 
 Status: **IMPLEMENTED AND MERGED** — PR #94, main merge `8d51897fb90d310e322d347c6e4fb23cf7512b87`.
-Current Phase 3 authorization and next action are recorded in [the M1 Data Readiness Decision](phase3-data-readiness-decision.md).
+Stage 2 is an offline evaluator implementation and did not itself authorize acquisition or execution. Current M1 authorization is recorded in [the Phase 3 Data Readiness Decision](phase3-data-readiness-decision.md).
 
 
 ## Scope
@@ -82,5 +82,6 @@ evidence remains diagnostic; reports explicitly retain
 
 ## Authorization boundary
 
-`ENGINEERING_PREPARATION_AUTHORIZED`; `ACQUISITION_NOT_AUTHORIZED`;
-`GPU_CAMPAIGN_NOT_AUTHORIZED`.
+`ENGINEERING_PREPARATION_AUTHORIZED` was the scope authorization for Stage 2
+at implementation time. It is historical and is superseded by the current M1
+authorization in [the Phase 3 Data Readiness Decision](phase3-data-readiness-decision.md).
