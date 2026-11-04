@@ -17,6 +17,7 @@ from kvopt.workload.phase3_cohort import (
     select_reserve_promotions,
     validate_candidate_plan,
 )
+from kvopt.workload.phase3_cohort_seal import pair_tasks, resolve_final_cohort
 
 
 def _freeze() -> dict[str, object]:
@@ -216,3 +217,53 @@ def test_phase3_explicit_reserve_selection_is_exact(tmp_path: Path) -> None:
             roles=("PRIMARY",),
             instance_ids=(str(reserve["instance_id"]),),
         )
+
+
+def test_phase3_final_cohort_replays_multiple_promotion_rounds() -> None:
+    plan = build_candidate_plan(_freeze(), source_sha256="a" * 64)
+    primary = [row for row in plan["candidates"] if row["role"] == "PRIMARY"]
+    target = next(row for row in primary if row["repository"] == "owner/repo-a")
+    reserves = [
+        row
+        for row in plan["candidates"]
+        if row["role"] == "RESERVE" and row["repository"] == "owner/repo-a"
+    ]
+    assert len(reserves) >= 2
+    rows = [
+        {
+            "instance_id": row["instance_id"],
+            "status": (
+                "DISQUALIFIED"
+                if row["instance_id"] in {target["instance_id"], reserves[0]["instance_id"]}
+                else "QUALIFIED"
+            ),
+        }
+        for row in [*primary, reserves[0], reserves[1]]
+    ]
+
+    tasks, promotions = resolve_final_cohort(plan, rows)
+
+    selected = next(row for row in tasks if row["primary_instance_id"] == target["instance_id"])
+    assert selected["instance_id"] == reserves[1]["instance_id"]
+    chain = next(
+        row for row in promotions if row["primary_instance_id"] == target["instance_id"]
+    )
+    assert chain["attempted_reserve_chain"] == [
+        reserves[0]["instance_id"],
+        reserves[1]["instance_id"],
+    ]
+
+
+def test_phase3_pairing_requires_different_repositories() -> None:
+    tasks = [
+        {"instance_id": f"a-{index}", "repository": "repo-a", "cohort_slot": index}
+        for index in range(20)
+    ] + [
+        {"instance_id": f"b-{index}", "repository": f"repo-{index + 1}", "cohort_slot": index + 20}
+        for index in range(20)
+    ]
+
+    pairs = pair_tasks(tasks)
+
+    assert len(pairs) == 20
+    assert all(left["repository"] != right["repository"] for left, right in pairs)
