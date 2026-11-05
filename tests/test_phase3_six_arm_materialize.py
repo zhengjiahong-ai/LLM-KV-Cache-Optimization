@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from subprocess import CompletedProcess
 
 import pytest
 
@@ -15,6 +16,7 @@ from kvopt.workload.phase3_materialize import (
     pressure_request_contract,
     validate_pressure_identity,
 )
+from kvopt.workload.phase3_native_preflight import materialize_native_preflight
 
 
 def _base() -> dict[str, object]:
@@ -176,3 +178,112 @@ def test_pressure_isolation_rejects_policy_dependent_attempt_count(tmp_path: Pat
 
     with pytest.raises(ValueError, match="pressure request identity differs"):
         validate_pressure_identity(configs)
+
+
+def test_materializes_one_group_a0_native_preflight(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sessions = []
+    timeline = []
+    enqueue_order = []
+    for session_index, program_id in enumerate(("program-a", "program-b")):
+        calls = []
+        selected = []
+        for turn in range(1, 13):
+            request_id = f"{program_id}:turn:{turn}"
+            tokens = [session_index + 1] * (16 * turn)
+            calls.append(
+                {
+                    "request_id": request_id,
+                    "turn_index": turn,
+                    "status": "SUCCESS",
+                    "rendered_prompt": f"prompt-{request_id}",
+                    "submitted_token_ids": tokens,
+                    "model_submit_monotonic_seconds": float(turn * 2),
+                    "model_completion_monotonic_seconds": float(turn * 2 + 1),
+                }
+            )
+            selected.append(
+                {
+                    "request_id": request_id,
+                    "token_count": len(tokens),
+                    "token_ids_sha256": hashlib.sha256(
+                        json.dumps(tokens, sort_keys=True, separators=(",", ":")).encode()
+                    ).hexdigest(),
+                }
+            )
+            enqueue_order.append(request_id)
+            timeline.extend(
+                (
+                    {
+                        "boundary_id": f"arrival:{request_id}",
+                        "logical_timestamp": float(turn * 2 + session_index / 4),
+                        "source": "test-submit",
+                        "kind": "ARRIVAL",
+                        "request_id": request_id,
+                    },
+                    {
+                        "boundary_id": f"completion:{request_id}",
+                        "logical_timestamp": float(turn * 2 + 1 + session_index / 4),
+                        "source": "test-complete",
+                        "kind": "COMPLETION",
+                        "request_id": request_id,
+                    },
+                )
+            )
+        sidecar = tmp_path / f"{program_id}.json"
+        sidecar.write_text(json.dumps({"model_calls": calls}), encoding="utf-8")
+        sessions.append(
+            {
+                "instance_id": program_id,
+                "sidecar_path": str(sidecar),
+                "sidecar_sha256": hashlib.sha256(sidecar.read_bytes()).hexdigest(),
+                "selected_requests": selected,
+            }
+        )
+    timeline.sort(key=lambda row: (row["logical_timestamp"], row["kind"]))
+    frozen_order = [
+        str(row["request_id"]) for row in timeline if row["kind"] == "ARRIVAL"
+    ]
+    seal_path = tmp_path / "seal.json"
+    seal_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "phase3.cohort_seal.v1",
+                "groups": [
+                    {
+                        "group_id": "g14",
+                        "sessions": sessions,
+                        "frozen_request_order": frozen_order,
+                        "native_enqueue_order": frozen_order,
+                        "replay_timeline": timeline,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    profile = tmp_path / "profile.json"
+    profile.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(
+        "kvopt.workload.phase3_native_preflight.subprocess.run",
+        lambda *args, **kwargs: CompletedProcess(args[0], 0, "frozen-git-sha\n", ""),
+    )
+
+    freeze = materialize_native_preflight(
+        repository=tmp_path,
+        seal_path=seal_path,
+        profile_path=profile,
+        group_id="g14",
+        output_dir=tmp_path / "output",
+    )
+
+    config = json.loads(
+        (tmp_path / "output" / str(freeze["config"])).read_text(encoding="utf-8")
+    )
+    assert freeze["request_count"] == 24
+    assert config["campaign_kind"] == "phase3_final_evaluation"
+    assert config["cache"]["block_override"] == 2048
+    assert config["backend_options"]["phase2g_release_policy"] == "A0"
+    assert config["backend_options"]["controlled_pressure_stages_by_boundary"] == {}
+    assert len(config["backend_options"]["replay_token_ids_by_request"]) == 24
