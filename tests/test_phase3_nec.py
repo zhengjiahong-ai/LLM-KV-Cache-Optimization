@@ -10,6 +10,7 @@ ARMS = ("N0", "A0", "A1", "A2", "A3", "E0")
 HASH_A = "01" * 32
 HASH_B = "02" * 32
 HASH_C = "03" * 32
+HASH_D = "04" * 32
 REQUESTS = (("program-a", "request-1"), ("program-a", "request-2"))
 
 
@@ -66,8 +67,17 @@ def _event(index: int, event_type: str, request: str, payload: dict) -> dict:
     }
 
 
-def _observation(index: int, request: str, *, prompt: int, cached: int) -> dict:
-    return _event(
+def _observation(
+    index: int,
+    request: str,
+    *,
+    prompt: int,
+    cached: int,
+    queued: float | None = None,
+    scheduled: float | None = None,
+    first_token: float | None = None,
+) -> dict:
+    event = _event(
         index,
         "VLLM_NATIVE_REQUEST_OBSERVATION",
         request,
@@ -80,8 +90,19 @@ def _observation(index: int, request: str, *, prompt: int, cached: int) -> dict:
             "native_hash_block_size": 16,
             "native_hash_process_id": "native-1",
             "native_hash_function": "sha256",
+            "native_queued_timestamp": (
+                float(index) if queued is None else queued
+            ),
+            "native_scheduler_admission_timestamp": (
+                float(index) + 0.1 if scheduled is None else scheduled
+            ),
+            "native_first_token_timestamp": (
+                float(index) + 0.8 if first_token is None else first_token
+            ),
         },
     )
+    event["clock_domain"] = "engine_core_monotonic"
+    return event
 
 
 def _snapshot(index: int) -> dict:
@@ -180,8 +201,20 @@ def test_same_drain_inflight_requests_have_no_history_predecessors() -> None:
     cell: dict[str, list[dict]] = {}
     for arm in ARMS:
         cell[arm] = [
-            _observation(1, "request-1", prompt=32, cached=0),
-            _observation(2, "request-2", prompt=48, cached=0),
+            _observation(
+                1,
+                "request-1",
+                prompt=32,
+                cached=0,
+                first_token=3.0,
+            ),
+            _observation(
+                2,
+                "request-2",
+                prompt=48,
+                cached=0,
+                scheduled=2.1,
+            ),
             # The first Snapshot is written only after both requests in this
             # Native drain were already enqueued/observed.
             _snapshot(3),
@@ -199,6 +232,166 @@ def test_same_drain_inflight_requests_have_no_history_predecessors() -> None:
             request["eligible_prefix_tokens"]
             for request in report["arms"][arm]["requests"]
         ] == [0, 0]
+
+
+def test_inflight_full_prefill_visible_before_consumer_schedule_is_eligible() -> None:
+    cell: dict[str, list[dict]] = {}
+    for arm in ARMS:
+        cell[arm] = [
+            _observation(
+                1,
+                "request-1",
+                prompt=32,
+                cached=0,
+                queued=1.0,
+                scheduled=1.1,
+                first_token=1.8,
+            ),
+            _observation(
+                2,
+                "request-2",
+                prompt=48,
+                cached=32,
+                queued=1.2,
+                scheduled=2.0,
+                first_token=2.8,
+            ),
+            # Content identity may be persisted after the consumer observation;
+            # first-token/scheduler timing independently proves visibility.
+            _snapshot(3),
+        ]
+
+    report = evaluate_phase3_nec_cell(
+        events_by_arm=cell,
+        frozen_requests=REQUESTS,
+        history_predecessors={REQUESTS[0]: (), REQUESTS[1]: ()},
+    )
+
+    assert report["status"] == "PASS"
+    for arm in ARMS:
+        consumer = report["arms"][arm]["requests"][1]
+        assert consumer["eligible_prefix_tokens"] == 32
+        audit = consumer["concurrent_eligibility_audits"][0]
+        assert audit["hash_lcp_blocks"] == 2
+        assert audit["snapshot_may_follow_consumer_observation"] is True
+        assert audit["uses_native_cached_tokens_c"] is False
+        assert audit["qualification_result"].startswith("QUALIFIED_")
+
+
+def test_concurrent_eligibility_does_not_use_c_and_rejects_unpublished_blocks() -> None:
+    def cell(second_cached: int, producer_first_token: float) -> dict[str, list[dict]]:
+        return {
+            arm: [
+                _observation(
+                    1,
+                    "request-1",
+                    prompt=32,
+                    cached=0,
+                    first_token=producer_first_token,
+                ),
+                _observation(
+                    2,
+                    "request-2",
+                    prompt=48,
+                    cached=second_cached,
+                    scheduled=2.1,
+                ),
+                _snapshot(3),
+            ]
+            for arm in ARMS
+        }
+
+    visible_zero_c = evaluate_phase3_nec_cell(
+        events_by_arm=cell(0, 1.8),
+        frozen_requests=REQUESTS,
+        history_predecessors={REQUESTS[0]: (), REQUESTS[1]: ()},
+    )
+    not_visible = evaluate_phase3_nec_cell(
+        events_by_arm=cell(0, 3.0),
+        frozen_requests=REQUESTS,
+        history_predecessors={REQUESTS[0]: (), REQUESTS[1]: ()},
+    )
+    visible_full_c = evaluate_phase3_nec_cell(
+        events_by_arm=cell(32, 1.8),
+        frozen_requests=REQUESTS,
+        history_predecessors={REQUESTS[0]: (), REQUESTS[1]: ()},
+    )
+
+    assert visible_zero_c["status"] == "PASS"
+    assert visible_full_c["status"] == "PASS"
+    assert not_visible["status"] == "PASS"
+    assert visible_zero_c["arms"]["A0"]["requests"][1][
+        "eligible_prefix_tokens"
+    ] == 32
+    assert visible_full_c["arms"]["A0"]["requests"][1][
+        "eligible_prefix_tokens"
+    ] == 32
+    assert not_visible["arms"]["A0"]["requests"][1][
+        "eligible_prefix_tokens"
+    ] == 0
+
+
+def test_concurrent_cached_tokens_c_cannot_exceed_independent_e() -> None:
+    cell = {
+        arm: [
+            _observation(1, "request-1", prompt=32, cached=0, first_token=1.8),
+            _observation(2, "request-2", prompt=48, cached=48, scheduled=2.1),
+            _snapshot(3),
+        ]
+        for arm in ARMS
+    }
+
+    report = evaluate_phase3_nec_cell(
+        events_by_arm=cell,
+        frozen_requests=REQUESTS,
+        history_predecessors={REQUESTS[0]: (), REQUESTS[1]: ()},
+    )
+
+    assert report["status"] == "FAIL_CLOSED"
+    assert any("0 <= C <= E <= N" in issue for issue in report["issues"])
+
+
+def test_concurrent_no_shared_blocks_is_legitimate_zero_e() -> None:
+    cell = {
+        arm: [
+            _observation(1, "request-1", prompt=32, cached=0, first_token=1.8),
+            _observation(2, "request-2", prompt=48, cached=0, scheduled=2.1),
+            _snapshot(3),
+        ]
+        for arm in ARMS
+    }
+    for events in cell.values():
+        events[-1]["payload"]["ordered_native_hashes"] = [HASH_D, HASH_D]
+
+    report = evaluate_phase3_nec_cell(
+        events_by_arm=cell,
+        frozen_requests=REQUESTS,
+        history_predecessors={REQUESTS[0]: (), REQUESTS[1]: ()},
+    )
+
+    assert report["status"] == "PASS"
+    assert report["arms"]["A0"]["requests"][1]["eligible_prefix_tokens"] == 0
+
+
+def test_concurrent_hash_identity_mismatch_fails_closed() -> None:
+    cell = {
+        arm: [
+            _observation(1, "request-1", prompt=32, cached=0, first_token=1.8),
+            _observation(2, "request-2", prompt=48, cached=0, scheduled=2.1),
+            _snapshot(3),
+        ]
+        for arm in ARMS
+    }
+    cell["A0"][-1]["payload"]["native_hash_process_id"] = "other-process"
+
+    report = evaluate_phase3_nec_cell(
+        events_by_arm=cell,
+        frozen_requests=REQUESTS,
+        history_predecessors={REQUESTS[0]: (), REQUESTS[1]: ()},
+    )
+
+    assert report["status"] == "FAIL_CLOSED"
+    assert any("incompatible Native hash identity" in issue for issue in report["issues"])
 
 
 def test_completed_history_predecessor_supplies_snapshot_evidence() -> None:
