@@ -623,6 +623,54 @@ def _evaluate_arm(
         for producer_identity in expected[: positions[identity]]:
             if producer_identity in completed_predecessors:
                 continue
+            producer_observation = observations[producer_identity]
+            producer_observation_chain = _chain(
+                _object(
+                    producer_observation.get("payload"),
+                    "producer native observation payload",
+                ),
+                hashes_field="native_apc_block_hashes",
+                label="producer native observation",
+            )
+            compatible_observation_identity = (
+                producer_observation_chain.process_id == current_chain.process_id
+                and producer_observation_chain.hash_function
+                == current_chain.hash_function
+                and producer_observation_chain.block_size == current_chain.block_size
+            )
+            candidate_lcp_blocks = (
+                _common_prefix(
+                    current_chain.hashes, producer_observation_chain.hashes
+                )
+                if compatible_observation_identity
+                else 0
+            )
+            if candidate_lcp_blocks <= minimum_eligible_blocks:
+                concurrent_audits.append(
+                    {
+                        "producer_program_id": producer_identity[0],
+                        "producer_request_id": producer_identity[1],
+                        "consumer_program_id": identity[0],
+                        "consumer_request_id": identity[1],
+                        "hash_lcp_blocks": candidate_lcp_blocks,
+                        "eligible_full_block_tokens": (
+                            candidate_lcp_blocks * current_chain.block_size
+                        ),
+                        "minimum_existing_eligible_blocks": (
+                            minimum_eligible_blocks
+                        ),
+                        "qualification_result": (
+                            "NOT_QUALIFIED_DOMINATED_BY_EXISTING_HISTORY"
+                        ),
+                        "visibility_rule": (
+                            "OBSERVATION_LCP_CANNOT_INCREASE_INDEPENDENT_E"
+                        ),
+                        "producer_snapshot_required": False,
+                        "consumer_snapshot_required": False,
+                        "uses_native_cached_tokens_c": False,
+                    }
+                )
+                continue
             producer_snapshots = snapshots_by_identity.get(producer_identity, [])
             if len(producer_snapshots) != 1:
                 raise ArtifactValidationError(
@@ -637,7 +685,7 @@ def _evaluate_arm(
             audit, qualified = _concurrent_visibility_audit(
                 producer_identity=producer_identity,
                 consumer_identity=identity,
-                producer_observation=observations[producer_identity],
+                producer_observation=producer_observation,
                 consumer_observation=observation,
                 producer_snapshot=producer_snapshots[0],
                 consumer_snapshot=(

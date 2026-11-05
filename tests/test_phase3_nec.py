@@ -500,6 +500,50 @@ def test_right_censored_consumer_needs_no_snapshot_for_dominated_candidate() -> 
         ] == "NOT_QUALIFIED_DOMINATED_BY_EXISTING_HISTORY"
 
 
+def test_right_censored_producer_needs_no_snapshot_when_dominated() -> None:
+    requests = (*REQUESTS, ("program-a", "request-3"))
+    cell = {
+        arm: [
+            _observation(1, "request-1", prompt=32, cached=0, scheduled=1.1),
+            _snapshot(2),
+            _observation(
+                3, "request-2", prompt=48, cached=32, queued=2.0, scheduled=2.1
+            ),
+            # request-2 is right-censored and has no Snapshot.
+            _observation(
+                4, "request-3", prompt=48, cached=32, queued=3.0, scheduled=3.1
+            ),
+        ]
+        for arm in ARMS
+    }
+    for events in cell.values():
+        events[2]["payload"]["native_apc_block_hashes"] = [
+            HASH_A,
+            HASH_B,
+            HASH_D,
+        ]
+
+    report = evaluate_phase3_nec_cell(
+        events_by_arm=cell,
+        frozen_requests=requests,
+        history_predecessors={
+            requests[0]: (),
+            requests[1]: (requests[0],),
+            requests[2]: (requests[0],),
+        },
+    )
+
+    assert report["status"] == "PASS"
+    for arm in ARMS:
+        request = report["arms"][arm]["requests"][2]
+        assert request["eligible_prefix_tokens"] == 32
+        audit = request["concurrent_eligibility_audits"][0]
+        assert audit["producer_snapshot_required"] is False
+        assert audit["qualification_result"] == (
+            "NOT_QUALIFIED_DOMINATED_BY_EXISTING_HISTORY"
+        )
+
+
 def test_consumer_lookup_before_producer_registration_fails_closed() -> None:
     cell = {
         arm: [
