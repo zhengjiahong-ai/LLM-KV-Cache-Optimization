@@ -12,4 +12,6 @@
 
 [RFC: Context-Aware KV-Cache Retention API (Prioritized Evictions)](https://github.com/vllm-project/vllm/issues/37003)
 
-该 RFC 当前仍为 Open 状态，属于接口提案而非已合并功能。它提出让编排器为 token 范围声明 `priority` 和 `duration`，未被标注的块继续走既有 LRU 路径。提案强调由编排器提供工作流信息，vLLM 负责执行优先级与 TTL。它可用于说明社区正在讨论保留指令接口，不应作为本项目或 vLLM 已取得性能收益的证据。
+该 RFC 属于接口提案而非已合并功能。它提出让编排器为 token 范围声明 `priority` 和 `duration`，未被标注的块继续走既有 LRU 路径。提案强调由编排器提供工作流信息，vLLM 负责执行优先级与 TTL。它可用于说明社区正在讨论保留指令接口，不应作为本项目或 vLLM 已取得性能收益的证据。
+
+**核验状态（未核实）**：本环境无法访问 github.com，因此该 issue 的当前状态（Open / Closed / 已修订）、标题准确性与正文表述**均未经本次核验**。上文标题来自本仓库既有笔记。引用前需访问原链接确认。
