@@ -462,6 +462,44 @@ def test_historical_and_same_batch_predecessors_are_combined() -> None:
         ] == "QUALIFIED_SAME_BATCH_SHARED_PREDECESSOR"
 
 
+def test_right_censored_consumer_needs_no_snapshot_for_dominated_candidate() -> None:
+    requests = (*REQUESTS, ("program-a", "request-3"))
+    cell = {
+        arm: [
+            _observation(1, "request-1", prompt=32, cached=0, scheduled=1.1),
+            _snapshot(2),
+            _observation(
+                3, "request-2", prompt=32, cached=0, queued=2.0, scheduled=2.1
+            ),
+            _snapshot(4, request="request-2", block_ids=[10, 11]),
+            _observation(
+                5, "request-3", prompt=48, cached=32, queued=3.0, scheduled=3.1
+            ),
+            # request-3 is terminal/right-censored and intentionally has no
+            # Snapshot. request-2 cannot increase E beyond request-1 history.
+        ]
+        for arm in ARMS
+    }
+
+    report = evaluate_phase3_nec_cell(
+        events_by_arm=cell,
+        frozen_requests=requests,
+        history_predecessors={
+            requests[0]: (),
+            requests[1]: (requests[0],),
+            requests[2]: (requests[0],),
+        },
+    )
+
+    assert report["status"] == "PASS"
+    for arm in ARMS:
+        request = report["arms"][arm]["requests"][2]
+        assert request["eligible_prefix_tokens"] == 32
+        assert request["concurrent_eligibility_audits"][0][
+            "qualification_result"
+        ] == "NOT_QUALIFIED_DOMINATED_BY_EXISTING_HISTORY"
+
+
 def test_consumer_lookup_before_producer_registration_fails_closed() -> None:
     cell = {
         arm: [
@@ -629,7 +667,7 @@ def test_concurrent_hash_identity_mismatch_fails_closed() -> None:
     )
 
     assert report["status"] == "FAIL_CLOSED"
-    assert any("incompatible Native hash identity" in issue for issue in report["issues"])
+    assert any("incompatible Native identity" in issue for issue in report["issues"])
 
 
 def test_completed_history_predecessor_supplies_snapshot_evidence() -> None:

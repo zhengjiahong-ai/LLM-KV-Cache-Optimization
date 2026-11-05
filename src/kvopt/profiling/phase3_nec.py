@@ -268,7 +268,8 @@ def _concurrent_visibility_audit(
     producer_observation: Mapping[str, object],
     consumer_observation: Mapping[str, object],
     producer_snapshot: Mapping[str, object],
-    consumer_snapshot: Mapping[str, object],
+    consumer_snapshot: Mapping[str, object] | None,
+    minimum_eligible_blocks: int,
 ) -> tuple[dict[str, object], bool]:
     """Prove same-batch or earlier-forward visibility without consulting C.
 
@@ -290,18 +291,10 @@ def _concurrent_visibility_audit(
     producer_snapshot_payload = _object(
         producer_snapshot.get("payload"), "producer prefix snapshot payload"
     )
-    consumer_snapshot_payload = _object(
-        consumer_snapshot.get("payload"), "consumer prefix snapshot payload"
-    )
     producer_chain = _chain(
         producer_snapshot_payload,
         hashes_field="ordered_native_hashes",
         label="producer prefix snapshot",
-    )
-    consumer_snapshot_chain = _chain(
-        consumer_snapshot_payload,
-        hashes_field="ordered_native_hashes",
-        label="consumer prefix snapshot",
     )
     consumer_chain = _chain(
         consumer_payload,
@@ -319,9 +312,6 @@ def _concurrent_visibility_audit(
         producer_chain.process_id != consumer_chain.process_id
         or producer_chain.hash_function != consumer_chain.hash_function
         or producer_chain.block_size != consumer_chain.block_size
-        or consumer_snapshot_chain.process_id != consumer_chain.process_id
-        or consumer_snapshot_chain.hash_function != consumer_chain.hash_function
-        or consumer_snapshot_chain.block_size != consumer_chain.block_size
     ):
         raise ArtifactValidationError(
             f"{consumer_identity} concurrent predecessor {producer_identity} "
@@ -372,6 +362,62 @@ def _concurrent_visibility_audit(
             "was scheduled after the consumer"
         )
     lcp_blocks = _common_prefix(consumer_chain.hashes, producer_chain.hashes)
+    if lcp_blocks <= minimum_eligible_blocks:
+        return (
+            {
+                "producer_program_id": producer_identity[0],
+                "producer_request_id": producer_identity[1],
+                "consumer_program_id": consumer_identity[0],
+                "consumer_request_id": consumer_identity[1],
+                "native_clock_domain": "engine_core_monotonic",
+                "producer_queued_timestamp": producer_queued,
+                "producer_scheduler_admission_timestamp": producer_scheduled,
+                "producer_first_token_timestamp": producer_first_token,
+                "consumer_queued_timestamp": consumer_queued,
+                "consumer_scheduler_admission_timestamp": consumer_scheduled,
+                "snapshot_event_index": _event_index(
+                    producer_snapshot, "producer prefix snapshot"
+                ),
+                "snapshot_may_follow_consumer_observation": (
+                    _event_index(producer_snapshot, "producer prefix snapshot")
+                    > _event_index(consumer_observation, "consumer native observation")
+                ),
+                "hash_lcp_blocks": lcp_blocks,
+                "eligible_full_block_tokens": (
+                    lcp_blocks * consumer_chain.block_size
+                ),
+                "minimum_existing_eligible_blocks": minimum_eligible_blocks,
+                "qualification_result": (
+                    "NOT_QUALIFIED_DOMINATED_BY_EXISTING_HISTORY"
+                ),
+                "visibility_rule": (
+                    "DOMINATED_CANDIDATE_DOES_NOT_CHANGE_INDEPENDENT_E"
+                ),
+                "uses_native_cached_tokens_c": False,
+            },
+            False,
+        )
+    if consumer_snapshot is None:
+        raise ArtifactValidationError(
+            f"{consumer_identity} concurrent candidate could increase E but lacks "
+            "a consumer content-identity Snapshot"
+        )
+    consumer_snapshot_payload = _object(
+        consumer_snapshot.get("payload"), "consumer prefix snapshot payload"
+    )
+    consumer_snapshot_chain = _chain(
+        consumer_snapshot_payload,
+        hashes_field="ordered_native_hashes",
+        label="consumer prefix snapshot",
+    )
+    if (
+        consumer_snapshot_chain.process_id != consumer_chain.process_id
+        or consumer_snapshot_chain.hash_function != consumer_chain.hash_function
+        or consumer_snapshot_chain.block_size != consumer_chain.block_size
+    ):
+        raise ArtifactValidationError(
+            f"{consumer_identity} concurrent Snapshot has incompatible Native identity"
+        )
     snapshot_lcp_blocks = _common_prefix(
         consumer_snapshot_chain.hashes, producer_chain.hashes
     )
@@ -549,6 +595,30 @@ def _evaluate_arm(
                 )
             prior_snapshots.append(matches[0])
         concurrent_audits: list[dict[str, object]] = []
+        observation_payload = _object(
+            observation.get("payload"), "native observation payload"
+        )
+        current_chain = _chain(
+            observation_payload,
+            hashes_field="native_apc_block_hashes",
+            label="native observation",
+        )
+        minimum_eligible_blocks = 0
+        for snapshot in prior_snapshots:
+            snapshot_chain = _chain(
+                _object(snapshot.get("payload"), "prior prefix snapshot payload"),
+                hashes_field="ordered_native_hashes",
+                label="prior prefix snapshot",
+            )
+            if (
+                snapshot_chain.process_id == current_chain.process_id
+                and snapshot_chain.hash_function == current_chain.hash_function
+                and snapshot_chain.block_size == current_chain.block_size
+            ):
+                minimum_eligible_blocks = max(
+                    minimum_eligible_blocks,
+                    _common_prefix(current_chain.hashes, snapshot_chain.hashes),
+                )
         completed_predecessors = set(history_predecessors[identity])
         for producer_identity in expected[: positions[identity]]:
             if producer_identity in completed_predecessors:
@@ -560,10 +630,9 @@ def _evaluate_arm(
                     "exactly one content-identity snapshot"
                 )
             consumer_snapshots = snapshots_by_identity.get(identity, [])
-            if len(consumer_snapshots) != 1:
+            if len(consumer_snapshots) > 1:
                 raise ArtifactValidationError(
-                    f"{identity} concurrent qualification requires exactly one "
-                    "consumer content-identity snapshot"
+                    f"{identity} has duplicate consumer content-identity Snapshots"
                 )
             audit, qualified = _concurrent_visibility_audit(
                 producer_identity=producer_identity,
@@ -571,11 +640,18 @@ def _evaluate_arm(
                 producer_observation=observations[producer_identity],
                 consumer_observation=observation,
                 producer_snapshot=producer_snapshots[0],
-                consumer_snapshot=consumer_snapshots[0],
+                consumer_snapshot=(
+                    consumer_snapshots[0] if consumer_snapshots else None
+                ),
+                minimum_eligible_blocks=minimum_eligible_blocks,
             )
             concurrent_audits.append(audit)
             if qualified:
                 prior_snapshots.append(producer_snapshots[0])
+                minimum_eligible_blocks = max(
+                    minimum_eligible_blocks,
+                    int(audit["hash_lcp_blocks"]),
+                )
         rows.append(
             _derive_request(
                 observation,

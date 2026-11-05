@@ -37,6 +37,15 @@ content and physical identity, not publication time. A missing, partial, or
 incompatible identity chain or physical Block mapping fails closed rather than
 being reconstructed from C.
 
+Physical Consumer Snapshot evidence is required only when a concurrent
+candidate could increase the independently established E. If a valid frozen
+historical predecessor already supplies an equal or longer Hash LCP, the
+concurrent candidate is recorded as
+`NOT_QUALIFIED_DOMINATED_BY_EXISTING_HISTORY` and cannot change E. This keeps
+the protocol compatible with terminal right-censoring, where a final request
+intentionally has no post-request Snapshot, without treating missing evidence
+as positive evidence or consulting C.
+
 ## vLLM source-order basis
 
 The frozen runtime is vLLM 0.27.1. `Scheduler.schedule()` calculates one
