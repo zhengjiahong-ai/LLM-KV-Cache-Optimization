@@ -353,6 +353,55 @@ def _evaluate_arm(
     }
 
 
+def evaluate_phase3_nec_arm(
+    *,
+    arm: str,
+    events: Sequence[Mapping[str, object]],
+    frozen_requests: Sequence[tuple[str, str]],
+    native_enqueue_order: Sequence[tuple[str, str]],
+    history_predecessors: Mapping[
+        tuple[str, str], Sequence[tuple[str, str]]
+    ],
+    pressure_request_ids: frozenset[str],
+) -> dict[str, object]:
+    """Evaluate one calibration arm under the same frozen N/E/C contract."""
+
+    if arm not in _PHASE3_ARMS:
+        raise ArtifactValidationError("unsupported Phase 3 arm")
+    frozen_order = tuple(frozen_requests)
+    if not frozen_order:
+        raise ArtifactValidationError("frozen request set must not be empty")
+    if tuple(native_enqueue_order) != frozen_order:
+        raise ArtifactValidationError(
+            "native enqueue order must exactly equal frozen request order"
+        )
+    frozen_set = set(frozen_order)
+    if set(history_predecessors) != frozen_set:
+        raise ArtifactValidationError(
+            "history predecessor keys must exactly equal the frozen request set"
+        )
+    positions = {identity: index for index, identity in enumerate(frozen_order)}
+    normalized: dict[tuple[str, str], tuple[tuple[str, str], ...]] = {}
+    for identity in frozen_order:
+        predecessors = tuple(history_predecessors[identity])
+        if len(predecessors) != len(set(predecessors)):
+            raise ArtifactValidationError(f"{identity} has duplicate history predecessors")
+        if any(
+            predecessor not in frozen_set
+            or positions[predecessor] >= positions[identity]
+            for predecessor in predecessors
+        ):
+            raise ArtifactValidationError(f"{identity} has invalid history predecessors")
+        normalized[identity] = predecessors
+    return _evaluate_arm(
+        arm,
+        events,
+        frozen_order,
+        pressure_request_ids,
+        normalized,
+    )
+
+
 def _pressure_request_ids(cell_manifest: Mapping[str, object]) -> frozenset[str]:
     if cell_manifest.get("schema_version") != "phase3.six_arm_cell_manifest.v1":
         raise ArtifactValidationError("unsupported Phase 3 cell manifest")
