@@ -88,6 +88,15 @@ def _hashes(value: object, name: str) -> tuple[str, ...]:
     return tuple(result)
 
 
+def _block_ids(value: object, name: str) -> tuple[int, ...]:
+    if not isinstance(value, list):
+        raise ArtifactValidationError(f"{name} must be an array")
+    result: list[int] = []
+    for item in value:
+        result.append(_integer(item, f"{name} item"))
+    return tuple(result)
+
+
 def _chain(
     payload: Mapping[str, object],
     *,
@@ -259,8 +268,18 @@ def _concurrent_visibility_audit(
     producer_observation: Mapping[str, object],
     consumer_observation: Mapping[str, object],
     producer_snapshot: Mapping[str, object],
+    consumer_snapshot: Mapping[str, object],
 ) -> tuple[dict[str, object], bool]:
-    """Prove full-prefill cache visibility without consulting Native C."""
+    """Prove same-batch or earlier-forward visibility without consulting C.
+
+    The frozen vLLM 0.27.1 UniProc path registers a producer's full-block
+    metadata before a later lookup.  For requests in one Scheduler iteration,
+    the attention layer explicitly threads the KV-update dummy dependency into
+    unified attention, preserving scatter-write-before-read ordering.  Across
+    iterations, UniProc invokes the worker synchronously, so successive model
+    submissions preserve that same ordering.  Persisted snapshots must still
+    prove that both requests referenced the identical physical prefix blocks.
+    """
 
     producer_payload = _object(
         producer_observation.get("payload"), "producer native observation payload"
@@ -268,10 +287,21 @@ def _concurrent_visibility_audit(
     consumer_payload = _object(
         consumer_observation.get("payload"), "consumer native observation payload"
     )
+    producer_snapshot_payload = _object(
+        producer_snapshot.get("payload"), "producer prefix snapshot payload"
+    )
+    consumer_snapshot_payload = _object(
+        consumer_snapshot.get("payload"), "consumer prefix snapshot payload"
+    )
     producer_chain = _chain(
-        _object(producer_snapshot.get("payload"), "producer prefix snapshot payload"),
+        producer_snapshot_payload,
         hashes_field="ordered_native_hashes",
         label="producer prefix snapshot",
+    )
+    consumer_snapshot_chain = _chain(
+        consumer_snapshot_payload,
+        hashes_field="ordered_native_hashes",
+        label="consumer prefix snapshot",
     )
     consumer_chain = _chain(
         consumer_payload,
@@ -289,11 +319,37 @@ def _concurrent_visibility_audit(
         producer_chain.process_id != consumer_chain.process_id
         or producer_chain.hash_function != consumer_chain.hash_function
         or producer_chain.block_size != consumer_chain.block_size
+        or consumer_snapshot_chain.process_id != consumer_chain.process_id
+        or consumer_snapshot_chain.hash_function != consumer_chain.hash_function
+        or consumer_snapshot_chain.block_size != consumer_chain.block_size
     ):
         raise ArtifactValidationError(
             f"{consumer_identity} concurrent predecessor {producer_identity} "
             "has incompatible Native hash identity"
         )
+    producer_observation_chain = _chain(
+        producer_payload,
+        hashes_field="native_apc_block_hashes",
+        label="producer native observation",
+    )
+    if (
+        producer_observation_chain.process_id != producer_chain.process_id
+        or producer_observation_chain.hash_function != producer_chain.hash_function
+        or producer_observation_chain.block_size != producer_chain.block_size
+        or producer_observation_chain.hashes[: len(producer_chain.hashes)]
+        != producer_chain.hashes
+    ):
+        raise ArtifactValidationError(
+            f"{producer_identity} Native observation and Snapshot identity disagree"
+        )
+    producer_queued = _timestamp(
+        producer_payload.get("native_queued_timestamp"),
+        "producer native_queued_timestamp",
+    )
+    producer_scheduled = _timestamp(
+        producer_payload.get("native_scheduler_admission_timestamp"),
+        "producer native_scheduler_admission_timestamp",
+    )
     producer_first_token = _timestamp(
         producer_payload.get("native_first_token_timestamp"),
         "producer native_first_token_timestamp",
@@ -306,12 +362,71 @@ def _concurrent_visibility_audit(
         consumer_payload.get("native_scheduler_admission_timestamp"),
         "consumer native_scheduler_admission_timestamp",
     )
-    if consumer_scheduled < consumer_queued:
+    if producer_scheduled < producer_queued or consumer_scheduled < consumer_queued:
         raise ArtifactValidationError(
             f"{consumer_identity} scheduler admission precedes queue entry"
         )
+    if producer_scheduled > consumer_scheduled:
+        raise ArtifactValidationError(
+            f"{consumer_identity} concurrent predecessor {producer_identity} "
+            "was scheduled after the consumer"
+        )
     lcp_blocks = _common_prefix(consumer_chain.hashes, producer_chain.hashes)
-    qualified = lcp_blocks > 0 and producer_first_token <= consumer_scheduled
+    snapshot_lcp_blocks = _common_prefix(
+        consumer_snapshot_chain.hashes, producer_chain.hashes
+    )
+    if snapshot_lcp_blocks < lcp_blocks:
+        raise ArtifactValidationError(
+            f"{consumer_identity} observation and Snapshot disagree on shared prefix"
+        )
+    if (
+        consumer_chain.hashes[: len(consumer_snapshot_chain.hashes)]
+        != consumer_snapshot_chain.hashes
+    ):
+        raise ArtifactValidationError(
+            f"{consumer_identity} Native observation and Snapshot identity disagree"
+        )
+    producer_blocks = _block_ids(
+        producer_snapshot_payload.get("block_ids"),
+        "producer prefix snapshot block_ids",
+    )
+    consumer_blocks = _block_ids(
+        consumer_snapshot_payload.get("block_ids"),
+        "consumer prefix snapshot block_ids",
+    )
+    physical_evidence_complete = (
+        len(producer_blocks) >= lcp_blocks and len(consumer_blocks) >= lcp_blocks
+    )
+    physical_prefix_equal = (
+        physical_evidence_complete
+        and producer_blocks[:lcp_blocks] == consumer_blocks[:lcp_blocks]
+    )
+    if lcp_blocks > 0 and not physical_evidence_complete:
+        raise ArtifactValidationError(
+            f"{consumer_identity} shared prefix lacks complete physical Block evidence"
+        )
+    if lcp_blocks > 0 and not physical_prefix_equal:
+        raise ArtifactValidationError(
+            f"{consumer_identity} shared prefix physical Block IDs disagree"
+        )
+    scheduler_relation = (
+        "SAME_SCHEDULER_ITERATION"
+        if producer_scheduled == consumer_scheduled
+        else "EARLIER_SCHEDULER_ITERATION"
+    )
+    qualified = lcp_blocks > 0 and physical_prefix_equal
+    if qualified:
+        qualification = (
+            "QUALIFIED_SAME_BATCH_SHARED_PREDECESSOR"
+            if scheduler_relation == "SAME_SCHEDULER_ITERATION"
+            else "QUALIFIED_EARLIER_FORWARD_SHARED_PREDECESSOR"
+        )
+    elif lcp_blocks == 0:
+        qualification = "NOT_QUALIFIED_NO_SHARED_COMPLETE_BLOCK"
+    elif not physical_evidence_complete:
+        qualification = "NOT_QUALIFIED_PHYSICAL_BLOCK_EVIDENCE_INCOMPLETE"
+    else:
+        qualification = "NOT_QUALIFIED_PHYSICAL_BLOCK_ID_MISMATCH"
     return (
         {
             "producer_program_id": producer_identity[0],
@@ -319,6 +434,8 @@ def _concurrent_visibility_audit(
             "consumer_program_id": consumer_identity[0],
             "consumer_request_id": consumer_identity[1],
             "native_clock_domain": "engine_core_monotonic",
+            "producer_queued_timestamp": producer_queued,
+            "producer_scheduler_admission_timestamp": producer_scheduled,
             "producer_first_token_timestamp": producer_first_token,
             "consumer_queued_timestamp": consumer_queued,
             "consumer_scheduler_admission_timestamp": consumer_scheduled,
@@ -331,18 +448,15 @@ def _concurrent_visibility_audit(
             ),
             "hash_lcp_blocks": lcp_blocks,
             "eligible_full_block_tokens": lcp_blocks * consumer_chain.block_size,
-            "qualification_result": (
-                "QUALIFIED_FULL_PREFILL_VISIBLE_BEFORE_CONSUMER_SCHEDULE"
-                if qualified
-                else (
-                    "NOT_QUALIFIED_NO_SHARED_COMPLETE_BLOCK"
-                    if lcp_blocks == 0
-                    else "NOT_QUALIFIED_NOT_VISIBLE_BEFORE_CONSUMER_SCHEDULE"
-                )
-            ),
+            "scheduler_relation": scheduler_relation,
+            "producer_prefix_block_ids": producer_blocks[:lcp_blocks],
+            "consumer_prefix_block_ids": consumer_blocks[:lcp_blocks],
+            "physical_block_evidence_complete": physical_evidence_complete,
+            "physical_prefix_block_ids_equal": physical_prefix_equal,
+            "qualification_result": qualification,
             "visibility_rule": (
-                "VLLM_V1_CACHE_BLOCKS_PUBLISHED_AFTER_COMPUTED_STEP_BEFORE_"
-                "NEXT_SCHEDULER_LOOKUP"
+                "VLLM_0_27_1_UNIPROC_KV_UPDATE_BEFORE_ATTENTION_READ_WITH_"
+                "PHYSICAL_BLOCK_IDENTITY"
             ),
             "uses_native_cached_tokens_c": False,
         },
@@ -445,12 +559,19 @@ def _evaluate_arm(
                     f"{identity} concurrent predecessor {producer_identity} requires "
                     "exactly one content-identity snapshot"
                 )
+            consumer_snapshots = snapshots_by_identity.get(identity, [])
+            if len(consumer_snapshots) != 1:
+                raise ArtifactValidationError(
+                    f"{identity} concurrent qualification requires exactly one "
+                    "consumer content-identity snapshot"
+                )
             audit, qualified = _concurrent_visibility_audit(
                 producer_identity=producer_identity,
                 consumer_identity=identity,
                 producer_observation=observations[producer_identity],
                 consumer_observation=observation,
                 producer_snapshot=producer_snapshots[0],
+                consumer_snapshot=consumer_snapshots[0],
             )
             concurrent_audits.append(audit)
             if qualified:
