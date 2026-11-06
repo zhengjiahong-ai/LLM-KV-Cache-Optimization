@@ -1603,7 +1603,9 @@ def test_real_pack_evidence_inventory_separates_gpu_from_derived(tmp_path: Path)
     assert analysis["evidence_kind"] == "MIXED_PER_RUN_REPORTS_AND_OFFLINE_ANALYSIS"
     assert analysis["file_class_counts"]["PER_RUN_EXECUTION_REPORT"] == 40
     assert analysis["file_class_counts"]["OFFLINE_AUDIT_OR_AGGREGATE"] == 4
+    assert analysis["file_class_counts"]["UNCLASSIFIED"] == 1
     assert analysis["manifested_file_count"] == 44
+    assert inventory["unclassified_file_count"] == 1
 
     assert separation["unclassified_directories"] == []
 
