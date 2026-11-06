@@ -37,9 +37,10 @@
       "unmanifested_file_count": 1,
       "file_class_counts": {
         "PER_RUN_EXECUTION_REPORT": 40,
-        "OFFLINE_AUDIT_OR_AGGREGATE": 4
+        "OFFLINE_AUDIT_OR_AGGREGATE": 4,
+        "UNCLASSIFIED": 1
       },
-      "unmanifested_file_note": "One additional file is present in the local pack but is not named by the committed manifest; its class is not inferred here."
+      "unmanifested_file_note": "One additional file is present in the local pack but is not named by the committed manifest; the committed manifest does not provide its path or hash."
     },
     {
       "directory": "artifacts/phase3-load-calibration-inputs-v1",
@@ -343,6 +344,7 @@
       ]
     }
   },
-  "unclassified_file_count": 0,
-  "unclassified_files": []
+  "unclassified_file_count": 1,
+  "unclassified_files": [],
+  "unclassified_file_note": "One unmanifested file exists under phase3-load-calibration-analysis-v7; its exact path is unavailable in the committed manifest, so it is counted but not named or assigned a content class."
 }
