@@ -6,9 +6,9 @@
 - Protocol: v4 implemented as an independent document; v3 remains historical.
 - Existing A0 calibration: reused, not rerun.
 - G0 tooling: implemented. The v1 review bundle is retained as historical
-  preparation evidence; a replacement bundle must be generated on the final
-  PR HEAD after the strengthened mapping checks below pass against the server
-  evidence.
+  preparation evidence. The replacement v2 bundle was generated on clean HEAD
+  `1e210f681ae257858a33f295b2e7ef118e218e62` after the strengthened mapping
+  checks passed against the real server evidence.
 - Noise Calibration: locked pending M1 G0 review.
 - Main Campaign: locked pending Noise Calibration and applicable gates.
 - GPU executions performed by this change: zero.
@@ -46,15 +46,18 @@
 ## Validation state
 
 Targeted Option F, calibration, N/E/C, materializer, and accepted G4 analysis
-tests pass, including negative tests for repeat/Run-ID/stratum drift, incomplete
-or duplicate Main grids, negative `delta_rho`, malformed report identities,
-and non-bijective Formal/Native mappings. Full CPU regression must be rerun on
-the final clean HEAD; the Phase 2E authorization test intentionally rejects an
-uncommitted tree.
+tests pass (`158 passed, 7 skipped`), including negative tests for
+repeat/Run-ID/stratum drift, incomplete or duplicate Main grids, negative
+`delta_rho`, malformed report identities, and non-bijective Formal/Native
+mappings. Full CPU regression on the clean implementation HEAD passed with
+`1915 passed, 15 skipped`; Ruff and `git diff --check` passed.
 
-The historical v1 G0 artifact was generated on the server holding the Cohort
-Seal, 40 calibration inputs, and v7 reports. Its inputs remain unauthorized,
-but its hashes predate the final mapping validation and therefore are not the
-final PR review evidence. Regeneration must reuse the immutable source evidence
-without reacquiring tasks or rerunning A0. Noise Calibration and the Main
-Campaign remain locked until their respective M1 gate decisions.
+The v2 G0 artifact was regenerated on the server holding the Cohort Seal, 40
+calibration inputs, and v7 reports, without reacquiring tasks or rerunning A0.
+Its freeze manifest SHA-256 is
+`db9ebb8a388d30f6d9bc1c58a19dd8b97b9ce0a7afdafea124987754fbcde971`;
+the external archive SHA-256 is
+`ea1a49037543c850471b1e94b1b0cf4b3a67935de097c908fd2552026f53b47a`.
+Local archive validation passed. Every generated input remains unauthorized.
+Noise Calibration and the Main Campaign remain locked until their respective
+M1 gate decisions.

@@ -1,0 +1,10 @@
+{
+  "calibration_manifest_sha256": "eb3eb0ffb68bc007bcb20d2dd27eedc0e7853a5d958a315495772e8b59a77d01",
+  "classification_sha256": "82b23d68a0af0fa715dca6886250aee395f308ce1882a0416096f4ebfc029ec6",
+  "execution_authorized": false,
+  "main_input_manifest_sha256": "55d967230c41de3c2229a2b4b91bcb61048ff67cafc612c8e532663a2a3b7022",
+  "new_run_budget": 270,
+  "noise_input_manifest_sha256": "061b91e49abf912ec86b4d75f37b844654c39db8fd08fe9fcabff6b0bc8bb54a",
+  "schema_version": "phase3.option_f_input_bundle.v1",
+  "source_inventory_sha256": "4b922606d4278cb76fa38b429615dabc1f97ed95aba8b00e51ad8dae62b352fc"
+}
