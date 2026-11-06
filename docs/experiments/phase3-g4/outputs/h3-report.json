@@ -1,0 +1,82 @@
+{
+  "rule": "H3 verdict is drawn only on RESPONSIVE groups (dRho >= 0.10, the same threshold G4-a uses). Groups in the design but outside that set are reported descriptively and cannot carry an H3 verdict.",
+  "primary_population": "RESPONSIVE only",
+  "secondary_population": "design groups minus FLAT, descriptive, no verdict",
+  "flat_policy": "FLAT groups are excluded from both H3 populations because their empirical marginal response ratio is 0.00-0.15, so A0 - N0 would be predicted near zero and the cell cannot speak to H3 either way.",
+  "A_PRIME": {
+    "primary_h3_groups": [
+      "g03",
+      "g04",
+      "g09",
+      "g12",
+      "g16",
+      "g18"
+    ],
+    "primary_h3_n": 6,
+    "secondary_h3_groups": [
+      "g02",
+      "g03",
+      "g04",
+      "g06",
+      "g08",
+      "g09",
+      "g11",
+      "g12",
+      "g13",
+      "g16",
+      "g17",
+      "g18"
+    ],
+    "secondary_h3_n": 12,
+    "descriptive_only_groups": [
+      "g02",
+      "g06",
+      "g08",
+      "g11",
+      "g13",
+      "g17"
+    ],
+    "flat_groups": []
+  },
+  "E": {
+    "primary_h3_groups": [
+      "g03",
+      "g04",
+      "g05",
+      "g09",
+      "g10",
+      "g12",
+      "g16",
+      "g18",
+      "g19"
+    ],
+    "primary_h3_n": 9,
+    "secondary_h3_groups": [
+      "g02",
+      "g03",
+      "g04",
+      "g05",
+      "g06",
+      "g08",
+      "g09",
+      "g10",
+      "g11",
+      "g12",
+      "g13",
+      "g16",
+      "g17",
+      "g18",
+      "g19"
+    ],
+    "secondary_h3_n": 15,
+    "descriptive_only_groups": [
+      "g02",
+      "g06",
+      "g08",
+      "g11",
+      "g13",
+      "g17"
+    ],
+    "flat_groups": []
+  }
+}

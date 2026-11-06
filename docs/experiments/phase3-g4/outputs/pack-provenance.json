@@ -1,0 +1,45 @@
+{
+  "pack_path": "local/phase3-g4-reachability-analysis-pack-v1",
+  "tracked_by_git": false,
+  "why_not_tracked": "local/ is gitignored by repository policy; the pack is a 209 MiB M1-provided read-only bundle with its own sha256-manifest.txt",
+  "file_count": 260,
+  "inputs": [
+    {
+      "file": "artifacts/phase3-load-calibration-iteration2-planning-v1/iteration1-cell-observations.csv",
+      "name": "iteration1-cell-observations.csv",
+      "sha256": "2fb77aae8dd734860e7a3664f724fad2113db263ea63f806656abad4975179ec",
+      "m1_designated": false
+    },
+    {
+      "file": "artifacts/phase3-load-calibration-iteration2-planning-v1/iteration1-cell-observations.json",
+      "name": "iteration1-cell-observations.json",
+      "sha256": "a47acef4a96cbedec37d88c941c70a8ed30f3208d7cac8ec1d599acb6d876d5a",
+      "m1_designated": true
+    },
+    {
+      "file": "artifacts/phase3-load-calibration-iteration2-planning-v1/iteration2-required-blocks-proposal.csv",
+      "name": "iteration2-required-blocks-proposal.csv",
+      "sha256": "49738f3715a945038c566f2260eb50053b7fb68760e8ac5b60bcc9bb112d8a36",
+      "m1_designated": true
+    },
+    {
+      "file": "artifacts/phase3-load-calibration-iteration2-planning-v1/iteration2-required-blocks-proposal.json",
+      "name": "iteration2-required-blocks-proposal.json",
+      "sha256": "1b59758a7ef8b5d0b42c4431fa0d2983d27062bf5d89c4a0b4b01175ff3c36a8",
+      "m1_designated": true
+    },
+    {
+      "file": "artifacts/phase3-load-calibration-iteration2-planning-v1/sha256-manifest-iteration2-proposal.txt",
+      "name": "sha256-manifest-iteration2-proposal.txt",
+      "sha256": "35cd5eead7706a29006a423bfe7be5141a91b96b9fd3c0933d615d9cd3a0bf99",
+      "m1_designated": true
+    }
+  ],
+  "m1_designated_inputs": [
+    "artifacts/phase3-load-calibration-iteration2-planning-v1/iteration1-cell-observations.json",
+    "artifacts/phase3-load-calibration-iteration2-planning-v1/iteration2-required-blocks-proposal.json",
+    "artifacts/phase3-load-calibration-iteration2-planning-v1/iteration2-required-blocks-proposal.csv",
+    "artifacts/phase3-load-calibration-iteration2-planning-v1/sha256-manifest-iteration2-proposal.txt"
+  ],
+  "note": "sha256-manifest-iteration2-proposal.txt (35cd5eea...) is retained among the verified inputs; the previous revision had replaced it with the observation CSV, which is now carried as an additional fifth input rather than a substitute."
+}
