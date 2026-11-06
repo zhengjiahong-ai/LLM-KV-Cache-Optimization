@@ -36,6 +36,11 @@
       "metric_definitions"
     ]
   },
+  "condition_labels": {
+    "L_LOW": "C1",
+    "L_HIGH": "C2",
+    "note": "L_LOW / L_HIGH are the frozen source labels and are retained only as provenance. Formal Phase 3 reporting uses C1 / C2, because 'low' and 'high' would assert a state separation the measurements contradict for 14 of 20 groups."
+  },
   "thresholds": {
     "block_size_tokens": 16,
     "minimum_blocks": 16,

@@ -1,131 +1,200 @@
 {
-  "rule": "H3 verdict is drawn only on RESPONSIVE groups (dRho >= 0.10, the same threshold G4-a uses). Groups in the design but outside that set are reported descriptively and cannot carry an H3 verdict.",
-  "primary_population": "RESPONSIVE only",
-  "secondary_population": "design groups minus FLAT, descriptive, no verdict",
-  "flat_policy": "FLAT groups are excluded from both H3 populations because their empirical marginal response ratio is 0.00-0.15, so A0 - N0 would be predicted near zero and the cell cannot speak to H3 either way.",
-  "A_PRIME": {
-    "primary_h3_groups": [
-      "g03",
-      "g04",
-      "g09",
-      "g12",
-      "g16",
-      "g18"
-    ],
-    "primary_h3_n": 6,
-    "secondary_h3_groups": [
-      "g02",
-      "g03",
-      "g04",
-      "g06",
-      "g08",
-      "g09",
-      "g11",
-      "g12",
-      "g13",
-      "g16",
-      "g17",
-      "g18"
-    ],
-    "secondary_h3_n": 12,
-    "descriptive_only_groups": [
-      "g02",
-      "g06",
-      "g08",
-      "g11",
-      "g13",
-      "g17"
-    ],
-    "flat_groups": []
-  },
-  "E": {
-    "primary_h3_groups": [
-      "g03",
-      "g04",
-      "g05",
-      "g09",
-      "g10",
-      "g12",
-      "g16",
-      "g18",
-      "g19"
-    ],
-    "primary_h3_n": 9,
-    "secondary_h3_groups": [
-      "g02",
-      "g03",
-      "g04",
-      "g05",
-      "g06",
-      "g08",
-      "g09",
-      "g10",
-      "g11",
-      "g12",
-      "g13",
-      "g16",
-      "g17",
-      "g18",
-      "g19"
-    ],
-    "secondary_h3_n": 15,
-    "descriptive_only_groups": [
-      "g02",
-      "g06",
-      "g08",
-      "g11",
-      "g13",
-      "g17"
-    ],
-    "flat_groups": []
-  },
-  "F": {
-    "primary_h3_groups": [
-      "g03",
-      "g04",
-      "g05",
-      "g09",
-      "g10",
-      "g12",
-      "g16",
-      "g18",
-      "g19"
-    ],
-    "primary_h3_n": 9,
-    "primary_h3_cells": 16,
-    "secondary_h3_groups": [
-      "g02",
-      "g03",
-      "g04",
-      "g05",
-      "g06",
-      "g07",
-      "g08",
-      "g10",
-      "g11",
-      "g12",
-      "g13",
-      "g15",
-      "g16",
-      "g17",
-      "g19"
-    ],
-    "secondary_h3_n": 15,
-    "descriptive_only_groups": [
-      "g02",
-      "g06",
-      "g07",
-      "g08",
-      "g11",
-      "g13",
-      "g15",
-      "g17"
-    ],
-    "flat_groups": [
+  "rule": "H3-0 is the hypothesis as written: every Headroom-qualified cell, both conditions, all strata. Strata are a pre-registered heterogeneity analysis, not an admission rule. H3-R (RESPONSIVE only) is an additional hypothesis with its own estimand and cannot replace H3-0.",
+  "primary": {
+    "id": "H3-0",
+    "question": "Does forced release (A0 vs N0) have a net cost on recomputation, across the Headroom-qualified workload pool?",
+    "population": "every Headroom-qualified cell, both conditions, all strata",
+    "flip_note": "FLAT is INCLUDED. A small dRho measures A0's baseline sensitivity to pressure; it is not evidence about the arm-vs-A0 difference, so it cannot exclude a group from this hypothesis.",
+    "stratum": "ALL_HEADROOM_QUALIFIED",
+    "groups": [
       "g01",
+      "g02",
+      "g03",
+      "g04",
+      "g05",
+      "g06",
+      "g07",
+      "g08",
+      "g09",
+      "g10",
+      "g11",
+      "g12",
+      "g13",
       "g14",
+      "g15",
+      "g16",
+      "g17",
+      "g18",
+      "g19",
       "g20"
     ],
-    "note": "H3 is a per-cell A0-vs-N0 comparison, so it does not need a pair: g09 and g18 keep an H3 cell on their Headroom-eligible condition even though they drop out of the paired two-condition design."
-  }
+    "group_count": 20,
+    "cells_total": 38,
+    "cells_C1": 18,
+    "cells_C2": 20,
+    "groups_with_two_cells": [
+      "g01",
+      "g02",
+      "g03",
+      "g04",
+      "g05",
+      "g06",
+      "g07",
+      "g08",
+      "g10",
+      "g11",
+      "g12",
+      "g13",
+      "g14",
+      "g15",
+      "g16",
+      "g17",
+      "g19",
+      "g20"
+    ],
+    "groups_with_one_cell": [
+      "g09",
+      "g18"
+    ],
+    "one_cell_groups_missing_condition": {
+      "g09": "C1",
+      "g18": "C1"
+    },
+    "estimator": "group mean of Headroom-eligible cells, then mean / bootstrap over groups; one cell counts fully, two cells are averaged 1/2 each",
+    "group_weight": "1 / group_count -- equal group weight, NOT proportional to cell count",
+    "cell_weight_within_group": "1 / (cells in that group); 1 for a one-cell group",
+    "resampling_unit": "group",
+    "blind_to_arms": true
+  },
+  "secondary_hypothesis": {
+    "id": "H3-R",
+    "question": "Is the forced-release cost observable in the subset whose baseline recomputation itself responds to pressure?",
+    "status": "pre-registered, separate, not a replacement for H3-0",
+    "rationale": "A non-trivial empirical marginal response ratio is a necessary condition for the mechanism to have anywhere to act. If the cost appears only here, that is a finding about the mechanism's domain; if it appears in H3-0 and not here, that is a finding about sensitivity, not a contradiction.",
+    "threshold_provenance": "dRho >= 0.10, the same constant G4-a uses",
+    "stratum": "RESPONSIVE",
+    "groups": [
+      "g03",
+      "g04",
+      "g05",
+      "g09",
+      "g10",
+      "g12",
+      "g16",
+      "g18",
+      "g19"
+    ],
+    "group_count": 9,
+    "cells_total": 16,
+    "cells_C1": 7,
+    "cells_C2": 9,
+    "groups_with_two_cells": [
+      "g03",
+      "g04",
+      "g05",
+      "g10",
+      "g12",
+      "g16",
+      "g19"
+    ],
+    "groups_with_one_cell": [
+      "g09",
+      "g18"
+    ],
+    "one_cell_groups_missing_condition": {
+      "g09": "C1",
+      "g18": "C1"
+    },
+    "estimator": "group mean of Headroom-eligible cells, then mean / bootstrap over groups; one cell counts fully, two cells are averaged 1/2 each",
+    "group_weight": "1 / group_count -- equal group weight, NOT proportional to cell count",
+    "cell_weight_within_group": "1 / (cells in that group); 1 for a one-cell group",
+    "resampling_unit": "group",
+    "blind_to_arms": true
+  },
+  "heterogeneity": {
+    "status": "pre-registered, descriptive, reported side by side",
+    "note": "No stratum gates another. The FLAT stratum is reported with its own interval even though its predicted effect is small, because 'predicted small' is not 'measured zero'.",
+    "WEAK": {
+      "stratum": "WEAK",
+      "groups": [
+        "g02",
+        "g06",
+        "g07",
+        "g08",
+        "g11",
+        "g13",
+        "g15",
+        "g17"
+      ],
+      "group_count": 8,
+      "cells_total": 16,
+      "cells_C1": 8,
+      "cells_C2": 8,
+      "groups_with_two_cells": [
+        "g02",
+        "g06",
+        "g07",
+        "g08",
+        "g11",
+        "g13",
+        "g15",
+        "g17"
+      ],
+      "groups_with_one_cell": [],
+      "one_cell_groups_missing_condition": {},
+      "estimator": "group mean of Headroom-eligible cells, then mean / bootstrap over groups; one cell counts fully, two cells are averaged 1/2 each",
+      "group_weight": "1 / group_count -- equal group weight, NOT proportional to cell count",
+      "cell_weight_within_group": "1 / (cells in that group); 1 for a one-cell group",
+      "resampling_unit": "group",
+      "blind_to_arms": true
+    },
+    "FLAT": {
+      "stratum": "FLAT",
+      "groups": [
+        "g01",
+        "g14",
+        "g20"
+      ],
+      "group_count": 3,
+      "cells_total": 6,
+      "cells_C1": 3,
+      "cells_C2": 3,
+      "groups_with_two_cells": [
+        "g01",
+        "g14",
+        "g20"
+      ],
+      "groups_with_one_cell": [],
+      "one_cell_groups_missing_condition": {},
+      "estimator": "group mean of Headroom-eligible cells, then mean / bootstrap over groups; one cell counts fully, two cells are averaged 1/2 each",
+      "group_weight": "1 / group_count -- equal group weight, NOT proportional to cell count",
+      "cell_weight_within_group": "1 / (cells in that group); 1 for a one-cell group",
+      "resampling_unit": "group",
+      "blind_to_arms": true
+    }
+  },
+  "by_design": {
+    "F": {
+      "population": "campaign runs all 20 groups, both conditions",
+      "headroom_cells": {
+        "C1": 18,
+        "C2": 20
+      },
+      "H3_0_groups": 20,
+      "H3_0_cells": 38,
+      "H3_R_groups": 9,
+      "H3_R_cells": 16
+    },
+    "A_PRIME": {
+      "population": "one measured operating point per group",
+      "H3_0_groups": 12,
+      "H3_R_groups": 6
+    },
+    "E": {
+      "population": "one measured operating point per group",
+      "H3_0_groups": 15,
+      "H3_R_groups": 9
+    }
+  },
+  "flat_policy": "FLAT is retained in H3-0 and reported as its own heterogeneity stratum. It is not removed from the hypothesis; it is only expected to be uninformative, and expectation is not measurement."
 }

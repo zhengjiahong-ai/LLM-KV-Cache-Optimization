@@ -665,40 +665,100 @@ def test_operating_points_are_measured_and_headroom_eligible() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# H3 single rule (RC7)
+# H3 populations (RC10-2)
 # --------------------------------------------------------------------------- #
 
 
-def test_h3_primary_is_a_subset_of_secondary_and_excludes_flat() -> None:
+def _h3_fixture():
+    """g_resp RESPONSIVE, g_weak WEAK, g_flat FLAT, g_nohr RESPONSIVE but C1 fails Headroom."""
+
     rhos = {
         "g_resp": (0.13, 0.44),
         "g_weak": (0.30, 0.35),
         "g_flat": (0.40, 0.40),
+        "g_nohr": (0.0447, 0.30),
     }
     _, _, cells, groups = _build(rhos)
     options = mod.option_report(cells, groups)
-    report = mod.h3_report(options)
-
-    for design in ("A_PRIME", "E"):
-        primary = set(report[design]["primary_h3_groups"])
-        secondary = set(report[design]["secondary_h3_groups"])
-        assert primary <= secondary
-        assert "g_flat" not in primary
-        assert "g_flat" not in secondary
-        assert report[design]["primary_h3_n"] == len(primary)
-        assert report[design]["secondary_h3_n"] == len(secondary)
+    return cells, groups, options, mod.h3_report(cells, groups, options)
 
 
-def test_h3_primary_contains_only_responsive_groups() -> None:
-    rhos = {"g_resp": (0.13, 0.44), "g_weak": (0.30, 0.35)}
-    _, _, cells, groups = _build(rhos)
-    report = mod.h3_report(mod.option_report(cells, groups))
+def test_h3_primary_keeps_the_whole_headroom_population_including_flat() -> None:
+    """RC10-2: FLAT is not removed from the original hypothesis."""
 
-    for design in ("A_PRIME", "E"):
-        assert report[design]["primary_h3_groups"] == (
-            ["g_resp"] if "g_resp" in report[design]["primary_h3_groups"] else []
-        )
-        assert "g_weak" not in report[design]["primary_h3_groups"]
+    _, _, _, report = _h3_fixture()
+    primary = report["primary"]
+
+    assert primary["id"] == "H3-0"
+    assert "g_flat" in primary["groups"]
+    assert "g_weak" in primary["groups"]
+    assert "g_resp" in primary["groups"]
+    assert set(primary["groups"]) == {"g_flat", "g_nohr", "g_resp", "g_weak"}
+
+
+def test_h3_flat_is_a_heterogeneity_stratum_not_an_exclusion() -> None:
+    _, _, _, report = _h3_fixture()
+
+    assert report["heterogeneity"]["FLAT"]["groups"] == ["g_flat"]
+    assert report["heterogeneity"]["FLAT"]["cells_total"] == 2
+    assert "not removed from the hypothesis" in report["flat_policy"]
+
+
+def test_h3_responsive_is_a_separate_hypothesis_with_its_own_estimand() -> None:
+    _, _, _, report = _h3_fixture()
+    secondary = report["secondary_hypothesis"]
+
+    assert secondary["id"] == "H3-R"
+    assert secondary["status"] == "pre-registered, separate, not a replacement for H3-0"
+    assert secondary["groups"] == ["g_nohr", "g_resp"]
+    assert secondary["question"] != report["primary"]["question"]
+
+
+def test_h3_reports_effective_group_counts_per_condition() -> None:
+    _, _, _, report = _h3_fixture()
+    primary = report["primary"]
+
+    # g_nohr loses its C1 cell, so C1 has 3 groups' worth of cells and C2 has 4.
+    assert primary["cells_C1"] == 3
+    assert primary["cells_C2"] == 4
+    assert primary["cells_total"] == 7
+    assert primary["group_count"] == 4
+
+
+def test_h3_weighting_is_by_group_not_by_cell() -> None:
+    _, _, _, report = _h3_fixture()
+    primary = report["primary"]
+
+    assert primary["resampling_unit"] == "group"
+    assert "1 / group_count" in primary["group_weight"]
+    assert primary["group_weight"].endswith("NOT proportional to cell count")
+    assert primary["cell_weight_within_group"].startswith("1 / (cells in that group)")
+    assert primary["groups_with_two_cells"] == ["g_flat", "g_resp", "g_weak"]
+    assert primary["groups_with_one_cell"] == ["g_nohr"]
+    assert primary["one_cell_groups_missing_condition"] == {"g_nohr": "C1"}
+
+
+def test_h3_secondary_does_not_depend_on_the_paired_set() -> None:
+    """RC10-2: H3 is per cell, so a lost pair must not shrink the H3 population."""
+
+    _, _, options, report = _h3_fixture()
+
+    paired = set(options["F"]["paired_groups"])
+    h3_groups = set(report["primary"]["groups"])
+
+    assert "g_nohr" not in paired
+    assert "g_nohr" in h3_groups
+    assert len(h3_groups) == len(paired) + 1
+
+
+def test_h3_by_design_reports_the_two_population_sizes() -> None:
+    _, _, _, report = _h3_fixture()
+    by_design = report["by_design"]["F"]
+
+    assert by_design["H3_0_groups"] == 4
+    assert by_design["H3_0_cells"] == 7
+    assert by_design["H3_R_groups"] == 2
+    assert by_design["H3_R_cells"] == 3
 
 
 # --------------------------------------------------------------------------- #
@@ -867,27 +927,43 @@ def test_option_f_strata_are_reported_over_both_design_and_paired_sets() -> None
     }
 
 
-def test_option_f_h3_primary_is_responsive_and_counts_eligible_cells() -> None:
-    _, _, options, _ = _f_fixture()
-    h3 = mod.h3_report(options)["F"]
+def test_option_f_h3_uses_every_eligible_cell_including_one_cell_groups() -> None:
+    cells, groups, options, _ = _f_fixture()
+    h3 = mod.h3_report(cells, groups, options)
 
-    assert h3["primary_h3_groups"] == ["g_nohr", "g_resp"]
-    assert h3["primary_h3_n"] == 2
-    # g_nohr loses one of its two cells to Headroom, so 2 + 1 = 3.
-    assert h3["primary_h3_cells"] == 3
-    assert h3["flat_groups"] == ["g_flat"]
-    assert "g_weak" not in h3["primary_h3_groups"]
+    assert h3["primary"]["id"] == "H3-0"
+    assert h3["primary"]["group_count"] == 5  # g_nohr keeps one eligible cell
+    assert h3["primary"]["cells_total"] == 9
+    assert h3["primary"]["cells_C1"] == 4
+    assert h3["primary"]["cells_C2"] == 5
+    assert h3["secondary_hypothesis"]["groups"] == ["g_nohr", "g_resp"]
+    assert h3["secondary_hypothesis"]["cells_total"] == 3
 
 
-def test_option_f_interaction_population_excludes_lost_pairs() -> None:
+def test_option_f_interaction_reports_all_pairs_separately_from_responsive() -> None:
     _, _, _, report = _f_fixture()
-
     interaction = report["interaction"]
-    assert interaction["paired_groups"] == 4
-    assert interaction["paired_responsive_groups"] == ["g_resp"]
-    assert interaction["paired_responsive_n"] == 1
-    assert interaction["meets_minimum_analysed_cells"] is False
-    assert len(interaction["caveats"]) == 3
+
+    inter_a = interaction["interaction_A_all_pairs"]
+    inter_b = interaction["interaction_B_responsive"]
+
+    assert inter_a["paired_groups"] == 4
+    assert inter_a["is_primary_interaction_analysis"] is True
+    assert inter_a["meets_minimum_analysed_cells"] is False
+    assert inter_b["groups"] == ["g_resp"]
+    assert inter_b["is_primary_interaction_analysis"] is False
+
+
+def test_option_f_interaction_does_not_infer_zero_from_delta_rho() -> None:
+    """RC10-3: dRho describes A0's baseline, not the arm-vs-A0 difference."""
+
+    _, _, _, report = _f_fixture()
+    interaction = report["interaction"]
+
+    assert "NOT evidence" in interaction["not_inferable_from_delta_rho"]
+    assert "zero" in interaction["not_inferable_from_delta_rho"]
+    joined = " ".join(interaction["caveats"])
+    assert "by construction" not in joined
 
 
 def test_option_f_run_accounting_matches_v3() -> None:
@@ -962,17 +1038,109 @@ def test_real_pack_option_f_numbers(tmp_path: Path) -> None:
     assert len(manip["delta_rho_between_0_01_and_0_10"]) == 8
     assert len(manip["delta_rho_below_0_01"]) == 3
 
-    h3 = result["h3"]["F"]
-    assert h3["primary_h3_n"] == 9
-    assert h3["primary_h3_cells"] == 16
+    h3 = result["h3"]
+    assert h3["primary"]["id"] == "H3-0"
+    assert h3["primary"]["group_count"] == 20
+    assert h3["primary"]["cells_total"] == 38
+    assert h3["primary"]["cells_C1"] == 18
+    assert h3["primary"]["cells_C2"] == 20
+    assert h3["secondary_hypothesis"]["id"] == "H3-R"
+    assert h3["secondary_hypothesis"]["group_count"] == 9
+    assert h3["secondary_hypothesis"]["cells_total"] == 16
+    assert h3["heterogeneity"]["FLAT"]["group_count"] == 3
 
     interaction = report["interaction"]
-    assert interaction["paired_groups"] == 18
-    assert interaction["paired_responsive_n"] == 7
-    assert interaction["meets_minimum_analysed_cells"] is False
+    inter_a = interaction["interaction_A_all_pairs"]
+    inter_b = interaction["interaction_B_responsive"]
+    assert inter_a["paired_groups"] == 18
+    assert inter_a["meets_minimum_analysed_cells"] is True
+    assert inter_b["paired_groups"] == 7
+    assert inter_b["groups"] == ["g03", "g04", "g05", "g10", "g12", "g16", "g19"]
+    assert inter_b["meets_minimum_analysed_cells"] is False
+
+    levels = report["population"]["levels"]
+    assert levels["campaign"] == {"groups": 20, "cells": 40, "note": levels["campaign"]["note"]}
+    assert levels["C1_analysed"]["cells"] == 18
+    assert levels["C2_analysed"]["cells"] == 20
+    assert levels["paired_primary"]["groups"] == 18
+    assert "NOT the 20-group pool" in report["population"]["scope_warning"]
 
     calibration = result["calibration"]["designs"]["option_F_two_level_fixed_pressure"]
     assert calibration["total_new_runs"] == 270
+
+
+@pytest.mark.skipif(
+    not REAL_PACK.is_dir(),
+    reason="frozen evidence pack absent (local/ is not tracked)",
+)
+def test_real_pack_nesting_is_asymmetric(tmp_path: Path) -> None:
+    result = mod.run(REAL_PACK, tmp_path)
+    nesting = result["nesting"]
+
+    assert nesting["true_relations"]["F_contains_E"] is True
+    assert nesting["true_relations"]["F_contains_A_prime"] is True
+    assert nesting["false_relation"]["E_contains_A_prime"] is False
+    assert nesting["false_relation"]["A_prime_contains_E"] is False
+    assert nesting["E_only_groups"] == ["g05", "g10", "g19"]
+    moved = {row["group_id"] for row in nesting["groups_whose_operating_point_moves"]}
+    assert moved == {"g03", "g16"}
+    assert "E ⊃ A′" not in nesting["correct_statement"]
+
+
+@pytest.mark.skipif(
+    not REAL_PACK.is_dir(),
+    reason="frozen evidence pack absent (local/ is not tracked)",
+)
+def test_real_pack_noise_selection_is_deterministic_and_flagged(tmp_path: Path) -> None:
+    result = mod.run(REAL_PACK, tmp_path)
+    noise = result["noise"]
+
+    assert noise["independence"]["decision_independence"]["preserved"] is True
+    assert noise["independence"]["population_independence"]["preserved"] is False
+    assert noise["selection_rule"]["stratum_allocation"] == {
+        "RESPONSIVE": 2,
+        "WEAK": 2,
+        "FLAT": 1,
+    }
+    assert len(noise["selection_rule"]["selected_groups"]) == 5
+    assert noise["variance_estimation"]["df"] == 20
+    assert len(noise["v4_clause_changes"]) == 4
+
+    # The draw is a pure function of the frozen salt and the group ids.
+    again = mod.run(REAL_PACK, tmp_path)
+    assert (
+        again["noise"]["selection_rule"]["selected_groups"]
+        == noise["selection_rule"]["selected_groups"]
+    )
+
+
+@pytest.mark.skipif(
+    not REAL_PACK.is_dir(),
+    reason="frozen evidence pack absent (local/ is not tracked)",
+)
+def test_real_pack_g_e_uses_round_two_as_current_state(tmp_path: Path) -> None:
+    result = mod.run(REAL_PACK, tmp_path)
+    g_e = result["g_e"]
+
+    current = g_e["current_state"]
+    history = g_e["history"]
+
+    assert current["status"] == "CURRENT"
+    assert current["qualified"] == 36
+    assert current["pending"] == 4
+    assert {row["group_id"] for row in current["pending_rows"]} == {"g08", "g20"}
+    assert current["physical_prefix_equal"] == 40
+    assert current["evidence_failure_count"] == 0
+    assert current["e_equals_c_everywhere"] is True
+
+    assert history["status"] == "SUPERSEDED_BY_ROUND_2_FOR_CURRENT_STATE"
+    assert history["status_code"] == "FAIL_CLOSED"
+    assert history["qualified_count"] == 0
+    assert history["rejected_count"] == 40
+    assert (
+        "different" in g_e["semantic_difference"]
+        or "not a correction" in g_e["semantic_difference"]
+    )
 
     written = json.loads((tmp_path / "option-f-report.json").read_text("utf-8"))
     assert written["design"]["name"] == "OPTION_F_TWO_LEVEL_FIXED_PRESSURE"

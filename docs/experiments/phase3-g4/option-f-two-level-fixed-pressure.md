@@ -1,17 +1,17 @@
 # Option F — Two-Level Fixed-Pressure Evaluation
 
 **Author**: M4
-**Status**: `OFFLINE_DESIGN_ANALYSIS` — no GPU, no new run, Protocol v3 unmodified, no Gate declared passed.
-**Responds to**: M1's request to reopen the single-load decision, 2026-11-06.
-**Companion**: `g4-reachability-analysis-and-revision-proposal.md` (reachability evidence), `outputs/option-f-report.json` (all numbers below).
+**Status**: `OFFLINE_DESIGN_ANALYSIS` — no GPU, no new run, Protocol v3 unmodified, no Gate declared passed, **F not approved**.
+**Revision**: RC10 response to M1's second-round review (2026-11-06).
+**Companion**: `g4-reachability-analysis-and-revision-proposal.md`, and the committed outputs in `outputs/` (`option-f-report.json`, `h3-report.json`, `noise-selection-report.json`, `nesting-report.json`, `g-e-report.json`).
 
 ---
 
 ## 0. What F is, and what F is not
 
-**F is:** keep all 20 groups; keep the two pressures that iteration 1 actually executed (256 and 1024 blocks); keep the six arms; stop treating the designed `rho0` bands as an admission rule; report band attainment as a **manipulation check**.
+**F is:** keep all 20 groups; keep the two pressures iteration 1 actually executed (256 and 1024 blocks); keep the six arms; stop treating the designed `rho0` bands as an admission rule; report band attainment as a **manipulation check**.
 
-**F is not:** a relaxation of any threshold. `[0.05, 0.15]`, `[0.25, 0.45]`, `ρ0 ≥ 5 %`, `R0 ≥ 512`, `≥ 8` discriminable decisions — all unchanged, and all applied at the same pressure they were measured at. No cell moves, no band moves, no group is added.
+**F is not:** a relaxation of any threshold. `[0.05, 0.15]`, `[0.25, 0.45]`, `ρ0 ≥ 5 %`, `R0 ≥ 512`, `≥ 8` discriminable decisions — all unchanged, and all applied at the pressure they were measured at. No cell moves, no band moves, no group is added.
 
 What F changes is the **operational definition of the condition**:
 
@@ -22,13 +22,66 @@ What F changes is the **operational definition of the condition**:
 | Band attainment | admission rule (implicitly) | manipulation check (reported, never gates) |
 | Evidence for the level | model-reached or measured band placement | the fact that the run happened at that pressure |
 
-That distinction is the whole of F. It is a real change of claim and it has real costs (§5), which is why F is presented as a peer of A′ and E rather than as a correction of them.
+**Naming rule (RC10-7).** Formal outputs use **C1 = 256 blocks** and **C2 = 1024 blocks**. The frozen source labels `L_LOW` / `L_HIGH` are retained only as provenance in the input files, and the script records the mapping in `cell-classification.json:condition_labels`. The words "low pressure" and "high pressure" are prohibited in F's results tables: the measured `Δρ` is below 0.10 for 11 of 20 groups, so for those groups the two conditions are not distinguishable states of a manipulated variable.
 
-**One procedural finding worth recording.** Protocol v3 never actually wrote band attainment as a gate. §5.2 defines L-low/L-high **target baselines** for choosing `required_blocks`; §3.6 defines the **Headroom** gate; §9 G4 consumes the *Headroom* list. The requirement "the campaign cannot proceed unless both bands are hit" was inferred by us, and G4's `PENDING_LOAD_PARAMETER_FREEZE` status follows from that inference, not from a written rule. So F requires **less** protocol change than A′ or E. It still changes the *semantics* of the condition labels, so it is not free.
+**One procedural finding.** Protocol v3 never wrote band attainment as a gate. §5.2 defines L-low/L-high **target baselines** for choosing `required_blocks`; §3.6 defines the **Headroom** gate; §9 G4 consumes the *Headroom* list. "The campaign cannot proceed unless both bands are hit" was our inference. F therefore needs **less** protocol change than A′ or E — but it still changes what a condition *means*, so it is not free.
 
 ---
 
-## 1. Q1 — Can F stand without a new A0 calibration?
+## 1. RC10-1 — Current state of G-E
+
+Two rounds of evidence exist and they answer **different questions**. Both are reported; the older one is kept as history.
+
+### 1.1 Round 2 — current
+
+Source: `phase3-same-batch-physical-qualification-audit-v1`, M6 recompute at git `712b3fc628c5bbebe95a782119654834c741149`.
+
+| Field | Value |
+|---|---|
+| Question | Do producer and consumer resolve the same **physical prefix blocks** under a bound forward-batch source? |
+| Rows | 40 |
+| `QUALIFIED_SAME_BATCH_SHARED_PREDECESSOR` | **36** |
+| `PENDING_EARLIER_FORWARD_ORDER_PROOF` | **4** |
+| `physical_prefix_equal` | **40 / 40** |
+| `all_hash_identity_match` | true |
+| `all_hash_lcp_covers_native_c` | true |
+| `hash_lcp_tokens` | 112 on all 40 |
+| `native_c` | 112 on all 40 |
+| Evidence failure | **0** |
+
+The four pending pairs are **g08 C1, g08 C2, g20 C1, g20 C2**, all carrying `forward_relation = EARLIER_FORWARD_ORDER_NEEDS_SEPARATE_PROOF` and `scheduler_relation = EARLIER_SCHEDULER_ITERATION`. They are *pending an additional proof*, not rejected.
+
+### 1.2 Round 1 — history, retained
+
+Source: `phase3-concurrent-eligibility-rejection-audit-v1`.
+
+| Field | Value |
+|---|---|
+| Question | Is the producer's prefill **complete and visible** to a same-wave consumer before the lookup? |
+| Rows | 40 |
+| Qualified | 0 |
+| Rejected | 40 |
+| Status | `FAIL_CLOSED` |
+| Result | `REJECTED_SAME_WAVE_PREFILL_NOT_COMPLETE_BEFORE_CONSUMER_LOOKUP` |
+| `uses_c_to_compute_e` | false |
+| `independently_qualified_e` | 0 |
+
+### 1.3 Why the two are not a correction of one another
+
+> Round 1 asks about **visibility and completion timing** of the producer's prefill. Round 2 asks about **physical block identity and forward-batch source binding**. A pair can bind the same physical prefix while still failing round 1's visibility criterion.
+
+So the previous document's sentence — "40/40 rejected, FAIL_CLOSED" — is **no longer a correct description of the current state**, even though no round-1 row changed. It is now reported as history, with its own question attached.
+
+### 1.4 What does not change
+
+- `hash_lcp_tokens == native_c == 112` on **every** audited pair, in **both** rounds, so `E = C` there and the audited pairs contribute exactly **0** to `Σ(E−C)`. The direction of the residual uncertainty is conservative.
+- `uses_c_to_compute_e` is false in both rounds, so §3.2's arm-independence requirement on `E` is **not** violated.
+- The audit covers **one pair per cell**, so the remaining request pairs are unverified in either round.
+- **G-E remains independent of G4 and of the design choice.** It must not block, and must not be blocked by, the A′/E/F decision.
+
+---
+
+## 2. Q1 — Can F stand without a new A0 calibration?
 
 **Yes, exactly and by construction.**
 
@@ -37,25 +90,21 @@ That distinction is the whole of F. It is a real change of claim and it has real
 | Pressures F uses | 256 and 1024 blocks |
 | Pressures iteration 1 executed | 256 and 1024 blocks |
 | A0 runs already available at those pressures | 40 (20 groups × 2) |
-| Cells in F's design | 40 |
+| Cells in F's campaign | 40 |
 | Cells whose `ρ0` and `R0` were measured at the pressure F will run them at | **40 / 40** |
 | New calibration runs required | **0** |
 
-F is the only candidate design for which *every* cell in the analysis has been measured at exactly the pressure it will be run at. By contrast:
+F is the only candidate for which every analysed cell has been measured at exactly the pressure it will be run at. **Option A** runs cells at iteration-2 proposed pressures, 27 of 40 of which lie outside `[256, 1024]` and 25 of which clamp to the 16-block floor, so Headroom has never been evaluated there — hence its `2 × cells` calibration charge. **A′ / E** use only measured pressures but need only 12 / 15 of the 40 cells already paid for.
 
-- **Option A** runs cells at iteration-2 proposed pressures. 27 of 40 of those lie outside `[256, 1024]` and 25 clamp to the 16-block floor, so Headroom has never been evaluated there. That is why A carries a `2 × cells` calibration charge.
-- **A′ and E** pick one of the two measured pressures, so they need no new calibration — but they use only 12 and 15 of the 40 cells that were already paid for.
-- **F** uses all 40.
-
-The 40 executed runs are therefore not "stale calibration data" under F; they are **the condition set itself**.
+The 40 executed runs are therefore not "stale calibration data" under F; they **are** the condition set.
 
 ---
 
-## 2. Q2 — How Headroom combines with a two-condition paired design
+## 3. Q2 — How Headroom combines with a two-condition paired design
 
-### 2.1 Headroom is evaluated per cell, at F's own pressures
+### 3.1 Headroom is evaluated per cell, at F's own pressures
 
-Protocol v3 §3.6: `ρ0 ≥ 5 %` **and** `R0 ≥ 512 tokens`. Recomputed from the frozen observation file (the stored flag is not trusted):
+`ρ0 ≥ 5 %` **and** `R0 ≥ 512 tokens`, recomputed from the frozen observation file (the stored flag is not trusted):
 
 | Condition | Candidate cells | Eligible | Excluded |
 |---|---:|---:|---:|
@@ -68,59 +117,53 @@ Protocol v3 §3.6: `ρ0 ≥ 5 %` **and** `R0 ≥ 512 tokens`. Recomputed from th
 | g09 C1 | 0.0448 | 1,552 | ratio 4.48 % < 5 % |
 | g18 C1 | 0.0000 | 0 | both (no recomputation at all) |
 
-### 2.2 A paired design needs *pairs*, so two groups lose theirs
+### 3.2 Four populations, never merged (RC10-6)
 
-This is the cost of applying Headroom honestly to a paired design, and it is not small:
+| Level | Groups | Cells | Meaning |
+|---|---:|---:|---|
+| **Campaign (executed)** | **20** | **40** | everything that runs; not an analysis population |
+| **C1 analysed** | 18 | **18** | Headroom-qualified C1 cells |
+| **C2 analysed** | 20 | **20** | Headroom-qualified C2 cells |
+| **Paired primary** | **18** | 36 | groups qualified in **both** conditions |
 
-| | Count |
-|---|---:|
-| Groups in the design | 20 |
-| Groups with both cells eligible (**paired**) | **18** |
-| Groups that keep only one condition | 2 — g09, g18 |
+> The paired primary estimates the **18-group paired population**, **NOT** the 20-group pool. g09 and g18 are executed and enter the C2 estimate and H3-0, but they do not exist in the paired estimand's population. Any sentence that pairs "full pool" with the paired number is wrong.
 
-F therefore has **two analysis populations**, and both must be reported:
+The two groups lose only their **pair**, not their participation. Nothing is discarded.
 
-| Purpose | Population | n |
-|---|---|---:|
-| Per-condition estimate, C1 | cells eligible in C1 | **18** |
-| Per-condition estimate, C2 | cells eligible in C2 | **20** |
-| Group-averaged estimand | groups with a pair | **18** |
-| H3 (per-cell, no pair needed) | eligible cells in the stratum | 16 in primary |
-| Manipulation check | all 40 cells | 40 |
+### 3.3 Why Headroom is the right gate here
 
-g09 and g18 are **not** dropped from the campaign: they run, they are archived, and their C2 cells enter H3 and the per-condition C2 estimate. They simply cannot supply a two-condition pair. Nothing is discarded; one specific contrast is unavailable for them.
-
-### 2.3 Why Headroom is the right gate here, and why it is not a formality
-
-Under F, Headroom is not screening for "the interesting cases". It is screening for **"is there anything to measure"**: `ρ0 < 5 %` means the baseline recomputation is too small for an arm delta to be anything but 0, and `R0 < 512` means it is below 32 blocks of quantisation. g18 C1 has `R0 = 0` — literally zero recomputation, so no arm can differ from A0 there and "no effect" would be uninformative rather than negative. That is the exact failure Phase 3 was built to avoid, and it is why F keeps this gate rather than using band attainment.
+Under F, Headroom is not screening for "the interesting cases". It is screening for **"is there anything to measure"**: `ρ0 < 5 %` means the baseline recomputation is too small for an arm delta to be anything but 0, and `R0 < 512` means it is below 32 blocks of quantisation. g18 C1 has `R0 = 0` — literally zero recomputation, so no arm can differ from A0 there, and "no effect" would be uninformative rather than negative. That is exactly the failure Phase 3 was built to avoid.
 
 ---
 
-## 3. Q3 — H1 / H2 statistics, and the interaction
+## 4. Q3 — H1 / H2 statistics, and the two interactions
 
-### 3.1 What F measures
+### 4.1 What F measures
 
-Two conditions × 6 arms × 18–20 groups. Within each group, the same workload runs under both conditions, so the conditions are **paired within group**, and the arms are **paired within cell**.
+Two conditions × 6 arms, paired within group by condition and within cell by arm.
 
-### 3.2 Estimands
+### 4.2 Estimands, units and weights (RC10-6)
 
-| Estimand | Definition | n | Role |
-|---|---|---:|---|
-| Per-condition Δ | mean / median `Σ(E−C)` difference, arm vs A0, bootstrapped over groups analysed in that condition | 18 / 20 | descriptive, and the only honest answer to "what happens at 256 / at 1024" |
-| **Group-averaged Δ** | per group, average the two condition deltas **first**, then bootstrap over the 18 paired groups | **18** | **primary** |
-| Stratum Δ | the group-averaged Δ computed inside FLAT / WEAK / RESPONSIVE | 9 / 8 / 3 groups | mechanistic claim |
-| Interaction ΔD | `Δ_g(C2) − Δ_g(C1)`, bootstrapped over paired groups | 18, of which 7 RESPONSIVE | secondary |
+| Estimand | Statistical unit | Weight | n | Role |
+|---|---|---|---|---|
+| Per-condition Δ | cell | 1 per cell (equal) | C1 18, C2 20 | descriptive; the honest answer to "what happens at 256 / at 1024" |
+| **Group-averaged Δ** | **group** | **1 / 18 per group**; within a group the two condition deltas are **1/2 each** | **18** | **primary** |
+| Stratum Δ | group | 1 / stratum size | 9 / 8 / 3 | mechanistic reading |
+| Interaction-A | group | 1 / 18 | 18 | interaction, primary |
+| Interaction-B | group | 1 / 7 | 7 | interaction, heterogeneity |
+| H3-0 | group | 1 / 20; within-group cells 1/2 each | 20 groups / 38 cells | H3 primary |
+| Manipulation check | cell | unweighted count | 40 | reporting only |
 
-Two things must **not** be done, and both are tempting:
+Two things must **not** be done:
 
-1. **Do not pool C1 and C2 as if they were 38 independent observations.** They are the same groups. That would halve the interval for free and is the standard pseudo-replication error.
+1. **Do not pool C1 and C2 as 38 independent observations.** They are the same groups. That would shrink the interval for free — the standard pseudo-replication error.
 2. **Do not read the two per-condition estimates as two replications of one quantity.** They estimate different quantities (the effect at 256 and at 1024), and for 11 groups those quantities are close to identical.
 
-Averaging inside the group first is what makes the group-averaged estimand legitimate: group remains the resampling unit, and the average is of two condition-specific effects, not of 38 cells.
+Averaging inside the group first is what makes the group-averaged estimand legitimate: the group stays the resampling unit, and the average is of two condition-specific effects, not of 38 cells.
 
-### 3.3 Precision: averaging inside a group partly cancels noise
+### 4.3 Precision: averaging inside a group partly cancels noise
 
-`Var(mean) = sd² · (1 + ρ) / 2`, where `ρ` is the within-group correlation of the two condition deltas. `ρ` is not measured by this analysis, so the whole range is reported:
+`Var(mean) = sd² · (1 + ρ) / 2`, where `ρ` is the within-group correlation of the two condition deltas. `ρ` is unmeasured here, so the whole range is reported:
 
 | `ρ` | SD | Planned CI half-width (n=18) | vs single level, n=20 | Equivalent single-level n |
 |---:|---:|---:|---:|---:|
@@ -129,20 +172,18 @@ Averaging inside the group first is what makes the group-averaged estimand legit
 | 0.8 | 1,897 | **±877** | 1.00× | 20.0 |
 | 1.0 | 2,000 | **±924** | 1.05× | 18.0 |
 
-For comparison: A′ n=12 → ±1,132; E n=15 → ±1,012; v3 n=20 → ±876.
+Comparison: A′ n=12 → ±1,132; E n=15 → ±1,012; v3 n=20 → ±876. These are **planning** figures from an assumed SD of 2,000 tokens, not achieved precision.
 
-**F's group-averaged estimand is the most precise of all options, for `ρ < 0.8`** — but read §5.3 before treating that as an advantage: it is more precise *about a broader and more diluted quantity*.
+### 4.4 Two interactions, two conclusions (RC10-3)
 
-### 3.4 Is the pressure × algorithm interaction estimable?
+The previous revision reported one interaction number and justified ignoring FLAT groups with "`ΔD ≈ 0` by construction". **That inference was invalid and is withdrawn.** `Δρ` describes how much **A0's own recomputation** moves between conditions; it says nothing about how an **arm's difference from A0** moves between them. A small `Δρ` is not evidence that a group's `ΔD` is zero.
 
-**Estimable: yes. Reportable as a confirmatory claim: no.**
+| Analysis | Population | n | Minimum 8 met | Role |
+|---|---|---:|---|---|
+| **Interaction-A** | all 18 complete pairs | **18** | **yes** | **primary interaction analysis** |
+| **Interaction-B** | RESPONSIVE pairs only | **7** | **no** | pre-registered heterogeneity analysis |
 
-| Item | Value |
-|---|---|
-| Pairs available | 18 |
-| RESPONSIVE pairs | **7** — g03, g04, g05, g10, g12, g16, g19 |
-| Protocol §6.2 minimum | 8 |
-| Status | below the minimum → `INSUFFICIENT_ANALYZED_CELLS` on the RESPONSIVE interaction |
+Interaction-B groups: g03, g04, g05, g10, g12, g16, g19 (g09 and g18 lose their pair to Headroom).
 
 `sd(ΔD) = √2 · sd_delta · √(1 − ρ)`, so the difference of differences is *less* precise than either main effect unless the conditions are positively correlated:
 
@@ -152,203 +193,243 @@ For comparison: A′ n=12 → ±1,132; E n=15 → ±1,012; v3 n=20 → ±876.
 | 0.5 | 2,000 | ±924 |
 | 0.8 | 1,265 | ±584 |
 
-Three further problems, none of which can be fixed by more runs:
+Three further problems, none fixable by more runs:
 
-1. **g09 and g18 lose their pair to Headroom**, so the interaction population is 7 RESPONSIVE groups, not 9 — and the two losses are the *two* groups whose C1 is smallest, i.e. the loss is not random with respect to pressure response.
-2. **The 3 FLAT groups contribute `ΔD ≈ 0` by construction.** Their high correlation means they add little variance but a lot of bias toward zero. So a pooled `ΔD` near 0 is **not** evidence of no interaction; it is partly arithmetic. A pooled interaction result would have to be pre-declared as diluted, and the stratum-by-stratum values reported instead.
-3. **Attribution fails for 11 groups.** A condition-by-arm interaction can only be attributed to pressure intensity where the two conditions *are* two levels of pressure. For the 8 WEAK and 3 FLAT groups they are two similar operating points.
+1. **`n = 18` pairs, not 20**, and the two losses (g09, g18) are the two groups with the smallest C1 — so the loss is **not random with respect to pressure response**.
+2. **Interaction-B is below the 8-group minimum**, so its interval must be reported with `N_analyzed` and no verdict.
+3. **Attribution fails for 11 groups.** A condition-by-arm interaction can only be attributed to pressure intensity where the two conditions *are* two levels of pressure.
 
-**Recommendation:** declare the interaction **exploratory**, report it per stratum with `N_analyzed`, and never let a pooled interaction number carry a verdict. If a confirmatory interaction is genuinely required, that is an argument for a *third* condition or for more groups (Option B), not for F.
-
----
-
-## 4. Q4 — Can H3 be split RESPONSIVE / WEAK / FLAT?
-
-**Yes, and F is the best of the three candidates for it** — because H3 is a per-cell `A0 vs N0` comparison that needs no pair, so the two groups that lost their pair still contribute.
-
-Rule (identical to the RC7 rule already established, so no new constant):
-
-| Role | Population | Groups | Cells |
-|---|---|---:|---:|
-| **Primary — carries the verdict** | RESPONSIVE (`Δρ ≥ 0.10`) | **9** — g03, g04, g05, g09, g10, g12, g16, g18, g19 | **16** |
-| **Secondary — descriptive only** | paired groups minus FLAT | **15** | — |
-| **FLAT — separate description** | `Δρ < 0.01` | **3** — g01, g14, g20 | 6 |
-
-Why FLAT is neither primary nor secondary: its `empirical_marginal_response_ratio` is 0.00–0.15, so forced release is *predicted* to cost almost nothing and `A0 − N0` is predicted near 0. **No N0 arm has ever run**, so this is a prediction, not an observed null. A FLAT result would be dominated by the construction rather than by physics. FLAT is reported as its own stratum with that explanation attached — which is more informative than dropping it silently, and is what F buys over A′ (which excludes FLAT groups entirely).
-
-Two caveats: the primary has 16 cells across 9 groups, so the cluster structure is non-trivial and the bootstrap must resample **groups**, not cells; and H3's primary on F is larger than on A′ (6 groups) and equal to E (9), so F dominates both on this hypothesis.
+**These are two different research statements and must never be merged into one conclusion.** A difference between Interaction-A and Interaction-B is a statement about *where the interaction is visible*, not a contradiction.
 
 ---
 
-## 5. Q5 — F versus A′, E
+## 5. Q4 — H3 restructured (RC10-2)
 
-### 5.1 Head-to-head
+### 5.1 What was wrong
+
+The previous revision promoted RESPONSIVE to H3's primary population and dropped FLAT because `A0 − N0` was *predicted* to be near zero there. That inference is wrong in kind: a small `Δρ` describes how much **A0's own recomputation** moves with pressure and says nothing about what a force-release arm does **relative to A0**. Prediction is not a reason to remove a group from a hypothesis.
+
+### 5.2 The structure now
+
+| Role | ID | Population | Groups | Cells (C1 / C2) | Carries a verdict |
+|---|---|---|---:|---|---|
+| **Primary** | **H3-0** | every Headroom-qualified cell, both conditions, **all strata incl. FLAT** | **20** | **38** (18 / 20) | **yes** |
+| **Separate hypothesis** | **H3-R** | RESPONSIVE only | **9** | **16** (7 / 9) | yes, on its own estimand |
+| Heterogeneity | — | WEAK | 8 | 16 (8 / 8) | descriptive |
+| Heterogeneity | — | FLAT | 3 | 6 (3 / 3) | descriptive |
+
+**H3-0's question:** does forced release (A0 vs N0) have a net cost on recomputation, across the Headroom-qualified workload pool?
+
+**H3-R's question:** is that cost observable in the subset whose **baseline** recomputation itself responds to pressure? Its rationale is that a non-trivial empirical marginal response ratio is a *necessary* condition for the mechanism to have anywhere to act. It is an **additional** hypothesis, not a replacement: if the cost appears only here, that is a finding about the mechanism's domain; if it appears in H3-0 and not here, that is a finding about sensitivity, not a contradiction.
+
+### 5.3 Unit and weights for 9 groups / 16 cells (RC10-2 item 5)
+
+| Item | Rule |
+|---|---|
+| Resampling unit | **group** |
+| Group weight | **1/9** each — equal group weight, **not** proportional to cell count |
+| Within-group weight | **1/2** per cell for the 7 two-cell groups; **1** for the two one-cell groups (g09 C2, g18 C2) |
+| Estimator | mean of Headroom-eligible cells inside the group, then mean / bootstrap over the 9 groups |
+
+Cell-weighted averaging is deliberately **not** used: it would give two-cell groups twice the influence of one-cell groups, making the inference depend on Headroom's per-condition count rather than on the workload pool. The report must state this, because the unweighted and cell-weighted values will differ.
+
+### 5.4 Why H3 does not depend on the paired set (RC10-2 item 6)
+
+H3 is a per-cell `A0 − N0` comparison, so it needs no pair. `h3_report()` therefore no longer derives any population from `paired_groups`: H3-0 has **20 groups / 38 cells**, and g09 / g18 each contribute their single eligible C2 cell at full within-group weight. The previous "secondary = paired groups minus FLAT" logic was inconsistent with the per-cell definition and has been removed.
+
+**FLAT is not excluded from H3-0.** It is retained and additionally reported as its own stratum, with its own interval, precisely because "predicted to be small" is not "measured as zero".
+
+---
+
+## 6. Q5 — F versus A′, E
+
+### 6.1 Head-to-head
 
 | Dimension | **F** | **A′** | **E** |
 |---|---|---|---|
-| Groups / cells in design | **20 / 40** | 12 / 12 | 15 / 15 |
+| Groups / cells in campaign | **20 / 40** | 12 / 12 | 15 / 15 |
 | Conditions per group | **2** | 1 | 1 |
 | New calibration runs | **0** | 0 | 0 |
-| New runs total (calib + noise + main) | **270** | 99 | 117 |
-| Analysis n for headline | **18 groups** (paired) | 12 | 15 |
-| Planned half-width (headline) | **±653 – ±924** (ρ-dependent) | ±1,132 | ±1,012 |
-| H3 primary | **9 groups / 16 cells** | 6 (below min 8) | 9 |
+| New runs total | **270** | 99 | 117 |
+| Analysis n for headline | **18 pairs** | 12 | 15 |
+| Planned half-width | **±653 – ±924** (ρ-dependent) | ±1,132 | ±1,012 |
+| H3-0 | **20 groups / 38 cells** | 12 groups | 15 groups |
+| H3-R | **9 groups / 16 cells** | 6 (below min 8) | 9 |
 | G3-CM | **40 decisions, 8/40 = 20 %** | 12 → 67 % | 15 → 53 % |
-| Dose-response | 2 points, not interpretable as a gradient | none | none |
-| Interaction | 7 RESPONSIVE pairs → **not confirmatory** | n/a | n/a |
-| New constants required | **none** | **none** | one band (3 groups) |
+| Interaction-A | **18 pairs → confirmatory-eligible** | none | none |
+| New constants | **none** | none | one band (3 groups) |
 | Manipulation validity | **weakest** | strongest | strong |
-| External validity (population) | **full 20-group pool** | in-band workloads only | in-band workloads only |
-| Mechanistic interpretability | **weakest** (diluted pool mean) | strongest | strong |
+| External validity | **full 20-group execution pool; 18-group paired estimand** | in-band workloads only | in-band workloads only |
+| Mechanistic interpretability | **weakest** | strongest | strong |
 
-### 5.2 The structural fact that changes the decision: the designs are nested
+### 6.2 Nesting, corrected (RC10-4)
 
-Every operating point used by A′ (12) and by E (15) is one of the **40 cells F already contains** — they are all at 256 or 1024 blocks. So:
+The previous document wrote `F ⊃ E ⊃ A′`. **That was wrong.** The correct statement is:
 
-> **F ⊃ E ⊃ A′ at the cell level.**
+> **F ⊃ E and F ⊃ A′. E and A′ are neither nested nor disjoint.**
 
-| Design | Cells used | Cells of F used |
-|---|---:|---:|
-| F | 40 | 40 (100 %) |
-| E | 15 | 15 (38 %) |
-| A′ | 12 | 12 (30 %) |
+What *is* true: every A′ and every E operating point is one of F's 40 cells, so F can host both as pre-registered subgroups. What is *not* true: E and A′ pick the **same** operating point for every group. They do not:
 
-This has a consequence that neither of the earlier analyses made explicit: **choosing F does not foreclose A′ or E.** Both become *pre-registered subgroup analyses* of the same campaign, at zero additional GPU cost. Conversely, choosing A′ or E discards 25–28 cells that were already paid for and that carry the pool-level information.
+| Group | A′ | E | Remark |
+|---|---|---|---|
+| g03 | C2 @ 1024, ρ0 = 0.3557 | **C1 @ 256, ρ0 = 0.1821** | moves into the 0.15–0.25 gap |
+| g16 | C1 @ 256, ρ0 = 0.1070 | **C2 @ 1024, ρ0 = 0.4444** | moves to the in-band C2 cell |
 
-The legitimacy condition is strict and must go into G0: **the subgroup must be defined from A0 calibration data only, frozen before the campaign, and written into G0 with its own estimator.** Post-hoc subgroup extraction after seeing an arm result is precisely what §10 S9 forbids. The selection here *can* be blind — in-band membership is a property of `ρ0` measured on A0 — but "can be" is not "is", so it must be pre-registered, not discovered later.
+So the same group is studied at a **different condition** in the two designs. E-only groups are g05, g10, g19; A′-only groups: none. The consequence is that A′ and E are **not** a subset/superset pair, their estimates are not nested comparisons, and only F's relation to each of them is nested.
 
-### 5.3 Where F is genuinely worse, stated plainly
+### 6.3 Where F is worse, stated plainly
 
-1. **Dilution.** F's headline is the mean over all paired groups. For 3 FLAT groups the mechanism cannot act (`Δρ = 0`, `A0 − N0` predicted ≈ 0), and for 8 WEAK groups it acts weakly. A small pooled mean is therefore **not** evidence of a small mechanistic effect, and a large one would be hard to attribute. A′/E avoid this by construction; F must handle it by reporting strata and by *naming* the pooled estimate as a population average rather than an effect size.
-2. **Manipulation failure relabelled as design.** In only **1 of 20 groups** (g16) do both conditions land inside their designed bands; 13 groups land in neither. Reporting F's conditions as "low pressure" and "high pressure" would assert a state separation the data contradicts for 14 groups. The labels must be `C1 = 256 blocks` / `C2 = 1024 blocks`, full stop. This is the single largest interpretive risk in F and the reason the words "L_LOW"/"L_HIGH" must not appear in F's results tables.
-3. **Interaction is not confirmatory** (7 RESPONSIVE pairs). If the paper's contribution depends on "the benefit grows with pressure", F cannot deliver it and neither can A′/E.
-4. **Two fewer pairs than v3 assumed** (18, not 20), from applying Headroom honestly.
+1. **Dilution of the pooled estimate.** The group-averaged delta is a **population average** over groups whose baseline sensitivity spans an order of magnitude. It is not an effect size, and a small value is **not** evidence that the mechanism is weak. Stratum estimates carry the mechanistic reading.
+2. **Weak manipulation validity.** Only **1 of 20 groups** (g16) has both conditions inside their designed bands; **13 of 20** have neither. Reporting the conditions as "low"/"high" pressure would assert a separation the data contradicts. They are C1/C2 with block counts.
+3. **Interaction-B is below the 8-pair minimum** (7 pairs), so the RESPONSIVE interaction carries no verdict.
+4. **18 pairs, not 20**, from applying Headroom honestly — and the losses are the two groups with the smallest C1.
 
-### 5.4 Where F is genuinely better
+### 6.4 Where F is better
 
-1. **Cheapest defensible design**: 270 new runs, no new calibration, and the **noise design is the v3 design unchanged** (§6).
-2. **Largest n** and the **only** design with a precision advantage over v3 for plausible `ρ`.
-3. **Full-pool external validity**: the estimand is about the 20-group agent-workload pool, not about workloads that happened to land in a band. That is a real scientific advantage if the claim is "does the depth signal reduce recomputation in this setting".
-4. **Best H3**, because per-cell comparisons survive the loss of pairs.
+1. **Cheapest defensible design** at 270 new runs and **no new calibration**.
+2. **Largest n** and the only design with a precision advantage over v3 for plausible `ρ`.
+3. **Broadest external validity among the reachable designs**: the estimand covers the 18-group paired population drawn from the full 20-group execution pool, rather than only in-band workloads.
+4. **Best H3**, because per-cell comparisons survive the loss of pairs — 20 groups / 38 cells for H3-0, versus 12 and 15 groups for A′ and E.
 5. **Nothing invented**: no new band, no new threshold, no new pressure, and no model-extrapolated operating point anywhere in the design.
 
 ---
 
-## 6. Q6 — Can noise calibration stay at 5 × 2 × 3 = 30?
+## 7. Q6 — Noise calibration: the rule closed (RC10-5)
 
-**Yes — F is the only candidate for which the v3 noise design is used literally unchanged.**
+### 7.1 Does drawing from the 18 paired groups change §6.4?
 
-| Item | v3 | F |
+§6.4 requires the noise set to be "independent of the main campaign and of the Headroom screening". Two readings exist and they are **not** equivalent:
+
+| Reading | Preserved? | Why |
 |---|---|---|
-| Design | 5 groups × 2 conditions × R=3 = 30 | **identical** |
-| Conditions | 256, 1024 | 256, 1024 |
-| Output | `σ_run` → `σ_δ = √2 σ_run` → `tied = 2√2 σ_run` | identical |
-| Re-specification needed | — | **none** |
+| **Decision independence** — the noise set must not influence which cells are analysable | **yes** | Headroom is computed from A0 calibration data and frozen before any noise run; selecting from the resulting paired set cannot feed back into that decision |
+| **Population independence** — the noise set must be a sample of all 20 groups regardless of Headroom | **no** | a paired-only draw is conditional on Headroom passing at both conditions, so `σ_run` describes the paired population and not all 20 groups; g09 and g18 are never sampled |
 
-Two conditions to fix:
+F needs pairs, so its noise sample **must** come from the 18 paired groups: a `σ_run` estimated on cells outside the analysis population would not describe the `tied` threshold applied to that population. The report therefore takes the **first** reading, states the cost of the second, and asks for an explicit v4 amendment. **"Still 30 runs" is not sufficient justification**, and the previous document's "unchanged from v3" claim is withdrawn as worded.
 
-1. **The 5 groups must be drawn from the 18 paired groups**, not from all 20, or `σ_run` is partly estimated on cells whose pair does not exist. Recommended: one group per stratum as far as possible (e.g. 3 RESPONSIVE, 1 WEAK, 1 FLAT), chosen by a rule frozen in G0 — not by convenience.
-2. **`σ_run` estimates single-arm variance, not the interaction's variance.** If the interaction is reported (exploratory, §3.4), its own noise floor is `√2 σ_δ √(1 − ρ_g)` and `ρ_g` is unmeasured. Report the interaction without a `tied` classification, or mark it `tied = UNDEFINED_ASSUMPTION`.
+### 7.2 Frozen selection rule
 
-A′/E cannot reuse the v3 noise design, because their designs have one level per group; they need re-specification to 5×1×3 or 9×1×3. F therefore saves the ~12 % relative-SE loss that a 15-run noise set would incur (df 10 vs 20).
+| Item | Frozen value |
+|---|---|
+| Candidate set | the 18 Headroom-paired groups |
+| Ordering key | `sha256("phase3-noise-selection-v1:" + group_id)`, ascending |
+| Why not random | a frozen hash permutation is reproducible without stored random state and cannot be steered after seeing a measurement |
+| Stratum allocation | **RESPONSIVE 2, WEAK 2, FLAT 1** |
+| Allocation rationale | proportional to paired strata (7 / 8 / 3) with the smallest stratum rounded up to 1 so no stratum is unrepresented |
+| Design | 5 groups × 2 conditions × R=3 = **30 runs**, A0 only |
+| Frozen by | must be written into G0 with the salt and the allocation |
+
+Current draw: **g01, g04, g06, g07, g10** (FLAT: g01; RESPONSIVE: g04, g10; WEAK: g06, g07).
+
+### 7.3 Variance estimation and weights
+
+| Item | Rule |
+|---|---|
+| `σ_run` | pooled within-cell SD of per-run `Σ(E−C)` over **10 cells** (5 groups × 2 conditions) with R=3 |
+| df | **20**; relative SE of `σ_run` ≈ **15.8 %** |
+| weights | equal per cell, since every cell has the same R. It is a **stratified pool** — a design-based estimate for the paired population, not a variance of the 20-group pool |
+| reporting | **stratum-specific `σ_run` is required alongside the pooled value**, because the draw is stratified and not a simple random sample |
+| `σ_δ` | `√2 · σ_run` under independent equal variance |
+| `tied` | `2√2 · σ_run` |
+| interaction | **no `tied` classification**: it needs the within-group correlation of the two condition deltas, which is unmeasured → `UNDEFINED_ASSUMPTION` |
+
+### 7.4 v4 noise clause changes
+
+1. Replace "independent of the Headroom screening" with "independent of the Headroom **decision procedure**, conditioned on its outcome, drawn by the G0-frozen deterministic rule".
+2. State that `σ_run` estimates the **paired** population and that groups failing Headroom at either condition are not sampled.
+3. Require stratum-specific `σ_run` alongside the pooled value.
+4. Keep the 30-run budget and A0-only design unchanged; only the sampling frame and reporting obligations change.
 
 ---
 
-## 7. Q7 — Budget, estimand, gate changes, Protocol v4 draft
+## 8. Q7 — Budget, estimand, gate changes, Protocol v4 draft
 
-### 7.1 Budget
+### 8.1 Budget
 
 | Run set | Cells / groups | Runs | Note |
 |---|---:|---:|---|
 | A0 calibration | — | **0** | the 40 executed runs *are* the condition set |
-| Noise calibration | 5 groups × 2 conditions × R=3 | **30** | unchanged from v3 |
-| Main campaign | 6 arms × 40 cells × R=1 | **240** | unchanged from v3 |
-| **Total new runs** | | **270** | **identical to v3** |
+| Noise calibration | 5 groups × 2 conditions × R=3 | **30** | v3 budget, new sampling frame (§7) |
+| Main campaign | 6 arms × 40 cells × R=1 | **240** | unchanged |
+| **Total new runs** | | **270** | identical to v3 |
 
-Per design, for comparison: A′ 99, E 117, A (measured-only) 38 but on 1 cell, B 310. GPU-hours are not quoted: M6's measured per-run cost (§5.1 item 3) is not available to M4, and estimating one would be the kind of number this review has been rejecting.
+G3-CM headroom: **40 decisions available, 8 required → 20 %** must discriminate (A′ 67 %, E 53 %, E∩G4-a 89 %). GPU-hours are not quoted: M6's measured per-run cost is not available to M4.
 
-G3-CM headroom: **40 decisions available, 8 required → 20 %** must discriminate. Compare A′ 67 %, E 53 %, E∩G4-a 89 %. F is the only design where this gate is comfortable.
+### 8.2 Estimand sentence to freeze
 
-### 7.2 Estimand sentence to freeze
+> **Primary.** For agent-style workloads in a 2048-block KV pool executed at two pre-registered fixed operating points (**C1 = 256** and **C2 = 1024** blocks of `required_blocks`), the mean per-request difference in `Σ(E−C)` between each arm and A0, averaged over the two conditions **within each group** and reported over the **18 groups** that pass Headroom at both conditions. The statistical unit is the group; the group weight is 1/18; within a group the two condition deltas are weighted 1/2 each.
 
-> **Primary.** For agent-style workloads in a 2048-block KV pool, run at two pre-registered fixed operating points (C1 = 256 blocks, C2 = 1024 blocks of `required_blocks`), the mean per-request difference in `Σ(E−C)` between each arm and A0, averaged over the two conditions within each group and reported over the 18 groups that pass Headroom at both conditions.
+> **Secondary (pre-registered, not confirmatory).** (a) the same quantity restricted to the 12 A′-eligible in-band cells; (b) stratum estimates for FLAT / WEAK / RESPONSIVE; (c) the C1 and C2 per-condition estimates; (d) **Interaction-A** over all 18 complete pairs (primary interaction analysis) and **Interaction-B** over the 7 RESPONSIVE pairs (heterogeneity), reported separately and never merged.
 
-> **Secondary (pre-registered, not confirmatory).** (a) the same quantity restricted to the 12 A′-eligible in-band cells; (b) stratum estimates for FLAT / WEAK / RESPONSIVE; (c) the C1 and C2 per-condition estimates; (d) an exploratory `ΔD` interaction, reported per stratum, never pooled into a verdict.
+> **H3-0 (primary).** Forced-release cost `A0 − N0` over every Headroom-qualified cell: 20 groups / 38 cells (C1 18, C2 20); unit = group, weight 1/20, within-group cells 1/2 each. FLAT included.
 
-> **Manipulation check (reported, never gating).** `ρ0` at both conditions for all 20 groups, `Δρ`, and band attainment: 8 of 40 cells land in their designed band; 1 of 20 groups (g16) lands in both; 13 of 20 land in neither.
+> **H3-R (separate).** The same quantity over RESPONSIVE groups: 9 groups / 16 cells (C1 7, C2 9); unit = group, weight 1/9.
 
-The words "low pressure" and "high pressure" are **prohibited** in F's results tables. The conditions are C1/C2 with their block counts.
+> **Manipulation check (reported, never gating).** `ρ0` at both conditions for all 20 groups, `Δρ`, and band attainment: **8 of 40** cells in band; **1 of 20** groups (g16) with both; **13 of 20** with neither; strata 9 / 8 / 3.
 
-### 7.3 Gate modification list
+### 8.3 Gate modification list
 
 | Gate | v3 | Under F |
 |---|---|---|
-| **G0 freeze** | arms, metrics, 20 groups, load params, Headroom list, profile, replay rules | **add**: C1/C2 defined as 256/1024 blocks; strata frozen from A0-only data; manipulation-check fields; the pre-registered A′ subgroup and its estimator; the prohibition on post-hoc group or stratum reselection |
+| **G0 freeze** | arms, metrics, 20 groups, load params, Headroom list, profile, replay rules | **add**: C1/C2 defined as 256/1024 blocks; strata frozen from A0-only data; manipulation-check fields; pre-registered A′ subgroup and its estimator; noise-selection salt and allocation; prohibition on post-hoc group or stratum reselection |
 | **G1 isolation** | unchanged | **unchanged** |
 | **G2 branch composition** | per campaign and per load | **unchanged**, reported per condition |
 | **G3-CM** | ≥ 8 discriminable decisions | **unchanged**; 40 available |
 | **G4** | Headroom list only | **reaffirmed as Headroom-only**; band attainment explicitly *not* an admission rule |
 | **G4-M (new)** | — | **manipulation check**: report band attainment, `Δρ`, strata; **failure does not block and does not exclude any cell** |
 | **S9** | no post-hoc adjustment of Headroom/thresholds | **unchanged**, extended to groups and strata |
-| **S10 (new)** | — | no relabelling C1/C2 as L_LOW/L_HIGH; no pooling C1 and C2 as independent; no post-hoc subgroup extraction |
+| **S10 (new)** | — | no relabelling C1/C2 as "low"/"high"; no pooling C1 and C2 as independent; no post-hoc subgroup extraction; no inferring an arm-vs-A0 interaction from `Δρ` |
 
-Nothing in this list relaxes a threshold. G4 becomes *narrower* (Headroom only, explicitly), and two reporting constraints are added.
+Nothing here relaxes a threshold. G4 becomes *narrower* (Headroom only, explicitly), and reporting constraints are added.
 
-### 7.4 Protocol v4 draft — amendment text
+### 8.4 Protocol v4 draft — amendment text
 
 > **Status: DRAFT. Not authorised. Prepared for M1 adjudication; v3 is unmodified.**
 
-**§3.6 (Headroom) — unchanged** in threshold and timing: `ρ0 ≥ 5 %` and `R0 ≥ 512 tokens`, evaluated per cell on the independent A0 calibration set, frozen into G0.
+**§3.6 (Headroom) — unchanged** in threshold and timing.
 
-**§5.2 (Load conditions) — replaced.**
+**§5.2 (Load conditions) — replaced.** Two fixed operating points: C1 at `required_blocks = 256`, C2 at 1024. These are the two pressures measured in iteration-1 calibration. The designed `rho0` bands are retained **as a manipulation check and reporting target only**; they admit or exclude no cell and are not a condition for the campaign proceeding. Conditions are labelled C1/C2 in every table and must not be described as low/high pressure.
 
-> Phase 3 executes two **fixed operating points**: C1 at `required_blocks = 256`, C2 at `required_blocks = 1024`. These are the two pressures measured in iteration-1 calibration, so `ρ0` and `R0` are known at each. The designed `rho0` bands `[0.05, 0.15]` and `[0.25, 0.45]` are retained **as a manipulation check and reporting target only**; they do not admit or exclude any cell, and they are not conditions of the campaign proceeding.
->
-> Conditions are labelled `C1` / `C2` in every table. They must not be described as "low" or "high" pressure: the measured `Δρ` is below 0.10 for 11 of 20 groups, so for those groups the two conditions are not distinguishable states of a manipulated variable.
+**§5.2.1 (Pressure-response strata) — new.** FLAT (`Δρ < 0.01`), WEAK (`0.01 ≤ Δρ < 0.10`), RESPONSIVE (`Δρ ≥ 0.10`), computed from the two measured `ρ0` values before any arm runs and frozen in G0. Used to **report** heterogeneity and to define H3-R; not used to select groups for the token estimand.
 
-**§5.2.1 (Pressure-response strata) — new.**
+**§5.4 (Pairing) — REPLACED (RC10-6).** v3 says "cross-load 不配对：只做平行报告，不做合并检验". That wording is incompatible with the group-averaged estimand and must be rewritten, not left to interpretation:
 
-> Each group is classified from the two measured `ρ0` values, before any arm is run: **FLAT** (`Δρ < 0.01`), **WEAK** (`0.01 ≤ Δρ < 0.10`), **RESPONSIVE** (`Δρ ≥ 0.10`). The classification is frozen in G0. It is used to *report* heterogeneity and to define H3's primary population; it must not be used to select groups for the token estimand.
+> **§5.4 pair and merge rules.**
+> 1. **Within-cell paired**: the six arms share one plan SHA-256 per (group, condition).
+> 2. **Across conditions, never pool as independent observations.** C1 and C2 are the same groups; they are never treated as 38 independent cells, and no interval may be computed from a pooled C1 ∪ C2 sample.
+> 3. **Across conditions, the group-level average is permitted and is the primary estimand of Option F.** For a group qualified in both conditions, the estimator is the mean of its two condition deltas; the two deltas enter at weight 1/2. The group remains the resampling unit and receives weight 1/G.
+> 4. **Per-condition estimates are reported separately and are not replications.** They answer "what happens at 256" and "what happens at 1024", and for 11 of 20 groups those two answers are close to identical.
+> 5. A group qualified in only one condition contributes to that condition's estimate and to H3, but not to the group-averaged estimand.
 
-**§6.2 (Estimation) — extended.**
+v3 §6.1's row "每个 load 档的独立 group 数 = 20；两档同 group，不得合并为 40" remains correct as a prohibition on pooling *cells*; §5.4.3 above adds the one permitted merge, at group level, with group weight.
 
-> Three estimates are required: (a) per-condition Δ (C1 n=18, C2 n=20), (b) the **group-averaged** Δ over the 18 paired groups — the primary estimate — and (c) stratum Δ. Resampling is by **group**, never by cell, and C1 and C2 are never pooled as independent observations. Every interval is reported with `N_analyzed`, the number of discriminable decisions, and the S2A count, as in v3.
+**§6.2 (Estimation) — extended.** Three estimates required: (a) per-condition Δ (C1 n=18, C2 n=20); (b) the group-averaged Δ over 18 pairs — **primary**; (c) stratum Δ. Resampling by group, never by cell. Every interval reported with `N_analyzed`, discriminable decisions and S2A count.
 
-**§6.3 (Power) — extended.**
+**§6.2.1 (H3 populations) — new.** H3-0 over all Headroom-qualified cells (20 groups / 38 cells), FLAT included; H3-R over RESPONSIVE only (9 groups / 16 cells) as a separate hypothesis; strata reported as pre-registered heterogeneity. Unit = group; within-group cells 1/2 each.
 
-> The group-averaged estimand has `Var = sd²(1+ρ)/2`. `ρ` is not measured in this phase; the report must state which `ρ` was assumed for planning and must not present the planned half-width as achieved precision.
+**§6.3 (Power) — extended.** Group-averaged variance is `sd²(1+ρ)/2`; `ρ` is unmeasured, so the report must state the assumed `ρ` and must not present the planned half-width as achieved precision.
 
-**§6.4 (Noise) — unchanged**, with the sample drawn from the 18 paired groups under a rule frozen in G0.
+**§6.4 (Noise) — amended** per §7.4 above.
 
-**§9 (Gates) — G4 replaced by G4 + G4-M.** G4 keeps its v3 text (Headroom list only). G4-M adds the manipulation check as a reporting requirement with no exclusion power.
+**§9 (Gates) — G4 retained; G4-M added.**
 
-**§10 (Stop conditions) — S9 unchanged; S10 added** as in §7.3.
-
-**H3 tiering** as §4 of this document (primary RESPONSIVE, secondary paired-minus-FLAT, FLAT separately described).
+**§10 (Stop conditions) — S9 unchanged; S10 added** per §8.3.
 
 ---
 
-## 8. Decision matrix — when F is the right choice
-
-F is **not** automatically better. The choice turns on which claim the phase exists to support.
+## 9. Decision matrix — when F is the right choice
 
 | If the primary claim is… | Best design | Why |
 |---|---|---|
-| "Does the depth signal reduce recomputation for this agent-workload pool in a 2048-block KV pool?" | **F** | full pool, largest n, cheapest, no new constant |
+| "Does the depth signal reduce recomputation for this agent-workload pool in a 2048-block KV pool?" | **F** | broadest population, largest n, cheapest, no new constant |
 | "Does the cost model change decisions under *controlled* pressure intensity?" | **A′** | only A′ has measured levels; F cannot separate pressure from fixed-point effects |
 | "…and across the widest defensible population of controllable workloads" | **E** | 15 groups vs 12, at the price of one new band edge |
-| "…with a two-level contrast proven by direct measurement" | **A′** (1 group) — i.e. **none of them** | only 1 group has a measured two-level contrast (RC6) |
+| "…with a two-level contrast proven by direct measurement" | **none of them** | only 1 group has a measured two-level contrast (RC6) |
 | "…including dose-response" | **B** only | needs new acquisition + calibration |
 
-**Recommendation.** If M1's lean toward A′ is driven by wanting an unambiguous mechanistic claim, A′ remains the right choice and F does not displace it. If the phase's purpose is the pool-level question — which is what H1/H2 as written actually ask — **F is the better design**, and it does not cost the A′ estimate: A′ becomes a pre-registered subgroup of F.
+**F does not foreclose A′ or E.** Every A′ and E operating point is one of F's 40 cells, so choosing F and pre-registering A′ as a frozen subgroup delivers both estimates for the same 270 runs. The relation is one-directional: **F ⊃ E and F ⊃ A′**, while E and A′ are neither nested nor disjoint (§6.2). The subgroup is legitimate only if defined from A0-only data and frozen in G0 — not extracted after seeing an arm (§10 S9).
 
-That last point is the constructive part of this analysis:
-
-> **F is the only option that can deliver A′'s estimate as well as its own, at no extra cost**, because A′'s 12 cells are a subset of F's 40. The reverse is not true: choosing A′ cannot recover F's pool-level estimand.
-
-The condition is that the subgroup is frozen in G0 from A0-only data and reported as secondary. If M1 is not willing to pre-register it, the nesting advantage disappears and the choice reduces to the claim, as in the table above.
-
-**What would make F wrong:** if M1 requires the conditions to be two validated levels of pressure (then F fails by construction), or if the headline must be a mechanistic effect size rather than a population average (then dilution makes F's headline uninterpretable), or if the interaction must be confirmatory (7 RESPONSIVE pairs, below the minimum of 8).
+**What would make F wrong:** if M1 requires the conditions to be two validated levels of pressure (F fails by construction); or if the headline must be a mechanistic effect size rather than a population average (dilution makes F's headline uninterpretable); or if the interaction must be confirmatory on RESPONSIVE groups (7 pairs, below the minimum of 8).
 
 ---
 
@@ -360,47 +441,81 @@ python scripts/probes/phase3_g4_reachability/reachability_analysis.py \
     --out  docs/experiments/phase3-g4/outputs
 ```
 
-| Quantity | Value | Source field |
+| Quantity | Value | Source |
 |---|---|---|
-| Groups / cells in design | 20 / 40 | `option-f-report.json:design` |
-| Headroom-eligible cells | 38 (C1 18, C2 20) | `option-report.json:F` |
-| Paired groups | 18 | `option-report.json:F.paired_groups_n` |
+| Campaign groups / cells | 20 / 40 | `option-f-report.json:design` |
+| C1 / C2 analysed cells | 18 / 20 | `option-f-report.json:population.levels` |
+| Paired primary groups | 18 | same |
 | Pairs lost | g09 C1, g18 C1 | `option-report.json:F.excluded_pairs` |
 | Cells in designed band | 8 / 40 | `option-f-report.json:manipulation_check` |
-| Groups with both conditions in band | 1 (g16) | same |
-| Groups with neither in band | 13 | same |
+| Groups both / one / neither in band | 1 / 6 / 13 | same |
 | `Δρ` strata | 9 RESPONSIVE / 8 WEAK / 3 FLAT | same |
-| H3 primary | 9 groups, 16 cells | `h3-report.json:F` |
-| Interaction pairs | 18 total, 7 RESPONSIVE | `option-f-report.json:interaction` |
-| New runs | 0 + 30 + 240 = 270 | `calibration-cost-report.json:option_F_two_level_fixed_pressure` |
+| H3-0 | 20 groups / 38 cells (C1 18, C2 20) | `h3-report.json:primary` |
+| H3-R | 9 groups / 16 cells (C1 7, C2 9) | `h3-report.json:secondary_hypothesis` |
+| Interaction-A / B | 18 pairs (min met) / 7 pairs (min not met) | `option-f-report.json:interaction` |
+| Noise draw | g01, g04, g06, g07, g10 | `noise-selection-report.json` |
+| `σ_run` df | 20 (rel. SE 0.158) | same |
+| Nesting | F ⊃ E, F ⊃ A′; E ⊥̸ A′ | `nesting-report.json` |
+| G-E current | 36 qualified / 4 pending, 0 failures | `g-e-report.json` |
+| New runs | 0 + 30 + 240 = 270 | `calibration-cost-report.json` |
 | G3-CM | 40 decisions, 8/40 = 20 % | same |
-
-Frozen inputs (SHA-256 pinned in the script, cross-checked against the pack manifest): the four M1-designated planning inputs plus the observation CSV. See the companion document, Appendix A.
 
 ## Appendix B — Tests
 
-`pytest tests/test_g4_reachability_analysis.py -q` → **63 passed**, CPU only. Option F coverage (13 tests):
+`pytest tests/test_g4_reachability_analysis.py -q` → **72 passed**, CPU only, no network, no writes outside `tmp_path`. The committed log is `outputs/cpu-test-run.txt`. (This supersedes the 63 figure quoted before RC10, which added 9 tests.)
 
-| Assertion | What it protects |
+RC10 coverage:
+
+| RC | Tests |
 |---|---|
-| both executed pressures, all groups, band attainment not a gate | F's definition |
-| no new calibration; noise 30; unchanged from v3 | the cost claim |
-| every frozen band and Headroom threshold unchanged | that F is not a relaxation |
-| a group with neither cell in band stays in the design and in the pair set | the manipulation check has no admission power |
-| only the pair whose cell fails Headroom is lost | the 18-vs-20 accounting |
-| strata reported over both design and paired sets | that the two populations are not confused |
-| H3 primary is RESPONSIVE and counts eligible cells (2+1=3 in the fixture) | that H3 does not require pairs |
-| interaction population excludes lost pairs and is flagged below minimum | the 7-vs-9 caveat |
-| run accounting 0/30/240 | budget |
-| group-averaged precision improves with `ρ`; interaction worsens with independence | the two variance formulas |
-| threats list names dilution, attribution, post-hoc selection | the losses are recorded, not hidden |
-| real-pack check: 18 pairs, 8/40 in band, 9/16 H3 cells, 7 RESPONSIVE pairs, 270 runs | the end-to-end numbers |
+| RC10-2 H3 restructure | H3-0 keeps FLAT; FLAT is a stratum not an exclusion; H3-R is separate with its own estimand; per-condition counts; group-vs-cell weighting; H3 independent of the paired set; per-design population sizes (7) |
+| RC10-3 interaction | all-pairs vs RESPONSIVE reported separately; no `Δρ ⇒ ΔD = 0` inference; "by construction" absent from caveats (3) |
+| RC10-4 nesting | F ⊃ E and F ⊃ A′; E and A′ not nested; g03 and g16 move (1) |
+| RC10-5 noise | decision vs population independence; allocation; determinism across two runs; df; 4 v4 amendments (1) |
+| RC10-6 population | four levels; scope warning that the paired primary is not a 20-group estimate (inside the real-pack test) |
+| RC10-1 G-E | round 2 is current (36/4, 0 failures, E==C); round 1 retained as history (1) |
+| RC10-7 conditions | `cell-classification.json` carries the `L_LOW→C1` / `L_HIGH→C2` mapping |
 
-## Appendix C — What F cannot deliver, in one list
+## Appendix C — What F cannot deliver
 
 1. A two-validated-levels claim for any group except g16 (the only group with both cells in band).
-2. A mechanistic effect size from the pooled headline (dilution by FLAT and WEAK groups).
-3. A confirmatory pressure × algorithm interaction (7 RESPONSIVE pairs, minimum 8).
+2. A mechanistic effect size from the pooled headline (population average, not an effect size).
+3. A confirmatory RESPONSIVE interaction (7 pairs, minimum 8).
 4. Any dose-response statement beyond "two points were run".
-5. Attribution of condition differences to pressure intensity for the 11 groups whose `Δρ < 0.10`.
-6. A per-condition estimate that also generalises to the other condition — the two are separate estimands over the same groups.
+5. Attribution of condition differences to pressure intensity for the 11 groups with `Δρ < 0.10`.
+6. A per-condition estimate that also generalises to the other condition.
+7. Any inference about the 20-group pool from the 18-group paired estimand.
+
+## Appendix D — How M1 obtains and verifies the evidence pack
+
+| Item | Value |
+|---|---|
+| Path | `local/phase3-g4-reachability-analysis-pack-v1/` |
+| Tracked by git | **no** — `local/` is gitignored by repository policy |
+| Size | 260 files, **209.4 MiB** |
+| Manifest | committed as `outputs/pack-sha256-manifest.txt` (**250 entries**) |
+| Metadata | committed as `outputs/pack-metadata.json` |
+| Provenance | M1-provided read-only bundle, `created_at_utc 2026-11-05T12:28:20Z`, git `712b3fc`, `gpu_execution_included: false` |
+
+**Verification procedure for a transferred copy:**
+
+```bash
+# from the root of the transferred pack
+python - <<'EOF'
+import hashlib, pathlib, sys
+bad = 0
+for line in pathlib.Path("sha256-manifest.txt").read_text().splitlines():
+    if not line.strip():
+        continue
+    digest, _, rel = line.partition("  ")
+    p = pathlib.Path(rel.strip())
+    actual = hashlib.sha256(p.read_bytes()).hexdigest() if p.is_file() else None
+    if actual != digest:
+        bad += 1
+        print("MISMATCH", rel, actual)
+print("checked", "250 entries;", "failures:", bad)
+sys.exit(1 if bad else 0)
+EOF
+```
+
+Then run the analysis against the copy and compare `outputs/` file-by-file; the script re-verifies the five pinned planning inputs and the proposal's own `source_observations_sha256` before computing anything.

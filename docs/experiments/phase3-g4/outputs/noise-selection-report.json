@@ -1,0 +1,88 @@
+{
+  "independence": {
+    "v3_requirement": "§6.4: the noise set is independent of the main campaign and of the Headroom screening",
+    "decision_independence": {
+      "preserved": true,
+      "why": "The Headroom outcome is computed from A0 calibration data and frozen before any noise run. Selecting the noise groups from the resulting paired set cannot feed back into that decision."
+    },
+    "population_independence": {
+      "preserved": false,
+      "why": "A paired-only draw is conditional on Headroom passing at both conditions, so sigma_run describes the paired population and not all 20 groups.",
+      "consequence": "2 group(s) (g09, g18) are never sampled for noise and have no run-to-run variance estimate."
+    },
+    "verdict": "Drawing from the 18 paired groups changes the reading of §6.4 from population independence to decision independence. That is defensible for F because `tied` is applied to the same paired population, but it is a change and must be written into v4 rather than described as an unchanged 30-run design."
+  },
+  "selection_rule": {
+    "candidate_set": "the 18 Headroom-paired groups",
+    "deterministic_key": "sha256('phase3-noise-selection-v1:' || group_id), ascending",
+    "why_not_random": "A frozen hash permutation is reproducible without storing random state and cannot be steered after seeing a measurement.",
+    "stratum_allocation": {
+      "RESPONSIVE": 2,
+      "WEAK": 2,
+      "FLAT": 1
+    },
+    "allocation_rationale": "Proportional to the paired strata (7/8/3) with the smallest stratum rounded up to 1 so no stratum is unrepresented.",
+    "selected_groups": [
+      "g01",
+      "g04",
+      "g06",
+      "g07",
+      "g10"
+    ],
+    "selected_by_stratum": {
+      "RESPONSIVE": [
+        "g04",
+        "g10"
+      ],
+      "WEAK": [
+        "g07",
+        "g06"
+      ],
+      "FLAT": [
+        "g01"
+      ]
+    },
+    "design": "5 groups x 2 conditions x R=3 = 30 runs",
+    "alternative_if_population_independence_is_required": {
+      "candidate_set": "all 20 groups",
+      "selected_groups": [
+        "g01",
+        "g04",
+        "g06",
+        "g07",
+        "g09"
+      ],
+      "selected_by_stratum": {
+        "RESPONSIVE": [
+          "g09",
+          "g04"
+        ],
+        "WEAK": [
+          "g07",
+          "g06"
+        ],
+        "FLAT": [
+          "g01"
+        ]
+      },
+      "cost": "The FLAT allocation would sample a group that may fail Headroom at C1, so its sigma_run would partly describe a cell that is not analysed. Same 30 runs either way."
+    },
+    "frozen_by": "must be written into G0 with the salt and the allocation"
+  },
+  "variance_estimation": {
+    "sigma_run": "pooled within-cell SD of per-run Sigma(E-C), over 10 cells (group x condition) with R=3",
+    "df": 20,
+    "relative_se_of_sigma_run": 0.1581,
+    "weights": "equal per cell (every cell has the same R); the pooled SD is a stratified pool, so it is a design-based estimate for the paired population, not a variance of the 20-group pool",
+    "stratum_reporting_required": true,
+    "sigma_delta": "sqrt(2) * sigma_run under independent equal variance",
+    "tied": "2 * sqrt(2) * sigma_run",
+    "interaction": "no tied classification: it would need the within-group correlation of the two condition deltas, which is unmeasured"
+  },
+  "v4_clause_changes": [
+    "§6.4: replace 'independent of the Headroom screening' with 'independent of the Headroom decision procedure, conditioned on its outcome, and drawn by the G0-frozen deterministic rule below'.",
+    "§6.4: state that sigma_run estimates the paired population and that groups failing Headroom at either condition are not sampled.",
+    "§6.4: require stratum-specific sigma_run to be reported alongside the pooled value, because the draw is stratified and not a simple random sample of the 20 groups.",
+    "§6.4: keep the 30-run budget and the A0-only design unchanged; only the sampling frame and the reporting obligations change."
+  ]
+}

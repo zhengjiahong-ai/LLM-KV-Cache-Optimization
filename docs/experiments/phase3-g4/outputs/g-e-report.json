@@ -1,0 +1,74 @@
+{
+  "item": "G-E (concurrent eligibility qualification)",
+  "current_state": {
+    "status": "CURRENT",
+    "source": "phase3-same-batch-physical-qualification-audit-v1, M6 recompute at git 712b3fc628c5bbebe95a782119654834c741149",
+    "question": "Do producer and consumer resolve the same physical prefix blocks under a bound forward-batch source?",
+    "row_count": 40,
+    "qualified": 36,
+    "pending": 4,
+    "qualified_semantics": "QUALIFIED_SAME_BATCH_SHARED_PREDECESSOR",
+    "pending_semantics": "PENDING_EARLIER_FORWARD_ORDER_PROOF",
+    "pending_rows": [
+      {
+        "group_id": "g08",
+        "condition": "C1",
+        "forward_relation": "EARLIER_FORWARD_ORDER_NEEDS_SEPARATE_PROOF",
+        "scheduler_relation": "EARLIER_SCHEDULER_ITERATION",
+        "independent_e": null
+      },
+      {
+        "group_id": "g08",
+        "condition": "C2",
+        "forward_relation": "EARLIER_FORWARD_ORDER_NEEDS_SEPARATE_PROOF",
+        "scheduler_relation": "EARLIER_SCHEDULER_ITERATION",
+        "independent_e": null
+      },
+      {
+        "group_id": "g20",
+        "condition": "C1",
+        "forward_relation": "EARLIER_FORWARD_ORDER_NEEDS_SEPARATE_PROOF",
+        "scheduler_relation": "EARLIER_SCHEDULER_ITERATION",
+        "independent_e": null
+      },
+      {
+        "group_id": "g20",
+        "condition": "C2",
+        "forward_relation": "EARLIER_FORWARD_ORDER_NEEDS_SEPARATE_PROOF",
+        "scheduler_relation": "EARLIER_SCHEDULER_ITERATION",
+        "independent_e": null
+      }
+    ],
+    "physical_prefix_equal": 40,
+    "hash_identity_match": true,
+    "hash_lcp_covers_native_c": true,
+    "hash_lcp_tokens_values": [
+      112
+    ],
+    "native_c_values": [
+      112
+    ],
+    "e_equals_c_everywhere": true,
+    "evidence_failure_count": 0,
+    "contribution_to_primary_metric": "E == C == 112 on every audited pair, so the audited pairs contribute exactly 0 to Sigma(E-C)."
+  },
+  "history": {
+    "status": "SUPERSEDED_BY_ROUND_2_FOR_CURRENT_STATE",
+    "source": "phase3-concurrent-eligibility-rejection-audit-v1",
+    "question": "Is the producer's prefill COMPLETE AND VISIBLE to a same-wave consumer before the lookup?",
+    "audit_coverage": "one request pair per cell (40 pairs from 40 cells)",
+    "audit_row_count": 40,
+    "qualified_count": 0,
+    "rejected_count": 40,
+    "status_code": "FAIL_CLOSED",
+    "uses_c_to_compute_e": false,
+    "independently_qualified_e_values": [
+      "0"
+    ],
+    "qualification_result": "REJECTED_SAME_WAVE_PREFILL_NOT_COMPLETE_BEFORE_CONSUMER_LOOKUP"
+  },
+  "semantic_difference": "Round 1 asks about *visibility and completion timing* of the producer's prefill; round 2 asks about *physical block identity and forward-batch source binding*. A pair can bind the same physical prefix while still failing round 1's visibility criterion, so the two counts are not a correction of one another.",
+  "what_does_not_change": "Either way, every audited pair has hash_lcp_tokens == native_c == 112, so E == C there and the audited pairs contribute 0 to Sigma(E-C). The direction of the residual uncertainty is conservative, and uses_c_to_compute_e is false in both rounds, so the arm-independence requirement on E is not violated.",
+  "remaining_open_item": "4 pair(s) still need a separate earlier-forward ordering proof; the audit covers one pair per cell, so the remaining request pairs are unverified in either round.",
+  "adjudication": "Independent of G4 and of the design choice. It must not block, and must not be blocked by, the Option A'/E/F decision."
+}
