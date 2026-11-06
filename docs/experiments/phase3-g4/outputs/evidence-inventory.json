@@ -1,0 +1,175 @@
+{
+  "pack_path": "local/phase3-g4-reachability-analysis-pack-v1",
+  "pack_file_count": 260,
+  "pack_bytes": 219611921,
+  "pack_untracked": true,
+  "why_untracked": "the pack is ~209 MiB and lives under local/, which repository policy gitignores; committing it is not possible in this repository",
+  "delivery_status": {
+    "raw_pack_transferred_to_m1": false,
+    "manifest_committed": true,
+    "manifest_entry_count": 250,
+    "what_is_committed": "outputs/pack-sha256-manifest.txt and outputs/pack-metadata.json, plus the full derived analysis outputs",
+    "what_is_not_committed": "the executed-run material itself; a manifest proves integrity only for bytes that M1 already holds or obtains out of band",
+    "open_action": "M1 must transfer or locate the original pack directory and verify it against the committed manifest; until then the raw GPU evidence is referenced, not delivered"
+  },
+  "directories": [
+    {
+      "directory": "artifacts/phase3-concurrent-eligibility-rejection-audit-v1",
+      "evidence_kind": "OFFLINE_AUDIT_OVER_GPU_EVIDENCE",
+      "file_count": 3,
+      "bytes": 55946,
+      "note": "Round-1 eligibility audit"
+    },
+    {
+      "directory": "artifacts/phase3-load-calibration-analysis-v7",
+      "evidence_kind": "GPU_RAW_EXECUTION_EVIDENCE",
+      "file_count": 45,
+      "bytes": 4825988,
+      "note": "Per-run reports produced by the executed runs, plus the aggregate and qualification views over them."
+    },
+    {
+      "directory": "artifacts/phase3-load-calibration-inputs-v1",
+      "evidence_kind": "GPU_RAW_EXECUTION_EVIDENCE",
+      "file_count": 161,
+      "bytes": 213245456,
+      "note": "Per-cell frozen run inputs and freeze records for the 40 executed A0 runs (configs, token/prompt material). GPU-era input material."
+    },
+    {
+      "directory": "artifacts/phase3-load-calibration-iteration2-planning-v1",
+      "evidence_kind": "OFFLINE_DERIVED_ANALYSIS",
+      "file_count": 6,
+      "bytes": 81134,
+      "note": "Offline derivation from iteration-1 observations. status = PROPOSED_NOT_EXECUTED: none of these pressures has been run."
+    },
+    {
+      "directory": "artifacts/phase3-load-calibration-runs-v2",
+      "evidence_kind": "GPU_RAW_EXECUTION_EVIDENCE",
+      "file_count": 1,
+      "bytes": 21922,
+      "note": "Execution summary of the 40-run calibration batch: status, wall time, config hashes."
+    },
+    {
+      "directory": "artifacts/phase3-same-batch-physical-qualification-audit-v1",
+      "evidence_kind": "OFFLINE_AUDIT_OVER_GPU_EVIDENCE",
+      "file_count": 4,
+      "bytes": 63556,
+      "note": "Round-2 eligibility audit"
+    },
+    {
+      "directory": "artifacts/phase3-same-batch-runtime-evidence-inventory-v1",
+      "evidence_kind": "GPU_RAW_EXECUTION_EVIDENCE",
+      "file_count": 1,
+      "bytes": 6776,
+      "note": "Inventory of the runtime evidence captured during execution."
+    },
+    {
+      "directory": "artifacts/phase3-scheduler-and-run-mapping-audit-v1",
+      "evidence_kind": "OFFLINE_AUDIT_OVER_GPU_EVIDENCE",
+      "file_count": 4,
+      "bytes": 26429,
+      "note": "Scheduler / run mapping audit"
+    },
+    {
+      "directory": "artifacts/phase3-vllm-same-batch-source-audit-v1",
+      "evidence_kind": "OFFLINE_AUDIT_OVER_GPU_EVIDENCE",
+      "file_count": 4,
+      "bytes": 110339,
+      "note": "vLLM source audit"
+    },
+    {
+      "directory": "artifacts/phase3-vllm-same-batch-source-audit-v2",
+      "evidence_kind": "OFFLINE_AUDIT_OVER_GPU_EVIDENCE",
+      "file_count": 4,
+      "bytes": 198277,
+      "note": "vLLM source audit"
+    },
+    {
+      "directory": "artifacts/phase3-vllm-same-batch-source-audit-v3",
+      "evidence_kind": "OFFLINE_AUDIT_OVER_GPU_EVIDENCE",
+      "file_count": 3,
+      "bytes": 594200,
+      "note": "vLLM source audit"
+    },
+    {
+      "directory": "artifacts/phase3-vllm-same-batch-source-audit-v4",
+      "evidence_kind": "OFFLINE_AUDIT_OVER_GPU_EVIDENCE",
+      "file_count": 4,
+      "bytes": 267981,
+      "note": "vLLM source audit"
+    },
+    {
+      "directory": "artifacts/phase3-vllm-same-batch-source-audit-v5",
+      "evidence_kind": "OFFLINE_AUDIT_OVER_GPU_EVIDENCE",
+      "file_count": 4,
+      "bytes": 11966,
+      "note": "vLLM source audit"
+    },
+    {
+      "directory": "artifacts/phase3-vllm-same-batch-source-audit-v6",
+      "evidence_kind": "OFFLINE_AUDIT_OVER_GPU_EVIDENCE",
+      "file_count": 3,
+      "bytes": 20358,
+      "note": "vLLM source audit"
+    },
+    {
+      "directory": "artifacts/phase3-vllm-same-batch-source-audit-v7",
+      "evidence_kind": "OFFLINE_AUDIT_OVER_GPU_EVIDENCE",
+      "file_count": 4,
+      "bytes": 31421,
+      "note": "vLLM source audit"
+    },
+    {
+      "directory": "artifacts/phase3-vllm-same-batch-source-audit-v8",
+      "evidence_kind": "OFFLINE_AUDIT_OVER_GPU_EVIDENCE",
+      "file_count": 3,
+      "bytes": 7289,
+      "note": "vLLM source audit"
+    },
+    {
+      "directory": "artifacts/phase3-vllm-scheduler-iteration-source-audit-v1",
+      "evidence_kind": "OFFLINE_AUDIT_OVER_GPU_EVIDENCE",
+      "file_count": 1,
+      "bytes": 462,
+      "note": "vLLM scheduler source audit"
+    },
+    {
+      "directory": "artifacts/phase3-vllm-scheduler-iteration-source-audit-v2",
+      "evidence_kind": "OFFLINE_AUDIT_OVER_GPU_EVIDENCE",
+      "file_count": 2,
+      "bytes": 3021,
+      "note": "vLLM scheduler source audit"
+    }
+  ],
+  "evidence_separation": {
+    "gpu_raw_execution_evidence": [
+      "phase3-load-calibration-analysis-v7",
+      "phase3-load-calibration-inputs-v1",
+      "phase3-load-calibration-runs-v2",
+      "phase3-same-batch-runtime-evidence-inventory-v1"
+    ],
+    "offline_audits_over_gpu_evidence": [
+      "phase3-concurrent-eligibility-rejection-audit-v1",
+      "phase3-same-batch-physical-qualification-audit-v1",
+      "phase3-scheduler-and-run-mapping-audit-v1",
+      "phase3-vllm-same-batch-source-audit-v1",
+      "phase3-vllm-same-batch-source-audit-v2",
+      "phase3-vllm-same-batch-source-audit-v3",
+      "phase3-vllm-same-batch-source-audit-v4",
+      "phase3-vllm-same-batch-source-audit-v5",
+      "phase3-vllm-same-batch-source-audit-v6",
+      "phase3-vllm-same-batch-source-audit-v7",
+      "phase3-vllm-same-batch-source-audit-v8",
+      "phase3-vllm-scheduler-iteration-source-audit-v1",
+      "phase3-vllm-scheduler-iteration-source-audit-v2"
+    ],
+    "offline_derived_analysis": [
+      "phase3-load-calibration-iteration2-planning-v1"
+    ],
+    "note": "Only the first group is GPU execution output. Audits read it offline; the planning directory contains no executed run at all."
+  },
+  "reproduction_claims_this_analysis_does_not_make": [
+    "It does not reproduce a GPU experiment. No GPU command is issued.",
+    "Its CPU tests exercise the analysis code against synthetic fixtures and, when present, the local copy of the pack. They are unit and regression tests, not experimental replication.",
+    "Re-running this script regenerates the derived outputs. It does not regenerate the 40 executed runs, which would need new GPU authorisation."
+  ]
+}

@@ -2,8 +2,16 @@
 
 **Author**: M4
 **Status**: `OFFLINE_DESIGN_ANALYSIS` — no GPU, no new run, Protocol v3 unmodified, no Gate declared passed, **F not approved**.
-**Revision**: RC10 response to M1's second-round review (2026-11-06).
-**Companion**: `g4-reachability-analysis-and-revision-proposal.md`, and the committed outputs in `outputs/` (`option-f-report.json`, `h3-report.json`, `noise-selection-report.json`, `nesting-report.json`, `g-e-report.json`).
+**Revision**: RC10, plus the follow-up corrections to RC10-1 / RC10-5 / evidence delivery (2026-11-06).
+**Companion**: `g4-reachability-analysis-and-revision-proposal.md`, and the committed outputs in `outputs/` (`option-f-report.json`, `h3-report.json`, `noise-selection-report.json`, `nesting-report.json`, `g-e-report.json`, `evidence-inventory.json`).
+
+### 0.0 What changed in this follow-up
+
+| Item | Previous | Now |
+|---|---|---|
+| G-E | `hash_lcp_tokens == native_c` used as proof of `E == C`; `evidence_failure_count` hardcoded 0; a global zero contribution asserted | **Three quantities reported separately** (hash LCP / native C / independently qualified E). E summarized on the **36 qualified rows only**; the 4 pending rows stay `PENDING_EARLIER_FORWARD_ORDER_PROOF` with **no established E**. Contribution is `0 tokens over 36 rows` and `UNDETERMINED_PENDING_QUALIFICATION` on 4. Failures **counted** from the audit's own list plus per-row integrity checks. §1 |
+| Noise variance | "pooled within-cell SD, df 20" with weights described loosely | **One frozen estimator**, an explicit **common-variance** assumption with three justifications, target-population stratum weights stated and shown **not** to be the cell weights, stratified outputs required as **`DIAGNOSTIC_ONLY`**, and a no-post-run-change clause. §7.3 |
+| Evidence delivery | Manifest committed, described as if delivery were complete | Delivery status stated as **`raw_pack_transferred_to_m1 = false`**; GPU raw evidence, offline audits and derived analysis classified in `evidence-inventory.json`; explicit statement that CPU tests are **not** GPU reproduction. Appendix D |
 
 ---
 
@@ -38,18 +46,16 @@ Source: `phase3-same-batch-physical-qualification-audit-v1`, M6 recompute at git
 
 | Field | Value |
 |---|---|
-| Question | Do producer and consumer resolve the same **physical prefix blocks** under a bound forward-batch source? |
+| Question | Do producer and consumer resolve the same **physical prefix blocks** under a bound forward-batch source, and is the pair therefore eligible? |
 | Rows | 40 |
 | `QUALIFIED_SAME_BATCH_SHARED_PREDECESSOR` | **36** |
 | `PENDING_EARLIER_FORWARD_ORDER_PROOF` | **4** |
-| `physical_prefix_equal` | **40 / 40** |
-| `all_hash_identity_match` | true |
-| `all_hash_lcp_covers_native_c` | true |
-| `hash_lcp_tokens` | 112 on all 40 |
-| `native_c` | 112 on all 40 |
-| Evidence failure | **0** |
+| `hash_lcp_tokens` | 112 on all **40** rows |
+| `native_c` | 112 on all **40** rows |
+| `independently_qualified_e` | 112 on **36** rows; **undefined on the 4 pending rows** |
+| Evidence failures | **0 recorded + 0 per-row integrity = 0** |
 
-The four pending pairs are **g08 C1, g08 C2, g20 C1, g20 C2**, all carrying `forward_relation = EARLIER_FORWARD_ORDER_NEEDS_SEPARATE_PROOF` and `scheduler_relation = EARLIER_SCHEDULER_ITERATION`. They are *pending an additional proof*, not rejected.
+The four pending pairs are **g08 C1, g08 C2, g20 C1, g20 C2**, all carrying `forward_relation = EARLIER_FORWARD_ORDER_NEEDS_SEPARATE_PROOF` and `scheduler_relation = EARLIER_SCHEDULER_ITERATION`. They are *pending an additional proof*, not rejected, and they have **no established E**.
 
 ### 1.2 Round 1 — history, retained
 
@@ -68,14 +74,22 @@ Source: `phase3-concurrent-eligibility-rejection-audit-v1`.
 
 ### 1.3 Why the two are not a correction of one another
 
-> Round 1 asks about **visibility and completion timing** of the producer's prefill. Round 2 asks about **physical block identity and forward-batch source binding**. A pair can bind the same physical prefix while still failing round 1's visibility criterion.
+> Round 1 asks about **visibility and completion timing** of the producer's prefill. Round 2 asks about **physical block identity and forward-batch source binding**, and additionally requires the **forward-order proof** before a pair counts as eligible. A pair can bind the same physical prefix while still failing round 1's visibility criterion, and a pair can bind the same physical prefix while still being *pending* the order proof.
 
 So the previous document's sentence — "40/40 rejected, FAIL_CLOSED" — is **no longer a correct description of the current state**, even though no round-1 row changed. It is now reported as history, with its own question attached.
 
-### 1.4 What does not change
+### 1.4 What does not change, and what must not be asserted
 
-- `hash_lcp_tokens == native_c == 112` on **every** audited pair, in **both** rounds, so `E = C` there and the audited pairs contribute exactly **0** to `Σ(E−C)`. The direction of the residual uncertainty is conservative.
-- `uses_c_to_compute_e` is false in both rounds, so §3.2's arm-independence requirement on `E` is **not** violated.
+Not asserted any more (RC10-1 fix):
+
+- **`hash_lcp_tokens == native_c` does not prove `E == C`.** Those are content-hash and native-prefix measurements; eligibility additionally needs the forward-order proof. Physical prefix equality is **necessary but not sufficient**.
+- **A null `independent_e` is not a conservative zero.** On the 4 pending rows E was never established, so neither equality nor a zero contribution may be claimed; the correct state is `UNDETERMINED_PENDING_QUALIFICATION`.
+- **`evidence_failure_count` is not a constant.** It is derived from the audit's own `evidence-failures.json` (0 records) plus per-row integrity checks (0 failures) — currently 0 + 0 = 0.
+
+What does hold:
+
+- `Σ(E−C)` is judged **only** where the pair was qualified and E was produced: **0 tokens over 36 rows**. Overall verdict `PARTIAL_DETERMINATE`.
+- `uses_c_to_compute_e` is false in both rounds, so §3.2's arm-independence requirement on `E` is **not** violated. That is a separate claim from whether an `E` value exists.
 - The audit covers **one pair per cell**, so the remaining request pairs are unverified in either round.
 - **G-E remains independent of G4 and of the design choice.** It must not block, and must not be blocked by, the A′/E/F decision.
 
@@ -321,24 +335,31 @@ F needs pairs, so its noise sample **must** come from the 18 paired groups: a `�
 
 Current draw: **g01, g04, g06, g07, g10** (FLAT: g01; RESPONSIVE: g04, g10; WEAK: g06, g07).
 
-### 7.3 Variance estimation and weights
+### 7.3 Variance estimation — one frozen rule (RC10-5 item 2)
 
-| Item | Rule |
+> **Frozen rule.** `σ_run` is the **pooled within-cell SD** of per-run `Σ(E−C)` over the **10 sampled cells** (5 groups × 2 conditions), with **equal weight per cell** and **df = 10 × (3 − 1) = 20**. `σ_δ = √2·σ_run`; `tied = 2√2·σ_run`. No other estimator is permitted for this campaign, and the rule may not be revised once the noise runs exist.
+
+| Item | Value |
 |---|---|
-| `σ_run` | pooled within-cell SD of per-run `Σ(E−C)` over **10 cells** (5 groups × 2 conditions) with R=3 |
+| Assumption adopted | **common within-cell variance** (homoscedastic) across strata and conditions |
+| Justification 1 | every sampled cell has the same `R = 3`, so the pooled estimator is balanced rather than weighted by unequal cell counts |
+| Justification 2 | the design needs **one** absolute `tied` threshold applied uniformly to the paired population; per-stratum thresholds would make "tied" depend on which stratum a cell landed in, and no protocol section defines that |
+| Justification 3 | per-stratum estimates would rest on 4 cells (df 4) each — too unstable to freeze as a threshold |
 | df | **20**; relative SE of `σ_run` ≈ **15.8 %** |
-| weights | equal per cell, since every cell has the same R. It is a **stratified pool** — a design-based estimate for the paired population, not a variance of the 20-group pool |
-| reporting | **stratum-specific `σ_run` is required alongside the pooled value**, because the draw is stratified and not a simple random sample |
-| `σ_δ` | `√2 · σ_run` under independent equal variance |
-| `tied` | `2√2 · σ_run` |
-| interaction | **no `tied` classification**: it needs the within-group correlation of the two condition deltas, which is unmeasured → `UNDEFINED_ASSUMPTION` |
+| Weights (cell) | equal per cell — **not** proportional to the population stratum shares |
+| Target-population stratum weights | `RESPONSIVE 7/18 = 0.389`, `WEAK 8/18 = 0.444`, `FLAT 3/18 = 0.167` |
+| Why the two differ | FLAT supplies **2 of 10 cells (20 %)** while being **3 of 18 groups (16.7 %)**; the pooled value is a design-based summary of the sampled cells, not a population-weighted variance |
+| Stratified outputs | per-stratum `σ_run` and the max/min stratum ratio are **required** |
+| Status of stratified outputs | **`DIAGNOSTIC_ONLY`** — the pooled rule stands regardless of the ratio; switching to per-stratum thresholds after seeing the diagnostic would violate S9 and would need a fresh amendment *before* the run |
+| Interaction | **no `tied` classification**: it needs the within-group correlation of the two condition deltas, which is unmeasured → `UNDEFINED_ASSUMPTION` |
 
 ### 7.4 v4 noise clause changes
 
 1. Replace "independent of the Headroom screening" with "independent of the Headroom **decision procedure**, conditioned on its outcome, drawn by the G0-frozen deterministic rule".
 2. State that `σ_run` estimates the **paired** population and that groups failing Headroom at either condition are not sampled.
-3. Require stratum-specific `σ_run` alongside the pooled value.
-4. Keep the 30-run budget and A0-only design unchanged; only the sampling frame and reporting obligations change.
+3. Require stratum-specific `σ_run` and the max/min ratio **as `DIAGNOSTIC_ONLY`**, explicitly stating that the pooled rule stands regardless.
+4. **Freeze the estimator in the protocol text**: pooled within-cell SD, equal cell weight, df 20, `σ_δ = √2·σ_run`, `tied = 2√2·σ_run`, common-variance assumption with its three justifications, and no post-run change.
+5. Keep the 30-run budget and A0-only design unchanged; only the sampling frame, the estimator text and the reporting obligations change.
 
 ---
 
@@ -462,7 +483,9 @@ python scripts/probes/phase3_g4_reachability/reachability_analysis.py \
 
 ## Appendix B — Tests
 
-`pytest tests/test_g4_reachability_analysis.py -q` → **72 passed**, CPU only, no network, no writes outside `tmp_path`. The committed log is `outputs/cpu-test-run.txt`. (This supersedes the 63 figure quoted before RC10, which added 9 tests.)
+`pytest tests/test_g4_reachability_analysis.py -q` → **87 passed**, CPU only, no network, no writes outside `tmp_path`. The committed log is `outputs/cpu-test-run.txt`. (This supersedes the 72 figure quoted before this revision, which added 15 tests.)
+
+**What these tests are.** They are **unit and regression tests of the analysis code**, not a reproduction of a GPU experiment. They run against synthetic fixtures and, when present, the local copy of the pack. No GPU command is issued, and re-running the script regenerates derived outputs only — it does not regenerate the 40 executed runs.
 
 RC10 coverage:
 
@@ -473,7 +496,9 @@ RC10 coverage:
 | RC10-4 nesting | F ⊃ E and F ⊃ A′; E and A′ not nested; g03 and g16 move (1) |
 | RC10-5 noise | decision vs population independence; allocation; determinism across two runs; df; 4 v4 amendments (1) |
 | RC10-6 population | four levels; scope warning that the paired primary is not a 20-group estimate (inside the real-pack test) |
-| RC10-1 G-E | round 2 is current (36/4, 0 failures, E==C); round 1 retained as history (1) |
+| RC10-1 G-E | round 2 is current (36/4); E summarised **only** on qualified rows; hash LCP / native C / E reported separately; pending rows stay `NOT_ESTABLISHED`; missing and contradictory evidence cases; failures counted not assumed (12) |
+| RC10-5 noise | single frozen estimator, common-variance justification, stratum weights, diagnostic-only status (2) |
+| Evidence inventory | GPU raw vs offline audit vs derived; delivery status; synthetic classification (2) |
 | RC10-7 conditions | `cell-classification.json` carries the `L_LOW→C1` / `L_HIGH→C2` mapping |
 
 ## Appendix C — What F cannot deliver
@@ -488,34 +513,66 @@ RC10 coverage:
 
 ## Appendix D — How M1 obtains and verifies the evidence pack
 
+### D.1 Delivery status, stated plainly
+
 | Item | Value |
 |---|---|
 | Path | `local/phase3-g4-reachability-analysis-pack-v1/` |
 | Tracked by git | **no** — `local/` is gitignored by repository policy |
-| Size | 260 files, **209.4 MiB** |
+| Size | **260 files, 209.4 MiB** (computed by the script, not by hand) |
 | Manifest | committed as `outputs/pack-sha256-manifest.txt` (**250 entries**) |
 | Metadata | committed as `outputs/pack-metadata.json` |
 | Provenance | M1-provided read-only bundle, `created_at_utc 2026-11-05T12:28:20Z`, git `712b3fc`, `gpu_execution_included: false` |
+| **Raw pack transferred to M1** | **NO** — it cannot be committed at this size |
+| Manifest committed | yes, but a manifest proves integrity only for bytes M1 already holds or obtains out of band |
 
-**Verification procedure for a transferred copy:**
+**This is the honest state.** The 250-entry manifest and the derived outputs are in Git; the 209 MiB of
+executed-run material is not, and no amount of manifest checking changes that. Until the directory is
+transferred or located, the raw GPU evidence is **referenced, not delivered**. `outputs/evidence-inventory.json`
+records this as `delivery_status.raw_pack_transferred_to_m1 = false` with the matching open action.
+
+### D.2 What is GPU evidence and what is derived
+
+The pack's 18 `artifacts/` directories are classified in `outputs/evidence-inventory.json`:
+
+| Class | Directories | Meaning |
+|---|---:|---|
+| **GPU raw execution evidence** | **4** | `phase3-load-calibration-inputs-v1`, `phase3-load-calibration-analysis-v7`, `phase3-load-calibration-runs-v2`, `phase3-same-batch-runtime-evidence-inventory-v1` — the executed runs, their inputs, their per-run reports and their execution summary |
+| **Offline audits over GPU evidence** | **13** | the two eligibility audits, the scheduler/run mapping audit, and the vLLM source audits. They *read* execution output; they do not produce runs |
+| **Offline derived analysis** | **1** | `phase3-load-calibration-iteration2-planning-v1`, whose status is `PROPOSED_NOT_EXECUTED` — none of those pressures has ever been run |
+| Unclassified | 0 | the script reports any unclassified directory rather than silently bucketing it |
+
+### D.3 What this analysis does not claim
+
+- It does **not** reproduce a GPU experiment. No GPU command is issued anywhere in it.
+- Its CPU tests are **unit and regression tests of the analysis code**, run against synthetic fixtures
+  and, when present, the local pack. They are **not** experimental replication.
+- Re-running the script regenerates the derived outputs only; it does not regenerate the 40 executed runs.
+
+### D.4 Verification procedure for a transferred copy
 
 ```bash
 # from the root of the transferred pack
 python - <<'EOF'
 import hashlib, pathlib, sys
+manifest = pathlib.Path("sha256-manifest.txt").read_text().splitlines()
 bad = 0
-for line in pathlib.Path("sha256-manifest.txt").read_text().splitlines():
+checked = 0
+for line in manifest:
     if not line.strip():
         continue
     digest, _, rel = line.partition("  ")
     p = pathlib.Path(rel.strip())
     actual = hashlib.sha256(p.read_bytes()).hexdigest() if p.is_file() else None
+    checked += 1
     if actual != digest:
         bad += 1
         print("MISMATCH", rel, actual)
-print("checked", "250 entries;", "failures:", bad)
+print(f"checked {checked} entries; failures: {bad}")
 sys.exit(1 if bad else 0)
 EOF
 ```
 
-Then run the analysis against the copy and compare `outputs/` file-by-file; the script re-verifies the five pinned planning inputs and the proposal's own `source_observations_sha256` before computing anything.
+Then run the analysis against the copy and compare `outputs/` file-by-file; the script re-verifies
+the five pinned planning inputs and the proposal's own `source_observations_sha256` before computing
+anything.
