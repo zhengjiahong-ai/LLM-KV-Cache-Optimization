@@ -42,15 +42,22 @@
 10. G0 independently verifies the Formal/Native Run-ID bijection, the complete
     calibration 20×2 Cell set, Native run schema/identity/success, and each
     calibration report's schema, A0 identity, status, and Manifest membership.
+11. The primary paired population is independently recomputed from the two
+    frozen Headroom booleans and must exactly match the frozen 18-Group list.
+    Stratum effects use its FLAT/WEAK/RESPONSIVE intersections (3/8/7 Groups),
+    while H3-R remains the separate registered 9-Group/16-Cell population.
+12. G0 additionally requires 20 unique Cohort Seal Group IDs exactly equal to
+    the A0 calibration Manifest Group-ID set.
 
 ## Validation state
 
 Targeted Option F, calibration, N/E/C, materializer, and accepted G4 analysis
-tests pass (`158 passed, 7 skipped`), including negative tests for
+tests pass (`161 passed, 7 skipped`), including negative tests for
 repeat/Run-ID/stratum drift, incomplete or duplicate Main grids, negative
 `delta_rho`, malformed report identities, and non-bijective Formal/Native
-mappings. Full CPU regression on the clean implementation HEAD passed with
-`1915 passed, 15 skipped`; Ruff and `git diff --check` passed.
+mappings, paired-population tampering, and altered or duplicate Seal Group IDs.
+Full CPU regression must be rerun on the final clean implementation HEAD; Ruff
+and `git diff --check` pass on the current changes.
 
 The v2 G0 artifact was regenerated on the server holding the Cohort Seal, 40
 calibration inputs, and v7 reports, without reacquiring tasks or rerunning A0.
@@ -59,5 +66,7 @@ Its freeze manifest SHA-256 is
 the external archive SHA-256 is
 `ea1a49037543c850471b1e94b1b0cf4b3a67935de097c908fd2552026f53b47a`.
 Local archive validation passed. Every generated input remains unauthorized.
-Noise Calibration and the Main Campaign remain locked until their respective
-M1 gate decisions.
+It remains immutable historical review evidence; the final implementation must
+generate a v3 bundle exercising the added Seal Group-ID check. Noise
+Calibration and the Main Campaign remain locked until their respective M1 gate
+decisions.

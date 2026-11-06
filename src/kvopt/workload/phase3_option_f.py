@@ -617,7 +617,14 @@ def build_g0_freeze_candidate(
         raise ValueError("Option F requires the frozen 20-group Cohort Seal")
     tasks: list[str] = []
     repositories: set[str] = set()
+    seal_group_ids: list[str] = []
     for group in groups:
+        if not isinstance(group, Mapping):
+            raise TypeError("Cohort group must be an object")
+        group_id = group.get("group_id")
+        if not isinstance(group_id, str):
+            raise TypeError("Cohort group lacks its frozen group_id")
+        seal_group_ids.append(group_id)
         sessions = group.get("sessions")
         if not isinstance(sessions, list) or len(sessions) != 2:
             raise ValueError("each Cohort group must have two sessions")
@@ -629,11 +636,16 @@ def build_g0_freeze_candidate(
         repositories.update(repos)
     if len(tasks) != 40 or len(set(tasks)) != 40 or len(repositories) < 10:
         raise ValueError("Cohort does not satisfy 40-task/10-repository freeze")
+    if len(set(seal_group_ids)) != 20:
+        raise ValueError("Cohort Seal group IDs must be unique")
     if manifest.get("schema_version") != "phase3.load_calibration_manifest.v1":
         raise ValueError("unsupported A0 calibration manifest")
     if manifest.get("cohort_seal_sha256") != _sha256(cohort_seal_path):
         raise ValueError("A0 calibration manifest is not bound to this Cohort Seal")
     inventory = _validate_calibration_inventory(calibration_manifest_path, manifest)
+    manifest_group_ids = {str(row["group_id"]) for row in inventory}
+    if set(seal_group_ids) != manifest_group_ids:
+        raise ValueError("Cohort Seal group IDs differ from the A0 calibration manifest")
     required_evidence = {
         "execution_summary",
         "formal_to_native_run_map",
@@ -887,6 +899,13 @@ def evaluate_option_f_results(
                 raise TypeError("Option F classification Headroom cell must be an object")
             if not isinstance(cell.get("headroom_eligible"), bool):
                 raise TypeError("Option F classification lacks frozen Headroom booleans")
+            _number(cell.get("rho0"), f"{group}/{condition} rho0")
+        expected_stratum = _stratum(
+            _number(row["C2"].get("rho0"), f"{group}/C2 rho0")
+            - _number(row["C1"].get("rho0"), f"{group}/C1 rho0")
+        )
+        if stratum != expected_stratum:
+            raise ValueError("Option F classification stratum differs from frozen rho0 values")
         groups[group] = row
         strata[str(stratum)].append(group)
     frozen_groups = {f"g{index:02d}" for index in range(1, 21)}
@@ -917,9 +936,23 @@ def evaluate_option_f_results(
     }
     if set(values) != expected_results:
         raise ValueError("Option F result grid differs from the frozen 20x2x6 set")
-    paired = list(classification["paired_primary_groups"])
-    if len(paired) != 18 or len(set(paired)) != 18 or not set(paired) <= frozen_groups:
+    paired = [
+        group
+        for group, metadata in groups.items()
+        if all(metadata[condition]["headroom_eligible"] for condition in CONDITIONS)
+    ]
+    frozen_paired = classification.get("paired_primary_groups")
+    if not isinstance(frozen_paired, list) or not all(
+        isinstance(group, str) for group in frozen_paired
+    ):
+        raise TypeError("Option F classification lacks its paired primary population")
+    if frozen_paired != paired or len(paired) != 18:
         raise ValueError("Option F paired primary population differs from the freeze")
+    responsive_pairs = [
+        group for group in paired if groups[group]["pressure_response_stratum"] == "RESPONSIVE"
+    ]
+    if len(responsive_pairs) != 7:
+        raise ValueError("Option F responsive paired population differs from the freeze")
 
     per_condition = {}
     primary = {}
@@ -957,18 +990,12 @@ def evaluate_option_f_results(
         }
         stratified[arm] = {}
         for stratum in NOISE_ALLOCATION:
-            stratum_groups = sorted(strata[stratum])
+            stratum_groups = sorted(set(strata[stratum]) & set(paired))
             stratum_values = []
             cell_count = 0
             for group in stratum_groups:
-                eligible = [
-                    condition
-                    for condition in CONDITIONS
-                    if groups[group][condition]["headroom_eligible"]
-                ]
-                if not eligible:
-                    raise ValueError("a frozen stratum Group has no Headroom-qualified cell")
-                cell_count += len(eligible)
+                eligible = list(CONDITIONS)
+                cell_count += len(CONDITIONS)
                 stratum_values.append(
                     statistics.mean(
                         values[(group, condition, arm)] - values[(group, condition, "A0")]
@@ -978,6 +1005,8 @@ def evaluate_option_f_results(
             stratified[arm][stratum] = {
                 "N_analyzed": len(stratum_groups),
                 "cell_count": cell_count,
+                "group_ids": stratum_groups,
+                "population": "PAIRED_PRIMARY_INTERSECT_STRATUM",
                 "statistical_unit": "GROUP",
                 "within_group_conditions_averaged_first": True,
                 "mean_delta": statistics.mean(stratum_values),
@@ -986,9 +1015,6 @@ def evaluate_option_f_results(
             (values[(group, "C2", arm)] - values[(group, "C2", "A0")])
             - (values[(group, "C1", arm)] - values[(group, "C1", "A0")])
             for group in paired
-        ]
-        responsive_pairs = [
-            group for group in paired if groups[group]["pressure_response_stratum"] == "RESPONSIVE"
         ]
         interaction_b = [
             (values[(group, "C2", arm)] - values[(group, "C2", "A0")])
@@ -1002,7 +1028,8 @@ def evaluate_option_f_results(
                 "verdict_allowed": True,
             },
             "Interaction_B": {
-                "N_analyzed": 7,
+                "N_analyzed": len(responsive_pairs),
+                "group_ids": responsive_pairs,
                 "mean": statistics.mean(interaction_b),
                 "verdict_allowed": False,
                 "status": "DIAGNOSTIC_ONLY_BELOW_MINIMUM_8",

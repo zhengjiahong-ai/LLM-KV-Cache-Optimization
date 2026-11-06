@@ -434,7 +434,11 @@ def test_option_f_statistics_keep_groups_as_units() -> None:
     assert result["interactions"]["A3"]["Interaction_B"]["verdict_allowed"] is False
     assert result["stratified_effects"]["A3"]["FLAT"]["N_analyzed"] == 3
     assert result["stratified_effects"]["A3"]["WEAK"]["N_analyzed"] == 8
-    assert result["stratified_effects"]["A3"]["RESPONSIVE"]["N_analyzed"] == 9
+    assert result["stratified_effects"]["A3"]["RESPONSIVE"]["N_analyzed"] == 7
+    assert result["stratified_effects"]["A3"]["FLAT"]["cell_count"] == 6
+    assert result["stratified_effects"]["A3"]["WEAK"]["cell_count"] == 16
+    assert result["stratified_effects"]["A3"]["RESPONSIVE"]["cell_count"] == 14
+    assert result["interactions"]["A3"]["Interaction_B"]["N_analyzed"] == 7
     assert all(
         row["within_group_conditions_averaged_first"]
         for row in result["stratified_effects"]["A3"].values()
@@ -456,6 +460,27 @@ def test_main_evaluator_rejects_group_substitution_and_duplicate_cells() -> None
     ]
     rows[0]["group_id"] = "g21"
     with pytest.raises(ValueError, match="duplicate or invalid"):
+        evaluate_option_f_results(rows, classification)
+
+
+def test_main_evaluator_rejects_tampered_paired_population() -> None:
+    classification = classify_calibration_reports(_reports())
+    rows = [
+        {
+            "group_id": f"g{index:02d}",
+            "condition": condition,
+            "arm": arm,
+            "aggregate_recomputed_tokens": 1_000,
+        }
+        for index in range(1, 21)
+        for condition in ("C1", "C2")
+        for arm in ("N0", "A0", "A1", "A2", "A3", "E0")
+    ]
+    paired = list(classification["paired_primary_groups"])
+    assert "g09" not in paired
+    classification["paired_primary_groups"] = [*paired[1:], "g09"]
+
+    with pytest.raises(ValueError, match="paired primary population"):
         evaluate_option_f_results(rows, classification)
     rows[0]["group_id"] = "g01"
     rows[1] = dict(rows[0])
@@ -505,6 +530,30 @@ def test_g0_candidate_binds_seal_manifest_and_reports(tmp_path: Path) -> None:
     assert result["execution_authorized"] is False
     assert result["gates"]["G4"] == "PASS_HEADROOM_38_OF_40"
     assert json.loads((tmp_path / "g0/noise-run-plan.json").read_text())["planned_run_count"] == 30
+
+
+@pytest.mark.parametrize("corruption", ["duplicate", "substitute"])
+def test_g0_rejects_cohort_group_ids_that_differ_from_manifest(
+    tmp_path: Path, corruption: str
+) -> None:
+    seal, manifest, paths, evidence = _g0_inputs(tmp_path)
+    seal_document = json.loads(seal.read_text())
+    seal_document["groups"][1]["group_id"] = (
+        seal_document["groups"][0]["group_id"] if corruption == "duplicate" else "g99"
+    )
+    seal.write_text(json.dumps(seal_document), encoding="utf-8")
+    manifest_document = json.loads(manifest.read_text())
+    manifest_document["cohort_seal_sha256"] = hashlib.sha256(seal.read_bytes()).hexdigest()
+    manifest.write_text(json.dumps(manifest_document), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="group IDs"):
+        build_g0_freeze_candidate(
+            cohort_seal_path=seal,
+            calibration_manifest_path=manifest,
+            report_paths=paths,
+            evidence_bindings=evidence,
+            output_dir=tmp_path / "g0",
+        )
 
 
 @pytest.mark.parametrize("corruption", ["duplicate_formal", "duplicate_native"])
