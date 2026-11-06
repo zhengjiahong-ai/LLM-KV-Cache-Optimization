@@ -535,12 +535,16 @@ records this as `delivery_status.raw_pack_transferred_to_m1 = false` with the ma
 
 The pack's 18 `artifacts/` directories are classified in `outputs/evidence-inventory.json`:
 
-| Class | Directories | Meaning |
+| Class | Directories / files | Meaning |
 |---|---:|---|
-| **GPU raw execution evidence** | **4** | `phase3-load-calibration-inputs-v1`, `phase3-load-calibration-analysis-v7`, `phase3-load-calibration-runs-v2`, `phase3-same-batch-runtime-evidence-inventory-v1` — the executed runs, their inputs, their per-run reports and their execution summary |
-| **Offline audits over GPU evidence** | **13** | the two eligibility audits, the scheduler/run mapping audit, and the vLLM source audits. They *read* execution output; they do not produce runs |
-| **Offline derived analysis** | **1** | `phase3-load-calibration-iteration2-planning-v1`, whose status is `PROPOSED_NOT_EXECUTED` — none of those pressures has ever been run |
-| Unclassified | 0 | the script reports any unclassified directory rather than silently bucketing it |
+| **Frozen execution inputs** | **1 directory** | `phase3-load-calibration-inputs-v1` — frozen configs, traces, prompts and freeze records; inputs, not execution outputs |
+| **Per-run execution reports** | **40 files** | `phase3-load-calibration-analysis-v7/runs/` — the 40 per-cell A0 reports produced from the executed calibration runs |
+| **Mixed analysis directory** | **1 directory** | `phase3-load-calibration-analysis-v7` also contains aggregate, evidence-binding, evidence-failure and qualification outputs; the script classifies these files separately instead of labelling the whole directory as raw GPU evidence |
+| **Execution summary** | **1 directory** | `phase3-load-calibration-runs-v2` — status, wall time and config hashes |
+| **Runtime evidence inventory** | **1 directory** | `phase3-same-batch-runtime-evidence-inventory-v1` — a runtime evidence index, not a raw run |
+| **Offline audits over GPU evidence** | **13 directories** | the two eligibility audits, scheduler/run mapping audit and vLLM source audits; they read execution output but do not produce runs |
+| **Offline derived analysis** | **1 directory** | `phase3-load-calibration-iteration2-planning-v1`, status `PROPOSED_NOT_EXECUTED` |
+| **Unclassified files** | reported individually | any file not matching a frozen category is surfaced as `UNCLASSIFIED`; it is never silently folded into GPU evidence |
 
 ### D.3 What this analysis does not claim
 
@@ -573,6 +577,4 @@ sys.exit(1 if bad else 0)
 EOF
 ```
 
-Then run the analysis against the copy and compare `outputs/` file-by-file; the script re-verifies
-the five pinned planning inputs and the proposal's own `source_observations_sha256` before computing
-anything.
+Then run the analysis against the copy. Before computing any result, the entry point verifies **all 250 manifest entries** (missing files, malformed/duplicate paths, path escapes and hash mismatches fail closed), and requires the Round-1 audit, Round-2 qualification audit and `evidence-failures.json` to be covered by that manifest. It then verifies the five pinned planning inputs and the proposal's own `source_observations_sha256`. The `analysis-v7` directory is classified file-by-file; unknown files remain explicitly `UNCLASSIFIED`.

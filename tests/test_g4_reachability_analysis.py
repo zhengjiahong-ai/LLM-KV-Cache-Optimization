@@ -318,6 +318,82 @@ def test_verify_frozen_inputs_accepts_a_pack_that_matches_its_pins(
     assert mod.verify_frozen_inputs(pack) == pins
 
 
+def _write_test_manifest(pack: Path, relative_paths: list[str]) -> None:
+    lines = []
+    for relative in relative_paths:
+        digest = hashlib.sha256((pack / relative).read_bytes()).hexdigest()
+        lines.append(f"{digest}  {relative}")
+    (pack / "sha256-manifest.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def test_pack_manifest_verifies_all_entries_and_requires_g_e_sources(tmp_path: Path) -> None:
+    pack = _materialise_pack(
+        tmp_path,
+        {
+            relative: f"payload {relative}"
+            for relative in mod.G_E_REQUIRED_MANIFEST_PATHS
+        },
+    )
+    _write_test_manifest(pack, list(mod.G_E_REQUIRED_MANIFEST_PATHS))
+
+    result = mod.verify_pack_manifest(pack, expected_entries=3)
+
+    assert result["status"] == "VERIFIED"
+    assert result["entries_checked"] == 3
+    assert result["missing"] == 0
+    assert result["mismatches"] == 0
+
+
+def test_pack_manifest_fails_closed_when_a_listed_file_is_missing(tmp_path: Path) -> None:
+    pack = _materialise_pack(tmp_path, {"artifacts/extra.json": "{}"})
+    (pack / "sha256-manifest.txt").write_text(
+        f"{hashlib.sha256(b'{}').hexdigest()}  artifacts/missing.json\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(mod.InputIntegrityError, match="manifest file missing"):
+        mod.verify_pack_manifest(pack, expected_entries=1)
+
+
+def test_pack_manifest_fails_closed_on_a_hash_mismatch(tmp_path: Path) -> None:
+    pack = _materialise_pack(tmp_path, {"artifacts/extra.json": "{}"})
+    (pack / "sha256-manifest.txt").write_text(
+        f"{'0' * 64}  artifacts/extra.json\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(mod.InputIntegrityError, match="pack manifest hash mismatch"):
+        mod.verify_pack_manifest(pack, expected_entries=1)
+
+
+def test_pack_manifest_rejects_duplicate_and_unsafe_paths(tmp_path: Path) -> None:
+    pack = _materialise_pack(tmp_path, {"artifacts/extra.json": "{}"})
+    digest = hashlib.sha256(b"{}").hexdigest()
+    (pack / "sha256-manifest.txt").write_text(
+        f"{digest}  artifacts/extra.json\n{digest}  artifacts/extra.json\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(mod.InputIntegrityError, match="duplicate pack manifest path"):
+        mod.verify_pack_manifest(pack, expected_entries=2)
+
+    (pack / "sha256-manifest.txt").write_text(
+        f"{digest}  ../outside.json\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(mod.InputIntegrityError, match="unsafe pack manifest path"):
+        mod.verify_pack_manifest(pack, expected_entries=1)
+
+
+def test_pack_manifest_requires_all_three_g_e_source_files(tmp_path: Path) -> None:
+    one = mod.G_E_REQUIRED_MANIFEST_PATHS[0]
+    pack = _materialise_pack(tmp_path, {one: "{}"})
+    _write_test_manifest(pack, [one])
+
+    with pytest.raises(mod.InputIntegrityError, match="G-E source files are not covered"):
+        mod.verify_pack_manifest(pack, expected_entries=1)
+
+
 # --------------------------------------------------------------------------- #
 # model + evidence class
 # --------------------------------------------------------------------------- #
@@ -1182,6 +1258,108 @@ def _audit_row(
     }
 
 
+def _make_complete_g_e_rows() -> list[dict]:
+    rows = []
+    for group in range(1, mod.EXPECTED_GROUP_COUNT + 1):
+        for load_level in ("L_LOW", "L_HIGH"):
+            pending = group in {8, 20}
+            row = _audit_row(
+                f"g{group:02d}",
+                load_level,
+                qualification=mod.G_E_PENDING if pending else mod.G_E_QUALIFIED,
+                independent_e=None if pending else 112,
+            )
+            if pending:
+                row["forward_relation"] = "EARLIER_FORWARD_ORDER_NEEDS_SEPARATE_PROOF"
+                row["scheduler_relation"] = "EARLIER_SCHEDULER_ITERATION"
+            rows.append(row)
+    return rows
+
+
+def _make_g_e_pack(
+    root: Path,
+    *,
+    include_failure_file: bool = True,
+    failure_text: str = "[]\n",
+    round2_rows: list[dict] | None = None,
+) -> Path:
+    pack = root / "g-e-pack"
+    qual = pack / "artifacts/phase3-same-batch-physical-qualification-audit-v1"
+    round1 = pack / "artifacts/phase3-concurrent-eligibility-rejection-audit-v1"
+    analysis = pack / "artifacts/phase3-load-calibration-analysis-v7"
+    qual.mkdir(parents=True)
+    round1.mkdir(parents=True)
+    analysis.mkdir(parents=True)
+    (qual / "qualification-audit.json").write_text(
+        json.dumps(_make_complete_g_e_rows() if round2_rows is None else round2_rows),
+        encoding="utf-8",
+    )
+    (round1 / "qualification-rejection-audit.json").write_text(
+        json.dumps(
+            [
+                {
+                    "qualification_result": "REJECTED_SAME_WAVE_PREFILL_NOT_COMPLETE_BEFORE_CONSUMER_LOOKUP",
+                    "independently_qualified_e": None,
+                    "uses_c_to_compute_e": False,
+                }
+                for _ in range(mod.EXPECTED_CELL_COUNT)
+            ]
+        ),
+        encoding="utf-8",
+    )
+    if include_failure_file:
+        (analysis / "evidence-failures.json").write_text(failure_text, encoding="utf-8")
+    return pack
+
+
+def test_g_e_report_fails_closed_when_evidence_failures_file_is_missing(tmp_path: Path) -> None:
+    pack = _make_g_e_pack(tmp_path, include_failure_file=False)
+
+    with pytest.raises(mod.InputIntegrityError, match="evidence-failures.json"):
+        mod.g_e_report(pack)
+
+
+@pytest.mark.parametrize(
+    "failure_text",
+    ["{", '{"rows": "not-a-list"}', '{"rows": [null]}'],
+)
+def test_g_e_report_fails_closed_on_invalid_evidence_failure_payload(
+    tmp_path: Path, failure_text: str
+) -> None:
+    pack = _make_g_e_pack(tmp_path, failure_text=failure_text)
+
+    with pytest.raises((mod.InputIntegrityError, mod.InputSchemaError)):
+        mod.g_e_report(pack)
+
+
+def test_g_e_audit_rejects_duplicate_or_missing_group_load_pairs() -> None:
+    rows = _make_complete_g_e_rows()
+    rows[-1] = dict(rows[0])
+
+    with pytest.raises(mod.InputSchemaError, match="duplicate cell"):
+        mod.validate_qualification_audit(rows)
+
+
+def test_g_e_audit_rejects_incomplete_row_schema() -> None:
+    rows = _make_complete_g_e_rows()
+    rows[0].pop("forward_relation")
+
+    with pytest.raises(mod.InputSchemaError, match="missing keys"):
+        mod.validate_qualification_audit(rows)
+
+
+def test_row_integrity_checks_qualification_relations_and_block_counts() -> None:
+    row = _audit_row("g01", "L_LOW")
+    row["forward_relation"] = "EARLIER_FORWARD_ORDER_NEEDS_SEPARATE_PROOF"
+    row["required_shared_blocks"] = 8
+
+    failures = mod._row_integrity_failures(row)
+
+    assert "FORWARD_RELATION_INCONSISTENT_WITH_QUALIFICATION" in failures
+    assert "PRODUCER_PREFIX_BLOCK_COUNT_MISMATCH" in failures
+    assert "CONSUMER_PREFIX_BLOCK_COUNT_MISMATCH" in failures
+
+
 def test_qualified_rows_contribute_zero_only_when_e_is_established() -> None:
     rows = [
         _audit_row("g01", "L_LOW"),
@@ -1403,24 +1581,31 @@ def test_real_pack_evidence_inventory_separates_gpu_from_derived(tmp_path: Path)
     inventory = result["inventory"]
 
     separation = inventory["evidence_separation"]
-    assert "phase3-load-calibration-inputs-v1" in separation["gpu_raw_execution_evidence"]
-    assert "phase3-load-calibration-analysis-v7" in separation["gpu_raw_execution_evidence"]
+    assert "phase3-load-calibration-inputs-v1" in separation["frozen_execution_inputs"]
+    assert "phase3-load-calibration-analysis-v7" in separation["mixed_directories"]
+    assert "phase3-load-calibration-analysis-v7" in separation["per_run_execution_reports"]
+    assert "phase3-load-calibration-runs-v2" in separation["execution_summaries"]
     assert (
-        "phase3-load-calibration-iteration2-planning-v1" in separation["offline_derived_analysis"]
+        "phase3-same-batch-runtime-evidence-inventory-v1"
+        in separation["runtime_evidence_inventories"]
+    )
+    assert (
+        "phase3-load-calibration-iteration2-planning-v1"
+        in separation["offline_derived_analysis"]
     )
     assert (
         "phase3-same-batch-physical-qualification-audit-v1"
         in separation["offline_audits_over_gpu_evidence"]
     )
 
-    kinds = {entry["evidence_kind"] for entry in inventory["directories"]}
-    assert kinds <= {
-        "GPU_RAW_EXECUTION_EVIDENCE",
-        "OFFLINE_AUDIT_OVER_GPU_EVIDENCE",
-        "OFFLINE_DERIVED_ANALYSIS",
-        "UNCLASSIFIED",
-    }
-    assert "UNCLASSIFIED" not in kinds
+    directories = {entry["directory"]: entry for entry in inventory["directories"]}
+    analysis = directories["artifacts/phase3-load-calibration-analysis-v7"]
+    assert analysis["evidence_kind"] == "MIXED_PER_RUN_REPORTS_AND_OFFLINE_ANALYSIS"
+    assert analysis["file_class_counts"]["PER_RUN_EXECUTION_REPORT"] == 40
+    assert analysis["file_class_counts"]["OFFLINE_AUDIT_OR_AGGREGATE"] == 4
+    assert analysis["manifested_file_count"] == 44
+
+    assert separation["unclassified_directories"] == []
 
     delivery = inventory["delivery_status"]
     assert delivery["manifest_committed"] is True
@@ -1435,34 +1620,52 @@ def test_real_pack_evidence_inventory_separates_gpu_from_derived(tmp_path: Path)
     assert written["pack_file_count"] == inventory["pack_file_count"]
 
 
-def test_evidence_inventory_classifies_a_synthetic_pack(tmp_path: Path) -> None:
+def test_evidence_inventory_classifies_mixed_execution_and_analysis_files(tmp_path: Path) -> None:
     pack = tmp_path / "pack"
-    for name in (
-        "artifacts/phase3-load-calibration-runs-v2",
-        "artifacts/phase3-same-batch-physical-qualification-audit-v1",
-        "artifacts/phase3-load-calibration-iteration2-planning-v1",
-        "artifacts/mystery-dir",
-    ):
-        directory = pack / name
-        directory.mkdir(parents=True)
-        (directory / "row.json").write_text("{}\n", encoding="utf-8")
-    (pack / "sha256-manifest.txt").write_text("abc  row.json\n", encoding="utf-8")
+    files = {
+        "artifacts/phase3-load-calibration-inputs-v1/freeze.json": "{}\n",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g01-l-low-a0.json": "{}\n",
+        "artifacts/phase3-load-calibration-analysis-v7/aggregate-report.json": "{}\n",
+        "artifacts/phase3-load-calibration-analysis-v7/evidence-failures.json": "[]\n",
+        "artifacts/phase3-load-calibration-analysis-v7/qualification-audit.json": "[]\n",
+        "artifacts/phase3-load-calibration-analysis-v7/unexpected.bin": "x",
+        "artifacts/phase3-load-calibration-runs-v2/execution-summary.json": "{}\n",
+        "artifacts/phase3-same-batch-runtime-evidence-inventory-v1/runtime-evidence-inventory.json": "{}\n",
+        "artifacts/phase3-same-batch-physical-qualification-audit-v1/qualification-audit.json": "[]\n",
+        "artifacts/phase3-load-calibration-iteration2-planning-v1/proposal.json": "{}\n",
+        "artifacts/mystery-dir/row.json": "{}\n",
+    }
+    pack = _materialise_pack(tmp_path, files)
+    (pack / "sha256-manifest.txt").write_text("", encoding="utf-8")
 
     inventory = mod.evidence_inventory_report(pack)
-    kinds = {entry["directory"]: entry["evidence_kind"] for entry in inventory["directories"]}
+    entries = {entry["directory"]: entry for entry in inventory["directories"]}
 
-    assert kinds["artifacts/phase3-load-calibration-runs-v2"] == "GPU_RAW_EXECUTION_EVIDENCE"
+    assert entries["artifacts/phase3-load-calibration-inputs-v1"]["evidence_kind"] == "FROZEN_EXECUTION_INPUTS"
+    mixed = entries["artifacts/phase3-load-calibration-analysis-v7"]
+    assert mixed["evidence_kind"] == "MIXED_PER_RUN_REPORTS_AND_OFFLINE_ANALYSIS"
+    assert mixed["file_class_counts"] == {
+        "OFFLINE_AUDIT_OR_AGGREGATE": 3,
+        "PER_RUN_EXECUTION_REPORT": 1,
+        "UNCLASSIFIED": 1,
+    }
+    assert entries["artifacts/phase3-load-calibration-runs-v2"]["evidence_kind"] == "EXECUTION_SUMMARY"
     assert (
-        kinds["artifacts/phase3-same-batch-physical-qualification-audit-v1"]
+        entries["artifacts/phase3-same-batch-runtime-evidence-inventory-v1"]["evidence_kind"]
+        == "RUNTIME_EVIDENCE_INVENTORY"
+    )
+    assert (
+        entries["artifacts/phase3-same-batch-physical-qualification-audit-v1"]["evidence_kind"]
         == "OFFLINE_AUDIT_OVER_GPU_EVIDENCE"
     )
     assert (
-        kinds["artifacts/phase3-load-calibration-iteration2-planning-v1"]
+        entries["artifacts/phase3-load-calibration-iteration2-planning-v1"]["evidence_kind"]
         == "OFFLINE_DERIVED_ANALYSIS"
     )
-    assert kinds["artifacts/mystery-dir"] == "UNCLASSIFIED"
-    assert inventory["delivery_status"]["manifest_entry_count"] == 1
-    assert inventory["pack_file_count"] == 5  # 4 row.json + the manifest
+    assert entries["artifacts/mystery-dir"]["evidence_kind"] == "UNCLASSIFIED"
+    assert inventory["unclassified_file_count"] == 2
+    assert inventory["evidence_separation"]["unclassified_directories"] == ["mystery-dir"]
+    assert inventory["delivery_status"]["manifest_entry_count"] == 0
 
 
 # --------------------------------------------------------------------------- #

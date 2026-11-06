@@ -30,9 +30,10 @@ Design rules this script enforces (RC revision 2, 2026-11-06)
    values are retained in ``rho0_at_minimum_blocks`` for audit, flagged
    ``physically_valid = false``, and excluded from every ratio-based metric such
    as ``floor_share_of_low_measurement``.
-5. **Integrity.** Five frozen planning inputs are SHA-256 pinned and
-   cross-checked against the pack manifest; the proposal's own
-   ``source_observations_sha256`` must bind the pinned observation hash.
+5. **Integrity.** The complete 250-entry pack manifest is SHA-256 verified before
+   analysis, including all three G-E source files. Five frozen planning inputs are
+   additionally pinned; the proposal's own ``source_observations_sha256`` must bind
+   the pinned observation hash.
 
 Read-only. No GPU. No new calibration run is generated or executed.
 """
@@ -128,7 +129,14 @@ FROZEN_INPUTS: dict[str, str] = {
     f"{PLANNING_DIR}/iteration1-cell-observations.csv": (
         "2fb77aae8dd734860e7a3664f724fad2113db263ea63f806656abad4975179ec"
     ),
-}
+} 
+
+EXPECTED_PACK_MANIFEST_ENTRIES = 250
+G_E_REQUIRED_MANIFEST_PATHS = (
+    "artifacts/phase3-same-batch-physical-qualification-audit-v1/qualification-audit.json",
+    "artifacts/phase3-load-calibration-analysis-v7/evidence-failures.json",
+    "artifacts/phase3-concurrent-eligibility-rejection-audit-v1/qualification-rejection-audit.json",
+)
 
 #: The four inputs M1 designated, for the provenance report.
 M1_DESIGNATED_INPUTS = (
@@ -285,6 +293,90 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1 << 20), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def verify_pack_manifest(
+    pack: Path, *, expected_entries: int | None = EXPECTED_PACK_MANIFEST_ENTRIES
+) -> dict:
+    """Verify every entry in the frozen pack manifest before analysis.
+
+    The manifest intentionally does not hash itself or the additional pack
+    metadata files. Every listed artifact must exist, remain inside the pack,
+    have a unique relative path, and match its SHA-256 digest. The three source
+    files used by G-E are mandatory manifest entries, not optional conveniences.
+    """
+
+    manifest_path = pack / "sha256-manifest.txt"
+    if not manifest_path.is_file():
+        raise InputIntegrityError("pack manifest missing: sha256-manifest.txt")
+
+    pack_root = pack.resolve()
+    manifest: dict[str, str] = {}
+    for line_number, line in enumerate(
+        manifest_path.read_text(encoding="utf-8").splitlines(), start=1
+    ):
+        if not line.strip():
+            continue
+        digest, separator, relative = line.partition("  ")
+        relative = relative.strip()
+        if not separator or len(digest) != 64 or any(
+            character not in "0123456789abcdefABCDEF" for character in digest
+        ):
+            raise InputIntegrityError(
+                f"malformed pack manifest entry at line {line_number}"
+            )
+        if (
+            not relative
+            or relative.startswith("/")
+            or "\\" in relative
+            or any(part in {"", ".", ".."} for part in relative.split("/"))
+        ):
+            raise InputIntegrityError(
+                f"unsafe pack manifest path at line {line_number}: {relative!r}"
+            )
+        if relative in manifest:
+            raise InputIntegrityError(f"duplicate pack manifest path: {relative}")
+
+        candidate = pack.joinpath(*relative.split("/"))
+        try:
+            candidate.resolve().relative_to(pack_root)
+        except ValueError as exc:
+            raise InputIntegrityError(
+                f"pack manifest path escapes evidence pack: {relative}"
+            ) from exc
+        if not candidate.is_file():
+            raise InputIntegrityError(f"manifest file missing: {relative}")
+
+        actual = sha256_file(candidate)
+        if actual != digest.lower():
+            raise InputIntegrityError(
+                f"pack manifest hash mismatch for {relative}: "
+                f"expected {digest.lower()}, got {actual}"
+            )
+        manifest[relative] = actual
+
+    if not manifest:
+        raise InputIntegrityError("pack manifest contains no entries")
+    if expected_entries is not None and len(manifest) != expected_entries:
+        raise InputIntegrityError(
+            f"pack manifest entry count mismatch: expected {expected_entries}, "
+            f"got {len(manifest)}"
+        )
+
+    missing_g_e = sorted(set(G_E_REQUIRED_MANIFEST_PATHS) - set(manifest))
+    if missing_g_e:
+        raise InputIntegrityError(
+            f"G-E source files are not covered by pack manifest: {missing_g_e}"
+        )
+
+    return {
+        "status": "VERIFIED",
+        "manifest_path": "sha256-manifest.txt",
+        "entries_checked": len(manifest),
+        "missing": 0,
+        "mismatches": 0,
+        "required_g_e_paths": list(G_E_REQUIRED_MANIFEST_PATHS),
+    }
 
 
 def verify_frozen_inputs(pack: Path) -> dict[str, str]:
@@ -1940,33 +2032,135 @@ G_E_PENDING = "PENDING_EARLIER_FORWARD_ORDER_PROOF"
 
 
 def _row_integrity_failures(row: dict) -> list[str]:
-    """Per-row invariant checks, each answerable from the audit row itself.
-
-    These are *evidence integrity* checks, not eligibility checks. A row can pass
-    all of them and still be unqualified, because eligibility also requires a
-    forward-order proof that the physical-prefix columns do not contain.
-    """
+    """Check physical-prefix integrity and the qualification's causal relation."""
 
     failures: list[str] = []
-    if not row.get("physical_prefix_complete"):
+    if row.get("physical_prefix_complete") is not True:
         failures.append("PHYSICAL_PREFIX_INCOMPLETE")
-    if not row.get("physical_prefix_equal"):
+    if row.get("physical_prefix_equal") is not True:
         failures.append("PHYSICAL_PREFIX_MISMATCH")
-    if row.get("producer_prefix_block_ids") != row.get("consumer_prefix_block_ids"):
-        failures.append("PREFIX_BLOCK_ID_MISMATCH")
-    if not row.get("hash_function_match"):
+
+    producer_ids = row.get("producer_prefix_block_ids")
+    consumer_ids = row.get("consumer_prefix_block_ids")
+    if not isinstance(producer_ids, list) or not isinstance(consumer_ids, list):
+        failures.append("PREFIX_BLOCK_IDS_MISSING_OR_INVALID")
+    else:
+        if producer_ids != consumer_ids:
+            failures.append("PREFIX_BLOCK_ID_MISMATCH")
+        try:
+            if len(set(producer_ids)) != len(producer_ids):
+                failures.append("PREFIX_BLOCK_IDS_NOT_UNIQUE")
+        except TypeError:
+            failures.append("PREFIX_BLOCK_IDS_NOT_HASHABLE")
+
+    required_blocks = row.get("required_shared_blocks")
+    hash_blocks = row.get("hash_lcp_blocks")
+    if type(required_blocks) is not int or required_blocks < 0:
+        failures.append("REQUIRED_SHARED_BLOCKS_MISSING_OR_INVALID")
+    if type(hash_blocks) is not int or hash_blocks < 0:
+        failures.append("HASH_LCP_BLOCKS_MISSING_OR_INVALID")
+    if type(required_blocks) is int and type(hash_blocks) is int:
+        if required_blocks != hash_blocks:
+            failures.append("REQUIRED_SHARED_BLOCKS_NE_HASH_LCP_BLOCKS")
+    if type(required_blocks) is int and isinstance(producer_ids, list):
+        if len(producer_ids) != required_blocks:
+            failures.append("PRODUCER_PREFIX_BLOCK_COUNT_MISMATCH")
+    if type(required_blocks) is int and isinstance(consumer_ids, list):
+        if len(consumer_ids) != required_blocks:
+            failures.append("CONSUMER_PREFIX_BLOCK_COUNT_MISMATCH")
+
+    if row.get("hash_function_match") is not True:
         failures.append("HASH_FUNCTION_MISMATCH")
-    if not row.get("hash_process_match"):
+    if row.get("hash_process_match") is not True:
         failures.append("HASH_PROCESS_MISMATCH")
-    if row.get("required_shared_blocks") != row.get("hash_lcp_blocks"):
-        failures.append("REQUIRED_SHARED_BLOCKS_NE_HASH_LCP_BLOCKS")
     lcp_tokens = row.get("hash_lcp_tokens")
-    if not isinstance(lcp_tokens, int) or lcp_tokens < 0:
+    if type(lcp_tokens) is not int or lcp_tokens < 0:
         failures.append("HASH_LCP_TOKENS_MISSING_OR_INVALID")
-    if not isinstance(row.get("native_c"), int):
+    if type(row.get("native_c")) is not int:
         failures.append("NATIVE_C_MISSING_OR_INVALID")
+
+    qualification = row.get("qualification")
+    expected_relations = {
+        G_E_QUALIFIED: (
+            "SAME_FORWARD_BATCH_SOURCE_BOUND",
+            "SAME_SCHEDULER_ITERATION",
+        ),
+        G_E_PENDING: (
+            "EARLIER_FORWARD_ORDER_NEEDS_SEPARATE_PROOF",
+            "EARLIER_SCHEDULER_ITERATION",
+        ),
+    }
+    if qualification in expected_relations:
+        expected_forward, expected_scheduler = expected_relations[qualification]
+        if row.get("forward_relation") != expected_forward:
+            failures.append("FORWARD_RELATION_INCONSISTENT_WITH_QUALIFICATION")
+        if row.get("scheduler_relation") != expected_scheduler:
+            failures.append("SCHEDULER_RELATION_INCONSISTENT_WITH_QUALIFICATION")
+
     return failures
 
+
+def validate_qualification_audit(rows: object) -> list[dict]:
+    """Require the complete, unique 20-group x 2-condition G-E audit cohort."""
+
+    if not isinstance(rows, list):
+        raise InputSchemaError("G-E round-2 qualification audit must be a JSON array")
+    if len(rows) != EXPECTED_CELL_COUNT:
+        raise InputSchemaError(
+            f"G-E round-2 audit must contain {EXPECTED_CELL_COUNT} rows; got {len(rows)}"
+        )
+
+    expected_pairs = {
+        (f"g{group:02d}", load)
+        for group in range(1, EXPECTED_GROUP_COUNT + 1)
+        for load in ("L_LOW", "L_HIGH")
+    }
+    required_keys = (
+        "group_id",
+        "load_level",
+        "run_id",
+        "qualification",
+        "independent_e",
+        "native_c",
+        "hash_lcp_tokens",
+        "hash_lcp_blocks",
+        "required_shared_blocks",
+        "physical_prefix_complete",
+        "physical_prefix_equal",
+        "producer_prefix_block_ids",
+        "consumer_prefix_block_ids",
+        "hash_function_match",
+        "hash_process_match",
+        "forward_relation",
+        "scheduler_relation",
+    )
+    seen_pairs: set[tuple[str, str]] = set()
+    seen_run_ids: set[str] = set()
+    for index, row in enumerate(rows):
+        if not isinstance(row, dict):
+            raise InputSchemaError(f"G-E round-2 row {index} must be an object")
+        missing = [key for key in required_keys if key not in row]
+        if missing:
+            raise InputSchemaError(f"G-E round-2 row {index} missing keys: {missing}")
+        group_id = row["group_id"]
+        load_level = row["load_level"]
+        pair = (group_id, load_level)
+        if pair not in expected_pairs:
+            raise InputSchemaError(f"G-E round-2 row {index} has unexpected cell: {pair!r}")
+        if pair in seen_pairs:
+            raise InputSchemaError(f"G-E round-2 audit contains duplicate cell: {pair!r}")
+        seen_pairs.add(pair)
+        run_id = row["run_id"]
+        if not isinstance(run_id, str) or not run_id.strip():
+            raise InputSchemaError(f"G-E round-2 row {index} has invalid run_id")
+        if run_id in seen_run_ids:
+            raise InputSchemaError(f"G-E round-2 audit contains duplicate run_id: {run_id}")
+        seen_run_ids.add(run_id)
+
+    missing_pairs = sorted(expected_pairs - seen_pairs)
+    if missing_pairs:
+        raise InputSchemaError(f"G-E round-2 audit is missing cells: {missing_pairs}")
+    return rows
 
 def summarize_qualification(rows: list[dict], evidence_failures: list) -> dict:
     """Summarize G-E eligibility without conflating three different quantities.
@@ -2139,52 +2333,88 @@ def summarize_qualification(rows: list[dict], evidence_failures: list) -> dict:
     }
 
 
+def _read_required_json(path: Path, label: str) -> object:
+    if not path.is_file():
+        raise InputIntegrityError(f"required G-E evidence file missing: {label}")
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise InputIntegrityError(f"required G-E evidence file is invalid JSON: {label}") from exc
+
+
+def _extract_audit_rows(payload: object, label: str) -> list[dict]:
+    if isinstance(payload, list):
+        rows = payload
+    elif isinstance(payload, dict) and isinstance(payload.get("rows"), list):
+        rows = payload["rows"]
+    else:
+        raise InputSchemaError(f"{label} must be an array or an object containing a rows array")
+    if any(not isinstance(row, dict) for row in rows):
+        raise InputSchemaError(f"{label} contains a non-object row")
+    return rows
+
+
 def g_e_report(pack: Path) -> dict:
-    """RC10-1: current state of the G-E eligibility question.
-
-    Two rounds of evidence exist and they answer **different questions**, so the
-    older one is kept as history rather than deleted or silently superseded.
-
-    * Round 1 (``phase3-concurrent-eligibility-rejection-audit-v1``) asked whether
-      the producer's prefill is *complete and visible* before the consumer looks
-      it up. It failed closed 40/40 with
-      ``REJECTED_SAME_WAVE_PREFILL_NOT_COMPLETE_BEFORE_CONSUMER_LOOKUP``.
-    * Round 2 (``phase3-same-batch-physical-qualification-audit-v1``, M6 at
-      ``712b3fc``) asks whether the producer and consumer resolve the same
-      **physical prefix blocks** under a bound forward-batch source. It qualifies
-      36 and leaves 4 pending a separate earlier-forward ordering proof.
-
-    Round 2 is a *different* qualification, not a re-run of round 1, so "40/40
-    rejected" is no longer a correct description of the current state even though
-    no round-1 row changed.
-    """
+    """RC10-1: current G-E state, with every source input required and validated."""
 
     qual_dir = pack / "artifacts/phase3-same-batch-physical-qualification-audit-v1"
     rej_dir = pack / "artifacts/phase3-concurrent-eligibility-rejection-audit-v1"
     failure_path = pack / "artifacts/phase3-load-calibration-analysis-v7/evidence-failures.json"
 
-    round2: dict = {"status": "UNAVAILABLE"}
-    if (qual_dir / "qualification-audit.json").is_file():
-        audit_rows = json.loads((qual_dir / "qualification-audit.json").read_text("utf-8"))
-        recorded: list = []
-        if failure_path.is_file():
-            loaded = json.loads(failure_path.read_text("utf-8"))
-            recorded = loaded if isinstance(loaded, list) else loaded.get("rows", [])
-        round2 = {
-            "status": "CURRENT",
-            "source": (
-                "phase3-same-batch-physical-qualification-audit-v1, M6 recompute "
-                "at git 712b3fc628c5bbebe95a782119654834c741149"
-            ),
-            "question": (
-                "Do producer and consumer resolve the same physical prefix blocks "
-                "under a bound forward-batch source, and is the pair therefore "
-                "eligible?"
-            ),
-            **summarize_qualification(audit_rows, recorded),
-        }
+    audit_payload = _read_required_json(
+        qual_dir / "qualification-audit.json",
+        "phase3-same-batch-physical-qualification-audit-v1/qualification-audit.json",
+    )
+    audit_rows = validate_qualification_audit(
+        _extract_audit_rows(audit_payload, "G-E round-2 qualification audit")
+    )
 
-    round1: dict = {
+    failure_payload = _read_required_json(
+        failure_path, "phase3-load-calibration-analysis-v7/evidence-failures.json"
+    )
+    if isinstance(failure_payload, list):
+        recorded = failure_payload
+    elif isinstance(failure_payload, dict) and isinstance(failure_payload.get("rows"), list):
+        recorded = failure_payload["rows"]
+    else:
+        raise InputSchemaError(
+            "G-E evidence-failures.json must be an array or an object containing a rows array"
+        )
+    if any(not isinstance(row, dict) for row in recorded):
+        raise InputSchemaError("G-E evidence-failures.json contains a non-object failure record")
+
+    round1_payload = _read_required_json(
+        rej_dir / "qualification-rejection-audit.json",
+        "phase3-concurrent-eligibility-rejection-audit-v1/qualification-rejection-audit.json",
+    )
+    rows1 = _extract_audit_rows(round1_payload, "G-E round-1 historical rejection audit")
+    if len(rows1) != EXPECTED_CELL_COUNT:
+        raise InputSchemaError(
+            f"G-E round-1 historical audit must contain {EXPECTED_CELL_COUNT} rows; got {len(rows1)}"
+        )
+
+    outcomes = Counter(str(r.get("qualification_result")) for r in rows1)
+    qualified_e = sorted({str(r.get("independently_qualified_e")) for r in rows1})
+    round2 = {
+        "status": "CURRENT",
+        "source": (
+            "phase3-same-batch-physical-qualification-audit-v1, M6 recompute "
+            "at git 712b3fc628c5bbebe95a782119654834c741149"
+        ),
+        "question": (
+            "Do producer and consumer resolve the same physical prefix blocks "
+            "under a bound forward-batch source, and is the pair therefore eligible?"
+        ),
+        "input_validation": {
+            "round2_row_count": len(audit_rows),
+            "round2_unique_cell_pairs": len({(r["group_id"], r["load_level"]) for r in audit_rows}),
+            "round1_row_count": len(rows1),
+            "evidence_failure_records": len(recorded),
+            "required_source_files": list(G_E_REQUIRED_MANIFEST_PATHS),
+        },
+        **summarize_qualification(audit_rows, recorded),
+    }
+    round1 = {
         "status": "SUPERSEDED_BY_ROUND_2_FOR_CURRENT_STATE",
         "source": "phase3-concurrent-eligibility-rejection-audit-v1",
         "question": (
@@ -2192,53 +2422,37 @@ def g_e_report(pack: Path) -> dict:
             "consumer before the lookup?"
         ),
         "audit_coverage": "one request pair per cell (40 pairs from 40 cells)",
+        "audit_row_count": len(rows1),
+        "qualified_count": sum(
+            1 for value in (r.get("independently_qualified_e") for r in rows1) if value
+        ),
+        "rejected_count": sum(
+            1
+            for r in rows1
+            if str(r.get("qualification_result", "")).startswith("REJECTED")
+        ),
+        "status_code": "FAIL_CLOSED",
+        "uses_c_to_compute_e": any(bool(r.get("uses_c_to_compute_e")) for r in rows1),
+        "independently_qualified_e_values": qualified_e,
+        "qualification_result": (
+            next(iter(outcomes)) if len(outcomes) == 1 else dict(outcomes)
+        ),
     }
-    rej_path = rej_dir / "qualification-rejection-audit.json"
-    if rej_path.is_file():
-        rejected = json.loads(rej_path.read_text("utf-8"))
-        rows1 = rejected if isinstance(rejected, list) else rejected.get("rows", [])
-        outcomes = Counter(str(r.get("qualification_result")) for r in rows1)
-        qualified_e = sorted({str(r.get("independently_qualified_e")) for r in rows1})
-        round1.update(
-            {
-                "audit_row_count": len(rows1),
-                "qualified_count": sum(
-                    1 for value in (r.get("independently_qualified_e") for r in rows1) if value
-                ),
-                "rejected_count": sum(
-                    1
-                    for r in rows1
-                    if str(r.get("qualification_result", "")).startswith("REJECTED")
-                ),
-                "status_code": "FAIL_CLOSED",
-                "uses_c_to_compute_e": any(bool(r.get("uses_c_to_compute_e")) for r in rows1),
-                "independently_qualified_e_values": qualified_e,
-                "qualification_result": (
-                    next(iter(outcomes)) if len(outcomes) == 1 else dict(outcomes)
-                ),
-            }
-        )
-    else:
-        round1["status_code"] = "UNAVAILABLE"
 
     return {
         "item": "G-E (concurrent eligibility qualification)",
         "current_state": round2,
         "history": round1,
         "semantic_difference": (
-            "Round 1 asks about *visibility and completion timing* of the "
-            "producer's prefill; round 2 asks about *physical block identity and "
-            "forward-batch source binding*, and additionally requires the "
-            "forward-order proof before a pair counts as eligible. A pair can bind "
-            "the same physical prefix while still failing round 1's visibility "
-            "criterion, and a pair can bind the same physical prefix while still "
-            "being pending the order proof -- so neither count corrects the other."
+            "Round 1 asks about visibility and completion timing of the producer's "
+            "prefill; round 2 asks about physical block identity and forward-batch "
+            "source binding, and additionally requires the forward-order proof "
+            "before a pair counts as eligible. Neither count corrects the other."
         ),
         "what_does_not_change": (
             "uses_c_to_compute_e is false in both rounds, so the arm-independence "
-            "requirement on E is not violated. That is a separate claim from "
-            "whether an E value exists for a given pair: on pending rows it does "
-            "not, and neither equality nor a zero contribution may be asserted."
+            "requirement on E is not violated. On pending rows E is not established, "
+            "and neither equality nor a zero contribution may be asserted."
         ),
         "remaining_open_item": (
             f"{len(round2.get('pending_rows', []))} pair(s) remain {G_E_PENDING} "
@@ -2251,29 +2465,19 @@ def g_e_report(pack: Path) -> dict:
         ),
     }
 
+def evidence_inventory_report(pack: Path, manifest_verification: dict | None = None) -> dict:
+    """Classify execution inputs, run reports, summaries, audits and derived files.
 
-def evidence_inventory_report(pack: Path) -> dict:
-    """RC10 item 3: what is GPU evidence, what is derived, and what is missing.
-
-    A committed manifest is not a delivered 209 MiB pack, and an offline CPU test
-    is not a GPU experiment reproduction. This report separates the three so that
-    neither claim is made by accident.
+    The load-calibration analysis directory is intentionally treated as mixed:
+    it contains per-run execution reports alongside offline aggregate/audit files.
+    File-level classification makes unknown files visible instead of assigning
+    the entire directory one misleading label.
     """
 
-    raw_execution = {
+    frozen_inputs = {
         "phase3-load-calibration-inputs-v1": (
-            "Per-cell frozen run inputs and freeze records for the 40 executed A0 "
-            "runs (configs, token/prompt material). GPU-era input material."
-        ),
-        "phase3-load-calibration-analysis-v7": (
-            "Per-run reports produced by the executed runs, plus the aggregate and "
-            "qualification views over them."
-        ),
-        "phase3-load-calibration-runs-v2": (
-            "Execution summary of the 40-run calibration batch: status, wall time, config hashes."
-        ),
-        "phase3-same-batch-runtime-evidence-inventory-v1": (
-            "Inventory of the runtime evidence captured during execution."
+            "Frozen per-cell inputs, traces, configurations and freeze records; "
+            "these are execution inputs, not execution outputs."
         ),
     }
     audits = {
@@ -2293,54 +2497,161 @@ def evidence_inventory_report(pack: Path) -> dict:
     }
     derived = {
         "phase3-load-calibration-iteration2-planning-v1": (
-            "Offline derivation from iteration-1 observations. status = "
-            "PROPOSED_NOT_EXECUTED: none of these pressures has been run."
+            "Offline derivation from iteration-1 observations. PROPOSED_NOT_EXECUTED."
         ),
     }
 
+    manifest_paths: set[str] = set()
+    manifest_entries = 0
+    manifest_path = pack / "sha256-manifest.txt"
+    if manifest_path.is_file():
+        for line in manifest_path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            _, separator, relative = line.partition("  ")
+            if separator:
+                manifest_paths.add(relative.strip())
+            manifest_entries += 1
+
     entries: list[dict] = []
+    file_level: dict[str, dict[str, list[str]]] = {}
+    unclassified_files: list[str] = []
+    separation = {
+        "frozen_execution_inputs": [],
+        "per_run_execution_reports": [],
+        "execution_summaries": [],
+        "runtime_evidence_inventories": [],
+        "offline_audits_over_gpu_evidence": [],
+        "offline_derived_analysis": [],
+        "mixed_directories": [],
+        "unclassified_directories": [],
+    }
+
     art_root = pack / "artifacts"
     names = sorted(d.name for d in art_root.iterdir() if d.is_dir()) if art_root.is_dir() else []
     for name in names:
         full = art_root / name
-        file_count = 0
+        file_paths: list[Path] = []
         size = 0
-        for root, _, files in os.walk(full):
-            for filename in files:
-                file_count += 1
-                size += os.path.getsize(os.path.join(root, filename))
-        if name in raw_execution:
-            kind, note = "GPU_RAW_EXECUTION_EVIDENCE", raw_execution[name]
+        for root, _, filenames in os.walk(full):
+            for filename in filenames:
+                path = Path(root) / filename
+                file_paths.append(path)
+                size += path.stat().st_size
+
+        classified: dict[str, list[str]] = {}
+        for path in sorted(file_paths):
+            relative = path.relative_to(full).as_posix()
+            if name in frozen_inputs:
+                kind = "FROZEN_EXECUTION_INPUT"
+            elif name == "phase3-load-calibration-analysis-v7":
+                filename = path.name
+                if (
+                    relative.startswith("runs/")
+                    and filename.startswith("phase3-load-calibration-g")
+                    and filename.endswith("-a0.json")
+                ):
+                    kind = "PER_RUN_EXECUTION_REPORT"
+                elif relative in {
+                    "aggregate-report.json",
+                    "evidence-bindings.json",
+                    "evidence-failures.json",
+                    "qualification-audit.json",
+                }:
+                    kind = "OFFLINE_AUDIT_OR_AGGREGATE"
+                else:
+                    kind = "UNCLASSIFIED"
+            elif name == "phase3-load-calibration-runs-v2":
+                kind = "EXECUTION_SUMMARY"
+            elif name == "phase3-same-batch-runtime-evidence-inventory-v1":
+                kind = "RUNTIME_EVIDENCE_INVENTORY"
+            elif name in audits:
+                kind = "OFFLINE_AUDIT_OVER_GPU_EVIDENCE"
+            elif name in derived:
+                kind = "OFFLINE_DERIVED_ANALYSIS"
+            else:
+                kind = "UNCLASSIFIED"
+
+            relative_pack_path = f"artifacts/{name}/{relative}"
+            classified.setdefault(kind, []).append(relative_pack_path)
+            if kind == "UNCLASSIFIED":
+                unclassified_files.append(relative_pack_path)
+
+        file_counts = {kind: len(paths) for kind, paths in sorted(classified.items())}
+        if name in frozen_inputs:
+            directory_kind = "FROZEN_EXECUTION_INPUTS"
+            separation["frozen_execution_inputs"].append(name)
+        elif name == "phase3-load-calibration-analysis-v7":
+            directory_kind = "MIXED_PER_RUN_REPORTS_AND_OFFLINE_ANALYSIS"
+            separation["mixed_directories"].append(name)
+            if classified.get("PER_RUN_EXECUTION_REPORT"):
+                separation["per_run_execution_reports"].append(name)
+            file_level[name] = {kind: sorted(paths) for kind, paths in sorted(classified.items())}
+        elif name == "phase3-load-calibration-runs-v2":
+            directory_kind = "EXECUTION_SUMMARY"
+            separation["execution_summaries"].append(name)
+        elif name == "phase3-same-batch-runtime-evidence-inventory-v1":
+            directory_kind = "RUNTIME_EVIDENCE_INVENTORY"
+            separation["runtime_evidence_inventories"].append(name)
         elif name in audits:
-            kind, note = "OFFLINE_AUDIT_OVER_GPU_EVIDENCE", audits[name]
+            directory_kind = "OFFLINE_AUDIT_OVER_GPU_EVIDENCE"
+            separation["offline_audits_over_gpu_evidence"].append(name)
         elif name in derived:
-            kind, note = "OFFLINE_DERIVED_ANALYSIS", derived[name]
+            directory_kind = "OFFLINE_DERIVED_ANALYSIS"
+            separation["offline_derived_analysis"].append(name)
         else:
-            kind, note = "UNCLASSIFIED", "not classified by this report"
+            directory_kind = "UNCLASSIFIED"
+            separation["unclassified_directories"].append(name)
+
+        manifested = sum(
+            1
+            for paths in classified.values()
+            for relative in paths
+            if relative in manifest_paths
+        )
         entries.append(
             {
                 "directory": f"artifacts/{name}",
-                "evidence_kind": kind,
-                "file_count": file_count,
+                "evidence_kind": directory_kind,
+                "file_count": len(file_paths),
                 "bytes": size,
-                "note": note,
+                "manifested_file_count": manifested,
+                "unmanifested_file_count": len(file_paths) - manifested,
+                "file_class_counts": file_counts,
+                "note": (
+                    frozen_inputs[name]
+                    if name in frozen_inputs
+                    else audits[name]
+                    if name in audits
+                    else derived[name]
+                    if name in derived
+                    else (
+                        "Contains per-run execution reports and offline aggregate/audit "
+                        "outputs; see file_class_counts and file_level_evidence_separation."
+                    )
+                    if name == "phase3-load-calibration-analysis-v7"
+                    else (
+                        "Execution summary of the 40-run calibration batch."
+                        if name == "phase3-load-calibration-runs-v2"
+                        else (
+                            "Inventory of runtime evidence captured during execution."
+                            if name == "phase3-same-batch-runtime-evidence-inventory-v1"
+                            else "not classified by this report"
+                        )
+                    )
+                ),
             }
-        )
-
-    manifest_entries = 0
-    manifest_path = pack / "sha256-manifest.txt"
-    if manifest_path.is_file():
-        manifest_entries = len(
-            [ln for ln in manifest_path.read_text("utf-8").splitlines() if ln.strip()]
         )
 
     pack_files = 0
     pack_bytes = 0
-    for root, _, files in os.walk(pack):
-        for filename in files:
+    for root, _, filenames in os.walk(pack):
+        for filename in filenames:
+            path = Path(root) / filename
             pack_files += 1
-            pack_bytes += os.path.getsize(os.path.join(root, filename))
+            pack_bytes += path.stat().st_size
 
+    separation = {key: sorted(value) for key, value in separation.items()}
     return {
         "pack_path": str(pack).replace("\\", "/"),
         "pack_file_count": pack_files,
@@ -2350,10 +2661,15 @@ def evidence_inventory_report(pack: Path) -> dict:
             "the pack is ~209 MiB and lives under local/, which repository policy "
             "gitignores; committing it is not possible in this repository"
         ),
+        "manifest_verification": manifest_verification or {
+            "status": "NOT_PERFORMED",
+            "reason": "inventory-only call; run() performs full verification before analysis",
+        },
         "delivery_status": {
             "raw_pack_transferred_to_m1": False,
             "manifest_committed": True,
             "manifest_entry_count": manifest_entries,
+            "pack_files_not_listed_in_manifest": max(0, pack_files - manifest_entries),
             "what_is_committed": (
                 "outputs/pack-sha256-manifest.txt and outputs/pack-metadata.json, "
                 "plus the full derived analysis outputs"
@@ -2370,14 +2686,17 @@ def evidence_inventory_report(pack: Path) -> dict:
         },
         "directories": entries,
         "evidence_separation": {
-            "gpu_raw_execution_evidence": sorted(raw_execution),
-            "offline_audits_over_gpu_evidence": sorted(audits),
-            "offline_derived_analysis": sorted(derived),
+            **separation,
             "note": (
-                "Only the first group is GPU execution output. Audits read it "
-                "offline; the planning directory contains no executed run at all."
+                "Frozen inputs, per-run execution reports, execution summaries and "
+                "runtime inventories are distinct. The analysis-v7 directory is mixed "
+                "and is classified file-by-file; offline audits and planning outputs "
+                "are not GPU execution evidence."
             ),
         },
+        "file_level_evidence_separation": file_level,
+        "unclassified_file_count": len(unclassified_files),
+        "unclassified_files": sorted(unclassified_files),
         "reproduction_claims_this_analysis_does_not_make": [
             "It does not reproduce a GPU experiment. No GPU command is issued.",
             (
@@ -2393,12 +2712,12 @@ def evidence_inventory_report(pack: Path) -> dict:
         ],
     }
 
-
 def _write_json(path: Path, payload: Any) -> None:
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
 def run(pack: Path, out: Path) -> dict:
+    manifest_verification = verify_pack_manifest(pack)
     verified = verify_frozen_inputs(pack)
     observations, proposal = load_inputs(pack)
     obs_rows, prop_rows, method = validate_inputs(observations, proposal, verified)
@@ -2416,7 +2735,7 @@ def run(pack: Path, out: Path) -> dict:
     noise = noise_selection_report(cells, groups, options)
     nesting = nesting_report(options)
     g_e = g_e_report(pack)
-    inventory = evidence_inventory_report(pack)
+    inventory = evidence_inventory_report(pack, manifest_verification)
     provenance = pack_provenance(pack, verified)
     precision = precision_table(
         {
@@ -2522,6 +2841,7 @@ def run(pack: Path, out: Path) -> dict:
         "precision": precision,
         "method": method,
         "verified": verified,
+        "manifest_verification": manifest_verification,
     }
 
 
