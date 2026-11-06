@@ -43,6 +43,7 @@ import argparse
 import csv
 import hashlib
 import json
+import os
 from collections import Counter
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -1648,23 +1649,73 @@ def noise_selection_report(cells: list[Cell], groups: list[GroupSummary], option
             "frozen_by": "must be written into G0 with the salt and the allocation",
         },
         "variance_estimation": {
+            "frozen_rule": (
+                "ONE rule: sigma_run is the pooled within-cell standard deviation "
+                "of per-run Sigma(E-C) over the 10 sampled cells (5 groups x 2 "
+                "conditions), with equal weight per cell and df = 10 x (3 - 1) = 20. "
+                "sigma_delta = sqrt(2) sigma_run, tied = 2 sqrt(2) sigma_run. No "
+                "other estimator is permitted for this campaign."
+            ),
+            "assumption": (
+                "COMMON within-cell variance across strata and conditions (homoscedasticity)."
+            ),
+            "justification": [
+                (
+                    "Every sampled cell has the same R = 3, so the pooled estimator "
+                    "is balanced rather than weighted by unequal cell counts."
+                ),
+                (
+                    "The design needs ONE absolute `tied` threshold applied "
+                    "uniformly to the paired population; per-stratum thresholds "
+                    "would change what counts as tied depending on which stratum a "
+                    "cell fell into, and no protocol section defines that."
+                ),
+                (
+                    "Per-stratum estimates would rest on 4 cells (df 4) each, which "
+                    "is too unstable to freeze as a threshold."
+                ),
+            ],
             "sigma_run": (
-                "pooled within-cell SD of per-run Sigma(E-C), over "
-                f"{cells_in_noise} cells (group x condition) with R={NOISE_REPEATS}"
+                "pooled within-cell SD, equal weight per cell, over "
+                f"{cells_in_noise} cells with R={NOISE_REPEATS}"
             ),
             "df": df,
             "relative_se_of_sigma_run": round(1.0 / (2.0 * df) ** 0.5, 4),
             "weights": (
-                "equal per cell (every cell has the same R); the pooled SD is a "
-                "stratified pool, so it is a design-based estimate for the paired "
-                "population, not a variance of the 20-group pool"
+                "equal per cell. Because the draw is stratified with a fixed "
+                "allocation, the cell weights are NOT proportional to the "
+                "population stratum shares: FLAT supplies 2 of 10 cells (20%) while "
+                "being 3 of 18 groups (16.7%). The pooled value is therefore a "
+                "design-based summary of the sampled cells, not a population-"
+                "weighted variance."
             ),
-            "stratum_reporting_required": True,
+            "target_population_stratum_weights": {
+                "RESPONSIVE": round(7 / 18, 4),
+                "WEAK": round(8 / 18, 4),
+                "FLAT": round(3 / 18, 4),
+                "basis": "the 18 paired groups",
+            },
+            "stratified_reporting_required": True,
+            "stratified_outputs": {
+                "per_stratum_sigma_run": "reported",
+                "max_over_min_stratum_ratio": "reported",
+                "status": (
+                    "DIAGNOSTIC_ONLY. The pooled rule stands regardless of the "
+                    "ratio. Switching to per-stratum thresholds after seeing this "
+                    "diagnostic would be an S9 violation, so any such switch would "
+                    "require a fresh protocol amendment before the run."
+                ),
+            },
             "sigma_delta": "sqrt(2) * sigma_run under independent equal variance",
             "tied": "2 * sqrt(2) * sigma_run",
             "interaction": (
                 "no tied classification: it would need the within-group "
                 "correlation of the two condition deltas, which is unmeasured"
+            ),
+            "no_post_run_change": (
+                "This block is frozen at G0. The estimator, the df and the "
+                "diagnostic obligations may not be revised once the noise runs "
+                "exist."
             ),
         },
         "v4_clause_changes": [
@@ -1884,6 +1935,210 @@ def pack_provenance(pack: Path, verified: dict[str, str]) -> dict:
     }
 
 
+G_E_QUALIFIED = "QUALIFIED_SAME_BATCH_SHARED_PREDECESSOR"
+G_E_PENDING = "PENDING_EARLIER_FORWARD_ORDER_PROOF"
+
+
+def _row_integrity_failures(row: dict) -> list[str]:
+    """Per-row invariant checks, each answerable from the audit row itself.
+
+    These are *evidence integrity* checks, not eligibility checks. A row can pass
+    all of them and still be unqualified, because eligibility also requires a
+    forward-order proof that the physical-prefix columns do not contain.
+    """
+
+    failures: list[str] = []
+    if not row.get("physical_prefix_complete"):
+        failures.append("PHYSICAL_PREFIX_INCOMPLETE")
+    if not row.get("physical_prefix_equal"):
+        failures.append("PHYSICAL_PREFIX_MISMATCH")
+    if row.get("producer_prefix_block_ids") != row.get("consumer_prefix_block_ids"):
+        failures.append("PREFIX_BLOCK_ID_MISMATCH")
+    if not row.get("hash_function_match"):
+        failures.append("HASH_FUNCTION_MISMATCH")
+    if not row.get("hash_process_match"):
+        failures.append("HASH_PROCESS_MISMATCH")
+    if row.get("required_shared_blocks") != row.get("hash_lcp_blocks"):
+        failures.append("REQUIRED_SHARED_BLOCKS_NE_HASH_LCP_BLOCKS")
+    lcp_tokens = row.get("hash_lcp_tokens")
+    if not isinstance(lcp_tokens, int) or lcp_tokens < 0:
+        failures.append("HASH_LCP_TOKENS_MISSING_OR_INVALID")
+    if not isinstance(row.get("native_c"), int):
+        failures.append("NATIVE_C_MISSING_OR_INVALID")
+    return failures
+
+
+def summarize_qualification(rows: list[dict], evidence_failures: list) -> dict:
+    """Summarize G-E eligibility without conflating three different quantities.
+
+    RC10-1 correction. The previous revision used ``hash_lcp_tokens == native_c``
+    as proof that ``E == C``, hardcoded ``evidence_failure_count = 0``, and
+    asserted a zero contribution to the primary metric across all 40 pairs.
+
+    * ``hash_lcp_tokens`` and ``native_c`` are **content-hash and native-prefix
+      measurements**. They say how much prefix the producer and consumer share;
+      they do not establish that a *computed, independently qualified* ``E``
+      exists for that pair.
+    * ``E`` is only defined where the audit actually qualified the pair. On a
+      ``PENDING_EARLIER_FORWARD_ORDER_PROOF`` row ``independent_e`` is null, so
+      ``E`` is **not established** and nothing may be asserted about ``E == C``
+      there -- neither equality nor a conservative zero.
+
+    So the three quantities are reported separately, ``E`` is summarized only over
+    qualified rows, pending rows keep their pending status, and the primary
+    metric's contribution is stated per qualification state rather than globally.
+    """
+
+    integrity_failures: dict[str, list[str]] = {}
+    for row in rows:
+        found = _row_integrity_failures(row)
+        if found:
+            integrity_failures[str(row.get("run_id", "?"))] = found
+    row_failure_count = len(integrity_failures)
+    recorded_failure_count = len(evidence_failures)
+
+    qualified = [r for r in rows if r.get("qualification") == G_E_QUALIFIED]
+    pending = [r for r in rows if r.get("qualification") == G_E_PENDING]
+    other = [r for r in rows if r.get("qualification") not in {G_E_QUALIFIED, G_E_PENDING}]
+
+    qualified_with_e = [r for r in qualified if isinstance(r.get("independent_e"), int)]
+    qualified_without_e = [r for r in qualified if not isinstance(r.get("independent_e"), int)]
+    pending_with_e = [r for r in pending if isinstance(r.get("independent_e"), int)]
+    # E - C needs both numbers; a row with E but no native C cannot be evaluated.
+    evaluable = [r for r in qualified_with_e if isinstance(r.get("native_c"), int)]
+    unevaluable = [r for r in qualified_with_e if not isinstance(r.get("native_c"), int)]
+
+    e_values = sorted({r["independent_e"] for r in qualified_with_e})
+    native_c_values = sorted({r["native_c"] for r in rows if isinstance(r.get("native_c"), int)})
+    hash_lcp_values = sorted(
+        {r["hash_lcp_tokens"] for r in rows if isinstance(r.get("hash_lcp_tokens"), int)}
+    )
+
+    contradictions: list[str] = []
+    if qualified_without_e:
+        contradictions.append(
+            f"{len(qualified_without_e)} row(s) are qualified but carry no "
+            "independently_qualified_e, so their E cannot be asserted"
+        )
+    if pending_with_e:
+        contradictions.append(
+            f"{len(pending_with_e)} row(s) are pending yet carry an "
+            "independently_qualified_e, which is inconsistent with the frozen "
+            "pending semantics"
+        )
+    if other:
+        contradictions.append(
+            f"{len(other)} row(s) carry a qualification value that is neither qualified nor pending"
+        )
+    e_neq_c_on_qualified = [
+        str(r.get("run_id", "?")) for r in evaluable if r["independent_e"] != r["native_c"]
+    ]
+    if unevaluable:
+        contradictions.append(
+            f"{len(unevaluable)} qualified row(s) carry an E but no usable native "
+            "C, so E - C cannot be evaluated for them"
+        )
+    if e_neq_c_on_qualified:
+        contradictions.append(
+            f"{len(e_neq_c_on_qualified)} qualified row(s) have independent_e != "
+            "native_c, so the audited contribution is NOT zero"
+        )
+    if recorded_failure_count:
+        contradictions.append(f"the audit records {recorded_failure_count} evidence failure(s)")
+    if row_failure_count:
+        contradictions.append(f"{row_failure_count} row(s) fail per-row integrity checks")
+
+    contribution = {
+        "basis": (
+            "Sigma(E-C) can be judged only where the audit qualified the pair and "
+            "produced an independent E. Pending pairs are UNDETERMINED."
+        ),
+        "qualified_rows": len(qualified_with_e),
+        "qualified_rows_evaluable": len(evaluable),
+        "qualified_rows_e_equals_c": len(evaluable) - len(e_neq_c_on_qualified),
+        "qualified_rows_e_not_equal_c": e_neq_c_on_qualified,
+        "qualified_contribution_tokens": int(
+            sum(r["independent_e"] - r["native_c"] for r in evaluable)
+        ),
+        "pending_rows": len(pending),
+        "pending_contribution": "UNDETERMINED_PENDING_QUALIFICATION",
+        "unqualified_rows": len(other),
+        "overall": (
+            "CONTRADICTORY_EVIDENCE"
+            if contradictions
+            else ("PARTIAL_DETERMINATE" if pending or other else "DETERMINATE")
+        ),
+        "not_established_note": (
+            "A null independent_e means E was never established for that pair. It "
+            "does not mean E == C, and it is not a conservative zero by "
+            "construction; it is an unmeasured quantity."
+        ),
+    }
+
+    return {
+        "row_count": len(rows),
+        "hash_lcp": {
+            "row_count": sum(1 for r in rows if isinstance(r.get("hash_lcp_tokens"), int)),
+            "token_values": hash_lcp_values,
+            "block_values": sorted(
+                {r["hash_lcp_blocks"] for r in rows if isinstance(r.get("hash_lcp_blocks"), int)}
+            ),
+            "meaning": "shared prefix measured by content hash; not an eligibility test",
+        },
+        "native_c": {
+            "row_count": sum(1 for r in rows if isinstance(r.get("native_c"), int)),
+            "token_values": native_c_values,
+            "meaning": "native prefix computed by the engine; not E",
+        },
+        "independently_qualified_e": {
+            "row_count": len(qualified_with_e),
+            "token_values": e_values,
+            "rows_without_e": [str(r.get("run_id", "?")) for r in qualified_without_e],
+            "meaning": (
+                "E as established by the qualification procedure; defined only on qualified rows"
+            ),
+        },
+        "e_equals_c_on_qualified_rows": bool(evaluable) and not e_neq_c_on_qualified,
+        "e_status_for_pending_rows": "NOT_ESTABLISHED",
+        "physical_prefix_equal_is_not_e_qualification": (
+            "Physical prefix block equality shows the two requests resolved the "
+            "same blocks. It is necessary but not sufficient for eligibility, "
+            "which additionally needs the forward-order proof. Treating the former "
+            "as the latter is exactly the inference this report refuses to make."
+        ),
+        "qualification_counts": {
+            G_E_QUALIFIED: len(qualified),
+            G_E_PENDING: len(pending),
+            "OTHER": len(other),
+        },
+        "pending_rows": [
+            {
+                "group_id": r.get("group_id"),
+                "condition": ("C1" if r.get("load_level") == "L_LOW" else "C2"),
+                "qualification": r.get("qualification"),
+                "forward_relation": r.get("forward_relation"),
+                "scheduler_relation": r.get("scheduler_relation"),
+                "independent_e": r.get("independent_e"),
+                "e_status": "NOT_ESTABLISHED",
+            }
+            for r in pending
+        ],
+        "evidence_failures": {
+            "recorded_failure_records": recorded_failure_count,
+            "rows_failing_integrity_checks": row_failure_count,
+            "row_detail": integrity_failures,
+            "total": recorded_failure_count + row_failure_count,
+            "derivation": (
+                "recorded_failure_records is the length of the audit's own "
+                "evidence-failures list; rows_failing_integrity_checks is computed "
+                "per row from the invariant columns. Neither is a constant."
+            ),
+        },
+        "contradictions": contradictions,
+        "primary_metric_contribution": contribution,
+    }
+
+
 def g_e_report(pack: Path) -> dict:
     """RC10-1: current state of the G-E eligibility question.
 
@@ -1906,26 +2161,15 @@ def g_e_report(pack: Path) -> dict:
 
     qual_dir = pack / "artifacts/phase3-same-batch-physical-qualification-audit-v1"
     rej_dir = pack / "artifacts/phase3-concurrent-eligibility-rejection-audit-v1"
+    failure_path = pack / "artifacts/phase3-load-calibration-analysis-v7/evidence-failures.json"
 
     round2: dict = {"status": "UNAVAILABLE"}
-    row_counts: dict[str, int] = {}
     if (qual_dir / "qualification-audit.json").is_file():
-        rows = json.loads((qual_dir / "qualification-audit.json").read_text("utf-8"))
-        summary = json.loads((qual_dir / "summary.json").read_text("utf-8"))
-        row_counts = dict(Counter(str(r["qualification"]) for r in rows))
-        pending = [
-            {
-                "group_id": r["group_id"],
-                "condition": ("C1" if r["load_level"] == "L_LOW" else "C2"),
-                "forward_relation": r["forward_relation"],
-                "scheduler_relation": r["scheduler_relation"],
-                "independent_e": r["independent_e"],
-            }
-            for r in rows
-            if r["qualification"] != "QUALIFIED_SAME_BATCH_SHARED_PREDECESSOR"
-        ]
-        hash_lcp = {r["hash_lcp_tokens"] for r in rows}
-        native_c = {r["native_c"] for r in rows}
+        audit_rows = json.loads((qual_dir / "qualification-audit.json").read_text("utf-8"))
+        recorded: list = []
+        if failure_path.is_file():
+            loaded = json.loads(failure_path.read_text("utf-8"))
+            recorded = loaded if isinstance(loaded, list) else loaded.get("rows", [])
         round2 = {
             "status": "CURRENT",
             "source": (
@@ -1934,25 +2178,10 @@ def g_e_report(pack: Path) -> dict:
             ),
             "question": (
                 "Do producer and consumer resolve the same physical prefix blocks "
-                "under a bound forward-batch source?"
+                "under a bound forward-batch source, and is the pair therefore "
+                "eligible?"
             ),
-            "row_count": len(rows),
-            "qualified": row_counts.get("QUALIFIED_SAME_BATCH_SHARED_PREDECESSOR", 0),
-            "pending": row_counts.get("PENDING_EARLIER_FORWARD_ORDER_PROOF", 0),
-            "qualified_semantics": "QUALIFIED_SAME_BATCH_SHARED_PREDECESSOR",
-            "pending_semantics": "PENDING_EARLIER_FORWARD_ORDER_PROOF",
-            "pending_rows": pending,
-            "physical_prefix_equal": summary.get("physical_prefix_equal_count"),
-            "hash_identity_match": summary.get("all_hash_identity_match"),
-            "hash_lcp_covers_native_c": summary.get("all_hash_lcp_covers_native_c"),
-            "hash_lcp_tokens_values": sorted(hash_lcp),
-            "native_c_values": sorted(native_c),
-            "e_equals_c_everywhere": sorted(hash_lcp) == sorted(native_c),
-            "evidence_failure_count": 0,
-            "contribution_to_primary_metric": (
-                "E == C == 112 on every audited pair, so the audited pairs "
-                "contribute exactly 0 to Sigma(E-C)."
-            ),
+            **summarize_qualification(audit_rows, recorded),
         }
 
     round1: dict = {
@@ -1999,26 +2228,169 @@ def g_e_report(pack: Path) -> dict:
         "semantic_difference": (
             "Round 1 asks about *visibility and completion timing* of the "
             "producer's prefill; round 2 asks about *physical block identity and "
-            "forward-batch source binding*. A pair can bind the same physical "
-            "prefix while still failing round 1's visibility criterion, so the two "
-            "counts are not a correction of one another."
+            "forward-batch source binding*, and additionally requires the "
+            "forward-order proof before a pair counts as eligible. A pair can bind "
+            "the same physical prefix while still failing round 1's visibility "
+            "criterion, and a pair can bind the same physical prefix while still "
+            "being pending the order proof -- so neither count corrects the other."
         ),
         "what_does_not_change": (
-            "Either way, every audited pair has hash_lcp_tokens == native_c == 112, "
-            "so E == C there and the audited pairs contribute 0 to Sigma(E-C). "
-            "The direction of the residual uncertainty is conservative, and "
             "uses_c_to_compute_e is false in both rounds, so the arm-independence "
-            "requirement on E is not violated."
+            "requirement on E is not violated. That is a separate claim from "
+            "whether an E value exists for a given pair: on pending rows it does "
+            "not, and neither equality nor a zero contribution may be asserted."
         ),
         "remaining_open_item": (
-            f"{round2.get('pending', 0)} pair(s) still need a separate "
-            "earlier-forward ordering proof; the audit covers one pair per cell, so "
-            "the remaining request pairs are unverified in either round."
+            f"{len(round2.get('pending_rows', []))} pair(s) remain {G_E_PENDING} "
+            "and have no established E; the audit covers one pair per cell, so the "
+            "remaining request pairs are unverified in either round."
         ),
         "adjudication": (
             "Independent of G4 and of the design choice. It must not block, and "
             "must not be blocked by, the Option A'/E/F decision."
         ),
+    }
+
+
+def evidence_inventory_report(pack: Path) -> dict:
+    """RC10 item 3: what is GPU evidence, what is derived, and what is missing.
+
+    A committed manifest is not a delivered 209 MiB pack, and an offline CPU test
+    is not a GPU experiment reproduction. This report separates the three so that
+    neither claim is made by accident.
+    """
+
+    raw_execution = {
+        "phase3-load-calibration-inputs-v1": (
+            "Per-cell frozen run inputs and freeze records for the 40 executed A0 "
+            "runs (configs, token/prompt material). GPU-era input material."
+        ),
+        "phase3-load-calibration-analysis-v7": (
+            "Per-run reports produced by the executed runs, plus the aggregate and "
+            "qualification views over them."
+        ),
+        "phase3-load-calibration-runs-v2": (
+            "Execution summary of the 40-run calibration batch: status, wall time, config hashes."
+        ),
+        "phase3-same-batch-runtime-evidence-inventory-v1": (
+            "Inventory of the runtime evidence captured during execution."
+        ),
+    }
+    audits = {
+        "phase3-same-batch-physical-qualification-audit-v1": "Round-2 eligibility audit",
+        "phase3-concurrent-eligibility-rejection-audit-v1": "Round-1 eligibility audit",
+        "phase3-scheduler-and-run-mapping-audit-v1": "Scheduler / run mapping audit",
+        "phase3-vllm-same-batch-source-audit-v1": "vLLM source audit",
+        "phase3-vllm-same-batch-source-audit-v2": "vLLM source audit",
+        "phase3-vllm-same-batch-source-audit-v3": "vLLM source audit",
+        "phase3-vllm-same-batch-source-audit-v4": "vLLM source audit",
+        "phase3-vllm-same-batch-source-audit-v5": "vLLM source audit",
+        "phase3-vllm-same-batch-source-audit-v6": "vLLM source audit",
+        "phase3-vllm-same-batch-source-audit-v7": "vLLM source audit",
+        "phase3-vllm-same-batch-source-audit-v8": "vLLM source audit",
+        "phase3-vllm-scheduler-iteration-source-audit-v1": "vLLM scheduler source audit",
+        "phase3-vllm-scheduler-iteration-source-audit-v2": "vLLM scheduler source audit",
+    }
+    derived = {
+        "phase3-load-calibration-iteration2-planning-v1": (
+            "Offline derivation from iteration-1 observations. status = "
+            "PROPOSED_NOT_EXECUTED: none of these pressures has been run."
+        ),
+    }
+
+    entries: list[dict] = []
+    art_root = pack / "artifacts"
+    names = sorted(d.name for d in art_root.iterdir() if d.is_dir()) if art_root.is_dir() else []
+    for name in names:
+        full = art_root / name
+        file_count = 0
+        size = 0
+        for root, _, files in os.walk(full):
+            for filename in files:
+                file_count += 1
+                size += os.path.getsize(os.path.join(root, filename))
+        if name in raw_execution:
+            kind, note = "GPU_RAW_EXECUTION_EVIDENCE", raw_execution[name]
+        elif name in audits:
+            kind, note = "OFFLINE_AUDIT_OVER_GPU_EVIDENCE", audits[name]
+        elif name in derived:
+            kind, note = "OFFLINE_DERIVED_ANALYSIS", derived[name]
+        else:
+            kind, note = "UNCLASSIFIED", "not classified by this report"
+        entries.append(
+            {
+                "directory": f"artifacts/{name}",
+                "evidence_kind": kind,
+                "file_count": file_count,
+                "bytes": size,
+                "note": note,
+            }
+        )
+
+    manifest_entries = 0
+    manifest_path = pack / "sha256-manifest.txt"
+    if manifest_path.is_file():
+        manifest_entries = len(
+            [ln for ln in manifest_path.read_text("utf-8").splitlines() if ln.strip()]
+        )
+
+    pack_files = 0
+    pack_bytes = 0
+    for root, _, files in os.walk(pack):
+        for filename in files:
+            pack_files += 1
+            pack_bytes += os.path.getsize(os.path.join(root, filename))
+
+    return {
+        "pack_path": str(pack).replace("\\", "/"),
+        "pack_file_count": pack_files,
+        "pack_bytes": pack_bytes,
+        "pack_untracked": True,
+        "why_untracked": (
+            "the pack is ~209 MiB and lives under local/, which repository policy "
+            "gitignores; committing it is not possible in this repository"
+        ),
+        "delivery_status": {
+            "raw_pack_transferred_to_m1": False,
+            "manifest_committed": True,
+            "manifest_entry_count": manifest_entries,
+            "what_is_committed": (
+                "outputs/pack-sha256-manifest.txt and outputs/pack-metadata.json, "
+                "plus the full derived analysis outputs"
+            ),
+            "what_is_not_committed": (
+                "the executed-run material itself; a manifest proves integrity only "
+                "for bytes that M1 already holds or obtains out of band"
+            ),
+            "open_action": (
+                "M1 must transfer or locate the original pack directory and verify "
+                "it against the committed manifest; until then the raw GPU evidence "
+                "is referenced, not delivered"
+            ),
+        },
+        "directories": entries,
+        "evidence_separation": {
+            "gpu_raw_execution_evidence": sorted(raw_execution),
+            "offline_audits_over_gpu_evidence": sorted(audits),
+            "offline_derived_analysis": sorted(derived),
+            "note": (
+                "Only the first group is GPU execution output. Audits read it "
+                "offline; the planning directory contains no executed run at all."
+            ),
+        },
+        "reproduction_claims_this_analysis_does_not_make": [
+            "It does not reproduce a GPU experiment. No GPU command is issued.",
+            (
+                "Its CPU tests exercise the analysis code against synthetic "
+                "fixtures and, when present, the local copy of the pack. They are "
+                "unit and regression tests, not experimental replication."
+            ),
+            (
+                "Re-running this script regenerates the derived outputs. It does "
+                "not regenerate the 40 executed runs, which would need new GPU "
+                "authorisation."
+            ),
+        ],
     }
 
 
@@ -2044,6 +2416,7 @@ def run(pack: Path, out: Path) -> dict:
     noise = noise_selection_report(cells, groups, options)
     nesting = nesting_report(options)
     g_e = g_e_report(pack)
+    inventory = evidence_inventory_report(pack)
     provenance = pack_provenance(pack, verified)
     precision = precision_table(
         {
@@ -2105,6 +2478,7 @@ def run(pack: Path, out: Path) -> dict:
     _write_json(out / "noise-selection-report.json", noise)
     _write_json(out / "nesting-report.json", nesting)
     _write_json(out / "g-e-report.json", g_e)
+    _write_json(out / "evidence-inventory.json", inventory)
     _write_json(out / "pack-provenance.json", provenance)
     _write_json(
         out / "precision-report.json",
@@ -2143,6 +2517,7 @@ def run(pack: Path, out: Path) -> dict:
         "noise": noise,
         "nesting": nesting,
         "g_e": g_e,
+        "inventory": inventory,
         "provenance": provenance,
         "precision": precision,
         "method": method,
@@ -2389,14 +2764,57 @@ def _print_report(result: dict) -> None:
         f"  round 1 (history, {hist['status_code']}): "
         f"{hist['qualified_count']}/{hist['audit_row_count']} qualified"
     )
+    counts = cur.get("qualification_counts", {})
     print(
-        f"  round 2 (current)   : {cur.get('qualified', '?')}/"
-        f"{cur.get('row_count', '?')} qualified, {cur.get('pending', '?')} pending"
+        f"  round 2 (current)   : {counts.get(G_E_QUALIFIED, '?')} qualified, "
+        f"{counts.get(G_E_PENDING, '?')} pending, {counts.get('OTHER', '?')} other"
     )
     for row in cur.get("pending_rows", []):
-        print(f"    pending {row['group_id']} {row['condition']}: {row['forward_relation']}")
-    print(f"  E == C everywhere        : {cur.get('e_equals_c_everywhere')}")
-    print(f"  evidence failures        : {cur.get('evidence_failure_count')}")
+        print(
+            f"    pending {row['group_id']} {row['condition']}: "
+            f"{row['qualification']}  E={row['e_status']}"
+        )
+    lcp = cur.get("hash_lcp", {})
+    native = cur.get("native_c", {})
+    qual_e = cur.get("independently_qualified_e", {})
+    print(f"  hash LCP tokens     : {lcp.get('token_values')} ({lcp.get('row_count')} rows)")
+    print(f"  native C tokens     : {native.get('token_values')} ({native.get('row_count')} rows)")
+    print(
+        f"  qualified E tokens  : {qual_e.get('token_values')} "
+        f"({qual_e.get('row_count')} rows with E)"
+    )
+    contrib = cur.get("primary_metric_contribution", {})
+    print(
+        f"  Sigma(E-C) qualified : {contrib.get('qualified_contribution_tokens')} "
+        f"tokens over {contrib.get('qualified_rows')} rows; "
+        f"pending={contrib.get('pending_contribution')}"
+    )
+    print(f"  contribution verdict : {contrib.get('overall')}")
+    failures = cur.get("evidence_failures", {})
+    print(
+        f"  evidence failures    : recorded "
+        f"{failures.get('recorded_failure_records')} + row checks "
+        f"{failures.get('rows_failing_integrity_checks')} = "
+        f"{failures.get('total')}"
+    )
+    for note in cur.get("contradictions", []):
+        print(f"    CONTRADICTION: {note}")
+
+    print()
+    print("== evidence inventory (for M1 transfer) ==")
+    inv = result["inventory"]
+    status = inv["delivery_status"]
+    print(
+        f"  pack {inv['pack_file_count']} files / "
+        f"{inv['pack_bytes'] / 1024 / 1024:.1f} MiB, untracked={inv['pack_untracked']}"
+    )
+    print(
+        f"  manifest committed: {status['manifest_committed']} "
+        f"({status['manifest_entry_count']} entries); "
+        f"raw pack delivered to M1: {status['raw_pack_transferred_to_m1']}"
+    )
+    for kind, count in sorted(Counter(e["evidence_kind"] for e in inv["directories"]).items()):
+        print(f"    {kind:36s} {count} directories")
 
     print()
     print("== planned CI half-width (SD=2000 assumption, NOT an achieved value) ==")

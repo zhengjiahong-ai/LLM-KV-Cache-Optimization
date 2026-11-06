@@ -70,14 +70,33 @@
     "frozen_by": "must be written into G0 with the salt and the allocation"
   },
   "variance_estimation": {
-    "sigma_run": "pooled within-cell SD of per-run Sigma(E-C), over 10 cells (group x condition) with R=3",
+    "frozen_rule": "ONE rule: sigma_run is the pooled within-cell standard deviation of per-run Sigma(E-C) over the 10 sampled cells (5 groups x 2 conditions), with equal weight per cell and df = 10 x (3 - 1) = 20. sigma_delta = sqrt(2) sigma_run, tied = 2 sqrt(2) sigma_run. No other estimator is permitted for this campaign.",
+    "assumption": "COMMON within-cell variance across strata and conditions (homoscedasticity).",
+    "justification": [
+      "Every sampled cell has the same R = 3, so the pooled estimator is balanced rather than weighted by unequal cell counts.",
+      "The design needs ONE absolute `tied` threshold applied uniformly to the paired population; per-stratum thresholds would change what counts as tied depending on which stratum a cell fell into, and no protocol section defines that.",
+      "Per-stratum estimates would rest on 4 cells (df 4) each, which is too unstable to freeze as a threshold."
+    ],
+    "sigma_run": "pooled within-cell SD, equal weight per cell, over 10 cells with R=3",
     "df": 20,
     "relative_se_of_sigma_run": 0.1581,
-    "weights": "equal per cell (every cell has the same R); the pooled SD is a stratified pool, so it is a design-based estimate for the paired population, not a variance of the 20-group pool",
-    "stratum_reporting_required": true,
+    "weights": "equal per cell. Because the draw is stratified with a fixed allocation, the cell weights are NOT proportional to the population stratum shares: FLAT supplies 2 of 10 cells (20%) while being 3 of 18 groups (16.7%). The pooled value is therefore a design-based summary of the sampled cells, not a population-weighted variance.",
+    "target_population_stratum_weights": {
+      "RESPONSIVE": 0.3889,
+      "WEAK": 0.4444,
+      "FLAT": 0.1667,
+      "basis": "the 18 paired groups"
+    },
+    "stratified_reporting_required": true,
+    "stratified_outputs": {
+      "per_stratum_sigma_run": "reported",
+      "max_over_min_stratum_ratio": "reported",
+      "status": "DIAGNOSTIC_ONLY. The pooled rule stands regardless of the ratio. Switching to per-stratum thresholds after seeing this diagnostic would be an S9 violation, so any such switch would require a fresh protocol amendment before the run."
+    },
     "sigma_delta": "sqrt(2) * sigma_run under independent equal variance",
     "tied": "2 * sqrt(2) * sigma_run",
-    "interaction": "no tied classification: it would need the within-group correlation of the two condition deltas, which is unmeasured"
+    "interaction": "no tied classification: it would need the within-group correlation of the two condition deltas, which is unmeasured",
+    "no_post_run_change": "This block is frozen at G0. The estimator, the df and the diagnostic obligations may not be revised once the noise runs exist."
   },
   "v4_clause_changes": [
     "§6.4: replace 'independent of the Headroom screening' with 'independent of the Headroom decision procedure, conditioned on its outcome, and drawn by the G0-frozen deterministic rule below'.",

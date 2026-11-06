@@ -3,54 +3,100 @@
   "current_state": {
     "status": "CURRENT",
     "source": "phase3-same-batch-physical-qualification-audit-v1, M6 recompute at git 712b3fc628c5bbebe95a782119654834c741149",
-    "question": "Do producer and consumer resolve the same physical prefix blocks under a bound forward-batch source?",
+    "question": "Do producer and consumer resolve the same physical prefix blocks under a bound forward-batch source, and is the pair therefore eligible?",
     "row_count": 40,
-    "qualified": 36,
-    "pending": 4,
-    "qualified_semantics": "QUALIFIED_SAME_BATCH_SHARED_PREDECESSOR",
-    "pending_semantics": "PENDING_EARLIER_FORWARD_ORDER_PROOF",
+    "hash_lcp": {
+      "row_count": 40,
+      "token_values": [
+        112
+      ],
+      "block_values": [
+        7
+      ],
+      "meaning": "shared prefix measured by content hash; not an eligibility test"
+    },
+    "native_c": {
+      "row_count": 40,
+      "token_values": [
+        112
+      ],
+      "meaning": "native prefix computed by the engine; not E"
+    },
+    "independently_qualified_e": {
+      "row_count": 36,
+      "token_values": [
+        112
+      ],
+      "rows_without_e": [],
+      "meaning": "E as established by the qualification procedure; defined only on qualified rows"
+    },
+    "e_equals_c_on_qualified_rows": true,
+    "e_status_for_pending_rows": "NOT_ESTABLISHED",
+    "physical_prefix_equal_is_not_e_qualification": "Physical prefix block equality shows the two requests resolved the same blocks. It is necessary but not sufficient for eligibility, which additionally needs the forward-order proof. Treating the former as the latter is exactly the inference this report refuses to make.",
+    "qualification_counts": {
+      "QUALIFIED_SAME_BATCH_SHARED_PREDECESSOR": 36,
+      "PENDING_EARLIER_FORWARD_ORDER_PROOF": 4,
+      "OTHER": 0
+    },
     "pending_rows": [
       {
         "group_id": "g08",
         "condition": "C1",
+        "qualification": "PENDING_EARLIER_FORWARD_ORDER_PROOF",
         "forward_relation": "EARLIER_FORWARD_ORDER_NEEDS_SEPARATE_PROOF",
         "scheduler_relation": "EARLIER_SCHEDULER_ITERATION",
-        "independent_e": null
+        "independent_e": null,
+        "e_status": "NOT_ESTABLISHED"
       },
       {
         "group_id": "g08",
         "condition": "C2",
+        "qualification": "PENDING_EARLIER_FORWARD_ORDER_PROOF",
         "forward_relation": "EARLIER_FORWARD_ORDER_NEEDS_SEPARATE_PROOF",
         "scheduler_relation": "EARLIER_SCHEDULER_ITERATION",
-        "independent_e": null
+        "independent_e": null,
+        "e_status": "NOT_ESTABLISHED"
       },
       {
         "group_id": "g20",
         "condition": "C1",
+        "qualification": "PENDING_EARLIER_FORWARD_ORDER_PROOF",
         "forward_relation": "EARLIER_FORWARD_ORDER_NEEDS_SEPARATE_PROOF",
         "scheduler_relation": "EARLIER_SCHEDULER_ITERATION",
-        "independent_e": null
+        "independent_e": null,
+        "e_status": "NOT_ESTABLISHED"
       },
       {
         "group_id": "g20",
         "condition": "C2",
+        "qualification": "PENDING_EARLIER_FORWARD_ORDER_PROOF",
         "forward_relation": "EARLIER_FORWARD_ORDER_NEEDS_SEPARATE_PROOF",
         "scheduler_relation": "EARLIER_SCHEDULER_ITERATION",
-        "independent_e": null
+        "independent_e": null,
+        "e_status": "NOT_ESTABLISHED"
       }
     ],
-    "physical_prefix_equal": 40,
-    "hash_identity_match": true,
-    "hash_lcp_covers_native_c": true,
-    "hash_lcp_tokens_values": [
-      112
-    ],
-    "native_c_values": [
-      112
-    ],
-    "e_equals_c_everywhere": true,
-    "evidence_failure_count": 0,
-    "contribution_to_primary_metric": "E == C == 112 on every audited pair, so the audited pairs contribute exactly 0 to Sigma(E-C)."
+    "evidence_failures": {
+      "recorded_failure_records": 0,
+      "rows_failing_integrity_checks": 0,
+      "row_detail": {},
+      "total": 0,
+      "derivation": "recorded_failure_records is the length of the audit's own evidence-failures list; rows_failing_integrity_checks is computed per row from the invariant columns. Neither is a constant."
+    },
+    "contradictions": [],
+    "primary_metric_contribution": {
+      "basis": "Sigma(E-C) can be judged only where the audit qualified the pair and produced an independent E. Pending pairs are UNDETERMINED.",
+      "qualified_rows": 36,
+      "qualified_rows_evaluable": 36,
+      "qualified_rows_e_equals_c": 36,
+      "qualified_rows_e_not_equal_c": [],
+      "qualified_contribution_tokens": 0,
+      "pending_rows": 4,
+      "pending_contribution": "UNDETERMINED_PENDING_QUALIFICATION",
+      "unqualified_rows": 0,
+      "overall": "PARTIAL_DETERMINATE",
+      "not_established_note": "A null independent_e means E was never established for that pair. It does not mean E == C, and it is not a conservative zero by construction; it is an unmeasured quantity."
+    }
   },
   "history": {
     "status": "SUPERSEDED_BY_ROUND_2_FOR_CURRENT_STATE",
@@ -67,8 +113,8 @@
     ],
     "qualification_result": "REJECTED_SAME_WAVE_PREFILL_NOT_COMPLETE_BEFORE_CONSUMER_LOOKUP"
   },
-  "semantic_difference": "Round 1 asks about *visibility and completion timing* of the producer's prefill; round 2 asks about *physical block identity and forward-batch source binding*. A pair can bind the same physical prefix while still failing round 1's visibility criterion, so the two counts are not a correction of one another.",
-  "what_does_not_change": "Either way, every audited pair has hash_lcp_tokens == native_c == 112, so E == C there and the audited pairs contribute 0 to Sigma(E-C). The direction of the residual uncertainty is conservative, and uses_c_to_compute_e is false in both rounds, so the arm-independence requirement on E is not violated.",
-  "remaining_open_item": "4 pair(s) still need a separate earlier-forward ordering proof; the audit covers one pair per cell, so the remaining request pairs are unverified in either round.",
+  "semantic_difference": "Round 1 asks about *visibility and completion timing* of the producer's prefill; round 2 asks about *physical block identity and forward-batch source binding*, and additionally requires the forward-order proof before a pair counts as eligible. A pair can bind the same physical prefix while still failing round 1's visibility criterion, and a pair can bind the same physical prefix while still being pending the order proof -- so neither count corrects the other.",
+  "what_does_not_change": "uses_c_to_compute_e is false in both rounds, so the arm-independence requirement on E is not violated. That is a separate claim from whether an E value exists for a given pair: on pending rows it does not, and neither equality nor a zero contribution may be asserted.",
+  "remaining_open_item": "4 pair(s) remain PENDING_EARLIER_FORWARD_ORDER_PROOF and have no established E; the audit covers one pair per cell, so the remaining request pairs are unverified in either round.",
   "adjudication": "Independent of G4 and of the design choice. It must not block, and must not be blocked by, the Option A'/E/F decision."
 }

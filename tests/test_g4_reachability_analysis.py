@@ -1105,7 +1105,6 @@ def test_real_pack_noise_selection_is_deterministic_and_flagged(tmp_path: Path) 
     assert len(noise["selection_rule"]["selected_groups"]) == 5
     assert noise["variance_estimation"]["df"] == 20
     assert len(noise["v4_clause_changes"]) == 4
-
     # The draw is a pure function of the frozen salt and the group ids.
     again = mod.run(REAL_PACK, tmp_path)
     assert (
@@ -1126,24 +1125,344 @@ def test_real_pack_g_e_uses_round_two_as_current_state(tmp_path: Path) -> None:
     history = g_e["history"]
 
     assert current["status"] == "CURRENT"
-    assert current["qualified"] == 36
-    assert current["pending"] == 4
+    assert current["qualification_counts"][mod.G_E_QUALIFIED] == 36
+    assert current["qualification_counts"][mod.G_E_PENDING] == 4
     assert {row["group_id"] for row in current["pending_rows"]} == {"g08", "g20"}
-    assert current["physical_prefix_equal"] == 40
-    assert current["evidence_failure_count"] == 0
-    assert current["e_equals_c_everywhere"] is True
+    assert current["independently_qualified_e"]["row_count"] == 36
+    assert current["evidence_failures"]["total"] == 0
+    assert current["e_equals_c_on_qualified_rows"] is True
 
     assert history["status"] == "SUPERSEDED_BY_ROUND_2_FOR_CURRENT_STATE"
     assert history["status_code"] == "FAIL_CLOSED"
     assert history["qualified_count"] == 0
     assert history["rejected_count"] == 40
-    assert (
-        "different" in g_e["semantic_difference"]
-        or "not a correction" in g_e["semantic_difference"]
-    )
+    assert "corrects" in g_e["semantic_difference"] or "pending" in g_e["semantic_difference"]
 
     written = json.loads((tmp_path / "option-f-report.json").read_text("utf-8"))
     assert written["design"]["name"] == "OPTION_F_TWO_LEVEL_FIXED_PRESSURE"
+
+
+# --------------------------------------------------------------------------- #
+# G-E evidence semantics (RC10-1 fix)
+# --------------------------------------------------------------------------- #
+
+
+def _audit_row(
+    group_id: str,
+    load_level: str,
+    *,
+    qualification: str = mod.G_E_QUALIFIED,
+    independent_e: int | None = 112,
+    native_c: int = 112,
+    hash_lcp_tokens: int = 112,
+    physical_prefix_equal: bool = True,
+    physical_prefix_complete: bool = True,
+    producer_ids: list[int] | None = None,
+    consumer_ids: list[int] | None = None,
+) -> dict:
+    ids = list(range(1, 8))
+    return {
+        "group_id": group_id,
+        "load_level": load_level,
+        "run_id": f"run-{group_id}-{load_level}",
+        "qualification": qualification,
+        "independent_e": independent_e,
+        "native_c": native_c,
+        "hash_lcp_tokens": hash_lcp_tokens,
+        "hash_lcp_blocks": 7,
+        "required_shared_blocks": 7,
+        "physical_prefix_complete": physical_prefix_complete,
+        "physical_prefix_equal": physical_prefix_equal,
+        "hash_function_match": True,
+        "hash_process_match": True,
+        "producer_prefix_block_ids": ids if producer_ids is None else producer_ids,
+        "consumer_prefix_block_ids": ids if consumer_ids is None else consumer_ids,
+        "forward_relation": "SAME_FORWARD_BATCH_SOURCE_BOUND",
+        "scheduler_relation": "SAME_SCHEDULER_ITERATION",
+    }
+
+
+def test_qualified_rows_contribute_zero_only_when_e_is_established() -> None:
+    rows = [
+        _audit_row("g01", "L_LOW"),
+        _audit_row("g01", "L_HIGH"),
+    ]
+    summary = mod.summarize_qualification(rows, [])
+
+    assert summary["independently_qualified_e"]["row_count"] == 2
+    assert summary["e_equals_c_on_qualified_rows"] is True
+    contribution = summary["primary_metric_contribution"]
+    assert contribution["qualified_contribution_tokens"] == 0
+    assert contribution["overall"] == "DETERMINATE"
+
+
+def test_pending_rows_do_not_assert_e_equals_c() -> None:
+    """A null E is unmeasured, not a conservative zero."""
+
+    rows = [
+        _audit_row("g01", "L_LOW"),
+        _audit_row(
+            "g08",
+            "L_LOW",
+            qualification=mod.G_E_PENDING,
+            independent_e=None,
+        ),
+        _audit_row(
+            "g08",
+            "L_HIGH",
+            qualification=mod.G_E_PENDING,
+            independent_e=None,
+        ),
+    ]
+    summary = mod.summarize_qualification(rows, [])
+
+    assert summary["independently_qualified_e"]["row_count"] == 1
+    assert summary["e_status_for_pending_rows"] == "NOT_ESTABLISHED"
+    assert summary["qualification_counts"][mod.G_E_PENDING] == 2
+    assert {row["e_status"] for row in summary["pending_rows"]} == {"NOT_ESTABLISHED"}
+    assert {row["qualification"] for row in summary["pending_rows"]} == {mod.G_E_PENDING}
+
+    contribution = summary["primary_metric_contribution"]
+    assert contribution["qualified_contribution_tokens"] == 0
+    assert contribution["pending_contribution"] == "UNDETERMINED_PENDING_QUALIFICATION"
+    assert contribution["overall"] == "PARTIAL_DETERMINATE"
+    assert "does not mean E == C" in contribution["not_established_note"]
+
+
+def test_pending_row_keeps_its_pending_semantics_even_if_prefixes_match() -> None:
+    rows = [
+        _audit_row(
+            "g20",
+            "L_HIGH",
+            qualification=mod.G_E_PENDING,
+            independent_e=None,
+        )
+    ]
+    summary = mod.summarize_qualification(rows, [])
+
+    assert summary["qualification_counts"][mod.G_E_PENDING] == 1
+    assert summary["primary_metric_contribution"]["overall"] == "PARTIAL_DETERMINATE"
+    assert summary["pending_rows"][0]["condition"] == "C2"
+
+
+def test_hash_lcp_and_native_c_are_reported_separately_from_e() -> None:
+    rows = [_audit_row("g01", "L_LOW"), _audit_row("g01", "L_HIGH")]
+    summary = mod.summarize_qualification(rows, [])
+
+    assert summary["hash_lcp"]["token_values"] == [112]
+    assert summary["native_c"]["token_values"] == [112]
+    assert summary["independently_qualified_e"]["token_values"] == [112]
+    assert "not an eligibility test" in summary["hash_lcp"]["meaning"]
+    assert "not E" in summary["native_c"]["meaning"]
+    assert "necessary but not sufficient" in summary["physical_prefix_equal_is_not_e_qualification"]
+
+
+def test_evidence_failures_are_counted_not_assumed() -> None:
+    rows = [_audit_row("g01", "L_LOW")]
+    summary = mod.summarize_qualification(rows, [{"failure": "x"}])
+
+    failures = summary["evidence_failures"]
+    assert failures["recorded_failure_records"] == 1
+    assert failures["rows_failing_integrity_checks"] == 0
+    assert failures["total"] == 1
+    assert summary["primary_metric_contribution"]["overall"] == "CONTRADICTORY_EVIDENCE"
+
+
+def test_per_row_integrity_failures_are_detected() -> None:
+    rows = [
+        _audit_row("g01", "L_LOW", physical_prefix_equal=False),
+        _audit_row("g02", "L_LOW", consumer_ids=[1, 2, 3]),
+        _audit_row("g03", "L_LOW", native_c=None),
+    ]
+    summary = mod.summarize_qualification(rows, [])
+
+    detail = summary["evidence_failures"]["row_detail"]
+    assert summary["evidence_failures"]["rows_failing_integrity_checks"] == 3
+    assert "PHYSICAL_PREFIX_MISMATCH" in detail["run-g01-L_LOW"]
+    assert "PREFIX_BLOCK_ID_MISMATCH" in detail["run-g02-L_LOW"]
+    assert "NATIVE_C_MISSING_OR_INVALID" in detail["run-g03-L_LOW"]
+    assert summary["primary_metric_contribution"]["overall"] == "CONTRADICTORY_EVIDENCE"
+
+
+def test_qualified_row_without_e_is_a_contradiction() -> None:
+    rows = [_audit_row("g01", "L_LOW", independent_e=None)]
+    summary = mod.summarize_qualification(rows, [])
+
+    assert summary["independently_qualified_e"]["rows_without_e"] == ["run-g01-L_LOW"]
+    assert summary["e_equals_c_on_qualified_rows"] is False
+    assert any("qualified but carry no" in note for note in summary["contradictions"])
+
+
+def test_pending_row_carrying_e_is_a_contradiction() -> None:
+    rows = [_audit_row("g08", "L_LOW", qualification=mod.G_E_PENDING, independent_e=112)]
+    summary = mod.summarize_qualification(rows, [])
+
+    assert any("pending yet carry" in note for note in summary["contradictions"])
+    assert summary["primary_metric_contribution"]["overall"] == "CONTRADICTORY_EVIDENCE"
+
+
+def test_qualified_row_with_e_not_equal_c_reports_a_nonzero_contribution() -> None:
+    rows = [_audit_row("g01", "L_LOW", independent_e=100, native_c=112)]
+    summary = mod.summarize_qualification(rows, [])
+
+    contribution = summary["primary_metric_contribution"]
+    assert contribution["qualified_rows_e_not_equal_c"] == ["run-g01-L_LOW"]
+    assert contribution["qualified_contribution_tokens"] == -12
+    assert summary["e_equals_c_on_qualified_rows"] is False
+
+
+def test_unknown_qualification_value_is_flagged() -> None:
+    rows = [_audit_row("g01", "L_LOW", qualification="SOMETHING_ELSE")]
+    summary = mod.summarize_qualification(rows, [])
+
+    assert summary["qualification_counts"]["OTHER"] == 1
+    assert any("neither" in note for note in summary["contradictions"])
+
+
+@pytest.mark.skipif(
+    not REAL_PACK.is_dir(),
+    reason="frozen evidence pack absent (local/ is not tracked)",
+)
+def test_real_pack_g_e_does_not_assert_e_for_pending_rows(tmp_path: Path) -> None:
+    result = mod.run(REAL_PACK, tmp_path)
+    current = result["g_e"]["current_state"]
+
+    assert current["qualification_counts"][mod.G_E_QUALIFIED] == 36
+    assert current["qualification_counts"][mod.G_E_PENDING] == 4
+    assert current["independently_qualified_e"]["row_count"] == 36
+    assert current["hash_lcp"]["row_count"] == 40
+    assert current["native_c"]["row_count"] == 40
+
+    contribution = current["primary_metric_contribution"]
+    assert contribution["qualified_contribution_tokens"] == 0
+    assert contribution["pending_contribution"] == "UNDETERMINED_PENDING_QUALIFICATION"
+    assert contribution["overall"] == "PARTIAL_DETERMINATE"
+    assert {row["group_id"] for row in current["pending_rows"]} == {"g08", "g20"}
+    assert all(row["e_status"] == "NOT_ESTABLISHED" for row in current["pending_rows"])
+
+    assert current["evidence_failures"]["total"] == 0
+    assert current["contradictions"] == []
+
+
+# --------------------------------------------------------------------------- #
+# noise variance rule (RC10-5)
+# --------------------------------------------------------------------------- #
+
+
+def _f_fixture_args():
+    """``(cells, groups, options)`` for functions that do not need the F report."""
+
+    cells, groups, options, _ = _f_fixture()
+    return cells, groups, options
+
+
+def test_noise_variance_rule_is_a_single_frozen_estimator() -> None:
+    noise = mod.noise_selection_report(*_f_fixture_args())
+
+    variance = noise["variance_estimation"]
+    assert "ONE rule" in variance["frozen_rule"]
+    assert variance["assumption"].startswith("COMMON within-cell variance")
+    assert len(variance["justification"]) == 3
+    allocation = noise["selection_rule"]["stratum_allocation"]
+    selected = len(noise["selection_rule"]["selected_groups"])
+    expected_df = selected * mod.NOISE_CONDITIONS * (mod.NOISE_REPEATS - 1)
+    assert variance["df"] == expected_df
+    assert sum(allocation.values()) == 5
+    assert variance["stratified_reporting_required"] is True
+    assert "DIAGNOSTIC_ONLY" in variance["stratified_outputs"]["status"]
+    assert "not be revised once the noise runs exist" in variance["no_post_run_change"]
+    assert variance["tied"] == "2 * sqrt(2) * sigma_run"
+    assert variance["sigma_delta"] == "sqrt(2) * sigma_run under independent equal variance"
+
+
+def test_noise_stratum_weights_are_stated_but_not_used_as_cell_weights() -> None:
+    noise = mod.noise_selection_report(*_f_fixture_args())
+    variance = noise["variance_estimation"]
+
+    weights = variance["target_population_stratum_weights"]
+    assert weights["RESPONSIVE"] == pytest.approx(7 / 18, abs=1e-4)
+    assert weights["WEAK"] == pytest.approx(8 / 18, abs=1e-4)
+    assert weights["FLAT"] == pytest.approx(3 / 18, abs=1e-4)
+    assert "NOT proportional" in variance["weights"]
+
+    allocation = noise["selection_rule"]["stratum_allocation"]
+    assert sum(allocation.values()) == 5
+
+
+# --------------------------------------------------------------------------- #
+# evidence inventory (RC10 item 3)
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.skipif(
+    not REAL_PACK.is_dir(),
+    reason="frozen evidence pack absent (local/ is not tracked)",
+)
+def test_real_pack_evidence_inventory_separates_gpu_from_derived(tmp_path: Path) -> None:
+    result = mod.run(REAL_PACK, tmp_path)
+    inventory = result["inventory"]
+
+    separation = inventory["evidence_separation"]
+    assert "phase3-load-calibration-inputs-v1" in separation["gpu_raw_execution_evidence"]
+    assert "phase3-load-calibration-analysis-v7" in separation["gpu_raw_execution_evidence"]
+    assert (
+        "phase3-load-calibration-iteration2-planning-v1" in separation["offline_derived_analysis"]
+    )
+    assert (
+        "phase3-same-batch-physical-qualification-audit-v1"
+        in separation["offline_audits_over_gpu_evidence"]
+    )
+
+    kinds = {entry["evidence_kind"] for entry in inventory["directories"]}
+    assert kinds <= {
+        "GPU_RAW_EXECUTION_EVIDENCE",
+        "OFFLINE_AUDIT_OVER_GPU_EVIDENCE",
+        "OFFLINE_DERIVED_ANALYSIS",
+        "UNCLASSIFIED",
+    }
+    assert "UNCLASSIFIED" not in kinds
+
+    delivery = inventory["delivery_status"]
+    assert delivery["manifest_committed"] is True
+    assert delivery["manifest_entry_count"] == 250
+    assert delivery["raw_pack_transferred_to_m1"] is False
+
+    claims = " ".join(inventory["reproduction_claims_this_analysis_does_not_make"])
+    assert "does not reproduce a GPU experiment" in claims
+    assert "not experimental replication" in claims
+
+    written = json.loads((tmp_path / "evidence-inventory.json").read_text("utf-8"))
+    assert written["pack_file_count"] == inventory["pack_file_count"]
+
+
+def test_evidence_inventory_classifies_a_synthetic_pack(tmp_path: Path) -> None:
+    pack = tmp_path / "pack"
+    for name in (
+        "artifacts/phase3-load-calibration-runs-v2",
+        "artifacts/phase3-same-batch-physical-qualification-audit-v1",
+        "artifacts/phase3-load-calibration-iteration2-planning-v1",
+        "artifacts/mystery-dir",
+    ):
+        directory = pack / name
+        directory.mkdir(parents=True)
+        (directory / "row.json").write_text("{}\n", encoding="utf-8")
+    (pack / "sha256-manifest.txt").write_text("abc  row.json\n", encoding="utf-8")
+
+    inventory = mod.evidence_inventory_report(pack)
+    kinds = {entry["directory"]: entry["evidence_kind"] for entry in inventory["directories"]}
+
+    assert kinds["artifacts/phase3-load-calibration-runs-v2"] == "GPU_RAW_EXECUTION_EVIDENCE"
+    assert (
+        kinds["artifacts/phase3-same-batch-physical-qualification-audit-v1"]
+        == "OFFLINE_AUDIT_OVER_GPU_EVIDENCE"
+    )
+    assert (
+        kinds["artifacts/phase3-load-calibration-iteration2-planning-v1"]
+        == "OFFLINE_DERIVED_ANALYSIS"
+    )
+    assert kinds["artifacts/mystery-dir"] == "UNCLASSIFIED"
+    assert inventory["delivery_status"]["manifest_entry_count"] == 1
+    assert inventory["pack_file_count"] == 5  # 4 row.json + the manifest
 
 
 # --------------------------------------------------------------------------- #

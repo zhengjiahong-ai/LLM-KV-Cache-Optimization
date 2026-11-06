@@ -5,8 +5,8 @@
 **Status**: `ANALYSIS_ONLY` — awaiting M1 adjudication. **No GPU execution. No frozen input modified.** Option F is **not approved**.
 **Evidence pack**: `local/phase3-g4-reachability-analysis-pack-v1` (created 2026-11-05, git `712b3fc`, `gpu_execution_included: false`)
 **Analysis script**: `scripts/probes/phase3_g4_reachability/reachability_analysis.py`
-**CPU tests**: `tests/test_g4_reachability_analysis.py` — **72 passed**, no GPU, no network
-**Committed outputs**: `docs/experiments/phase3-g4/outputs/` (19 JSON/CSV artifacts + test log + pack manifest)
+**CPU tests**: `tests/test_g4_reachability_analysis.py` — **87 passed**, no GPU, no network
+**Committed outputs**: `docs/experiments/phase3-g4/outputs/` (20 JSON/CSV artifacts + test log + pack manifest)
 
 **Scope boundary honoured**: no second calibration round, no new 40-run configuration, no workload/pool/input change, no noise calibration, no main campaign, iteration-1 evidence untouched, Protocol v3 unmodified, no G4 PASS declared.
 
@@ -59,6 +59,21 @@ Two numbers to re-read against RC1–RC9:
 
 1. **H3's primary is no longer 9 groups.** It is **20 groups / 38 cells** (H3-0), with 9 groups / 16 cells as the separate H3-R.
 2. **The interaction is no longer one number.** Interaction-A has 18 pairs and clears the ≥ 8 minimum; Interaction-B has 7 and does not.
+
+### 0.4 Follow-up corrections to RC10
+
+M1 asked for three limited fixes on top of RC10. The H3, interaction and nesting revisions above are
+**closed and unchanged**; what follows only corrects how G-E, the noise variance and the evidence
+package are described.
+
+| Item | Defect | Fix | Where |
+|---|---|---|---|
+| **G-E evidence semantics** | `hash_lcp_tokens == native_c` was used as proof that `E == C`; `evidence_failure_count` was a literal `0`; a zero contribution to `Σ(E−C)` was asserted for all 40 pairs | Hash LCP, native C and independently qualified E are now **three separate quantities**. E is summarized on the **36 qualified rows only**; the 4 pending rows keep `PENDING_EARLIER_FORWARD_ORDER_PROOF` with **no established E**. Contribution is *0 tokens over 36 rows* plus `UNDETERMINED_PENDING_QUALIFICATION` on 4 → verdict `PARTIAL_DETERMINATE`. Failures are **counted** from the audit's own list + per-row integrity checks | §3.4 |
+| **Noise variance** | "pooled within-cell SD, df 20" with loosely described weights, leaving room to re-specify after the run | **One frozen estimator**; an explicit common-variance assumption with three justifications; target-population stratum weights stated and shown **not** to be the cell weights; stratified outputs required as `DIAGNOSTIC_ONLY`; no-post-run-change clause | §2.5.5 |
+| **Evidence delivery** | The 250-entry manifest was presented as if it were delivery of the pack | `raw_pack_transferred_to_m1 = false` is stated; GPU raw evidence / offline audits / derived analysis are classified in `outputs/evidence-inventory.json`; CPU tests are explicitly **not** GPU reproduction | §3.4, `option-f-two-level-fixed-pressure.md` Appendix D |
+
+Two numbers to re-read: **`Σ(E−C)` is determinate on 36 pairs, not 40**, and the noise `σ_run` is a
+design-based summary of the sampled cells, **not** a population-weighted variance.
 
 ---
 
@@ -396,7 +411,26 @@ Reading:
 
 For a **single-level** design (A′ / E) the v3 30-run design (5 groups × 2 conditions × R=3) cannot be reused as written, because there is only one condition per group: **9 groups × 1 condition × R=3 = 27 runs**, df 18, relative SE of `σ_run` ≈ 16.7 % (v3: df 20, ≈ 15.8 %).
 
-For **F** the 30-run design is retained in shape but the **sampling frame changes**: 5 groups × 2 conditions × R=3, drawn from the **18 paired groups** by a G0-frozen deterministic rule (`sha256("phase3-noise-selection-v1:" + group_id)`, ascending), stratified **2 RESPONSIVE / 2 WEAK / 1 FLAT**. Current draw: g01, g04, g06, g07, g10. `σ_run` is a pooled within-cell SD over 10 cells, df 20, and must be reported **per stratum as well as pooled**, because a stratified draw is not a simple random sample of the 20 groups. The interaction gets **no `tied` classification**: its noise floor needs the within-group correlation of the two condition deltas, which is unmeasured. Four explicit v4 §6.4 amendments follow from this — see `option-f-two-level-fixed-pressure.md` §7.4.
+For **F** the 30-run design is retained in shape but two things change and must be frozen.
+
+**Sampling frame.** 5 groups × 2 conditions × R=3, drawn from the **18 paired groups** by a G0-frozen deterministic rule (`sha256("phase3-noise-selection-v1:" + group_id)`, ascending), stratified **2 RESPONSIVE / 2 WEAK / 1 FLAT**. Current draw: g01, g04, g06, g07, g10.
+
+**Variance estimator — one frozen rule (RC10-5 item 2).**
+
+> `σ_run` is the **pooled within-cell SD** of per-run `Σ(E−C)` over the **10 sampled cells** (5 groups × 2 conditions), with **equal weight per cell** and **df = 10 × (3 − 1) = 20**. `σ_δ = √2·σ_run`, `tied = 2√2·σ_run`. No other estimator is permitted for this campaign, and the rule may not be revised once the noise runs exist.
+
+| Assumption | Statement |
+|---|---|
+| **Common within-cell variance** (homoscedastic) across strata and conditions | adopted |
+| Justification 1 | every sampled cell has the same `R = 3`, so the pooled estimator is balanced rather than weighted by unequal cell counts |
+| Justification 2 | the design needs **one** absolute `tied` threshold applied uniformly to the paired population; per-stratum thresholds would make "tied" depend on which stratum a cell fell into, and no protocol section defines that |
+| Justification 3 | per-stratum estimates would rest on 4 cells (df 4) each — too unstable to freeze as a threshold |
+
+**Weights, stated because they are not population weights.** With a fixed stratified allocation the cell weights are **not** proportional to the population stratum shares: FLAT supplies 2 of 10 cells (20 %) while being 3 of 18 groups (16.7 %). Target-population stratum weights are `RESPONSIVE 7/18`, `WEAK 8/18`, `FLAT 3/18`; the pooled value is a design-based summary of the sampled cells, not a population-weighted variance.
+
+**Stratified results are required, and are diagnostic only.** Report per-stratum `σ_run` and the max/min stratum ratio. The pooled rule stands regardless of that ratio; switching to per-stratum thresholds after seeing the diagnostic would violate S9, so any such switch needs a fresh protocol amendment *before* the run.
+
+`σ_run` therefore estimates the **paired** population, and `tied` applies to it. The interaction gets **no `tied` classification**: its noise floor needs the within-group correlation of the two condition deltas, which is unmeasured → `UNDEFINED_ASSUMPTION`. Four explicit v4 §6.4 amendments follow — see `option-f-two-level-fixed-pressure.md` §7.4.
 
 #### 2.5.6 Statistical precision: planning values, not guarantees
 
@@ -479,13 +513,41 @@ Option A should not be chosen: it cannot satisfy G3-CM without accepting model-o
 row_count: 40
 QUALIFIED_SAME_BATCH_SHARED_PREDECESSOR : 36
 PENDING_EARLIER_FORWARD_ORDER_PROOF     :  4   (g08 C1, g08 C2, g20 C1, g20 C2)
-physical_prefix_equal                   : 40 / 40
-all_hash_identity_match                 : true
-hash_lcp_tokens == native_c             : 112 / 112 on all 40
-evidence failure                        : 0
 ```
 
-**History (round 1, retained).** `phase3-concurrent-eligibility-rejection-audit-v1` asked a *different* question — is the producer's prefill **complete and visible** before a same-wave consumer looks it up — and failed closed:
+**Three quantities, reported separately (RC10-1 fix).**
+
+| Quantity | Rows | Token values | What it is |
+|---|---:|---|---|
+| `hash_lcp_tokens` | 40 | `[112]` | prefix shared by content hash — **not** an eligibility test |
+| `native_c` | 40 | `[112]` | native prefix computed by the engine — **not** E |
+| `independently_qualified_e` | **36** | `[112]` | E as established by the qualification procedure; **undefined on the 4 pending rows** |
+
+The previous revision used `hash_lcp_tokens == native_c` as proof that `E == C` across all 40
+pairs and hardcoded `evidence_failure_count = 0`. Both are withdrawn. Physical prefix equality is
+**necessary but not sufficient** for eligibility: it still needs the forward-order proof. On a
+`PENDING_EARLIER_FORWARD_ORDER_PROOF` row `independent_e` is null, so **E is not established** —
+neither equality nor a conservative zero may be asserted there.
+
+**Primary metric.** `Σ(E−C)` is judged only where the audit qualified the pair *and* produced E:
+
+| State | Rows | Contribution |
+|---|---:|---|
+| Qualified with E == native C | **36** | **0 tokens** |
+| Qualified with E ≠ native C | 0 | — (would be reported non-zero and would trigger a contradiction) |
+| Pending | **4** | `UNDETERMINED_PENDING_QUALIFICATION` |
+
+Overall verdict: **`PARTIAL_DETERMINATE`** — determinate on 36 pairs, undetermined on 4.
+
+**Evidence failures are counted, not assumed.** `recorded_failure_records` is the length of the
+audit's own `evidence-failures.json` (0 entries); `rows_failing_integrity_checks` is computed per
+row from the invariant columns (prefix completeness/equality, block-id equality, hash
+function/process match, `required_shared_blocks == hash_lcp_blocks`, token fields present). Current
+total: **0 + 0 = 0**. Any non-zero value raises a contradiction and is surfaced, not absorbed.
+
+**History (round 1, retained).** `phase3-concurrent-eligibility-rejection-audit-v1` asked a
+*different* question — is the producer's prefill **complete and visible** before a same-wave
+consumer looks it up — and failed closed:
 
 ```
 audit_row_count: 40, qualified_count: 0, rejected_count: 40
@@ -495,15 +557,20 @@ independently_qualified_e: 0   (all 40 rows)
 qualification_result: REJECTED_SAME_WAVE_PREFILL_NOT_COMPLETE_BEFORE_CONSUMER_LOOKUP  (40/40)
 ```
 
-**The two counts are not a correction of one another.** Round 1 is about visibility and completion timing; round 2 is about physical block identity and forward-batch source binding. A pair can bind the same physical prefix while still failing round 1's visibility criterion. **"40/40 rejected" is therefore no longer a correct description of the current state**, even though no round-1 row changed.
+**The two rounds are not a correction of one another.** Round 1 is about visibility and completion
+timing; round 2 is about physical block identity and forward-batch binding, and additionally
+requires the forward-order proof before a pair counts as eligible. A pair can bind the same
+physical prefix while still failing round 1, and a pair can bind the same physical prefix while
+still being pending the order proof. **"40/40 rejected" is therefore no longer a correct
+description of the current state**, even though no round-1 row changed.
 
-What does not change either way:
+What does not change either way: `uses_c_to_compute_e: false` in both rounds, so §3.2's
+arm-independence requirement on `E` is not violated — which is a separate claim from whether an
+`E` value exists for a given pair. The audit covers **one pair per cell**, so the remaining request
+pairs are unverified in either round.
 
-- `hash_lcp_tokens == native_c == 112` on every audited pair in **both** rounds, so `E = C` there and the audited pairs contribute **zero** to `Σ(E−C)` — conservative in direction.
-- `uses_c_to_compute_e: false` means §3.2's arm-independence requirement for `E` is **not** violated.
-- The audit covers **one pair per cell**, so `E` on the remaining pairs is unverified in either round.
-
-**G-E is independent of G4.** It must neither block nor be blocked by the design decision. Full record: `outputs/g-e-report.json`.
+**G-E is independent of G4.** It must neither block nor be blocked by the design decision. Full
+record: `outputs/g-e-report.json`.
 
 ### 3.5 Recommendation to M1
 
@@ -577,7 +644,8 @@ Because the pack is 209 MiB and untracked, **the derived artifacts are committed
 | `h3-report.json` | H3-0 primary, H3-R separate hypothesis, WEAK/FLAT heterogeneity |
 | `noise-selection-report.json` | §6.4 independence reading, frozen selection rule, variance and weights, 4 v4 amendments |
 | `nesting-report.json` | F ⊃ E, F ⊃ A′, and the g03/g16 operating-point moves |
-| `g-e-report.json` | round 2 as current (36/4), round 1 as history, semantic difference |
+| `g-e-report.json` | round 2 as current (36 qualified / 4 pending, E established on 36 only), round 1 as history, evidence-failure derivation, contradiction list |
+| `evidence-inventory.json` | which directories are GPU raw evidence, which are offline audits, which are derived; delivery status |
 | `calibration-cost-report.json` | run accounting per design, incl. Option A's calibration charge |
 | `collision-report.json` | the 9-vs-10 counts and the difference set |
 | `precision-report.json` | planning half-widths with their caveat |
@@ -587,9 +655,10 @@ Because the pack is 209 MiB and untracked, **the derived artifacts are committed
 
 ### A.4 CPU test results (RC10-7)
 
-`pytest tests/test_g4_reachability_analysis.py -q` → **72 passed**, no GPU, no network, no writes outside `tmp_path`. The committed log is `outputs/cpu-test-run.txt`.
+`pytest tests/test_g4_reachability_analysis.py -q` → **87 passed**, no GPU, no network, no writes outside `tmp_path`. The committed log is `outputs/cpu-test-run.txt`.
 
-This **supersedes the 63 figure** quoted before RC10; RC10 added 9 tests.
+This **supersedes the 72 figure** quoted before this revision; the G-E semantics, noise-variance
+rule and evidence-inventory changes added 15 tests.
 
 Coverage of the RC items:
 
@@ -602,14 +671,16 @@ Coverage of the RC items:
 | **RC6** — extrapolated operating point rejected without in-bracket feasibility; admitted with it; model-only labelled; measured vs interpolated distinguished; negative floor flagged and excluded from share | 6 |
 | **RC10-2** — H3-0 keeps FLAT; FLAT is a stratum not an exclusion; H3-R separate with its own estimand; per-condition counts; group-vs-cell weighting; H3 independent of the paired set; per-design populations | 7 |
 | **RC10-3** — interaction A/B separated; no `Δρ ⇒ ΔD = 0` inference; “by construction” absent | 3 |
-| **RC10-1** — round 2 current (36/4, 0 failures, E==C), round 1 retained as history | 1 |
+| **RC10-1** — round 2 current (36/4, 0 failures, E==C) **only on qualified rows**, round 1 retained as history, pending/missing/contradictory evidence cases | 12 |
+| **RC10-5** — single frozen variance estimator, common-variance justification, stratum weights, diagnostic-only status | 2 |
+| **evidence inventory** — GPU raw vs offline audit vs derived separation, delivery status, synthetic classification | 2 |
 | **RC10-4** — F ⊃ E and F ⊃ A′; E and A′ not nested; g03/g16 move | 1 |
 | **RC10-5** — decision vs population independence; allocation; determinism; df; 4 amendments | 1 |
 | **RC8** — Option A calibration = 2 × cells, A′/E = 0, B = 40; run totals add up; operating points measured and Headroom-eligible | 4 |
 | **RC9** — the M1-designated four are pinned; `35cd...` not replaced | 2 |
 | Collision counting (9-vs-10); option additivity; precision table | 3 |
 | End-to-end against the real pack (1 measured / 3 in-bracket / 7 model-only; g14 identity; F's 18 pairs; 4 population levels; nesting; noise; G-E) | 4 |
-| Inputs / helpers / other | 20 |
+| Inputs / helpers / cross-checks (remainder) | 22 |
 
 ### A.5 Schema and completeness checks enforced before any number is computed
 
@@ -659,4 +730,7 @@ Coverage of the RC items:
 | **RC10-4** nesting corrected | §0.3, §2.6, `outputs/nesting-report.json` |
 | **RC10-5** noise rule closed | §0.3, §2.5.5, `outputs/noise-selection-report.json` |
 | **RC10-6** §5.4 replaced, four populations, units and weights | §0.3, §2.5.3, `option-f-two-level-fixed-pressure.md` §3.2 / §8.4 |
-| **RC10-7** C1/C2 naming, outputs, 72 tests, pack transfer | §0.3, Appendix A, `option-f-two-level-fixed-pressure.md` Appendix D |
+| **RC10-7** C1/C2 naming, outputs, 87 tests, pack transfer | §0.3, Appendix A, `option-f-two-level-fixed-pressure.md` Appendix D |
+| **G-E semantics fix** hash LCP / native C / qualified E separated; pending rows keep no E; failures counted | §0.4, §3.4, `outputs/g-e-report.json` |
+| **Noise variance fix** one frozen estimator, common-variance justification, stratum weights, diagnostic-only | §0.4, §2.5.5, `outputs/noise-selection-report.json` |
+| **Evidence delivery fix** raw pack not delivered, GPU vs offline vs derived classification | §0.4, `outputs/evidence-inventory.json`, `option-f-two-level-fixed-pressure.md` Appendix D |
