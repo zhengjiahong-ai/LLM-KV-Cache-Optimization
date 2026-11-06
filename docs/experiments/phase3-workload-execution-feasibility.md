@@ -1,10 +1,44 @@
 # Phase 3 Workload & Execution Feasibility Report
 
-Status: **ENGINEERING PREPARATION AUTHORIZED — ACQUISITION AND GPU CAMPAIGN NOT AUTHORIZED**
+Status: **M1 AUTHORIZED: FORMAL DATASET SELECTION/ACQUISITION; 310-RUN CAMPAIGN MAY PROCEED AFTER COHORT FREEZE AND PROTOCOL GATES**
 
-Protocol dependency: M4 Phase 3 Final Evaluation Protocol v3, PR #90, review
-HEAD `3a8c3882ad248715b2f5ea90e34baa3875ea0226`. This report assesses M6
-workload and execution feasibility; it does not redefine M4 policy semantics.
+Protocol dependency: M4 Phase 3 Final Evaluation Protocol v3, PR #90,
+reviewed HEAD `3a8c3882ad248715b2f5ea90e34baa3875ea0226`, merged/frozen by M1
+on 2026-11-03 as `27249ab93953f531544ec8e226fc891adda60457`. This M6 report
+assesses workload and execution feasibility; it does not redefine protocol
+semantics.
+
+## M1 execution decision addendum (2026-11-03)
+
+- The formal cohort remains 40 **new qualified tasks** in 20 independent
+  Workload Groups, two tasks per group from different repositories, with at
+  least **10 repositories overall**. This is the frozen requirement in
+  Protocol v3 and the original M6 feasibility report; it is not relaxed.
+- M6 is authorized to select, acquire and qualify the formal cohort within the
+  existing 80 unacquired W1-C candidate IDs. The working sampling plan remains
+  40 Primary + 24 pre-registered Reserve candidates, deterministically
+  selected before acquisition/outcome observation.
+- The 18 historical W1-C full-payload-comparable pilot tasks remain excluded
+  from formal effect estimates. The remaining 80 IDs are candidates, not
+  acquired Agent traces.
+- M6 must produce the qualified 40-task / 20-group / 10-repository cohort and
+  a SHA-256-bound dataset/run manifest. It must bind task/source identities,
+  trace/sidecar/profile hashes, Primary/Reserve roles, group pairing, request
+  subsets, Frozen Request Order, Native Enqueue Order, Replay Timeline,
+  Session pairing and per-request History Predecessors.
+- Stage 1 (PR #93) and Stage 2 (PR #94) are complete. No separate Stage 3
+  code-engineering milestone is required; the cohort seal itself remains a
+  mandatory M6 data-selection and pre-run freeze deliverable.
+- Once the cohort is complete and frozen, M6 is authorized to proceed with the
+  40-run A0 Load Calibration and 30-run A0 Noise Calibration. The 240-run
+  six-arm Main Campaign is authorized after the applicable frozen protocol
+  gates pass. G0–G4, G3-CM and all fail-closed conditions remain mandatory.
+- Any failure to meet 40 qualified tasks, 20 legal groups or 10 repositories,
+  any prohibited substitution, or any protocol deviation must stop and return
+  to M1. Do not expand the frozen 80-candidate frame or retune the protocol.
+- The PR #92 estimate of 3–5 RTX 4090D GPU-hours with a 6-hour ceiling is a
+  planning estimate; M6 must reconfirm it against the qualified cohort.
+
 
 ## 1. Executive finding
 
