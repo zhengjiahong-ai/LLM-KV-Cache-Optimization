@@ -401,7 +401,8 @@ def test_band_reachable_between_the_measured_pressures_is_interpolated() -> None
     high = next(cell for cell in cells if cell.load_level == "L_HIGH")
 
     assert high.classification == "REACHABLE_INTERPOLATED"
-    assert high.target_reachable_non_floor is True
+    assert high.reachable_in_bracket is True
+    assert high.reachable_model_only is True
 
 
 def test_band_reachable_only_beyond_the_measurements_is_extrapolated() -> None:
@@ -411,7 +412,8 @@ def test_band_reachable_only_beyond_the_measurements_is_extrapolated() -> None:
     low = next(cell for cell in cells if cell.load_level == "L_LOW")
 
     assert low.classification == "REACHABLE_EXTRAPOLATED"
-    assert low.target_reachable_non_floor is True
+    assert low.reachable_in_bracket is False
+    assert low.reachable_model_only is True
     assert low.rho0_at_maximum_blocks < mod.L_LOW_BAND[0]
 
 
@@ -429,27 +431,59 @@ def test_measured_in_band_cell_is_not_reported_as_a_model_prediction() -> None:
 # --------------------------------------------------------------------------- #
 
 
-def test_floor_cell_does_not_establish_controllability() -> None:
-    """A cell that only reaches its band at the 16-block floor is not evidence."""
+def test_extrapolated_operating_point_does_not_establish_controllability() -> None:
+    """An extrapolated operating point is not evidence, and G4-a is what decides."""
 
     proposed = {("gweak", "L_LOW"): 16, ("gweak", "L_HIGH"): 16}
     _, _, cells, groups = _build({"gweak": (0.151, 0.170)}, proposed=proposed)
     low = next(cell for cell in cells if cell.load_level == "L_LOW")
 
     assert low.proposed_status == "PASS"
-    assert low.proposed_blocks == mod.MIN_PRESSURE_BLOCKS
-    assert groups[0].g4a_two_band_feasible is False
+    assert low.proposal_evidence_class == "EXTRAPOLATED"
+    assert groups[0].g4a_in_bracket_two_level is False
     assert groups[0].g4b_l_low_ok is False
-    assert groups[0].verdict != "TWO_LEVEL_CONTRAST_SUPPORTED"
+    assert not groups[0].verdict.startswith("TWO_LEVEL_CONTRAST_MEASURED")
 
 
-def test_floor_cell_is_admitted_when_the_group_is_independently_controllable() -> None:
+def test_extrapolated_operating_point_is_admitted_only_with_in_bracket_feasibility() -> None:
+    """RC6: the floor is just the commonest extrapolation, not a special case.
+
+    This group has an L_LOW point at 256 blocks and an L_HIGH point at 1024, so
+    its two-level separability is established inside the measured bracket. Its
+    proposed L_LOW pressure is the 16-block floor, which is extrapolated, and the
+    model still places it in band -- so the operating point is admissible, but
+    only because the group already passes G4-a in-bracket.
+    """
+
+    proposed = {("gx", "L_LOW"): 16, ("gx", "L_HIGH"): 1024}
+    _, _, cells, groups = _build({"gx": (0.14, 0.30)}, proposed=proposed)
+    low = next(cell for cell in cells if cell.load_level == "L_LOW")
+
+    assert low.proposal_evidence_class == "EXTRAPOLATED"
+    assert groups[0].g4a_in_bracket_two_level is True
+    assert groups[0].g4b_l_low_ok is True
+    assert groups[0].verdict == "TWO_LEVEL_CONTRAST_INTERPOLATED_SUPPORTED"
+
+
+def test_group_feasible_only_by_extrapolation_is_labelled_model_only() -> None:
+    """g03's L_LOW is only reachable below 256 blocks, so its contrast is a model claim."""
+
     proposed = {("g03", "L_LOW"): 16, ("g03", "L_HIGH"): 1024}
     _, _, _, groups = _build({"g03": (0.1821, 0.3557)}, proposed=proposed)
 
-    assert groups[0].g4a_two_band_feasible is True
-    assert groups[0].g4b_l_low_ok is True
-    assert groups[0].verdict == "TWO_LEVEL_CONTRAST_SUPPORTED"
+    assert groups[0].g4a_model_only_two_level is True
+    assert groups[0].g4a_in_bracket_two_level is False
+    assert groups[0].g4a_evidence_tier == "EXTRAPOLATED"
+    assert groups[0].g4b_l_low_ok is False
+    assert groups[0].verdict == "TWO_LEVEL_CONTRAST_MODEL_ONLY"
+
+
+def test_measured_two_level_is_distinguished_from_interpolated() -> None:
+    _, _, _, groups = _build({"gm": (0.1070, 0.4444)})
+
+    assert groups[0].g4a_measured_two_level is True
+    assert groups[0].g4a_evidence_tier == "MEASURED"
+    assert groups[0].verdict == "TWO_LEVEL_CONTRAST_MEASURED_SUPPORTED"
 
 
 def test_distinct_proposed_pressures_collide_only_when_they_are_equal() -> None:
@@ -463,9 +497,30 @@ def test_distinct_proposed_pressures_collide_only_when_they_are_equal() -> None:
 def test_two_band_feasibility_requires_a_pressure_gap_of_one_quantum() -> None:
     _, _, cells, groups = _build({"g03": (0.1821, 0.3557)})
 
-    assert groups[0].g4a_two_band_feasible is True
-    assert groups[0].g4a_achievable_delta_rho >= mod.WEAK_DELTA_RHO
+    assert groups[0].g4a_model_only_two_level is True
     assert all(cell.delta_rho_measured == groups[0].delta_rho_measured for cell in cells)
+
+
+def test_negative_floor_is_flagged_and_excluded_from_floor_share() -> None:
+    """RC6: an impossible extrapolation may be kept as a diagnostic only."""
+
+    # rho0 rises steeply, so the secant goes negative below 256 blocks.
+    _, _, cells, groups = _build({"gneg": (0.0448, 0.2949)})
+    group = groups[0]
+
+    assert group.rho0_at_minimum_blocks < 0
+    assert group.rho0_at_minimum_physically_valid is False
+    assert group.floor_share_of_low_measurement is None
+    assert all(cell.rho0_at_minimum_physically_valid is False for cell in cells)
+
+
+def test_positive_floor_keeps_its_share() -> None:
+    _, _, _, groups = _build({"gpos": (0.40, 0.45)})
+    group = groups[0]
+
+    assert group.rho0_at_minimum_physically_valid is True
+    assert group.floor_share_of_low_measurement is not None
+    assert 0.0 < group.floor_share_of_low_measurement <= 1.0
 
 
 # --------------------------------------------------------------------------- #
@@ -565,14 +620,139 @@ def test_option_counts_are_additive_and_report_the_gap_subset() -> None:
         "g_in_gap": (0.21, 0.48),
         "g_out": (0.60, 0.61),
     }
-    observations, _, cells, groups = _build(rhos)
-    del observations
+    _, _, cells, groups = _build(rhos)
 
     options = mod.option_report(cells, groups)
 
+    assert options["A_PRIME_groups"] == ["g_in_frozen_band"]
     assert options["E_groups"] == ["g_in_frozen_band", "g_in_gap"]
-    assert options["A_prime_measured_inside_frozen_band"] == ["g_in_frozen_band"]
-    assert options["E_groups_operating_point_in_0_15_0_25_gap"] == ["g_in_gap"]
+    assert options["E_groups_added_by_gap"] == ["g_in_gap"]
+
+
+def test_operating_points_pick_the_cheapest_qualifying_measured_pressure() -> None:
+    """g16 qualifies at both loads; the tie-break must yield exactly one point."""
+
+    _, _, cells, groups = _build({"g16": (0.1070, 0.4444)})
+    options = mod.option_report(cells, groups)
+    points = options["A_PRIME_operating_points"]
+
+    assert len(points) == 1
+    assert points[0]["group_id"] == "g16"
+    assert points[0]["chosen_pressure_blocks"] == 256
+    assert points[0]["alternative_candidates"]
+
+
+def test_operating_points_are_measured_and_headroom_eligible() -> None:
+    """RC8: the operating point must be a pressure Headroom was evaluated at."""
+
+    _, _, cells, groups = _build(
+        {
+            "g1": (0.30, 0.40),
+            "g_small": (
+                0.06,
+                0.40,
+            ),
+            "g_low": (0.12, 0.30),
+        }
+    )
+    options = mod.option_report(cells, groups)
+
+    for row in options["A_PRIME_operating_points"]:
+        assert row["chosen_pressure_blocks"] in mod.ITER1_PRESSURE.values()
+        assert row["headroom_eligible"] is True
+        assert row["headroom_ratio_ok"] is True
+        assert row["headroom_abs_ok"] is True
+
+
+# --------------------------------------------------------------------------- #
+# H3 single rule (RC7)
+# --------------------------------------------------------------------------- #
+
+
+def test_h3_primary_is_a_subset_of_secondary_and_excludes_flat() -> None:
+    rhos = {
+        "g_resp": (0.13, 0.44),
+        "g_weak": (0.30, 0.35),
+        "g_flat": (0.40, 0.40),
+    }
+    _, _, cells, groups = _build(rhos)
+    options = mod.option_report(cells, groups)
+    report = mod.h3_report(options)
+
+    for design in ("A_PRIME", "E"):
+        primary = set(report[design]["primary_h3_groups"])
+        secondary = set(report[design]["secondary_h3_groups"])
+        assert primary <= secondary
+        assert "g_flat" not in primary
+        assert "g_flat" not in secondary
+        assert report[design]["primary_h3_n"] == len(primary)
+        assert report[design]["secondary_h3_n"] == len(secondary)
+
+
+def test_h3_primary_contains_only_responsive_groups() -> None:
+    rhos = {"g_resp": (0.13, 0.44), "g_weak": (0.30, 0.35)}
+    _, _, cells, groups = _build(rhos)
+    report = mod.h3_report(mod.option_report(cells, groups))
+
+    for design in ("A_PRIME", "E"):
+        assert report[design]["primary_h3_groups"] == (
+            ["g_resp"] if "g_resp" in report[design]["primary_h3_groups"] else []
+        )
+        assert "g_weak" not in report[design]["primary_h3_groups"]
+
+
+# --------------------------------------------------------------------------- #
+# run accounting (RC8)
+# --------------------------------------------------------------------------- #
+
+
+def test_option_a_is_charged_a_fresh_calibration_and_a_prime_is_not() -> None:
+    rhos = {"g1": (0.13, 0.44), "g2": (0.30, 0.40), "g3": (0.60, 0.61)}
+    _, _, cells, groups = _build(rhos)
+    report = mod.calibration_cost_report(mod.option_report(cells, groups))
+    designs = report["designs"]
+
+    for key in (
+        "option_A_measured_two_level_only",
+        "option_A_incl_interpolated_two_level",
+        "option_A_model_only_two_level",
+    ):
+        row = designs[key]
+        assert row["calibration_runs"] == 2 * row["cells"]
+
+    assert designs["option_A_prime"]["calibration_runs"] == 0
+    assert designs["option_E"]["calibration_runs"] == 0
+    assert designs["option_B"]["calibration_runs"] == 40
+
+
+def test_run_totals_add_up_across_the_three_run_sets() -> None:
+    rhos = {"g1": (0.13, 0.44)}
+    _, _, cells, groups = _build(rhos)
+    report = mod.calibration_cost_report(mod.option_report(cells, groups))
+
+    for row in report["designs"].values():
+        assert row["total_new_runs"] == (
+            row["calibration_runs"] + row["noise_runs"] + row["main_campaign_runs"]
+        )
+        assert row["main_campaign_runs"] == mod.ARMS_PER_CELL * row["cells"] * mod.REPEATS
+
+
+# --------------------------------------------------------------------------- #
+# input provenance (RC9)
+# --------------------------------------------------------------------------- #
+
+
+def test_the_m1_designated_four_are_all_pinned() -> None:
+    assert len(mod.M1_DESIGNATED_INPUTS) == 4
+    for relative in mod.M1_DESIGNATED_INPUTS:
+        assert relative in mod.FROZEN_INPUTS
+
+
+def test_the_proposal_manifest_hash_is_not_replaced() -> None:
+    relative = f"{mod.PLANNING_DIR}/sha256-manifest-iteration2-proposal.txt"
+
+    assert relative in mod.FROZEN_INPUTS
+    assert mod.FROZEN_INPUTS[relative].startswith("35cd5eea")
 
 
 def test_precision_table_labels_itself_as_a_planning_assumption() -> None:
@@ -608,7 +788,14 @@ def test_real_pack_end_to_end(tmp_path: Path) -> None:
     assert len({(cell.group_id, cell.load_level) for cell in cells}) == 40
     assert result["headroom"]["eligible_cells"] == 38
     assert result["headroom"]["no_headroom_cells"] == 2
-    assert result["load_target"]["groups_with_both_bands_reachable"] == 7
+    assert result["load_target"]["groups_two_level_needs_extrapolation"] == [
+        "g03",
+        "g05",
+        "g10",
+        "g19",
+    ]
+    assert result["load_target"]["groups_two_level_in_bracket"] == ["g09", "g16", "g18"]
+    assert result["load_target"]["groups_two_level_measured"] == ["g16"]
 
     g14 = [cell for cell in cells if cell.group_id == "g14"]
     assert g14[0].r0 == g14[1].r0

@@ -10,30 +10,29 @@ Usage
         --pack local/phase3-g4-reachability-analysis-pack-v1 \
         --out  local/phase3-g4-reachability-m4
 
-What this script is careful about (RC revision, 2026-11-05)
-----------------------------------------------------------
-1. **Two different gates, reported separately.** Protocol v3 §3.6 defines the
-   *Headroom* gate (``rho0 >= 5% and R0 >= 512 tokens``); §9 G4 consumes the
-   frozen Headroom list. §5.2 defines a *load-calibration target*
-   (``rho0`` inside ``[0.05, 0.15]`` / ``[0.25, 0.45]``). These are different
-   quantities and this script never uses one to pronounce on the other.
-   ``headroom_*`` fields are the original gate; ``measured_inside_target`` /
-   ``target_reachable_*`` fields are the load target; ``headroom-report.json``
-   states the gate's own status.
-2. **Measured vs extrapolated.** The 16-block "floor" is an extrapolation of a
-   two-point linear model 240 blocks below the lowest measured pressure. Every
-   derived value carries an ``evidence_class`` of ``MEASURED`` /
-   ``INTERPOLATED`` / ``EXTRAPOLATED``, and reachability verdicts name the class
-   they rely on.
-3. **No silently invented constant.** ``empirical_marginal_response_ratio`` is an
-   observed slope ratio, not a claimed release-cost coefficient. The Option-E
-   band is only evaluated behind an explicit report, and the groups whose
-   operating point would land in the 0.15-0.25 interval -- covered by neither
-   frozen band -- are enumerated rather than absorbed.
-4. **Integrity.** The four frozen planning inputs are SHA-256 verified against
-   pins recorded below and cross-checked against the pack manifest, and the
-   proposal's own ``source_observations_sha256`` must bind the pinned
-   observation hash.
+Design rules this script enforces (RC revision 2, 2026-11-06)
+------------------------------------------------------------
+1. **Three separate measurements.** §3.6 Headroom / §9 G4
+   (``rho0 >= 5% and R0 >= 512``), §5.2 load-calibration target (``rho0`` inside
+   a frozen band), and the model's own reachability. None pronounces on another.
+2. **Evidence tiers, not a single "reachable".** Every verdict carries
+   ``MEASURED`` / ``INTERPOLATED`` / ``EXTRAPOLATED``. Two-level feasibility is
+   reported at three nested levels: both bands hit at **measured** pressures,
+   both reachable **inside the 256-1024 bracket** (measured or interpolated), and
+   **model-only** (requires extrapolation). A model prediction is never reported
+   as experimental support.
+3. **G4-a guards every extrapolated operating point**, not only the 16-block
+   floor. The floor is simply the most common extrapolated point, not a special
+   case. An extrapolated or floor operating point is admissible only inside a
+   group that has in-bracket separability.
+4. **Negative extrapolations are diagnostics only.** For four groups the
+   two-point secant returns a negative recomputation ratio at 16 blocks. Those
+   values are retained in ``rho0_at_minimum_blocks`` for audit, flagged
+   ``physically_valid = false``, and excluded from every ratio-based metric such
+   as ``floor_share_of_low_measurement``.
+5. **Integrity.** Five frozen planning inputs are SHA-256 pinned and
+   cross-checked against the pack manifest; the proposal's own
+   ``source_observations_sha256`` must bind the pinned observation hash.
 
 Read-only. No GPU. No new calibration run is generated or executed.
 """
@@ -47,8 +46,9 @@ import json
 from collections import Counter
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import Any
 
-ANALYSIS_VERSION = "phase3.g4_reachability_analysis.v2"
+ANALYSIS_VERSION = "phase3.g4_reachability_analysis.v3"
 
 # --- frozen protocol constants (mirrors the iteration-2 proposal `method`) ---
 BLOCK_SIZE_TOKENS = 16
@@ -67,11 +67,9 @@ EXPECTED_GROUP_COUNT = 20
 EXPECTED_CELL_COUNT = 40
 
 #: A response is FLAT when the whole legal pressure range moves rho0 by less
-#: than this. 0.01 is 1/25 of the 0.25 span the two frozen bands require, and at
-#: the observed prefill magnitudes it corresponds to under 0.7 tokens of
-#: recompute per block of pressure, i.e. under 4% of the mechanically expected
-#: 16 tokens/block. It is "below the measurement granularity of the design",
-#: not a tuned constant.
+#: than this. 0.01 is 1/25 of the 0.25 span the frozen bands require, and at the
+#: observed prefill magnitudes it is under 0.7 tokens of recompute per block of
+#: pressure, i.e. under 4% of the mechanically expected 16 tokens/block.
 FLAT_DELTA_RHO = 0.01
 
 #: WEAK: the metric responds, but by less than the gap between the L_LOW ceiling
@@ -79,26 +77,30 @@ FLAT_DELTA_RHO = 0.01
 #: straddle the two frozen bands even in principle.
 WEAK_DELTA_RHO = 0.10
 
-#: Option E is a *proposal*, not an inherited constant. Its interval covers
-#: 0.15-0.25, which neither frozen band covers, so it is not a subset of the
-#: frozen design. Groups relying on that sub-interval are reported separately.
+#: Option E is a *proposal*, not an inherited constant: it covers 0.15-0.25,
+#: which neither frozen band covers. Groups whose operating point relies on that
+#: sub-interval are reported separately so the change can be adjudicated alone.
 OPTION_E_BAND = (0.15, 0.45)
 
-#: SD used only to *plan* precision. Inherited planning assumption from Phase
-#: 2E/2G observations, never reported as an achieved precision.
+#: Planning SD inherited from Phase 2E/2G observations. Used only to *plan*
+#: precision; never reported as an achieved half-width.
 PLANNING_GROUP_SD_TOKENS = 2000.0
 NORMAL_95_Z = 1.959963984540054
 
-#: The four frozen planning inputs M1 froze, pinned here so that a tampered pack
-#: manifest cannot silently change the analysis. Verified against
-#: ``sha256-manifest.txt`` and against the proposal's own source binding.
+#: Run accounting per design. Calibration is A0-only.
+ARMS_PER_CELL = 6
+REPEATS = 1
+DISCRIMINABLE_DECISION_THRESHOLD = 8
+
 PLANNING_DIR = "artifacts/phase3-load-calibration-iteration2-planning-v1"
+
+#: The five frozen planning inputs. ``sha256-manifest-iteration2-proposal.txt``
+#: is the one M1 originally named (``35cd...``); it is retained here rather than
+#: replaced. The observation CSV is carried as a fifth input so that the JSON and
+#: CSV views can disagree loudly instead of silently.
 FROZEN_INPUTS: dict[str, str] = {
     f"{PLANNING_DIR}/iteration1-cell-observations.json": (
         "a47acef4a96cbedec37d88c941c70a8ed30f3208d7cac8ec1d599acb6d876d5a"
-    ),
-    f"{PLANNING_DIR}/iteration1-cell-observations.csv": (
-        "2fb77aae8dd734860e7a3664f724fad2113db263ea63f806656abad4975179ec"
     ),
     f"{PLANNING_DIR}/iteration2-required-blocks-proposal.json": (
         "1b59758a7ef8b5d0b42c4431fa0d2983d27062bf5d89c4a0b4b01175ff3c36a8"
@@ -106,7 +108,21 @@ FROZEN_INPUTS: dict[str, str] = {
     f"{PLANNING_DIR}/iteration2-required-blocks-proposal.csv": (
         "49738f3715a945038c566f2260eb50053b7fb68760e8ac5b60bcc9bb112d8a36"
     ),
+    f"{PLANNING_DIR}/sha256-manifest-iteration2-proposal.txt": (
+        "35cd5eead7706a29006a423bfe7be5141a91b96b9fd3c0933d615d9cd3a0bf99"
+    ),
+    f"{PLANNING_DIR}/iteration1-cell-observations.csv": (
+        "2fb77aae8dd734860e7a3664f724fad2113db263ea63f806656abad4975179ec"
+    ),
 }
+
+#: The four inputs M1 designated, for the provenance report.
+M1_DESIGNATED_INPUTS = (
+    f"{PLANNING_DIR}/iteration1-cell-observations.json",
+    f"{PLANNING_DIR}/iteration2-required-blocks-proposal.json",
+    f"{PLANNING_DIR}/iteration2-required-blocks-proposal.csv",
+    f"{PLANNING_DIR}/sha256-manifest-iteration2-proposal.txt",
+)
 
 OBSERVATION_KEYS = (
     "group_id",
@@ -203,11 +219,13 @@ class Cell:
     headroom_abs_ok: bool
     headroom_eligible: bool
 
-    # reachability under the two-point linear model over the legal grid
-    target_reachable_any_legal: bool
-    target_reachable_non_floor: bool
-    target_reachable_class: str
+    # reachability under the two-point model, at three evidence levels
+    reachable_measured: bool
+    reachable_in_bracket: bool
+    reachable_model_only: bool
+    reachable_evidence_class: str
     rho0_at_minimum_blocks: float
+    rho0_at_minimum_physically_valid: bool
     rho0_at_maximum_blocks: float
 
     # observed slope and its ratio to the mechanically expected 1:1 value
@@ -227,16 +245,18 @@ class GroupSummary:
     slope_tokens_per_block: float
     empirical_marginal_response_ratio: float
     rho0_at_minimum_blocks: float
-    floor_share_of_low_measurement: float
+    rho0_at_minimum_physically_valid: bool
+    floor_share_of_low_measurement: float | None
     pressure_response: str
 
-    # G4-a as proposed: can two levels live at distinct legal pressures?
-    g4a_two_band_feasible: bool
-    g4a_achievable_delta_rho: float
-    g4a_measured_delta_rho_ok: bool
-    g4a_measured_pressures_distinct: bool
+    # G4-a at three evidence levels (nested):
+    g4a_measured_two_level: bool
+    g4a_in_bracket_two_level: bool
+    g4a_model_only_two_level: bool
+    g4a_evidence_tier: str
+    g4a_achievable_delta_rho_in_bracket: float
 
-    # G4-b per cell, floor clause applied
+    # G4-b per cell, generalized: extrapolated operating points need G4-a
     g4b_l_low_ok: bool
     g4b_l_high_ok: bool
 
@@ -254,7 +274,7 @@ def sha256_file(path: Path) -> str:
 
 
 def verify_frozen_inputs(pack: Path) -> dict[str, str]:
-    """Verify the four frozen planning inputs against pins and pack manifest."""
+    """Verify the frozen planning inputs against pins and the pack manifest."""
 
     verified: dict[str, str] = {}
     for relative, pinned in FROZEN_INPUTS.items():
@@ -414,6 +434,16 @@ def legal_pressure_grid() -> list[int]:
     return list(range(MIN_PRESSURE_BLOCKS, MAX_PRESSURE_BLOCKS + 1, PRESSURE_QUANTUM_BLOCKS))
 
 
+def bracket_grid() -> list[int]:
+    """Pressures inside the interval the two measured points bracket."""
+
+    return [
+        n
+        for n in legal_pressure_grid()
+        if n in ITER1_PRESSURE.values() or (ITER1_PRESSURE["L_LOW"] < n < ITER1_PRESSURE["L_HIGH"])
+    ]
+
+
 def evidence_class(blocks: int) -> str:
     """How much the linear model is being trusted at ``blocks``."""
 
@@ -433,9 +463,18 @@ def _best_evidence(points: list[int]) -> str:
     return max((evidence_class(n) for n in points), key=lambda name: _EVIDENCE_RANK[name])
 
 
-def _band_points(model: GroupModel, band: tuple[float, float]) -> list[int]:
+def _band_points(
+    model: GroupModel, band: tuple[float, float], grid: list[int] | None = None
+) -> list[int]:
     low, high = band
-    return [n for n in legal_pressure_grid() if low <= model.rho(n) <= high]
+    candidates = legal_pressure_grid() if grid is None else grid
+    return [n for n in candidates if low <= model.rho(n) <= high]
+
+
+def _pairable(low_points: list[int], high_points: list[int]) -> list[tuple[int, int]]:
+    return [
+        (lo, hi) for lo in low_points for hi in high_points if hi - lo >= PRESSURE_QUANTUM_BLOCKS
+    ]
 
 
 def build_models(obs_rows: list[dict]) -> dict[str, GroupModel]:
@@ -458,6 +497,7 @@ def build_cells(
     obs_rows: list[dict], prop_rows: list[dict], models: dict[str, GroupModel]
 ) -> list[Cell]:
     proposed = {(r["group_id"], r["load_level"]): r for r in prop_rows}
+    measured_grid = sorted(ITER1_PRESSURE.values())
     cells: list[Cell] = []
 
     for row in obs_rows:
@@ -466,10 +506,12 @@ def build_cells(
         prop = proposed[(group_id, row["load_level"])]
         band = (row["target_min"], row["target_max"])
         delta_rho = abs(model.rho(ITER1_PRESSURE["L_HIGH"]) - model.rho(ITER1_PRESSURE["L_LOW"]))
-        points = _band_points(model, band)
-        non_floor = [n for n in points if n > MIN_PRESSURE_BLOCKS]
-        rho_measured = row["rho0_iteration1"]
 
+        points_measured = _band_points(model, band, measured_grid)
+        points_bracket = _band_points(model, band, bracket_grid())
+        points_model = _band_points(model, band)
+
+        rho_measured = row["rho0_iteration1"]
         reproduced = model.rho(prop["proposed_required_blocks"])
         if abs(reproduced - prop["predicted_rho0"]) > 1e-9:
             raise InputSchemaError(
@@ -482,37 +524,44 @@ def build_cells(
         headroom_abs_ok = row["R0_recomputed_tokens"] >= HEADROOM_R0_MIN_TOKENS
         inside_target = band[0] <= rho_measured <= band[1]
         floor = model.rho(MIN_PRESSURE_BLOCKS)
+        floor_valid = floor >= 0.0
 
-        if not points:
+        if not points_model:
             if delta_rho < FLAT_DELTA_RHO:
                 classification = "INFEASIBLE_AND_PRESSURE_INSENSITIVE"
                 rationale = (
                     "no legal pressure on the 16-block grid places rho0 in this "
-                    "band, AND the measured response to pressure is below the "
-                    "flat threshold, so the level is neither attainable nor "
-                    "controllable"
+                    "band under the two-point model, and the measured response to "
+                    "pressure is below the flat threshold"
                 )
             else:
                 classification = "INFEASIBLE_BELOW_MINIMUM_PRESSURE"
                 rationale = (
-                    f"the model's floor at {MIN_PRESSURE_BLOCKS} blocks "
+                    "the model's value at the 16-block minimum "
                     f"({floor:.4f}) is outside the band, so no legal pressure "
-                    "reaches it, while the response to pressure itself is "
-                    "non-trivial. Floor is EXTRAPOLATED "
-                    f"({MIN_PRESSURE_BLOCKS} < {ITER1_PRESSURE['L_LOW']} measured)"
+                    "reaches it, while the response to pressure is non-trivial. "
+                    "This is an EXTRAPOLATED statement about a point 240 blocks "
+                    "below the lowest measured pressure"
                 )
-        elif inside_target:
+        elif points_measured:
             classification = "REACHABLE_MEASURED"
             rationale = (
                 "a pressure that was actually run places rho0 inside the band; "
-                "this is an observation, not an extrapolation"
+                "this is an observation, not a prediction"
+            )
+        elif points_bracket:
+            classification = "REACHABLE_INTERPOLATED"
+            rationale = (
+                "the band is reached strictly between the two measured pressures "
+                "(258-1022 blocks), so the claim is bounded by the measured "
+                "endpoints rather than extrapolated past them"
             )
         else:
-            reach_class = _best_evidence(points)
-            classification = f"REACHABLE_{reach_class}"
+            classification = "REACHABLE_EXTRAPOLATED"
             rationale = (
-                "the band is reachable at some legal pressure, but only as "
-                f"{reach_class.lower()} model output; no run has landed there"
+                "the band is reached only outside [256, 1024]; this is a model "
+                "prediction at an unmeasured pressure and must not be reported "
+                "as experimental support"
             )
 
         cells.append(
@@ -536,10 +585,12 @@ def build_cells(
                 headroom_ratio_ok=headroom_ratio_ok,
                 headroom_abs_ok=headroom_abs_ok,
                 headroom_eligible=row["iteration1_headroom_eligible"],
-                target_reachable_any_legal=bool(points),
-                target_reachable_non_floor=bool(non_floor),
-                target_reachable_class=_best_evidence(points),
+                reachable_measured=bool(points_measured),
+                reachable_in_bracket=bool(points_bracket),
+                reachable_model_only=bool(points_model),
+                reachable_evidence_class=_best_evidence(points_model),
                 rho0_at_minimum_blocks=round(floor, 6),
+                rho0_at_minimum_physically_valid=floor_valid,
                 rho0_at_maximum_blocks=round(model.rho(MAX_PRESSURE_BLOCKS), 6),
                 slope_tokens_per_block=round(model.slope_r, 4),
                 empirical_marginal_response_ratio=round(model.slope_r / BLOCK_SIZE_TOKENS, 4),
@@ -560,6 +611,7 @@ def build_groups(
     tags: dict[tuple[str, str], str] = {
         (row["group_id"], row["load_level"]): (row.get("limitation") or "") for row in prop_rows
     }
+    measured_grid = sorted(ITER1_PRESSURE.values())
 
     rows: list[GroupSummary] = []
     for group_id in sorted(by_cell):
@@ -567,13 +619,30 @@ def build_groups(
         low, high = by_cell[group_id]["L_LOW"], by_cell[group_id]["L_HIGH"]
         delta_rho = abs(high.rho0 - low.rho0)
         floor = model.rho(MIN_PRESSURE_BLOCKS)
+        floor_valid = floor >= 0.0
 
-        ll_points = _band_points(model, L_LOW_BAND)
-        lh_points = _band_points(model, L_HIGH_BAND)
-        feasible_pairs = [
-            (lo, hi) for lo in ll_points for hi in lh_points if hi - lo >= PRESSURE_QUANTUM_BLOCKS
-        ]
-        achievable = max((model.rho(hi) - model.rho(lo) for lo, hi in feasible_pairs), default=0.0)
+        measured_pairs = _pairable(
+            _band_points(model, L_LOW_BAND, measured_grid),
+            _band_points(model, L_HIGH_BAND, measured_grid),
+        )
+        bracket_pairs = _pairable(
+            _band_points(model, L_LOW_BAND, bracket_grid()),
+            _band_points(model, L_HIGH_BAND, bracket_grid()),
+        )
+        model_pairs = _pairable(_band_points(model, L_LOW_BAND), _band_points(model, L_HIGH_BAND))
+
+        if measured_pairs:
+            tier = "MEASURED"
+        elif bracket_pairs:
+            tier = "INTERPOLATED"
+        elif model_pairs:
+            tier = "EXTRAPOLATED"
+        else:
+            tier = "NONE"
+
+        in_bracket_achievable = max(
+            (model.rho(hi) - model.rho(lo) for lo, hi in bracket_pairs), default=0.0
+        )
 
         if delta_rho < FLAT_DELTA_RHO:
             response = "FLAT"
@@ -582,30 +651,47 @@ def build_groups(
         else:
             response = "RESPONSIVE"
 
-        def placement(cell: Cell, controllable: bool = bool(feasible_pairs)) -> bool:
-            """G4-b: in band at the chosen pressure, with the floor clause."""
+        bracket_feasible = bool(bracket_pairs)
+
+        def placement(cell: Cell, controllable: bool = bracket_feasible) -> bool:
+            """G4-b, generalized (RC6).
+
+            An operating point counts when the model places rho0 in band. If that
+            operating point is **extrapolated** -- which includes every clamp to
+            the 16-block floor -- it counts only inside a group whose two-level
+            separability is already established *within the measured bracket*.
+            """
 
             if cell.proposed_status != "PASS":
                 return False
-            if cell.proposed_blocks != MIN_PRESSURE_BLOCKS:
+            if cell.proposal_evidence_class != "EXTRAPOLATED":
                 return True
-            # A floor cell is a lucky landing, not a demonstrated level. It may
-            # serve as an operating point only inside a group whose two-level
-            # feasibility is established independently.
             return controllable
 
         both_ok = placement(low) and placement(high)
         collision = low.proposed_blocks == high.proposed_blocks
+        model_feasible = bool(model_pairs)
 
-        if both_ok and not collision:
-            verdict = "TWO_LEVEL_CONTRAST_SUPPORTED"
-        elif collision:
+        # A collision dominates: if both loads resolve to the same pressure there
+        # is no contrast to support, whatever the model says about the bands.
+        if collision:
             verdict = "BOTH_LOADS_COLLAPSE_TO_SAME_PRESSURE"
+        elif model_feasible and both_ok:
+            if (
+                low.proposal_evidence_class == "MEASURED"
+                and high.proposal_evidence_class == "MEASURED"
+            ):
+                verdict = "TWO_LEVEL_CONTRAST_MEASURED_SUPPORTED"
+            else:
+                verdict = "TWO_LEVEL_CONTRAST_INTERPOLATED_SUPPORTED"
+        elif model_feasible:
+            verdict = "TWO_LEVEL_CONTRAST_MODEL_ONLY"
         else:
-            verdict = "TWO_LEVEL_CONTRAST_UNSUPPORTED"
+            verdict = "TWO_LEVEL_CONTRAST_UNAVAILABLE"
 
         low_tag = tags.get((group_id, "L_LOW"), "")
         high_tag = tags.get((group_id, "L_HIGH"), "")
+        floor_share = round(floor / low.rho0, 4) if floor_valid and low.rho0 > 0 else None
 
         rows.append(
             GroupSummary(
@@ -616,16 +702,14 @@ def build_groups(
                 slope_tokens_per_block=round(model.slope_r, 4),
                 empirical_marginal_response_ratio=round(model.slope_r / BLOCK_SIZE_TOKENS, 4),
                 rho0_at_minimum_blocks=round(floor, 6),
-                floor_share_of_low_measurement=round(
-                    (floor / low.rho0) if low.rho0 > 0 else 0.0, 4
-                ),
+                rho0_at_minimum_physically_valid=floor_valid,
+                floor_share_of_low_measurement=floor_share,
                 pressure_response=response,
-                g4a_two_band_feasible=bool(feasible_pairs),
-                g4a_achievable_delta_rho=round(achievable, 6),
-                g4a_measured_delta_rho_ok=delta_rho >= WEAK_DELTA_RHO,
-                g4a_measured_pressures_distinct=(
-                    ITER1_PRESSURE["L_HIGH"] - ITER1_PRESSURE["L_LOW"] >= PRESSURE_QUANTUM_BLOCKS
-                ),
+                g4a_measured_two_level=bool(measured_pairs),
+                g4a_in_bracket_two_level=bracket_feasible,
+                g4a_model_only_two_level=model_feasible,
+                g4a_evidence_tier=tier,
+                g4a_achievable_delta_rho_in_bracket=round(in_bracket_achievable, 6),
                 g4b_l_low_ok=placement(low),
                 g4b_l_high_ok=placement(high),
                 proposed_pressure_collision=collision,
@@ -641,9 +725,9 @@ def collision_report(groups: list[GroupSummary]) -> dict:
 
     The unrestricted count and the count restricted to rows tagged
     ``TARGET_PREDICTED_BELOW_MINIMUM_PRESSURE`` differ exactly when a colliding
-    group's rows carry a different frozen ``limitation`` tag. Reporting both,
-    plus the differing groups, reproduces the 9-versus-10 count from the frozen
-    file instead of guessing a convention.
+    group's rows carry a different frozen ``limitation`` tag. Reporting both, plus
+    the differing groups, reproduces the 9-versus-10 count from the frozen file
+    instead of guessing a convention.
     """
 
     unrestricted = [g.group_id for g in groups if g.proposed_pressure_collision]
@@ -662,6 +746,12 @@ def collision_report(groups: list[GroupSummary]) -> dict:
             for g in groups
             if g.proposed_pressure_collision and g.group_id not in both_tagged
         },
+        "note": (
+            "The 9-versus-10 difference is g14, whose rows carry "
+            "FLAT_OR_NEAR_FLAT_EMPIRICAL_RESPONSE rather than "
+            "TARGET_PREDICTED_BELOW_MINIMUM_PRESSURE. If M1 was reading a "
+            "different field, the difference set above localises it."
+        ),
     }
 
 
@@ -698,11 +788,10 @@ def headroom_report(cells: list[Cell]) -> dict:
         "by_load": by_load,
         "status": "APPLICABLE_ON_ITERATION1_PARAMETERS",
         "note": (
-            "The Headroom gate itself is not what fails. On the current frozen "
-            "parameters it admits 38 of 40 cells, so G4's own threshold is "
-            "satisfied. G4 is blocked procedurally because §5.2's load "
-            "calibration never settled the parameters and §3.6 forbids freezing "
-            "the list before the parameters are frozen."
+            "The Headroom gate itself is not what fails on iteration-1 "
+            "parameters: it admits 38 of 40 cells. It has never been evaluated "
+            "at any other pressure, which is why a design that moves pressures "
+            "needs a new calibration run (see calibration-cost accounting)."
         ),
     }
 
@@ -716,56 +805,253 @@ def load_target_report(cells: list[Cell], groups: list[GroupSummary]) -> dict:
         "gate": "Protocol v3 §5.2 load-calibration target (rho0 inside a frozen band)",
         "distinct_from": "§3.6 Headroom / §9 G4",
         "measured_inside_target": sum(1 for c in cells if c.measured_inside_target),
-        "reachable_any_legal": sum(1 for c in cells if c.target_reachable_any_legal),
-        "reachable_non_floor": sum(1 for c in cells if c.target_reachable_non_floor),
+        "reachable_measured": sum(1 for c in cells if c.reachable_measured),
+        "reachable_in_bracket": sum(1 for c in cells if c.reachable_in_bracket),
+        "reachable_model_only": sum(1 for c in cells if c.reachable_model_only),
         "by_load_classification": by_load,
-        "groups_with_both_bands_reachable": sum(1 for g in groups if g.g4a_two_band_feasible),
-        "groups_with_measured_delta_rho_at_least_0_10": sum(
-            1 for g in groups if g.g4a_measured_delta_rho_ok
+        "groups_two_level_measured": sorted(g.group_id for g in groups if g.g4a_measured_two_level),
+        "groups_two_level_in_bracket": sorted(
+            g.group_id for g in groups if g.g4a_in_bracket_two_level
         ),
-        "evidence_classes_used": dict(Counter(c.target_reachable_class for c in cells)),
+        "groups_two_level_model_only": sorted(
+            g.group_id for g in groups if g.g4a_model_only_two_level
+        ),
+        "groups_two_level_needs_extrapolation": sorted(
+            g.group_id
+            for g in groups
+            if g.g4a_model_only_two_level and not g.g4a_in_bracket_two_level
+        ),
     }
 
 
-def option_report(cells: list[Cell], groups: list[GroupSummary]) -> dict:
-    """Group counts per design option, with no silently imported constant."""
+def _operating_points(
+    cells: list[Cell], bands: list[tuple[float, float]], label: str
+) -> list[dict]:
+    """Pick one measured operating point per group inside any of ``bands``.
 
-    by_group: dict[str, dict[str, Cell]] = {}
+    The point must be a **measured** pressure so that the Headroom gate (§3.6) has
+    actually been evaluated there. Ties break on lower `R0` (cheaper), then lower
+    pressure, then group id -- a rule that can be frozen in G0. Candidates are
+    pooled across all supplied bands first, so a group with a qualifying point at
+    both loads is counted once, at its cheapest qualifying operating point.
+    """
+
+    by_group: dict[str, list[Cell]] = {}
     for cell in cells:
-        by_group.setdefault(cell.group_id, {})[cell.load_level] = cell
+        by_group.setdefault(cell.group_id, []).append(cell)
 
-    measured_band: list[str] = []
-    for group_id, pair in by_group.items():
-        if any(
-            L_LOW_BAND[0] <= c.rho0 <= L_LOW_BAND[1] or L_HIGH_BAND[0] <= c.rho0 <= L_HIGH_BAND[1]
-            for c in pair.values()
-        ):
-            measured_band.append(group_id)
+    picked: list[dict] = []
+    for group_id in sorted(by_group):
+        candidates = [
+            c
+            for c in by_group[group_id]
+            if c.measured_evidence_class == "MEASURED"
+            and any(low <= c.rho0 <= high for low, high in bands)
+        ]
+        if not candidates:
+            continue
+        candidates.sort(key=lambda c: (c.r0, c.measured_blocks, c.group_id))
+        chosen = candidates[0]
+        picked.append(
+            {
+                "group_id": group_id,
+                "chosen_load_level": chosen.load_level,
+                "chosen_pressure_blocks": chosen.measured_blocks,
+                "rho0_at_operating_point": round(chosen.rho0, 6),
+                "r0_at_operating_point": chosen.r0,
+                "headroom_ratio_ok": chosen.headroom_ratio_ok,
+                "headroom_abs_ok": chosen.headroom_abs_ok,
+                "headroom_eligible": chosen.headroom_eligible,
+                "band_matched": (
+                    "L_LOW" if L_LOW_BAND[0] <= chosen.rho0 <= L_LOW_BAND[1] else "L_HIGH"
+                ),
+                "in_option_e_only_gap": L_LOW_BAND[1] < chosen.rho0 < L_HIGH_BAND[0],
+                "alternative_candidates": [
+                    f"{c.load_level}@{c.measured_blocks}={c.rho0:.4f}" for c in candidates[1:]
+                ],
+                "design": label,
+            }
+        )
+    return picked
 
-    in_e_band: list[str] = []
-    from_gap: list[str] = []
-    for group_id, pair in by_group.items():
-        for cell in pair.values():
-            if OPTION_E_BAND[0] <= cell.rho0 <= OPTION_E_BAND[1]:
-                in_e_band.append(group_id)
-                if L_LOW_BAND[1] < cell.rho0 < L_HIGH_BAND[0]:
-                    from_gap.append(group_id)
-                break
+
+def option_report(cells: list[Cell], groups: list[GroupSummary]) -> dict:
+    """Group counts and operating-point mappings per design option."""
+
+    frozen_bands = [L_LOW_BAND, L_HIGH_BAND]
+    a_prime_map = {
+        row["group_id"]: row for row in _operating_points(cells, frozen_bands, "A_PRIME")
+    }
+
+    e_map: dict[str, dict] = {
+        row["group_id"]: row for row in _operating_points(cells, [OPTION_E_BAND], "E")
+    }
+    # E must not lose an A' group: keep the A' pick where it already qualifies.
+    for group_id, row in a_prime_map.items():
+        e_map.setdefault(group_id, {**row, "design": "E"})
 
     responsive = {g.group_id for g in groups if g.pressure_response == "RESPONSIVE"}
+    weak = {g.group_id for g in groups if g.pressure_response == "WEAK"}
+    flat = {g.group_id for g in groups if g.pressure_response == "FLAT"}
+
+    a_prime_ids = sorted(a_prime_map)
+    e_ids = sorted(e_map)
+
     return {
-        "A_two_level_supported": sorted(
-            g.group_id for g in groups if g.verdict == "TWO_LEVEL_CONTRAST_SUPPORTED"
+        "A_two_level_groups": sorted(
+            g.group_id for g in groups if g.verdict == "TWO_LEVEL_CONTRAST_MEASURED_SUPPORTED"
         ),
-        "B_and_C_not_evaluated": (
-            "B needs new group acquisition; C is rejected as it changes the frozen 2048-block pool"
+        "A_two_level_groups_including_interpolated": sorted(
+            g.group_id
+            for g in groups
+            if g.verdict
+            in {
+                "TWO_LEVEL_CONTRAST_MEASURED_SUPPORTED",
+                "TWO_LEVEL_CONTRAST_INTERPOLATED_SUPPORTED",
+            }
         ),
-        "A_prime_measured_inside_frozen_band": sorted(measured_band),
+        "A_two_level_groups_model_only": sorted(
+            g.group_id for g in groups if g.verdict == "TWO_LEVEL_CONTRAST_MODEL_ONLY"
+        ),
+        "B_and_C_note": (
+            "B needs new group acquisition and a full 40-run recalibration; C is "
+            "rejected because it changes the frozen 2048-block pool"
+        ),
+        "A_PRIME_groups": a_prime_ids,
+        "A_PRIME_operating_points": [a_prime_map[g] for g in a_prime_ids],
         "E_band": list(OPTION_E_BAND),
-        "E_groups": sorted(in_e_band),
-        "E_groups_also_responsive": sorted(set(in_e_band) & responsive),
-        "E_groups_operating_point_in_0_15_0_25_gap": sorted(from_gap),
-        "responsive_groups": sorted(responsive),
+        "E_groups": e_ids,
+        "E_operating_points": [e_map[g] for g in e_ids],
+        "E_groups_added_by_gap": [g for g in e_ids if g not in set(a_prime_ids)],
+        "A_PRIME_responsive": sorted(set(a_prime_ids) & responsive),
+        "A_PRIME_weak": sorted(set(a_prime_ids) & weak),
+        "A_PRIME_flat": sorted(set(a_prime_ids) & flat),
+        "E_responsive": sorted(set(e_ids) & responsive),
+        "E_weak": sorted(set(e_ids) & weak),
+        "E_flat": sorted(set(e_ids) & flat),
+        "frozen_band_union": [
+            L_LOW_BAND[0],
+            L_LOW_BAND[1],
+            L_HIGH_BAND[0],
+            L_HIGH_BAND[1],
+        ],
+    }
+
+
+def _secondary(design_groups: list[str], flat_groups: list[str]) -> list[str]:
+    """Design groups minus FLAT: the descriptive H3 population."""
+
+    flat = set(flat_groups)
+    return [group for group in design_groups if group not in flat]
+
+
+def h3_report(options: dict) -> dict:
+    """One rule for H3, applied to every design (RC7).
+
+    H3 asks whether forced release has a *cost*. That question needs a non-trivial
+    empirical marginal response ratio, and the only pre-frozen split that
+    guarantees one is RESPONSIVE (`dRho >= 0.10`, the same threshold G4-a uses,
+    so no new constant is introduced).
+
+    * primary  -- RESPONSIVE groups only; this is the decision-bearing set.
+    * secondary -- every group in the design, descriptive only, no verdict.
+    * FLAT is excluded from both: its ratio is 0.00-0.15, so `A0 - N0` would be
+      predicted near zero and the cell cannot speak to H3 either way.
+    """
+
+    return {
+        "rule": (
+            "H3 verdict is drawn only on RESPONSIVE groups (dRho >= 0.10, the same "
+            "threshold G4-a uses). Groups in the design but outside that set are "
+            "reported descriptively and cannot carry an H3 verdict."
+        ),
+        "primary_population": "RESPONSIVE only",
+        "secondary_population": "design groups minus FLAT, descriptive, no verdict",
+        "flat_policy": (
+            "FLAT groups are excluded from both H3 populations because their "
+            "empirical marginal response ratio is 0.00-0.15, so A0 - N0 would be "
+            "predicted near zero and the cell cannot speak to H3 either way."
+        ),
+        "A_PRIME": {
+            "primary_h3_groups": options["A_PRIME_responsive"],
+            "primary_h3_n": len(options["A_PRIME_responsive"]),
+            "secondary_h3_groups": _secondary(options["A_PRIME_groups"], options["A_PRIME_flat"]),
+            "secondary_h3_n": len(_secondary(options["A_PRIME_groups"], options["A_PRIME_flat"])),
+            "descriptive_only_groups": options["A_PRIME_weak"],
+            "flat_groups": options["A_PRIME_flat"],
+        },
+        "E": {
+            "primary_h3_groups": options["E_responsive"],
+            "primary_h3_n": len(options["E_responsive"]),
+            "secondary_h3_groups": _secondary(options["E_groups"], options["E_flat"]),
+            "secondary_h3_n": len(_secondary(options["E_groups"], options["E_flat"])),
+            "descriptive_only_groups": options["E_weak"],
+            "flat_groups": options["E_flat"],
+        },
+    }
+
+
+def calibration_cost_report(options: dict) -> dict:
+    """Run accounting per design, with calibration charged where it is due (RC8).
+
+    The Headroom gate has only ever been evaluated at 256 and 1024 blocks. Any
+    design that moves a cell to a different pressure therefore needs a new A0
+    calibration run *before* the Headroom list can be frozen -- reusing the 40
+    existing runs would freeze a gate that was never measured at the new
+    operating point.
+    """
+
+    def runs(cells: int, calibration: int, noise: int) -> dict:
+        main = ARMS_PER_CELL * cells * REPEATS
+        return {
+            "cells": cells,
+            "calibration_runs": calibration,
+            "noise_runs": noise,
+            "main_campaign_runs": main,
+            "total_new_runs": calibration + noise + main,
+            "discriminable_decisions_available": cells,
+            "fraction_needing_to_differ_for_g3cm": (
+                round(DISCRIMINABLE_DECISION_THRESHOLD / cells, 3) if cells else None
+            ),
+            "g3cm_reachable": cells >= DISCRIMINABLE_DECISION_THRESHOLD,
+        }
+
+    a_two_level = len(options["A_two_level_groups_including_interpolated"])
+    a_measured_only = len(options["A_two_level_groups"])
+    model_only_two_level = len(options["A_two_level_groups_model_only"])
+    a_prime_n = len(options["A_PRIME_groups"])
+    e_n = len(options["E_groups"])
+
+    return {
+        "arms_per_cell": ARMS_PER_CELL,
+        "repeats": REPEATS,
+        "calibration_note": (
+            "The 40 executed A0 runs cover exactly two pressures per group, 256 "
+            "and 1024. Option A executes cells at the iteration-2 proposed "
+            "pressures, which are new, so Headroom has never been measured there."
+        ),
+        "designs": {
+            "v3_as_written": runs(40, 0, 30),
+            "option_A_measured_two_level_only": runs(a_measured_only, 2 * a_measured_only, 30),
+            "option_A_incl_interpolated_two_level": runs(a_two_level, 2 * a_two_level, 30),
+            "option_A_model_only_two_level": runs(
+                model_only_two_level, 2 * model_only_two_level, 30
+            ),
+            "option_A_prime": runs(a_prime_n, 0, 27),
+            "option_E": runs(e_n, 0, 27),
+            "option_E_with_g4a": runs(len(options["E_responsive"]), 0, 27),
+            "option_B": runs(40, 40, 30),
+        },
+        "why_A_needs_calibration": (
+            f"Option A was previously costed as if {a_two_level} groups x 2 levels "
+            "could reuse the existing evidence. It cannot: the proposed pressures "
+            "differ from 256/1024, so a fresh A0-only calibration of "
+            f"{2 * a_two_level} runs is required before the Headroom list can be "
+            "frozen, and any group that then fails Headroom drops out of the "
+            "design. Because only {a_measured_only} group supports a measured "
+            "two-level contrast, Option A cannot reach the 8-decision G3-CM "
+            "threshold on measured evidence at all."
+        ),
     }
 
 
@@ -786,7 +1072,39 @@ def precision_table(group_counts: dict[str, int]) -> dict[str, dict]:
     return table
 
 
-def _write_json(path: Path, payload: dict) -> None:
+def pack_provenance(pack: Path, verified: dict[str, str]) -> dict:
+    """Where the evidence came from, with file names attached to each hash."""
+
+    files = [p for p in pack.rglob("*") if p.is_file()]
+    designated = [
+        {
+            "file": relative,
+            "name": Path(relative).name,
+            "sha256": verified[relative],
+            "m1_designated": relative in M1_DESIGNATED_INPUTS,
+        }
+        for relative in sorted(verified)
+    ]
+    return {
+        "pack_path": str(pack).replace("\\", "/"),
+        "tracked_by_git": False,
+        "why_not_tracked": (
+            "local/ is gitignored by repository policy; the pack is a 209 MiB "
+            "M1-provided read-only bundle with its own sha256-manifest.txt"
+        ),
+        "file_count": len(files),
+        "inputs": designated,
+        "m1_designated_inputs": list(M1_DESIGNATED_INPUTS),
+        "note": (
+            "sha256-manifest-iteration2-proposal.txt (35cd5eea...) is retained "
+            "among the verified inputs; the previous revision had replaced it with "
+            "the observation CSV, which is now carried as an additional fifth "
+            "input rather than a substitute."
+        ),
+    }
+
+
+def _write_json(path: Path, payload: Any) -> None:
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
@@ -800,14 +1118,21 @@ def run(pack: Path, out: Path) -> dict:
 
     headroom = headroom_report(cells)
     load_target = load_target_report(cells, groups)
+    collisions = collision_report(groups)
     options = option_report(cells, groups)
+    h3 = h3_report(options)
+    calibration = calibration_cost_report(options)
+    provenance = pack_provenance(pack, verified)
     precision = precision_table(
         {
             "v3_20_groups": 20,
-            "option_E_all_15_groups": len(options["E_groups"]),
-            "option_E_responsive_only": len(options["E_groups_also_responsive"]),
-            "option_A_two_level_7_groups": len(options["A_two_level_supported"]),
-            "option_A_prime_measured_band": len(options["A_prime_measured_inside_frozen_band"]),
+            "option_E_all": len(options["E_groups"]),
+            "option_E_g4a_responsive": len(options["E_responsive"]),
+            "option_A_prime": len(options["A_PRIME_groups"]),
+            "option_A_measured_two_level": len(options["A_two_level_groups"]),
+            "option_A_including_interpolated": len(
+                options["A_two_level_groups_including_interpolated"]
+            ),
         }
     )
 
@@ -828,29 +1153,30 @@ def run(pack: Path, out: Path) -> dict:
                 "weak_delta_rho": WEAK_DELTA_RHO,
                 "headroom_ratio_min": HEADROOM_RATIO_MIN,
                 "headroom_r0_min_tokens": HEADROOM_R0_MIN_TOKENS,
+                "option_e_band": list(OPTION_E_BAND),
             },
             "rows": [asdict(cell) for cell in cells],
         },
     )
     _write_json(
         out / "group-summary.json",
-        {
-            "schema_version": f"{ANALYSIS_VERSION}.groups",
-            "rows": [asdict(group) for group in groups],
-        },
+        {"schema_version": f"{ANALYSIS_VERSION}.groups", "rows": [asdict(g) for g in groups]},
     )
     _write_json(out / "headroom-report.json", headroom)
     _write_json(out / "load-target-report.json", load_target)
+    _write_json(out / "collision-report.json", collisions)
     _write_json(out / "option-report.json", options)
-    _write_json(out / "collision-report.json", collision_report(groups))
+    _write_json(out / "h3-report.json", h3)
+    _write_json(out / "calibration-cost-report.json", calibration)
+    _write_json(out / "pack-provenance.json", provenance)
     _write_json(
         out / "precision-report.json",
         {
             "planning_group_sd_tokens": PLANNING_GROUP_SD_TOKENS,
             "caveat": (
-                "Half-widths are a planning calculation from an assumed group "
-                "SD, not an achieved precision. They say nothing about coverage "
-                "and must not be quoted as a guarantee."
+                "Half-widths are a planning calculation from an assumed group SD, "
+                "not an achieved precision. They say nothing about coverage and "
+                "must not be quoted as a guarantee."
             ),
             "table": precision,
         },
@@ -872,7 +1198,11 @@ def run(pack: Path, out: Path) -> dict:
         "groups": groups,
         "headroom": headroom,
         "load_target": load_target,
+        "collisions": collisions,
         "options": options,
+        "h3": h3,
+        "calibration": calibration,
+        "provenance": provenance,
         "precision": precision,
         "method": method,
         "verified": verified,
@@ -885,10 +1215,13 @@ def _print_report(result: dict) -> None:
     headroom = result["headroom"]
     load_target = result["load_target"]
     options = result["options"]
+    h3 = result["h3"]
+    calibration = result["calibration"]
 
-    print("== frozen inputs (SHA-256 verified, 4 files) ==")
+    print("== frozen inputs (SHA-256 verified) ==")
     for relative, digest in result["verified"].items():
-        print(f"  {digest[:16]}...  {Path(relative).name}")
+        marker = "*" if relative in M1_DESIGNATED_INPUTS else " "
+        print(f" {marker}{digest[:16]}...  {Path(relative).name}")
 
     print()
     print("== ORIGINAL G4 / HEADROOM (§3.6: rho0 >= 5% AND R0 >= 512) ==")
@@ -905,25 +1238,28 @@ def _print_report(result: dict) -> None:
     for row in headroom["excluded"]:
         print(
             f"    excluded {row['group_id']} {row['load_level']}: "
-            f"rho0={row['rho0']:.4f} R0={row['r0']} "
-            f"ratio_ok={not row['failed_ratio']} abs_ok={not row['failed_absolute']}"
+            f"rho0={row['rho0']:.4f} R0={row['r0']}"
         )
-    print(f"  status: {headroom['status']}")
 
     print()
-    print("== LOAD-CALIBRATION TARGET (§5.2: rho0 inside a frozen band) ==")
-    print(f"  measured inside target          : {load_target['measured_inside_target']}/40")
-    print(f"  reachable at any legal pressure : {load_target['reachable_any_legal']}/40")
-    print(f"  reachable off the 16-block floor: {load_target['reachable_non_floor']}/40")
-    print(
-        f"  groups with both bands reachable: {load_target['groups_with_both_bands_reachable']}/20"
-    )
-    print(f"  evidence classes                : {load_target['evidence_classes_used']}")
+    print("== LOAD-CALIBRATION TARGET (§5.2) ==")
+    print(f"  measured inside target       : {load_target['measured_inside_target']}/40")
+    print(f"  reachable at a measured point: {load_target['reachable_measured']}/40")
+    print(f"  reachable inside [256,1024]  : {load_target['reachable_in_bracket']}/40")
+    print(f"  reachable on the full grid   : {load_target['reachable_model_only']}/40")
 
     print()
     print("== cell classification (40) ==")
     for name, count in sorted(Counter(c.classification for c in cells).items()):
         print(f"  {count:2d}  {name}")
+
+    print()
+    print("== two-level feasibility by evidence tier (RC6) ==")
+    for tier in ("MEASURED", "INTERPOLATED", "EXTRAPOLATED"):
+        members = [g.group_id for g in groups if g.g4a_evidence_tier == tier]
+        print(f"  {tier:12s} {len(members):2d}  {', '.join(members)}")
+    none_members = [g.group_id for g in groups if g.g4a_evidence_tier == "NONE"]
+    print(f"  {'NONE':12s} {len(none_members):2d}  {', '.join(none_members)}")
 
     print()
     print("== pressure response (20 groups) ==")
@@ -936,52 +1272,58 @@ def _print_report(result: dict) -> None:
     for name, count in sorted(Counter(g.verdict for g in groups).items()):
         print(f"  {count:2d}  {name}")
 
-    collisions = collision_report(groups)
     print()
     print("== proposed-pressure collisions ==")
     print(
-        f"  unrestricted                    : "
-        f"{len(collisions['unrestricted'])} -> "
-        f"{', '.join(collisions['unrestricted'])}"
+        f"  unrestricted                                      : "
+        f"{len(result['collisions']['unrestricted'])} -> "
+        f"{', '.join(result['collisions']['unrestricted'])}"
     )
     print(
-        "  both rows tagged TARGET_PREDICTED_BELOW_MINIMUM_PRESSURE: "
-        f"{len(collisions['both_rows_tagged_below_minimum_pressure'])} -> "
-        f"{', '.join(collisions['both_rows_tagged_below_minimum_pressure'])}"
+        f"  both rows tagged TARGET_PREDICTED_BELOW_MINIMUM.. : "
+        f"{len(result['collisions']['both_rows_tagged_below_minimum_pressure'])} -> "
+        f"{', '.join(result['collisions']['both_rows_tagged_below_minimum_pressure'])}"
     )
     print(
-        "  only outside the tagged subset  : "
-        f"{', '.join(collisions['only_outside_tagged_subset']) or 'none'}"
+        f"  only outside the tagged subset                    : "
+        f"{', '.join(result['collisions']['only_outside_tagged_subset']) or 'none'}"
     )
-    for group_id, detail in collisions["tag_detail"].items():
-        print(f"    {group_id} tags: {detail}")
 
     print()
-    print("== design options (group counts) ==")
+    print("== H3 populations (RC7, single rule) ==")
+    for design in ("A_PRIME", "E"):
+        block = h3[design]
+        print(
+            f"  {design:8s} primary (RESPONSIVE) n={block['primary_h3_n']:2d}  "
+            f"{', '.join(block['primary_h3_groups'])}"
+        )
+        print(
+            f"           secondary (descriptive) n={block['secondary_h3_n']:2d}  "
+            f"{', '.join(block['secondary_h3_groups'])}"
+        )
+
+    print()
+    print("== operating points (design A') ==")
+    for row in options["A_PRIME_operating_points"]:
+        flag = "gap" if row["in_option_e_only_gap"] else "   "
+        print(
+            f"  {row['group_id']:4s} {row['chosen_load_level']:6s} "
+            f"@{row['chosen_pressure_blocks']:4d}  rho0={row['rho0_at_operating_point']:.4f} "
+            f"R0={row['r0_at_operating_point']:6d} hr={row['headroom_eligible']} {flag}"
+        )
+
+    print()
+    print("== run accounting (RC8) ==")
     print(
-        "  A  two-level supported           : "
-        f"{len(options['A_two_level_supported'])} -> "
-        f"{', '.join(options['A_two_level_supported'])}"
+        f"  {'design':34s}{'cells':>6}{'calib':>7}{'noise':>7}{'main':>7}{'total':>7}{'8/cells':>9}"
     )
-    print(
-        "  A' measured inside frozen band   : "
-        f"{len(options['A_prime_measured_inside_frozen_band'])} -> "
-        f"{', '.join(options['A_prime_measured_inside_frozen_band'])}"
-    )
-    print(
-        "  E  measured inside [0.15,0.45]   : "
-        f"{len(options['E_groups'])} -> {', '.join(options['E_groups'])}"
-    )
-    print(
-        "     of which RESPONSIVE           : "
-        f"{len(options['E_groups_also_responsive'])} -> "
-        f"{', '.join(options['E_groups_also_responsive'])}"
-    )
-    print(
-        "     operating point in 0.15-0.25  : "
-        f"{len(options['E_groups_operating_point_in_0_15_0_25_gap'])} -> "
-        f"{', '.join(options['E_groups_operating_point_in_0_15_0_25_gap'])}"
-    )
+    for name, row in calibration["designs"].items():
+        print(
+            f"  {name:34s}{row['cells']:>6}{row['calibration_runs']:>7}"
+            f"{row['noise_runs']:>7}{row['main_campaign_runs']:>7}"
+            f"{row['total_new_runs']:>7}"
+            f"{(row['fraction_needing_to_differ_for_g3cm'] or 0):>9.2f}"
+        )
 
     print()
     print("== planned CI half-width (SD=2000 assumption, NOT an achieved value) ==")

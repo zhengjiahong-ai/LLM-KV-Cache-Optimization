@@ -1,0 +1,88 @@
+{
+  "arms_per_cell": 6,
+  "repeats": 1,
+  "calibration_note": "The 40 executed A0 runs cover exactly two pressures per group, 256 and 1024. Option A executes cells at the iteration-2 proposed pressures, which are new, so Headroom has never been measured there.",
+  "designs": {
+    "v3_as_written": {
+      "cells": 40,
+      "calibration_runs": 0,
+      "noise_runs": 30,
+      "main_campaign_runs": 240,
+      "total_new_runs": 270,
+      "discriminable_decisions_available": 40,
+      "fraction_needing_to_differ_for_g3cm": 0.2,
+      "g3cm_reachable": true
+    },
+    "option_A_measured_two_level_only": {
+      "cells": 1,
+      "calibration_runs": 2,
+      "noise_runs": 30,
+      "main_campaign_runs": 6,
+      "total_new_runs": 38,
+      "discriminable_decisions_available": 1,
+      "fraction_needing_to_differ_for_g3cm": 8.0,
+      "g3cm_reachable": false
+    },
+    "option_A_incl_interpolated_two_level": {
+      "cells": 3,
+      "calibration_runs": 6,
+      "noise_runs": 30,
+      "main_campaign_runs": 18,
+      "total_new_runs": 54,
+      "discriminable_decisions_available": 3,
+      "fraction_needing_to_differ_for_g3cm": 2.667,
+      "g3cm_reachable": false
+    },
+    "option_A_model_only_two_level": {
+      "cells": 4,
+      "calibration_runs": 8,
+      "noise_runs": 30,
+      "main_campaign_runs": 24,
+      "total_new_runs": 62,
+      "discriminable_decisions_available": 4,
+      "fraction_needing_to_differ_for_g3cm": 2.0,
+      "g3cm_reachable": false
+    },
+    "option_A_prime": {
+      "cells": 12,
+      "calibration_runs": 0,
+      "noise_runs": 27,
+      "main_campaign_runs": 72,
+      "total_new_runs": 99,
+      "discriminable_decisions_available": 12,
+      "fraction_needing_to_differ_for_g3cm": 0.667,
+      "g3cm_reachable": true
+    },
+    "option_E": {
+      "cells": 15,
+      "calibration_runs": 0,
+      "noise_runs": 27,
+      "main_campaign_runs": 90,
+      "total_new_runs": 117,
+      "discriminable_decisions_available": 15,
+      "fraction_needing_to_differ_for_g3cm": 0.533,
+      "g3cm_reachable": true
+    },
+    "option_E_with_g4a": {
+      "cells": 9,
+      "calibration_runs": 0,
+      "noise_runs": 27,
+      "main_campaign_runs": 54,
+      "total_new_runs": 81,
+      "discriminable_decisions_available": 9,
+      "fraction_needing_to_differ_for_g3cm": 0.889,
+      "g3cm_reachable": true
+    },
+    "option_B": {
+      "cells": 40,
+      "calibration_runs": 40,
+      "noise_runs": 30,
+      "main_campaign_runs": 240,
+      "total_new_runs": 310,
+      "discriminable_decisions_available": 40,
+      "fraction_needing_to_differ_for_g3cm": 0.2,
+      "g3cm_reachable": true
+    }
+  },
+  "why_A_needs_calibration": "Option A was previously costed as if 3 groups x 2 levels could reuse the existing evidence. It cannot: the proposed pressures differ from 256/1024, so a fresh A0-only calibration of 6 runs is required before the Headroom list can be frozen, and any group that then fails Headroom drops out of the design. Because only {a_measured_only} group supports a measured two-level contrast, Option A cannot reach the 8-decision G3-CM threshold on measured evidence at all."
+}
