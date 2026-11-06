@@ -731,6 +731,26 @@ def test_completed_history_predecessor_supplies_snapshot_evidence() -> None:
     )
 
 
+def test_duplicate_predecessor_snapshot_after_observation_fails_closed() -> None:
+    cell = _cell()
+    for events in cell.values():
+        # This duplicate is after request-2's Native observation. It must still
+        # invalidate the predecessor identity rather than being filtered out.
+        events.append(_snapshot(4))
+
+    report = evaluate_phase3_nec_cell(
+        events_by_arm=cell,
+        frozen_requests=REQUESTS,
+        history_predecessors={
+            REQUESTS[0]: (),
+            REQUESTS[1]: (REQUESTS[0],),
+        },
+    )
+
+    assert report["status"] == "FAIL_CLOSED"
+    assert any("exactly one snapshot" in issue for issue in report["issues"])
+
+
 def test_zero_c_does_not_hide_missing_prior_history() -> None:
     cell = _cell(second_cached=0)
     for events in cell.values():

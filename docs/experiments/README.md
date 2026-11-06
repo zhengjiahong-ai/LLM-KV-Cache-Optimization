@@ -1,4 +1,4 @@
-# Phase 2 Experiment and Decision Index
+# Experiment and Decision Index
 
 This is a **navigation index**, not a replacement for primary evidence, historical final reports, or M1 approvals. For live stage authorizations, read [the canonical status ledger](../research-status.md). Historical reports retain their original scope and outcomes; later results do not retroactively rewrite them.
 
@@ -6,7 +6,7 @@ This is a **navigation index**, not a replacement for primary evidence, historic
 
 | Topic | Recommended record | Reading boundary |
 | --- | --- | --- |
-| Overall status and current authorization | [Research status](../research-status.md) | W1-C and PR #82 bounded Native evaluation M1 ACCEPTED/CLOSED; subsequent algorithm experiments not yet authorized |
+| Overall status and current authorization | [Research status](../research-status.md) | Protocol v3 frozen; Stage 1/2 merged; M6 formal dataset selection next; 310-run evaluation conditionally authorized after cohort freeze and gates |
 | Phase 2A H1/H2 original verdicts | [H1/H2 closeout](../phase2a-h1-h2-closeout-verdict-record.md) | H1 `DIAGNOSTIC_ONLY`; H2 not all-pass, B1 locked |
 | Phase 2B/2C fidelity lessons | [Phase 2B fidelity repair](../phase2b-m6-experimental-fidelity-repair-spec.md), [Phase 2C audit](../phase2c-m6-workload-reuse-audit.md) | Separate replay fidelity from real Native content sharing and context growth |
 | Phase 2E baseline measurements | [Measured campaign](../phase2e-m6-measured-campaign-report.md) | Native LRU vs Continuum baseline on predefined synthetic grid, **not** A1 benefit |
@@ -20,6 +20,20 @@ This is a **navigation index**, not a replacement for primary evidence, historic
 | W1-B Native bounded smoke | [PR #73](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/73) | **ACCEPTED / CLOSED** (M1 approved, merged 2026-10-23 as `fc9626da`); 12-run bounded comparability/mechanism smoke only; deltas remain descriptive, not formal performance effects or content-level causal attribution |
 | W1-C expanded Agent workload | [Research status](../research-status.md) | Bounded S50/S100 pilot completed and accepted; 18 comparable tasks used for the subsequent Native evaluation; full ~100-task acquisition not authorized |
 | Bounded Native Cost-Aware evaluation | [Final execution report](../continuum-native-cost-aware-bounded-results.md), [PR #82](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/82) | **M1 ACCEPTED / CLOSED (2026-10-27)**; 54/54 runs reported successful; A1 0/1/8 and A2 0/3/6 better/worse/tied across nine groups; no observed improvement; external archive handed to M4 |
+
+## Phase 3 Final Evaluation
+
+| Topic | Primary record | Current reading boundary |
+| --- | --- | --- |
+| M1 current data decision | [Phase 3 Data Readiness Decision](phase3-data-readiness-decision.md) | 40 new qualified tasks / 20 groups; minimum 10 repositories; M6 formal dataset selection/acquisition is next |
+| M4 Final Evaluation Protocol v3 | [PR #90](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/90) | Merged and frozen by M1 on 2026-11-03; protocol HEAD `3a8c388` |
+| M6 Workload & Execution Feasibility | [PR #92](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/92), [report](phase3-workload-execution-feasibility.md) | Merged; feasibility report only. 20 pilot tasks acquired, 18 comparable; remaining 80 are candidate IDs, not traces |
+| Stage 1 — six-arm Materializer, E0/N0 | [PR #93](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/93), [closeout](phase3-engineering-preparation-stage1.md) | Merged; CPU/Mock only; cell materializer does not build/acquire the final cohort |
+| Stage 2 — independent N/E/C Evaluator | [PR #94](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/94), [closeout](phase3-engineering-preparation-stage2.md) | Merged; RC1–RC4 closed; E independent of C; history predecessor relation is timeline-derived |
+| Final Evaluation matrix | [M4 Protocol v3 PR #90](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/90), [M6 feasibility report](phase3-workload-execution-feasibility.md) | Six arms; 40 load calibration + 30 noise calibration + 240 main = 310 runs; conditionally authorized after cohort freeze and applicable gates |
+
+The frozen M6 feasibility report and Protocol v3 require **at least ten repositories**. M6 must not lower this threshold. If the existing candidate frame cannot produce 40 new qualified tasks across at least ten repositories, report the actual shortfall for M1 review. The 18 historical W1-C pilot tasks remain excluded from formal effect estimates.
+
 
 ## Interpret the three algorithm layers correctly
 

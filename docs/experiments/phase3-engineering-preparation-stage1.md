@@ -1,6 +1,6 @@
 # Phase 3 Engineering Preparation — Stage 1
 
-Status: **CPU/MOCK IMPLEMENTED — NO ACQUISITION OR GPU EXECUTION AUTHORIZED**
+Status: **CLOSED / MERGED — PR #93.** At Stage 1 closeout, acquisition and GPU execution were not authorized; current M1 authorization is recorded in [the Phase 3 Data Readiness Decision](phase3-data-readiness-decision.md).
 
 Baseline: main merge `67e5e29b93d547040500f1205c5a2aeb8f469d6e`.
 Protocol authority: M4 Final Evaluation Protocol v3, reviewed HEAD
@@ -25,8 +25,11 @@ into N0/A0/A1/A2/A3/E0 configurations. It:
 - always writes `execution_authorized=false`;
 - rejects an input that attempts to grant execution authority.
 
-It is deliberately a cell expander, not a Cohort acquisition tool. The later
-Cohort Seal stage supplies the frozen 40-task inputs.
+It is deliberately a cell expander, not a Cohort acquisition tool. M6's
+Final Evaluation Data Readiness Confirmation supplies the qualified 40-task
+inputs. The final task/group/request/replay manifest is frozen as part of
+pre-run preparation; no separate Stage 3 Cohort Seal engineering milestone is
+required.
 
 ### E0
 
