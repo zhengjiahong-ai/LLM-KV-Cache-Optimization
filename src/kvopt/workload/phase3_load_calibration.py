@@ -94,9 +94,7 @@ def materialize_load_calibration(
         raise FileExistsError(output_dir)
     seal = json.loads(seal_path.read_text(encoding="utf-8"))
     groups = seal.get("groups")
-    if seal.get("schema_version") != "phase3.cohort_seal.v1" or not isinstance(
-        groups, list
-    ):
+    if seal.get("schema_version") != "phase3.cohort_seal.v1" or not isinstance(groups, list):
         raise ValueError("unsupported Phase 3 Cohort Seal")
     if len(groups) != 20:
         raise ValueError("load calibration requires twenty frozen groups")
@@ -129,15 +127,11 @@ def materialize_load_calibration(
                 for row in boundaries
             ]
             token_count = int(geometry["required_blocks"]) * BLOCK_SIZE
-            pressure_ids = _pressure_token_ids(
-                f"phase3:{cell_id}:pressure-v1", token_count
-            )
+            pressure_ids = _pressure_token_ids(f"phase3:{cell_id}:pressure-v1", token_count)
             config["run_id"] = run_id
             config["backend_revision"] = "phase3-load-calibration-v1"
             config["controlled_sparse_replay"]["boundaries"] = boundaries
-            config["controlled_sparse_replay"]["logical_sequence_sha256"] = (
-                _canonical_sha(clock)
-            )
+            config["controlled_sparse_replay"]["logical_sequence_sha256"] = _canonical_sha(clock)
             config["pressure"] = {
                 "required_blocks": int(geometry["required_blocks"]),
                 "initial_shortage_blocks": 1,
@@ -256,14 +250,11 @@ def evaluate_load_calibration_run(
             raise ValueError("invalid frozen request identity")
         identities.append((request_id.split(":turn:", 1)[0], request_id))
     pressure_ids = frozenset(
-        str(request_id)
-        for row in contract
-        for request_id in row["request_ids"]
+        str(request_id) for row in contract for request_id in row["request_ids"]
     )
     normalized_predecessors = {
         identity: tuple(
-            (str(value).split(":turn:", 1)[0], str(value))
-            for value in predecessors[identity[1]]
+            (str(value).split(":turn:", 1)[0], str(value)) for value in predecessors[identity[1]]
         )
         for identity in identities
     }
@@ -271,9 +262,7 @@ def evaluate_load_calibration_run(
         arm="A0",
         events=events,
         frozen_requests=identities,
-        native_enqueue_order=[
-            (str(value).split(":turn:", 1)[0], str(value)) for value in enqueue
-        ],
+        native_enqueue_order=[(str(value).split(":turn:", 1)[0], str(value)) for value in enqueue],
         history_predecessors=normalized_predecessors,
         pressure_request_ids=pressure_ids,
     )
@@ -284,14 +273,18 @@ def evaluate_load_calibration_run(
     in_target = float(target[0]) <= float(ratio) <= float(target[1])
     return {
         "schema_version": "phase3.load_calibration_run_report.v1",
-        "status": "PASS" if in_target else "TARGET_MISSED_FAIL_CLOSED",
+        # Protocol v4 Option F reuses the measured C1/C2 operating points.
+        # Band attainment is reported but is not an admission gate.  Evidence
+        # defects still raise above; a manipulation miss does not masquerade as
+        # an evidence failure.
+        "status": "PASS",
+        "manipulation_check_status": "IN_BAND" if in_target else "OUT_OF_BAND",
+        "manipulation_check_is_gating": False,
         "group_id": freeze["group_id"],
         "load_level": freeze["load_level"],
         "target_recompute_ratio": target,
         "observed_recompute_ratio": ratio,
-        "headroom_eligible": (
-            float(ratio) >= 0.05 and arm["aggregate_recomputed_tokens"] >= 512
-        ),
+        "headroom_eligible": (float(ratio) >= 0.05 and arm["aggregate_recomputed_tokens"] >= 512),
         "arm": arm,
     }
 

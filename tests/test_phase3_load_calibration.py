@@ -9,6 +9,7 @@ import pytest
 
 from kvopt.workload.phase3_load_calibration import (
     LOADS,
+    evaluate_load_calibration_run,
     materialize_load_calibration,
 )
 
@@ -137,20 +138,19 @@ def test_materializes_forty_authorized_a0_calibration_inputs(
     assert manifest["candidate_grid"] == LOADS
     assert {row["load_level"] for row in manifest["runs"]} == set(LOADS)
     for row in manifest["runs"]:
-        config = json.loads(
-            (tmp_path / "output" / row["config"]).read_text(encoding="utf-8")
-        )
+        config = json.loads((tmp_path / "output" / row["config"]).read_text(encoding="utf-8"))
         assert config["backend_options"]["phase3_arm"] == "A0"
         assert config["cache"]["block_override"] == 2048
-        stages = config["backend_options"][
-            "controlled_pressure_stages_by_boundary"
-        ]
+        stages = config["backend_options"]["controlled_pressure_stages_by_boundary"]
         assert len(stages) == 1
         assert next(iter(stages.values()))["stop_on_forced_release"] is False
-        assert sum(
-            boundary["kind"] == "PRESSURE"
-            for boundary in config["controlled_sparse_replay"]["boundaries"]
-        ) == 1
+        assert (
+            sum(
+                boundary["kind"] == "PRESSURE"
+                for boundary in config["controlled_sparse_replay"]["boundaries"]
+            )
+            == 1
+        )
 
 
 def test_materializer_rejects_non_twenty_group_seal(
@@ -167,3 +167,36 @@ def test_materializer_rejects_non_twenty_group_seal(
             profile_path=profile,
             output_dir=tmp_path / "output",
         )
+
+
+def test_out_of_band_is_non_gating_but_headroom_remains_explicit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "kvopt.workload.phase3_load_calibration.evaluate_phase3_nec_arm",
+        lambda **_kwargs: {
+            "arm": "A0",
+            "aggregate_recomputed_tokens": 2_000,
+            "aggregate_actual_prefill_tokens": 4_000,
+            "recompute_ratio": 0.5,
+        },
+    )
+    requests = ["repo__task:turn:1"]
+    report = evaluate_load_calibration_run(
+        events=[],
+        freeze={
+            "schema_version": "phase3.load_calibration_cell_freeze.v1",
+            "group_id": "g01",
+            "load_level": "L_LOW",
+            "target_recompute_ratio": [0.05, 0.15],
+            "frozen_request_order": requests,
+            "native_enqueue_order": requests,
+            "history_predecessors": {requests[0]: []},
+            "pressure_request_contract": [{"request_ids": ["pressure:g01:1"]}],
+        },
+    )
+
+    assert report["status"] == "PASS"
+    assert report["manipulation_check_status"] == "OUT_OF_BAND"
+    assert report["manipulation_check_is_gating"] is False
+    assert report["headroom_eligible"] is True

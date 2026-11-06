@@ -329,10 +329,7 @@ def _write_test_manifest(pack: Path, relative_paths: list[str]) -> None:
 def test_pack_manifest_verifies_all_entries_and_requires_g_e_sources(tmp_path: Path) -> None:
     pack = _materialise_pack(
         tmp_path,
-        {
-            relative: f"payload {relative}"
-            for relative in mod.G_E_REQUIRED_MANIFEST_PATHS
-        },
+        {relative: f"payload {relative}" for relative in mod.G_E_REQUIRED_MANIFEST_PATHS},
     )
     _write_test_manifest(pack, list(mod.G_E_REQUIRED_MANIFEST_PATHS))
 
@@ -1237,6 +1234,7 @@ def _audit_row(
     consumer_ids: list[int] | None = None,
 ) -> dict:
     ids = list(range(1, 8))
+    pending = qualification == mod.G_E_PENDING
     return {
         "group_id": group_id,
         "load_level": load_level,
@@ -1253,8 +1251,14 @@ def _audit_row(
         "hash_process_match": True,
         "producer_prefix_block_ids": ids if producer_ids is None else producer_ids,
         "consumer_prefix_block_ids": ids if consumer_ids is None else consumer_ids,
-        "forward_relation": "SAME_FORWARD_BATCH_SOURCE_BOUND",
-        "scheduler_relation": "SAME_SCHEDULER_ITERATION",
+        "forward_relation": (
+            "EARLIER_FORWARD_ORDER_NEEDS_SEPARATE_PROOF"
+            if pending
+            else "SAME_FORWARD_BATCH_SOURCE_BOUND"
+        ),
+        "scheduler_relation": (
+            "EARLIER_SCHEDULER_ITERATION" if pending else "SAME_SCHEDULER_ITERATION"
+        ),
     }
 
 
@@ -1590,8 +1594,7 @@ def test_real_pack_evidence_inventory_separates_gpu_from_derived(tmp_path: Path)
         in separation["runtime_evidence_inventories"]
     )
     assert (
-        "phase3-load-calibration-iteration2-planning-v1"
-        in separation["offline_derived_analysis"]
+        "phase3-load-calibration-iteration2-planning-v1" in separation["offline_derived_analysis"]
     )
     assert (
         "phase3-same-batch-physical-qualification-audit-v1"
@@ -1643,7 +1646,10 @@ def test_evidence_inventory_classifies_mixed_execution_and_analysis_files(tmp_pa
     inventory = mod.evidence_inventory_report(pack)
     entries = {entry["directory"]: entry for entry in inventory["directories"]}
 
-    assert entries["artifacts/phase3-load-calibration-inputs-v1"]["evidence_kind"] == "FROZEN_EXECUTION_INPUTS"
+    assert (
+        entries["artifacts/phase3-load-calibration-inputs-v1"]["evidence_kind"]
+        == "FROZEN_EXECUTION_INPUTS"
+    )
     mixed = entries["artifacts/phase3-load-calibration-analysis-v7"]
     assert mixed["evidence_kind"] == "MIXED_PER_RUN_REPORTS_AND_OFFLINE_ANALYSIS"
     assert mixed["file_class_counts"] == {
@@ -1651,7 +1657,9 @@ def test_evidence_inventory_classifies_mixed_execution_and_analysis_files(tmp_pa
         "PER_RUN_EXECUTION_REPORT": 1,
         "UNCLASSIFIED": 1,
     }
-    assert entries["artifacts/phase3-load-calibration-runs-v2"]["evidence_kind"] == "EXECUTION_SUMMARY"
+    assert (
+        entries["artifacts/phase3-load-calibration-runs-v2"]["evidence_kind"] == "EXECUTION_SUMMARY"
+    )
     assert (
         entries["artifacts/phase3-same-batch-runtime-evidence-inventory-v1"]["evidence_kind"]
         == "RUNTIME_EVIDENCE_INVENTORY"
