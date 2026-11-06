@@ -580,7 +580,7 @@ def _evaluate_arm(
     positions = {identity: index for index, identity in enumerate(expected)}
     for identity in expected:
         observation = observations[identity]
-        observation_index = _event_index(observation, "native observation")
+        _event_index(observation, "native observation")
         prior_snapshots: list[Mapping[str, object]] = []
         for predecessor in history_predecessors[identity]:
             matches = snapshots_by_identity.get(predecessor, [])

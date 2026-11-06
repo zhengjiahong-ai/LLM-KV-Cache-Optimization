@@ -5,7 +5,8 @@
 - M1 design decision: Option F accepted (Issue #98; PR #97).
 - Protocol: v4 implemented as an independent document; v3 remains historical.
 - Existing A0 calibration: reused, not rerun.
-- G0 tooling: implemented; real-server freeze candidate not yet generated.
+- G0 tooling: implemented; real-server freeze candidate generated and retained
+  under `docs/experiments/phase3-option-f-g0-v1/` for M1 review.
 - Noise Calibration: locked pending M1 G0 review.
 - Main Campaign: locked pending Noise Calibration and applicable gates.
 - GPU executions performed by this change: zero.
@@ -37,6 +38,8 @@ tests pass. Full CPU regression is expected to have one deliberate failure
 while the worktree is dirty: the Phase 2E authorization test correctly rejects
 an uncommitted tree. It must be rerun after commit on a clean HEAD.
 
-The real G0 artifact must be generated on the server holding the Cohort Seal,
-40 calibration inputs, and v7 reports. A mismatch is a stop condition; the
-tool does not reacquire tasks or recreate A0 evidence.
+The real G0 artifact was generated on the server holding the Cohort Seal, 40
+calibration inputs, and v7 reports. Its status is
+`READY_FOR_M1_G0_REVIEW`; every generated input remains unauthorized. Noise
+Calibration and the Main Campaign remain locked until their respective M1
+gate decisions. The tool does not reacquire tasks or recreate A0 evidence.
