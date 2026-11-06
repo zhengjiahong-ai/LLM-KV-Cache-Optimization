@@ -1,12 +1,12 @@
 # Phase 3 — G4 Reachability Analysis, Revision Proposal, Downstream Gate Impact
 
 **Author**: M4
-**Revision**: RC1–RC9 response to M1's PR #97 reviews (2026-11-05, 2026-11-06)
-**Status**: `ANALYSIS_ONLY` — awaiting M1 adjudication. **No GPU execution. No frozen input modified.**
+**Revision**: RC1–RC10 response to M1's PR #97 reviews (2026-11-05, 2026-11-06)
+**Status**: `ANALYSIS_ONLY` — awaiting M1 adjudication. **No GPU execution. No frozen input modified.** Option F is **not approved**.
 **Evidence pack**: `local/phase3-g4-reachability-analysis-pack-v1` (created 2026-11-05, git `712b3fc`, `gpu_execution_included: false`)
 **Analysis script**: `scripts/probes/phase3_g4_reachability/reachability_analysis.py`
-**CPU tests**: `tests/test_g4_reachability_analysis.py` — 50 tests, no GPU, no network
-**Committed outputs**: `docs/experiments/phase3-g4/outputs/` (12 JSON/CSV artifacts + test log)
+**CPU tests**: `tests/test_g4_reachability_analysis.py` — **72 passed**, no GPU, no network
+**Committed outputs**: `docs/experiments/phase3-g4/outputs/` (19 JSON/CSV artifacts + test log + pack manifest)
 
 **Scope boundary honoured**: no second calibration round, no new 40-run configuration, no workload/pool/input change, no noise calibration, no main campaign, iteration-1 evidence untouched, Protocol v3 unmodified, no G4 PASS declared.
 
@@ -31,7 +31,7 @@
 | **RC6** | `_band_points()` traversed the whole legal grid, so G4-a's 7/20 could rest on extrapolated pressures | Two-level feasibility is now reported at **three nested evidence levels**. Verdicts renamed away from an unqualified `SUPPORTED`. **The count drops from 7 to 1 measured / 2 interpolated / 4 model-only.** §1.6 |
 | RC6 | G4-b only guarded the 16-block floor | G4-b now guards **every** `EXTRAPOLATED` operating point; the floor is treated as the commonest case, not a special one. §2.3 |
 | RC6 | Negative extrapolations fed physical metrics | `rho0_at_minimum_blocks` is retained but flagged `physically_valid = false`, and `floor_share_of_low_measurement` is `None` for those 4 groups. §1.5 |
-| **RC7** | H3 population contradicted itself across §2.4 / §2.5.2 / §3.2 | One rule, one place: **primary = RESPONSIVE only; secondary = design groups minus FLAT, descriptive only.** Full group lists for A′ and E. §2.5.4, §3.2 |
+| **RC7** | H3 population contradicted itself across §2.4 / §2.5.2 / §3.2 | **Superseded by RC10-2** (§0.3). The RC7 rule excluded FLAT on a prediction, which M1 rejected. |
 | **RC8** | Option A was costed as if new pressures needed no calibration | Option A is charged **2 × cells** new A0 runs. Because only 1 group supports a measured two-level contrast, Option A cannot reach G3-CM at all. §2.4, §2.5.5 |
 | RC8 | A′/E operating points not tied to the Headroom condition | Selection now requires `MEASURED` evidence **and** the §3.6 two-condition test; full Group–Load–Pressure map published. §2.5.2 |
 | **RC9** | `35cd...` replaced by the observation CSV without explanation | The proposal manifest hash is **restored** as a designated input; the observation CSV is carried as an additional fifth input, not a substitute. §Appendix A |
@@ -42,6 +42,23 @@ Three numbers M1 should re-read against the previous revision:
 1. **Two-level support falls from 7 groups to 1 measured + 2 interpolated.** The 4 remaining groups (g03, g05, g10, g19) are model-only.
 2. **Option A loses its basis.** It now covers 1 group on measured evidence (or 3 including interpolation), so the 8-decision G3-CM threshold is unreachable by construction.
 3. **Option A′ is unchanged at 12 groups**, and every one of its operating points is a measured pressure that already passes Headroom.
+
+### 0.3 RC10 (this revision)
+
+| RC | Problem M1 raised | What changed |
+|---|---|---|
+| **RC10-1** | §3.4 still cited the round-1 40/40 rejection as current | Round 2 (`phase3-same-batch-physical-qualification-audit-v1`, M6 at `712b3fc`) is now the **current** state: **36 qualified, 4 pending** (g08/g20, both conditions), 40/40 physical prefix equal, **0 evidence failures**. Round 1 is retained as history with its own, different question. §3.4; `outputs/g-e-report.json` |
+| **RC10-2** | H3 primary was RESPONSIVE-only and FLAT was excluded on a prediction | **H3-0** is now the primary population (all Headroom-qualified cells, **all strata**, 20 groups / 38 cells). **H3-R** (RESPONSIVE, 9 groups / 16 cells) is a separate pre-registered hypothesis with its own estimand. Strata are descriptive. Group-level weights stated. `h3_report()` no longer derives anything from `paired_groups`. §2.5.4 |
+| **RC10-3** | Interaction derived `ΔD ≈ 0` for FLAT from `Δρ` | **Withdrawn.** Two separate analyses: **Interaction-A** over all **18** complete pairs (primary), **Interaction-B** over the **7** RESPONSIVE pairs (heterogeneity). No `Δρ ⇒ ΔD = 0` inference. §2.5.3 |
+| **RC10-4** | `F ⊃ E ⊃ A′` | Corrected to **F ⊃ E and F ⊃ A′**; E and A′ are **neither nested nor disjoint** — g03 (C2→C1) and g16 (C1→C2) change operating point. §2.6; `outputs/nesting-report.json` |
+| **RC10-5** | “Still 30 runs” used to justify §6.4 compliance | Two readings separated: **decision independence preserved**, **population independence not preserved**. Deterministic hash rule, 2/2/1 stratum allocation, pooled-SD weights and df stated, 4 v4 amendments required. §2.5.5; `outputs/noise-selection-report.json` |
+| **RC10-6** | Population described as a 20-group estimate; §5.4 cross-load rule not reconciled | Four explicit levels (campaign 20/40, C1 18, C2 20, paired 18) with a scope warning that the paired primary is **not** a 20-group estimate. v3 **§5.4 is replaced** in the v4 draft by a five-rule pairing/merge section consistent with the group-averaged estimand. §2.5.3, §2.5.6 |
+| **RC10-7** | Formal outputs still used L_LOW/L_HIGH; reproduction incomplete | All formal tables use **C1/C2**, with the mapping recorded as provenance. Pack manifest (250 entries) and metadata committed; verification procedure documented; **72 tests** reported. §Appendix A |
+
+Two numbers to re-read against RC1–RC9:
+
+1. **H3's primary is no longer 9 groups.** It is **20 groups / 38 cells** (H3-0), with 9 groups / 16 cells as the separate H3-R.
+2. **The interaction is no longer one number.** Interaction-A has 18 pairs and clears the ≥ 8 minimum; Interaction-B has 7 and does not.
 
 ---
 
@@ -234,7 +251,7 @@ Rules that keep this from becoming a relaxation:
 | **E** | one level per group with a **new contiguous band `[0.15, 0.45]`** | **15** | **yes, one** | no |
 | **F** | **two fixed operating points** (the two executed pressures), band attainment demoted to a manipulation check | **20 groups / 18 pairs** | **none** | **no** |
 
-**Option F is specified separately** in `option-f-two-level-fixed-pressure.md`: it keeps both pressures iteration 1 actually ran and stops treating the designed bands as an admission rule. It is the only option whose every cell was measured at the pressure it will be run at, and the cell sets are nested — `F ⊃ E ⊃ A′` — so F can deliver A′'s estimate as a pre-registered subgroup at no extra cost, while A′ cannot recover F's pool-level estimand.
+**Option F is specified separately** in `option-f-two-level-fixed-pressure.md`: it keeps both pressures iteration 1 actually ran and stops treating the designed bands as an admission rule. It is the only option whose every cell was measured at the pressure it will be run at. The cell relation is **F ⊃ E and F ⊃ A′** — but **E and A′ are neither nested nor disjoint**, because they choose different operating points for g03 (C2→C1) and g16 (C1→C2).
 
 **Option A collapses under RC6.** With 1 measured group it produces 1 cell, so G3-CM (which needs ≥ 8 discriminable decisions) is unreachable by construction; with interpolation it reaches 3, still short. Option A is only viable if M1 accepts model-only levels, which is precisely what RC6 forbids. **The previous "Option A costs 114 runs and reuses calibration" was wrong on both counts** — it needs 2 × cells new calibration runs (see §2.5.5).
 
@@ -293,7 +310,8 @@ Under E, two groups' operating points move relative to A′ because the wider ba
 | **H1** A3 vs A0, token Δ | 40 cells / 2 levels | 12 cells / 1 level | 15 cells / 1 level |
 | **H2** A3 vs E0, token Δ | 40 cells | 12 | 15 |
 | **H2** decision-level | 40 decisions | 12 | 15 |
-| **H3** A0 vs N0 | 40 cells | see §2.5.4 | see §2.5.4 |
+| **H3-0** A0 vs N0, all Headroom cells | 40 cells | see §2.5.4 | see §2.5.4 |
+| **H3-R** A0 vs N0, RESPONSIVE only | — (new) | 6 groups (below min) | 9 groups |
 | Dose-response | supported | **lost** | **lost** |
 | Arm × pressure interaction | supported | **lost** | **lost** |
 
@@ -303,24 +321,48 @@ The estimand sentence to freeze:
 
 v3's implicit "…at two controlled pressure levels" is gone, and with it any claim of the form "A3 helps more when pressure is high".
 
-#### 2.5.4 RC7: one H3 rule
+**RC10-6: §5.4 must be replaced, not reinterpreted.** v3 §5.4 reads "cross-load 不配对：只做平行报告，不做合并检验", and §6.1 says "两档同 group，不得合并为 40". That remains correct as a ban on pooling *cells*, but it is incompatible with F's group-averaged estimand unless the one permitted merge is written down. The v4 draft therefore replaces §5.4 with five rules:
 
-The previous revision said H3 was restricted to 9 groups in one section and used 12/15 in another. **Single rule:**
+1. within-cell paired — six arms share one plan SHA-256 per (group, condition);
+2. **across conditions, never pool C1 and C2 as independent observations** — they are the same groups, and no interval may come from a pooled C1 ∪ C2 sample;
+3. **across conditions, the group-level average is permitted and is F's primary estimand** — a group qualified in both conditions contributes the mean of its two condition deltas at weight 1/2 each, and the group keeps weight 1/G as the resampling unit;
+4. per-condition estimates are reported separately and are **not replications** of one quantity;
+5. a group qualified in only one condition contributes to that condition's estimate and to H3, but not to the group-averaged estimand.
 
-> **H3 primary population = RESPONSIVE groups only** (`Δρ ≥ 0.10`, the same threshold G4-a uses, so no new constant). The verdict is drawn here.
-> **H3 secondary population = design groups minus FLAT**, reported descriptively, **carrying no verdict**.
-> **FLAT is excluded from both**, because its ratio is 0.00–0.15, so `A0 − N0` is predicted near zero and the cell cannot speak to H3 in either direction.
+**Statistical units and weights, stated once (RC10-6).**
 
-Why RESPONSIVE for the primary: H3 asks whether forced release has a *cost*. That needs a non-trivial empirical marginal response ratio. A WEAK group (0.65–1.31) has real but small leverage, and a WEAK group's expected `A0 − N0` is small relative to the CI the design can achieve — so a WEAK-driven H3 result would be dominated by `NO_DETECTABLE_EFFECT` for arithmetic reasons rather than physical ones. Reporting it descriptively, alongside the RESPONSIVE result, is the honest compromise; drawing a verdict from it is not.
+| Analysis | Unit | Weight | n |
+|---|---|---|---|
+| Per-condition Δ | cell | 1 per cell | C1 18, C2 20 |
+| **Group-averaged Δ (primary)** | **group** | **1/18**; within-group 1/2 per condition | **18** |
+| Stratum Δ | group | 1 / stratum size | 9 / 8 / 3 |
+| Interaction-A | group | 1/18 | 18 |
+| Interaction-B | group | 1/7 | 7 |
+| **H3-0** | **group** | **1/20**; within-group 1/2 per cell | 20 groups / 38 cells |
+| H3-R | group | 1/9; within-group 1/2 per cell, one-cell groups get 1 | 9 groups / 16 cells |
+| Manipulation check | cell | unweighted count | 40 |
 
-| Design | Primary (RESPONSIVE) | n | Secondary (all − FLAT) | n | Descriptive-only | FLAT |
-|---|---|---:|---|---:|---|---|
-| **A′** | g03, g04, g09, g12, g16, g18 | **6** | g02, g03, g04, g06, g08, g09, g11, g12, g13, g16, g17, g18 | **12** | g02, g06, g08, g11, g13, g17 | none |
-| **E** | g03, g04, g05, g09, g10, g12, g16, g18, g19 | **9** | the 15 E groups | **15** | g02, g06, g08, g11, g13, g17 | none |
+Cell-weighted averaging is deliberately **not** used for any group-level estimand: it would give two-cell groups twice the influence of one-cell groups, making the inference depend on Headroom's per-condition count rather than on the workload pool.
 
-No FLAT group qualifies for either design, so the FLAT exclusion costs no design cell — consistent with §3.2.
+#### 2.5.4 RC10-2: H3 restructured (supersedes the RC7 rule)
 
-**A note on the primary n.** A′'s H3 primary is **6 groups**, below the §6.2 minimum of 8 for a per-load estimate. If H3-primary on A′ is asked to produce an interval rather than a direction, it will be labelled `INSUFFICIENT_ANALYZED_CELLS` under the existing rule. This is a real cost of A′ and belongs in the adjudication, not in a footnote.
+The RC7 rule promoted RESPONSIVE to H3's primary population and excluded FLAT because `A0 − N0` was *predicted* to be near zero. **That inference is withdrawn.** A small `Δρ` describes how much **A0's own recomputation** moves with pressure; it says nothing about what a force-release arm does **relative to A0**. Prediction is not a reason to remove a group from a hypothesis.
+
+> **H3-0 (primary, the hypothesis as written):** every Headroom-qualified cell, both conditions, **all strata including FLAT**. 20 groups / 38 cells (C1 18, C2 20). Unit = group, weight 1/20; within a group the two cells are weighted 1/2 each.
+>
+> **H3-R (separate, pre-registered):** RESPONSIVE only (`Δρ ≥ 0.10`, the same threshold G4-a uses). 9 groups / 16 cells (C1 7, C2 9). Unit = group, weight 1/9; within-group cells 1/2 each, with g09 and g18 contributing one cell at weight 1. It answers a *different* question — is the forced-release cost observable where the baseline itself responds to pressure — and cannot replace H3-0.
+>
+> **Heterogeneity (pre-registered, descriptive):** WEAK 8 groups / 16 cells, FLAT 3 groups / 6 cells, reported side by side. No stratum gates another.
+
+Because H3 is a per-cell `A0 − N0` comparison it needs no pair, so the two groups that lose their pair to Headroom (g09, g18) still contribute one full cell each. The previous "secondary = paired groups minus FLAT" logic was inconsistent with the per-cell definition and has been removed.
+
+| Design | H3-0 population | H3-R population | A′/E note |
+|---|---|---|---|
+| **F** | 20 groups / 38 cells | 9 groups / 16 cells | — |
+| **A′** | 12 groups / 12 cells | 6 groups | below the §6.2 minimum of 8 → `INSUFFICIENT_ANALYZED_CELLS` if an interval is required |
+| **E** | 15 groups / 15 cells | 9 groups | clears the minimum |
+
+Full definition and per-cell accounting: `option-f-two-level-fixed-pressure.md` §5, `outputs/h3-report.json`.
 
 #### 2.5.5 RC8: run accounting and the calibration charge
 
@@ -345,7 +387,16 @@ Reading:
 - **G3-CM is the binding constraint, not the CI**: 8 of 12 cells must differ (67 %), 8 of 15 (53 %), 8 of 9 (89 %). Repeats do not help — `R` is explicitly not an independent unit (§6.3).
 - **GPU-hours are deliberately not quoted.** M6's measured per-run cost (§5.1 item 3) is not available to M4, and inventing one is the kind of number M1 has been rejecting.
 
-Noise calibration: the v3 30-run design (5 groups × 2 loads × R=3) cannot be reused by a single-level design. Recommended **9 groups × 1 level × R=3 = 27 runs**, df 18, relative SE of `σ_run` ≈ 16.7 % (v3: df 20, ≈ 15.8 %). The 9 groups should be drawn from the final population; §6.4 requires independence from the *Headroom decision*, not from the group pool, and M1 should confirm that reading.
+**Noise calibration (RC10-5).** §6.4's independence requirement has two readings, and they are not equivalent:
+
+| Reading | A′ / E | F |
+|---|---|---|
+| **Decision independence** — the noise set must not influence which cells are analysable | preserved | **preserved** (Headroom is decided from A0 calibration before any noise run) |
+| **Population independence** — the noise set must be a sample of the full group pool regardless of Headroom | preserved (5 of 12 / 15) | **not preserved** (5 of the 18 paired groups; g09 and g18 are never sampled) |
+
+For a **single-level** design (A′ / E) the v3 30-run design (5 groups × 2 conditions × R=3) cannot be reused as written, because there is only one condition per group: **9 groups × 1 condition × R=3 = 27 runs**, df 18, relative SE of `σ_run` ≈ 16.7 % (v3: df 20, ≈ 15.8 %).
+
+For **F** the 30-run design is retained in shape but the **sampling frame changes**: 5 groups × 2 conditions × R=3, drawn from the **18 paired groups** by a G0-frozen deterministic rule (`sha256("phase3-noise-selection-v1:" + group_id)`, ascending), stratified **2 RESPONSIVE / 2 WEAK / 1 FLAT**. Current draw: g01, g04, g06, g07, g10. `σ_run` is a pooled within-cell SD over 10 cells, df 20, and must be reported **per stratum as well as pooled**, because a stratified draw is not a simple random sample of the 20 groups. The interaction gets **no `tied` classification**: its noise floor needs the within-group correlation of the two condition deltas, which is unmeasured. Four explicit v4 §6.4 amendments follow from this — see `option-f-two-level-fixed-pressure.md` §7.4.
 
 #### 2.5.6 Statistical precision: planning values, not guarantees
 
@@ -379,7 +430,7 @@ Limits, stated so they cannot be quoted as precision:
 
 The case for E is now stronger on one specific point that the previous revision under-weighted: **A′'s H3 primary is 6 groups, below the protocol's own minimum of 8**, so an H3 interval on A′ would have to be labelled `INSUFFICIENT_ANALYZED_CELLS`. E's primary is 9 and clears it. If M1 weighs H3 as a primary hypothesis rather than a descriptive one, **E becomes the better choice**, at the cost of adjudicating the 0.15–0.25 sub-interval as a new constant.
 
-**Option F changes the shape of this decision rather than sitting beside it.** Because every A′ and E operating point is one of the 40 cells F already contains (`F ⊃ E ⊃ A′`), choosing F and pre-registering A′ as a frozen subgroup delivers both estimands for the same 270 runs. That nesting is one-directional: A′ cannot recover F's pool-level estimand. The condition is strict — the subgroup must be defined from A0-only data and frozen in G0, not discovered after seeing an arm (§10 S9). F's own costs are real and are listed in `option-f-two-level-fixed-pressure.md` §5.3: dilution of the pooled mean, weak manipulation validity (only 1 of 20 groups has both conditions in band), and an interaction that is 7 pairs short of confirmatory.
+**Option F changes the shape of this decision rather than sitting beside it.** Because every A′ and E operating point is one of the 40 cells F already contains (**F ⊃ E** and **F ⊃ A′**; note that **E and A′ are not nested in each other** — see `option-f-two-level-fixed-pressure.md` §6.2), choosing F and pre-registering A′ as a frozen subgroup delivers both estimands for the same 270 runs. That relation is one-directional: A′ cannot recover F's estimand. The condition is strict — the subgroup must be defined from A0-only data and frozen in G0, not discovered after seeing an arm (§10 S9). F's own costs are listed in `option-f-two-level-fixed-pressure.md` §6.3: dilution of the pooled estimate, weak manipulation validity (only 1 of 20 groups has both conditions in band), and RESPONSIVE interaction at 7 pairs, below the minimum of 8.
 
 Option A should not be chosen: it cannot satisfy G3-CM without accepting model-only levels. Option B is the statistically cleanest and needs new authorisation. Option C is rejected. Option D remains the fallback if the token estimand is judged unaffordable; its H2 decision-level component survives every design above.
 
@@ -401,12 +452,12 @@ Option A should not be chosen: it cannot satisfy G3-CM without accepting model-o
 
 | Item | Loss | Why |
 |---|---|---|
-| **H3 on FLAT groups** | **Severely damaged** | A **prediction**, not a measurement: with ratios 0.00–0.15, forced release is expected to cost almost nothing, so `A0 − N0` is predicted ≈ 0. **No N0 arm has ever been run**, so this is a design prediction the campaign would confirm or refute. What *is* observed is that pressure does not move recomputation for these groups. |
-| **H3 on WEAK groups** | Demoted to descriptive | ratio 0.65–1.31 leaves real but small leverage; §2.5.4 gives the rule and the lists |
-| **Dose-response** | **Lost** | one level per group cannot express it; never one of H1/H2/H3 |
-| **Arm × pressure interaction** | **Lost** | same reason |
-| **"A3 helps more when pressure is high"** | **Unavailable** | no second level, and for 13 groups no low-pressure counterfactual |
-| **Generalisation of token-delta magnitude** | **Weakened** | covers in-band workloads only |
+| **H3 on FLAT groups** | **Not removed; expected to be uninformative** (RC10-2) | Ratios are 0.00–0.15, so `A0 − N0` is *predicted* to be near zero. **No N0 arm has ever been run**, so this is a design prediction the campaign would confirm or refute — not a reason to drop the group. FLAT stays in H3-0 and is additionally reported as its own stratum, because "predicted small" is not "measured zero". |
+| **H3 on WEAK groups** | Expected small, retained in H3-0 | ratio 0.65–1.31 leaves real but small leverage; §2.5.4 gives the population and the weights |
+| **Dose-response** | **Lost** under A′, E, and F | A′/E have one level; F has two fixed points, not two levels of a manipulated variable, so it cannot express a gradient |
+| **Arm × pressure interaction** | **Weakened, not lost** | available under F as Interaction-A (18 pairs, clears the ≥ 8 minimum) and Interaction-B (7 RESPONSIVE pairs, does not). Unavailable under A′ and E. |
+| **"A3 helps more when pressure is high"** | **Unavailable** | C1/C2 are not levels of one variable for 11 groups, so the contrast cannot be read as pressure intensity |
+| **Generalisation of token-delta magnitude** | **Weakened** | under A′/E it covers in-band workloads only; under F it is a population average over the paired groups, which is not an effect size |
 | **Two-level contrast on 4 further groups** | **Demoted to model-only** | RC6: their level exists only at an unmeasured pressure |
 
 ### 3.3 What must stay locked until G4 is re-approved
@@ -420,9 +471,21 @@ Option A should not be chosen: it cannot satisfy G3-CM without accepting model-o
 | G4 verdict | **NOT PASSED, NOT FAILED BY ITS OWN THRESHOLD** — `PENDING_LOAD_PARAMETER_FREEZE` (§1.1) |
 | Frozen workload, 2048-block pool, iteration-1 evidence | **UNCHANGED** |
 
-### 3.4 A separate blocker that must not be folded into G4
+### 3.4 A separate item that must not be folded into G4
 
-`phase3-concurrent-eligibility-rejection-audit-v1` failed closed:
+**Current state (round 2, M6 recompute at `712b3fc`).** `phase3-same-batch-physical-qualification-audit-v1` asks whether producer and consumer resolve the same **physical prefix blocks** under a bound forward-batch source:
+
+```
+row_count: 40
+QUALIFIED_SAME_BATCH_SHARED_PREDECESSOR : 36
+PENDING_EARLIER_FORWARD_ORDER_PROOF     :  4   (g08 C1, g08 C2, g20 C1, g20 C2)
+physical_prefix_equal                   : 40 / 40
+all_hash_identity_match                 : true
+hash_lcp_tokens == native_c             : 112 / 112 on all 40
+evidence failure                        : 0
+```
+
+**History (round 1, retained).** `phase3-concurrent-eligibility-rejection-audit-v1` asked a *different* question — is the producer's prefill **complete and visible** before a same-wave consumer looks it up — and failed closed:
 
 ```
 audit_row_count: 40, qualified_count: 0, rejected_count: 40
@@ -432,20 +495,24 @@ independently_qualified_e: 0   (all 40 rows)
 qualification_result: REJECTED_SAME_WAVE_PREFILL_NOT_COMPLETE_BEFORE_CONSUMER_LOOKUP  (40/40)
 ```
 
-- All 40 audited pairs have `hash_lcp_tokens == native_c == 112`, so `E = C` there and their contribution to `Σ(E−C)` is **zero** — conservative in direction.
-- `uses_c_to_compute_e: false` means §3.2's arm-independence requirement for `E` is **not** violated by this audit.
-- The audit covers **one pair per cell**, so `E` on the remaining pairs is unverified.
+**The two counts are not a correction of one another.** Round 1 is about visibility and completion timing; round 2 is about physical block identity and forward-batch source binding. A pair can bind the same physical prefix while still failing round 1's visibility criterion. **"40/40 rejected" is therefore no longer a correct description of the current state**, even though no round-1 row changed.
 
-**This is an independent item (G-E).** It is neither caused by nor resolved by the reachability question, and must neither block nor be blocked by G4.
+What does not change either way:
+
+- `hash_lcp_tokens == native_c == 112` on every audited pair in **both** rounds, so `E = C` there and the audited pairs contribute **zero** to `Σ(E−C)` — conservative in direction.
+- `uses_c_to_compute_e: false` means §3.2's arm-independence requirement for `E` is **not** violated.
+- The audit covers **one pair per cell**, so `E` on the remaining pairs is unverified in either round.
+
+**G-E is independent of G4.** It must neither block nor be blocked by the design decision. Full record: `outputs/g-e-report.json`.
 
 ### 3.5 Recommendation to M1
 
 1. **Record G4 as `PENDING_LOAD_PARAMETER_FREEZE`.** Threshold satisfied on existing data (38/40); precondition unmet. Record the §5.2 load-target failure separately: `LEVEL_SEPARATION_UNAVAILABLE` for 13 groups, `MODEL_ONLY` for 4.
 2. **Adopt G4-a (tiered) / G4-b (generalized) / G4-c**, bands unchanged, extrapolation labelled, negative extrapolations excluded from ratios.
-3. **Choose the design.** Recommended **A′**; **E** if H3 size matters more than the band-coverage change; **A** no longer viable; **B** needs new authorisation; **C** rejected; **D** the fallback.
-4. **Re-specify and re-run the noise calibration** (9 × 1 × 3 = 27 runs recommended).
+3. **Choose the design.** Recommended **A′**; **E** if H3-R size matters more than the band-coverage change; **F** if the phase's primary claim is the pool-level one (it is the only option that can also deliver A′ as a pre-registered subgroup, since F ⊃ E and F ⊃ A′ — see `option-f-two-level-fixed-pressure.md`); **A** no longer viable; **B** needs new authorisation; **C** rejected; **D** the fallback.
+4. **Re-specify and re-run the noise calibration** before the main campaign: 9 × 1 × R=3 = 27 runs for a single-level design; 5 × 2 × 3 = 30 runs under F with the paired-group sampling rule of §2.5.5.
 5. **Restate the estimand**, including the loss of dose-response and the qualification of two-level claims.
-6. **Adjudicate G-E separately.**
+6. **Adjudicate G-E separately**, on round 2's evidence (36 qualified / 4 pending), not on round 1's 40/40 rejection.
 
 ---
 
@@ -505,17 +572,24 @@ Because the pack is 209 MiB and untracked, **the derived artifacts are committed
 | `group-summary.json` / `groups.csv` | all 20 groups with the three feasibility tiers |
 | `headroom-report.json` | §3.6 gate: 38/40 eligible, the 2 exclusions |
 | `load-target-report.json` | §5.2 target at measured / bracket / full-grid levels |
-| `option-report.json` | A′ and E operating-point maps, group counts |
-| `h3-report.json` | primary and secondary H3 populations per design |
+| `option-report.json` | A′ and E operating-point maps, group counts, F design block |
+| `option-f-report.json` | F: manipulation check, four populations, estimands, precision, interaction A/B, threats |
+| `h3-report.json` | H3-0 primary, H3-R separate hypothesis, WEAK/FLAT heterogeneity |
+| `noise-selection-report.json` | §6.4 independence reading, frozen selection rule, variance and weights, 4 v4 amendments |
+| `nesting-report.json` | F ⊃ E, F ⊃ A′, and the g03/g16 operating-point moves |
+| `g-e-report.json` | round 2 as current (36/4), round 1 as history, semantic difference |
 | `calibration-cost-report.json` | run accounting per design, incl. Option A's calibration charge |
 | `collision-report.json` | the 9-vs-10 counts and the difference set |
 | `precision-report.json` | planning half-widths with their caveat |
 | `pack-provenance.json` | pack path, file count, five inputs with hashes |
+| `pack-sha256-manifest.txt` / `pack-metadata.json` | the pack's own 250-entry manifest and metadata, for verifying a transfer |
 | `cpu-test-run.txt` | actual pytest run |
 
-### A.4 CPU test results
+### A.4 CPU test results (RC10-7)
 
-`pytest tests/test_g4_reachability_analysis.py -q` → **50 passed**, no GPU, no network, no writes outside `tmp_path`. The committed log is `outputs/cpu-test-run.txt`.
+`pytest tests/test_g4_reachability_analysis.py -q` → **72 passed**, no GPU, no network, no writes outside `tmp_path`. The committed log is `outputs/cpu-test-run.txt`.
+
+This **supersedes the 63 figure** quoted before RC10; RC10 added 9 tests.
 
 Coverage of the RC items:
 
@@ -526,12 +600,16 @@ Coverage of the RC items:
 | Model reproduction of a frozen `predicted_rho0`; evidence-class labelling; 1:1 ratio | 3 |
 | Cell classifications (measured / interpolated / extrapolated / infeasible) | 4 |
 | **RC6** — extrapolated operating point rejected without in-bracket feasibility; admitted with it; model-only labelled; measured vs interpolated distinguished; negative floor flagged and excluded from share | 6 |
-| **RC7** — H3 primary ⊆ secondary, FLAT excluded, primary is RESPONSIVE-only | 2 |
-| **RC8** — Option A calibration = 2 × cells, A′/E = 0, B = 40; run totals add up; operating points are measured and Headroom-eligible; cheapest qualifying point chosen | 4 |
+| **RC10-2** — H3-0 keeps FLAT; FLAT is a stratum not an exclusion; H3-R separate with its own estimand; per-condition counts; group-vs-cell weighting; H3 independent of the paired set; per-design populations | 7 |
+| **RC10-3** — interaction A/B separated; no `Δρ ⇒ ΔD = 0` inference; “by construction” absent | 3 |
+| **RC10-1** — round 2 current (36/4, 0 failures, E==C), round 1 retained as history | 1 |
+| **RC10-4** — F ⊃ E and F ⊃ A′; E and A′ not nested; g03/g16 move | 1 |
+| **RC10-5** — decision vs population independence; allocation; determinism; df; 4 amendments | 1 |
+| **RC8** — Option A calibration = 2 × cells, A′/E = 0, B = 40; run totals add up; operating points measured and Headroom-eligible | 4 |
 | **RC9** — the M1-designated four are pinned; `35cd...` not replaced | 2 |
 | Collision counting (9-vs-10); option additivity; precision table | 3 |
-| End-to-end against the real pack (1 measured / 3 in-bracket / 7 model-only, g14 identity) | 1 |
-| Inputs / helpers / other | 14 |
+| End-to-end against the real pack (1 measured / 3 in-bracket / 7 model-only; g14 identity; F's 18 pairs; 4 population levels; nesting; noise; G-E) | 4 |
+| Inputs / helpers / other | 20 |
 
 ### A.5 Schema and completeness checks enforced before any number is computed
 
@@ -560,8 +638,9 @@ Coverage of the RC items:
 | Minimum analysable cells per load | 8 | Protocol v3 §6.2, frozen |
 | `tied` | `2√2·σ_run` | Protocol v3 §6.4, unchanged |
 | FLAT | `Δρ < 0.01` | below the design's block granularity at observed prefill sizes |
-| WEAK / RESPONSIVE split | `Δρ < 0.10` | the gap between the L_LOW ceiling and the L_HIGH floor; below it no band crossing is possible. Reused for H3-primary so no new constant is introduced |
+| WEAK / RESPONSIVE split | `Δρ < 0.10` | the gap between the L_LOW ceiling and the L_HIGH floor; below it no band crossing is possible. Reused for **H3-R** (and for G4-a) so no new constant is introduced |
 | Option E band | `[0.15, 0.45]` | **proposed, not inherited** — covers 0.15–0.25, which no frozen band covers; 3 groups depend on it |
+| Noise selection salt | `phase3-noise-selection-v1` | **proposed** pre-registration constant; allocation 2/2/1 follows the paired strata |
 | Planning group SD | 2,000 tokens | Phase 2E/2G observation, planning only |
 
 ## Appendix C — RC response map
@@ -571,6 +650,13 @@ Coverage of the RC items:
 | RC6 model vs evidence reachability | §1.6, §2.3, §2.4, §2.5.2 |
 | RC6 G4-b generalized to all extrapolated points | §2.3 |
 | RC6 negative extrapolations excluded from physical metrics | §1.5, Appendix A §A.4 |
-| RC7 unified H3 estimand | §2.5.4, §3.2 |
+| RC7 unified H3 estimand | **superseded by RC10-2** — §2.5.4, §3.2 |
 | RC8 Option A calibration charge, Headroom intersection, full mapping | §2.5.1, §2.5.2, §2.5.5 |
 | RC9 hashes with names, pack location, 40-cell output, test result | Appendix A |
+| **RC10-1** G-E current state | §0.3, §3.4, `outputs/g-e-report.json` |
+| **RC10-2** H3-0 / H3-R / heterogeneity, units and weights | §0.3, §2.5.4, §3.2, `outputs/h3-report.json` |
+| **RC10-3** interaction A vs B | §0.3, §2.5.3, `option-f-two-level-fixed-pressure.md` §4.4 |
+| **RC10-4** nesting corrected | §0.3, §2.6, `outputs/nesting-report.json` |
+| **RC10-5** noise rule closed | §0.3, §2.5.5, `outputs/noise-selection-report.json` |
+| **RC10-6** §5.4 replaced, four populations, units and weights | §0.3, §2.5.3, `option-f-two-level-fixed-pressure.md` §3.2 / §8.4 |
+| **RC10-7** C1/C2 naming, outputs, 72 tests, pack transfer | §0.3, Appendix A, `option-f-two-level-fixed-pressure.md` Appendix D |

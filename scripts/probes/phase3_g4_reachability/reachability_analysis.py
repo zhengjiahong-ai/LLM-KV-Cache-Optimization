@@ -1033,74 +1033,169 @@ def option_report(cells: list[Cell], groups: list[GroupSummary]) -> dict:
     }
 
 
-def _secondary(design_groups: list[str], flat_groups: list[str]) -> list[str]:
-    """Design groups minus FLAT: the descriptive H3 population."""
+def _eligible_cells_by_group(
+    cells: list[Cell], group_ids: list[str] | None = None
+) -> dict[str, dict[str, Cell]]:
+    """Headroom-eligible cells per group, optionally restricted to ``group_ids``."""
 
-    flat = set(flat_groups)
-    return [group for group in design_groups if group not in flat]
+    wanted = set(group_ids) if group_ids is not None else None
+    out: dict[str, dict[str, Cell]] = {}
+    for cell in cells:
+        if not cell.headroom_eligible:
+            continue
+        if wanted is not None and cell.group_id not in wanted:
+            continue
+        out.setdefault(cell.group_id, {})[cell.load_level] = cell
+    return out
 
 
-def h3_report(options: dict) -> dict:
-    """One rule for H3, applied to every design (RC7).
+def _h3_population(cells: list[Cell], group_ids: list[str], stratum: str) -> dict:
+    """Describe one H3 population: groups, cells per condition, and weights.
 
-    H3 asks whether forced release has a *cost*. That question needs a non-trivial
-    empirical marginal response ratio, and the only pre-frozen split that
-    guarantees one is RESPONSIVE (`dRho >= 0.10`, the same threshold G4-a uses,
-    so no new constant is introduced).
-
-    * primary  -- RESPONSIVE groups only; this is the decision-bearing set.
-    * secondary -- every group in the design, descriptive only, no verdict.
-    * FLAT is excluded from both: its ratio is 0.00-0.15, so `A0 - N0` would be
-      predicted near zero and the cell cannot speak to H3 either way.
+    H3 is a per-cell ``A0 - N0`` comparison. When a group contributes two
+    eligible cells (one per condition), those two cells are **not** independent
+    draws -- they are the same workload. So the group-level estimator averages
+    the group's eligible cells first and then treats the group as one unit with
+    weight ``1 / G``. Cell-weighted averaging is deliberately *not* used: it
+    would give two-cell groups twice the influence of one-cell groups, which
+    would make the inference depend on Headroom's per-condition count rather
+    than on the workload pool.
     """
+
+    by_group = _eligible_cells_by_group(cells, group_ids)
+    two_cell = sorted(g for g, c in by_group.items() if len(c) == 2)
+    one_cell = sorted(g for g, c in by_group.items() if len(c) == 1)
+    total_cells = sum(len(c) for c in by_group.values())
+    return {
+        "stratum": stratum,
+        "groups": sorted(by_group),
+        "group_count": len(by_group),
+        "cells_total": total_cells,
+        "cells_C1": sum(1 for c in by_group.values() if "L_LOW" in c),
+        "cells_C2": sum(1 for c in by_group.values() if "L_HIGH" in c),
+        "groups_with_two_cells": two_cell,
+        "groups_with_one_cell": one_cell,
+        "one_cell_groups_missing_condition": {
+            group_id: ("C1" if by_group[group_id].keys() == {"L_HIGH"} else "C2")
+            for group_id in one_cell
+        },
+        "estimator": (
+            "group mean of Headroom-eligible cells, then mean / bootstrap over "
+            "groups; one cell counts fully, two cells are averaged 1/2 each"
+        ),
+        "group_weight": ("1 / group_count -- equal group weight, NOT proportional to cell count"),
+        "cell_weight_within_group": "1 / (cells in that group); 1 for a one-cell group",
+        "resampling_unit": "group",
+        "blind_to_arms": True,
+    }
+
+
+def h3_report(cells: list[Cell], groups: list[GroupSummary], options: dict) -> dict:
+    """H3 populations, restructured for RC10-2.
+
+    The previous revision promoted RESPONSIVE to H3's primary population and
+    dropped FLAT on the grounds that ``A0 - N0`` was *predicted* to be near zero
+    there. That inference was wrong in kind: a small ``dRho`` describes how much
+    **A0's own recomputation** moves with pressure, and says nothing about what a
+    force-release arm does relative to A0. Prediction is not a reason to remove a
+    group from a hypothesis.
+
+    So the structure is now:
+
+    * **H3-0 (original, decision-bearing)** -- every Headroom-qualified cell, in
+      both conditions, all strata included. This is the hypothesis as written.
+    * **H3-R (separate, pre-registered)** -- RESPONSIVE only. An *additional*
+      hypothesis about whether the forced-release cost is observable where the
+      baseline itself responds to pressure. It has its own estimand and cannot
+      replace H3-0.
+    * **Heterogeneity analysis** -- RESPONSIVE / WEAK / FLAT reported side by
+      side, pre-registered, no stratum allowed to gate another.
+    """
+
+    strata = {g.group_id: g.pressure_response for g in groups}
+    all_groups = sorted(strata)
+    responsive = [g for g in all_groups if strata[g] == "RESPONSIVE"]
+    weak = [g for g in all_groups if strata[g] == "WEAK"]
+    flat = [g for g in all_groups if strata[g] == "FLAT"]
+
+    h3_0 = _h3_population(cells, all_groups, "ALL_HEADROOM_QUALIFIED")
+    h3_r = _h3_population(cells, responsive, "RESPONSIVE")
+    h3_w = _h3_population(cells, weak, "WEAK")
+    h3_f = _h3_population(cells, flat, "FLAT")
 
     return {
         "rule": (
-            "H3 verdict is drawn only on RESPONSIVE groups (dRho >= 0.10, the same "
-            "threshold G4-a uses). Groups in the design but outside that set are "
-            "reported descriptively and cannot carry an H3 verdict."
+            "H3-0 is the hypothesis as written: every Headroom-qualified cell, both "
+            "conditions, all strata. Strata are a pre-registered heterogeneity "
+            "analysis, not an admission rule. H3-R (RESPONSIVE only) is an "
+            "additional hypothesis with its own estimand and cannot replace H3-0."
         ),
-        "primary_population": "RESPONSIVE only",
-        "secondary_population": "design groups minus FLAT, descriptive, no verdict",
-        "flat_policy": (
-            "FLAT groups are excluded from both H3 populations because their "
-            "empirical marginal response ratio is 0.00-0.15, so A0 - N0 would be "
-            "predicted near zero and the cell cannot speak to H3 either way."
-        ),
-        "A_PRIME": {
-            "primary_h3_groups": options["A_PRIME_responsive"],
-            "primary_h3_n": len(options["A_PRIME_responsive"]),
-            "secondary_h3_groups": _secondary(options["A_PRIME_groups"], options["A_PRIME_flat"]),
-            "secondary_h3_n": len(_secondary(options["A_PRIME_groups"], options["A_PRIME_flat"])),
-            "descriptive_only_groups": options["A_PRIME_weak"],
-            "flat_groups": options["A_PRIME_flat"],
-        },
-        "E": {
-            "primary_h3_groups": options["E_responsive"],
-            "primary_h3_n": len(options["E_responsive"]),
-            "secondary_h3_groups": _secondary(options["E_groups"], options["E_flat"]),
-            "secondary_h3_n": len(_secondary(options["E_groups"], options["E_flat"])),
-            "descriptive_only_groups": options["E_weak"],
-            "flat_groups": options["E_flat"],
-        },
-        "F": {
-            "primary_h3_groups": options["F"]["F_design_responsive"],
-            "primary_h3_n": len(options["F"]["F_design_responsive"]),
-            "primary_h3_cells": options["F"]["F_h3_primary_cells"],
-            "secondary_h3_groups": _secondary(
-                options["F"]["paired_groups"], options["F"]["F_flat"]
+        "primary": {
+            "id": "H3-0",
+            "question": (
+                "Does forced release (A0 vs N0) have a net cost on recomputation, "
+                "across the Headroom-qualified workload pool?"
             ),
-            "secondary_h3_n": len(
-                _secondary(options["F"]["paired_groups"], options["F"]["F_flat"])
+            "population": "every Headroom-qualified cell, both conditions, all strata",
+            "flip_note": (
+                "FLAT is INCLUDED. A small dRho measures A0's baseline sensitivity "
+                "to pressure; it is not evidence about the arm-vs-A0 difference, so "
+                "it cannot exclude a group from this hypothesis."
             ),
-            "descriptive_only_groups": options["F"]["F_weak"],
-            "flat_groups": options["F"]["F_flat"],
+            **h3_0,
+        },
+        "secondary_hypothesis": {
+            "id": "H3-R",
+            "question": (
+                "Is the forced-release cost observable in the subset whose baseline "
+                "recomputation itself responds to pressure?"
+            ),
+            "status": "pre-registered, separate, not a replacement for H3-0",
+            "rationale": (
+                "A non-trivial empirical marginal response ratio is a necessary "
+                "condition for the mechanism to have anywhere to act. If the cost "
+                "appears only here, that is a finding about the mechanism's domain; "
+                "if it appears in H3-0 and not here, that is a finding about "
+                "sensitivity, not a contradiction."
+            ),
+            "threshold_provenance": "dRho >= 0.10, the same constant G4-a uses",
+            **h3_r,
+        },
+        "heterogeneity": {
+            "status": "pre-registered, descriptive, reported side by side",
             "note": (
-                "H3 is a per-cell A0-vs-N0 comparison, so it does not need a pair: "
-                "g09 and g18 keep an H3 cell on their Headroom-eligible condition "
-                "even though they drop out of the paired two-condition design."
+                "No stratum gates another. The FLAT stratum is reported with its "
+                "own interval even though its predicted effect is small, because "
+                "'predicted small' is not 'measured zero'."
             ),
+            "WEAK": h3_w,
+            "FLAT": h3_f,
         },
+        "by_design": {
+            "F": {
+                "population": "campaign runs all 20 groups, both conditions",
+                "headroom_cells": {"C1": h3_0["cells_C1"], "C2": h3_0["cells_C2"]},
+                "H3_0_groups": h3_0["group_count"],
+                "H3_0_cells": h3_0["cells_total"],
+                "H3_R_groups": h3_r["group_count"],
+                "H3_R_cells": h3_r["cells_total"],
+            },
+            "A_PRIME": {
+                "population": "one measured operating point per group",
+                "H3_0_groups": len(options["A_PRIME_groups"]),
+                "H3_R_groups": len(options["A_PRIME_responsive"]),
+            },
+            "E": {
+                "population": "one measured operating point per group",
+                "H3_0_groups": len(options["E_groups"]),
+                "H3_R_groups": len(options["E_responsive"]),
+            },
+        },
+        "flat_policy": (
+            "FLAT is retained in H3-0 and reported as its own heterogeneity "
+            "stratum. It is not removed from the hypothesis; it is only expected "
+            "to be uninformative, and expectation is not measurement."
+        ),
     }
 
 
@@ -1263,6 +1358,41 @@ def f_report(cells: list[Cell], groups: list[GroupSummary], options: dict) -> di
             "rows": rows,
         },
         "population": {
+            "levels": {
+                "campaign": {
+                    "groups": f["groups_in_design"],
+                    "cells": f["cells_in_design"],
+                    "note": (
+                        "All 20 groups are executed at both conditions. This is the "
+                        "execution population, not an analysis population."
+                    ),
+                },
+                "C1_analysed": {
+                    "groups": f["per_condition_analysed_cells"]["C1"],
+                    "cells": f["per_condition_analysed_cells"]["C1"],
+                    "note": "Headroom-qualified cells in condition C1",
+                },
+                "C2_analysed": {
+                    "groups": f["per_condition_analysed_cells"]["C2"],
+                    "cells": f["per_condition_analysed_cells"]["C2"],
+                    "note": "Headroom-qualified cells in condition C2",
+                },
+                "paired_primary": {
+                    "groups": paired_n,
+                    "cells": 2 * paired_n,
+                    "note": (
+                        "Groups with a Headroom-qualified cell in BOTH conditions. "
+                        "The group-averaged delta is estimated here and only here."
+                    ),
+                },
+            },
+            "scope_warning": (
+                f"The paired primary estimates the {paired_n}-group paired "
+                f"population, NOT the {f['groups_in_design']}-group pool. g09 and "
+                "g18 are executed and enter the C2 estimate and H3-0, but they do "
+                "not exist in the paired estimand's population. Any sentence that "
+                "awkwardly pairs 'full pool' with the paired number is wrong."
+            ),
             "paired_groups": f["paired_groups"],
             "paired_groups_n": paired_n,
             "excluded_pairs": f["excluded_pairs"],
@@ -1292,9 +1422,11 @@ def f_report(cells: list[Cell], groups: list[GroupSummary], options: dict) -> di
                 "unit."
             ),
             "interaction": (
-                "Secondary: delta_D_g = Delta_g(C2) - Delta_g(C1), bootstrapped "
-                "over paired groups. Reported by stratum; the pooled value is "
-                "diluted by FLAT groups whose difference is ~0 by construction."
+                "Two separate analyses, never merged into one conclusion. "
+                "(A) Interaction-A over all 18 complete pairs: "
+                "delta_D_g = Delta_g(C2) - Delta_g(C1), group is the unit. "
+                "(B) Interaction-B over the RESPONSIVE pairs only: the same "
+                "quantity, reported as a pre-registered heterogeneity analysis."
             ),
         },
         "precision": {
@@ -1307,22 +1439,52 @@ def f_report(cells: list[Cell], groups: list[GroupSummary], options: dict) -> di
             ),
         },
         "interaction": {
-            "estimable": len(paired_responsive) > 0,
-            "paired_groups": paired_n,
-            "paired_responsive_groups": paired_responsive,
-            "paired_responsive_n": len(paired_responsive),
-            "meets_minimum_analysed_cells": (
-                len(paired_responsive) >= DISCRIMINABLE_DECISION_THRESHOLD
+            "estimable": paired_n > 0,
+            "interaction_A_all_pairs": {
+                "definition": "delta_D over all 18 complete pairs, group-weighted",
+                "paired_groups": paired_n,
+                "group_weight": "1 / paired_groups",
+                "is_primary_interaction_analysis": True,
+                "meets_minimum_analysed_cells": (paired_n >= DISCRIMINABLE_DECISION_THRESHOLD),
+                "note": (
+                    "All 18 pairs are used. No stratum is removed, and no stratum's "
+                    "difference is asserted to be zero in advance."
+                ),
+            },
+            "interaction_B_responsive": {
+                "definition": (
+                    "delta_D over the RESPONSIVE pairs only, reported as a "
+                    "pre-registered heterogeneity analysis"
+                ),
+                "paired_groups": len(paired_responsive),
+                "groups": paired_responsive,
+                "is_primary_interaction_analysis": False,
+                "meets_minimum_analysed_cells": (
+                    len(paired_responsive) >= DISCRIMINABLE_DECISION_THRESHOLD
+                ),
+                "note": (
+                    "Heterogeneity, not a second primary. A difference between "
+                    "Interaction-A and Interaction-B is a statement about where the "
+                    "interaction is visible, not a contradiction."
+                ),
+            },
+            "not_inferable_from_delta_rho": (
+                "dRho measures how much A0's own recomputation moves between the "
+                "two conditions. It says nothing about how an arm's difference from "
+                "A0 moves between them. So a small dRho is NOT evidence that that "
+                "group's delta_D is zero, and FLAT groups are retained in "
+                "Interaction-A rather than assumed away."
             ),
             "caveats": [
                 (
-                    "g09 and g18 lose their pair to Headroom, so the interaction "
-                    f"population is {len(paired_responsive)} RESPONSIVE groups, not 9."
+                    "g09 and g18 lose their pair to Headroom, so both interaction "
+                    f"analyses are limited to {paired_n} complete pairs, and "
+                    f"Interaction-B to {len(paired_responsive)} RESPONSIVE groups "
+                    "rather than 9."
                 ),
                 (
-                    "The 3 FLAT groups contribute a difference of ~0 by construction, "
-                    "so the pooled interaction is diluted toward zero and cannot be "
-                    "read as 'no interaction'."
+                    "Interaction-B is below the 8-group minimum, so its interval is "
+                    "reported with N_analyzed and no verdict."
                 ),
                 (
                     "A difference of differences has sd sqrt(2)*sd_delta*sqrt(1-rho); "
@@ -1337,9 +1499,11 @@ def f_report(cells: list[Cell], groups: list[GroupSummary], options: dict) -> di
                 "groups. The labels are fixed operating points."
             ),
             (
-                "Dilution: the pooled mean includes groups whose mechanism cannot "
-                "act, so a small pooled effect is not evidence of a small "
-                "mechanistic effect. Stratum estimates carry the mechanistic claim."
+                "Dilution of the POOLED estimate: the group-averaged delta is a "
+                "population average over groups whose baseline sensitivity differs "
+                "by an order of magnitude, so it is not an effect size and a small "
+                "value is not evidence that the mechanism is weak. Stratum "
+                "estimates carry the mechanistic reading."
             ),
             (
                 "Attribution: the two conditions are not two levels of one "
@@ -1351,6 +1515,251 @@ def f_report(cells: list[Cell], groups: list[GroupSummary], options: dict) -> di
                 "calibration only; no group may be dropped after seeing an arm."
             ),
         ],
+    }
+
+
+NOISE_SELECTION_SALT = "phase3-noise-selection-v1"
+
+#: Stratified allocation of the 5 noise groups over the paired population. The
+#: proportions follow the paired stratum sizes (7 RESPONSIVE / 8 WEAK / 3 FLAT),
+#: rounded up for the smallest stratum so that no stratum is unrepresented.
+NOISE_STRATUM_ALLOCATION = {"RESPONSIVE": 2, "WEAK": 2, "FLAT": 1}
+
+
+def _selection_key(group_id: str) -> str:
+    """Deterministic, result-blind ordering key for group selection.
+
+    Hashing a frozen salt with the group id gives a reproducible order that cannot
+    be steered after seeing any measurement, and needs no stored random state. It
+    is not "random" in the sampling sense -- it is a fixed permutation, which is
+    exactly what a pre-registration needs.
+    """
+
+    return hashlib.sha256(f"{NOISE_SELECTION_SALT}:{group_id}".encode()).hexdigest()
+
+
+def noise_selection_report(cells: list[Cell], groups: list[GroupSummary], options: dict) -> dict:
+    """RC10-5: close the noise-calibration rule.
+
+    Protocol v3 §6.4 requires the noise set to be independent of the Headroom
+    *screening*. Two readings are possible and they are not equivalent:
+
+    * **Decision independence** (the requirement's purpose) -- the noise set must
+      not influence which cells are analysable. Drawing from the already-decided
+      paired set does not: the Headroom outcome is fixed before any noise run.
+    * **Population independence** (a stronger reading) -- the noise set must be a
+      sample of all 20 groups regardless of Headroom. This is what "independent of
+      Headroom screening" literally says, and a paired-only draw violates it.
+
+    F needs pairs, so its noise sample must come from the 18 paired groups; a
+    σ_run estimated on cells that are not in the analysis population would not
+    describe the `tied` threshold that is applied to that population. The report
+    therefore takes the first reading, states the cost of the second, and asks for
+    an explicit v4 amendment rather than claiming "unchanged because it is still
+    30 runs".
+    """
+
+    strata = {g.group_id: g.pressure_response for g in groups}
+    paired = options["F"]["paired_groups"]
+    paired_set = set(paired)
+
+    all_20 = sorted(strata)
+    unpaired = [g for g in all_20 if g not in paired_set]
+
+    selection: dict[str, list[str]] = {}
+    for stratum, count in NOISE_STRATUM_ALLOCATION.items():
+        candidates = sorted((g for g in paired if strata[g] == stratum), key=_selection_key)
+        selection[stratum] = candidates[:count]
+
+    selected = sorted(g for members in selection.values() for g in members)
+    cells_in_noise = len(selected) * NOISE_CONDITIONS
+    df = cells_in_noise * (NOISE_REPEATS - 1)
+
+    alt_candidates = {
+        stratum: sorted((g for g in all_20 if strata[g] == stratum), key=_selection_key)[
+            : NOISE_STRATUM_ALLOCATION[stratum]
+        ]
+        for stratum in NOISE_STRATUM_ALLOCATION
+    }
+    alt_selected = sorted(g for members in alt_candidates.values() for g in members)
+
+    return {
+        "independence": {
+            "v3_requirement": (
+                "§6.4: the noise set is independent of the main campaign and of "
+                "the Headroom screening"
+            ),
+            "decision_independence": {
+                "preserved": True,
+                "why": (
+                    "The Headroom outcome is computed from A0 calibration data and "
+                    "frozen before any noise run. Selecting the noise groups from "
+                    "the resulting paired set cannot feed back into that decision."
+                ),
+            },
+            "population_independence": {
+                "preserved": False,
+                "why": (
+                    "A paired-only draw is conditional on Headroom passing at both "
+                    "conditions, so sigma_run describes the paired population and "
+                    "not all 20 groups."
+                ),
+                "consequence": (
+                    f"{len(unpaired)} group(s) ({', '.join(unpaired)}) are never "
+                    "sampled for noise and have no run-to-run variance estimate."
+                ),
+            },
+            "verdict": (
+                "Drawing from the 18 paired groups changes the reading of §6.4 "
+                "from population independence to decision independence. That is "
+                "defensible for F because `tied` is applied to the same paired "
+                "population, but it is a change and must be written into v4 rather "
+                "than described as an unchanged 30-run design."
+            ),
+        },
+        "selection_rule": {
+            "candidate_set": "the 18 Headroom-paired groups",
+            "deterministic_key": (f"sha256('{NOISE_SELECTION_SALT}:' || group_id), ascending"),
+            "why_not_random": (
+                "A frozen hash permutation is reproducible without storing random "
+                "state and cannot be steered after seeing a measurement."
+            ),
+            "stratum_allocation": dict(NOISE_STRATUM_ALLOCATION),
+            "allocation_rationale": (
+                "Proportional to the paired strata (7/8/3) with the smallest "
+                "stratum rounded up to 1 so no stratum is unrepresented."
+            ),
+            "selected_groups": selected,
+            "selected_by_stratum": selection,
+            "design": (
+                f"{NOISE_GROUPS} groups x {NOISE_CONDITIONS} conditions x R="
+                f"{NOISE_REPEATS} = {NOISE_GROUPS * NOISE_CONDITIONS * NOISE_REPEATS} runs"
+            ),
+            "alternative_if_population_independence_is_required": {
+                "candidate_set": "all 20 groups",
+                "selected_groups": alt_selected,
+                "selected_by_stratum": alt_candidates,
+                "cost": (
+                    "The FLAT allocation would sample a group that may fail Headroom "
+                    "at C1, so its sigma_run would partly describe a cell that is "
+                    "not analysed. Same 30 runs either way."
+                ),
+            },
+            "frozen_by": "must be written into G0 with the salt and the allocation",
+        },
+        "variance_estimation": {
+            "sigma_run": (
+                "pooled within-cell SD of per-run Sigma(E-C), over "
+                f"{cells_in_noise} cells (group x condition) with R={NOISE_REPEATS}"
+            ),
+            "df": df,
+            "relative_se_of_sigma_run": round(1.0 / (2.0 * df) ** 0.5, 4),
+            "weights": (
+                "equal per cell (every cell has the same R); the pooled SD is a "
+                "stratified pool, so it is a design-based estimate for the paired "
+                "population, not a variance of the 20-group pool"
+            ),
+            "stratum_reporting_required": True,
+            "sigma_delta": "sqrt(2) * sigma_run under independent equal variance",
+            "tied": "2 * sqrt(2) * sigma_run",
+            "interaction": (
+                "no tied classification: it would need the within-group "
+                "correlation of the two condition deltas, which is unmeasured"
+            ),
+        },
+        "v4_clause_changes": [
+            (
+                "§6.4: replace 'independent of the Headroom screening' with "
+                "'independent of the Headroom decision procedure, conditioned on "
+                "its outcome, and drawn by the G0-frozen deterministic rule below'."
+            ),
+            (
+                "§6.4: state that sigma_run estimates the paired population and "
+                "that groups failing Headroom at either condition are not sampled."
+            ),
+            (
+                "§6.4: require stratum-specific sigma_run to be reported alongside "
+                "the pooled value, because the draw is stratified and not a simple "
+                "random sample of the 20 groups."
+            ),
+            (
+                "§6.4: keep the 30-run budget and the A0-only design unchanged; only "
+                "the sampling frame and the reporting obligations change."
+            ),
+        ],
+    }
+
+
+def nesting_report(options: dict) -> dict:
+    """RC10-4: the cell-set relation between F, E and A'.
+
+    The previous revision wrote ``F ⊃ E ⊃ A'``. The part that is true is that every
+    A' and E operating point is one of F's 40 cells. The part that is false is that
+    E and A' are nested in each other: they pick *different* operating points for
+    at least g03 and g16, so neither cell set contains the other.
+    """
+
+    a_points = {row["group_id"]: row for row in options["A_PRIME_operating_points"]}
+    e_points = {row["group_id"]: row for row in options["E_operating_points"]}
+
+    shared = sorted(set(a_points) & set(e_points))
+    a_only = sorted(set(a_points) - set(e_points))
+    e_only = sorted(set(e_points) - set(a_points))
+    moved = [
+        {
+            "group_id": group_id,
+            "A_PRIME": {
+                "condition": ("C1" if a_points[group_id]["chosen_load_level"] == "L_LOW" else "C2"),
+                "pressure_blocks": a_points[group_id]["chosen_pressure_blocks"],
+                "rho0": a_points[group_id]["rho0_at_operating_point"],
+            },
+            "E": {
+                "condition": ("C1" if e_points[group_id]["chosen_load_level"] == "L_LOW" else "C2"),
+                "pressure_blocks": e_points[group_id]["chosen_pressure_blocks"],
+                "rho0": e_points[group_id]["rho0_at_operating_point"],
+            },
+        }
+        for group_id in shared
+        if (
+            a_points[group_id]["chosen_pressure_blocks"]
+            != e_points[group_id]["chosen_pressure_blocks"]
+        )
+    ]
+
+    return {
+        "true_relations": {
+            "F_contains_E": True,
+            "F_contains_A_prime": True,
+            "reason": (
+                "Every E and A' operating point is one of the 40 cells F already "
+                "contains, so F can host both as pre-registered subgroups."
+            ),
+        },
+        "false_relation": {
+            "E_contains_A_prime": False,
+            "A_prime_contains_E": False,
+            "reason": (
+                "E and A' choose different operating points for some groups, so "
+                "neither cell set contains the other."
+            ),
+        },
+        "correct_statement": "F ⊃ E and F ⊃ A′; E and A′ are neither nested nor disjoint",
+        "shared_groups": shared,
+        "A_PRIME_only_groups": a_only,
+        "E_only_groups": e_only,
+        "groups_whose_operating_point_moves": moved,
+        "why_they_move": (
+            "A' picks the cheapest measured pressure inside a FROZEN band; E also "
+            "accepts the 0.15-0.25 gap, which makes a different (cheaper) cell "
+            "available for the same group. g03 moves to C1 (rho0 0.1821, in the "
+            "gap) and g16 moves to C2 (rho0 0.4444), so the same group is studied "
+            "at a different condition in the two designs."
+        ),
+        "consequence": (
+            "A' and E cannot be described as a subset and superset of one another, "
+            "and their estimates are not nested comparisons. Only F's relation to "
+            "each of them is nested."
+        ),
     }
 
 
@@ -1475,6 +1884,144 @@ def pack_provenance(pack: Path, verified: dict[str, str]) -> dict:
     }
 
 
+def g_e_report(pack: Path) -> dict:
+    """RC10-1: current state of the G-E eligibility question.
+
+    Two rounds of evidence exist and they answer **different questions**, so the
+    older one is kept as history rather than deleted or silently superseded.
+
+    * Round 1 (``phase3-concurrent-eligibility-rejection-audit-v1``) asked whether
+      the producer's prefill is *complete and visible* before the consumer looks
+      it up. It failed closed 40/40 with
+      ``REJECTED_SAME_WAVE_PREFILL_NOT_COMPLETE_BEFORE_CONSUMER_LOOKUP``.
+    * Round 2 (``phase3-same-batch-physical-qualification-audit-v1``, M6 at
+      ``712b3fc``) asks whether the producer and consumer resolve the same
+      **physical prefix blocks** under a bound forward-batch source. It qualifies
+      36 and leaves 4 pending a separate earlier-forward ordering proof.
+
+    Round 2 is a *different* qualification, not a re-run of round 1, so "40/40
+    rejected" is no longer a correct description of the current state even though
+    no round-1 row changed.
+    """
+
+    qual_dir = pack / "artifacts/phase3-same-batch-physical-qualification-audit-v1"
+    rej_dir = pack / "artifacts/phase3-concurrent-eligibility-rejection-audit-v1"
+
+    round2: dict = {"status": "UNAVAILABLE"}
+    row_counts: dict[str, int] = {}
+    if (qual_dir / "qualification-audit.json").is_file():
+        rows = json.loads((qual_dir / "qualification-audit.json").read_text("utf-8"))
+        summary = json.loads((qual_dir / "summary.json").read_text("utf-8"))
+        row_counts = dict(Counter(str(r["qualification"]) for r in rows))
+        pending = [
+            {
+                "group_id": r["group_id"],
+                "condition": ("C1" if r["load_level"] == "L_LOW" else "C2"),
+                "forward_relation": r["forward_relation"],
+                "scheduler_relation": r["scheduler_relation"],
+                "independent_e": r["independent_e"],
+            }
+            for r in rows
+            if r["qualification"] != "QUALIFIED_SAME_BATCH_SHARED_PREDECESSOR"
+        ]
+        hash_lcp = {r["hash_lcp_tokens"] for r in rows}
+        native_c = {r["native_c"] for r in rows}
+        round2 = {
+            "status": "CURRENT",
+            "source": (
+                "phase3-same-batch-physical-qualification-audit-v1, M6 recompute "
+                "at git 712b3fc628c5bbebe95a782119654834c741149"
+            ),
+            "question": (
+                "Do producer and consumer resolve the same physical prefix blocks "
+                "under a bound forward-batch source?"
+            ),
+            "row_count": len(rows),
+            "qualified": row_counts.get("QUALIFIED_SAME_BATCH_SHARED_PREDECESSOR", 0),
+            "pending": row_counts.get("PENDING_EARLIER_FORWARD_ORDER_PROOF", 0),
+            "qualified_semantics": "QUALIFIED_SAME_BATCH_SHARED_PREDECESSOR",
+            "pending_semantics": "PENDING_EARLIER_FORWARD_ORDER_PROOF",
+            "pending_rows": pending,
+            "physical_prefix_equal": summary.get("physical_prefix_equal_count"),
+            "hash_identity_match": summary.get("all_hash_identity_match"),
+            "hash_lcp_covers_native_c": summary.get("all_hash_lcp_covers_native_c"),
+            "hash_lcp_tokens_values": sorted(hash_lcp),
+            "native_c_values": sorted(native_c),
+            "e_equals_c_everywhere": sorted(hash_lcp) == sorted(native_c),
+            "evidence_failure_count": 0,
+            "contribution_to_primary_metric": (
+                "E == C == 112 on every audited pair, so the audited pairs "
+                "contribute exactly 0 to Sigma(E-C)."
+            ),
+        }
+
+    round1: dict = {
+        "status": "SUPERSEDED_BY_ROUND_2_FOR_CURRENT_STATE",
+        "source": "phase3-concurrent-eligibility-rejection-audit-v1",
+        "question": (
+            "Is the producer's prefill COMPLETE AND VISIBLE to a same-wave "
+            "consumer before the lookup?"
+        ),
+        "audit_coverage": "one request pair per cell (40 pairs from 40 cells)",
+    }
+    rej_path = rej_dir / "qualification-rejection-audit.json"
+    if rej_path.is_file():
+        rejected = json.loads(rej_path.read_text("utf-8"))
+        rows1 = rejected if isinstance(rejected, list) else rejected.get("rows", [])
+        outcomes = Counter(str(r.get("qualification_result")) for r in rows1)
+        qualified_e = sorted({str(r.get("independently_qualified_e")) for r in rows1})
+        round1.update(
+            {
+                "audit_row_count": len(rows1),
+                "qualified_count": sum(
+                    1 for value in (r.get("independently_qualified_e") for r in rows1) if value
+                ),
+                "rejected_count": sum(
+                    1
+                    for r in rows1
+                    if str(r.get("qualification_result", "")).startswith("REJECTED")
+                ),
+                "status_code": "FAIL_CLOSED",
+                "uses_c_to_compute_e": any(bool(r.get("uses_c_to_compute_e")) for r in rows1),
+                "independently_qualified_e_values": qualified_e,
+                "qualification_result": (
+                    next(iter(outcomes)) if len(outcomes) == 1 else dict(outcomes)
+                ),
+            }
+        )
+    else:
+        round1["status_code"] = "UNAVAILABLE"
+
+    return {
+        "item": "G-E (concurrent eligibility qualification)",
+        "current_state": round2,
+        "history": round1,
+        "semantic_difference": (
+            "Round 1 asks about *visibility and completion timing* of the "
+            "producer's prefill; round 2 asks about *physical block identity and "
+            "forward-batch source binding*. A pair can bind the same physical "
+            "prefix while still failing round 1's visibility criterion, so the two "
+            "counts are not a correction of one another."
+        ),
+        "what_does_not_change": (
+            "Either way, every audited pair has hash_lcp_tokens == native_c == 112, "
+            "so E == C there and the audited pairs contribute 0 to Sigma(E-C). "
+            "The direction of the residual uncertainty is conservative, and "
+            "uses_c_to_compute_e is false in both rounds, so the arm-independence "
+            "requirement on E is not violated."
+        ),
+        "remaining_open_item": (
+            f"{round2.get('pending', 0)} pair(s) still need a separate "
+            "earlier-forward ordering proof; the audit covers one pair per cell, so "
+            "the remaining request pairs are unverified in either round."
+        ),
+        "adjudication": (
+            "Independent of G4 and of the design choice. It must not block, and "
+            "must not be blocked by, the Option A'/E/F decision."
+        ),
+    }
+
+
 def _write_json(path: Path, payload: Any) -> None:
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
@@ -1491,9 +2038,12 @@ def run(pack: Path, out: Path) -> dict:
     load_target = load_target_report(cells, groups)
     collisions = collision_report(groups)
     options = option_report(cells, groups)
-    h3 = h3_report(options)
+    h3 = h3_report(cells, groups, options)
     calibration = calibration_cost_report(options)
     f_detail = f_report(cells, groups, options)
+    noise = noise_selection_report(cells, groups, options)
+    nesting = nesting_report(options)
+    g_e = g_e_report(pack)
     provenance = pack_provenance(pack, verified)
     precision = precision_table(
         {
@@ -1517,6 +2067,16 @@ def run(pack: Path, out: Path) -> dict:
             "analysis_version": ANALYSIS_VERSION,
             "frozen_inputs_sha256": verified,
             "frozen_method": method,
+            "condition_labels": {
+                "L_LOW": "C1",
+                "L_HIGH": "C2",
+                "note": (
+                    "L_LOW / L_HIGH are the frozen source labels and are retained "
+                    "only as provenance. Formal Phase 3 reporting uses C1 / C2, "
+                    "because 'low' and 'high' would assert a state separation the "
+                    "measurements contradict for 14 of 20 groups."
+                ),
+            },
             "thresholds": {
                 "block_size_tokens": BLOCK_SIZE_TOKENS,
                 "minimum_blocks": MIN_PRESSURE_BLOCKS,
@@ -1542,6 +2102,9 @@ def run(pack: Path, out: Path) -> dict:
     _write_json(out / "h3-report.json", h3)
     _write_json(out / "calibration-cost-report.json", calibration)
     _write_json(out / "option-f-report.json", f_detail)
+    _write_json(out / "noise-selection-report.json", noise)
+    _write_json(out / "nesting-report.json", nesting)
+    _write_json(out / "g-e-report.json", g_e)
     _write_json(out / "pack-provenance.json", provenance)
     _write_json(
         out / "precision-report.json",
@@ -1577,6 +2140,9 @@ def run(pack: Path, out: Path) -> dict:
         "h3": h3,
         "calibration": calibration,
         "f": f_detail,
+        "noise": noise,
+        "nesting": nesting,
+        "g_e": g_e,
         "provenance": provenance,
         "precision": precision,
         "method": method,
@@ -1665,17 +2231,24 @@ def _print_report(result: dict) -> None:
     )
 
     print()
-    print("== H3 populations (RC7, single rule) ==")
-    for design in ("A_PRIME", "E", "F"):
-        block = h3[design]
-        cells_note = f" / {block['primary_h3_cells']} cells" if "primary_h3_cells" in block else ""
+    print("== H3 populations (RC10-2: H3-0 primary, H3-R separate, strata descriptive) ==")
+    primary = h3["primary"]
+    print(
+        f"  H3-0  {primary['group_count']} groups / {primary['cells_total']} cells"
+        f"  (C1 {primary['cells_C1']}, C2 {primary['cells_C2']})"
+    )
+    print(f"        FLAT included: {h3['flat_policy'][:60]}...")
+    secondary = h3["secondary_hypothesis"]
+    print(
+        f"  H3-R  {secondary['group_count']} groups / {secondary['cells_total']} cells"
+        f"  (C1 {secondary['cells_C1']}, C2 {secondary['cells_C2']})"
+    )
+    print(f"        groups: {', '.join(secondary['groups'])}")
+    for stratum in ("WEAK", "FLAT"):
+        block = h3["heterogeneity"][stratum]
         print(
-            f"  {design:8s} primary (RESPONSIVE) n={block['primary_h3_n']:2d}"
-            f"{cells_note}  {', '.join(block['primary_h3_groups'])}"
-        )
-        print(
-            f"           secondary (descriptive) n={block['secondary_h3_n']:2d}  "
-            f"{', '.join(block['secondary_h3_groups'])}"
+            f"  {stratum:5s} {block['group_count']} groups / {block['cells_total']} cells"
+            f"  (C1 {block['cells_C1']}, C2 {block['cells_C2']})"
         )
 
     f_detail = result["f"]
@@ -1683,15 +2256,18 @@ def _print_report(result: dict) -> None:
     print()
     print("== OPTION F: two-level fixed-pressure evaluation ==")
     print("  conditions            : C1=256 blocks, C2=1024 blocks (both MEASURED)")
+    levels = f_detail["population"]["levels"]
     print(
-        f"  design population     : {f_options['groups_in_design']} groups / "
-        f"{f_options['cells_in_design']} cells; Headroom-eligible "
-        f"{f_options['cells_headroom_eligible']}"
+        f"  campaign (executed)   : {levels['campaign']['groups']} groups / "
+        f"{levels['campaign']['cells']} cells"
     )
     print(
-        f"  paired two-condition  : {f_options['paired_groups_n']} groups "
-        f"(C1 {f_options['per_condition_analysed_cells']['C1']} cells, "
-        f"C2 {f_options['per_condition_analysed_cells']['C2']} cells)"
+        f"  Headroom-analysed     : C1 {levels['C1_analysed']['cells']} cells, "
+        f"C2 {levels['C2_analysed']['cells']} cells"
+    )
+    print(
+        f"  paired primary        : {levels['paired_primary']['groups']} groups "
+        f"(NOT a {levels['campaign']['groups']}-group pool estimate)"
     )
     for row in f_options["excluded_pairs"]:
         print(f"    pair lost: {row['group_id']} {row['condition']} - {row['why']}")
@@ -1720,10 +2296,17 @@ def _print_report(result: dict) -> None:
         f"{len(manip['delta_rho_between_0_01_and_0_10'])} / "
         f"{len(manip['delta_rho_below_0_01'])}"
     )
+    interaction = f_detail["interaction"]
+    inter_a = interaction["interaction_A_all_pairs"]
+    inter_b = interaction["interaction_B_responsive"]
     print(
-        f"  interaction           : paired n={f_detail['interaction']['paired_groups']}, "
-        f"RESPONSIVE paired n={f_detail['interaction']['paired_responsive_n']} "
-        f"({', '.join(f_detail['interaction']['paired_responsive_groups'])})"
+        f"  interaction-A (all)   : n={inter_a['paired_groups']} pairs "
+        f"meets>=8={inter_a['meets_minimum_analysed_cells']}  [primary]"
+    )
+    print(
+        f"  interaction-B (resp)  : n={inter_b['paired_groups']} pairs "
+        f"meets>=8={inter_b['meets_minimum_analysed_cells']}  [heterogeneity]  "
+        f"{', '.join(inter_b['groups'])}"
     )
     print("  planned precision (group-averaged delta, SD=2000 assumption):")
     for row in f_detail["precision"]["group_averaged"]:
@@ -1756,6 +2339,64 @@ def _print_report(result: dict) -> None:
             f"{row['total_new_runs']:>7}"
             f"{(row['fraction_needing_to_differ_for_g3cm'] or 0):>9.2f}"
         )
+
+    print()
+    print("== nesting (RC10-4) ==")
+    nesting = result["nesting"]
+    print(f"  {nesting['correct_statement']}")
+    print(
+        f"  E contains A'? {nesting['false_relation']['E_contains_A_prime']}"
+        f"   A' contains E? {nesting['false_relation']['A_prime_contains_E']}"
+    )
+    print(
+        f"  A'-only groups: {', '.join(nesting['A_PRIME_only_groups']) or 'none'}"
+        f"   E-only groups: {', '.join(nesting['E_only_groups']) or 'none'}"
+    )
+    for row in nesting["groups_whose_operating_point_moves"]:
+        print(
+            f"    moves: {row['group_id']}  A'={row['A_PRIME']['condition']}"
+            f"@{row['A_PRIME']['pressure_blocks']}  E={row['E']['condition']}"
+            f"@{row['E']['pressure_blocks']}"
+        )
+
+    print()
+    print("== noise selection (RC10-5) ==")
+    noise = result["noise"]
+    print(
+        f"  decision independence    : {noise['independence']['decision_independence']['preserved']}"
+    )
+    print(
+        f"  population independence  : {noise['independence']['population_independence']['preserved']}"
+    )
+    print(f"  rule                     : {noise['selection_rule']['deterministic_key']}")
+    print(
+        f"  selected ({noise['selection_rule']['design']}) : "
+        f"{', '.join(noise['selection_rule']['selected_groups'])}"
+    )
+    print(f"  stratum allocation       : {noise['selection_rule']['stratum_allocation']}")
+    print(
+        f"  sigma_run df             : {noise['variance_estimation']['df']}"
+        f" (rel. SE {noise['variance_estimation']['relative_se_of_sigma_run']})"
+    )
+    print(f"  v4 amendments required   : {len(noise['v4_clause_changes'])}")
+
+    print()
+    print("== G-E (RC10-1) ==")
+    g_e = result["g_e"]
+    cur = g_e["current_state"]
+    hist = g_e["history"]
+    print(
+        f"  round 1 (history, {hist['status_code']}): "
+        f"{hist['qualified_count']}/{hist['audit_row_count']} qualified"
+    )
+    print(
+        f"  round 2 (current)   : {cur.get('qualified', '?')}/"
+        f"{cur.get('row_count', '?')} qualified, {cur.get('pending', '?')} pending"
+    )
+    for row in cur.get("pending_rows", []):
+        print(f"    pending {row['group_id']} {row['condition']}: {row['forward_relation']}")
+    print(f"  E == C everywhere        : {cur.get('e_equals_c_everywhere')}")
+    print(f"  evidence failures        : {cur.get('evidence_failure_count')}")
 
     print()
     print("== planned CI half-width (SD=2000 assumption, NOT an achieved value) ==")

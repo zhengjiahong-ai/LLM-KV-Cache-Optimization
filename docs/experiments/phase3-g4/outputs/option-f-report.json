@@ -562,6 +562,29 @@
     ]
   },
   "population": {
+    "levels": {
+      "campaign": {
+        "groups": 20,
+        "cells": 40,
+        "note": "All 20 groups are executed at both conditions. This is the execution population, not an analysis population."
+      },
+      "C1_analysed": {
+        "groups": 18,
+        "cells": 18,
+        "note": "Headroom-qualified cells in condition C1"
+      },
+      "C2_analysed": {
+        "groups": 20,
+        "cells": 20,
+        "note": "Headroom-qualified cells in condition C2"
+      },
+      "paired_primary": {
+        "groups": 18,
+        "cells": 36,
+        "note": "Groups with a Headroom-qualified cell in BOTH conditions. The group-averaged delta is estimated here and only here."
+      }
+    },
+    "scope_warning": "The paired primary estimates the 18-group paired population, NOT the 20-group pool. g09 and g18 are executed and enter the C2 estimate and H3-0, but they do not exist in the paired estimand's population. Any sentence that awkwardly pairs 'full pool' with the paired number is wrong.",
     "paired_groups": [
       "g01",
       "g02",
@@ -617,7 +640,7 @@
   "estimands": {
     "per_condition": "Delta per condition, bootstrapped over the groups analysed in that condition (C1: 18 cells, C2: 20 cells).",
     "group_averaged": "Headline: mean over the two condition deltas inside each paired group, then bootstrapped over the 18 paired groups. Averaging inside the group first keeps group as the independent unit.",
-    "interaction": "Secondary: delta_D_g = Delta_g(C2) - Delta_g(C1), bootstrapped over paired groups. Reported by stratum; the pooled value is diluted by FLAT groups whose difference is ~0 by construction."
+    "interaction": "Two separate analyses, never merged into one conclusion. (A) Interaction-A over all 18 complete pairs: delta_D_g = Delta_g(C2) - Delta_g(C1), group is the unit. (B) Interaction-B over the RESPONSIVE pairs only: the same quantity, reported as a pre-registered heterogeneity analysis."
   },
   "precision": {
     "group_averaged": [
@@ -671,27 +694,40 @@
   },
   "interaction": {
     "estimable": true,
-    "paired_groups": 18,
-    "paired_responsive_groups": [
-      "g03",
-      "g04",
-      "g05",
-      "g10",
-      "g12",
-      "g16",
-      "g19"
-    ],
-    "paired_responsive_n": 7,
-    "meets_minimum_analysed_cells": false,
+    "interaction_A_all_pairs": {
+      "definition": "delta_D over all 18 complete pairs, group-weighted",
+      "paired_groups": 18,
+      "group_weight": "1 / paired_groups",
+      "is_primary_interaction_analysis": true,
+      "meets_minimum_analysed_cells": true,
+      "note": "All 18 pairs are used. No stratum is removed, and no stratum's difference is asserted to be zero in advance."
+    },
+    "interaction_B_responsive": {
+      "definition": "delta_D over the RESPONSIVE pairs only, reported as a pre-registered heterogeneity analysis",
+      "paired_groups": 7,
+      "groups": [
+        "g03",
+        "g04",
+        "g05",
+        "g10",
+        "g12",
+        "g16",
+        "g19"
+      ],
+      "is_primary_interaction_analysis": false,
+      "meets_minimum_analysed_cells": false,
+      "note": "Heterogeneity, not a second primary. A difference between Interaction-A and Interaction-B is a statement about where the interaction is visible, not a contradiction."
+    },
+    "not_inferable_from_delta_rho": "dRho measures how much A0's own recomputation moves between the two conditions. It says nothing about how an arm's difference from A0 moves between them. So a small dRho is NOT evidence that that group's delta_D is zero, and FLAT groups are retained in Interaction-A rather than assumed away.",
     "caveats": [
-      "g09 and g18 lose their pair to Headroom, so the interaction population is 7 RESPONSIVE groups, not 9.",
-      "The 3 FLAT groups contribute a difference of ~0 by construction, so the pooled interaction is diluted toward zero and cannot be read as 'no interaction'.",
+      "g09 and g18 lose their pair to Headroom, so both interaction analyses are limited to 18 complete pairs, and Interaction-B to 7 RESPONSIVE groups rather than 9.",
+      "Interaction-B is below the 8-group minimum, so its interval is reported with N_analyzed and no verdict.",
       "A difference of differences has sd sqrt(2)*sd_delta*sqrt(1-rho); it is less precise than either main effect, not more."
     ]
   },
   "threats": [
     "Condition semantics: calling C1/C2 'low' and 'high' pressure would assert a state separation the data contradicts for 14 of 20 groups. The labels are fixed operating points.",
-    "Dilution: the pooled mean includes groups whose mechanism cannot act, so a small pooled effect is not evidence of a small mechanistic effect. Stratum estimates carry the mechanistic claim.",
+    "Dilution of the POOLED estimate: the group-averaged delta is a population average over groups whose baseline sensitivity differs by an order of magnitude, so it is not an effect size and a small value is not evidence that the mechanism is weak. Stratum estimates carry the mechanistic reading.",
     "Attribution: the two conditions are not two levels of one variable for 11 groups, so a condition-by-arm interaction cannot be attributed to pressure intensity there.",
     "No post-hoc selection: groups and strata are fixed from A0 calibration only; no group may be dropped after seeing an arm."
   ]
