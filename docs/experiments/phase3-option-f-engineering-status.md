@@ -56,8 +56,9 @@ tests pass (`161 passed, 7 skipped`), including negative tests for
 repeat/Run-ID/stratum drift, incomplete or duplicate Main grids, negative
 `delta_rho`, malformed report identities, and non-bijective Formal/Native
 mappings, paired-population tampering, and altered or duplicate Seal Group IDs.
-Full CPU regression must be rerun on the final clean implementation HEAD; Ruff
-and `git diff --check` pass on the current changes.
+Full CPU regression on clean implementation HEAD
+`4e2f4c325c0e812d66d8a30090631b74194d4a37` passed with
+`1918 passed, 15 skipped`; Ruff and `git diff --check` passed.
 
 The v2 G0 artifact was regenerated on the server holding the Cohort Seal, 40
 calibration inputs, and v7 reports, without reacquiring tasks or rerunning A0.
@@ -66,7 +67,10 @@ Its freeze manifest SHA-256 is
 the external archive SHA-256 is
 `ea1a49037543c850471b1e94b1b0cf4b3a67935de097c908fd2552026f53b47a`.
 Local archive validation passed. Every generated input remains unauthorized.
-It remains immutable historical review evidence; the final implementation must
-generate a v3 bundle exercising the added Seal Group-ID check. Noise
-Calibration and the Main Campaign remain locked until their respective M1 gate
-decisions.
+It remains immutable historical review evidence. The final implementation
+generated and locally validated a v3 bundle exercising the added Seal Group-ID
+check. Its core freeze hashes equal v2 because the real Seal and A0 Manifest
+identities are consistent; its archive SHA-256 is
+`7b3a78c8e582067e6a236885aa91980cf51a77bf2787d774b82733612cd94529`.
+Every generated input remains unauthorized. Noise Calibration and the Main
+Campaign remain locked until their respective M1 gate decisions.
