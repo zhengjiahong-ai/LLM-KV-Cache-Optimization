@@ -96,6 +96,18 @@
       "unqualified_rows": 0,
       "overall": "PARTIAL_DETERMINATE",
       "not_established_note": "A null independent_e means E was never established for that pair. It does not mean E == C, and it is not a conservative zero by construction; it is an unmeasured quantity."
+    },
+    "input_validation": {
+      "round2_row_count": 40,
+      "round2_unique_cell_pairs": 40,
+      "round1_row_count": 40,
+      "evidence_failure_records": 0,
+      "required_source_files": [
+        "artifacts/phase3-same-batch-physical-qualification-audit-v1/qualification-audit.json",
+        "artifacts/phase3-load-calibration-analysis-v7/evidence-failures.json",
+        "artifacts/phase3-concurrent-eligibility-rejection-audit-v1/qualification-rejection-audit.json"
+      ],
+      "validation_note": "The updated analysis entry point requires all three source files and verifies their manifest entries before analysis."
     }
   },
   "history": {

@@ -10,7 +10,8 @@
     "manifest_entry_count": 250,
     "what_is_committed": "outputs/pack-sha256-manifest.txt and outputs/pack-metadata.json, plus the full derived analysis outputs",
     "what_is_not_committed": "the executed-run material itself; a manifest proves integrity only for bytes that M1 already holds or obtains out of band",
-    "open_action": "M1 must transfer or locate the original pack directory and verify it against the committed manifest; until then the raw GPU evidence is referenced, not delivered"
+    "open_action": "M1 must transfer or locate the original pack directory and verify it against the committed manifest; until then the raw GPU evidence is referenced, not delivered",
+    "pack_files_not_listed_in_manifest": 10
   },
   "directories": [
     {
@@ -18,133 +19,239 @@
       "evidence_kind": "OFFLINE_AUDIT_OVER_GPU_EVIDENCE",
       "file_count": 3,
       "bytes": 55946,
-      "note": "Round-1 eligibility audit"
+      "note": "Round-1 eligibility audit",
+      "manifested_file_count": 2,
+      "unmanifested_file_count": 1,
+      "file_class_counts": {
+        "OFFLINE_AUDIT_OVER_GPU_EVIDENCE": 3
+      },
+      "unmanifested_file_note": "Files not listed in the committed manifest are not asserted as hash-verified."
     },
     {
       "directory": "artifacts/phase3-load-calibration-analysis-v7",
-      "evidence_kind": "GPU_RAW_EXECUTION_EVIDENCE",
+      "evidence_kind": "MIXED_PER_RUN_REPORTS_AND_OFFLINE_ANALYSIS",
       "file_count": 45,
       "bytes": 4825988,
-      "note": "Per-run reports produced by the executed runs, plus the aggregate and qualification views over them."
+      "note": "Mixed directory: 40 manifested per-run A0 execution reports plus 4 manifested offline aggregate/audit files; 1 additional file is outside the committed manifest and is not classified from manifest-only evidence.",
+      "manifested_file_count": 44,
+      "unmanifested_file_count": 1,
+      "file_class_counts": {
+        "PER_RUN_EXECUTION_REPORT": 40,
+        "OFFLINE_AUDIT_OR_AGGREGATE": 4
+      },
+      "unmanifested_file_note": "One additional file is present in the local pack but is not named by the committed manifest; its class is not inferred here."
     },
     {
       "directory": "artifacts/phase3-load-calibration-inputs-v1",
-      "evidence_kind": "GPU_RAW_EXECUTION_EVIDENCE",
+      "evidence_kind": "FROZEN_EXECUTION_INPUTS",
       "file_count": 161,
       "bytes": 213245456,
-      "note": "Per-cell frozen run inputs and freeze records for the 40 executed A0 runs (configs, token/prompt material). GPU-era input material."
+      "note": "Frozen per-cell configs, traces, prompt material and freeze records; execution inputs, not execution outputs.",
+      "manifested_file_count": 161,
+      "unmanifested_file_count": 0,
+      "file_class_counts": {
+        "FROZEN_EXECUTION_INPUT": 161
+      }
     },
     {
       "directory": "artifacts/phase3-load-calibration-iteration2-planning-v1",
       "evidence_kind": "OFFLINE_DERIVED_ANALYSIS",
       "file_count": 6,
       "bytes": 81134,
-      "note": "Offline derivation from iteration-1 observations. status = PROPOSED_NOT_EXECUTED: none of these pressures has been run."
+      "note": "Offline derivation from iteration-1 observations. status = PROPOSED_NOT_EXECUTED: none of these pressures has been run.",
+      "manifested_file_count": 5,
+      "unmanifested_file_count": 1,
+      "file_class_counts": {
+        "OFFLINE_DERIVED_ANALYSIS": 6
+      },
+      "unmanifested_file_note": "Files not listed in the committed manifest are not asserted as hash-verified."
     },
     {
       "directory": "artifacts/phase3-load-calibration-runs-v2",
-      "evidence_kind": "GPU_RAW_EXECUTION_EVIDENCE",
+      "evidence_kind": "EXECUTION_SUMMARY",
       "file_count": 1,
       "bytes": 21922,
-      "note": "Execution summary of the 40-run calibration batch: status, wall time, config hashes."
+      "note": "Execution summary of the 40-run calibration batch: status, wall time and config hashes.",
+      "manifested_file_count": 1,
+      "unmanifested_file_count": 0,
+      "file_class_counts": {
+        "EXECUTION_SUMMARY": 1
+      }
     },
     {
       "directory": "artifacts/phase3-same-batch-physical-qualification-audit-v1",
       "evidence_kind": "OFFLINE_AUDIT_OVER_GPU_EVIDENCE",
       "file_count": 4,
       "bytes": 63556,
-      "note": "Round-2 eligibility audit"
+      "note": "Round-2 eligibility audit",
+      "manifested_file_count": 3,
+      "unmanifested_file_count": 1,
+      "file_class_counts": {
+        "OFFLINE_AUDIT_OVER_GPU_EVIDENCE": 4
+      },
+      "unmanifested_file_note": "Files not listed in the committed manifest are not asserted as hash-verified."
     },
     {
       "directory": "artifacts/phase3-same-batch-runtime-evidence-inventory-v1",
-      "evidence_kind": "GPU_RAW_EXECUTION_EVIDENCE",
+      "evidence_kind": "RUNTIME_EVIDENCE_INVENTORY",
       "file_count": 1,
       "bytes": 6776,
-      "note": "Inventory of the runtime evidence captured during execution."
+      "note": "Inventory of runtime evidence captured during execution; not itself a raw execution run.",
+      "manifested_file_count": 1,
+      "unmanifested_file_count": 0,
+      "file_class_counts": {
+        "RUNTIME_EVIDENCE_INVENTORY": 1
+      }
     },
     {
       "directory": "artifacts/phase3-scheduler-and-run-mapping-audit-v1",
       "evidence_kind": "OFFLINE_AUDIT_OVER_GPU_EVIDENCE",
       "file_count": 4,
       "bytes": 26429,
-      "note": "Scheduler / run mapping audit"
+      "note": "Scheduler / run mapping audit",
+      "manifested_file_count": 3,
+      "unmanifested_file_count": 1,
+      "file_class_counts": {
+        "OFFLINE_AUDIT_OVER_GPU_EVIDENCE": 4
+      },
+      "unmanifested_file_note": "Files not listed in the committed manifest are not asserted as hash-verified."
     },
     {
       "directory": "artifacts/phase3-vllm-same-batch-source-audit-v1",
       "evidence_kind": "OFFLINE_AUDIT_OVER_GPU_EVIDENCE",
       "file_count": 4,
       "bytes": 110339,
-      "note": "vLLM source audit"
+      "note": "vLLM source audit",
+      "manifested_file_count": 4,
+      "unmanifested_file_count": 0,
+      "file_class_counts": {
+        "OFFLINE_AUDIT_OVER_GPU_EVIDENCE": 4
+      }
     },
     {
       "directory": "artifacts/phase3-vllm-same-batch-source-audit-v2",
       "evidence_kind": "OFFLINE_AUDIT_OVER_GPU_EVIDENCE",
       "file_count": 4,
       "bytes": 198277,
-      "note": "vLLM source audit"
+      "note": "vLLM source audit",
+      "manifested_file_count": 4,
+      "unmanifested_file_count": 0,
+      "file_class_counts": {
+        "OFFLINE_AUDIT_OVER_GPU_EVIDENCE": 4
+      }
     },
     {
       "directory": "artifacts/phase3-vllm-same-batch-source-audit-v3",
       "evidence_kind": "OFFLINE_AUDIT_OVER_GPU_EVIDENCE",
       "file_count": 3,
       "bytes": 594200,
-      "note": "vLLM source audit"
+      "note": "vLLM source audit",
+      "manifested_file_count": 3,
+      "unmanifested_file_count": 0,
+      "file_class_counts": {
+        "OFFLINE_AUDIT_OVER_GPU_EVIDENCE": 3
+      }
     },
     {
       "directory": "artifacts/phase3-vllm-same-batch-source-audit-v4",
       "evidence_kind": "OFFLINE_AUDIT_OVER_GPU_EVIDENCE",
       "file_count": 4,
       "bytes": 267981,
-      "note": "vLLM source audit"
+      "note": "vLLM source audit",
+      "manifested_file_count": 4,
+      "unmanifested_file_count": 0,
+      "file_class_counts": {
+        "OFFLINE_AUDIT_OVER_GPU_EVIDENCE": 4
+      }
     },
     {
       "directory": "artifacts/phase3-vllm-same-batch-source-audit-v5",
       "evidence_kind": "OFFLINE_AUDIT_OVER_GPU_EVIDENCE",
       "file_count": 4,
       "bytes": 11966,
-      "note": "vLLM source audit"
+      "note": "vLLM source audit",
+      "manifested_file_count": 3,
+      "unmanifested_file_count": 1,
+      "file_class_counts": {
+        "OFFLINE_AUDIT_OVER_GPU_EVIDENCE": 4
+      },
+      "unmanifested_file_note": "Files not listed in the committed manifest are not asserted as hash-verified."
     },
     {
       "directory": "artifacts/phase3-vllm-same-batch-source-audit-v6",
       "evidence_kind": "OFFLINE_AUDIT_OVER_GPU_EVIDENCE",
       "file_count": 3,
       "bytes": 20358,
-      "note": "vLLM source audit"
+      "note": "vLLM source audit",
+      "manifested_file_count": 3,
+      "unmanifested_file_count": 0,
+      "file_class_counts": {
+        "OFFLINE_AUDIT_OVER_GPU_EVIDENCE": 3
+      }
     },
     {
       "directory": "artifacts/phase3-vllm-same-batch-source-audit-v7",
       "evidence_kind": "OFFLINE_AUDIT_OVER_GPU_EVIDENCE",
       "file_count": 4,
       "bytes": 31421,
-      "note": "vLLM source audit"
+      "note": "vLLM source audit",
+      "manifested_file_count": 3,
+      "unmanifested_file_count": 1,
+      "file_class_counts": {
+        "OFFLINE_AUDIT_OVER_GPU_EVIDENCE": 4
+      },
+      "unmanifested_file_note": "Files not listed in the committed manifest are not asserted as hash-verified."
     },
     {
       "directory": "artifacts/phase3-vllm-same-batch-source-audit-v8",
       "evidence_kind": "OFFLINE_AUDIT_OVER_GPU_EVIDENCE",
       "file_count": 3,
       "bytes": 7289,
-      "note": "vLLM source audit"
+      "note": "vLLM source audit",
+      "manifested_file_count": 2,
+      "unmanifested_file_count": 1,
+      "file_class_counts": {
+        "OFFLINE_AUDIT_OVER_GPU_EVIDENCE": 3
+      },
+      "unmanifested_file_note": "Files not listed in the committed manifest are not asserted as hash-verified."
     },
     {
       "directory": "artifacts/phase3-vllm-scheduler-iteration-source-audit-v1",
       "evidence_kind": "OFFLINE_AUDIT_OVER_GPU_EVIDENCE",
       "file_count": 1,
       "bytes": 462,
-      "note": "vLLM scheduler source audit"
+      "note": "vLLM scheduler source audit",
+      "manifested_file_count": 1,
+      "unmanifested_file_count": 0,
+      "file_class_counts": {
+        "OFFLINE_AUDIT_OVER_GPU_EVIDENCE": 1
+      }
     },
     {
       "directory": "artifacts/phase3-vllm-scheduler-iteration-source-audit-v2",
       "evidence_kind": "OFFLINE_AUDIT_OVER_GPU_EVIDENCE",
       "file_count": 2,
       "bytes": 3021,
-      "note": "vLLM scheduler source audit"
+      "note": "vLLM scheduler source audit",
+      "manifested_file_count": 1,
+      "unmanifested_file_count": 1,
+      "file_class_counts": {
+        "OFFLINE_AUDIT_OVER_GPU_EVIDENCE": 2
+      },
+      "unmanifested_file_note": "Files not listed in the committed manifest are not asserted as hash-verified."
     }
   ],
   "evidence_separation": {
-    "gpu_raw_execution_evidence": [
-      "phase3-load-calibration-analysis-v7",
-      "phase3-load-calibration-inputs-v1",
-      "phase3-load-calibration-runs-v2",
+    "frozen_execution_inputs": [
+      "phase3-load-calibration-inputs-v1"
+    ],
+    "per_run_execution_reports": [
+      "phase3-load-calibration-analysis-v7"
+    ],
+    "execution_summaries": [
+      "phase3-load-calibration-runs-v2"
+    ],
+    "runtime_evidence_inventories": [
       "phase3-same-batch-runtime-evidence-inventory-v1"
     ],
     "offline_audits_over_gpu_evidence": [
@@ -165,11 +272,77 @@
     "offline_derived_analysis": [
       "phase3-load-calibration-iteration2-planning-v1"
     ],
-    "note": "Only the first group is GPU execution output. Audits read it offline; the planning directory contains no executed run at all."
+    "mixed_directories": [
+      "phase3-load-calibration-analysis-v7"
+    ],
+    "unclassified_directories": [],
+    "note": "Frozen inputs, per-run execution reports, execution summaries and runtime inventories are distinct. The analysis-v7 directory is mixed and is classified file-by-file; offline audits and planning outputs are not GPU execution evidence."
   },
   "reproduction_claims_this_analysis_does_not_make": [
     "It does not reproduce a GPU experiment. No GPU command is issued.",
     "Its CPU tests exercise the analysis code against synthetic fixtures and, when present, the local copy of the pack. They are unit and regression tests, not experimental replication.",
     "Re-running this script regenerates the derived outputs. It does not regenerate the 40 executed runs, which would need new GPU authorisation."
-  ]
+  ],
+  "inventory_revision": "file-level evidence taxonomy v2",
+  "manifest_verification": {
+    "status": "SOURCE_REPORTED_VERIFIED",
+    "entries_checked": 250,
+    "missing": 0,
+    "mismatches": 0,
+    "note": "M4's local verification record reports 250 checked entries, 0 missing and 0 mismatches. The updated analysis entry point independently enforces this check before computation."
+  },
+  "file_level_evidence_separation": {
+    "phase3-load-calibration-analysis-v7": {
+      "PER_RUN_EXECUTION_REPORT": [
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g01-l-high-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g01-l-low-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g02-l-high-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g02-l-low-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g03-l-high-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g03-l-low-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g04-l-high-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g04-l-low-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g05-l-high-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g05-l-low-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g06-l-high-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g06-l-low-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g07-l-high-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g07-l-low-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g08-l-high-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g08-l-low-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g09-l-high-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g09-l-low-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g10-l-high-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g10-l-low-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g11-l-high-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g11-l-low-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g12-l-high-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g12-l-low-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g13-l-high-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g13-l-low-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g14-l-high-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g14-l-low-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g15-l-high-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g15-l-low-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g16-l-high-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g16-l-low-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g17-l-high-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g17-l-low-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g18-l-high-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g18-l-low-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g19-l-high-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g19-l-low-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g20-l-high-a0.json",
+        "artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g20-l-low-a0.json"
+      ],
+      "OFFLINE_AUDIT_OR_AGGREGATE": [
+        "artifacts/phase3-load-calibration-analysis-v7/aggregate-report.json",
+        "artifacts/phase3-load-calibration-analysis-v7/evidence-bindings.json",
+        "artifacts/phase3-load-calibration-analysis-v7/evidence-failures.json",
+        "artifacts/phase3-load-calibration-analysis-v7/qualification-audit.json"
+      ]
+    }
+  },
+  "unclassified_file_count": 0,
+  "unclassified_files": []
 }

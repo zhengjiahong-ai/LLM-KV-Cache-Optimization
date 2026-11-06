@@ -5,7 +5,7 @@
 **Status**: `ANALYSIS_ONLY` — awaiting M1 adjudication. **No GPU execution. No frozen input modified.** Option F is **not approved**.
 **Evidence pack**: `local/phase3-g4-reachability-analysis-pack-v1` (created 2026-11-05, git `712b3fc`, `gpu_execution_included: false`)
 **Analysis script**: `scripts/probes/phase3_g4_reachability/reachability_analysis.py`
-**CPU tests**: `tests/test_g4_reachability_analysis.py` — **87 passed**, no GPU, no network
+**CPU tests**: previous HEAD `6aac0e0` recorded **87 passed**; this maintenance revision adds fail-closed manifest/G-E tests, whose execution result is not yet recorded
 **Committed outputs**: `docs/experiments/phase3-g4/outputs/` (20 JSON/CSV artifacts + test log + pack manifest)
 
 **Scope boundary honoured**: no second calibration round, no new 40-run configuration, no workload/pool/input change, no noise calibration, no main campaign, iteration-1 evidence untouched, Protocol v3 unmodified, no G4 PASS declared.
@@ -70,7 +70,7 @@ package are described.
 |---|---|---|---|
 | **G-E evidence semantics** | `hash_lcp_tokens == native_c` was used as proof that `E == C`; `evidence_failure_count` was a literal `0`; a zero contribution to `Σ(E−C)` was asserted for all 40 pairs | Hash LCP, native C and independently qualified E are now **three separate quantities**. E is summarized on the **36 qualified rows only**; the 4 pending rows keep `PENDING_EARLIER_FORWARD_ORDER_PROOF` with **no established E**. Contribution is *0 tokens over 36 rows* plus `UNDETERMINED_PENDING_QUALIFICATION` on 4 → verdict `PARTIAL_DETERMINATE`. Failures are **counted** from the audit's own list + per-row integrity checks | §3.4 |
 | **Noise variance** | "pooled within-cell SD, df 20" with loosely described weights, leaving room to re-specify after the run | **One frozen estimator**; an explicit common-variance assumption with three justifications; target-population stratum weights stated and shown **not** to be the cell weights; stratified outputs required as `DIAGNOSTIC_ONLY`; no-post-run-change clause | §2.5.5 |
-| **Evidence delivery** | The 250-entry manifest was presented as if it were delivery of the pack | `raw_pack_transferred_to_m1 = false` is stated; GPU raw evidence / offline audits / derived analysis are classified in `outputs/evidence-inventory.json`; CPU tests are explicitly **not** GPU reproduction | §3.4, `option-f-two-level-fixed-pressure.md` Appendix D |
+| **Evidence delivery** | The 250-entry manifest was presented as if it were delivery of the pack | `raw_pack_transferred_to_m1 = false` is stated; frozen inputs, per-run reports, summaries, runtime inventory, offline audits and derived analysis are separated; the entry point verifies all 250 manifest entries and requires all three G-E source files before computing results | §3.4, `option-f-two-level-fixed-pressure.md` Appendix D |
 
 Two numbers to re-read: **`Σ(E−C)` is determinate on 36 pairs, not 40**, and the noise `σ_run` is a
 design-based summary of the sampled cells, **not** a population-weighted variance.
