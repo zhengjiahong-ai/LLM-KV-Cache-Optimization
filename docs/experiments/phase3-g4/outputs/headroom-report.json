@@ -1,0 +1,39 @@
+{
+  "gate": "Protocol v3 §3.6 Headroom (rho0 >= 5% AND R0 >= 512 tokens)",
+  "consumed_by": "Protocol v3 §9 G4 (frozen Headroom list)",
+  "candidate_cells": 40,
+  "eligible_cells": 38,
+  "no_headroom_cells": 2,
+  "excluded": [
+    {
+      "group_id": "g09",
+      "load_level": "L_LOW",
+      "rho0": 0.044797,
+      "r0": 1552,
+      "failed_ratio": true,
+      "failed_absolute": false
+    },
+    {
+      "group_id": "g18",
+      "load_level": "L_LOW",
+      "rho0": 0.0,
+      "r0": 0,
+      "failed_ratio": true,
+      "failed_absolute": true
+    }
+  ],
+  "by_load": {
+    "L_LOW": {
+      "candidate_cells": 20,
+      "eligible": 18,
+      "no_headroom": 2
+    },
+    "L_HIGH": {
+      "candidate_cells": 20,
+      "eligible": 20,
+      "no_headroom": 0
+    }
+  },
+  "status": "APPLICABLE_ON_ITERATION1_PARAMETERS",
+  "note": "The Headroom gate itself is not what fails on iteration-1 parameters: it admits 38 of 40 cells. It has never been evaluated at any other pressure, which is why a design that moves pressures needs a new calibration run (see calibration-cost accounting)."
+}

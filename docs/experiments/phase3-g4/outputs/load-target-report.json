@@ -1,0 +1,47 @@
+{
+  "gate": "Protocol v3 §5.2 load-calibration target (rho0 inside a frozen band)",
+  "distinct_from": "§3.6 Headroom / §9 G4",
+  "measured_inside_target": 8,
+  "reachable_measured": 13,
+  "reachable_in_bracket": 18,
+  "reachable_model_only": 23,
+  "by_load_classification": {
+    "L_LOW": {
+      "INFEASIBLE_AND_PRESSURE_INSENSITIVE": 3,
+      "INFEASIBLE_BELOW_MINIMUM_PRESSURE": 10,
+      "REACHABLE_EXTRAPOLATED": 4,
+      "REACHABLE_INTERPOLATED": 2,
+      "REACHABLE_MEASURED": 1
+    },
+    "L_HIGH": {
+      "INFEASIBLE_AND_PRESSURE_INSENSITIVE": 3,
+      "REACHABLE_MEASURED": 12,
+      "REACHABLE_INTERPOLATED": 3,
+      "INFEASIBLE_BELOW_MINIMUM_PRESSURE": 1,
+      "REACHABLE_EXTRAPOLATED": 1
+    }
+  },
+  "groups_two_level_measured": [
+    "g16"
+  ],
+  "groups_two_level_in_bracket": [
+    "g09",
+    "g16",
+    "g18"
+  ],
+  "groups_two_level_model_only": [
+    "g03",
+    "g05",
+    "g09",
+    "g10",
+    "g16",
+    "g18",
+    "g19"
+  ],
+  "groups_two_level_needs_extrapolation": [
+    "g03",
+    "g05",
+    "g10",
+    "g19"
+  ]
+}

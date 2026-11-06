@@ -1,0 +1,41 @@
+{
+  "planning_group_sd_tokens": 2000.0,
+  "caveat": "Half-widths are a planning calculation from an assumed group SD, not an achieved precision. They say nothing about coverage and must not be quoted as a guarantee.",
+  "table": {
+    "v3_20_groups": {
+      "n_groups": 20,
+      "planned_ci_half_width_tokens": 876.5,
+      "ratio_vs_n20": 1.0
+    },
+    "option_F_paired_groups": {
+      "n_groups": 18,
+      "planned_ci_half_width_tokens": 923.9,
+      "ratio_vs_n20": 1.054
+    },
+    "option_E_all": {
+      "n_groups": 15,
+      "planned_ci_half_width_tokens": 1012.1,
+      "ratio_vs_n20": 1.155
+    },
+    "option_E_g4a_responsive": {
+      "n_groups": 9,
+      "planned_ci_half_width_tokens": 1306.6,
+      "ratio_vs_n20": 1.491
+    },
+    "option_A_prime": {
+      "n_groups": 12,
+      "planned_ci_half_width_tokens": 1131.6,
+      "ratio_vs_n20": 1.291
+    },
+    "option_A_measured_two_level": {
+      "n_groups": 1,
+      "planned_ci_half_width_tokens": 3919.9,
+      "ratio_vs_n20": 4.472
+    },
+    "option_A_including_interpolated": {
+      "n_groups": 3,
+      "planned_ci_half_width_tokens": 2263.2,
+      "ratio_vs_n20": 2.582
+    }
+  }
+}

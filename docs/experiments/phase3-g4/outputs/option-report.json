@@ -1,0 +1,622 @@
+{
+  "A_two_level_groups": [
+    "g16"
+  ],
+  "A_two_level_groups_including_interpolated": [
+    "g09",
+    "g16",
+    "g18"
+  ],
+  "A_two_level_groups_model_only": [
+    "g03",
+    "g05",
+    "g10",
+    "g19"
+  ],
+  "B_and_C_note": "B needs new group acquisition and a full 40-run recalibration; C is rejected because it changes the frozen 2048-block pool",
+  "A_PRIME_groups": [
+    "g02",
+    "g03",
+    "g04",
+    "g06",
+    "g08",
+    "g09",
+    "g11",
+    "g12",
+    "g13",
+    "g16",
+    "g17",
+    "g18"
+  ],
+  "A_PRIME_operating_points": [
+    {
+      "group_id": "g02",
+      "chosen_load_level": "L_LOW",
+      "chosen_pressure_blocks": 256,
+      "rho0_at_operating_point": 0.407602,
+      "r0_at_operating_point": 32880,
+      "headroom_ratio_ok": true,
+      "headroom_abs_ok": true,
+      "headroom_eligible": true,
+      "band_matched": "L_HIGH",
+      "in_option_e_only_gap": false,
+      "alternative_candidates": [],
+      "design": "A_PRIME"
+    },
+    {
+      "group_id": "g03",
+      "chosen_load_level": "L_HIGH",
+      "chosen_pressure_blocks": 1024,
+      "rho0_at_operating_point": 0.355685,
+      "r0_at_operating_point": 20592,
+      "headroom_ratio_ok": true,
+      "headroom_abs_ok": true,
+      "headroom_eligible": true,
+      "band_matched": "L_HIGH",
+      "in_option_e_only_gap": false,
+      "alternative_candidates": [],
+      "design": "A_PRIME"
+    },
+    {
+      "group_id": "g04",
+      "chosen_load_level": "L_LOW",
+      "chosen_pressure_blocks": 256,
+      "rho0_at_operating_point": 0.278662,
+      "r0_at_operating_point": 15264,
+      "headroom_ratio_ok": true,
+      "headroom_abs_ok": true,
+      "headroom_eligible": true,
+      "band_matched": "L_HIGH",
+      "in_option_e_only_gap": false,
+      "alternative_candidates": [
+        "L_HIGH@1024=0.4108"
+      ],
+      "design": "A_PRIME"
+    },
+    {
+      "group_id": "g06",
+      "chosen_load_level": "L_LOW",
+      "chosen_pressure_blocks": 256,
+      "rho0_at_operating_point": 0.408117,
+      "r0_at_operating_point": 30128,
+      "headroom_ratio_ok": true,
+      "headroom_abs_ok": true,
+      "headroom_eligible": true,
+      "band_matched": "L_HIGH",
+      "in_option_e_only_gap": false,
+      "alternative_candidates": [],
+      "design": "A_PRIME"
+    },
+    {
+      "group_id": "g08",
+      "chosen_load_level": "L_LOW",
+      "chosen_pressure_blocks": 256,
+      "rho0_at_operating_point": 0.350404,
+      "r0_at_operating_point": 24064,
+      "headroom_ratio_ok": true,
+      "headroom_abs_ok": true,
+      "headroom_eligible": true,
+      "band_matched": "L_HIGH",
+      "in_option_e_only_gap": false,
+      "alternative_candidates": [
+        "L_HIGH@1024=0.4490"
+      ],
+      "design": "A_PRIME"
+    },
+    {
+      "group_id": "g09",
+      "chosen_load_level": "L_HIGH",
+      "chosen_pressure_blocks": 1024,
+      "rho0_at_operating_point": 0.294888,
+      "r0_at_operating_point": 13840,
+      "headroom_ratio_ok": true,
+      "headroom_abs_ok": true,
+      "headroom_eligible": true,
+      "band_matched": "L_HIGH",
+      "in_option_e_only_gap": false,
+      "alternative_candidates": [],
+      "design": "A_PRIME"
+    },
+    {
+      "group_id": "g11",
+      "chosen_load_level": "L_LOW",
+      "chosen_pressure_blocks": 256,
+      "rho0_at_operating_point": 0.412078,
+      "r0_at_operating_point": 34240,
+      "headroom_ratio_ok": true,
+      "headroom_abs_ok": true,
+      "headroom_eligible": true,
+      "band_matched": "L_HIGH",
+      "in_option_e_only_gap": false,
+      "alternative_candidates": [],
+      "design": "A_PRIME"
+    },
+    {
+      "group_id": "g12",
+      "chosen_load_level": "L_LOW",
+      "chosen_pressure_blocks": 256,
+      "rho0_at_operating_point": 0.334851,
+      "r0_at_operating_point": 20736,
+      "headroom_ratio_ok": true,
+      "headroom_abs_ok": true,
+      "headroom_eligible": true,
+      "band_matched": "L_HIGH",
+      "in_option_e_only_gap": false,
+      "alternative_candidates": [
+        "L_HIGH@1024=0.4450"
+      ],
+      "design": "A_PRIME"
+    },
+    {
+      "group_id": "g13",
+      "chosen_load_level": "L_LOW",
+      "chosen_pressure_blocks": 256,
+      "rho0_at_operating_point": 0.392746,
+      "r0_at_operating_point": 32896,
+      "headroom_ratio_ok": true,
+      "headroom_abs_ok": true,
+      "headroom_eligible": true,
+      "band_matched": "L_HIGH",
+      "in_option_e_only_gap": false,
+      "alternative_candidates": [],
+      "design": "A_PRIME"
+    },
+    {
+      "group_id": "g16",
+      "chosen_load_level": "L_LOW",
+      "chosen_pressure_blocks": 256,
+      "rho0_at_operating_point": 0.107009,
+      "r0_at_operating_point": 4240,
+      "headroom_ratio_ok": true,
+      "headroom_abs_ok": true,
+      "headroom_eligible": true,
+      "band_matched": "L_LOW",
+      "in_option_e_only_gap": false,
+      "alternative_candidates": [
+        "L_HIGH@1024=0.4444"
+      ],
+      "design": "A_PRIME"
+    },
+    {
+      "group_id": "g17",
+      "chosen_load_level": "L_LOW",
+      "chosen_pressure_blocks": 256,
+      "rho0_at_operating_point": 0.429328,
+      "r0_at_operating_point": 39824,
+      "headroom_ratio_ok": true,
+      "headroom_abs_ok": true,
+      "headroom_eligible": true,
+      "band_matched": "L_HIGH",
+      "in_option_e_only_gap": false,
+      "alternative_candidates": [],
+      "design": "A_PRIME"
+    },
+    {
+      "group_id": "g18",
+      "chosen_load_level": "L_HIGH",
+      "chosen_pressure_blocks": 1024,
+      "rho0_at_operating_point": 0.276541,
+      "r0_at_operating_point": 11792,
+      "headroom_ratio_ok": true,
+      "headroom_abs_ok": true,
+      "headroom_eligible": true,
+      "band_matched": "L_HIGH",
+      "in_option_e_only_gap": false,
+      "alternative_candidates": [],
+      "design": "A_PRIME"
+    }
+  ],
+  "E_band": [
+    0.15,
+    0.45
+  ],
+  "E_groups": [
+    "g02",
+    "g03",
+    "g04",
+    "g05",
+    "g06",
+    "g08",
+    "g09",
+    "g10",
+    "g11",
+    "g12",
+    "g13",
+    "g16",
+    "g17",
+    "g18",
+    "g19"
+  ],
+  "E_operating_points": [
+    {
+      "group_id": "g02",
+      "chosen_load_level": "L_LOW",
+      "chosen_pressure_blocks": 256,
+      "rho0_at_operating_point": 0.407602,
+      "r0_at_operating_point": 32880,
+      "headroom_ratio_ok": true,
+      "headroom_abs_ok": true,
+      "headroom_eligible": true,
+      "band_matched": "L_HIGH",
+      "in_option_e_only_gap": false,
+      "alternative_candidates": [],
+      "design": "E"
+    },
+    {
+      "group_id": "g03",
+      "chosen_load_level": "L_LOW",
+      "chosen_pressure_blocks": 256,
+      "rho0_at_operating_point": 0.182081,
+      "r0_at_operating_point": 8304,
+      "headroom_ratio_ok": true,
+      "headroom_abs_ok": true,
+      "headroom_eligible": true,
+      "band_matched": "L_HIGH",
+      "in_option_e_only_gap": true,
+      "alternative_candidates": [
+        "L_HIGH@1024=0.3557"
+      ],
+      "design": "E"
+    },
+    {
+      "group_id": "g04",
+      "chosen_load_level": "L_LOW",
+      "chosen_pressure_blocks": 256,
+      "rho0_at_operating_point": 0.278662,
+      "r0_at_operating_point": 15264,
+      "headroom_ratio_ok": true,
+      "headroom_abs_ok": true,
+      "headroom_eligible": true,
+      "band_matched": "L_HIGH",
+      "in_option_e_only_gap": false,
+      "alternative_candidates": [
+        "L_HIGH@1024=0.4108"
+      ],
+      "design": "E"
+    },
+    {
+      "group_id": "g05",
+      "chosen_load_level": "L_LOW",
+      "chosen_pressure_blocks": 256,
+      "rho0_at_operating_point": 0.23165,
+      "r0_at_operating_point": 11920,
+      "headroom_ratio_ok": true,
+      "headroom_abs_ok": true,
+      "headroom_eligible": true,
+      "band_matched": "L_HIGH",
+      "in_option_e_only_gap": true,
+      "alternative_candidates": [],
+      "design": "E"
+    },
+    {
+      "group_id": "g06",
+      "chosen_load_level": "L_LOW",
+      "chosen_pressure_blocks": 256,
+      "rho0_at_operating_point": 0.408117,
+      "r0_at_operating_point": 30128,
+      "headroom_ratio_ok": true,
+      "headroom_abs_ok": true,
+      "headroom_eligible": true,
+      "band_matched": "L_HIGH",
+      "in_option_e_only_gap": false,
+      "alternative_candidates": [],
+      "design": "E"
+    },
+    {
+      "group_id": "g08",
+      "chosen_load_level": "L_LOW",
+      "chosen_pressure_blocks": 256,
+      "rho0_at_operating_point": 0.350404,
+      "r0_at_operating_point": 24064,
+      "headroom_ratio_ok": true,
+      "headroom_abs_ok": true,
+      "headroom_eligible": true,
+      "band_matched": "L_HIGH",
+      "in_option_e_only_gap": false,
+      "alternative_candidates": [
+        "L_HIGH@1024=0.4490"
+      ],
+      "design": "E"
+    },
+    {
+      "group_id": "g09",
+      "chosen_load_level": "L_HIGH",
+      "chosen_pressure_blocks": 1024,
+      "rho0_at_operating_point": 0.294888,
+      "r0_at_operating_point": 13840,
+      "headroom_ratio_ok": true,
+      "headroom_abs_ok": true,
+      "headroom_eligible": true,
+      "band_matched": "L_HIGH",
+      "in_option_e_only_gap": false,
+      "alternative_candidates": [],
+      "design": "E"
+    },
+    {
+      "group_id": "g10",
+      "chosen_load_level": "L_LOW",
+      "chosen_pressure_blocks": 256,
+      "rho0_at_operating_point": 0.210505,
+      "r0_at_operating_point": 10256,
+      "headroom_ratio_ok": true,
+      "headroom_abs_ok": true,
+      "headroom_eligible": true,
+      "band_matched": "L_HIGH",
+      "in_option_e_only_gap": true,
+      "alternative_candidates": [],
+      "design": "E"
+    },
+    {
+      "group_id": "g11",
+      "chosen_load_level": "L_LOW",
+      "chosen_pressure_blocks": 256,
+      "rho0_at_operating_point": 0.412078,
+      "r0_at_operating_point": 34240,
+      "headroom_ratio_ok": true,
+      "headroom_abs_ok": true,
+      "headroom_eligible": true,
+      "band_matched": "L_HIGH",
+      "in_option_e_only_gap": false,
+      "alternative_candidates": [],
+      "design": "E"
+    },
+    {
+      "group_id": "g12",
+      "chosen_load_level": "L_LOW",
+      "chosen_pressure_blocks": 256,
+      "rho0_at_operating_point": 0.334851,
+      "r0_at_operating_point": 20736,
+      "headroom_ratio_ok": true,
+      "headroom_abs_ok": true,
+      "headroom_eligible": true,
+      "band_matched": "L_HIGH",
+      "in_option_e_only_gap": false,
+      "alternative_candidates": [
+        "L_HIGH@1024=0.4450"
+      ],
+      "design": "E"
+    },
+    {
+      "group_id": "g13",
+      "chosen_load_level": "L_LOW",
+      "chosen_pressure_blocks": 256,
+      "rho0_at_operating_point": 0.392746,
+      "r0_at_operating_point": 32896,
+      "headroom_ratio_ok": true,
+      "headroom_abs_ok": true,
+      "headroom_eligible": true,
+      "band_matched": "L_HIGH",
+      "in_option_e_only_gap": false,
+      "alternative_candidates": [],
+      "design": "E"
+    },
+    {
+      "group_id": "g16",
+      "chosen_load_level": "L_HIGH",
+      "chosen_pressure_blocks": 1024,
+      "rho0_at_operating_point": 0.444424,
+      "r0_at_operating_point": 28304,
+      "headroom_ratio_ok": true,
+      "headroom_abs_ok": true,
+      "headroom_eligible": true,
+      "band_matched": "L_HIGH",
+      "in_option_e_only_gap": false,
+      "alternative_candidates": [],
+      "design": "E"
+    },
+    {
+      "group_id": "g17",
+      "chosen_load_level": "L_LOW",
+      "chosen_pressure_blocks": 256,
+      "rho0_at_operating_point": 0.429328,
+      "r0_at_operating_point": 39824,
+      "headroom_ratio_ok": true,
+      "headroom_abs_ok": true,
+      "headroom_eligible": true,
+      "band_matched": "L_HIGH",
+      "in_option_e_only_gap": false,
+      "alternative_candidates": [],
+      "design": "E"
+    },
+    {
+      "group_id": "g18",
+      "chosen_load_level": "L_HIGH",
+      "chosen_pressure_blocks": 1024,
+      "rho0_at_operating_point": 0.276541,
+      "r0_at_operating_point": 11792,
+      "headroom_ratio_ok": true,
+      "headroom_abs_ok": true,
+      "headroom_eligible": true,
+      "band_matched": "L_HIGH",
+      "in_option_e_only_gap": false,
+      "alternative_candidates": [],
+      "design": "E"
+    },
+    {
+      "group_id": "g19",
+      "chosen_load_level": "L_LOW",
+      "chosen_pressure_blocks": 256,
+      "rho0_at_operating_point": 0.157472,
+      "r0_at_operating_point": 6848,
+      "headroom_ratio_ok": true,
+      "headroom_abs_ok": true,
+      "headroom_eligible": true,
+      "band_matched": "L_HIGH",
+      "in_option_e_only_gap": true,
+      "alternative_candidates": [],
+      "design": "E"
+    }
+  ],
+  "E_groups_added_by_gap": [
+    "g05",
+    "g10",
+    "g19"
+  ],
+  "A_PRIME_responsive": [
+    "g03",
+    "g04",
+    "g09",
+    "g12",
+    "g16",
+    "g18"
+  ],
+  "A_PRIME_weak": [
+    "g02",
+    "g06",
+    "g08",
+    "g11",
+    "g13",
+    "g17"
+  ],
+  "A_PRIME_flat": [],
+  "E_responsive": [
+    "g03",
+    "g04",
+    "g05",
+    "g09",
+    "g10",
+    "g12",
+    "g16",
+    "g18",
+    "g19"
+  ],
+  "E_weak": [
+    "g02",
+    "g06",
+    "g08",
+    "g11",
+    "g13",
+    "g17"
+  ],
+  "E_flat": [],
+  "F": {
+    "rule": "Keep both executed pressures (256 and 1024 blocks) for all 20 groups. Band attainment is a manipulation check, not an admission rule.",
+    "conditions": {
+      "C1": {
+        "load_level": "L_LOW",
+        "pressure_blocks": 256,
+        "evidence_class": "MEASURED"
+      },
+      "C2": {
+        "load_level": "L_HIGH",
+        "pressure_blocks": 1024,
+        "evidence_class": "MEASURED"
+      }
+    },
+    "arms": 6,
+    "groups_in_design": 20,
+    "cells_in_design": 40,
+    "cells_headroom_eligible": 38,
+    "paired_groups": [
+      "g01",
+      "g02",
+      "g03",
+      "g04",
+      "g05",
+      "g06",
+      "g07",
+      "g08",
+      "g10",
+      "g11",
+      "g12",
+      "g13",
+      "g14",
+      "g15",
+      "g16",
+      "g17",
+      "g19",
+      "g20"
+    ],
+    "paired_groups_n": 18,
+    "excluded_pairs": [
+      {
+        "group_id": "g09",
+        "condition": "C1",
+        "load_level": "L_LOW",
+        "why": "rho0 0.0448 below the 5% ratio floor",
+        "effect": "the group cannot supply a two-condition pair"
+      },
+      {
+        "group_id": "g18",
+        "condition": "C1",
+        "load_level": "L_LOW",
+        "why": "rho0 0.0000 below the 5% ratio floor; R0 0 below the 512-token floor",
+        "effect": "the group cannot supply a two-condition pair"
+      }
+    ],
+    "per_condition_analysed_cells": {
+      "C1": 18,
+      "C2": 20
+    },
+    "new_calibration_required": false,
+    "noise_design": {
+      "groups": 5,
+      "conditions": 2,
+      "repeats": 3,
+      "runs": 30,
+      "unchanged_from_v3": true
+    },
+    "F_responsive": [
+      "g03",
+      "g04",
+      "g05",
+      "g10",
+      "g12",
+      "g16",
+      "g19"
+    ],
+    "F_weak": [
+      "g02",
+      "g06",
+      "g07",
+      "g08",
+      "g11",
+      "g13",
+      "g15",
+      "g17"
+    ],
+    "F_flat": [
+      "g01",
+      "g14",
+      "g20"
+    ],
+    "F_design_responsive": [
+      "g03",
+      "g04",
+      "g05",
+      "g09",
+      "g10",
+      "g12",
+      "g16",
+      "g18",
+      "g19"
+    ],
+    "F_design_weak": [
+      "g02",
+      "g06",
+      "g07",
+      "g08",
+      "g11",
+      "g13",
+      "g15",
+      "g17"
+    ],
+    "F_design_flat": [
+      "g01",
+      "g14",
+      "g20"
+    ],
+    "F_h3_primary_cells": 16,
+    "design_strata": {
+      "RESPONSIVE": 9,
+      "WEAK": 8,
+      "FLAT": 3
+    }
+  },
+  "frozen_band_union": [
+    0.05,
+    0.15,
+    0.25,
+    0.45
+  ]
+}

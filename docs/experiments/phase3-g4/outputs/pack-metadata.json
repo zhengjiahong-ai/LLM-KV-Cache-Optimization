@@ -1,0 +1,19 @@
+{
+  "created_at_utc": "2026-11-05T12:28:20.862873+00:00",
+  "git_sha": "712b3fbc628c5bbebe95a782119654834c741149",
+  "gpu_execution_included": false,
+  "iteration1_headroom_cell_count": 38,
+  "iteration1_native_execution_status": "40_OF_40_SUCCESS",
+  "iteration1_native_run_count": 40,
+  "iteration1_nec_evidence_failure_count": 0,
+  "iteration1_target_miss_count": 32,
+  "iteration1_target_pass_count": 8,
+  "iteration2_limitation_count": 25,
+  "iteration2_predicted_miss_count": 17,
+  "iteration2_predicted_pass_count": 23,
+  "iteration2_status": "PROPOSED_NOT_EXECUTED",
+  "main_campaign_authorized": false,
+  "noise_calibration_authorized": false,
+  "purpose": "READ_ONLY_M4_G4_REACHABILITY_AND_PROTOCOL_REVIEW",
+  "schema_version": "phase3.g4_reachability_analysis_pack.v1"
+}
