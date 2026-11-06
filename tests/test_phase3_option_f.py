@@ -39,10 +39,13 @@ def _reports() -> list[dict[str, object]]:
         if group == "g18":
             c1, c2 = 0.0, 0.30
         for load, rho in (("L_LOW", c1), ("L_HIGH", c2)):
+            band = (0.05, 0.15) if load == "L_LOW" else (0.25, 0.45)
             reports.append(
                 {
                     "schema_version": "phase3.load_calibration_run_report.v1",
-                    "status": "PASS",
+                    "status": (
+                        "PASS" if band[0] <= rho <= band[1] else "TARGET_MISSED_FAIL_CLOSED"
+                    ),
                     "group_id": group,
                     "load_level": load,
                     "observed_recompute_ratio": rho,
@@ -105,6 +108,7 @@ def _calibration_manifest(tmp_path: Path, cohort_sha: str | None = None) -> Path
                 {
                     "group_id": group,
                     "load_level": load,
+                    "run_id": f"phase3-load-calibration-{group}-{load.lower().replace('_', '-')}-a0",
                     "directory": cell.name,
                     "config": str(config_path.relative_to(calibration_root)),
                     "config_sha256": config_sha,
@@ -137,11 +141,37 @@ def _execution_evidence(tmp_path: Path) -> dict[str, Path]:
         ),
         encoding="utf-8",
     )
+    calibration = json.loads((tmp_path / "calibration/manifest.json").read_text())
+    mappings = []
+    for index, row in enumerate(calibration["runs"]):
+        native_id = f"phase2-{index:012x}"
+        directory = tmp_path / "native" / native_id
+        directory.mkdir(parents=True)
+        run_json = directory / "run.json"
+        run_json.write_text(
+            json.dumps(
+                {
+                    "schema_version": "phase2.run.v1",
+                    "run_id": native_id,
+                    "status": "success",
+                }
+            ),
+            encoding="utf-8",
+        )
+        events = directory / "events.jsonl"
+        events.write_text("{}\n", encoding="utf-8")
+        mappings.append(
+            {
+                "group_id": row["group_id"],
+                "load_level": row["load_level"],
+                "run_id": row["run_id"],
+                "native_run_directory": str(directory),
+                "run_json_path": str(run_json),
+                "events_path": str(events),
+            }
+        )
     run_map = tmp_path / "formal-to-native-run-map.json"
-    run_map.write_text(
-        json.dumps([{"run_id": f"run-{index:02d}"} for index in range(40)]),
-        encoding="utf-8",
-    )
+    run_map.write_text(json.dumps(mappings), encoding="utf-8")
     native = tmp_path / "native-evidence.tar.gz"
     native.write_bytes(b"native evidence")
     analysis = tmp_path / "analysis-evidence.tar.gz"
@@ -192,6 +222,19 @@ def test_band_attainment_never_excludes_a_headroom_cell() -> None:
     result = classify_calibration_reports(reports)
     assert result["manipulation_check"]["cells_in_band"] == 0
     assert len(result["headroom_qualified_cells"]) == 38
+
+
+def test_negative_delta_rho_is_flat() -> None:
+    reports = _reports()
+    for report in reports:
+        if report["group_id"] == "g01" and report["load_level"] == "L_HIGH":
+            report["observed_recompute_ratio"] = 0.19
+            report["arm"]["aggregate_recomputed_tokens"] = 1_900
+            report["status"] = "TARGET_MISSED_FAIL_CLOSED"
+    result = classify_calibration_reports(reports)
+    g01 = next(row for row in result["groups"] if row["group_id"] == "g01")
+    assert g01["delta_rho"] == pytest.approx(-0.01)
+    assert g01["pressure_response_stratum"] == "FLAT"
 
 
 def test_noise_selection_is_frozen_and_has_exactly_thirty_runs() -> None:
@@ -292,27 +335,72 @@ def test_final_g0_manifest_binds_protocol_and_unauthorized_inputs(
 
 
 def test_noise_estimator_uses_frozen_df_and_formula() -> None:
-    strata = {"g01": "FLAT", "g04": "RESPONSIVE", "g06": "WEAK", "g07": "WEAK", "g10": "RESPONSIVE"}
-    rows = []
-    for group in NOISE_GROUPS:
-        for condition in ("C1", "C2"):
-            for repeat, value in enumerate((99, 100, 101), start=1):
-                rows.append(
-                    {
-                        "group_id": group,
-                        "condition": condition,
-                        "arm": "A0",
-                        "repeat": repeat,
-                        "stratum": strata[group],
-                        "aggregate_recomputed_tokens": value,
-                    }
-                )
-    result = evaluate_noise(rows)
+    plan = select_noise_groups(classify_calibration_reports(_reports()))
+    rows = [
+        {**run, "aggregate_recomputed_tokens": (99, 100, 101)[run["repeat"] - 1]}
+        for run in plan["runs"]
+    ]
+    result = evaluate_noise(rows, plan)
     assert result["df"] == 20
     assert result["sigma_run"] == 1.0
     assert result["sigma_delta"] == pytest.approx(math.sqrt(2))
     assert result["tied_threshold"] == pytest.approx(2 * math.sqrt(2))
     assert result["stratum_status"] == "DIAGNOSTIC_ONLY"
+    assert set(result["stratum_sigma_run"]) == {"FLAT", "WEAK", "RESPONSIVE"}
+    assert result["stratum_sigma_max_min_ratio"] == pytest.approx(1.0)
+    assert result["stratum_sigma_max_min_ratio_status"] == "DEFINED"
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        (lambda rows: rows[0].update(repeat=2), "identity differs"),
+        (lambda rows: rows[0].update(run_id=rows[1]["run_id"]), "identity differs|unique"),
+        (lambda rows: rows[0].pop("stratum"), "identity differs"),
+    ],
+)
+def test_noise_evaluator_rejects_repeat_run_id_and_stratum_drift(mutation, message: str) -> None:
+    plan = select_noise_groups(classify_calibration_reports(_reports()))
+    rows = [{**run, "aggregate_recomputed_tokens": 100} for run in plan["runs"]]
+    mutation(rows)
+    with pytest.raises(ValueError, match=message):
+        evaluate_noise(rows, plan)
+
+
+def test_noise_evaluator_reports_zero_sigma_ratio_status() -> None:
+    plan = select_noise_groups(classify_calibration_reports(_reports()))
+    rows = [{**run, "aggregate_recomputed_tokens": 100} for run in plan["runs"]]
+    result = evaluate_noise(rows, plan)
+    assert result["stratum_sigma_max_min_ratio"] is None
+    assert result["stratum_sigma_max_min_ratio_status"] == ("UNDEFINED_ALL_STRATUM_SIGMAS_ZERO")
+
+
+def test_noise_evaluator_reports_zero_minimum_stratum_sigma() -> None:
+    plan = select_noise_groups(classify_calibration_reports(_reports()))
+    rows = []
+    for run in plan["runs"]:
+        value = 100 if run["stratum"] == "FLAT" else 100 + run["repeat"]
+        rows.append({**run, "aggregate_recomputed_tokens": value})
+    result = evaluate_noise(rows, plan)
+    assert result["stratum_sigma_max_min_ratio"] is None
+    assert result["stratum_sigma_max_min_ratio_status"] == (
+        "UNDEFINED_ZERO_MINIMUM_STRATUM_SIGMA"
+    )
+
+
+def test_noise_evaluator_requires_frozen_strata_and_repeats() -> None:
+    plan = select_noise_groups(classify_calibration_reports(_reports()))
+    rows = [{**run, "aggregate_recomputed_tokens": 100} for run in plan["runs"]]
+
+    missing_strata = dict(plan)
+    missing_strata.pop("strata_by_group")
+    with pytest.raises(ValueError, match="lacks the selected-group strata"):
+        evaluate_noise(rows, missing_strata)
+
+    invalid_repeats = {**plan, "runs": [dict(run) for run in plan["runs"]]}
+    invalid_repeats["runs"][0]["repeat"] = 2
+    with pytest.raises(ValueError, match="repeats|run IDs"):
+        evaluate_noise(rows, invalid_repeats)
 
 
 def test_option_f_statistics_keep_groups_as_units() -> None:
@@ -344,9 +432,38 @@ def test_option_f_statistics_keep_groups_as_units() -> None:
     assert result["H3_R"]["group_count"] == 9
     assert result["H3_R"]["cell_count"] == 16
     assert result["interactions"]["A3"]["Interaction_B"]["verdict_allowed"] is False
+    assert result["stratified_effects"]["A3"]["FLAT"]["N_analyzed"] == 3
+    assert result["stratified_effects"]["A3"]["WEAK"]["N_analyzed"] == 8
+    assert result["stratified_effects"]["A3"]["RESPONSIVE"]["N_analyzed"] == 9
+    assert all(
+        row["within_group_conditions_averaged_first"]
+        for row in result["stratified_effects"]["A3"].values()
+    )
 
 
-def test_g0_candidate_binds_seal_manifest_and_reports(tmp_path: Path) -> None:
+def test_main_evaluator_rejects_group_substitution_and_duplicate_cells() -> None:
+    classification = classify_calibration_reports(_reports())
+    rows = [
+        {
+            "group_id": f"g{index:02d}",
+            "condition": condition,
+            "arm": arm,
+            "aggregate_recomputed_tokens": 1_000,
+        }
+        for index in range(1, 21)
+        for condition in ("C1", "C2")
+        for arm in ("N0", "A0", "A1", "A2", "A3", "E0")
+    ]
+    rows[0]["group_id"] = "g21"
+    with pytest.raises(ValueError, match="duplicate or invalid"):
+        evaluate_option_f_results(rows, classification)
+    rows[0]["group_id"] = "g01"
+    rows[1] = dict(rows[0])
+    with pytest.raises(ValueError, match="duplicate or invalid"):
+        evaluate_option_f_results(rows, classification)
+
+
+def _g0_inputs(tmp_path: Path) -> tuple[Path, Path, list[Path], dict[str, Path]]:
     groups = []
     repos = [f"repo{index:02d}" for index in range(1, 21)]
     for index in range(1, 21):
@@ -371,18 +488,67 @@ def test_g0_candidate_binds_seal_manifest_and_reports(tmp_path: Path) -> None:
         path = tmp_path / f"report-{index:02d}.json"
         path.write_text(json.dumps(report), encoding="utf-8")
         paths.append(path)
+    return seal, manifest, paths, _execution_evidence(tmp_path)
+
+
+def test_g0_candidate_binds_seal_manifest_and_reports(tmp_path: Path) -> None:
+    seal, manifest, paths, evidence = _g0_inputs(tmp_path)
 
     result = build_g0_freeze_candidate(
         cohort_seal_path=seal,
         calibration_manifest_path=manifest,
         report_paths=paths,
-        evidence_bindings=_execution_evidence(tmp_path),
+        evidence_bindings=evidence,
         output_dir=tmp_path / "g0",
     )
     assert result["status"] == "READY_FOR_M1_G0_REVIEW"
     assert result["execution_authorized"] is False
     assert result["gates"]["G4"] == "PASS_HEADROOM_38_OF_40"
     assert json.loads((tmp_path / "g0/noise-run-plan.json").read_text())["planned_run_count"] == 30
+
+
+@pytest.mark.parametrize("corruption", ["duplicate_formal", "duplicate_native"])
+def test_g0_rejects_non_bijective_formal_native_mapping(tmp_path: Path, corruption: str) -> None:
+    seal, manifest, paths, evidence = _g0_inputs(tmp_path)
+    mapping_path = evidence["formal_to_native_run_map"]
+    mappings = json.loads(mapping_path.read_text())
+    if corruption == "duplicate_formal":
+        mappings[1]["run_id"] = mappings[0]["run_id"]
+    else:
+        for key in ("native_run_directory", "run_json_path", "events_path"):
+            mappings[1][key] = mappings[0][key]
+    mapping_path.write_text(json.dumps(mappings), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="duplicate|differs"):
+        build_g0_freeze_candidate(
+            cohort_seal_path=seal,
+            calibration_manifest_path=manifest,
+            report_paths=paths,
+            evidence_bindings=evidence,
+            output_dir=tmp_path / "g0",
+        )
+
+
+@pytest.mark.parametrize("corruption", ["schema", "status", "identity"])
+def test_g0_rejects_invalid_calibration_report_contract(tmp_path: Path, corruption: str) -> None:
+    seal, manifest, paths, evidence = _g0_inputs(tmp_path)
+    report = json.loads(paths[0].read_text())
+    if corruption == "schema":
+        report["schema_version"] = "unknown"
+    elif corruption == "status":
+        report["status"] = "PASS"
+    else:
+        report["group_id"] = "g99"
+    paths[0].write_text(json.dumps(report), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="schema|status|duplicated|outside"):
+        build_g0_freeze_candidate(
+            cohort_seal_path=seal,
+            calibration_manifest_path=manifest,
+            report_paths=paths,
+            evidence_bindings=evidence,
+            output_dir=tmp_path / "g0",
+        )
 
 
 def test_g0_fails_on_wrong_cohort_binding(tmp_path: Path) -> None:

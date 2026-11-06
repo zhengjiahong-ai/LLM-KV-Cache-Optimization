@@ -117,8 +117,6 @@ def _validate_calibration_inventory(
 
 
 def _stratum(delta_rho: float) -> str:
-    if delta_rho < 0:
-        raise ValueError("C2 rho0 must not be below C1 rho0")
     if delta_rho < 0.01:
         return "FLAT"
     if delta_rho < 0.10:
@@ -283,6 +281,7 @@ def select_noise_groups(classification: Mapping[str, object]) -> dict[str, objec
             "condition": condition,
             "arm": "A0",
             "repeat": repeat,
+            "stratum": next(stratum for stratum, groups in selected_by.items() if group in groups),
             "run_id": f"phase3-noise-{group}-{condition.lower()}-a0-r{repeat}",
         }
         for group in selected
@@ -296,6 +295,9 @@ def select_noise_groups(classification: Mapping[str, object]) -> dict[str, objec
         "candidate_groups": sorted(paired),
         "allocation": NOISE_ALLOCATION,
         "selected_by_stratum": selected_by,
+        "strata_by_group": {
+            group: stratum for stratum, groups in selected_by.items() for group in groups
+        },
         "selected_groups": selected,
         "planned_run_count": 30,
         "runs": runs,
@@ -472,25 +474,81 @@ def materialize_option_f_run_inputs(
     return top
 
 
-def evaluate_noise(results: Sequence[Mapping[str, object]]) -> dict[str, object]:
+def evaluate_noise(
+    results: Sequence[Mapping[str, object]],
+    noise_plan: Mapping[str, object],
+) -> dict[str, object]:
     """Freeze the single pooled noise estimator after exactly 30 A0 runs."""
 
+    if noise_plan.get("schema_version") != "phase3.option_f_noise_plan.v1":
+        raise ValueError("unsupported frozen Noise plan")
+    if noise_plan.get("execution_authorized") is not False:
+        raise ValueError("Noise evaluation requires the frozen unauthorized plan")
+    planned = noise_plan.get("runs")
+    strata = noise_plan.get("strata_by_group")
+    if not isinstance(planned, list) or len(planned) != 30:
+        raise ValueError("frozen Noise plan must contain exactly 30 runs")
+    if not isinstance(strata, Mapping) or set(strata) != set(NOISE_GROUPS):
+        raise ValueError("frozen Noise plan lacks the selected-group strata")
+    if set(strata.values()) != set(NOISE_ALLOCATION):
+        raise ValueError("frozen Noise plan must bind all three strata")
+    planned_by_id: dict[str, tuple[str, str, str, int, str]] = {}
+    planned_repeats: dict[tuple[str, str], set[int]] = defaultdict(set)
+    for row in planned:
+        if not isinstance(row, Mapping):
+            raise TypeError("frozen Noise plan run must be an object")
+        run_id = row.get("run_id")
+        group = row.get("group_id")
+        condition = row.get("condition")
+        arm = row.get("arm")
+        repeat = row.get("repeat")
+        stratum = row.get("stratum")
+        if not all(isinstance(value, str) for value in (run_id, group, condition, arm, stratum)):
+            raise TypeError("frozen Noise plan run identity must use strings")
+        if isinstance(repeat, bool) or not isinstance(repeat, int):
+            raise TypeError("frozen Noise repeat must be an integer")
+        if run_id in planned_by_id:
+            raise ValueError("frozen Noise plan contains duplicate Run IDs")
+        if stratum != strata.get(group):
+            raise ValueError("frozen Noise plan run/stratum binding mismatch")
+        planned_by_id[run_id] = (group, condition, arm, repeat, stratum)
+        planned_repeats[(group, condition)].add(repeat)
+    expected_cells = {(group, condition) for group in NOISE_GROUPS for condition in CONDITIONS}
+    if set(planned_repeats) != expected_cells or any(
+        repeats != {1, 2, 3} for repeats in planned_repeats.values()
+    ):
+        raise ValueError("frozen Noise plan does not bind repeats {1,2,3} for ten cells")
     if len(results) != 30:
         raise ValueError("noise evaluation requires exactly 30 runs")
     values: dict[tuple[str, str], list[float]] = defaultdict(list)
-    strata_by_group: dict[str, str] = {}
+    observed_ids: set[str] = set()
+    observed_repeats: dict[tuple[str, str], set[int]] = defaultdict(set)
     for row in results:
-        group = str(row["group_id"])
-        condition = str(row["condition"])
-        if group not in NOISE_GROUPS or condition not in CONDITIONS or row.get("arm") != "A0":
-            raise ValueError("noise result is outside the frozen plan")
+        run_id = row.get("run_id")
+        if not isinstance(run_id, str) or run_id in observed_ids:
+            raise ValueError("noise result Run IDs must be present and unique")
+        observed_ids.add(run_id)
+        if run_id not in planned_by_id:
+            raise ValueError("noise result Run ID is outside the frozen plan")
+        group, condition, arm, repeat, stratum = planned_by_id[run_id]
+        if (
+            row.get("group_id") != group
+            or row.get("condition") != condition
+            or row.get("arm") != arm
+            or row.get("repeat") != repeat
+            or row.get("stratum") != stratum
+        ):
+            raise ValueError("noise result identity differs from its frozen plan entry")
+        observed_repeats[(group, condition)].add(repeat)
         values[(group, condition)].append(
             _number(row.get("aggregate_recomputed_tokens"), "noise tokens")
         )
-        if row.get("stratum") is not None:
-            strata_by_group[group] = str(row["stratum"])
-    if len(values) != 10 or any(len(samples) != 3 for samples in values.values()):
-        raise ValueError("noise results must contain three repeats for ten cells")
+    if observed_ids != set(planned_by_id):
+        raise ValueError("noise results do not match the frozen Run ID set")
+    if set(observed_repeats) != expected_cells or any(
+        repeats != {1, 2, 3} for repeats in observed_repeats.values()
+    ):
+        raise ValueError("noise results must contain repeats {1,2,3} for ten cells")
     sum_squares = sum(
         sum((value - statistics.mean(samples)) ** 2 for value in samples)
         for samples in values.values()
@@ -499,17 +557,28 @@ def evaluate_noise(results: Sequence[Mapping[str, object]]) -> dict[str, object]
     sigma_run = math.sqrt(sum_squares / df)
     by_stratum: dict[str, list[tuple[float, float]]] = defaultdict(list)
     for (group, _condition), samples in values.items():
-        stratum = strata_by_group.get(group)
-        if stratum is not None:
-            mean = statistics.mean(samples)
-            by_stratum[stratum].append(
-                (sum((value - mean) ** 2 for value in samples), len(samples) - 1)
-            )
+        stratum = str(strata[group])
+        mean = statistics.mean(samples)
+        by_stratum[stratum].append(
+            (sum((value - mean) ** 2 for value in samples), len(samples) - 1)
+        )
     diagnostic = {}
-    for stratum, parts in by_stratum.items():
+    for stratum in NOISE_ALLOCATION:
+        parts = by_stratum[stratum]
         diagnostic[stratum] = math.sqrt(
             sum(part[0] for part in parts) / sum(part[1] for part in parts)
         )
+    minimum_sigma = min(diagnostic.values())
+    maximum_sigma = max(diagnostic.values())
+    if minimum_sigma > 0:
+        sigma_ratio = maximum_sigma / minimum_sigma
+        sigma_ratio_status = "DEFINED"
+    elif maximum_sigma == 0:
+        sigma_ratio = None
+        sigma_ratio_status = "UNDEFINED_ALL_STRATUM_SIGMAS_ZERO"
+    else:
+        sigma_ratio = None
+        sigma_ratio_status = "UNDEFINED_ZERO_MINIMUM_STRATUM_SIGMA"
     return {
         "schema_version": "phase3.option_f_noise_report.v1",
         "status": "PASS",
@@ -520,6 +589,8 @@ def evaluate_noise(results: Sequence[Mapping[str, object]]) -> dict[str, object]
         "sigma_delta": math.sqrt(2) * sigma_run,
         "tied_threshold": 2 * math.sqrt(2) * sigma_run,
         "stratum_sigma_run": diagnostic,
+        "stratum_sigma_max_min_ratio": sigma_ratio,
+        "stratum_sigma_max_min_ratio_status": sigma_ratio_status,
         "stratum_status": "DIAGNOSTIC_ONLY",
         "estimator_frozen": True,
     }
@@ -591,16 +662,99 @@ def build_g0_freeze_candidate(
     run_map = json.loads(evidence_bindings["formal_to_native_run_map"].read_text(encoding="utf-8"))
     if not isinstance(run_map, list) or len(run_map) != 40:
         raise ValueError("formal-to-native run map must contain exactly 40 entries")
+    manifest_by_cell = {
+        (str(row["group_id"]), str(row["load_level"])): str(row["run_id"])
+        for row in manifest["runs"]
+    }
+    mapped_cells: dict[tuple[str, str], str] = {}
+    formal_run_ids: set[str] = set()
+    native_run_ids: set[str] = set()
+    for row in run_map:
+        if not isinstance(row, Mapping):
+            raise TypeError("formal-to-native run map entry must be an object")
+        group = row.get("group_id")
+        load = row.get("load_level")
+        formal_run_id = row.get("run_id")
+        native_directory = row.get("native_run_directory")
+        run_json_path = row.get("run_json_path")
+        events_path = row.get("events_path")
+        if not all(
+            isinstance(value, str)
+            for value in (
+                group,
+                load,
+                formal_run_id,
+                native_directory,
+                run_json_path,
+                events_path,
+            )
+        ):
+            raise TypeError("formal-to-native mapping identity fields must be strings")
+        cell = (group, load)
+        if cell in mapped_cells or formal_run_id in formal_run_ids:
+            raise ValueError("formal-to-native map contains duplicate Formal Run IDs or cells")
+        if manifest_by_cell.get(cell) != formal_run_id:
+            raise ValueError("formal-to-native map differs from the A0 calibration manifest")
+        native_path = Path(native_directory)
+        native_run_id = native_path.name
+        if not native_run_id or native_run_id in native_run_ids:
+            raise ValueError("formal-to-native map contains duplicate Native Run IDs")
+        run_path = Path(run_json_path)
+        event_path = Path(events_path)
+        if run_path.parent != native_path or event_path.parent != native_path:
+            raise ValueError("formal-to-native evidence paths differ from the Native run directory")
+        if not run_path.is_file() or not event_path.is_file():
+            raise FileNotFoundError(f"mapped Native evidence is missing: {native_run_id}")
+        native_run = json.loads(run_path.read_text(encoding="utf-8"))
+        if (
+            native_run.get("schema_version") != "phase2.run.v1"
+            or native_run.get("run_id") != native_run_id
+            or native_run.get("status") != "success"
+        ):
+            raise ValueError("mapped Native run identity or success status is invalid")
+        mapped_cells[cell] = formal_run_id
+        formal_run_ids.add(formal_run_id)
+        native_run_ids.add(native_run_id)
+    if mapped_cells != manifest_by_cell:
+        raise ValueError("formal-to-native map does not cover the frozen 20x2 cells")
     reports = []
     report_bindings = []
+    report_cells: set[tuple[str, str]] = set()
+    report_paths_seen: set[Path] = set()
     for path in report_paths:
+        if path in report_paths_seen:
+            raise ValueError("duplicate calibration report path")
+        report_paths_seen.add(path)
         document = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(document, dict):
             raise TypeError("calibration report must be an object")
+        if document.get("schema_version") != "phase3.load_calibration_run_report.v1":
+            raise ValueError("unsupported A0 calibration report schema")
+        group = document.get("group_id")
+        load = document.get("load_level")
+        if not isinstance(group, str) or not isinstance(load, str):
+            raise TypeError("calibration report lacks its frozen cell identity")
+        cell = (group, load)
+        if cell in report_cells or cell not in manifest_by_cell:
+            raise ValueError("calibration report cell is duplicated or outside the manifest")
+        arm = document.get("arm")
+        if not isinstance(arm, Mapping) or arm.get("arm") != "A0":
+            raise ValueError("calibration report does not describe A0")
+        rho0 = _number(document.get("observed_recompute_ratio"), "report rho0")
+        condition = LOAD_TO_CONDITION[load]
+        lower, upper = CONDITIONS[condition]["band"]
+        expected_status = (
+            "PASS" if float(lower) <= rho0 <= float(upper) else "TARGET_MISSED_FAIL_CLOSED"
+        )
+        if document.get("status") != expected_status:
+            raise ValueError("calibration report status is inconsistent with its frozen result")
+        report_cells.add(cell)
         copy = dict(document)
         copy["report_sha256"] = _sha256(path)
         reports.append(copy)
         report_bindings.append({"path": str(path), "sha256": _sha256(path)})
+    if report_cells != set(manifest_by_cell):
+        raise ValueError("calibration reports do not cover the frozen 20x2 cells")
     classification = classify_calibration_reports(reports)
     noise = select_noise_groups(classification)
     main = main_campaign_plan()
@@ -715,20 +869,62 @@ def evaluate_option_f_results(
 
     if len(results) != 240:
         raise ValueError("Option F main evaluation requires exactly 240 results")
+    classification_rows = classification.get("groups")
+    if not isinstance(classification_rows, list) or len(classification_rows) != 20:
+        raise ValueError("Option F classification must contain the frozen 20 Groups")
+    groups: dict[str, Mapping[str, object]] = {}
+    strata: dict[str, list[str]] = defaultdict(list)
+    for row in classification_rows:
+        if not isinstance(row, Mapping):
+            raise TypeError("Option F classification Group must be an object")
+        group = row.get("group_id")
+        stratum = row.get("pressure_response_stratum")
+        if not isinstance(group, str) or stratum not in NOISE_ALLOCATION or group in groups:
+            raise ValueError("Option F classification Group/stratum identity is invalid")
+        for condition in CONDITIONS:
+            cell = row.get(condition)
+            if not isinstance(cell, Mapping):
+                raise TypeError("Option F classification Headroom cell must be an object")
+            if not isinstance(cell.get("headroom_eligible"), bool):
+                raise TypeError("Option F classification lacks frozen Headroom booleans")
+        groups[group] = row
+        strata[str(stratum)].append(group)
+    frozen_groups = {f"g{index:02d}" for index in range(1, 21)}
+    if set(groups) != frozen_groups:
+        raise ValueError("Option F classification substitutes a non-frozen Group")
+    if {name: len(strata[name]) for name in NOISE_ALLOCATION} != {
+        "FLAT": 3,
+        "WEAK": 8,
+        "RESPONSIVE": 9,
+    }:
+        raise ValueError("Option F classification strata differ from the freeze")
     values: dict[tuple[str, str, str], float] = {}
     for row in results:
         key = (str(row["group_id"]), str(row["condition"]), str(row["arm"]))
-        if key in values or key[1] not in CONDITIONS or key[2] not in ARMS:
+        if (
+            key in values
+            or key[0] not in frozen_groups
+            or key[1] not in CONDITIONS
+            or key[2] not in ARMS
+        ):
             raise ValueError("duplicate or invalid Option F result")
         values[key] = _number(row.get("aggregate_recomputed_tokens"), "result tokens")
-    if len(values) != 240:
-        raise ValueError("Option F result grid is incomplete")
+    expected_results = {
+        (group, condition, arm)
+        for group in frozen_groups
+        for condition in CONDITIONS
+        for arm in ARMS
+    }
+    if set(values) != expected_results:
+        raise ValueError("Option F result grid differs from the frozen 20x2x6 set")
     paired = list(classification["paired_primary_groups"])
-    groups = {row["group_id"]: row for row in classification["groups"]}
+    if len(paired) != 18 or len(set(paired)) != 18 or not set(paired) <= frozen_groups:
+        raise ValueError("Option F paired primary population differs from the freeze")
 
     per_condition = {}
     primary = {}
     interactions = {}
+    stratified = {}
     for arm in ARMS:
         if arm == "A0":
             continue
@@ -759,6 +955,33 @@ def evaluate_option_f_results(
             "group_weight": 1 / 18,
             "mean_delta": statistics.mean(group_deltas),
         }
+        stratified[arm] = {}
+        for stratum in NOISE_ALLOCATION:
+            stratum_groups = sorted(strata[stratum])
+            stratum_values = []
+            cell_count = 0
+            for group in stratum_groups:
+                eligible = [
+                    condition
+                    for condition in CONDITIONS
+                    if groups[group][condition]["headroom_eligible"]
+                ]
+                if not eligible:
+                    raise ValueError("a frozen stratum Group has no Headroom-qualified cell")
+                cell_count += len(eligible)
+                stratum_values.append(
+                    statistics.mean(
+                        values[(group, condition, arm)] - values[(group, condition, "A0")]
+                        for condition in eligible
+                    )
+                )
+            stratified[arm][stratum] = {
+                "N_analyzed": len(stratum_groups),
+                "cell_count": cell_count,
+                "statistical_unit": "GROUP",
+                "within_group_conditions_averaged_first": True,
+                "mean_delta": statistics.mean(stratum_values),
+            }
         interaction_a = [
             (values[(group, "C2", arm)] - values[(group, "C2", "A0")])
             - (values[(group, "C1", arm)] - values[(group, "C1", "A0")])
@@ -816,6 +1039,7 @@ def evaluate_option_f_results(
         "status": "PASS",
         "primary": primary,
         "per_condition_descriptive": per_condition,
+        "stratified_effects": stratified,
         "H3_0": h3(list(groups)),
         "H3_R": h3(responsive),
         "interactions": interactions,
