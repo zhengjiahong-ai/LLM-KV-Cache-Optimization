@@ -78,5 +78,54 @@
       "g17"
     ],
     "flat_groups": []
+  },
+  "F": {
+    "primary_h3_groups": [
+      "g03",
+      "g04",
+      "g05",
+      "g09",
+      "g10",
+      "g12",
+      "g16",
+      "g18",
+      "g19"
+    ],
+    "primary_h3_n": 9,
+    "primary_h3_cells": 16,
+    "secondary_h3_groups": [
+      "g02",
+      "g03",
+      "g04",
+      "g05",
+      "g06",
+      "g07",
+      "g08",
+      "g10",
+      "g11",
+      "g12",
+      "g13",
+      "g15",
+      "g16",
+      "g17",
+      "g19"
+    ],
+    "secondary_h3_n": 15,
+    "descriptive_only_groups": [
+      "g02",
+      "g06",
+      "g07",
+      "g08",
+      "g11",
+      "g13",
+      "g15",
+      "g17"
+    ],
+    "flat_groups": [
+      "g01",
+      "g14",
+      "g20"
+    ],
+    "note": "H3 is a per-cell A0-vs-N0 comparison, so it does not need a pair: g09 and g18 keep an H3 cell on their Headroom-eligible condition even though they drop out of the paired two-condition design."
   }
 }

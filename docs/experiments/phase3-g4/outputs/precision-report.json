@@ -7,6 +7,11 @@
       "planned_ci_half_width_tokens": 876.5,
       "ratio_vs_n20": 1.0
     },
+    "option_F_paired_groups": {
+      "n_groups": 18,
+      "planned_ci_half_width_tokens": 923.9,
+      "ratio_vs_n20": 1.054
+    },
     "option_E_all": {
       "n_groups": 15,
       "planned_ci_half_width_tokens": 1012.1,

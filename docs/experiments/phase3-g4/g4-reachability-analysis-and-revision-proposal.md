@@ -232,6 +232,9 @@ Rules that keep this from becoming a relaxation:
 | **C** | move the pressure axis to KV pool size | — | — | **rejected**: violates the frozen 2048-block pool |
 | **D** | decision-level (G3-CM) only, no token estimand | 12–20 | none | no |
 | **E** | one level per group with a **new contiguous band `[0.15, 0.45]`** | **15** | **yes, one** | no |
+| **F** | **two fixed operating points** (the two executed pressures), band attainment demoted to a manipulation check | **20 groups / 18 pairs** | **none** | **no** |
+
+**Option F is specified separately** in `option-f-two-level-fixed-pressure.md`: it keeps both pressures iteration 1 actually ran and stops treating the designed bands as an admission rule. It is the only option whose every cell was measured at the pressure it will be run at, and the cell sets are nested — `F ⊃ E ⊃ A′` — so F can deliver A′'s estimate as a pre-registered subgroup at no extra cost, while A′ cannot recover F's pool-level estimand.
 
 **Option A collapses under RC6.** With 1 measured group it produces 1 cell, so G3-CM (which needs ≥ 8 discriminable decisions) is unreachable by construction; with interpolation it reaches 3, still short. Option A is only viable if M1 accepts model-only levels, which is precisely what RC6 forbids. **The previous "Option A costs 114 runs and reuses calibration" was wrong on both counts** — it needs 2 × cells new calibration runs (see §2.5.5).
 
@@ -369,11 +372,14 @@ Limits, stated so they cannot be quoted as precision:
 | G3-CM headroom (8/12 = 67 % vs 8/15 = 53 %) | **E** |
 | Planned precision (±1,132 vs ±1,012) | **E** |
 | H3 primary size (6 for A′, below the §6.2 minimum of 8; 9 for E, above it) | **E** |
-| Avoids the specific change M1 flagged (widening what counts as a level) | **A′** |
+| Full-pool population, largest n, cheapest, and the only design without a model-extrapolated operating point | **F** |
+| Unambiguous mechanistic claim at a measured level | **A′** |
 
-**Recommended: A′, with E as the pre-authorised fallback.** M1's stated lean matches this, and RC6 has made the alternative heavier than before: with only 1 measured two-level group, Option A is no longer a serious contender, so the choice is genuinely between A′ and E.
+**Recommended: A′, with E as the pre-authorised fallback — and F preferred instead if the phase's primary claim is the pool-level one.** M1's stated lean matches A′, and RC6 has made the alternative heavier than before: with only 1 measured two-level group, Option A is no longer a serious contender.
 
 The case for E is now stronger on one specific point that the previous revision under-weighted: **A′'s H3 primary is 6 groups, below the protocol's own minimum of 8**, so an H3 interval on A′ would have to be labelled `INSUFFICIENT_ANALYZED_CELLS`. E's primary is 9 and clears it. If M1 weighs H3 as a primary hypothesis rather than a descriptive one, **E becomes the better choice**, at the cost of adjudicating the 0.15–0.25 sub-interval as a new constant.
+
+**Option F changes the shape of this decision rather than sitting beside it.** Because every A′ and E operating point is one of the 40 cells F already contains (`F ⊃ E ⊃ A′`), choosing F and pre-registering A′ as a frozen subgroup delivers both estimands for the same 270 runs. That nesting is one-directional: A′ cannot recover F's pool-level estimand. The condition is strict — the subgroup must be defined from A0-only data and frozen in G0, not discovered after seeing an arm (§10 S9). F's own costs are real and are listed in `option-f-two-level-fixed-pressure.md` §5.3: dilution of the pooled mean, weak manipulation validity (only 1 of 20 groups has both conditions in band), and an interaction that is 7 pairs short of confirmatory.
 
 Option A should not be chosen: it cannot satisfy G3-CM without accepting model-only levels. Option B is the statistically cleanest and needs new authorisation. Option C is rejected. Option D remains the fallback if the token estimand is judged unaffordable; its H2 decision-level component survives every design above.
 
