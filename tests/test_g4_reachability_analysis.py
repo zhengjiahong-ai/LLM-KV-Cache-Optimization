@@ -768,12 +768,219 @@ def test_precision_table_labels_itself_as_a_planning_assumption() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# end to end against the real frozen pack (skipped when absent)
+# Option F: two-level fixed-pressure evaluation
 # --------------------------------------------------------------------------- #
 
 REAL_PACK = (
     Path(__file__).resolve().parents[1] / "local" / "phase3-g4-reachability-analysis-pack-v1"
 )
+
+
+def _f_fixture():
+    """Five groups covering each F-relevant role.
+
+    g_resp   RESONSIVE, both conditions inside their designed bands
+    g_weak   WEAK, only the high condition inside its band
+    g_flat   FLAT, only the high condition inside its band
+    g_none   WEAK, neither condition inside its band (band attainment must NOT gate)
+    g_nohr   RESPONSIVE, but its low condition fails Headroom (pair must be lost)
+    """
+
+    rhos = {
+        "g_resp": (0.10, 0.35),
+        "g_weak": (0.30, 0.35),
+        "g_flat": (0.40, 0.40),
+        "g_none": (0.20, 0.22),
+        "g_nohr": (0.04, 0.30),
+    }
+    _, _, cells, groups = _build(rhos)
+    options = mod.option_report(cells, groups)
+    return cells, groups, options, mod.f_report(cells, groups, options)
+
+
+def test_option_f_keeps_both_executed_pressures_and_all_groups() -> None:
+    _, _, options, report = _f_fixture()
+    f = options["F"]
+
+    assert f["conditions"]["C1"]["pressure_blocks"] == 256
+    assert f["conditions"]["C2"]["pressure_blocks"] == 1024
+    assert f["conditions"]["C1"]["evidence_class"] == "MEASURED"
+    assert f["groups_in_design"] == 5
+    assert f["cells_in_design"] == 10
+    assert report["design"]["band_attainment_is_a_gate"] is False
+    assert report["design"]["band_attainment_role"] == "manipulation_check"
+
+
+def test_option_f_needs_no_new_calibration() -> None:
+    _, _, options, report = _f_fixture()
+
+    assert options["F"]["new_calibration_required"] is False
+    assert options["F"]["noise_design"]["runs"] == 30
+    assert options["F"]["noise_design"]["unchanged_from_v3"] is True
+    assert "iteration 1" in report["design"]["why_no_new_calibration"]
+
+
+def test_option_f_does_not_relax_any_frozen_band() -> None:
+    """F changes the condition definition, not the acceptance thresholds."""
+
+    _f_fixture()
+
+    assert mod.L_LOW_BAND == (0.05, 0.15)
+    assert mod.L_HIGH_BAND == (0.25, 0.45)
+    assert mod.HEADROOM_RATIO_MIN == 0.05
+    assert mod.HEADROOM_R0_MIN_TOKENS == 512
+    assert set(mod.OPTION_F_CONDITIONS.values()) == {"L_LOW", "L_HIGH"}
+
+
+def test_band_attainment_does_not_exclude_a_group_from_option_f() -> None:
+    _, _, options, report = _f_fixture()
+    neither = report["manipulation_check"]["groups_with_neither_condition_in_band"]
+    paired = options["F"]["paired_groups"]
+
+    assert "g_none" in neither
+    assert "g_none" in paired
+    assert options["F"]["groups_in_design"] == 5
+
+
+def test_option_f_loses_only_the_pair_whose_cell_fails_headroom() -> None:
+    _, _, options, report = _f_fixture()
+
+    assert options["F"]["paired_groups_n"] == 4
+    assert "g_nohr" not in options["F"]["paired_groups"]
+    excluded = {(row["group_id"], row["condition"]) for row in options["F"]["excluded_pairs"]}
+    assert excluded == {("g_nohr", "C1")}
+    assert report["population"]["per_condition_analysed_cells"] == {"C1": 4, "C2": 5}
+
+
+def test_option_f_strata_are_reported_over_both_design_and_paired_sets() -> None:
+    _, _, _, report = _f_fixture()
+
+    assert report["population"]["strata_over_design"] == {
+        "RESPONSIVE": 2,
+        "WEAK": 2,
+        "FLAT": 1,
+    }
+    assert report["population"]["strata_over_paired"] == {
+        "RESPONSIVE": 1,
+        "WEAK": 2,
+        "FLAT": 1,
+    }
+
+
+def test_option_f_h3_primary_is_responsive_and_counts_eligible_cells() -> None:
+    _, _, options, _ = _f_fixture()
+    h3 = mod.h3_report(options)["F"]
+
+    assert h3["primary_h3_groups"] == ["g_nohr", "g_resp"]
+    assert h3["primary_h3_n"] == 2
+    # g_nohr loses one of its two cells to Headroom, so 2 + 1 = 3.
+    assert h3["primary_h3_cells"] == 3
+    assert h3["flat_groups"] == ["g_flat"]
+    assert "g_weak" not in h3["primary_h3_groups"]
+
+
+def test_option_f_interaction_population_excludes_lost_pairs() -> None:
+    _, _, _, report = _f_fixture()
+
+    interaction = report["interaction"]
+    assert interaction["paired_groups"] == 4
+    assert interaction["paired_responsive_groups"] == ["g_resp"]
+    assert interaction["paired_responsive_n"] == 1
+    assert interaction["meets_minimum_analysed_cells"] is False
+    assert len(interaction["caveats"]) == 3
+
+
+def test_option_f_run_accounting_matches_v3() -> None:
+    _, _, options, _ = _f_fixture()
+    report = mod.calibration_cost_report(options)
+    f_row = report["designs"]["option_F_two_level_fixed_pressure"]
+    v3_row = report["designs"]["v3_as_written"]
+
+    assert f_row["calibration_runs"] == 0
+    assert f_row["noise_runs"] == 30
+    assert f_row["main_campaign_runs"] == mod.ARMS_PER_CELL * 10
+    assert f_row["total_new_runs"] == 30 + 6 * 10
+    assert f_row["cells"] == 10
+    assert v3_row["total_new_runs"] == 270
+
+
+def test_option_f_group_average_precision_improves_with_positive_correlation() -> None:
+    _, _, _, report = _f_fixture()
+    rows = report["precision"]["group_averaged"]
+
+    widths = [row["planned_ci_half_width_tokens"] for row in rows]
+    assert widths == sorted(widths)
+    # Perfectly correlated conditions cannot be better than one condition.
+    assert rows[-1]["within_group_rho"] == 1.0
+    assert rows[0]["equivalent_single_level_n"] > rows[-1]["equivalent_single_level_n"]
+
+
+def test_option_f_interaction_precision_worsens_with_independence() -> None:
+    _, _, _, report = _f_fixture()
+    rows = report["precision"]["interaction"]
+
+    widths = [row["planned_ci_half_width_tokens"] for row in rows]
+    assert widths == sorted(widths, reverse=True)
+    assert rows[0]["within_group_rho"] == 0.0
+
+
+def test_option_f_declares_its_threats_explicitly() -> None:
+    _, _, _, report = _f_fixture()
+    text = " ".join(report["threats"])
+
+    assert "dilut" in text.lower()
+    assert "attribution" in text.lower()
+    assert "post-hoc" in text.lower()
+    assert "manipulation_check" == report["design"]["band_attainment_role"]
+
+
+@pytest.mark.skipif(
+    not REAL_PACK.is_dir(),
+    reason="frozen evidence pack absent (local/ is not tracked)",
+)
+def test_real_pack_option_f_numbers(tmp_path: Path) -> None:
+    result = mod.run(REAL_PACK, tmp_path)
+
+    options = result["options"]
+    report = result["f"]
+
+    assert options["F"]["groups_in_design"] == 20
+    assert options["F"]["cells_in_design"] == 40
+    assert options["F"]["cells_headroom_eligible"] == 38
+    assert options["F"]["paired_groups_n"] == 18
+    assert options["F"]["per_condition_analysed_cells"] == {"C1": 18, "C2": 20}
+    assert options["F"]["new_calibration_required"] is False
+    assert options["F"]["noise_design"]["runs"] == 30
+
+    excluded = {(row["group_id"], row["condition"]) for row in options["F"]["excluded_pairs"]}
+    assert excluded == {("g09", "C1"), ("g18", "C1")}
+
+    manip = report["manipulation_check"]
+    assert manip["cells_in_designed_band"] == 8
+    assert manip["groups_with_both_conditions_in_band"] == ["g16"]
+    assert len(manip["delta_rho_at_least_0_10"]) == 9
+    assert len(manip["delta_rho_between_0_01_and_0_10"]) == 8
+    assert len(manip["delta_rho_below_0_01"]) == 3
+
+    h3 = result["h3"]["F"]
+    assert h3["primary_h3_n"] == 9
+    assert h3["primary_h3_cells"] == 16
+
+    interaction = report["interaction"]
+    assert interaction["paired_groups"] == 18
+    assert interaction["paired_responsive_n"] == 7
+    assert interaction["meets_minimum_analysed_cells"] is False
+
+    calibration = result["calibration"]["designs"]["option_F_two_level_fixed_pressure"]
+    assert calibration["total_new_runs"] == 270
+
+    written = json.loads((tmp_path / "option-f-report.json").read_text("utf-8"))
+    assert written["design"]["name"] == "OPTION_F_TWO_LEVEL_FIXED_PRESSURE"
+
+
+# --------------------------------------------------------------------------- #
+# end to end against the real frozen pack (skipped when absent)
+# --------------------------------------------------------------------------- #
 
 
 @pytest.mark.skipif(

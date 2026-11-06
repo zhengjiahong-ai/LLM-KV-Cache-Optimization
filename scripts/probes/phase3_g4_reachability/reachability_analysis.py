@@ -82,6 +82,19 @@ WEAK_DELTA_RHO = 0.10
 #: sub-interval are reported separately so the change can be adjudicated alone.
 OPTION_E_BAND = (0.15, 0.45)
 
+#: Option F keeps both pressures that iteration 1 actually executed and drops the
+#: requirement that they hit the designed bands. The conditions are therefore
+#: *facts about the executed runs*, not a new parameter choice: no threshold is
+#: relaxed and no new pressure is introduced. They are relabelled C1/C2 because
+#: "L_LOW"/"L_HIGH" would assert a state separation the data does not show for
+#: 11 of 20 groups.
+OPTION_F_CONDITIONS: dict[str, str] = {"C1": "L_LOW", "C2": "L_HIGH"}
+
+#: Option F noise design: 5 groups x 2 conditions x R=3, unchanged from v3.
+NOISE_GROUPS = 5
+NOISE_CONDITIONS = 2
+NOISE_REPEATS = 3
+
 #: Planning SD inherited from Phase 2E/2G observations. Used only to *plan*
 #: precision; never reported as an achieved half-width.
 PLANNING_GROUP_SD_TOKENS = 2000.0
@@ -897,6 +910,87 @@ def option_report(cells: list[Cell], groups: list[GroupSummary]) -> dict:
     a_prime_ids = sorted(a_prime_map)
     e_ids = sorted(e_map)
 
+    # --- Option F: both executed pressures, all groups, no band requirement ---
+    by_group: dict[str, dict[str, Cell]] = {}
+    for cell in cells:
+        by_group.setdefault(cell.group_id, {})[cell.load_level] = cell
+
+    paired_groups = [
+        group_id
+        for group_id in sorted(by_group)
+        if all(
+            by_group[group_id][level].headroom_eligible for level in OPTION_F_CONDITIONS.values()
+        )
+    ]
+    excluded_pairs: list[dict] = []
+    for group_id in sorted(by_group):
+        for label, level in OPTION_F_CONDITIONS.items():
+            cell = by_group[group_id][level]
+            if cell.headroom_eligible:
+                continue
+            reasons = []
+            if not cell.headroom_ratio_ok:
+                reasons.append(f"rho0 {cell.rho0:.4f} below the 5% ratio floor")
+            if not cell.headroom_abs_ok:
+                reasons.append(f"R0 {cell.r0} below the 512-token floor")
+            excluded_pairs.append(
+                {
+                    "group_id": group_id,
+                    "condition": label,
+                    "load_level": level,
+                    "why": "; ".join(reasons),
+                    "effect": "the group cannot supply a two-condition pair",
+                }
+            )
+
+    f_block = {
+        "rule": (
+            "Keep both executed pressures (256 and 1024 blocks) for all 20 groups. "
+            "Band attainment is a manipulation check, not an admission rule."
+        ),
+        "conditions": {
+            label: {
+                "load_level": level,
+                "pressure_blocks": ITER1_PRESSURE[level],
+                "evidence_class": "MEASURED",
+            }
+            for label, level in OPTION_F_CONDITIONS.items()
+        },
+        "arms": ARMS_PER_CELL,
+        "groups_in_design": len(by_group),
+        "cells_in_design": len(cells),
+        "cells_headroom_eligible": sum(1 for c in cells if c.headroom_eligible),
+        "paired_groups": paired_groups,
+        "paired_groups_n": len(paired_groups),
+        "excluded_pairs": excluded_pairs,
+        "per_condition_analysed_cells": {
+            label: sum(1 for c in cells if c.load_level == level and c.headroom_eligible)
+            for label, level in OPTION_F_CONDITIONS.items()
+        },
+        "new_calibration_required": False,
+        "noise_design": {
+            "groups": NOISE_GROUPS,
+            "conditions": NOISE_CONDITIONS,
+            "repeats": NOISE_REPEATS,
+            "runs": NOISE_GROUPS * NOISE_CONDITIONS * NOISE_REPEATS,
+            "unchanged_from_v3": True,
+        },
+        "F_responsive": sorted(set(paired_groups) & responsive),
+        "F_weak": sorted(set(paired_groups) & weak),
+        "F_flat": sorted(set(paired_groups) & flat),
+        "F_design_responsive": sorted(responsive),
+        "F_design_weak": sorted(weak),
+        "F_design_flat": sorted(flat),
+        "F_h3_primary_cells": sum(
+            1 for c in cells if c.group_id in responsive and c.headroom_eligible
+        ),
+        "design_strata": {
+            "RESPONSIVE": len(responsive),
+            "WEAK": len(weak),
+            "FLAT": len(flat),
+        },
+    }
+
     return {
         "A_two_level_groups": sorted(
             g.group_id for g in groups if g.verdict == "TWO_LEVEL_CONTRAST_MEASURED_SUPPORTED"
@@ -929,6 +1023,7 @@ def option_report(cells: list[Cell], groups: list[GroupSummary]) -> dict:
         "E_responsive": sorted(set(e_ids) & responsive),
         "E_weak": sorted(set(e_ids) & weak),
         "E_flat": sorted(set(e_ids) & flat),
+        "F": f_block,
         "frozen_band_union": [
             L_LOW_BAND[0],
             L_LOW_BAND[1],
@@ -988,6 +1083,274 @@ def h3_report(options: dict) -> dict:
             "descriptive_only_groups": options["E_weak"],
             "flat_groups": options["E_flat"],
         },
+        "F": {
+            "primary_h3_groups": options["F"]["F_design_responsive"],
+            "primary_h3_n": len(options["F"]["F_design_responsive"]),
+            "primary_h3_cells": options["F"]["F_h3_primary_cells"],
+            "secondary_h3_groups": _secondary(
+                options["F"]["paired_groups"], options["F"]["F_flat"]
+            ),
+            "secondary_h3_n": len(
+                _secondary(options["F"]["paired_groups"], options["F"]["F_flat"])
+            ),
+            "descriptive_only_groups": options["F"]["F_weak"],
+            "flat_groups": options["F"]["F_flat"],
+            "note": (
+                "H3 is a per-cell A0-vs-N0 comparison, so it does not need a pair: "
+                "g09 and g18 keep an H3 cell on their Headroom-eligible condition "
+                "even though they drop out of the paired two-condition design."
+            ),
+        },
+    }
+
+
+def _f_group_average_precision(paired_n: int) -> list[dict]:
+    """Planned precision of the two-condition group-averaged delta.
+
+    Averaging the two condition deltas inside a group cancels part of the noise
+    when they are positively correlated: ``Var(mean) = sd^2 * (1 + rho) / 2``.
+    ``rho`` is not measured here, so the whole range is reported rather than a
+    single flattering number.
+    """
+
+    baseline = NORMAL_95_Z * PLANNING_GROUP_SD_TOKENS / (20**0.5)
+    rows: list[dict] = []
+    for rho in (0.0, 0.5, 0.8, 1.0):
+        sd = PLANNING_GROUP_SD_TOKENS * (((1.0 + rho) / 2.0) ** 0.5)
+        half_width = NORMAL_95_Z * sd / (paired_n**0.5)
+        rows.append(
+            {
+                "within_group_rho": rho,
+                "sd_tokens": round(sd, 1),
+                "planned_ci_half_width_tokens": round(half_width, 1),
+                "ratio_vs_single_level_n20": round(half_width / baseline, 3),
+                "equivalent_single_level_n": round(paired_n * 2.0 / (1.0 + rho), 1),
+            }
+        )
+    return rows
+
+
+def _f_interaction_precision(paired_n: int) -> list[dict]:
+    """Planned precision of ``delta_D = Delta(C2) - Delta(C1)``.
+
+    ``sd(delta_D) = sqrt(2) * sd_delta * sqrt(1 - rho)``: the difference of two
+    correlated deltas is *worse* than a single delta when the conditions are
+    independent, and no better than one delta when they are perfectly correlated.
+    """
+
+    rows: list[dict] = []
+    for rho in (0.0, 0.5, 0.8):
+        sd = (2.0**0.5) * PLANNING_GROUP_SD_TOKENS * ((1.0 - rho) ** 0.5)
+        half_width = NORMAL_95_Z * sd / (paired_n**0.5)
+        rows.append(
+            {
+                "within_group_rho": rho,
+                "sd_tokens": round(sd, 1),
+                "planned_ci_half_width_tokens": round(half_width, 1),
+            }
+        )
+    return rows
+
+
+def f_report(cells: list[Cell], groups: list[GroupSummary], options: dict) -> dict:
+    """Option F -- two-level fixed-pressure evaluation (offline design analysis).
+
+    F keeps both pressures that were actually executed and stops treating the
+    designed ``rho0`` bands as an admission rule. Nothing is relaxed: no threshold
+    moves, no new pressure appears, and every cell in the analysis is one that was
+    actually run. What changes is the *operational definition of the condition* --
+    from "a level of a controlled variable" to "a fixed operating point" -- and
+    that is why the band check becomes a manipulation check instead of a gate.
+    """
+
+    f = options["F"]
+    strata = {g.group_id: g.pressure_response for g in groups}
+    by_group: dict[str, dict[str, Cell]] = {}
+    for cell in cells:
+        by_group.setdefault(cell.group_id, {})[cell.load_level] = cell
+
+    rows: list[dict] = []
+    for group_id in sorted(by_group):
+        low = by_group[group_id]["L_LOW"]
+        high = by_group[group_id]["L_HIGH"]
+        rows.append(
+            {
+                "group_id": group_id,
+                "condition_C1": {
+                    "load_level": "L_LOW",
+                    "pressure_blocks": low.measured_blocks,
+                    "rho0": round(low.rho0, 6),
+                    "r0": low.r0,
+                    "in_designed_band": low.measured_inside_target,
+                    "headroom_eligible": low.headroom_eligible,
+                },
+                "condition_C2": {
+                    "load_level": "L_HIGH",
+                    "pressure_blocks": high.measured_blocks,
+                    "rho0": round(high.rho0, 6),
+                    "r0": high.r0,
+                    "in_designed_band": high.measured_inside_target,
+                    "headroom_eligible": high.headroom_eligible,
+                },
+                "delta_rho_measured": round(high.rho0 - low.rho0, 6),
+                "pressure_response": strata[group_id],
+                "both_in_designed_band": (
+                    low.measured_inside_target and high.measured_inside_target
+                ),
+                "neither_in_designed_band": (
+                    not low.measured_inside_target and not high.measured_inside_target
+                ),
+                "paired_admissible": (low.headroom_eligible and high.headroom_eligible),
+            }
+        )
+
+    both = [r["group_id"] for r in rows if r["both_in_designed_band"]]
+    neither = [r["group_id"] for r in rows if r["neither_in_designed_band"]]
+    one = [
+        r["group_id"]
+        for r in rows
+        if not r["both_in_designed_band"] and not r["neither_in_designed_band"]
+    ]
+    responsive = [r for r in rows if r["pressure_response"] == "RESPONSIVE"]
+    weak = [r for r in rows if r["pressure_response"] == "WEAK"]
+    flat = [r for r in rows if r["pressure_response"] == "FLAT"]
+    paired_n = f["paired_groups_n"]
+    paired_responsive = [r["group_id"] for r in responsive if r["paired_admissible"]]
+
+    return {
+        "design": {
+            "name": "OPTION_F_TWO_LEVEL_FIXED_PRESSURE",
+            "conditions": f["conditions"],
+            "arms": f["arms"],
+            "groups_in_design": f["groups_in_design"],
+            "cells_in_design": f["cells_in_design"],
+            "band_attainment_is_a_gate": False,
+            "band_attainment_role": "manipulation_check",
+            "new_calibration_required": f["new_calibration_required"],
+            "why_no_new_calibration": (
+                "F's two conditions are exactly the two pressures iteration 1 "
+                "executed (40 A0 runs). Every cell in the analysis therefore has a "
+                "measured rho0 and a measured R0 at the pressure it will be run at, "
+                "so the §3.6 Headroom test has already been evaluated there."
+            ),
+        },
+        "manipulation_check": {
+            "purpose": (
+                "Report whether the two fixed pressures induced the intended "
+                "recomputation states. Not used to admit or exclude any cell."
+            ),
+            "cells_in_designed_band": sum(
+                1
+                for r in rows
+                for key in ("condition_C1", "condition_C2")
+                if r[key]["in_designed_band"]
+            ),
+            "cells_total": 2 * len(rows),
+            "groups_with_both_conditions_in_band": both,
+            "groups_with_one_condition_in_band": one,
+            "groups_with_neither_condition_in_band": neither,
+            "delta_rho_at_least_0_10": [r["group_id"] for r in responsive],
+            "delta_rho_between_0_01_and_0_10": [r["group_id"] for r in weak],
+            "delta_rho_below_0_01": [r["group_id"] for r in flat],
+            "reading": (
+                "The intended two-state assignment is realised in "
+                f"{len(both)} of {len(rows)} groups and the metric separates by at "
+                "least 0.10 in "
+                f"{len(responsive)}. F therefore measures two *fixed* operating "
+                "points, not two validated levels of a manipulated variable; that "
+                "is the claim it is allowed to make."
+            ),
+            "rows": rows,
+        },
+        "population": {
+            "paired_groups": f["paired_groups"],
+            "paired_groups_n": paired_n,
+            "excluded_pairs": f["excluded_pairs"],
+            "per_condition_analysed_cells": f["per_condition_analysed_cells"],
+            "strata_over_design": {
+                "RESPONSIVE": len(responsive),
+                "WEAK": len(weak),
+                "FLAT": len(flat),
+            },
+            "strata_over_paired": {
+                "RESPONSIVE": len(paired_responsive),
+                "WEAK": len([r for r in weak if r["paired_admissible"]]),
+                "FLAT": len([r for r in flat if r["paired_admissible"]]),
+            },
+        },
+        "estimands": {
+            "per_condition": (
+                "Delta per condition, bootstrapped over the groups analysed in that "
+                "condition (C1: "
+                f"{f['per_condition_analysed_cells']['C1']} cells, C2: "
+                f"{f['per_condition_analysed_cells']['C2']} cells)."
+            ),
+            "group_averaged": (
+                "Headline: mean over the two condition deltas inside each paired "
+                f"group, then bootstrapped over the {paired_n} paired groups. "
+                "Averaging inside the group first keeps group as the independent "
+                "unit."
+            ),
+            "interaction": (
+                "Secondary: delta_D_g = Delta_g(C2) - Delta_g(C1), bootstrapped "
+                "over paired groups. Reported by stratum; the pooled value is "
+                "diluted by FLAT groups whose difference is ~0 by construction."
+            ),
+        },
+        "precision": {
+            "group_averaged": _f_group_average_precision(paired_n),
+            "interaction": _f_interaction_precision(paired_n),
+            "caveat": (
+                "Planning values from an assumed per-delta group SD of "
+                f"{PLANNING_GROUP_SD_TOKENS:.0f} tokens and an unmeasured "
+                "within-group correlation. Not achieved precision."
+            ),
+        },
+        "interaction": {
+            "estimable": len(paired_responsive) > 0,
+            "paired_groups": paired_n,
+            "paired_responsive_groups": paired_responsive,
+            "paired_responsive_n": len(paired_responsive),
+            "meets_minimum_analysed_cells": (
+                len(paired_responsive) >= DISCRIMINABLE_DECISION_THRESHOLD
+            ),
+            "caveats": [
+                (
+                    "g09 and g18 lose their pair to Headroom, so the interaction "
+                    f"population is {len(paired_responsive)} RESPONSIVE groups, not 9."
+                ),
+                (
+                    "The 3 FLAT groups contribute a difference of ~0 by construction, "
+                    "so the pooled interaction is diluted toward zero and cannot be "
+                    "read as 'no interaction'."
+                ),
+                (
+                    "A difference of differences has sd sqrt(2)*sd_delta*sqrt(1-rho); "
+                    "it is less precise than either main effect, not more."
+                ),
+            ],
+        },
+        "threats": [
+            (
+                "Condition semantics: calling C1/C2 'low' and 'high' pressure would "
+                "assert a state separation the data contradicts for 14 of 20 "
+                "groups. The labels are fixed operating points."
+            ),
+            (
+                "Dilution: the pooled mean includes groups whose mechanism cannot "
+                "act, so a small pooled effect is not evidence of a small "
+                "mechanistic effect. Stratum estimates carry the mechanistic claim."
+            ),
+            (
+                "Attribution: the two conditions are not two levels of one "
+                "variable for 11 groups, so a condition-by-arm interaction cannot "
+                "be attributed to pressure intensity there."
+            ),
+            (
+                "No post-hoc selection: groups and strata are fixed from A0 "
+                "calibration only; no group may be dropped after seeing an arm."
+            ),
+        ],
     }
 
 
@@ -1021,6 +1384,8 @@ def calibration_cost_report(options: dict) -> dict:
     model_only_two_level = len(options["A_two_level_groups_model_only"])
     a_prime_n = len(options["A_PRIME_groups"])
     e_n = len(options["E_groups"])
+    f_cells = options["F"]["cells_in_design"]
+    f_noise = options["F"]["noise_design"]["runs"]
 
     return {
         "arms_per_cell": ARMS_PER_CELL,
@@ -1040,8 +1405,14 @@ def calibration_cost_report(options: dict) -> dict:
             "option_A_prime": runs(a_prime_n, 0, 27),
             "option_E": runs(e_n, 0, 27),
             "option_E_with_g4a": runs(len(options["E_responsive"]), 0, 27),
+            "option_F_two_level_fixed_pressure": runs(f_cells, 0, f_noise),
             "option_B": runs(40, 40, 30),
         },
+        "option_F_note": (
+            "F uses the two pressures that were already executed, so it needs no "
+            "new calibration and its noise design is the v3 design unchanged "
+            "(5 groups x 2 conditions x R=3). Its 270 new runs equal v3's."
+        ),
         "why_A_needs_calibration": (
             f"Option A was previously costed as if {a_two_level} groups x 2 levels "
             "could reuse the existing evidence. It cannot: the proposed pressures "
@@ -1122,10 +1493,12 @@ def run(pack: Path, out: Path) -> dict:
     options = option_report(cells, groups)
     h3 = h3_report(options)
     calibration = calibration_cost_report(options)
+    f_detail = f_report(cells, groups, options)
     provenance = pack_provenance(pack, verified)
     precision = precision_table(
         {
             "v3_20_groups": 20,
+            "option_F_paired_groups": options["F"]["paired_groups_n"],
             "option_E_all": len(options["E_groups"]),
             "option_E_g4a_responsive": len(options["E_responsive"]),
             "option_A_prime": len(options["A_PRIME_groups"]),
@@ -1168,6 +1541,7 @@ def run(pack: Path, out: Path) -> dict:
     _write_json(out / "option-report.json", options)
     _write_json(out / "h3-report.json", h3)
     _write_json(out / "calibration-cost-report.json", calibration)
+    _write_json(out / "option-f-report.json", f_detail)
     _write_json(out / "pack-provenance.json", provenance)
     _write_json(
         out / "precision-report.json",
@@ -1202,6 +1576,7 @@ def run(pack: Path, out: Path) -> dict:
         "options": options,
         "h3": h3,
         "calibration": calibration,
+        "f": f_detail,
         "provenance": provenance,
         "precision": precision,
         "method": method,
@@ -1291,15 +1666,72 @@ def _print_report(result: dict) -> None:
 
     print()
     print("== H3 populations (RC7, single rule) ==")
-    for design in ("A_PRIME", "E"):
+    for design in ("A_PRIME", "E", "F"):
         block = h3[design]
+        cells_note = f" / {block['primary_h3_cells']} cells" if "primary_h3_cells" in block else ""
         print(
-            f"  {design:8s} primary (RESPONSIVE) n={block['primary_h3_n']:2d}  "
-            f"{', '.join(block['primary_h3_groups'])}"
+            f"  {design:8s} primary (RESPONSIVE) n={block['primary_h3_n']:2d}"
+            f"{cells_note}  {', '.join(block['primary_h3_groups'])}"
         )
         print(
             f"           secondary (descriptive) n={block['secondary_h3_n']:2d}  "
             f"{', '.join(block['secondary_h3_groups'])}"
+        )
+
+    f_detail = result["f"]
+    f_options = options["F"]
+    print()
+    print("== OPTION F: two-level fixed-pressure evaluation ==")
+    print("  conditions            : C1=256 blocks, C2=1024 blocks (both MEASURED)")
+    print(
+        f"  design population     : {f_options['groups_in_design']} groups / "
+        f"{f_options['cells_in_design']} cells; Headroom-eligible "
+        f"{f_options['cells_headroom_eligible']}"
+    )
+    print(
+        f"  paired two-condition  : {f_options['paired_groups_n']} groups "
+        f"(C1 {f_options['per_condition_analysed_cells']['C1']} cells, "
+        f"C2 {f_options['per_condition_analysed_cells']['C2']} cells)"
+    )
+    for row in f_options["excluded_pairs"]:
+        print(f"    pair lost: {row['group_id']} {row['condition']} - {row['why']}")
+    print("  manipulation check (NOT a gate):")
+    manip = f_detail["manipulation_check"]
+    print(
+        f"    cells in designed band        : "
+        f"{manip['cells_in_designed_band']}/{manip['cells_total']}"
+    )
+    print(
+        f"    groups with both in band      : "
+        f"{len(manip['groups_with_both_conditions_in_band'])} -> "
+        f"{', '.join(manip['groups_with_both_conditions_in_band']) or 'none'}"
+    )
+    print(
+        f"    groups with one in band       : "
+        f"{len(manip['groups_with_one_condition_in_band'])} -> "
+        f"{', '.join(manip['groups_with_one_condition_in_band']) or 'none'}"
+    )
+    print(
+        f"    groups with neither in band   : {len(manip['groups_with_neither_condition_in_band'])}"
+    )
+    print(
+        f"    dRho >= 0.10 / 0.01-0.10 / <0.01 : "
+        f"{len(manip['delta_rho_at_least_0_10'])} / "
+        f"{len(manip['delta_rho_between_0_01_and_0_10'])} / "
+        f"{len(manip['delta_rho_below_0_01'])}"
+    )
+    print(
+        f"  interaction           : paired n={f_detail['interaction']['paired_groups']}, "
+        f"RESPONSIVE paired n={f_detail['interaction']['paired_responsive_n']} "
+        f"({', '.join(f_detail['interaction']['paired_responsive_groups'])})"
+    )
+    print("  planned precision (group-averaged delta, SD=2000 assumption):")
+    for row in f_detail["precision"]["group_averaged"]:
+        print(
+            f"    rho={row['within_group_rho']:.1f}  sd={row['sd_tokens']:7.1f}  "
+            f"+/-{row['planned_ci_half_width_tokens']:7.1f} tokens  "
+            f"({row['ratio_vs_single_level_n20']:.2f}x n=20)  "
+            f"n_eff={row['equivalent_single_level_n']}"
         )
 
     print()

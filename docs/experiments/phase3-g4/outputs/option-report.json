@@ -489,6 +489,130 @@
     "g17"
   ],
   "E_flat": [],
+  "F": {
+    "rule": "Keep both executed pressures (256 and 1024 blocks) for all 20 groups. Band attainment is a manipulation check, not an admission rule.",
+    "conditions": {
+      "C1": {
+        "load_level": "L_LOW",
+        "pressure_blocks": 256,
+        "evidence_class": "MEASURED"
+      },
+      "C2": {
+        "load_level": "L_HIGH",
+        "pressure_blocks": 1024,
+        "evidence_class": "MEASURED"
+      }
+    },
+    "arms": 6,
+    "groups_in_design": 20,
+    "cells_in_design": 40,
+    "cells_headroom_eligible": 38,
+    "paired_groups": [
+      "g01",
+      "g02",
+      "g03",
+      "g04",
+      "g05",
+      "g06",
+      "g07",
+      "g08",
+      "g10",
+      "g11",
+      "g12",
+      "g13",
+      "g14",
+      "g15",
+      "g16",
+      "g17",
+      "g19",
+      "g20"
+    ],
+    "paired_groups_n": 18,
+    "excluded_pairs": [
+      {
+        "group_id": "g09",
+        "condition": "C1",
+        "load_level": "L_LOW",
+        "why": "rho0 0.0448 below the 5% ratio floor",
+        "effect": "the group cannot supply a two-condition pair"
+      },
+      {
+        "group_id": "g18",
+        "condition": "C1",
+        "load_level": "L_LOW",
+        "why": "rho0 0.0000 below the 5% ratio floor; R0 0 below the 512-token floor",
+        "effect": "the group cannot supply a two-condition pair"
+      }
+    ],
+    "per_condition_analysed_cells": {
+      "C1": 18,
+      "C2": 20
+    },
+    "new_calibration_required": false,
+    "noise_design": {
+      "groups": 5,
+      "conditions": 2,
+      "repeats": 3,
+      "runs": 30,
+      "unchanged_from_v3": true
+    },
+    "F_responsive": [
+      "g03",
+      "g04",
+      "g05",
+      "g10",
+      "g12",
+      "g16",
+      "g19"
+    ],
+    "F_weak": [
+      "g02",
+      "g06",
+      "g07",
+      "g08",
+      "g11",
+      "g13",
+      "g15",
+      "g17"
+    ],
+    "F_flat": [
+      "g01",
+      "g14",
+      "g20"
+    ],
+    "F_design_responsive": [
+      "g03",
+      "g04",
+      "g05",
+      "g09",
+      "g10",
+      "g12",
+      "g16",
+      "g18",
+      "g19"
+    ],
+    "F_design_weak": [
+      "g02",
+      "g06",
+      "g07",
+      "g08",
+      "g11",
+      "g13",
+      "g15",
+      "g17"
+    ],
+    "F_design_flat": [
+      "g01",
+      "g14",
+      "g20"
+    ],
+    "F_h3_primary_cells": 16,
+    "design_strata": {
+      "RESPONSIVE": 9,
+      "WEAK": 8,
+      "FLAT": 3
+    }
+  },
   "frozen_band_union": [
     0.05,
     0.15,

@@ -1,0 +1,698 @@
+{
+  "design": {
+    "name": "OPTION_F_TWO_LEVEL_FIXED_PRESSURE",
+    "conditions": {
+      "C1": {
+        "load_level": "L_LOW",
+        "pressure_blocks": 256,
+        "evidence_class": "MEASURED"
+      },
+      "C2": {
+        "load_level": "L_HIGH",
+        "pressure_blocks": 1024,
+        "evidence_class": "MEASURED"
+      }
+    },
+    "arms": 6,
+    "groups_in_design": 20,
+    "cells_in_design": 40,
+    "band_attainment_is_a_gate": false,
+    "band_attainment_role": "manipulation_check",
+    "new_calibration_required": false,
+    "why_no_new_calibration": "F's two conditions are exactly the two pressures iteration 1 executed (40 A0 runs). Every cell in the analysis therefore has a measured rho0 and a measured R0 at the pressure it will be run at, so the §3.6 Headroom test has already been evaluated there."
+  },
+  "manipulation_check": {
+    "purpose": "Report whether the two fixed pressures induced the intended recomputation states. Not used to admit or exclude any cell.",
+    "cells_in_designed_band": 8,
+    "cells_total": 40,
+    "groups_with_both_conditions_in_band": [
+      "g16"
+    ],
+    "groups_with_one_condition_in_band": [
+      "g03",
+      "g04",
+      "g08",
+      "g09",
+      "g12",
+      "g18"
+    ],
+    "groups_with_neither_condition_in_band": [
+      "g01",
+      "g02",
+      "g05",
+      "g06",
+      "g07",
+      "g10",
+      "g11",
+      "g13",
+      "g14",
+      "g15",
+      "g17",
+      "g19",
+      "g20"
+    ],
+    "delta_rho_at_least_0_10": [
+      "g03",
+      "g04",
+      "g05",
+      "g09",
+      "g10",
+      "g12",
+      "g16",
+      "g18",
+      "g19"
+    ],
+    "delta_rho_between_0_01_and_0_10": [
+      "g02",
+      "g06",
+      "g07",
+      "g08",
+      "g11",
+      "g13",
+      "g15",
+      "g17"
+    ],
+    "delta_rho_below_0_01": [
+      "g01",
+      "g14",
+      "g20"
+    ],
+    "reading": "The intended two-state assignment is realised in 1 of 20 groups and the metric separates by at least 0.10 in 9. F therefore measures two *fixed* operating points, not two validated levels of a manipulated variable; that is the claim it is allowed to make.",
+    "rows": [
+      {
+        "group_id": "g01",
+        "condition_C1": {
+          "load_level": "L_LOW",
+          "pressure_blocks": 256,
+          "rho0": 0.553104,
+          "r0": 77168,
+          "in_designed_band": false,
+          "headroom_eligible": true
+        },
+        "condition_C2": {
+          "load_level": "L_HIGH",
+          "pressure_blocks": 1024,
+          "rho0": 0.558871,
+          "r0": 78992,
+          "in_designed_band": false,
+          "headroom_eligible": true
+        },
+        "delta_rho_measured": 0.005767,
+        "pressure_response": "FLAT",
+        "both_in_designed_band": false,
+        "neither_in_designed_band": true,
+        "paired_admissible": true
+      },
+      {
+        "group_id": "g02",
+        "condition_C1": {
+          "load_level": "L_LOW",
+          "pressure_blocks": 256,
+          "rho0": 0.407602,
+          "r0": 32880,
+          "in_designed_band": false,
+          "headroom_eligible": true
+        },
+        "condition_C2": {
+          "load_level": "L_HIGH",
+          "pressure_blocks": 1024,
+          "rho0": 0.506144,
+          "r0": 48976,
+          "in_designed_band": false,
+          "headroom_eligible": true
+        },
+        "delta_rho_measured": 0.098542,
+        "pressure_response": "WEAK",
+        "both_in_designed_band": false,
+        "neither_in_designed_band": true,
+        "paired_admissible": true
+      },
+      {
+        "group_id": "g03",
+        "condition_C1": {
+          "load_level": "L_LOW",
+          "pressure_blocks": 256,
+          "rho0": 0.182081,
+          "r0": 8304,
+          "in_designed_band": false,
+          "headroom_eligible": true
+        },
+        "condition_C2": {
+          "load_level": "L_HIGH",
+          "pressure_blocks": 1024,
+          "rho0": 0.355685,
+          "r0": 20592,
+          "in_designed_band": true,
+          "headroom_eligible": true
+        },
+        "delta_rho_measured": 0.173603,
+        "pressure_response": "RESPONSIVE",
+        "both_in_designed_band": false,
+        "neither_in_designed_band": false,
+        "paired_admissible": true
+      },
+      {
+        "group_id": "g04",
+        "condition_C1": {
+          "load_level": "L_LOW",
+          "pressure_blocks": 256,
+          "rho0": 0.278662,
+          "r0": 15264,
+          "in_designed_band": false,
+          "headroom_eligible": true
+        },
+        "condition_C2": {
+          "load_level": "L_HIGH",
+          "pressure_blocks": 1024,
+          "rho0": 0.410831,
+          "r0": 27552,
+          "in_designed_band": true,
+          "headroom_eligible": true
+        },
+        "delta_rho_measured": 0.132169,
+        "pressure_response": "RESPONSIVE",
+        "both_in_designed_band": false,
+        "neither_in_designed_band": false,
+        "paired_admissible": true
+      },
+      {
+        "group_id": "g05",
+        "condition_C1": {
+          "load_level": "L_LOW",
+          "pressure_blocks": 256,
+          "rho0": 0.23165,
+          "r0": 11920,
+          "in_designed_band": false,
+          "headroom_eligible": true
+        },
+        "condition_C2": {
+          "load_level": "L_HIGH",
+          "pressure_blocks": 1024,
+          "rho0": 0.450394,
+          "r0": 32400,
+          "in_designed_band": false,
+          "headroom_eligible": true
+        },
+        "delta_rho_measured": 0.218744,
+        "pressure_response": "RESPONSIVE",
+        "both_in_designed_band": false,
+        "neither_in_designed_band": true,
+        "paired_admissible": true
+      },
+      {
+        "group_id": "g06",
+        "condition_C1": {
+          "load_level": "L_LOW",
+          "pressure_blocks": 256,
+          "rho0": 0.408117,
+          "r0": 30128,
+          "in_designed_band": false,
+          "headroom_eligible": true
+        },
+        "condition_C2": {
+          "load_level": "L_HIGH",
+          "pressure_blocks": 1024,
+          "rho0": 0.492579,
+          "r0": 42416,
+          "in_designed_band": false,
+          "headroom_eligible": true
+        },
+        "delta_rho_measured": 0.084462,
+        "pressure_response": "WEAK",
+        "both_in_designed_band": false,
+        "neither_in_designed_band": true,
+        "paired_admissible": true
+      },
+      {
+        "group_id": "g07",
+        "condition_C1": {
+          "load_level": "L_LOW",
+          "pressure_blocks": 256,
+          "rho0": 0.53729,
+          "r0": 57216,
+          "in_designed_band": false,
+          "headroom_eligible": true
+        },
+        "condition_C2": {
+          "load_level": "L_HIGH",
+          "pressure_blocks": 1024,
+          "rho0": 0.585159,
+          "r0": 69504,
+          "in_designed_band": false,
+          "headroom_eligible": true
+        },
+        "delta_rho_measured": 0.047869,
+        "pressure_response": "WEAK",
+        "both_in_designed_band": false,
+        "neither_in_designed_band": true,
+        "paired_admissible": true
+      },
+      {
+        "group_id": "g08",
+        "condition_C1": {
+          "load_level": "L_LOW",
+          "pressure_blocks": 256,
+          "rho0": 0.350404,
+          "r0": 24064,
+          "in_designed_band": false,
+          "headroom_eligible": true
+        },
+        "condition_C2": {
+          "load_level": "L_HIGH",
+          "pressure_blocks": 1024,
+          "rho0": 0.448995,
+          "r0": 36352,
+          "in_designed_band": true,
+          "headroom_eligible": true
+        },
+        "delta_rho_measured": 0.098591,
+        "pressure_response": "WEAK",
+        "both_in_designed_band": false,
+        "neither_in_designed_band": false,
+        "paired_admissible": true
+      },
+      {
+        "group_id": "g09",
+        "condition_C1": {
+          "load_level": "L_LOW",
+          "pressure_blocks": 256,
+          "rho0": 0.044797,
+          "r0": 1552,
+          "in_designed_band": false,
+          "headroom_eligible": false
+        },
+        "condition_C2": {
+          "load_level": "L_HIGH",
+          "pressure_blocks": 1024,
+          "rho0": 0.294888,
+          "r0": 13840,
+          "in_designed_band": true,
+          "headroom_eligible": true
+        },
+        "delta_rho_measured": 0.250091,
+        "pressure_response": "RESPONSIVE",
+        "both_in_designed_band": false,
+        "neither_in_designed_band": false,
+        "paired_admissible": false
+      },
+      {
+        "group_id": "g10",
+        "condition_C1": {
+          "load_level": "L_LOW",
+          "pressure_blocks": 256,
+          "rho0": 0.210505,
+          "r0": 10256,
+          "in_designed_band": false,
+          "headroom_eligible": true
+        },
+        "condition_C2": {
+          "load_level": "L_HIGH",
+          "pressure_blocks": 1024,
+          "rho0": 0.472685,
+          "r0": 34480,
+          "in_designed_band": false,
+          "headroom_eligible": true
+        },
+        "delta_rho_measured": 0.26218,
+        "pressure_response": "RESPONSIVE",
+        "both_in_designed_band": false,
+        "neither_in_designed_band": true,
+        "paired_admissible": true
+      },
+      {
+        "group_id": "g11",
+        "condition_C1": {
+          "load_level": "L_LOW",
+          "pressure_blocks": 256,
+          "rho0": 0.412078,
+          "r0": 34240,
+          "in_designed_band": false,
+          "headroom_eligible": true
+        },
+        "condition_C2": {
+          "load_level": "L_HIGH",
+          "pressure_blocks": 1024,
+          "rho0": 0.482615,
+          "r0": 45568,
+          "in_designed_band": false,
+          "headroom_eligible": true
+        },
+        "delta_rho_measured": 0.070536,
+        "pressure_response": "WEAK",
+        "both_in_designed_band": false,
+        "neither_in_designed_band": true,
+        "paired_admissible": true
+      },
+      {
+        "group_id": "g12",
+        "condition_C1": {
+          "load_level": "L_LOW",
+          "pressure_blocks": 256,
+          "rho0": 0.334851,
+          "r0": 20736,
+          "in_designed_band": false,
+          "headroom_eligible": true
+        },
+        "condition_C2": {
+          "load_level": "L_HIGH",
+          "pressure_blocks": 1024,
+          "rho0": 0.444983,
+          "r0": 33024,
+          "in_designed_band": true,
+          "headroom_eligible": true
+        },
+        "delta_rho_measured": 0.110132,
+        "pressure_response": "RESPONSIVE",
+        "both_in_designed_band": false,
+        "neither_in_designed_band": false,
+        "paired_admissible": true
+      },
+      {
+        "group_id": "g13",
+        "condition_C1": {
+          "load_level": "L_LOW",
+          "pressure_blocks": 256,
+          "rho0": 0.392746,
+          "r0": 32896,
+          "in_designed_band": false,
+          "headroom_eligible": true
+        },
+        "condition_C2": {
+          "load_level": "L_HIGH",
+          "pressure_blocks": 1024,
+          "rho0": 0.469995,
+          "r0": 45104,
+          "in_designed_band": false,
+          "headroom_eligible": true
+        },
+        "delta_rho_measured": 0.077249,
+        "pressure_response": "WEAK",
+        "both_in_designed_band": false,
+        "neither_in_designed_band": true,
+        "paired_admissible": true
+      },
+      {
+        "group_id": "g14",
+        "condition_C1": {
+          "load_level": "L_LOW",
+          "pressure_blocks": 256,
+          "rho0": 0.638563,
+          "r0": 113792,
+          "in_designed_band": false,
+          "headroom_eligible": true
+        },
+        "condition_C2": {
+          "load_level": "L_HIGH",
+          "pressure_blocks": 1024,
+          "rho0": 0.638563,
+          "r0": 113792,
+          "in_designed_band": false,
+          "headroom_eligible": true
+        },
+        "delta_rho_measured": 0.0,
+        "pressure_response": "FLAT",
+        "both_in_designed_band": false,
+        "neither_in_designed_band": true,
+        "paired_admissible": true
+      },
+      {
+        "group_id": "g15",
+        "condition_C1": {
+          "load_level": "L_LOW",
+          "pressure_blocks": 256,
+          "rho0": 0.463325,
+          "r0": 47312,
+          "in_designed_band": false,
+          "headroom_eligible": true
+        },
+        "condition_C2": {
+          "load_level": "L_HIGH",
+          "pressure_blocks": 1024,
+          "rho0": 0.50512,
+          "r0": 55936,
+          "in_designed_band": false,
+          "headroom_eligible": true
+        },
+        "delta_rho_measured": 0.041795,
+        "pressure_response": "WEAK",
+        "both_in_designed_band": false,
+        "neither_in_designed_band": true,
+        "paired_admissible": true
+      },
+      {
+        "group_id": "g16",
+        "condition_C1": {
+          "load_level": "L_LOW",
+          "pressure_blocks": 256,
+          "rho0": 0.107009,
+          "r0": 4240,
+          "in_designed_band": true,
+          "headroom_eligible": true
+        },
+        "condition_C2": {
+          "load_level": "L_HIGH",
+          "pressure_blocks": 1024,
+          "rho0": 0.444424,
+          "r0": 28304,
+          "in_designed_band": true,
+          "headroom_eligible": true
+        },
+        "delta_rho_measured": 0.337415,
+        "pressure_response": "RESPONSIVE",
+        "both_in_designed_band": true,
+        "neither_in_designed_band": false,
+        "paired_admissible": true
+      },
+      {
+        "group_id": "g17",
+        "condition_C1": {
+          "load_level": "L_LOW",
+          "pressure_blocks": 256,
+          "rho0": 0.429328,
+          "r0": 39824,
+          "in_designed_band": false,
+          "headroom_eligible": true
+        },
+        "condition_C2": {
+          "load_level": "L_HIGH",
+          "pressure_blocks": 1024,
+          "rho0": 0.474554,
+          "r0": 47808,
+          "in_designed_band": false,
+          "headroom_eligible": true
+        },
+        "delta_rho_measured": 0.045226,
+        "pressure_response": "WEAK",
+        "both_in_designed_band": false,
+        "neither_in_designed_band": true,
+        "paired_admissible": true
+      },
+      {
+        "group_id": "g18",
+        "condition_C1": {
+          "load_level": "L_LOW",
+          "pressure_blocks": 256,
+          "rho0": 0.0,
+          "r0": 0,
+          "in_designed_band": false,
+          "headroom_eligible": false
+        },
+        "condition_C2": {
+          "load_level": "L_HIGH",
+          "pressure_blocks": 1024,
+          "rho0": 0.276541,
+          "r0": 11792,
+          "in_designed_band": true,
+          "headroom_eligible": true
+        },
+        "delta_rho_measured": 0.276541,
+        "pressure_response": "RESPONSIVE",
+        "both_in_designed_band": false,
+        "neither_in_designed_band": false,
+        "paired_admissible": false
+      },
+      {
+        "group_id": "g19",
+        "condition_C1": {
+          "load_level": "L_LOW",
+          "pressure_blocks": 256,
+          "rho0": 0.157472,
+          "r0": 6848,
+          "in_designed_band": false,
+          "headroom_eligible": true
+        },
+        "condition_C2": {
+          "load_level": "L_HIGH",
+          "pressure_blocks": 1024,
+          "rho0": 0.475979,
+          "r0": 33280,
+          "in_designed_band": false,
+          "headroom_eligible": true
+        },
+        "delta_rho_measured": 0.318507,
+        "pressure_response": "RESPONSIVE",
+        "both_in_designed_band": false,
+        "neither_in_designed_band": true,
+        "paired_admissible": true
+      },
+      {
+        "group_id": "g20",
+        "condition_C1": {
+          "load_level": "L_LOW",
+          "pressure_blocks": 256,
+          "rho0": 0.620062,
+          "r0": 97248,
+          "in_designed_band": false,
+          "headroom_eligible": true
+        },
+        "condition_C2": {
+          "load_level": "L_HIGH",
+          "pressure_blocks": 1024,
+          "rho0": 0.623176,
+          "r0": 98544,
+          "in_designed_band": false,
+          "headroom_eligible": true
+        },
+        "delta_rho_measured": 0.003114,
+        "pressure_response": "FLAT",
+        "both_in_designed_band": false,
+        "neither_in_designed_band": true,
+        "paired_admissible": true
+      }
+    ]
+  },
+  "population": {
+    "paired_groups": [
+      "g01",
+      "g02",
+      "g03",
+      "g04",
+      "g05",
+      "g06",
+      "g07",
+      "g08",
+      "g10",
+      "g11",
+      "g12",
+      "g13",
+      "g14",
+      "g15",
+      "g16",
+      "g17",
+      "g19",
+      "g20"
+    ],
+    "paired_groups_n": 18,
+    "excluded_pairs": [
+      {
+        "group_id": "g09",
+        "condition": "C1",
+        "load_level": "L_LOW",
+        "why": "rho0 0.0448 below the 5% ratio floor",
+        "effect": "the group cannot supply a two-condition pair"
+      },
+      {
+        "group_id": "g18",
+        "condition": "C1",
+        "load_level": "L_LOW",
+        "why": "rho0 0.0000 below the 5% ratio floor; R0 0 below the 512-token floor",
+        "effect": "the group cannot supply a two-condition pair"
+      }
+    ],
+    "per_condition_analysed_cells": {
+      "C1": 18,
+      "C2": 20
+    },
+    "strata_over_design": {
+      "RESPONSIVE": 9,
+      "WEAK": 8,
+      "FLAT": 3
+    },
+    "strata_over_paired": {
+      "RESPONSIVE": 7,
+      "WEAK": 8,
+      "FLAT": 3
+    }
+  },
+  "estimands": {
+    "per_condition": "Delta per condition, bootstrapped over the groups analysed in that condition (C1: 18 cells, C2: 20 cells).",
+    "group_averaged": "Headline: mean over the two condition deltas inside each paired group, then bootstrapped over the 18 paired groups. Averaging inside the group first keeps group as the independent unit.",
+    "interaction": "Secondary: delta_D_g = Delta_g(C2) - Delta_g(C1), bootstrapped over paired groups. Reported by stratum; the pooled value is diluted by FLAT groups whose difference is ~0 by construction."
+  },
+  "precision": {
+    "group_averaged": [
+      {
+        "within_group_rho": 0.0,
+        "sd_tokens": 1414.2,
+        "planned_ci_half_width_tokens": 653.3,
+        "ratio_vs_single_level_n20": 0.745,
+        "equivalent_single_level_n": 36.0
+      },
+      {
+        "within_group_rho": 0.5,
+        "sd_tokens": 1732.1,
+        "planned_ci_half_width_tokens": 800.2,
+        "ratio_vs_single_level_n20": 0.913,
+        "equivalent_single_level_n": 24.0
+      },
+      {
+        "within_group_rho": 0.8,
+        "sd_tokens": 1897.4,
+        "planned_ci_half_width_tokens": 876.5,
+        "ratio_vs_single_level_n20": 1.0,
+        "equivalent_single_level_n": 20.0
+      },
+      {
+        "within_group_rho": 1.0,
+        "sd_tokens": 2000.0,
+        "planned_ci_half_width_tokens": 923.9,
+        "ratio_vs_single_level_n20": 1.054,
+        "equivalent_single_level_n": 18.0
+      }
+    ],
+    "interaction": [
+      {
+        "within_group_rho": 0.0,
+        "sd_tokens": 2828.4,
+        "planned_ci_half_width_tokens": 1306.6
+      },
+      {
+        "within_group_rho": 0.5,
+        "sd_tokens": 2000.0,
+        "planned_ci_half_width_tokens": 923.9
+      },
+      {
+        "within_group_rho": 0.8,
+        "sd_tokens": 1264.9,
+        "planned_ci_half_width_tokens": 584.3
+      }
+    ],
+    "caveat": "Planning values from an assumed per-delta group SD of 2000 tokens and an unmeasured within-group correlation. Not achieved precision."
+  },
+  "interaction": {
+    "estimable": true,
+    "paired_groups": 18,
+    "paired_responsive_groups": [
+      "g03",
+      "g04",
+      "g05",
+      "g10",
+      "g12",
+      "g16",
+      "g19"
+    ],
+    "paired_responsive_n": 7,
+    "meets_minimum_analysed_cells": false,
+    "caveats": [
+      "g09 and g18 lose their pair to Headroom, so the interaction population is 7 RESPONSIVE groups, not 9.",
+      "The 3 FLAT groups contribute a difference of ~0 by construction, so the pooled interaction is diluted toward zero and cannot be read as 'no interaction'.",
+      "A difference of differences has sd sqrt(2)*sd_delta*sqrt(1-rho); it is less precise than either main effect, not more."
+    ]
+  },
+  "threats": [
+    "Condition semantics: calling C1/C2 'low' and 'high' pressure would assert a state separation the data contradicts for 14 of 20 groups. The labels are fixed operating points.",
+    "Dilution: the pooled mean includes groups whose mechanism cannot act, so a small pooled effect is not evidence of a small mechanistic effect. Stratum estimates carry the mechanistic claim.",
+    "Attribution: the two conditions are not two levels of one variable for 11 groups, so a condition-by-arm interaction cannot be attributed to pressure intensity there.",
+    "No post-hoc selection: groups and strata are fixed from A0 calibration only; no group may be dropped after seeing an arm."
+  ]
+}
