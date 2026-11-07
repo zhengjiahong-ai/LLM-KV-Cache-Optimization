@@ -5,12 +5,16 @@
 - M1 design decision: Option F accepted (Issue #98; PR #97).
 - Protocol: v4 implemented as an independent document; v3 remains historical.
 - Existing A0 calibration: reused, not rerun.
-- G0 tooling: implemented. The v1 review bundle is retained as historical
-  preparation evidence. The replacement v2 bundle was generated on clean HEAD
-  `1e210f681ae257858a33f295b2e7ef118e218e62` after the strengthened mapping
-  checks passed against the real server evidence.
-- Noise Calibration: locked pending M1 G0 review.
-- Main Campaign: locked pending Noise Calibration and applicable gates.
+- G0 tooling: implemented. v1/v2 remain immutable historical bundles; v3 is
+  the accepted final G0 review bundle, regenerated on the real evidence server
+  after the final Seal Group-ID identity checks.
+- G0: accepted by M1 on 2026-11-07.
+- Noise Calibration: M1-authorized, exactly 30 A0 runs; execution owner is M6.
+- Main Campaign: remains locked pending completed Noise Calibration, frozen
+  tied threshold, and all applicable G1/G2/G3-CM/G4 gates.
+- M1 authorization record:
+  `docs/experiments/phase3-option-f-noise-calibration-authorization.md`
+- PR #99 merged as `a7fe138354720412b393ac584e8d1d6ed8cd4709`.
 - GPU executions performed by this change: zero.
 
 ## Implemented engineering scope
@@ -74,3 +78,17 @@ identities are consistent; its archive SHA-256 is
 `7b3a78c8e582067e6a236885aa91980cf51a77bf2787d774b82733612cd94529`.
 Every generated input remains unauthorized. Noise Calibration and the Main
 Campaign remain locked until their respective M1 gate decisions.
+
+
+## M1 decision — 2026-11-07
+
+PR #99 was merged after final approval at
+`6f77f7178d366a259e14285469f9419e05afaa5f`. G0 v3 is accepted.
+
+Exactly the 30-run A0 Noise Calibration is authorized. The frozen plan and
+input manifest hashes are recorded in the M1 authorization record. M6 owns
+execution and must verify all frozen hashes before launch, preserve complete
+Native evidence, and submit the independent Noise evaluation to M1.
+
+The 240-run Main Campaign remains unauthorized. No A0 Load Calibration rerun,
+cohort reacquisition, or campaign scope expansion is permitted.
