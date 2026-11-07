@@ -1,0 +1,300 @@
+{
+  "allocation": {
+    "FLAT": 1,
+    "RESPONSIVE": 2,
+    "WEAK": 2
+  },
+  "candidate_groups": [
+    "g01",
+    "g02",
+    "g03",
+    "g04",
+    "g05",
+    "g06",
+    "g07",
+    "g08",
+    "g10",
+    "g11",
+    "g12",
+    "g13",
+    "g14",
+    "g15",
+    "g16",
+    "g17",
+    "g19",
+    "g20"
+  ],
+  "execution_authorized": false,
+  "planned_run_count": 30,
+  "runs": [
+    {
+      "arm": "A0",
+      "condition": "C1",
+      "group_id": "g01",
+      "repeat": 1,
+      "run_id": "phase3-noise-g01-c1-a0-r1",
+      "stratum": "FLAT"
+    },
+    {
+      "arm": "A0",
+      "condition": "C1",
+      "group_id": "g01",
+      "repeat": 2,
+      "run_id": "phase3-noise-g01-c1-a0-r2",
+      "stratum": "FLAT"
+    },
+    {
+      "arm": "A0",
+      "condition": "C1",
+      "group_id": "g01",
+      "repeat": 3,
+      "run_id": "phase3-noise-g01-c1-a0-r3",
+      "stratum": "FLAT"
+    },
+    {
+      "arm": "A0",
+      "condition": "C2",
+      "group_id": "g01",
+      "repeat": 1,
+      "run_id": "phase3-noise-g01-c2-a0-r1",
+      "stratum": "FLAT"
+    },
+    {
+      "arm": "A0",
+      "condition": "C2",
+      "group_id": "g01",
+      "repeat": 2,
+      "run_id": "phase3-noise-g01-c2-a0-r2",
+      "stratum": "FLAT"
+    },
+    {
+      "arm": "A0",
+      "condition": "C2",
+      "group_id": "g01",
+      "repeat": 3,
+      "run_id": "phase3-noise-g01-c2-a0-r3",
+      "stratum": "FLAT"
+    },
+    {
+      "arm": "A0",
+      "condition": "C1",
+      "group_id": "g04",
+      "repeat": 1,
+      "run_id": "phase3-noise-g04-c1-a0-r1",
+      "stratum": "RESPONSIVE"
+    },
+    {
+      "arm": "A0",
+      "condition": "C1",
+      "group_id": "g04",
+      "repeat": 2,
+      "run_id": "phase3-noise-g04-c1-a0-r2",
+      "stratum": "RESPONSIVE"
+    },
+    {
+      "arm": "A0",
+      "condition": "C1",
+      "group_id": "g04",
+      "repeat": 3,
+      "run_id": "phase3-noise-g04-c1-a0-r3",
+      "stratum": "RESPONSIVE"
+    },
+    {
+      "arm": "A0",
+      "condition": "C2",
+      "group_id": "g04",
+      "repeat": 1,
+      "run_id": "phase3-noise-g04-c2-a0-r1",
+      "stratum": "RESPONSIVE"
+    },
+    {
+      "arm": "A0",
+      "condition": "C2",
+      "group_id": "g04",
+      "repeat": 2,
+      "run_id": "phase3-noise-g04-c2-a0-r2",
+      "stratum": "RESPONSIVE"
+    },
+    {
+      "arm": "A0",
+      "condition": "C2",
+      "group_id": "g04",
+      "repeat": 3,
+      "run_id": "phase3-noise-g04-c2-a0-r3",
+      "stratum": "RESPONSIVE"
+    },
+    {
+      "arm": "A0",
+      "condition": "C1",
+      "group_id": "g06",
+      "repeat": 1,
+      "run_id": "phase3-noise-g06-c1-a0-r1",
+      "stratum": "WEAK"
+    },
+    {
+      "arm": "A0",
+      "condition": "C1",
+      "group_id": "g06",
+      "repeat": 2,
+      "run_id": "phase3-noise-g06-c1-a0-r2",
+      "stratum": "WEAK"
+    },
+    {
+      "arm": "A0",
+      "condition": "C1",
+      "group_id": "g06",
+      "repeat": 3,
+      "run_id": "phase3-noise-g06-c1-a0-r3",
+      "stratum": "WEAK"
+    },
+    {
+      "arm": "A0",
+      "condition": "C2",
+      "group_id": "g06",
+      "repeat": 1,
+      "run_id": "phase3-noise-g06-c2-a0-r1",
+      "stratum": "WEAK"
+    },
+    {
+      "arm": "A0",
+      "condition": "C2",
+      "group_id": "g06",
+      "repeat": 2,
+      "run_id": "phase3-noise-g06-c2-a0-r2",
+      "stratum": "WEAK"
+    },
+    {
+      "arm": "A0",
+      "condition": "C2",
+      "group_id": "g06",
+      "repeat": 3,
+      "run_id": "phase3-noise-g06-c2-a0-r3",
+      "stratum": "WEAK"
+    },
+    {
+      "arm": "A0",
+      "condition": "C1",
+      "group_id": "g07",
+      "repeat": 1,
+      "run_id": "phase3-noise-g07-c1-a0-r1",
+      "stratum": "WEAK"
+    },
+    {
+      "arm": "A0",
+      "condition": "C1",
+      "group_id": "g07",
+      "repeat": 2,
+      "run_id": "phase3-noise-g07-c1-a0-r2",
+      "stratum": "WEAK"
+    },
+    {
+      "arm": "A0",
+      "condition": "C1",
+      "group_id": "g07",
+      "repeat": 3,
+      "run_id": "phase3-noise-g07-c1-a0-r3",
+      "stratum": "WEAK"
+    },
+    {
+      "arm": "A0",
+      "condition": "C2",
+      "group_id": "g07",
+      "repeat": 1,
+      "run_id": "phase3-noise-g07-c2-a0-r1",
+      "stratum": "WEAK"
+    },
+    {
+      "arm": "A0",
+      "condition": "C2",
+      "group_id": "g07",
+      "repeat": 2,
+      "run_id": "phase3-noise-g07-c2-a0-r2",
+      "stratum": "WEAK"
+    },
+    {
+      "arm": "A0",
+      "condition": "C2",
+      "group_id": "g07",
+      "repeat": 3,
+      "run_id": "phase3-noise-g07-c2-a0-r3",
+      "stratum": "WEAK"
+    },
+    {
+      "arm": "A0",
+      "condition": "C1",
+      "group_id": "g10",
+      "repeat": 1,
+      "run_id": "phase3-noise-g10-c1-a0-r1",
+      "stratum": "RESPONSIVE"
+    },
+    {
+      "arm": "A0",
+      "condition": "C1",
+      "group_id": "g10",
+      "repeat": 2,
+      "run_id": "phase3-noise-g10-c1-a0-r2",
+      "stratum": "RESPONSIVE"
+    },
+    {
+      "arm": "A0",
+      "condition": "C1",
+      "group_id": "g10",
+      "repeat": 3,
+      "run_id": "phase3-noise-g10-c1-a0-r3",
+      "stratum": "RESPONSIVE"
+    },
+    {
+      "arm": "A0",
+      "condition": "C2",
+      "group_id": "g10",
+      "repeat": 1,
+      "run_id": "phase3-noise-g10-c2-a0-r1",
+      "stratum": "RESPONSIVE"
+    },
+    {
+      "arm": "A0",
+      "condition": "C2",
+      "group_id": "g10",
+      "repeat": 2,
+      "run_id": "phase3-noise-g10-c2-a0-r2",
+      "stratum": "RESPONSIVE"
+    },
+    {
+      "arm": "A0",
+      "condition": "C2",
+      "group_id": "g10",
+      "repeat": 3,
+      "run_id": "phase3-noise-g10-c2-a0-r3",
+      "stratum": "RESPONSIVE"
+    }
+  ],
+  "salt": "phase3-noise-selection-v1",
+  "schema_version": "phase3.option_f_noise_plan.v1",
+  "selected_by_stratum": {
+    "FLAT": [
+      "g01"
+    ],
+    "RESPONSIVE": [
+      "g04",
+      "g10"
+    ],
+    "WEAK": [
+      "g07",
+      "g06"
+    ]
+  },
+  "selected_groups": [
+    "g01",
+    "g04",
+    "g06",
+    "g07",
+    "g10"
+  ],
+  "strata_by_group": {
+    "g01": "FLAT",
+    "g04": "RESPONSIVE",
+    "g06": "WEAK",
+    "g07": "WEAK",
+    "g10": "RESPONSIVE"
+  }
+}

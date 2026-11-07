@@ -1679,6 +1679,9 @@ class MinimalMetalObservabilityBackend:
                     raise ValueError(
                         "Phase 2H pressure stages require frozen explicit token IDs"
                     )
+            elif config.get("campaign_kind") == _PHASE3_CAMPAIGN_KIND:
+                if block_override != 2048:
+                    raise ValueError("Phase 3 Final Evaluation requires 2048 blocks")
             elif block_override != expected_override:
                 raise ValueError(
                     "profiling cache.block_override must equal protected-prefix blocks "

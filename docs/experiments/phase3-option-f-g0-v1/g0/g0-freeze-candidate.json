@@ -1,0 +1,215 @@
+{
+  "a0_calibration_manifest": {
+    "inventory_sha256": "4b922606d4278cb76fa38b429615dabc1f97ed95aba8b00e51ad8dae62b352fc",
+    "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-inputs-v1/manifest.json",
+    "run_count": 40,
+    "sha256": "eb3eb0ffb68bc007bcb20d2dd27eedc0e7853a5d958a315495772e8b59a77d01"
+  },
+  "a0_execution_evidence": {
+    "analysis_archive": {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-g4-reachability-analysis-pack-v1.tar.gz",
+      "sha256": "f43527173be466b9f20f1d429285d246ffaefd54a9bb9ef6cd221000b070c29e"
+    },
+    "execution_summary": {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-runs-v2/execution-summary.json",
+      "sha256": "cd128417a16ea3ecb044bfa40b9033e64b9ef26a446ff4847a06b06fd7626bb2"
+    },
+    "formal_to_native_run_map": {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-scheduler-and-run-mapping-audit-v1/formal-to-native-run-map.json",
+      "sha256": "1b6322f083576581d517a0bc6612399ece99097031537c453258d25e3898499d"
+    },
+    "native_evidence_archive": {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-native-evidence-v1.tar.gz",
+      "sha256": "e815fc598187b439c07cbe27421f4f10ba7ed67b10ee078ca5c99e336761c763"
+    }
+  },
+  "a0_reports": [
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g01-l-high-a0.json",
+      "sha256": "608aea099ebaf98fe59d4421f6fe8d1eeffb2bb0492192afbfe65e04f687ee17"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g01-l-low-a0.json",
+      "sha256": "1ac431b78974a8644373369dc281ca028766210c83b67aca93328e623a5b1c2e"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g02-l-high-a0.json",
+      "sha256": "6122c44883fefbde95459f6360cd412e366e50187aff05d85557971e6a34aa70"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g02-l-low-a0.json",
+      "sha256": "91757ac13095d3a0b1d75817fad83221fc55a525ca7fedfa241a5c65966fc9b9"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g03-l-high-a0.json",
+      "sha256": "cc5f3323d3b95bf3788a0cd2c984252cd36ab704d427209d2b07d2abbc5907b7"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g03-l-low-a0.json",
+      "sha256": "3457414650a94dc732f18014c713a97a698deded155d22ca2dcf6aba55c92e76"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g04-l-high-a0.json",
+      "sha256": "b702d896cc4c69a1f449eef9a5f98173203cbdc5b0d632fc40e1b6f6b784591c"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g04-l-low-a0.json",
+      "sha256": "52d0e88dd031695b5b95c6a4bbf168e751fa5a35a6949d82105cadc81e77b385"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g05-l-high-a0.json",
+      "sha256": "4f63a63e5c03ed9e93d836043c072fea6c03b84ce7766934f04633cdd443535a"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g05-l-low-a0.json",
+      "sha256": "52935dcde317e19ed9a37e6336e2926f85fa81ba759be8da476f0a864d361779"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g06-l-high-a0.json",
+      "sha256": "6e901d51ce3726829fbeb857119032d5ccf01f775fa3256462453f453d5e83ae"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g06-l-low-a0.json",
+      "sha256": "9fe18b84839f53b77eb542394a21cc6735d512f5065c64e75df1fcc629117c55"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g07-l-high-a0.json",
+      "sha256": "2dab9b1ab36742a81d59abd8c9086a4801c7954fbcf120a54aea2bf3c7c9fd79"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g07-l-low-a0.json",
+      "sha256": "dd83c08ed0e30dca64698b9844b6e5abd40b14e7e964bed33ba54fa957f79756"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g08-l-high-a0.json",
+      "sha256": "1afd2410699e32806f3a9aa639c54e80579fe2c2bc5da0bd780ac140f1562246"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g08-l-low-a0.json",
+      "sha256": "45a43f8844f5f694db7633723e2b7214b87364218d3501f76a3e9163835485bd"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g09-l-high-a0.json",
+      "sha256": "d703f6e5afb6747250da72a9bedf9bde75ea0fda935c0ff9c0b7f247406604db"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g09-l-low-a0.json",
+      "sha256": "f3e59b7f826613ac69baa544e7f079a3c716cda88383094924c25913f715a39b"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g10-l-high-a0.json",
+      "sha256": "514d03372f29f25d8f381b9b7926e894d2fd9033d76d618b21d768f82dd883e8"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g10-l-low-a0.json",
+      "sha256": "4ac3762c2f8ae8cdcb9ea27848067134ba6e5609c418445f703aefad88c2ffa2"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g11-l-high-a0.json",
+      "sha256": "54b9e51d0534f9637fab728ca8de8be1a414533e783c301567e7b68b7f72819c"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g11-l-low-a0.json",
+      "sha256": "6d8c3cfe2aa8ae2cb6ecb825c3683eec154c5d479aa6a5c52e1b806809549e76"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g12-l-high-a0.json",
+      "sha256": "b67dd36895cf8812b386ce6ec55865aa3570b503be4d086dc2ac9c4c2216a0b9"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g12-l-low-a0.json",
+      "sha256": "9a85e5f424d48a66f8e71fbb03bce1ea1261e59a96adff8eac78e6f0782519a6"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g13-l-high-a0.json",
+      "sha256": "3e0c58425ad924589b870367625b763b92b0c2043e2e1157cf3cc9647e127df8"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g13-l-low-a0.json",
+      "sha256": "ef9975bbde859294cfa0d80e8ff09cf1a5a820af74928f5a66bf651be4f46579"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g14-l-high-a0.json",
+      "sha256": "8786aebf1a3559c18a575fe88c247e32eb2cd3cb8a60816050f46901142bcd48"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g14-l-low-a0.json",
+      "sha256": "696118aea290061c4844eb244b6ee3ccc9fb0fc8337bf2aaeee32bf149e89605"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g15-l-high-a0.json",
+      "sha256": "b484523619bad85f51672d7e97aa1abbef4274eb18cfbc19cd684d8065ad1cc0"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g15-l-low-a0.json",
+      "sha256": "797e329b3b27c05310ef0037398b5c1cfbbd89e85e59ba30bbd5445218b51424"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g16-l-high-a0.json",
+      "sha256": "b33af5e850122b28b14334823f81da4695d8d5f8e89ff6c8aacf4fb6b8b17448"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g16-l-low-a0.json",
+      "sha256": "f3f86a55be762b0deb901c230f67406a969a954ec9b579bff376678ba397d563"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g17-l-high-a0.json",
+      "sha256": "d207dd6e5e30c742c88d102ff41a289974ab7b3ffbdc045b258d9cd43fca6382"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g17-l-low-a0.json",
+      "sha256": "4fbd8618ec24d9ed3ef251a80023cb74d518f799d3a7d434b07c254c6172c4ab"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g18-l-high-a0.json",
+      "sha256": "f74344f58601313a490c46009680b0bfc412fe2156d0be5e1b41ec079f45c45f"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g18-l-low-a0.json",
+      "sha256": "28984d2127d3c299cf7903f0e151952554baf885f43fdbdf5416d471af5d57b9"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g19-l-high-a0.json",
+      "sha256": "efe3ccbcc63e87d74367e8838df44a1ce8fda2b9cd00c6b24628f0c51b2e8bc0"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g19-l-low-a0.json",
+      "sha256": "8831a02555c599ead52ac95f7880f43a2f7fd3a87204889625bb7342ab212668"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g20-l-high-a0.json",
+      "sha256": "dcf2a4e322a3b7b7fb7df5c3cedf763134804c86b5a18eee2f590b061be43925"
+    },
+    {
+      "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-load-calibration-analysis-v7/runs/phase3-load-calibration-g20-l-low-a0.json",
+      "sha256": "3efb63cd955d777a6e5ca33bb4f77127dc1621a0140e9c24af081022f378c93c"
+    }
+  ],
+  "classification_sha256": "82b23d68a0af0fa715dca6886250aee395f308ce1882a0416096f4ebfc029ec6",
+  "cohort_seal": {
+    "group_count": 20,
+    "path": "/root/bayes-tmp/kvopt/workspace/phase3-final-evaluation/artifacts/phase3-cohort-seal-v1/cohort-seal.json",
+    "repository_count": 10,
+    "sha256": "9e528b173e2205a3f5137ee036e842dc739e7827e5f294dd7907c180ee38ea5f",
+    "task_count": 40
+  },
+  "execution_authorized": false,
+  "gates": {
+    "G0": "FREEZE_CANDIDATE",
+    "G4": "PASS_HEADROOM_38_OF_40",
+    "G4_M": "REPORTED_NON_GATING_8_OF_40_IN_BAND",
+    "main": "LOCKED_PENDING_NOISE_AND_OTHER_GATES",
+    "noise": "LOCKED_PENDING_G0_REVIEW"
+  },
+  "main_plan_sha256": "5828ce55dbc23ca14aa5c0074ae8c795f51ecb301bd01de003eb8c7045e27f21",
+  "noise_plan_sha256": "8d7dfc84c0e8edbe798f0c682ce3dd03668f06811a625cdfd8f92d101950d7be",
+  "prohibitions": [
+    "NO_C1_C2_LOW_HIGH_RELABEL",
+    "NO_CELL_LEVEL_PSEUDOREPLICATION",
+    "NO_POST_HOC_SUBGROUP_SELECTION",
+    "NO_DELTA_RHO_ARM_INTERACTION_INFERENCE"
+  ],
+  "protocol": "PHASE3_FINAL_EVALUATION_PROTOCOL_V4_OPTION_F",
+  "schema_version": "phase3.option_f_g0_freeze_candidate.v1",
+  "status": "READY_FOR_M1_G0_REVIEW"
+}

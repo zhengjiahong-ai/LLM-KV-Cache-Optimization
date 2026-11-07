@@ -37,6 +37,7 @@ class NECRequestResult:
     new_suffix_tokens: int
     apc_outcome: str
     eligibility_source: str
+    concurrent_eligibility_audits: tuple[dict[str, object], ...]
 
 
 def _object(value: object, name: str) -> Mapping[str, object]:
@@ -60,6 +61,15 @@ def _integer(value: object, name: str, *, positive: bool = False) -> int:
     return value
 
 
+def _timestamp(value: object, name: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ArtifactValidationError(f"{name} must be a numeric timestamp")
+    result = float(value)
+    if result <= 0:
+        raise ArtifactValidationError(f"{name} must be positive")
+    return result
+
+
 def _hashes(value: object, name: str) -> tuple[str, ...]:
     if not isinstance(value, list):
         raise ArtifactValidationError(f"{name} must be an array")
@@ -75,6 +85,15 @@ def _hashes(value: object, name: str) -> tuple[str, ...]:
                 f"{name} items must be 64-character lowercase SHA-256 digests"
             )
         result.append(text)
+    return tuple(result)
+
+
+def _block_ids(value: object, name: str) -> tuple[int, ...]:
+    if not isinstance(value, list):
+        raise ArtifactValidationError(f"{name} must be an array")
+    result: list[int] = []
+    for item in value:
+        result.append(_integer(item, f"{name} item"))
     return tuple(result)
 
 
@@ -127,6 +146,7 @@ def _derive_request(
     prior_snapshots: Sequence[Mapping[str, object]],
     *,
     completion_output_tokens: int | None,
+    concurrent_eligibility_audits: Sequence[Mapping[str, object]] = (),
 ) -> NECRequestResult:
     program_id, request_id = _identity(observation, "native observation")
     payload = _object(observation.get("payload"), "native observation payload")
@@ -231,10 +251,262 @@ def _derive_request(
         new_suffix_tokens=new_suffix,
         apc_outcome=outcome,
         eligibility_source=(
-            "FROZEN_PRIOR_CONTENT_IDENTITY_CHAIN"
+            "FROZEN_TIMELINE_AND_NATIVE_VISIBILITY_CONTENT_IDENTITY_CHAIN"
             if compatible
             else "FROZEN_HISTORY_NO_PRIOR_ELIGIBLE_CONTENT"
         ),
+        concurrent_eligibility_audits=tuple(
+            dict(row) for row in concurrent_eligibility_audits
+        ),
+    )
+
+
+def _concurrent_visibility_audit(
+    *,
+    producer_identity: tuple[str, str],
+    consumer_identity: tuple[str, str],
+    producer_observation: Mapping[str, object],
+    consumer_observation: Mapping[str, object],
+    producer_snapshot: Mapping[str, object],
+    consumer_snapshot: Mapping[str, object] | None,
+    minimum_eligible_blocks: int,
+) -> tuple[dict[str, object], bool]:
+    """Prove same-batch or earlier-forward visibility without consulting C.
+
+    The frozen vLLM 0.27.1 UniProc path registers a producer's full-block
+    metadata before a later lookup.  For requests in one Scheduler iteration,
+    the attention layer explicitly threads the KV-update dummy dependency into
+    unified attention, preserving scatter-write-before-read ordering.  Across
+    iterations, UniProc invokes the worker synchronously, so successive model
+    submissions preserve that same ordering.  Persisted snapshots must still
+    prove that both requests referenced the identical physical prefix blocks.
+    """
+
+    producer_payload = _object(
+        producer_observation.get("payload"), "producer native observation payload"
+    )
+    consumer_payload = _object(
+        consumer_observation.get("payload"), "consumer native observation payload"
+    )
+    producer_snapshot_payload = _object(
+        producer_snapshot.get("payload"), "producer prefix snapshot payload"
+    )
+    producer_chain = _chain(
+        producer_snapshot_payload,
+        hashes_field="ordered_native_hashes",
+        label="producer prefix snapshot",
+    )
+    consumer_chain = _chain(
+        consumer_payload,
+        hashes_field="native_apc_block_hashes",
+        label="consumer native observation",
+    )
+    if producer_observation.get("clock_domain") != "engine_core_monotonic" or (
+        consumer_observation.get("clock_domain") != "engine_core_monotonic"
+    ):
+        raise ArtifactValidationError(
+            f"{consumer_identity} concurrent visibility timestamps require the "
+            "engine_core_monotonic clock domain"
+        )
+    if (
+        producer_chain.process_id != consumer_chain.process_id
+        or producer_chain.hash_function != consumer_chain.hash_function
+        or producer_chain.block_size != consumer_chain.block_size
+    ):
+        raise ArtifactValidationError(
+            f"{consumer_identity} concurrent predecessor {producer_identity} "
+            "has incompatible Native hash identity"
+        )
+    producer_observation_chain = _chain(
+        producer_payload,
+        hashes_field="native_apc_block_hashes",
+        label="producer native observation",
+    )
+    if (
+        producer_observation_chain.process_id != producer_chain.process_id
+        or producer_observation_chain.hash_function != producer_chain.hash_function
+        or producer_observation_chain.block_size != producer_chain.block_size
+        or producer_observation_chain.hashes[: len(producer_chain.hashes)]
+        != producer_chain.hashes
+    ):
+        raise ArtifactValidationError(
+            f"{producer_identity} Native observation and Snapshot identity disagree"
+        )
+    producer_queued = _timestamp(
+        producer_payload.get("native_queued_timestamp"),
+        "producer native_queued_timestamp",
+    )
+    producer_scheduled = _timestamp(
+        producer_payload.get("native_scheduler_admission_timestamp"),
+        "producer native_scheduler_admission_timestamp",
+    )
+    producer_first_token = _timestamp(
+        producer_payload.get("native_first_token_timestamp"),
+        "producer native_first_token_timestamp",
+    )
+    consumer_queued = _timestamp(
+        consumer_payload.get("native_queued_timestamp"),
+        "consumer native_queued_timestamp",
+    )
+    consumer_scheduled = _timestamp(
+        consumer_payload.get("native_scheduler_admission_timestamp"),
+        "consumer native_scheduler_admission_timestamp",
+    )
+    if producer_scheduled < producer_queued or consumer_scheduled < consumer_queued:
+        raise ArtifactValidationError(
+            f"{consumer_identity} scheduler admission precedes queue entry"
+        )
+    if producer_scheduled > consumer_scheduled:
+        raise ArtifactValidationError(
+            f"{consumer_identity} concurrent predecessor {producer_identity} "
+            "was scheduled after the consumer"
+        )
+    lcp_blocks = _common_prefix(consumer_chain.hashes, producer_chain.hashes)
+    if lcp_blocks <= minimum_eligible_blocks:
+        return (
+            {
+                "producer_program_id": producer_identity[0],
+                "producer_request_id": producer_identity[1],
+                "consumer_program_id": consumer_identity[0],
+                "consumer_request_id": consumer_identity[1],
+                "native_clock_domain": "engine_core_monotonic",
+                "producer_queued_timestamp": producer_queued,
+                "producer_scheduler_admission_timestamp": producer_scheduled,
+                "producer_first_token_timestamp": producer_first_token,
+                "consumer_queued_timestamp": consumer_queued,
+                "consumer_scheduler_admission_timestamp": consumer_scheduled,
+                "snapshot_event_index": _event_index(
+                    producer_snapshot, "producer prefix snapshot"
+                ),
+                "snapshot_may_follow_consumer_observation": (
+                    _event_index(producer_snapshot, "producer prefix snapshot")
+                    > _event_index(consumer_observation, "consumer native observation")
+                ),
+                "hash_lcp_blocks": lcp_blocks,
+                "eligible_full_block_tokens": (
+                    lcp_blocks * consumer_chain.block_size
+                ),
+                "minimum_existing_eligible_blocks": minimum_eligible_blocks,
+                "qualification_result": (
+                    "NOT_QUALIFIED_DOMINATED_BY_EXISTING_HISTORY"
+                ),
+                "visibility_rule": (
+                    "DOMINATED_CANDIDATE_DOES_NOT_CHANGE_INDEPENDENT_E"
+                ),
+                "uses_native_cached_tokens_c": False,
+            },
+            False,
+        )
+    if consumer_snapshot is None:
+        raise ArtifactValidationError(
+            f"{consumer_identity} concurrent candidate could increase E but lacks "
+            "a consumer content-identity Snapshot"
+        )
+    consumer_snapshot_payload = _object(
+        consumer_snapshot.get("payload"), "consumer prefix snapshot payload"
+    )
+    consumer_snapshot_chain = _chain(
+        consumer_snapshot_payload,
+        hashes_field="ordered_native_hashes",
+        label="consumer prefix snapshot",
+    )
+    if (
+        consumer_snapshot_chain.process_id != consumer_chain.process_id
+        or consumer_snapshot_chain.hash_function != consumer_chain.hash_function
+        or consumer_snapshot_chain.block_size != consumer_chain.block_size
+    ):
+        raise ArtifactValidationError(
+            f"{consumer_identity} concurrent Snapshot has incompatible Native identity"
+        )
+    snapshot_lcp_blocks = _common_prefix(
+        consumer_snapshot_chain.hashes, producer_chain.hashes
+    )
+    if snapshot_lcp_blocks < lcp_blocks:
+        raise ArtifactValidationError(
+            f"{consumer_identity} observation and Snapshot disagree on shared prefix"
+        )
+    if (
+        consumer_chain.hashes[: len(consumer_snapshot_chain.hashes)]
+        != consumer_snapshot_chain.hashes
+    ):
+        raise ArtifactValidationError(
+            f"{consumer_identity} Native observation and Snapshot identity disagree"
+        )
+    producer_blocks = _block_ids(
+        producer_snapshot_payload.get("block_ids"),
+        "producer prefix snapshot block_ids",
+    )
+    consumer_blocks = _block_ids(
+        consumer_snapshot_payload.get("block_ids"),
+        "consumer prefix snapshot block_ids",
+    )
+    physical_evidence_complete = (
+        len(producer_blocks) >= lcp_blocks and len(consumer_blocks) >= lcp_blocks
+    )
+    physical_prefix_equal = (
+        physical_evidence_complete
+        and producer_blocks[:lcp_blocks] == consumer_blocks[:lcp_blocks]
+    )
+    if lcp_blocks > 0 and not physical_evidence_complete:
+        raise ArtifactValidationError(
+            f"{consumer_identity} shared prefix lacks complete physical Block evidence"
+        )
+    if lcp_blocks > 0 and not physical_prefix_equal:
+        raise ArtifactValidationError(
+            f"{consumer_identity} shared prefix physical Block IDs disagree"
+        )
+    scheduler_relation = (
+        "SAME_SCHEDULER_ITERATION"
+        if producer_scheduled == consumer_scheduled
+        else "EARLIER_SCHEDULER_ITERATION"
+    )
+    qualified = lcp_blocks > 0 and physical_prefix_equal
+    if qualified:
+        qualification = (
+            "QUALIFIED_SAME_BATCH_SHARED_PREDECESSOR"
+            if scheduler_relation == "SAME_SCHEDULER_ITERATION"
+            else "QUALIFIED_EARLIER_FORWARD_SHARED_PREDECESSOR"
+        )
+    elif lcp_blocks == 0:
+        qualification = "NOT_QUALIFIED_NO_SHARED_COMPLETE_BLOCK"
+    elif not physical_evidence_complete:
+        qualification = "NOT_QUALIFIED_PHYSICAL_BLOCK_EVIDENCE_INCOMPLETE"
+    else:
+        qualification = "NOT_QUALIFIED_PHYSICAL_BLOCK_ID_MISMATCH"
+    return (
+        {
+            "producer_program_id": producer_identity[0],
+            "producer_request_id": producer_identity[1],
+            "consumer_program_id": consumer_identity[0],
+            "consumer_request_id": consumer_identity[1],
+            "native_clock_domain": "engine_core_monotonic",
+            "producer_queued_timestamp": producer_queued,
+            "producer_scheduler_admission_timestamp": producer_scheduled,
+            "producer_first_token_timestamp": producer_first_token,
+            "consumer_queued_timestamp": consumer_queued,
+            "consumer_scheduler_admission_timestamp": consumer_scheduled,
+            "snapshot_event_index": _event_index(
+                producer_snapshot, "producer prefix snapshot"
+            ),
+            "snapshot_may_follow_consumer_observation": (
+                _event_index(producer_snapshot, "producer prefix snapshot")
+                > _event_index(consumer_observation, "consumer native observation")
+            ),
+            "hash_lcp_blocks": lcp_blocks,
+            "eligible_full_block_tokens": lcp_blocks * consumer_chain.block_size,
+            "scheduler_relation": scheduler_relation,
+            "producer_prefix_block_ids": producer_blocks[:lcp_blocks],
+            "consumer_prefix_block_ids": consumer_blocks[:lcp_blocks],
+            "physical_block_evidence_complete": physical_evidence_complete,
+            "physical_prefix_block_ids_equal": physical_prefix_equal,
+            "qualification_result": qualification,
+            "visibility_rule": (
+                "VLLM_0_27_1_UNIPROC_KV_UPDATE_BEFORE_ATTENTION_READ_WITH_"
+                "PHYSICAL_BLOCK_IDENTITY"
+            ),
+            "uses_native_cached_tokens_c": False,
+        },
+        qualified,
     )
 
 
@@ -305,9 +577,10 @@ def _evaluate_arm(
         if snapshot_identity in expected_set:
             snapshots_by_identity.setdefault(snapshot_identity, []).append(event)
 
+    positions = {identity: index for index, identity in enumerate(expected)}
     for identity in expected:
         observation = observations[identity]
-        observation_index = _event_index(observation, "native observation")
+        _event_index(observation, "native observation")
         prior_snapshots: list[Mapping[str, object]] = []
         for predecessor in history_predecessors[identity]:
             matches = snapshots_by_identity.get(predecessor, [])
@@ -316,19 +589,119 @@ def _evaluate_arm(
                     f"{identity} requires exactly one snapshot for "
                     f"history predecessor {predecessor}; observed={len(matches)}"
                 )
-            snapshot = matches[0]
-            snapshot_index = _event_index(snapshot, "prefix snapshot")
-            if snapshot_index >= observation_index:
-                raise ArtifactValidationError(
-                    f"{identity} history predecessor {predecessor} Snapshot "
-                    "does not precede the current Native observation"
+            prior_snapshots.append(matches[0])
+        concurrent_audits: list[dict[str, object]] = []
+        observation_payload = _object(
+            observation.get("payload"), "native observation payload"
+        )
+        current_chain = _chain(
+            observation_payload,
+            hashes_field="native_apc_block_hashes",
+            label="native observation",
+        )
+        minimum_eligible_blocks = 0
+        for snapshot in prior_snapshots:
+            snapshot_chain = _chain(
+                _object(snapshot.get("payload"), "prior prefix snapshot payload"),
+                hashes_field="ordered_native_hashes",
+                label="prior prefix snapshot",
+            )
+            if (
+                snapshot_chain.process_id == current_chain.process_id
+                and snapshot_chain.hash_function == current_chain.hash_function
+                and snapshot_chain.block_size == current_chain.block_size
+            ):
+                minimum_eligible_blocks = max(
+                    minimum_eligible_blocks,
+                    _common_prefix(current_chain.hashes, snapshot_chain.hashes),
                 )
-            prior_snapshots.append(snapshot)
+        completed_predecessors = set(history_predecessors[identity])
+        for producer_identity in expected[: positions[identity]]:
+            if producer_identity in completed_predecessors:
+                continue
+            producer_observation = observations[producer_identity]
+            producer_observation_chain = _chain(
+                _object(
+                    producer_observation.get("payload"),
+                    "producer native observation payload",
+                ),
+                hashes_field="native_apc_block_hashes",
+                label="producer native observation",
+            )
+            compatible_observation_identity = (
+                producer_observation_chain.process_id == current_chain.process_id
+                and producer_observation_chain.hash_function
+                == current_chain.hash_function
+                and producer_observation_chain.block_size == current_chain.block_size
+            )
+            candidate_lcp_blocks = (
+                _common_prefix(
+                    current_chain.hashes, producer_observation_chain.hashes
+                )
+                if compatible_observation_identity
+                else 0
+            )
+            if candidate_lcp_blocks <= minimum_eligible_blocks:
+                concurrent_audits.append(
+                    {
+                        "producer_program_id": producer_identity[0],
+                        "producer_request_id": producer_identity[1],
+                        "consumer_program_id": identity[0],
+                        "consumer_request_id": identity[1],
+                        "hash_lcp_blocks": candidate_lcp_blocks,
+                        "eligible_full_block_tokens": (
+                            candidate_lcp_blocks * current_chain.block_size
+                        ),
+                        "minimum_existing_eligible_blocks": (
+                            minimum_eligible_blocks
+                        ),
+                        "qualification_result": (
+                            "NOT_QUALIFIED_DOMINATED_BY_EXISTING_HISTORY"
+                        ),
+                        "visibility_rule": (
+                            "OBSERVATION_LCP_CANNOT_INCREASE_INDEPENDENT_E"
+                        ),
+                        "producer_snapshot_required": False,
+                        "consumer_snapshot_required": False,
+                        "uses_native_cached_tokens_c": False,
+                    }
+                )
+                continue
+            producer_snapshots = snapshots_by_identity.get(producer_identity, [])
+            if len(producer_snapshots) != 1:
+                raise ArtifactValidationError(
+                    f"{identity} concurrent predecessor {producer_identity} requires "
+                    "exactly one content-identity snapshot"
+                )
+            consumer_snapshots = snapshots_by_identity.get(identity, [])
+            if len(consumer_snapshots) > 1:
+                raise ArtifactValidationError(
+                    f"{identity} has duplicate consumer content-identity Snapshots"
+                )
+            audit, qualified = _concurrent_visibility_audit(
+                producer_identity=producer_identity,
+                consumer_identity=identity,
+                producer_observation=producer_observation,
+                consumer_observation=observation,
+                producer_snapshot=producer_snapshots[0],
+                consumer_snapshot=(
+                    consumer_snapshots[0] if consumer_snapshots else None
+                ),
+                minimum_eligible_blocks=minimum_eligible_blocks,
+            )
+            concurrent_audits.append(audit)
+            if qualified:
+                prior_snapshots.append(producer_snapshots[0])
+                minimum_eligible_blocks = max(
+                    minimum_eligible_blocks,
+                    int(audit["hash_lcp_blocks"]),
+                )
         rows.append(
             _derive_request(
                 observation,
                 prior_snapshots,
                 completion_output_tokens=completions.get(identity),
+                concurrent_eligibility_audits=concurrent_audits,
             )
         )
 
@@ -354,6 +727,55 @@ def _evaluate_arm(
         "apc_reuse_ratio": (None if sum_n == 0 else sum_c / sum_n),
         "recompute_ratio": (None if actual == 0 else recomputed / actual),
     }
+
+
+def evaluate_phase3_nec_arm(
+    *,
+    arm: str,
+    events: Sequence[Mapping[str, object]],
+    frozen_requests: Sequence[tuple[str, str]],
+    native_enqueue_order: Sequence[tuple[str, str]],
+    history_predecessors: Mapping[
+        tuple[str, str], Sequence[tuple[str, str]]
+    ],
+    pressure_request_ids: frozenset[str],
+) -> dict[str, object]:
+    """Evaluate one calibration arm under the same frozen N/E/C contract."""
+
+    if arm not in _PHASE3_ARMS:
+        raise ArtifactValidationError("unsupported Phase 3 arm")
+    frozen_order = tuple(frozen_requests)
+    if not frozen_order:
+        raise ArtifactValidationError("frozen request set must not be empty")
+    if tuple(native_enqueue_order) != frozen_order:
+        raise ArtifactValidationError(
+            "native enqueue order must exactly equal frozen request order"
+        )
+    frozen_set = set(frozen_order)
+    if set(history_predecessors) != frozen_set:
+        raise ArtifactValidationError(
+            "history predecessor keys must exactly equal the frozen request set"
+        )
+    positions = {identity: index for index, identity in enumerate(frozen_order)}
+    normalized: dict[tuple[str, str], tuple[tuple[str, str], ...]] = {}
+    for identity in frozen_order:
+        predecessors = tuple(history_predecessors[identity])
+        if len(predecessors) != len(set(predecessors)):
+            raise ArtifactValidationError(f"{identity} has duplicate history predecessors")
+        if any(
+            predecessor not in frozen_set
+            or positions[predecessor] >= positions[identity]
+            for predecessor in predecessors
+        ):
+            raise ArtifactValidationError(f"{identity} has invalid history predecessors")
+        normalized[identity] = predecessors
+    return _evaluate_arm(
+        arm,
+        events,
+        frozen_order,
+        pressure_request_ids,
+        normalized,
+    )
 
 
 def _pressure_request_ids(cell_manifest: Mapping[str, object]) -> frozenset[str]:

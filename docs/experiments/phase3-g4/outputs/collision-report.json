@@ -1,0 +1,32 @@
+{
+  "unrestricted": [
+    "g01",
+    "g02",
+    "g06",
+    "g07",
+    "g11",
+    "g13",
+    "g14",
+    "g15",
+    "g17",
+    "g20"
+  ],
+  "both_rows_tagged_below_minimum_pressure": [
+    "g01",
+    "g02",
+    "g06",
+    "g07",
+    "g11",
+    "g13",
+    "g15",
+    "g17",
+    "g20"
+  ],
+  "only_outside_tagged_subset": [
+    "g14"
+  ],
+  "tag_detail": {
+    "g14": "L_LOW=FLAT_OR_NEAR_FLAT_EMPIRICAL_RESPONSE;LOAD_ORDER_NOT_IDENTIFIABLE_FROM_ITERATION1 | L_HIGH=FLAT_OR_NEAR_FLAT_EMPIRICAL_RESPONSE;LOAD_ORDER_NOT_IDENTIFIABLE_FROM_ITERATION1"
+  },
+  "note": "The 9-versus-10 difference is g14, whose rows carry FLAT_OR_NEAR_FLAT_EMPIRICAL_RESPONSE rather than TARGET_PREDICTED_BELOW_MINIMUM_PRESSURE. If M1 was reading a different field, the difference set above localises it."
+}

@@ -1,0 +1,63 @@
+{
+  "schema_version": "phase3.agent_acquisition_config.v1",
+  "scope": "PHASE3_FROZEN_COHORT_AGENT_ACQUISITION_NO_NATIVE_CAMPAIGN",
+  "condition": "S100",
+  "sample_manifest": "configs/phase3/phase3-cohort-candidate-plan-v1.json",
+  "candidate_plan_sha256": "5acf735d7b94a0d77222194e325abdeea9ea86f4e15ac8b23fe468df02f06290",
+  "dataset": {
+    "name": "princeton-nlp/SWE-bench_Verified",
+    "config": "default",
+    "split": "test",
+    "revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a"
+  },
+  "author_runner": {
+    "repository": "https://github.com/Hanchenli/vllm-continuum",
+    "commit": "316a58794a6ff86b216e579b74fd56ed0c5a911f",
+    "agent_config": "mini-swe-agent/src/minisweagent/config/extra/swebench.yaml",
+    "author_step_limit": 50,
+    "effective_step_limit": 100,
+    "cost_limit": 3.0
+  },
+  "model": {
+    "model_class": "vllm",
+    "model_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+    "model_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225",
+    "tokenizer_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+    "tokenizer_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225",
+    "base_url": "http://localhost:8100/v1",
+    "stream": true,
+    "max_completion_tokens": 512,
+    "model_kwargs": {"temperature": 0.0, "seed": 20261023},
+    "paper_example_difference": "Local Apple GPU and pinned 3B acquisition model; no paper-run reproduction claim."
+  },
+  "server_runtime": {
+    "backend": "vllm-metal",
+    "vllm_version": "0.27.1+cpu",
+    "vllm_metal_version": "0.3.0",
+    "host": "127.0.0.1",
+    "port": 8100,
+    "max_model_len": 32768,
+    "gpu_memory_utilization": 0.75,
+    "environment": {
+      "HF_HUB_OFFLINE": "1",
+      "TRANSFORMERS_OFFLINE": "1",
+      "VLLM_ENABLE_V1_MULTIPROCESSING": "0"
+    }
+  },
+  "environment": {
+    "environment_class": "docker",
+    "workers": 1,
+    "tool_timeout_seconds": 60
+  },
+  "execution_budget": {
+    "candidate_count": 64,
+    "primary_count": 40,
+    "reserve_count": 24,
+    "overwrite_existing": false,
+    "preserve_failed_attempts": true,
+    "stop_on_individual_task_failure": false,
+    "stop_on_provenance_or_sample_binding_failure": true,
+    "agent_acquisition_authorized": true,
+    "formal_native_campaign_authorized": false
+  }
+}
