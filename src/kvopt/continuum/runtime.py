@@ -114,6 +114,21 @@ class RuntimeCoordinator:
             tuple[ProgramIdentity, RequestIdentity], tuple[float, float, str]
         ] = {}
 
+    def seed_server_gap_history(
+        self, records: tuple[ServerInterRequestGapRecord, ...]
+    ) -> None:
+        """Initialize independent observed history before any tested lifecycle."""
+        if not isinstance(records, tuple) or any(
+            not isinstance(record, ServerInterRequestGapRecord) for record in records
+        ):
+            raise TypeError("records must be a tuple of ServerInterRequestGapRecord")
+        if self.server_gap_history.global_samples():
+            raise ValueError("server-gap history is already initialized")
+        if self._request_arrivals or self._served_turn_counts or self._pending_server_gaps:
+            raise ValueError("server-gap history must be seeded before tested lifecycle")
+        for record in records:
+            self.server_gap_history.record(record)
+
     def scheduler_candidates(
         self, request_ids: tuple[RequestIdentity, ...]
     ) -> tuple[SchedulingCandidate, ...]:
@@ -430,6 +445,32 @@ class RuntimeCoordinator:
                             None if native_queue is None else native_queue[2]
                         ),
                         "native_queue_duration_used_as_ttl_history": False,
+                        "global_server_gap_sample_count": len(
+                            global_server_gap_samples
+                        ),
+                        "tool_server_gap_sample_count": len(
+                            tool_server_gap_samples
+                        ),
+                        "server_gap_history_provenance_source": (
+                            ttl_input.server_gap_history_provenance.source.value
+                        ),
+                        "server_gap_history_provenance_reason": (
+                            ttl_input.server_gap_history_provenance.reason
+                        ),
+                        "default_ttl_seconds": self._default_ttl_seconds,
+                        "duration_history_threshold": self._duration_history_threshold,
+                        "next_tool_type": event.next_tool_type,
+                        "prefill_reload_seconds": prefill_reload_seconds,
+                        "prefill_reload_provenance_source": (
+                            prefill_reload_provenance.source.value
+                        ),
+                        "prefill_reload_provenance_reason": (
+                            prefill_reload_provenance.reason
+                        ),
+                        "global_server_gap_samples_seconds": (
+                            global_server_gap_samples
+                        ),
+                        "tool_server_gap_samples_seconds": tool_server_gap_samples,
                     },
                 )
             )
@@ -437,6 +478,32 @@ class RuntimeCoordinator:
             ttl_input,
             duration_history_threshold=self._duration_history_threshold,
         )
+        if self._history_observation_enabled:
+            self._experiment_event_sink.emit(
+                ExperimentEvent.create(
+                    event_type="TTL_DECISION_OBSERVED",
+                    timestamp=event.finish_timestamp,
+                    clock_domain="continuum_lifecycle",
+                    source="continuum.runtime",
+                    program_id=event.program_id,
+                    request_id=event.request_id,
+                    prefix_id=observation.prefix_id,
+                    payload={
+                        "history_mode": decision.history_mode.value,
+                        "reason": decision.reason,
+                        "ttl_seconds": decision.ttl_seconds,
+                        "default_ttl_seconds": self._default_ttl_seconds,
+                        "ttl_decision_timestamp": decision.decision_timestamp,
+                        "deadline_timestamp": decision.deadline_timestamp,
+                        "global_server_gap_sample_count": len(
+                            global_server_gap_samples
+                        ),
+                        "tool_server_gap_sample_count": len(
+                            tool_server_gap_samples
+                        ),
+                    },
+                )
+            )
         self.retention.upsert(
             RetentionEntrySnapshot(
                 ttl_decision=decision,

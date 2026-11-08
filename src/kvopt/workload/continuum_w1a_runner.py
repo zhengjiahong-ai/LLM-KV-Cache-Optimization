@@ -24,6 +24,7 @@ CONFIG_SCHEMAS = {
     "continuum.w1a_acquisition_config.v1",
     "continuum.w1a_acquisition_config.v2",
     "continuum.w1c_acquisition_config.v1",
+    "phase3.agent_acquisition_config.v1",
 }
 
 
@@ -47,15 +48,23 @@ def load_acquisition_config(
     config = json.loads(path.read_text(encoding="utf-8"))
     if config.get("schema_version") not in CONFIG_SCHEMAS:
         raise ValueError("unsupported W1-A acquisition config")
-    w1c = config.get("schema_version") == "continuum.w1c_acquisition_config.v1"
+    schema = config.get("schema_version")
+    w1c = schema == "continuum.w1c_acquisition_config.v1"
+    phase3 = schema == "phase3.agent_acquisition_config.v1"
     expected_scope = (
-        "W1C_BOUNDED_PAIRED_STEP_LIMIT_FEASIBILITY_PILOT"
-        if w1c
-        else "W1A_BOUNDED_TRAJECTORY_ACQUISITION_NO_NATIVE_CAMPAIGN"
+        "PHASE3_FROZEN_COHORT_AGENT_ACQUISITION_NO_NATIVE_CAMPAIGN"
+        if phase3
+        else (
+            "W1C_BOUNDED_PAIRED_STEP_LIMIT_FEASIBILITY_PILOT"
+            if w1c
+            else "W1A_BOUNDED_TRAJECTORY_ACQUISITION_NO_NATIVE_CAMPAIGN"
+        )
     )
     if config.get("scope") != expected_scope:
         raise ValueError("bounded acquisition scope mismatch")
-    authorization = config.get("execution_budget" if w1c else "acquisition")
+    authorization = config.get(
+        "execution_budget" if (w1c or phase3) else "acquisition"
+    )
     if not isinstance(authorization, dict) or authorization.get(
         "formal_native_campaign_authorized"
     ) is not False:
@@ -66,7 +75,18 @@ def load_acquisition_config(
     sample = json.loads(sample_path.read_text(encoding="utf-8"))
     if config["dataset"]["revision"] != sample["dataset"]["revision"]:
         raise ValueError("dataset revision does not match the W0 frozen sample")
-    if w1c:
+    if phase3:
+        if authorization.get("agent_acquisition_authorized") is not True:
+            raise ValueError("Phase 3 Agent Acquisition is not authorized")
+        if sample.get("schema_version") != "phase3.cohort_candidate_plan.v1":
+            raise ValueError("Phase 3 candidate-plan schema mismatch")
+        if sample.get("status") != "PREREGISTERED_NOT_ACQUIRED":
+            raise ValueError("Phase 3 candidate plan is not preregistered")
+        if _sha256(sample_path) != config.get("candidate_plan_sha256"):
+            raise ValueError("Phase 3 candidate-plan SHA-256 mismatch")
+        if config["author_runner"].get("effective_step_limit") != 100:
+            raise ValueError("Phase 3 acquisition requires the frozen 100-step limit")
+    elif w1c:
         if sample.get("scope") != "W1C_SAMPLING_DESIGN_AND_BOUNDED_S50_S100_PILOT_ONLY":
             raise ValueError("W1-C sample scope mismatch")
         condition = config.get("condition")
@@ -86,7 +106,13 @@ def load_acquisition_config(
 
 
 def validate_instance_id(instance_id: str, sample: dict[str, Any]) -> None:
-    identities = sample.get("pilot_instance_ids", sample.get("instance_ids"))
+    candidates = sample.get("candidates")
+    if isinstance(candidates, list):
+        identities = [
+            row.get("instance_id") for row in candidates if isinstance(row, dict)
+        ]
+    else:
+        identities = sample.get("pilot_instance_ids", sample.get("instance_ids"))
     if not isinstance(identities, list) or instance_id not in identities:
         raise ValueError("instance_id is not in the frozen acquisition sample")
 

@@ -132,6 +132,35 @@ def test_composition_uses_provider_at_representative_token_count(
     assert result["default_ttl_seconds"] == 0.0
 
 
+def test_composition_uses_lowest_positive_reference_when_256_is_out_of_range(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from kvopt.continuum import composition
+
+    class SparseProvider:
+        def estimate(self, token_count: int) -> tuple[float, InputProvenance]:
+            assert token_count == 256
+            raise ValueError("token_count is outside the supported profile range")
+
+        def default_ttl_reference(
+            self,
+        ) -> tuple[int, float, InputProvenance]:
+            return 4096, 0.3, InputProvenance(
+                InputSource.APPROXIMATED, "approved interpreted Profile"
+            )
+
+    monkeypatch.setattr(
+        composition, "load_prefill_reload_provider", lambda _path: SparseProvider()
+    )
+    monkeypatch.setattr(composition, "build_runtime", lambda **kwargs: kwargs)
+
+    result = composition.build_runtime_from_config(
+        config=_config(_write_profile(tmp_path)), clock=FakeClock()
+    )
+
+    assert result["default_ttl_seconds"] == 0.0
+
+
 def test_composition_forwards_independent_runtime_parameters(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

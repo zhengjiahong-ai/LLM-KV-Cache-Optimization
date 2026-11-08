@@ -1,0 +1,39 @@
+{
+  "schema_version": "phase2.config.v1",
+  "trace": "metal-observability-trace.json",
+  "seed": 42,
+  "policy": "continuum-baseline",
+  "runtime_mode": "vllm-cuda-observability",
+  "backend_factory": "scripts.spikes.phase2_minimal_observability_cuda:build_phase2_cuda_observability_backend",
+  "backend_revision": "phase2-native-cuda-observability-v1",
+  "model": {
+    "name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+    "revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225"
+  },
+  "tokenizer": {
+    "name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+    "revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225"
+  },
+  "cache": {
+    "block_override": 64,
+    "block_size": 16
+  },
+  "generation": {
+    "max_new_tokens": 1,
+    "temperature": 0
+  },
+  "batching": {
+    "max_concurrent_requests": 1
+  },
+  "pressure": {
+    "required_blocks": 32,
+    "safety_ceiling": 2
+  },
+  "backend_options": {
+    "target_prefix_tokens": 256,
+    "pressure_prompt_tokens": 512,
+    "gpu_memory_utilization": 0.8,
+    "prefill_profile_path": "docs/experiments/phase1b-continuum/artifacts/prefill-reload-profile-formal-20260920T045859Z-6183d106.json"
+  },
+  "observe": true
+}

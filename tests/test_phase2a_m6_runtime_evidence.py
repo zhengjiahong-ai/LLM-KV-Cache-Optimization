@@ -161,6 +161,28 @@ def test_cold_request_is_not_classified_as_eviction_miss() -> None:
     assert row.apc_outcome == "NO_REUSE_ELIGIBLE_PREFIX"
 
 
+def test_native_hit_proves_eligibility_before_concurrent_snapshot_persists() -> None:
+    row = _table(_native_event(1, prompt=49, cached=16))
+
+    assert row.availability == "AVAILABLE"
+    assert row.eligible_prefix_tokens == 16
+    assert row.native_cached_prefix_tokens == 16
+    assert row.observed_recomputed_tokens == 0
+    assert row.actual_prefill_tokens == 33
+    assert row.apc_outcome == "FULL_HIT"
+
+
+def test_native_hit_remains_eligible_with_incompatible_prior_snapshot() -> None:
+    row = _table(
+        _prefix_snapshot(1, process_id="prior-engine"),
+        _native_event(2, prompt=49, cached=16, process_id="current-engine"),
+    )
+
+    assert row.availability == "AVAILABLE"
+    assert row.eligible_prefix_tokens == 16
+    assert row.observed_recomputed_tokens == 0
+
+
 def test_exact_reusable_hit_has_zero_recomputed_tokens() -> None:
     row = _table(
         _prefix_snapshot(1, hashes=HASHES[:2]),

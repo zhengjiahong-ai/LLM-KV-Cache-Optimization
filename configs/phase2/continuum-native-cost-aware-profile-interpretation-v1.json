@@ -1,0 +1,17 @@
+{
+  "schema_version": "continuum.native_costaware_profile_interpretation_contract.v1",
+  "decision": "M1_NONNEGATIVE_COST_PROJECTION_AUTHORIZED",
+  "decision_date": "2026-10-26",
+  "raw_profile_sha256": "24c2d425a1f16164d4428bba09cc8614d6f57f52d17f8280ee92abf78d1aafb0",
+  "raw_partial_evidence_archive_sha256": "95e158566251ee6b2ee701efcc25701df8dca3484cf4b71beb03b12dfa64e01a",
+  "projection": {
+    "token_count": 1024,
+    "raw_status": "REVIEW_REQUIRED_NON_POSITIVE_MEDIAN",
+    "interpreted_status": "INDISTINGUISHABLE_FROM_ZERO",
+    "effective_cost_seconds": 0.0
+  },
+  "raw_measurement_policy": "PRESERVE_ALL_RAW_DELTAS_MEDIAN_IQR_AND_BOOTSTRAP_INTERVAL",
+  "interpolation_rule": "UNCHANGED_PIECEWISE_LINEAR_BETWEEN_ANCHORS",
+  "ranking_sensitivity_policy": "INCONCLUSIVE_COST_ORDERING_WHEN_UNCERTAINTY_PERMITS_MULTIPLE_LEGAL_CHOICES",
+  "rerun_authorized": false
+}

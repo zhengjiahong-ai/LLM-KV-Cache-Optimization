@@ -1,0 +1,15 @@
+{
+  "candidate_sha256": "7fed871d272184ae96228a92b21d9b89b1500a9959ec6d4b2607677bc946e7d3",
+  "classification_sha256": "82b23d68a0af0fa715dca6886250aee395f308ce1882a0416096f4ebfc029ec6",
+  "execution_authorized": false,
+  "input_bundle_sha256": "879d004e243edaec90cd2d5411597fe98b55013f83cdeff66905a1b3ca869391",
+  "m1_authorization_record_sha256": "1662f844d2e13476bfd8313ce33202eb9926b0f2f56dc80b4bd106ff89037865",
+  "main_execution_status": "LOCKED_PENDING_NOISE_AND_GATES",
+  "main_plan_sha256": "5828ce55dbc23ca14aa5c0074ae8c795f51ecb301bd01de003eb8c7045e27f21",
+  "new_run_budget": 270,
+  "noise_execution_status": "LOCKED_PENDING_M1_G0_REVIEW",
+  "noise_plan_sha256": "8d7dfc84c0e8edbe798f0c682ce3dd03668f06811a625cdfd8f92d101950d7be",
+  "protocol_v4_sha256": "2c5350733b3265b468b1b6b6cebb024cdc9eb3df99f076223a1e1955a3ac37a8",
+  "schema_version": "phase3.option_f_g0_freeze_manifest.v1",
+  "status": "READY_FOR_M1_G0_REVIEW"
+}

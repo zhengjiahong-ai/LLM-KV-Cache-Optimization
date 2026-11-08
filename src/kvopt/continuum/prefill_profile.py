@@ -62,7 +62,13 @@ def _validate_protocol(protocol: object) -> None:
             raise ValueError(f"protocol.{field_name} does not match frozen protocol")
 
 
-def _validate_point(point: object, expected_token_count: int) -> float:
+def _validate_point(
+    point: object,
+    expected_token_count: int,
+    *,
+    warmup_pair_count: int = 5,
+    measured_pair_count: int = 20,
+) -> float:
     data = _require_mapping(point, "point")
     token_count = data.get("token_count")
     if isinstance(token_count, bool) or not isinstance(token_count, int):
@@ -71,15 +77,15 @@ def _validate_point(point: object, expected_token_count: int) -> float:
         raise ValueError("point token_count does not match frozen grid")
 
     warmup_pairs = data.get("warmup_pairs")
-    if not isinstance(warmup_pairs, list) or len(warmup_pairs) != 5:
-        raise ValueError("each point must contain exactly 5 warmup pairs")
+    if not isinstance(warmup_pairs, list) or len(warmup_pairs) != warmup_pair_count:
+        raise ValueError("point warmup-pair count does not match its protocol")
     measured_pairs = data.get("measured_pairs")
-    if not isinstance(measured_pairs, list) or len(measured_pairs) != 20:
-        raise ValueError("each point must contain exactly 20 measured pairs")
+    if not isinstance(measured_pairs, list) or len(measured_pairs) != measured_pair_count:
+        raise ValueError("point measured-pair count does not match its protocol")
 
     raw_deltas = data.get("measured_raw_deltas_seconds")
-    if not isinstance(raw_deltas, list) or len(raw_deltas) != 20:
-        raise ValueError("each point must contain exactly 20 raw measured deltas")
+    if not isinstance(raw_deltas, list) or len(raw_deltas) != measured_pair_count:
+        raise ValueError("point raw-delta count does not match its protocol")
     normalized_deltas = [
         _require_finite_number(value, "measured_raw_deltas_seconds")
         for value in raw_deltas
@@ -121,6 +127,15 @@ class _ProfilePrefillReloadProvider:
         seconds = lower_seconds + fraction * (upper_seconds - lower_seconds)
         return seconds, self.provenance
 
+    def default_ttl_reference(self) -> tuple[int, float, InputProvenance]:
+        """Return the lowest measured strictly-positive default-TTL reference."""
+        for token_count, seconds in zip(
+            self.token_counts, self.reload_seconds, strict=True
+        ):
+            if seconds > 0.0:
+                return token_count, seconds, self.provenance
+        raise ValueError("Profile contains no positive default-TTL reference")
+
 
 def load_prefill_reload_provider(
     path: str | Path,
@@ -135,6 +150,12 @@ def load_prefill_reload_provider(
         return _load_extended_prefill_reload_provider(data)
     if schema == _W1B_LONG_CONTEXT_SCHEMA:
         return _load_w1b_long_context_provider(data)
+    if schema == "continuum.prefill_reload.formal_long_context_profile.v1":
+        return _load_formal_long_context_provider(data)
+    if schema == (
+        "continuum.prefill_reload.formal_long_context_interpreted_profile.v1"
+    ):
+        return _load_interpreted_formal_long_context_provider(data)
     if schema != _SCHEMA:
         raise ValueError("artifact schema does not match frozen profile schema")
     if data.get("status") != _STATUS:
@@ -251,5 +272,144 @@ def _load_w1b_long_context_provider(
         InputProvenance(
             InputSource.APPROXIMATED,
             "offline W1-B 3B long-context PrefillReload profile",
+        ),
+    )
+
+
+def _load_formal_long_context_provider(
+    artifact: dict[str, Any],
+) -> _ProfilePrefillReloadProvider:
+    if artifact.get("status") != _STATUS:
+        raise ValueError("only complete formal long-context profiles are loadable")
+    protocol = _require_mapping(artifact.get("protocol"), "protocol")
+    grid = protocol.get("grid")
+    if (
+        not isinstance(grid, list)
+        or len(grid) < 2
+        or any(isinstance(value, bool) or not isinstance(value, int) for value in grid)
+        or grid != sorted(set(grid))
+    ):
+        raise ValueError("formal profile grid must be unique increasing integers")
+    expected = {
+        "canonical_unit": "seconds",
+        "raw_delta_definition": "MISS - HIT TTFT",
+        "interpolation_rule": "piecewise_linear_between_measured_points",
+        "extrapolation": "PROHIBITED",
+    }
+    for field_name, value in expected.items():
+        if protocol.get(field_name) != value:
+            raise ValueError(f"protocol.{field_name} does not match formal protocol")
+    warmup_pair_count = protocol.get("warmup_pairs_per_point")
+    measured_pair_count = protocol.get("measured_pairs_per_point")
+    if (
+        isinstance(warmup_pair_count, bool)
+        or not isinstance(warmup_pair_count, int)
+        or warmup_pair_count < 1
+    ):
+        raise ValueError("protocol.warmup_pairs_per_point must be a positive integer")
+    if (
+        isinstance(measured_pair_count, bool)
+        or not isinstance(measured_pair_count, int)
+        or measured_pair_count < 1
+    ):
+        raise ValueError("protocol.measured_pairs_per_point must be a positive integer")
+    points = artifact.get("points")
+    if not isinstance(points, list) or len(points) != len(grid):
+        raise ValueError("formal profile points must match its frozen grid")
+    token_grid = tuple(grid)
+    values = tuple(
+        _validate_point(
+            point,
+            token_count,
+            warmup_pair_count=warmup_pair_count,
+            measured_pair_count=measured_pair_count,
+        )
+        for point, token_count in zip(points, token_grid, strict=True)
+    )
+    return _ProfilePrefillReloadProvider(
+        token_grid,
+        values,
+        InputProvenance(
+            InputSource.APPROXIMATED,
+            "offline formal 3B long-context PrefillReload profile",
+        ),
+    )
+
+
+def _load_interpreted_formal_long_context_provider(
+    artifact: dict[str, Any],
+) -> _ProfilePrefillReloadProvider:
+    if artifact.get("status") != _STATUS:
+        raise ValueError("only complete interpreted profiles are loadable")
+    protocol = _require_mapping(artifact.get("protocol"), "protocol")
+    grid = protocol.get("grid")
+    if not isinstance(grid, list) or grid != sorted(set(grid)) or len(grid) < 2:
+        raise ValueError("interpreted Profile grid must be unique and increasing")
+    interpretation = _require_mapping(artifact.get("interpretation"), "interpretation")
+    if interpretation.get("projection_rule") != (
+        "ONLY_1024_TOKEN_POINT_PROJECTED_TO_ZERO"
+    ):
+        raise ValueError("unsupported non-negative projection rule")
+    provenance = _require_mapping(artifact.get("provenance"), "provenance")
+    if provenance.get("raw_measurement_modified") is not False:
+        raise ValueError("interpreted Profile must preserve its raw measurement")
+    points = artifact.get("points")
+    if not isinstance(points, list) or len(points) != len(grid):
+        raise ValueError("interpreted Profile points must match its grid")
+    warmups = int(protocol["warmup_pairs_per_point"])
+    measured = int(protocol["measured_pairs_per_point"])
+    values: list[float] = []
+    for point, token_count in zip(points, grid, strict=True):
+        data = _require_mapping(point, "point")
+        raw_deltas = data.get("measured_raw_deltas_seconds")
+        if not isinstance(raw_deltas, list) or len(raw_deltas) != measured:
+            raise ValueError("interpreted point raw evidence is incomplete")
+        if not isinstance(data.get("warmup_pairs"), list) or len(
+            data["warmup_pairs"]
+        ) != warmups:
+            raise ValueError("interpreted point warmup evidence is incomplete")
+        if not isinstance(data.get("measured_pairs"), list) or len(
+            data["measured_pairs"]
+        ) != measured:
+            raise ValueError("interpreted point measured evidence is incomplete")
+        if data.get("token_count") != token_count:
+            raise ValueError("interpreted point identity mismatch")
+        raw_median = _require_finite_number(
+            data.get("median_raw_delta_seconds"), "median_raw_delta_seconds"
+        )
+        if not math.isclose(
+            raw_median,
+            statistics.median(
+                [_require_finite_number(value, "raw delta") for value in raw_deltas]
+            ),
+            rel_tol=1e-12,
+            abs_tol=1e-12,
+        ):
+            raise ValueError("interpreted point changed its raw median")
+        effective = _require_non_negative_finite_number(
+            data.get("effective_cost_seconds"), "effective_cost_seconds"
+        )
+        if token_count == 1024:
+            interval = _require_mapping(data.get("uncertainty"), "uncertainty").get(
+                "bootstrap_median_95_percent_interval_seconds"
+            )
+            if (
+                data.get("interpretation_status") != "INDISTINGUISHABLE_FROM_ZERO"
+                or effective != 0.0
+                or not isinstance(interval, list)
+                or len(interval) != 2
+                or float(interval[0]) > 0.0
+                or float(interval[1]) < 0.0
+            ):
+                raise ValueError("1024-token projection lacks approved uncertainty")
+        elif effective != raw_median or raw_median <= 0.0:
+            raise ValueError("positive raw Profile points must not be projected")
+        values.append(effective)
+    return _ProfilePrefillReloadProvider(
+        tuple(int(value) for value in grid),
+        tuple(values),
+        InputProvenance(
+            InputSource.APPROXIMATED,
+            "M1-authorized non-negative view of preserved measured Profile",
         ),
     )

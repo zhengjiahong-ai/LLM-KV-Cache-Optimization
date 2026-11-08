@@ -1,0 +1,70 @@
+{
+  "schema_version": "continuum.native_costaware_prefill_profile_protocol.v1",
+  "protocol_revision": "bounded-cuda-1p5b-v1",
+  "supersedes": "configs/phase2/continuum-native-cost-aware-prefill-profile-cuda-v1.json",
+  "revision_reason": "M1 authorized a budget-bounded 1.5B CUDA evaluation and superseded the unexecuted 3B 108-run plan before formal outcomes.",
+  "scope": "BOUNDED_NATIVE_COSTAWARE_PREFILL_RELOAD_MEASUREMENT",
+  "execution_backend": {
+    "runtime_mode": "vllm-cuda-observability",
+    "target_device_class": "CUDA GPU with at least 24GB device memory",
+    "preferred_device": "NVIDIA RTX 4090D",
+    "vllm_version": "0.27.1",
+    "max_model_len": 32768,
+    "max_num_batched_tokens": 2048,
+    "enable_chunked_prefill": true,
+    "enforce_eager": true,
+    "claim_boundary": "The measured profile is valid only for the exact backend, model and runtime freeze used by the bounded campaign. Metal, H800-3B and legacy profiles cannot be combined."
+  },
+  "model": {
+    "name": "Qwen/Qwen2.5-Coder-1.5B-Instruct",
+    "revision": "d18ecad881a290f0c792f1c2b5dbee1820d4a424",
+    "tokenizer_name": "Qwen/Qwen2.5-Coder-1.5B-Instruct",
+    "tokenizer_revision": "d18ecad881a290f0c792f1c2b5dbee1820d4a424",
+    "tokenizer_compatibility_status": "PENDING_EXACT_FROZEN_TOKEN_ID_VALIDATION"
+  },
+  "token_grid": [1024, 4096, 8192, 12288, 16384, 24576, 32256],
+  "coverage_requirement": {
+    "query_source": "NONTERMINAL_SELECTED_REPLAY_PREFILL_CONTEXT_ALIGNED_DOWN_TO_16_TOKENS",
+    "observed_query_count": 108,
+    "minimum_known_query_tokens": 1248,
+    "maximum_known_query_tokens": 32144,
+    "maximum_anchor_tokens": 32256,
+    "interpolation_rule": "piecewise_linear_between_measured_points",
+    "extrapolation": "PROHIBITED",
+    "grid_selection_timing": "FROZEN_BEFORE_ANY_1P5B_PROFILE_OUTCOME",
+    "query_coverage_gate": "EVERY_FROZEN_QUERY_MUST_BE_WITHIN_1024_TO_32256_INCLUSIVE"
+  },
+  "measurement": {
+    "warmup_pairs_per_point": 2,
+    "measured_pairs_per_point": 8,
+    "total_pair_count": 70,
+    "raw_delta_definition": "MISS - HIT TTFT",
+    "canonical_unit": "seconds",
+    "point_estimator": "MEDIAN_OF_EIGHT_MEASURED_PAIRS",
+    "pressure_prompt_tokens": 512,
+    "maximum_pressure_batches": 64,
+    "maximum_pressure_requests": 64,
+    "pressure_check_frequency": "AFTER_EVERY_NATIVE_PRESSURE_REQUEST",
+    "pressure_stop_condition": "TARGET_FIRST_NATIVE_HASH_ABSENT",
+    "block_size_tokens": 16,
+    "max_new_tokens": 1,
+    "temperature": 0.0,
+    "gpu_memory_utilization": 0.8,
+    "enable_chunked_prefill": true,
+    "max_num_batched_tokens": 2048,
+    "enforce_eager": true,
+    "seed": 20261121
+  },
+  "uncertainty_and_nonlinearity": {
+    "point_uncertainty": "REPORT_RAW_EIGHT_DELTAS_MEDIAN_IQR_AND_BOOTSTRAP_95_PERCENT_INTERVAL",
+    "bootstrap_iterations": 10000,
+    "bootstrap_seed": 20261121,
+    "nonlinearity_check": "REPORT_ALL_ADJACENT_SECANT_SLOPES_WITHOUT_POSTHOC_GRID_CHANGES",
+    "ranking_sensitivity": "REPLAY_A1_SELECTION_WITH_POINTWISE_BOOTSTRAP_INTERVAL_ENVELOPES",
+    "ranking_sensitive_decision_status": "INCONCLUSIVE_COST_ORDERING",
+    "negative_or_nonfinite_point": "REVIEW_REQUIRED_AND_NO_SILENT_CLAMPING",
+    "claim_boundary": "Sparse-profile uncertainty limits decision attribution; it does not invalidate request-level Native token accounting."
+  },
+  "legacy_profiles_modified": false,
+  "formal_native_outcomes_authorized": false
+}

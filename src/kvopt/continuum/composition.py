@@ -35,9 +35,18 @@ def build_runtime_from_config(
         )
 
     provider = load_prefill_reload_provider(config.prefill_profile_path)
-    representative_seconds, _provenance = provider.estimate(
-        REPRESENTATIVE_DEFAULT_TTL_TOKEN_COUNT
-    )
+    try:
+        representative_seconds, _provenance = provider.estimate(
+            REPRESENTATIVE_DEFAULT_TTL_TOKEN_COUNT
+        )
+    except ValueError as error:
+        if "outside the supported profile range" not in str(error):
+            raise
+        (
+            _representative_token_count,
+            representative_seconds,
+            _provenance,
+        ) = provider.default_ttl_reference()
     default_ttl_seconds = compute_default_ttl_seconds(representative_seconds)
 
     return build_runtime(

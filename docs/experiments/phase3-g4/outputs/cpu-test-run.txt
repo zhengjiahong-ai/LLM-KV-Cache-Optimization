@@ -1,0 +1,8 @@
+Historical test run for pre-guard HEAD 6aac0e0a209d1b9da38eb3055d6cf723339ff6cb.
+============================= test session starts =============================
+platform win32 -- Python 3.11.0 -- pytest 9.1.1
+collected 87 items
+
+87 passed in 1.46s
+
+This log predates the manifest/G-E guard additions in the follow-up maintenance commit. The new guard tests are committed but were not executed in this environment; do not treat the 87-pass result as validation of the follow-up commit.

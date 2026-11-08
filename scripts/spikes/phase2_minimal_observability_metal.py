@@ -8,6 +8,7 @@ adding a second private-state inspection path.
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import importlib
 import json
@@ -26,10 +27,14 @@ from kvopt.continuum import (
     BlockEvicted,
     BlockIdentity,
     BlocksObserved,
+    Clock,
     ContinuumConfig,
+    ControlledSparseReplayClock,
     FollowupWaiting,
     InputProvenance,
     InputSource,
+    LogicalTimeAdvance,
+    LogicalTimeBoundary,
     PrefillContextTokenCountRecord,
     PrefixIdentity,
     ProgramCompleted,
@@ -54,6 +59,9 @@ from kvopt.costaware.a2_native import (
     A2NativeSelectionCoordinator,
     A2NativeSnapshotRegistry,
 )
+from kvopt.costaware.a3_native import A3NativeSelectionCoordinator
+from kvopt.costaware.e0_native import E0NativeSelectionCoordinator
+from kvopt.costaware.entry_depth import ChainDepthIndex
 from kvopt.profiling.experiment_events import (
     ExperimentEvent,
     ExperimentEventSink,
@@ -70,7 +78,7 @@ from kvopt.runtime.vllm.observer import (
 )
 from kvopt.runtime.vllm.prefill_timing import IsolatedPrefillTimingHook
 from kvopt.runtime.vllm.retention_integration import RetentionRuntimeIntegration
-from kvopt.workload.phase2 import PlannedRequest
+from kvopt.workload.phase2 import PlannedRequest, PressureStage
 from kvopt.workload.phase2b_fidelity import (
     KNOWN_CAPABILITIES,
     PREFIX_GENERATOR_VERSION,
@@ -89,13 +97,30 @@ from kvopt.workload.phase2c_native_pilot import (
 
 _TARGET_PREFIX_TOKENS = 256
 _PRESSURE_TOKENS = 512
+_PHASE3_CAMPAIGN_KIND = "phase3_final_evaluation"
+_PHASE2G_A1_CAMPAIGN_KINDS = frozenset(
+    {
+        "continuum_native_costaware_bounded_evaluation",
+        "continuum_w1b_native_smoke",
+        "phase2g_a1_native_gate1",
+        "phase2g_a1_bounded_evaluation",
+        "phase2h_history_rich_native_smoke",
+        _PHASE3_CAMPAIGN_KIND,
+    }
+)
 _PHASE2G_A2_CAMPAIGN_KINDS = frozenset(
     {
+        "continuum_native_costaware_bounded_evaluation",
         "continuum_w1b_native_smoke",
         "phase2g_a2_native_gate1",
         "phase2g_a2_gate2_bounded_evaluation",
         "phase2g_a2_native_evidence_fidelity",
+        "phase2h_history_rich_native_smoke",
+        _PHASE3_CAMPAIGN_KIND,
     }
+)
+_PHASE2I_A3_CAMPAIGN_KINDS = frozenset(
+    {"phase2i_a3_native_integration", _PHASE3_CAMPAIGN_KIND}
 )
 _PHASE2G_UNIQUE_PROTECTED_BLOCK_CAMPAIGN_KINDS = frozenset(
     {
@@ -103,12 +128,21 @@ _PHASE2G_UNIQUE_PROTECTED_BLOCK_CAMPAIGN_KINDS = frozenset(
         "phase2g_a1_bounded_evaluation",
         "phase2g_a2_prefill_profile_bridge_control",
         *_PHASE2G_A2_CAMPAIGN_KINDS,
+        *_PHASE2I_A3_CAMPAIGN_KINDS,
     }
 )
 
 
 def _phase2g_a2_campaign_allowed(campaign_kind: object) -> bool:
     return campaign_kind in _PHASE2G_A2_CAMPAIGN_KINDS
+
+
+def _phase2g_a1_campaign_allowed(campaign_kind: object) -> bool:
+    return campaign_kind in _PHASE2G_A1_CAMPAIGN_KINDS
+
+
+def _phase2i_a3_campaign_allowed(campaign_kind: object) -> bool:
+    return campaign_kind in _PHASE2I_A3_CAMPAIGN_KINDS
 
 
 def _phase2g_unique_protected_block_campaign_allowed(campaign_kind: object) -> bool:
@@ -246,8 +280,8 @@ def _program_prefix_sizes(options: Mapping[str, object]) -> dict[str, int]:
             value,
             f"backend_options.program_prefix_tokens[{program_id!r}]",
         )
-        if not 16 <= size <= 30_720:
-            raise ValueError("profiling prefix size must be between 16 and 30720 tokens")
+        if not 16 <= size <= 32_256:
+            raise ValueError("profiling prefix size must be between 16 and 32256 tokens")
         if size % _BLOCK_SIZE != 0:
             raise ValueError("profiling prefix size must align to the KV block size")
         sizes[program_id] = size
@@ -374,6 +408,32 @@ def _w1b_right_censored_end_requests(
     return result
 
 
+def _controlled_sparse_replay_clock(
+    options: Mapping[str, object],
+    native_clock: Clock,
+) -> ControlledSparseReplayClock | None:
+    raw = options.get("controlled_sparse_replay_boundaries")
+    if raw is None:
+        return None
+    if not isinstance(raw, list) or not raw:
+        raise ValueError("controlled_sparse_replay_boundaries must be a non-empty list")
+    boundaries: list[LogicalTimeBoundary] = []
+    for item in raw:
+        if not isinstance(item, Mapping):
+            raise TypeError("controlled sparse replay boundary must be an object")
+        boundaries.append(
+            LogicalTimeBoundary(
+                boundary_id=str(item.get("boundary_id", "")),
+                logical_timestamp=item.get("logical_timestamp"),  # type: ignore[arg-type]
+                source=str(item.get("source", "")),
+            )
+        )
+    return ControlledSparseReplayClock(
+        boundaries=tuple(boundaries),
+        native_clock=native_clock,
+    )
+
+
 def _expected_profiling_block_override(
     program_prefix_tokens: Mapping[str, int],
     pressure_tokens: int,
@@ -398,6 +458,31 @@ def _expected_profiling_block_override(
     return protected_blocks + pressure_blocks + 1 - initial_shortage_blocks
 
 
+def _validate_formal_profile_cache_capacity(
+    *,
+    block_override: int,
+    max_model_len: int,
+    program_prefix_tokens: Mapping[str, int],
+    pressure_tokens: int,
+    maximum_pressure_requests: int,
+) -> None:
+    """Validate the fixed 32K pool and its bounded eviction reachability."""
+    required_runtime_blocks = math.ceil(max_model_len / _BLOCK_SIZE)
+    if block_override != required_runtime_blocks:
+        raise ValueError(
+            "formal profile cache.block_override must equal the max-model-length "
+            "runtime pool"
+        )
+    pressure_blocks = pressure_tokens // _BLOCK_SIZE
+    protected_blocks = sum(
+        size // _BLOCK_SIZE for size in program_prefix_tokens.values()
+    )
+    if protected_blocks + maximum_pressure_requests * pressure_blocks <= block_override:
+        raise ValueError(
+            "formal profile pressure ceiling cannot evict the protected prefix"
+        )
+
+
 def _pressure_stage_sizes(options: Mapping[str, object]) -> dict[str, int]:
     raw = options.get("pressure_stage_prompt_tokens")
     if raw is None:
@@ -416,6 +501,31 @@ def _pressure_stage_sizes(options: Mapping[str, object]) -> dict[str, int]:
             raise ValueError("pressure-stage token count must align to the KV block size")
         sizes[stage_id] = size
     return sizes
+
+
+def _pressure_stage_token_ids(
+    options: Mapping[str, object],
+) -> dict[str, tuple[int, ...]]:
+    raw = options.get("pressure_token_ids_by_stage")
+    if raw is None:
+        return {}
+    if not isinstance(raw, Mapping):
+        raise TypeError("backend_options.pressure_token_ids_by_stage must be an object")
+    parsed: dict[str, tuple[int, ...]] = {}
+    for stage_id, values in raw.items():
+        if not isinstance(stage_id, str) or not stage_id:
+            raise ValueError("pressure token stage IDs must be non-empty")
+        if not isinstance(values, list) or not values:
+            raise ValueError("pressure token stages require non-empty token ID lists")
+        if any(
+            isinstance(value, bool) or not isinstance(value, int) or value < 0
+            for value in values
+        ):
+            raise ValueError("pressure token IDs must be non-negative integers")
+        if len(values) % _BLOCK_SIZE:
+            raise ValueError("pressure token ID count must align to the KV block size")
+        parsed[stage_id] = tuple(values)
+    return parsed
 
 
 def _h2_native_prefix_interventions(
@@ -450,11 +560,12 @@ def _required_max_model_len(
 ) -> int:
     """Cover the largest materialized prompt and align to a KV block."""
 
-    largest_prompt = max(
+    prompt_lengths = [
         pressure_tokens,
-        *(pressure_stage_tokens.values()),
+        *pressure_stage_tokens.values(),
         *(tokens + 1 for tokens in program_prefix_tokens.values()),
-    )
+    ]
+    largest_prompt = max(prompt_lengths)
     required_tokens = largest_prompt + max_new_tokens
     aligned_tokens = math.ceil(required_tokens / _BLOCK_SIZE) * _BLOCK_SIZE
     return max(_DEFAULT_MAX_MODEL_LEN, aligned_tokens)
@@ -550,15 +661,60 @@ def _validate_native_hash_views(
     return prompt_hashes
 
 
-class _CountingForcedReleaseObserver:
+def _requires_retention_snapshot(
+    request_id: str, right_censored_end_request_ids: frozenset[str]
+) -> bool:
+    """Right-censored observed returns do not create future-retention facts."""
+    return request_id not in right_censored_end_request_ids
+
+
+class _IndexedEventSink:
+    """Expose the persisted event ordinal without changing event serialization."""
+
     def __init__(self, sink: ExperimentEventSink) -> None:
+        self._sink = sink
+        self.next_event_index = 0
+
+    def emit(self, event: ExperimentEvent) -> None:
+        self._sink.emit(event)
+        self.next_event_index += 1
+
+
+class _CountingForcedReleaseObserver:
+    def __init__(self, sink: ExperimentEventSink, event_index: _IndexedEventSink) -> None:
         self._delegate = ExperimentForcedReleaseObserver(sink)
+        self._sink = sink
+        self._event_index = event_index
         self.count = 0
+        self._decision_context: dict[str, object] | None = None
+
+    def begin_decision(self, context: Mapping[str, object]) -> None:
+        if self._decision_context is not None:
+            raise RuntimeError("forced-release decisions must not be nested")
+        self._decision_context = dict(context)
+
+    def end_decision(self) -> None:
+        self._decision_context = None
 
     def observe(self, snapshot: Any) -> None:
+        forced_release_event_index = self._event_index.next_event_index
         self._delegate.observe(snapshot)
         if tuple(snapshot.selected_releases):
             self.count += 1
+        self._sink.emit(
+            ExperimentEvent.create(
+                event_type="FORCED_RELEASE_DECISION_BINDING",
+                timestamp=snapshot.timestamp,
+                clock_domain="continuum_pressure",
+                source="phase2i.native_decision_binding",
+                payload={
+                    **(self._decision_context or {}),
+                    "forced_release_event_index": forced_release_event_index,
+                    "forced_release_counter_after": self.count,
+                    "selected_release_count": len(tuple(snapshot.selected_releases)),
+                },
+            )
+        )
 
 
 class _ObservedRetentionIntegration:
@@ -567,7 +723,7 @@ class _ObservedRetentionIntegration:
     def __init__(
         self,
         runtime: Any,
-        clock: SystemMonotonicClock,
+        clock: Clock,
         forced_release_observer: _CountingForcedReleaseObserver,
         diagnostic_first_release_program_id: str | None = None,
         *,
@@ -577,14 +733,26 @@ class _ObservedRetentionIntegration:
         phase2g_block_policy: str = "A0",
         phase2g_a2_tau_seconds: float = 30.0,
         phase2g_a2_registry: A2NativeSnapshotRegistry | None = None,
+        phase2i_a3_depth_index: ChainDepthIndex | None = None,
+        event_index: _IndexedEventSink | None = None,
         sink: ExperimentEventSink | None = None,
+        clock_domain: str = "system_monotonic",
     ) -> None:
         self._runtime = runtime
         self._clock = clock
-        if phase2g_release_policy not in {"A0", "A1"}:
-            raise ValueError("phase2g_release_policy must be A0 or A1")
+        self._clock_domain = clock_domain
+        self._forced_release_observer = forced_release_observer
+        if phase2g_release_policy not in {"N0", "A0", "A1", "A3", "E0"}:
+            raise ValueError("phase2g_release_policy must be N0, A0, A1, A3, or E0")
+        if phase2g_release_policy in {"A3", "E0"} and (
+            phase2g_a2_registry is None
+            or phase2i_a3_depth_index is None
+            or event_index is None
+        ):
+            raise ValueError("A3/E0 release policy requires live depth and event evidence")
         self._phase2g_release_policy = phase2g_release_policy
         self._sink = sink
+        self._content_registry = phase2g_a2_registry
         self._a1_coordinator = (
             A1NativeSelectionCoordinator(
                 forced_release_observer,
@@ -592,6 +760,40 @@ class _ObservedRetentionIntegration:
                 tau_seconds=phase2g_a1_tau_seconds,
             )
             if phase2g_release_policy == "A1"
+            else None
+        )
+        self._a3_coordinator = (
+            A3NativeSelectionCoordinator(
+                forced_release_observer,
+                depth_index=phase2i_a3_depth_index,
+                content_registry=phase2g_a2_registry,
+                decision_event_index=lambda: event_index.next_event_index,
+                decision_clock_domain="continuum_pressure",
+                native_hash_process_id=str(os.getpid()),
+                lambda_=phase2g_a1_lambda,
+                tau_seconds=phase2g_a1_tau_seconds,
+            )
+            if phase2g_release_policy == "A3"
+            and phase2g_a2_registry is not None
+            and phase2i_a3_depth_index is not None
+            and event_index is not None
+            else None
+        )
+        self._e0_coordinator = (
+            E0NativeSelectionCoordinator(
+                forced_release_observer,
+                depth_index=phase2i_a3_depth_index,
+                content_registry=phase2g_a2_registry,
+                decision_event_index=lambda: event_index.next_event_index,
+                decision_clock_domain="continuum_pressure",
+                native_hash_process_id=str(os.getpid()),
+                lambda_=phase2g_a1_lambda,
+                tau_seconds=phase2g_a1_tau_seconds,
+            )
+            if phase2g_release_policy == "E0"
+            and phase2g_a2_registry is not None
+            and phase2i_a3_depth_index is not None
+            and event_index is not None
             else None
         )
         if phase2g_block_policy not in {"A0", "A2"}:
@@ -615,10 +817,313 @@ class _ObservedRetentionIntegration:
                 if diagnostic_first_release_program_id is None
                 else ProgramIdentity(diagnostic_first_release_program_id)
             ),
-            selection_coordinator=self._a1_coordinator,
+            selection_coordinator=(
+                self._a3_coordinator or self._e0_coordinator or self._a1_coordinator
+            ),
             block_selection_coordinator=self._a2_coordinator,
         )
         self.last_selected_block_ids: tuple[int, ...] = ()
+        self._decision_sequence = 0
+        self._active_execution_context: dict[str, object] | None = None
+        self._active_decision_id: str | None = None
+        self._selection_plans: list[dict[str, object]] = []
+        self._pending_physical_plans: list[dict[str, object]] = []
+        self._selection_awaiting_native_return: dict[str, object] | None = None
+
+    def _begin_execution_context(self, context: Mapping[str, object]) -> None:
+        if self._active_execution_context is not None:
+            raise RuntimeError("Native execution contexts must not be nested")
+        normalized = dict(context)
+        context_id = normalized.get("execution_context_id")
+        boundary_type = normalized.get("boundary_type")
+        request_ids = normalized.get("request_ids")
+        if not isinstance(context_id, str) or not context_id:
+            raise ValueError("Native execution context requires an ID")
+        if boundary_type not in {
+            "CONTROLLED_PRESSURE",
+            "ORDINARY_REQUEST",
+            "NATIVE_DRAIN_BATCH",
+        }:
+            raise ValueError("unsupported Native execution boundary type")
+        if not isinstance(request_ids, tuple) or not request_ids or not all(
+            isinstance(value, str) and value for value in request_ids
+        ):
+            raise ValueError("Native execution context requires request IDs")
+        self._active_execution_context = normalized
+
+    def begin_request_context(self, request_ids: tuple[str, ...]) -> None:
+        """Bind ordinary Native allocation to an explicit request or drain batch."""
+        if not request_ids:
+            raise ValueError("ordinary Native context requires request IDs")
+        boundary_type = (
+            "ORDINARY_REQUEST" if len(request_ids) == 1 else "NATIVE_DRAIN_BATCH"
+        )
+        self._begin_execution_context(
+            {
+                "execution_context_id": (
+                    f"{boundary_type.lower()}:{'|'.join(request_ids)}"
+                ),
+                "boundary_type": boundary_type,
+                "request_ids": request_ids,
+            }
+        )
+
+    def begin_pressure_context(
+        self, *, boundary_id: str, stage_id: str, pressure_request_id: str
+    ) -> None:
+        self._begin_execution_context(
+            {
+                "execution_context_id": f"controlled-pressure:{pressure_request_id}",
+                "boundary_type": "CONTROLLED_PRESSURE",
+                "request_ids": (pressure_request_id,),
+                "boundary_id": boundary_id,
+                "stage_id": stage_id,
+                "pressure_request_id": pressure_request_id,
+            }
+        )
+
+    def _emit_physical_outcome(
+        self,
+        plan: Mapping[str, object],
+        *,
+        status: str,
+        reason: str,
+        matched_block_ids: tuple[int, ...] = (),
+        unmatched_block_ids: tuple[int, ...] = (),
+        hashless_block_ids: tuple[int, ...] = (),
+    ) -> None:
+        if self._sink is None:
+            return
+        self._sink.emit(
+            ExperimentEvent.create(
+                event_type="NATIVE_ENTRY_RELEASE_PHYSICAL_OUTCOME",
+                timestamp=self._clock.now(),
+                clock_domain=self._clock_domain,
+                source="phase2i.native_selection_plan",
+                payload={
+                    **{
+                        field: plan[field]
+                        for field in (
+                            "decision_id",
+                            "execution_context_id",
+                            "boundary_type",
+                            "request_ids",
+                            "boundary_id",
+                            "stage_id",
+                            "pressure_request_id",
+                        )
+                        if field in plan
+                    },
+                    "status": status,
+                    "reason": reason,
+                    "matched_block_ids": matched_block_ids,
+                    "unmatched_block_ids": unmatched_block_ids,
+                    "hashless_block_ids": hashless_block_ids,
+                },
+            )
+        )
+
+    def end_execution_context(self) -> None:
+        active = self._active_execution_context
+        if active is None:
+            return
+        context_id = active["execution_context_id"]
+        closing = tuple(
+            plan
+            for plan in self._pending_physical_plans
+            if plan["execution_context_id"] == context_id
+        )
+        for plan in closing:
+            matched = tuple(plan["matched_block_ids"])
+            unmatched = tuple(sorted(plan["expected_content_by_block"]))
+            self._emit_physical_outcome(
+                plan,
+                status=(
+                    "PARTIAL_PHYSICAL_EVICTION_OBSERVED"
+                    if matched
+                    else "NO_PHYSICAL_EVICTION_OBSERVED"
+                ),
+                reason="NATIVE_EXECUTION_CONTEXT_CLOSED_WITH_UNMATCHED_BLOCKS",
+                matched_block_ids=matched,
+                unmatched_block_ids=unmatched,
+            )
+            self._pending_physical_plans.remove(plan)
+        if self._selection_awaiting_native_return is not None:
+            raise RuntimeError("Native selection return was not observed before context close")
+        self._active_execution_context = None
+
+    def end_pressure_context(self) -> None:
+        active = self._active_execution_context
+        if active is not None and active.get("boundary_type") != "CONTROLLED_PRESSURE":
+            raise RuntimeError("active Native context is not controlled pressure")
+        self.end_execution_context()
+
+    def observe_native_selection_returned(
+        self, selected: tuple[tuple[int, str | None], ...]
+    ) -> None:
+        """Bind the returned Native objects before their later physical cleanup."""
+        plan = self._selection_awaiting_native_return
+        self._selection_awaiting_native_return = None
+        if plan is None:
+            return
+        if plan.get("plan_kind") != "A3_ENTRY_RELEASE":
+            return
+        selected_ids = tuple(block_id for block_id, _content_hash in selected)
+        if selected_ids != tuple(plan["selected_native_block_ids"]):
+            self._emit_physical_outcome(
+                plan,
+                status="EVIDENCE_MISSING",
+                reason="NATIVE_SELECTION_RETURN_DOES_NOT_MATCH_SELECTION_PLAN",
+            )
+            return
+        expected: dict[int, str] = {}
+        for block_id, native_content_hash in selected:
+            if native_content_hash is None:
+                # Tier-1 free/unhashed blocks have no physical hash eviction to
+                # attribute; they remain part of the SelectionPlan only.
+                continue
+            identity = (
+                self._content_registry.content_identity(block_id)
+                if self._content_registry is not None
+                else None
+            )
+            if (
+                identity is None
+                or identity.native_hash_process_id != str(os.getpid())
+                or identity.content_hash != native_content_hash
+            ):
+                self._emit_physical_outcome(
+                    plan,
+                    status="EVIDENCE_MISSING",
+                    reason="NATIVE_SELECTION_CONTENT_IDENTITY_MISMATCH",
+                )
+                return
+            expected[block_id] = native_content_hash
+        if not expected:
+            self._emit_physical_outcome(
+                plan,
+                status="NO_PHYSICAL_EVICTION_OBSERVED",
+                reason="NATIVE_SELECTION_RETURN_CONTAINED_NO_HASHED_BLOCKS",
+                hashless_block_ids=selected_ids,
+            )
+            return
+        plan["native_return_bound"] = True
+        pending = {
+            **{
+                field: plan[field]
+                for field in (
+                    "decision_id",
+                    "execution_context_id",
+                    "boundary_type",
+                    "request_ids",
+                    "boundary_id",
+                    "stage_id",
+                    "pressure_request_id",
+                )
+                if field in plan
+            },
+            "expected_content_by_block": expected,
+            "matched_block_ids": [],
+        }
+        self._pending_physical_plans.append(pending)
+        if self._sink is not None:
+            self._sink.emit(
+                ExperimentEvent.create(
+                    event_type="NATIVE_SELECTION_PLAN_PENDING",
+                    timestamp=self._clock.now(),
+                    clock_domain=self._clock_domain,
+                    source="phase2i.native_selection_plan",
+                    payload={
+                        "decision_id": pending["decision_id"],
+                        "execution_context_id": pending["execution_context_id"],
+                        "boundary_type": pending["boundary_type"],
+                        "request_ids": pending["request_ids"],
+                        **{
+                            field: pending[field]
+                            for field in ("boundary_id", "stage_id", "pressure_request_id")
+                            if field in pending
+                        },
+                        "selected_block_ids": tuple(sorted(expected)),
+                        "content_identity_by_block": tuple(
+                            {
+                                "block_id": block_id,
+                                "native_cache_key": content_hash,
+                            }
+                            for block_id, content_hash in sorted(expected.items())
+                        ),
+                    },
+                )
+            )
+
+    def match_physical_eviction(
+        self, observation: NativeHashedEvictionObservation
+    ) -> dict[str, object]:
+        """Consume one unique pending block/content match or leave it unattributed."""
+        active = self._active_execution_context
+        candidates = []
+        if active is not None:
+            for plan in self._pending_physical_plans:
+                if (
+                    plan["execution_context_id"] == active["execution_context_id"]
+                    and plan["expected_content_by_block"].get(observation.block_id)
+                    == observation.native_cache_key_before
+                ):
+                    candidates.append(plan)
+        if len(candidates) != 1:
+            return {
+                "physical_attribution": "UNATTRIBUTED",
+                "physical_attribution_reason": (
+                    "NO_UNIQUE_PENDING_SELECTION_PLAN_CONTENT_MATCH"
+                ),
+            }
+        plan = candidates[0]
+        del plan["expected_content_by_block"][observation.block_id]
+        plan["matched_block_ids"].append(observation.block_id)
+        if not plan["expected_content_by_block"]:
+            self._emit_physical_outcome(
+                plan,
+                status="PHYSICAL_EVICTION_OBSERVED",
+                reason="ALL_HASHED_SELECTION_PLAN_BLOCKS_MATCHED",
+                matched_block_ids=tuple(plan["matched_block_ids"]),
+            )
+            self._pending_physical_plans.remove(plan)
+        return {
+            "physical_attribution": "MATCHED_PENDING_SELECTION_PLAN",
+            "decision_id": plan["decision_id"],
+            "execution_context_id": plan["execution_context_id"],
+            "boundary_type": plan["boundary_type"],
+            **{
+                field: plan[field]
+                for field in ("boundary_id", "stage_id", "pressure_request_id")
+                if field in plan
+            },
+        }
+
+    def selection_plans_for(self, pressure_request_id: str) -> tuple[dict[str, object], ...]:
+        return tuple(
+            plan
+            for plan in self._selection_plans
+            if plan.get("pressure_request_id") == pressure_request_id
+        )
+
+    def selection_plans_for_boundary(
+        self, boundary_id: str
+    ) -> tuple[dict[str, object], ...]:
+        return tuple(
+            plan
+            for plan in self._selection_plans
+            if plan.get("boundary_id") == boundary_id
+        )
+
+    def current_decision_context(self) -> Mapping[str, object]:
+        return {
+            **(self._active_execution_context or {}),
+            **(
+                {"decision_id": self._active_decision_id}
+                if self._active_decision_id is not None
+                else {}
+            ),
+        }
 
     def _observe_a2_decision(self, audit: A2NativeDecisionAudit) -> None:
         if self._sink is None:
@@ -627,7 +1132,7 @@ class _ObservedRetentionIntegration:
             ExperimentEvent.create(
                 event_type="COST_AWARE_BLOCK_DECISION",
                 timestamp=self._clock.now(),
-                clock_domain="system_monotonic",
+                clock_domain=self._clock_domain,
                 source="phase2g.a2_native",
                 payload={
                     "policy": "A2",
@@ -696,14 +1201,51 @@ class _ObservedRetentionIntegration:
         )
 
     def apply_pressure(self, **kwargs: object) -> Any:
-        result = self._delegate.apply_pressure(**kwargs)
+        self._decision_sequence += 1
+        decision_id = f"native-entry-release-{self._decision_sequence}"
+        context = {
+            "decision_id": decision_id,
+            **(self._active_execution_context or {}),
+            "forced_release_counter_before": self._forced_release_observer.count,
+        }
+        if self._phase2g_release_policy == "N0":
+            native_kwargs = dict(kwargs)
+            native_kwargs["mode"] = RetentionMode.NATIVE
+            result = self._delegate.apply_pressure(**native_kwargs)
+            self.last_selected_block_ids = tuple(result.selected_block_ids)
+            if self._sink is not None:
+                self._sink.emit(
+                    ExperimentEvent.create(
+                        event_type="N0_NO_FORCED_RELEASE",
+                        timestamp=self._clock.now(),
+                        clock_domain=self._clock_domain,
+                        source="phase3.n0_native",
+                        payload={
+                            **context,
+                            "policy": "N0",
+                            "status": "NO_FORCED_RELEASE",
+                            "forced_release_counter_after": (
+                                self._forced_release_observer.count
+                            ),
+                            "selected_native_block_ids": self.last_selected_block_ids,
+                        },
+                    )
+                )
+            return result
+        self._forced_release_observer.begin_decision(context)
+        self._active_decision_id = decision_id
+        try:
+            result = self._delegate.apply_pressure(**kwargs)
+        finally:
+            self._active_decision_id = None
+            self._forced_release_observer.end_decision()
         self.last_selected_block_ids = tuple(result.selected_block_ids)
         if self._a1_coordinator is not None and self._sink is not None:
             self._sink.emit(
                 ExperimentEvent.create(
                     event_type="COST_AWARE_RELEASE_DECISION",
                     timestamp=self._clock.now(),
-                    clock_domain="system_monotonic",
+                    clock_domain=self._clock_domain,
                     source="phase2g.a1_native",
                     payload={
                         "policy": "A1",
@@ -715,6 +1257,125 @@ class _ObservedRetentionIntegration:
                     },
                 )
             )
+        a3_trace = (
+            self._a3_coordinator.a3_selection_trace()
+            if self._a3_coordinator is not None
+            else ()
+        )
+        e0_trace = (
+            self._e0_coordinator.selection_trace()
+            if self._e0_coordinator is not None
+            else ()
+        )
+        if self._a3_coordinator is not None and self._sink is not None and a3_trace:
+            self._sink.emit(
+                ExperimentEvent.create(
+                    event_type="A3_SUFFIX_RELEASE_DECISION",
+                    timestamp=self._clock.now(),
+                    clock_domain=self._clock_domain,
+                    source="phase2i.a3_native",
+                    payload={
+                        **context,
+                        "policy": "A3",
+                        "verification_mode": "native_live",
+                        "native_hash_process_id": str(os.getpid()),
+                        "decision_event_index": (
+                            self._a3_coordinator.latest_decision_event_index
+                        ),
+                        "decision_clock_domain": (
+                            self._a3_coordinator.decision_clock_domain
+                        ),
+                        "selection_trace": a3_trace,
+                    },
+                )
+            )
+        if self._e0_coordinator is not None and self._sink is not None:
+            self._sink.emit(
+                ExperimentEvent.create(
+                    event_type="E0_DEADLINE_RELEASE_DECISION",
+                    timestamp=self._clock.now(),
+                    clock_domain=self._clock_domain,
+                    source="phase3.e0_native",
+                    payload={
+                        **context,
+                        "policy": "E0",
+                        "strategy_id": "E0_entry_deadline_step2",
+                        "verification_mode": "native_live",
+                        "native_hash_process_id": str(os.getpid()),
+                        "decision_event_index": (
+                            self._e0_coordinator.latest_decision_event_index
+                        ),
+                        "decision_clock_domain": (
+                            self._e0_coordinator.decision_clock_domain
+                        ),
+                        "selection_trace": e0_trace,
+                    },
+                )
+            )
+        active_cost_trace = a3_trace or e0_trace
+        selected_cost_audit = next(
+            (
+                audit
+                for audit in (
+                    active_cost_trace[-1].get("audits", ())
+                    if active_cost_trace
+                    else ()
+                )
+                if isinstance(audit, Mapping) and audit.get("selected") is True
+            ),
+            None,
+        )
+        plan = {
+            **context,
+            "forced_release_counter_after": self._forced_release_observer.count,
+            "forced_release_observed": (
+                self._forced_release_observer.count
+                > int(context["forced_release_counter_before"])
+            ),
+            "selected_native_block_ids": self.last_selected_block_ids,
+            "selection_evidence": "native_selection",
+            "predicted_victims_are_physical_evictions": False,
+            "a3_selected_entry": (
+                a3_trace[-1].get("key") if a3_trace else None
+            ),
+            "a3_predicted_victim_block_ids": tuple(
+                selected_cost_audit.get("victim_block_ids", ())
+                if selected_cost_audit is not None
+                else ()
+            ),
+            "e0_selected_entry": (
+                e0_trace[-1].get("key") if e0_trace else None
+            ),
+        }
+        forced_release_observed = plan["forced_release_observed"] is True
+        plan["plan_kind"] = (
+            "A3_ENTRY_RELEASE" if forced_release_observed else "NATIVE_ALLOCATION_ATTEMPT"
+        )
+        if self._selection_awaiting_native_return is not None:
+            raise RuntimeError("previous Native selection return was not observed")
+        self._selection_awaiting_native_return = plan
+        if forced_release_observed:
+            self._selection_plans.append(plan)
+        if self._sink is not None and forced_release_observed:
+            self._sink.emit(
+                ExperimentEvent.create(
+                    event_type="NATIVE_ENTRY_RELEASE_SELECTION_PLAN",
+                    timestamp=self._clock.now(),
+                    clock_domain=self._clock_domain,
+                    source="phase2i.native_selection_plan",
+                    payload=plan,
+                )
+            )
+        elif self._sink is not None:
+            self._sink.emit(
+                ExperimentEvent.create(
+                    event_type="NATIVE_ALLOCATION_ATTEMPT",
+                    timestamp=self._clock.now(),
+                    clock_domain=self._clock_domain,
+                    source="phase2i.native_selection_plan",
+                    payload=plan,
+                )
+            )
         return result
 
     def observe_native_eviction(self, block_id: BlockIdentity) -> None:
@@ -724,22 +1385,55 @@ class _ObservedRetentionIntegration:
 
 
 class MinimalMetalObservabilityBackend:
-    """Run a tiny two-prefix real-runtime scenario through the Phase 2 contract."""
+    """Run a real vLLM scenario through the shared Phase 2 observation contract.
+
+    The historical class name remains for compatibility.  Runtime-specific
+    initialization is selected explicitly by ``runtime_mode``; policy,
+    lifecycle, BlockPool ownership and evidence semantics stay shared.
+    """
 
     def __init__(self, config: dict[str, object], sink: ExperimentEventSink) -> None:
-        if config.get("runtime_mode") != "vllm-metal-observability":
-            raise ValueError("runtime_mode must be vllm-metal-observability")
+        runtime_mode = config.get("runtime_mode")
+        if runtime_mode not in {
+            "vllm-metal-observability",
+            "vllm-cuda-observability",
+        }:
+            raise ValueError(
+                "runtime_mode must be vllm-metal-observability or "
+                "vllm-cuda-observability"
+            )
         if not callable(getattr(sink, "emit", None)):
             raise TypeError("sink must provide emit")
         if os.environ.get("VLLM_ENABLE_V1_MULTIPROCESSING") != "0":
             raise RuntimeError(
-                "minimal Metal observation requires VLLM_ENABLE_V1_MULTIPROCESSING=0"
+                "minimal native observation requires VLLM_ENABLE_V1_MULTIPROCESSING=0"
             )
 
+        self._event_index = _IndexedEventSink(sink)
+        sink = self._event_index
         self._sink = sink
-        self._clock = SystemMonotonicClock()
+        self._runtime_mode = str(runtime_mode)
+        self._event_source = (
+            "phase2.minimal_cuda"
+            if runtime_mode == "vllm-cuda-observability"
+            else "phase2.minimal_metal"
+        )
+        self._native_clock = SystemMonotonicClock()
         self._retention_mode = _retention_mode_for_config(config)
         options = _backend_options(config)
+        self._controlled_replay_clock = _controlled_sparse_replay_clock(
+            options, self._native_clock
+        )
+        self._clock: Clock = (
+            self._native_clock
+            if self._controlled_replay_clock is None
+            else self._controlled_replay_clock.logical_clock
+        )
+        self._lifecycle_clock_domain = (
+            "system_monotonic"
+            if self._controlled_replay_clock is None
+            else "continuum_logical_replay"
+        )
         profile_path = _resolve_repo_path(
             options.get(
                 "prefill_profile_path",
@@ -779,6 +1473,43 @@ class MinimalMetalObservabilityBackend:
             "backend_options.pressure_prompt_tokens",
         )
         self._pressure_stage_tokens = _pressure_stage_sizes(options)
+        self._pressure_stage_token_ids = _pressure_stage_token_ids(options)
+        if set(self._pressure_stage_token_ids) - set(self._pressure_stage_tokens):
+            raise ValueError(
+                "explicit pressure token stages require matching token-count bindings"
+            )
+        for stage_id, token_ids in self._pressure_stage_token_ids.items():
+            if len(token_ids) != self._pressure_stage_tokens[stage_id]:
+                raise ValueError("explicit pressure token count differs from stage size")
+        controlled_pressure = options.get("controlled_pressure_stages_by_boundary", {})
+        if not isinstance(controlled_pressure, Mapping):
+            raise TypeError(
+                "backend_options.controlled_pressure_stages_by_boundary must be an object"
+            )
+        self._controlled_pressure_stages: dict[str, PressureStage] = {}
+        for boundary_id, raw_stage in controlled_pressure.items():
+            if not isinstance(boundary_id, str) or not boundary_id:
+                raise ValueError("controlled pressure boundary ID must be non-empty")
+            if not isinstance(raw_stage, Mapping):
+                raise TypeError("controlled pressure stage must be an object")
+            stage_id = str(raw_stage.get("stage_id", ""))
+            prompt = str(raw_stage.get("prompt", ""))
+            if not stage_id or not prompt:
+                raise ValueError("controlled pressure stage identity and prompt are required")
+            stop_on_forced_release = raw_stage.get("stop_on_forced_release", True)
+            if not isinstance(stop_on_forced_release, bool):
+                raise TypeError("controlled pressure stop_on_forced_release must be bool")
+            self._controlled_pressure_stages[boundary_id] = PressureStage(
+                stage_id=stage_id,
+                planned_arrival_offset_seconds=0.0,
+                prompt=prompt,
+                max_requests=_positive_int(
+                    raw_stage.get("max_requests"),
+                    "controlled pressure max_requests",
+                ),
+                stop_on_forced_release=stop_on_forced_release,
+            )
+        self._seed = int(config["seed"])
         timing = options.get("execute_planned_timing", False)
         if not isinstance(timing, bool):
             raise TypeError("backend_options.execute_planned_timing must be bool")
@@ -829,14 +1560,28 @@ class MinimalMetalObservabilityBackend:
             raise ValueError("Phase 2D diagnostic release is restricted to its pilot")
         self._phase2d_diagnostic_release_program = diagnostic_release
         phase2g_release_policy = options.get("phase2g_release_policy", "A0")
-        if phase2g_release_policy not in {"A0", "A1"}:
-            raise ValueError("backend_options.phase2g_release_policy must be A0 or A1")
-        if phase2g_release_policy == "A1" and config.get("campaign_kind") not in {
-            "phase2g_a1_native_gate1",
-            "phase2g_a1_bounded_evaluation",
-            "continuum_w1b_native_smoke",
-        }:
+        if phase2g_release_policy not in {"N0", "A0", "A1", "A3", "E0"}:
+            raise ValueError(
+                "backend_options.phase2g_release_policy must be N0, A0, A1, A3, or E0"
+            )
+        if phase2g_release_policy == "A1" and not _phase2g_a1_campaign_allowed(
+            config.get("campaign_kind")
+        ):
             raise ValueError("A1 native release is restricted to authorized Phase 2G campaigns")
+        if phase2g_release_policy == "A3" and not _phase2i_a3_campaign_allowed(
+            config.get("campaign_kind")
+        ):
+            raise ValueError("A3 native release is restricted to Phase 2I integration")
+        if phase2g_release_policy == "E0" and config.get("campaign_kind") != (
+            _PHASE3_CAMPAIGN_KIND
+        ):
+            raise ValueError("E0 native release is restricted to Phase 3")
+        if phase2g_release_policy == "N0" and config.get("campaign_kind") != (
+            _PHASE3_CAMPAIGN_KIND
+        ):
+            raise ValueError("N0 no-op release is restricted to Phase 3")
+        if phase2g_release_policy in {"A3", "E0"} and not self._content_evidence_enabled:
+            raise ValueError("A3/E0 native release requires content evidence mode")
         phase2g_a1_lambda = float(options.get("phase2g_a1_lambda", 0.5))
         phase2g_a1_tau_seconds = float(options.get("phase2g_a1_tau_seconds", 30.0))
         phase2g_block_policy = options.get("phase2g_block_policy", "A0")
@@ -853,6 +1598,7 @@ class MinimalMetalObservabilityBackend:
             "backend_options.phase2g_a2_tau_seconds",
         )
         self._phase2g_a2_registry = A2NativeSnapshotRegistry()
+        self._phase2i_a3_depth_index = ChainDepthIndex()
         phase2g_a2_identity_mode = options.get("phase2g_a2_identity_mode", "normal")
         if phase2g_a2_identity_mode not in {"normal", "missing", "stale"}:
             raise ValueError(
@@ -902,7 +1648,41 @@ class MinimalMetalObservabilityBackend:
                     else None
                 ),
             )
-            if block_override != expected_override:
+            if config.get("campaign_kind") == (
+                "continuum_native_costaware_prefill_profile"
+            ):
+                _validate_formal_profile_cache_capacity(
+                    block_override=block_override,
+                    max_model_len=_positive_int(
+                        options.get("max_model_len"),
+                        "backend_options.max_model_len",
+                    ),
+                    program_prefix_tokens=self._program_prefix_tokens,
+                    pressure_tokens=self._pressure_tokens,
+                    maximum_pressure_requests=_positive_int(
+                        config["pressure"].get("safety_ceiling"),  # type: ignore[index,union-attr]
+                        "config.pressure.safety_ceiling",
+                    ),
+                )
+            elif config.get("campaign_kind") in {
+                "phase2h_history_rich_native_smoke",
+                "phase2i_a3_native_integration",
+            }:
+                if block_override != 2048:
+                    raise ValueError("history-rich Native integration requires 2048 blocks")
+                if len(self._controlled_pressure_stages) != 3:
+                    raise ValueError("history-rich Native integration requires three pressure stages")
+                stage_ids = {
+                    stage.stage_id for stage in self._controlled_pressure_stages.values()
+                }
+                if stage_ids != set(self._pressure_stage_token_ids):
+                    raise ValueError(
+                        "Phase 2H pressure stages require frozen explicit token IDs"
+                    )
+            elif config.get("campaign_kind") == _PHASE3_CAMPAIGN_KIND:
+                if block_override != 2048:
+                    raise ValueError("Phase 3 Final Evaluation requires 2048 blocks")
+            elif block_override != expected_override:
                 raise ValueError(
                     "profiling cache.block_override must equal protected-prefix blocks "
                     "+ pressure-demand blocks"
@@ -939,7 +1719,39 @@ class MinimalMetalObservabilityBackend:
                 history_observation_enabled=(self._content_evidence_enabled),
             )
         )
-        self._forced_release_observer = _CountingForcedReleaseObserver(sink)
+        history_path_value = options.get("continuum_server_gap_history_path")
+        history_sha_value = options.get("continuum_server_gap_history_sha256")
+        if history_path_value is not None or history_sha_value is not None:
+            if config.get("campaign_kind") != "continuum_native_costaware_formal":
+                raise ValueError("history warm-start is restricted to the formal campaign")
+            if not isinstance(history_path_value, str) or not history_path_value:
+                raise ValueError("history warm-start path must be non-empty text")
+            if not isinstance(history_sha_value, str) or len(history_sha_value) != 64:
+                raise ValueError("history warm-start SHA-256 must be bound")
+            history_path = Path(history_path_value)
+            if hashlib.sha256(history_path.read_bytes()).hexdigest() != history_sha_value:
+                raise ValueError("history warm-start SHA-256 mismatch")
+            from kvopt.workload.continuum_native_history import load_history
+
+            history_records = load_history(history_path)
+            self._runtime.seed_server_gap_history(history_records)
+            sink.emit(
+                ExperimentEvent.create(
+                    event_type="SERVER_GAP_HISTORY_WARM_STARTED",
+                    timestamp=self._clock.now(),
+                    clock_domain="system_monotonic",
+                    source="continuum.w1a_history",
+                    payload={
+                        "history_path": str(history_path),
+                        "history_sha256": history_sha_value,
+                        "server_gap_sample_count": len(history_records),
+                        "kv_cache_prewarms": False,
+                    },
+                )
+            )
+        self._forced_release_observer = _CountingForcedReleaseObserver(
+            sink, self._event_index
+        )
         self._retention_integration = _ObservedRetentionIntegration(
             self._runtime,
             self._clock,
@@ -951,24 +1763,25 @@ class MinimalMetalObservabilityBackend:
             phase2g_block_policy=str(phase2g_block_policy),
             phase2g_a2_tau_seconds=phase2g_a2_tau_seconds,
             phase2g_a2_registry=self._phase2g_a2_registry,
+            phase2i_a3_depth_index=self._phase2i_a3_depth_index,
+            event_index=self._event_index,
             sink=sink,
+            clock_domain=(
+                "system_monotonic"
+                if self._controlled_replay_clock is None
+                else "continuum_logical_replay"
+            ),
         )
 
         try:
-            import mlx.core as mx
             import vllm
-            import vllm_metal
             from vllm import LLM, SamplingParams
             from vllm.platforms import current_platform
             from vllm.v1.core.block_pool import BlockPool
             from vllm.v1.core.kv_cache_utils import FreeKVCacheBlockQueue
             from vllm.v1.core.sched.scheduler import Scheduler
-            from vllm_metal import MetalPlatform, get_config
-            from vllm_metal.v1.model_runner import MetalModelRunner
         except ImportError as error:
-            raise RuntimeError(
-                "minimal real-runtime test requires the pinned vLLM/Metal environment"
-            ) from error
+            raise RuntimeError("minimal real-runtime test requires pinned vLLM 0.27.1") from error
 
         observation_helpers = importlib.import_module(
             "scripts.spikes.run_continuum_vllm_observation"
@@ -979,32 +1792,68 @@ class MinimalMetalObservabilityBackend:
         self._coherent_snapshot = validation_helpers._coherent_child_request_snapshot
 
         topology = observation_helpers.require_observation_topology(os.environ)
-        metal_config = get_config()
         platform_plugin_class = (
             f"{type(current_platform).__module__}.{type(current_platform).__qualname__}"
         )
-        runtime_identity = observation_helpers.verify_runtime_identity(
-            vllm_distribution_version=distribution_version("vllm"),
-            vllm_module_version=vllm.__version__,
-            vllm_metal_distribution_version=distribution_version("vllm-metal"),
-            platform_plugin_class=platform_plugin_class,
-            metal_platform_available=MetalPlatform.is_available(),
-            mlx_metal_available=bool(mx.metal.is_available()),
-            mlx_configured_device=metal_config.mlx_device,
-            metal_paged_kv_enabled=metal_config.use_paged_attention,
-        )
-
+        isolated_timing_target: tuple[type[Any], Any] | None = None
         source_identity: dict[str, object]
-        checkout = os.environ.get("VLLM_METAL_SOURCE_CHECKOUT")
-        if checkout:
-            source_identity = observation_helpers.inspect_vllm_metal_source_identity(
-                Path(checkout),
-                Path(vllm_metal.__file__),
+        if runtime_mode == "vllm-metal-observability":
+            try:
+                import mlx.core as mx
+                import vllm_metal
+                from vllm_metal import MetalPlatform, get_config
+                from vllm_metal.v1.model_runner import MetalModelRunner
+            except ImportError as error:
+                raise RuntimeError(
+                    "Metal observation requires the pinned vLLM-Metal environment"
+                ) from error
+            metal_config = get_config()
+            runtime_identity = observation_helpers.verify_runtime_identity(
+                vllm_distribution_version=distribution_version("vllm"),
+                vllm_module_version=vllm.__version__,
+                vllm_metal_distribution_version=distribution_version("vllm-metal"),
+                platform_plugin_class=platform_plugin_class,
+                metal_platform_available=MetalPlatform.is_available(),
+                mlx_metal_available=bool(mx.metal.is_available()),
+                mlx_configured_device=metal_config.mlx_device,
+                metal_paged_kv_enabled=metal_config.use_paged_attention,
             )
+            isolated_timing_target = (MetalModelRunner, mx.eval)
+            checkout = os.environ.get("VLLM_METAL_SOURCE_CHECKOUT")
+            if checkout:
+                source_identity = observation_helpers.inspect_vllm_metal_source_identity(
+                    Path(checkout),
+                    Path(vllm_metal.__file__),
+                )
+            else:
+                source_identity = {
+                    "source_identity_availability": "unavailable",
+                    "source_identity_reason": "VLLM_METAL_SOURCE_CHECKOUT not provided",
+                }
         else:
+            try:
+                import torch
+            except ImportError as error:
+                raise RuntimeError("CUDA observation requires PyTorch") from error
+            if not torch.cuda.is_available():
+                raise RuntimeError("CUDA observation requires an available CUDA GPU")
+            device = torch.cuda.current_device()
+            properties = torch.cuda.get_device_properties(device)
+            runtime_identity = observation_helpers.verify_cuda_runtime_identity(
+                vllm_distribution_version=distribution_version("vllm"),
+                vllm_module_version=vllm.__version__,
+                platform_plugin_class=platform_plugin_class,
+                device_type=str(getattr(current_platform, "device_type", "")),
+                torch_version=torch.__version__,
+                torch_cuda_version=torch.version.cuda,
+                cuda_available=torch.cuda.is_available(),
+                device_name=torch.cuda.get_device_name(device),
+                device_capability=torch.cuda.get_device_capability(device),
+                device_total_memory_bytes=int(properties.total_memory),
+            )
             source_identity = {
-                "source_identity_availability": "unavailable",
-                "source_identity_reason": "VLLM_METAL_SOURCE_CHECKOUT not provided",
+                "source_identity_availability": "wheel_installation",
+                "vllm_imported_module_realpath": str(Path(vllm.__file__).resolve()),
             }
 
         model = config["model"]
@@ -1020,12 +1869,37 @@ class MinimalMetalObservabilityBackend:
             "config.generation.max_new_tokens",
         )
         self._max_new_tokens = max_new_tokens
-        max_model_len = _required_max_model_len(
+        required_model_len = _required_max_model_len(
             self._program_prefix_tokens,
             self._pressure_tokens,
             self._pressure_stage_tokens,
             max_new_tokens,
         )
+        max_model_len = _positive_int(
+            options.get("max_model_len", required_model_len),
+            "backend_options.max_model_len",
+        )
+        if max_model_len < required_model_len:
+            raise ValueError("backend_options.max_model_len cannot serve frozen inputs")
+        self._coherent_snapshot = functools.partial(
+            validation_helpers._coherent_child_request_snapshot,
+            maximum_token_count=max_model_len,
+        )
+        max_num_batched_tokens = _positive_int(
+            options.get("max_num_batched_tokens", max_model_len),
+            "backend_options.max_num_batched_tokens",
+        )
+        enable_chunked_prefill = options.get("enable_chunked_prefill", False)
+        if not isinstance(enable_chunked_prefill, bool):
+            raise TypeError("backend_options.enable_chunked_prefill must be bool")
+        enforce_eager = options.get("enforce_eager", False)
+        if not isinstance(enforce_eager, bool):
+            raise TypeError("backend_options.enforce_eager must be bool")
+        if max_num_batched_tokens < max_model_len and not enable_chunked_prefill:
+            raise ValueError(
+                "max_num_batched_tokens below max_model_len requires "
+                "enable_chunked_prefill=true"
+            )
         llm_kwargs = {
             "model": model["name"],
             "revision": model["revision"],
@@ -1036,15 +1910,22 @@ class MinimalMetalObservabilityBackend:
             "seed": int(config["seed"]),
             "num_gpu_blocks_override": block_override,
             "max_model_len": max_model_len,
-            "max_num_batched_tokens": max_model_len,
+            "max_num_batched_tokens": max_num_batched_tokens,
+            "enable_chunked_prefill": enable_chunked_prefill,
+            "enforce_eager": enforce_eager,
             "disable_log_stats": False,
             "prefix_caching_hash_algo": "sha256",
         }
         self._llm = LLM(**llm_kwargs)
+        if self._isolated_prefill_timing_enabled and isolated_timing_target is None:
+            raise ValueError(
+                "isolated native prefill timing is not qualified for the CUDA adapter"
+            )
         if self._isolated_prefill_timing_enabled:
+            model_runner_class, synchronize = isolated_timing_target
             self._isolated_prefill_timing_hook = IsolatedPrefillTimingHook(
-                MetalModelRunner,
-                mx.eval,
+                model_runner_class,
+                synchronize,
                 self._record_isolated_prefill_timing,
             )
             self._isolated_prefill_timing_hook.__enter__()
@@ -1116,13 +1997,18 @@ class MinimalMetalObservabilityBackend:
         self._started_programs: set[str] = set()
         self._pending_tool_gaps: dict[str, str] = {}
         self._phase2b_pending: dict[str, tuple[PlannedRequest, str, int]] = {}
+        self._controlled_prepared: dict[
+            str, tuple[PlannedRequest, tuple[int, ...], int, float]
+        ] = {}
+        self._controlled_completed: dict[str, tuple[PlannedRequest, str, int]] = {}
+        self._controlled_pressure_execution_seconds = 0.0
         self._closed = False
         self._level_b_request_count = 0
         self._level_b_raw_complete = True
         self._level_b_first_token_complete = True
         self._level_b_scheduler_timing_complete = True
         self._isolated_prefill_timing_complete = True
-        self._run_start_timestamp = float(self._clock.now())
+        self._run_start_timestamp = float(self._native_clock.now())
         self.observation_capabilities = {
             "runtime_identity": {
                 "status": "AVAILABLE",
@@ -1197,9 +2083,9 @@ class MinimalMetalObservabilityBackend:
         self._sink.emit(
             ExperimentEvent.create(
                 event_type="REAL_RUNTIME_READY",
-                timestamp=self._clock.now(),
+                timestamp=self._native_clock.now(),
                 clock_domain="system_monotonic",
-                source="phase2.minimal_metal",
+                source=self._event_source,
                 payload={
                     **topology,
                     **runtime_identity,
@@ -1227,13 +2113,20 @@ class MinimalMetalObservabilityBackend:
                     "w1b_native_input_fidelity_only": (self._w1b_native_input_fidelity_only),
                     "h2_m4_prefill_curve_bound": h2_m4_prefill_provider is not None,
                     "gpu_memory_utilization": gpu_memory_utilization,
+                    "max_num_batched_tokens": max_num_batched_tokens,
+                    "enable_chunked_prefill": enable_chunked_prefill,
+                    "enforce_eager": enforce_eager,
                     "retention_mode": self._retention_mode.value,
                     "phase2g_release_policy": phase2g_release_policy,
                     "phase2g_a1_lambda": (
-                        phase2g_a1_lambda if phase2g_release_policy == "A1" else None
+                        phase2g_a1_lambda
+                        if phase2g_release_policy in {"A1", "A3", "E0"}
+                        else None
                     ),
                     "phase2g_a1_tau_seconds": (
-                        phase2g_a1_tau_seconds if phase2g_release_policy == "A1" else None
+                        phase2g_a1_tau_seconds
+                        if phase2g_release_policy in {"A1", "A3", "E0"}
+                        else None
                     ),
                     "phase2g_block_policy": phase2g_block_policy,
                     "phase2g_a2_tau_seconds": (
@@ -1251,6 +2144,9 @@ class MinimalMetalObservabilityBackend:
         observation: NativeHashedEvictionObservation,
     ) -> None:
         """Persist native hash cleanup without inferring logical ownership."""
+        physical_attribution = self._retention_integration.match_physical_eviction(
+            observation
+        )
         self._phase2g_a2_registry.observe_eviction(
             observation.block_id,
             content_hash=observation.native_cache_key_before,
@@ -1259,10 +2155,11 @@ class MinimalMetalObservabilityBackend:
         self._sink.emit(
             ExperimentEvent.create(
                 event_type="VLLM_NATIVE_HASHED_CACHE_ENTRY_EVICTED",
-                timestamp=self._clock.now(),
+                timestamp=self._native_clock.now(),
                 clock_domain="system_monotonic",
                 source="phase2b.native_block_pool",
                 payload={
+                    **physical_attribution,
                     "block_id": observation.block_id,
                     "native_cache_key_before": (observation.native_cache_key_before),
                     "native_hash_process_id": str(os.getpid()),
@@ -1372,7 +2269,7 @@ class MinimalMetalObservabilityBackend:
                 event_type="PLANNED_ARRIVAL_REACHED",
                 timestamp=observed,
                 clock_domain="system_monotonic",
-                source="phase2.minimal_metal",
+                source=self._event_source,
                 program_id=ProgramIdentity(request.program_id),
                 request_id=RequestIdentity(request.request_id),
                 payload={
@@ -1435,9 +2332,9 @@ class MinimalMetalObservabilityBackend:
         self._sink.emit(
             ExperimentEvent.create(
                 event_type="BACKEND_INPUT_MATERIALIZED",
-                timestamp=self._clock.now(),
+                timestamp=self._native_clock.now(),
                 clock_domain="system_monotonic",
-                source="phase2.minimal_metal",
+                source=self._event_source,
                 program_id=ProgramIdentity(request.program_id),
                 request_id=RequestIdentity(request.request_id),
                 payload=payload,
@@ -1472,13 +2369,13 @@ class MinimalMetalObservabilityBackend:
             raise RuntimeError("native request did not expose one external request ID")
         external_id = external_ids[0]
         self._registry.register_external_batch(native_ids, external_ids)
-        submitted_at = float(self._clock.now())
+        submitted_at = float(self._native_clock.now())
         self._sink.emit(
             ExperimentEvent.create(
                 event_type="VLLM_REQUEST_SUBMITTED",
                 timestamp=submitted_at,
                 clock_domain="system_monotonic",
-                source="phase2.minimal_metal",
+                source=self._event_source,
                 program_id=ProgramIdentity(request.program_id),
                 request_id=RequestIdentity(request.request_id),
                 payload={
@@ -1581,7 +2478,7 @@ class MinimalMetalObservabilityBackend:
                 event_type="VLLM_NATIVE_REQUEST_OBSERVATION",
                 timestamp=native_event_timestamp,
                 clock_domain="engine_core_monotonic",
-                source="phase2.minimal_metal",
+                source=self._event_source,
                 native_request_id=native_id,
                 program_id=ProgramIdentity(request.program_id),
                 request_id=RequestIdentity(request.request_id),
@@ -1612,13 +2509,13 @@ class MinimalMetalObservabilityBackend:
                 scheduled_timestamp=native_scheduled,
                 clock_domain="engine_core_monotonic",
             )
-        finished_at = float(self._clock.now())
+        finished_at = float(self._native_clock.now())
         self._sink.emit(
             ExperimentEvent.create(
                 event_type="VLLM_REQUEST_COMPLETED",
                 timestamp=finished_at,
                 clock_domain="system_monotonic",
-                source="phase2.minimal_metal",
+                source=self._event_source,
                 program_id=ProgramIdentity(request.program_id),
                 request_id=RequestIdentity(request.request_id),
                 payload={
@@ -1664,12 +2561,15 @@ class MinimalMetalObservabilityBackend:
         )
         prefix = PrefixIdentity(prefix_value)
         blocks = tuple(BlockIdentity(block_id) for block_id in block_ids)
+        snapshot_event_index = self._event_index.next_event_index
+        snapshot_timestamp = float(self._native_clock.now())
+        content_hashes = tuple(native_hash.hex() for native_hash in hashes)
         self._sink.emit(
             ExperimentEvent.create(
                 event_type="VLLM_PREFIX_SNAPSHOT",
-                timestamp=self._clock.now(),
+                timestamp=snapshot_timestamp,
                 clock_domain="system_monotonic",
-                source="phase2.minimal_metal",
+                source=self._event_source,
                 program_id=ProgramIdentity(request.program_id),
                 request_id=RequestIdentity(request.request_id),
                 prefix_id=prefix,
@@ -1677,7 +2577,7 @@ class MinimalMetalObservabilityBackend:
                     "reusable_token_count": token_count,
                     "block_ids": tuple(block.block_id for block in blocks),
                     "ordered_native_hashes": request_hashes,
-                    "ordered_native_cache_keys": tuple(native_hash.hex() for native_hash in hashes),
+                    "ordered_native_cache_keys": content_hashes,
                     "hash_num_tokens": token_count,
                     "native_hash_block_size": _BLOCK_SIZE,
                     "native_hash_process_id": str(os.getpid()),
@@ -1685,12 +2585,21 @@ class MinimalMetalObservabilityBackend:
                 },
             )
         )
+        self._phase2i_a3_depth_index.observe_chain(
+            (request.program_id, prefix.canonical_value),
+            str(os.getpid()),
+            block_ids,
+            content_hashes=content_hashes,
+            observation_index=snapshot_event_index,
+            observed_at=snapshot_timestamp,
+            clock_domain="system_monotonic",
+        )
         if self._phase2g_a2_identity_mode != "missing":
             self._phase2g_a2_registry.observe(
                 A2NativeChainSnapshot(
                     chain_id=f"{request.program_id}:{prefix.canonical_value}",
                     block_ids=tuple(block_ids),
-                    content_hashes=tuple(native_hash.hex() for native_hash in hashes),
+                    content_hashes=content_hashes,
                     native_hash_process_id=str(os.getpid()),
                 )
             )
@@ -1738,9 +2647,9 @@ class MinimalMetalObservabilityBackend:
         self._sink.emit(
             ExperimentEvent.create(
                 event_type="H2_NATIVE_PREFIX_INTERVENTION",
-                timestamp=self._clock.now(),
+                timestamp=getattr(self, "_native_clock", self._clock).now(),
                 clock_domain="system_monotonic",
-                source="phase2.minimal_metal",
+                source=getattr(self, "_event_source", "phase2.minimal_metal"),
                 program_id=ProgramIdentity(request.program_id),
                 request_id=RequestIdentity(request.request_id),
                 prefix_id=prefix,
@@ -1783,19 +2692,7 @@ class MinimalMetalObservabilityBackend:
                 self._runtime.retention.planning_snapshots(),
             )
 
-    def _start_turn(self, request: PlannedRequest) -> tuple[str, str, float, int]:
-        program = ProgramIdentity(request.program_id)
-        logical_request = RequestIdentity(request.request_id)
-        now = float(self._clock.now())
-        if request.program_id not in self._started_programs:
-            self._handle_lifecycle(ProgramStarted(program, now))
-            self._started_programs.add(request.program_id)
-
-        pending_tool = self._pending_tool_gaps.pop(request.program_id, None)
-        if pending_tool is not None:
-            self._handle_lifecycle(ToolGapEnded(program, pending_tool, now))
-
-        self._handle_lifecycle(RequestArrived(program, logical_request, now))
+    def _turn_material(self, request: PlannedRequest) -> tuple[tuple[int, ...], int]:
         prefix_tokens = self._prefix_tokens_for(request)
         if self._w1b_replay_tokens is not None:
             token_ids = self._w1b_replay_tokens.get(request.request_id)
@@ -1825,6 +2722,22 @@ class MinimalMetalObservabilityBackend:
                 vocabulary_size=self._vocabulary_size,
                 prefix_tokens=prefix_tokens,
             )
+        return token_ids, prefix_tokens
+
+    def _start_turn(self, request: PlannedRequest) -> tuple[str, str, float, int]:
+        program = ProgramIdentity(request.program_id)
+        logical_request = RequestIdentity(request.request_id)
+        now = float(self._clock.now())
+        if request.program_id not in self._started_programs:
+            self._handle_lifecycle(ProgramStarted(program, now))
+            self._started_programs.add(request.program_id)
+
+        pending_tool = self._pending_tool_gaps.pop(request.program_id, None)
+        if pending_tool is not None:
+            self._handle_lifecycle(ToolGapEnded(program, pending_tool, now))
+
+        self._handle_lifecycle(RequestArrived(program, logical_request, now))
+        token_ids, prefix_tokens = self._turn_material(request)
         native_id, external_id, submitted_at = self._enqueue(
             request,
             token_ids,
@@ -1844,6 +2757,33 @@ class MinimalMetalObservabilityBackend:
     ) -> None:
         program = ProgramIdentity(request.program_id)
         logical_request = RequestIdentity(request.request_id)
+        if not _requires_retention_snapshot(
+            request.request_id, self._w1b_right_censored_end_requests
+        ):
+            # This is an observed return endpoint, not evidence of a new
+            # future-retention fact. Under bounded dual-session capacity its
+            # complete post-request chain need not remain resident. Native/APC
+            # request evidence was already emitted by the completion path.
+            self._sink.emit(
+                ExperimentEvent.create(
+                    event_type="W1B_RIGHT_CENSORED_REPLAY_WINDOW_ENDED",
+                    timestamp=finished_at,
+                    clock_domain=self._lifecycle_clock_domain,
+                    source=self._event_source,
+                    program_id=program,
+                    request_id=logical_request,
+                    payload={
+                        "source_completion_inferred": False,
+                        "future_demand_created": False,
+                        "ttl_query_performed": False,
+                        "retention_snapshot_required": False,
+                        "claim_boundary": (
+                            "selected replay window ended; source session did not"
+                        ),
+                    },
+                )
+            )
+            return
         if request.is_terminal and not self._capture_terminal_prefix_snapshot:
             self._handle_lifecycle(
                 TurnFinished(
@@ -1860,26 +2800,6 @@ class MinimalMetalObservabilityBackend:
             native_id,
             expected_token_count=prefix_tokens,
         )
-
-        if request.request_id in self._w1b_right_censored_end_requests:
-            self._sink.emit(
-                ExperimentEvent.create(
-                    event_type="W1B_RIGHT_CENSORED_REPLAY_WINDOW_ENDED",
-                    timestamp=finished_at,
-                    clock_domain="system_monotonic",
-                    source="phase2.minimal_metal",
-                    program_id=program,
-                    request_id=logical_request,
-                    prefix_id=prefix,
-                    payload={
-                        "source_completion_inferred": False,
-                        "future_demand_created": False,
-                        "ttl_query_performed": False,
-                        "claim_boundary": ("selected replay window ended; source session did not"),
-                    },
-                )
-            )
-            return
 
         if request.is_terminal:
             self._handle_lifecycle(
@@ -1939,9 +2859,13 @@ class MinimalMetalObservabilityBackend:
 
     def _execute_turn(self, request: PlannedRequest) -> None:
         self._wait_for_planned_arrival(request)
-        native_id, external_id, _submitted_at, prefix_tokens = self._start_turn(request)
-        finished_at = self._complete(request, native_id, external_id)
-        self._finish_turn(request, native_id, finished_at, prefix_tokens)
+        self._retention_integration.begin_request_context((request.request_id,))
+        try:
+            native_id, external_id, _submitted_at, prefix_tokens = self._start_turn(request)
+            finished_at = self._complete(request, native_id, external_id)
+            self._finish_turn(request, native_id, finished_at, prefix_tokens)
+        finally:
+            self._retention_integration.end_execution_context()
 
     def _start_pressure(self, request: PlannedRequest) -> tuple[str, str, float]:
         stage_id = request.program_id.removeprefix("pressure:")
@@ -1949,34 +2873,58 @@ class MinimalMetalObservabilityBackend:
             stage_id,
             self._pressure_tokens,
         )
-        token_ids = _pressure_token_ids(
-            request,
-            vocabulary_size=self._vocabulary_size,
-            token_count=pressure_tokens,
-        )
+        token_ids = self._pressure_stage_token_ids.get(stage_id)
+        if token_ids is None:
+            token_ids = _pressure_token_ids(
+                request,
+                vocabulary_size=self._vocabulary_size,
+                token_count=pressure_tokens,
+            )
+        elif any(value >= self._vocabulary_size for value in token_ids):
+            raise ValueError("explicit pressure token ID exceeds model vocabulary")
         return self._enqueue(request, token_ids)
 
     def _finish_pressure(self, request: PlannedRequest, finished_at: float) -> None:
+        selection_plans = self._retention_integration.selection_plans_for(
+            request.request_id
+        )
         self._sink.emit(
             ExperimentEvent.create(
                 event_type="PRESSURE_REQUEST_COMPLETED",
                 timestamp=finished_at,
                 clock_domain="system_monotonic",
-                source="phase2.minimal_metal",
+                source=self._event_source,
                 program_id=ProgramIdentity(request.program_id),
                 request_id=RequestIdentity(request.request_id),
                 payload={
                     "forced_release_count": self.forced_release_count,
-                    "last_selected_block_ids": self.last_selected_block_ids,
+                    "pressure_request_id": request.request_id,
+                    "bound_decision_count": len(selection_plans),
+                    "bound_decision_ids": tuple(
+                        str(plan["decision_id"]) for plan in selection_plans
+                    ),
+                    "selected_block_ids_by_decision": tuple(
+                        tuple(plan["selected_native_block_ids"])
+                        for plan in selection_plans
+                    ),
+                    "legacy_last_selected_block_ids": self.last_selected_block_ids,
                 },
             )
         )
 
     def _execute_pressure(self, request: PlannedRequest) -> None:
         self._wait_for_planned_arrival(request)
-        native_id, external_id, _submitted_at = self._start_pressure(request)
-        finished_at = self._complete(request, native_id, external_id)
-        self._finish_pressure(request, finished_at)
+        self._retention_integration.begin_pressure_context(
+            boundary_id=f"direct:{request.request_id}",
+            stage_id=request.program_id.removeprefix("pressure:"),
+            pressure_request_id=request.request_id,
+        )
+        try:
+            native_id, external_id, _submitted_at = self._start_pressure(request)
+            finished_at = self._complete(request, native_id, external_id)
+            self._finish_pressure(request, finished_at)
+        finally:
+            self._retention_integration.end_pressure_context()
 
     def execute(self, request: PlannedRequest) -> None:
         if not isinstance(request, PlannedRequest):
@@ -2013,6 +2961,216 @@ class MinimalMetalObservabilityBackend:
             native_request_id=native_id,
             external_request_id=external_id,
             submitted_at=submitted_at,
+        )
+
+    @property
+    def controlled_replay_clock(self) -> ControlledSparseReplayClock:
+        """Return the single controller shared by lifecycle and runner code."""
+        if self._controlled_replay_clock is None:
+            raise RuntimeError("controlled sparse replay is not configured")
+        return self._controlled_replay_clock
+
+    @property
+    def controlled_pressure_execution_seconds(self) -> float:
+        return self._controlled_pressure_execution_seconds
+
+    def prepare_arrival(self, request: PlannedRequest) -> None:
+        """Record one logical arrival without starting Native execution."""
+        if self._controlled_replay_clock is None:
+            raise RuntimeError("prepare_arrival requires controlled sparse replay")
+        if not isinstance(request, PlannedRequest):
+            raise TypeError("request must be PlannedRequest")
+        if request.kind == "pressure":
+            raise ValueError("pressure requests require a frozen pressure boundary")
+        if request.request_id in self._controlled_prepared:
+            raise RuntimeError("logical arrival was prepared twice")
+
+        program = ProgramIdentity(request.program_id)
+        logical_request = RequestIdentity(request.request_id)
+        logical_now = float(self._clock.now())
+        if request.program_id not in self._started_programs:
+            self._handle_lifecycle(ProgramStarted(program, logical_now))
+            self._started_programs.add(request.program_id)
+        pending_tool = self._pending_tool_gaps.pop(request.program_id, None)
+        if pending_tool is not None:
+            self._handle_lifecycle(ToolGapEnded(program, pending_tool, logical_now))
+        self._handle_lifecycle(RequestArrived(program, logical_request, logical_now))
+        token_ids, prefix_tokens = self._turn_material(request)
+        self._controlled_prepared[request.request_id] = (
+            request,
+            token_ids,
+            prefix_tokens,
+            logical_now,
+        )
+
+    def record_logical_time_advance(self, advance: LogicalTimeAdvance) -> None:
+        if self._controlled_replay_clock is None:
+            raise RuntimeError("logical time telemetry requires controlled replay")
+        self._sink.emit(
+            ExperimentEvent.create(
+                event_type="CONTROLLED_REPLAY_TIME_ADVANCED",
+                timestamp=advance.logical_timestamp,
+                clock_domain=advance.logical_clock_domain,
+                source="continuum.controlled_sparse_replay",
+                payload=advance.to_dict(),
+            )
+        )
+
+    def submit_prepared(self, request_id: str) -> RequestHandle:
+        """Submit one previously prepared request without advancing logical time."""
+        if self._controlled_replay_clock is None:
+            raise RuntimeError("submit_prepared requires controlled sparse replay")
+        prepared = self._controlled_prepared.pop(request_id, None)
+        if prepared is None:
+            raise RuntimeError("request has no prepared logical arrival")
+        request, token_ids, prefix_tokens, logical_arrival = prepared
+        native_id, external_id, submitted_at = self._enqueue(
+            request,
+            token_ids,
+            reusable_prefix_tokens=prefix_tokens,
+        )
+        self._handle_lifecycle(
+            RequestAdmitted(
+                ProgramIdentity(request.program_id),
+                RequestIdentity(request.request_id),
+                logical_arrival,
+            )
+        )
+        if external_id in self._phase2b_pending:
+            raise RuntimeError("duplicate pending external request ID")
+        self._phase2b_pending[external_id] = (request, native_id, prefix_tokens)
+        return RequestHandle(
+            logical_request_id=request.request_id,
+            native_request_id=native_id,
+            external_request_id=external_id,
+            submitted_at=submitted_at,
+        )
+
+    def drain_native(self, *, timeout_seconds: float) -> tuple[RequestCompletion, ...]:
+        """Drain Native work but defer lifecycle completion to logical time."""
+        if self._controlled_replay_clock is None:
+            raise RuntimeError("drain_native requires controlled sparse replay")
+        if not self._phase2b_pending:
+            return ()
+        request_ids = tuple(
+            sorted(pending[0].request_id for pending in self._phase2b_pending.values())
+        )
+        self._retention_integration.begin_request_context(request_ids)
+        try:
+            outputs = self._wait_for_completion_bounded(timeout_seconds)
+            rows: list[RequestCompletion] = []
+            for output in outputs:
+                external_id = getattr(output, "request_id", None)
+                if not isinstance(external_id, str):
+                    raise TypeError("native completion lacks external request ID")
+                pending = self._phase2b_pending.pop(external_id, None)
+                if pending is None:
+                    raise RuntimeError(
+                        f"native completion has no pending request: {external_id}"
+                    )
+                request, native_id, prefix_tokens = pending
+                finished_at = self._observe_completed_output(
+                    request,
+                    native_id,
+                    external_id,
+                    output,
+                )
+                if request.request_id in self._controlled_completed:
+                    raise RuntimeError("duplicate controlled Native completion")
+                self._controlled_completed[request.request_id] = (
+                    request,
+                    native_id,
+                    prefix_tokens,
+                )
+                rows.append(
+                    RequestCompletion(
+                        logical_request_id=request.request_id,
+                        native_request_id=native_id,
+                        external_request_id=external_id,
+                        completed_at=finished_at,
+                    )
+                )
+            if self._phase2b_pending:
+                missing = ", ".join(sorted(self._phase2b_pending))
+                raise RuntimeError(
+                    f"native drain omitted pending external request IDs: {missing}"
+                )
+            return tuple(rows)
+        finally:
+            self._retention_integration.end_execution_context()
+
+    def finish_logical_completion(self, request_id: str) -> None:
+        """Apply lifecycle completion at the frozen logical-time boundary."""
+        completed = self._controlled_completed.pop(request_id, None)
+        if completed is None:
+            raise RuntimeError("logical completion has no Native completion")
+        request, native_id, prefix_tokens = completed
+        self._finish_turn(
+            request,
+            native_id,
+            float(self._clock.now()),
+            prefix_tokens,
+        )
+
+    def execute_prepared_pressure(self, boundary_id: str) -> None:
+        """Execute one frozen pressure cell while logical time is stationary."""
+        if self._controlled_replay_clock is None:
+            raise RuntimeError("controlled pressure requires controlled sparse replay")
+        stage = self._controlled_pressure_stages.get(boundary_id)
+        if stage is None:
+            raise RuntimeError("pressure boundary has no frozen pressure stage")
+        started = float(self._native_clock.now())
+        observed_before = self.forced_release_count
+        attempts = 0
+        for attempt in range(1, stage.max_requests + 1):
+            attempts += 1
+            request = stage.request(attempt, self._seed)
+            self._retention_integration.begin_pressure_context(
+                boundary_id=boundary_id,
+                stage_id=stage.stage_id,
+                pressure_request_id=request.request_id,
+            )
+            try:
+                native_id, external_id, _submitted_at = self._start_pressure(request)
+                self._controlled_replay_clock.native_submitted(request.request_id)
+                finished_at = self._complete(request, native_id, external_id)
+                self._controlled_replay_clock.native_completed(request.request_id)
+                self._finish_pressure(request, finished_at)
+            finally:
+                self._retention_integration.end_pressure_context()
+            if (
+                stage.stop_on_forced_release
+                and self.forced_release_count > observed_before
+            ):
+                break
+        elapsed = float(self._native_clock.now()) - started
+        bound_plans = self._retention_integration.selection_plans_for_boundary(
+            boundary_id
+        )
+        self._controlled_pressure_execution_seconds += elapsed
+        self._sink.emit(
+            ExperimentEvent.create(
+                event_type="CONTROLLED_REPLAY_PRESSURE_COMPLETED",
+                timestamp=float(self._clock.now()),
+                clock_domain=self._lifecycle_clock_domain,
+                source="continuum.controlled_sparse_replay",
+                payload={
+                    "boundary_id": boundary_id,
+                    "stage_id": stage.stage_id,
+                    "attempt_count": attempts,
+                    "forced_release_count_before": observed_before,
+                    "forced_release_count_after": self.forced_release_count,
+                    "bound_decision_count": len(bound_plans),
+                    "bound_forced_release_count": sum(
+                        int(plan.get("forced_release_observed") is True)
+                        for plan in bound_plans
+                    ),
+                    "bound_decision_ids": tuple(
+                        str(plan["decision_id"]) for plan in bound_plans
+                    ),
+                    "native_wall_elapsed_seconds": elapsed,
+                },
+            )
         )
 
     def collect_completed(self, *, until: float | None = None) -> tuple[RequestCompletion, ...]:

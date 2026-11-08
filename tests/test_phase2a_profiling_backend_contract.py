@@ -6,14 +6,49 @@ from kvopt.continuum import RetentionMode
 from kvopt.workload.phase2 import PlannedRequest
 from scripts.spikes.phase2_minimal_observability_metal import (
     _expected_profiling_block_override,
+    _phase2g_a1_campaign_allowed,
     _phase2g_a2_campaign_allowed,
     _phase2g_unique_protected_block_campaign_allowed,
+    _phase2i_a3_campaign_allowed,
     _pressure_stage_sizes,
     _program_prefix_sizes,
     _required_max_model_len,
     _retention_mode_for_config,
     _turn_token_ids,
+    _validate_formal_profile_cache_capacity,
 )
+
+
+def test_phase2h_campaign_is_exactly_allowlisted_for_a1_and_a2() -> None:
+    campaign = "phase2h_history_rich_native_smoke"
+    assert _phase2g_a1_campaign_allowed(campaign)
+    assert _phase2g_a2_campaign_allowed(campaign)
+
+
+def test_phase3_campaign_is_exactly_allowlisted_for_all_existing_policy_layers() -> None:
+    campaign = "phase3_final_evaluation"
+    assert _phase2g_a1_campaign_allowed(campaign)
+    assert _phase2g_a2_campaign_allowed(campaign)
+    assert _phase2i_a3_campaign_allowed(campaign)
+
+
+@pytest.mark.parametrize(
+    "campaign",
+    ["phase3", "phase3_final", "phase3-final-evaluation"],
+)
+def test_similar_phase3_names_are_not_policy_allowlisted(campaign: str) -> None:
+    assert not _phase2g_a1_campaign_allowed(campaign)
+    assert not _phase2g_a2_campaign_allowed(campaign)
+    assert not _phase2i_a3_campaign_allowed(campaign)
+
+
+@pytest.mark.parametrize(
+    "campaign",
+    ["phase2h_history_rich", "phase2h_history_rich_native", "phase2h-smoke"],
+)
+def test_similar_phase2h_names_are_not_policy_allowlisted(campaign: str) -> None:
+    assert not _phase2g_a1_campaign_allowed(campaign)
+    assert not _phase2g_a2_campaign_allowed(campaign)
 
 
 @pytest.mark.parametrize(
@@ -81,6 +116,34 @@ def test_expected_block_budget_matches_controlled_scarcity_rule() -> None:
         )
         == 69
     )
+
+
+def test_formal_profile_uses_full_runtime_pool_with_reachable_eviction() -> None:
+    _validate_formal_profile_cache_capacity(
+        block_override=2048,
+        max_model_len=32768,
+        program_prefix_tokens={"formal-profile": 1024},
+        pressure_tokens=512,
+        maximum_pressure_requests=64,
+    )
+
+    with pytest.raises(ValueError, match="max-model-length runtime pool"):
+        _validate_formal_profile_cache_capacity(
+            block_override=96,
+            max_model_len=32768,
+            program_prefix_tokens={"formal-profile": 1024},
+            pressure_tokens=512,
+            maximum_pressure_requests=64,
+        )
+
+    with pytest.raises(ValueError, match="cannot evict"):
+        _validate_formal_profile_cache_capacity(
+            block_override=2048,
+            max_model_len=32768,
+            program_prefix_tokens={"formal-profile": 1024},
+            pressure_tokens=512,
+            maximum_pressure_requests=1,
+        )
     assert (
         _expected_profiling_block_override(
             {"agent-a": 256, "agent-b": 256},
@@ -94,11 +157,14 @@ def test_expected_block_budget_matches_controlled_scarcity_rule() -> None:
 
 def test_program_prefix_sizes_accept_h2_grid_points_only_when_aligned() -> None:
     assert _program_prefix_sizes(
-        {"program_prefix_tokens": {"agent-a": 192, "agent-b": 30_720}}
-    ) == {"agent-a": 192, "agent-b": 30_720}
+        {"program_prefix_tokens": {"agent-a": 192, "agent-b": 32_256}}
+    ) == {"agent-a": 192, "agent-b": 32_256}
 
     with pytest.raises(ValueError, match="align to the KV block size"):
         _program_prefix_sizes({"program_prefix_tokens": {"agent-a": 191}})
+
+    with pytest.raises(ValueError, match="between 16 and 32256 tokens"):
+        _program_prefix_sizes({"program_prefix_tokens": {"agent-a": 32_272}})
 
 
 def test_materialized_turn_uses_requested_prefix_size() -> None:
@@ -157,3 +223,7 @@ def test_max_model_len_covers_largest_pressure_stage() -> None:
         )
         == 784
     )
+
+
+def test_max_model_len_accepts_only_pressure_prompt_candidate() -> None:
+    assert _required_max_model_len({}, 512, {}, 1) == 528

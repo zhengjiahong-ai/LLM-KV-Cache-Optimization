@@ -83,6 +83,16 @@ def test_native_queue_duration_remains_separate_from_ttl_queue_history() -> None
     assert payload["eta"] == 1.0
     assert payload["eta_provenance_source"] == "APPROXIMATED"
     assert payload["eta_provenance_reason"] == "FULLY_MEMORYFUL_COLD_START"
+    assert payload["global_server_gap_sample_count"] == 0
+    assert payload["tool_server_gap_sample_count"] == 0
+    assert payload["server_gap_history_provenance_source"] == "OBSERVED"
+    decision = next(
+        event for event in sink.snapshot() if event.event_type == "TTL_DECISION_OBSERVED"
+    )
+    decision_payload = decision.payload.to_dict()
+    assert decision_payload["history_mode"] == "cold_start"
+    assert decision_payload["ttl_seconds"] == 30.0
+    assert decision_payload["deadline_timestamp"] == 33.0
 
 
 def test_only_typed_evicted_request_record_enters_queue_history() -> None:

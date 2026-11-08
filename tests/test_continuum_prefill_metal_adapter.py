@@ -308,22 +308,25 @@ def test_adapter_runs_32_distinct_serial_pressure_requests_without_native_mutati
     adapter = _build_adapter(engine, native)
 
     target_first_block = tuple(adapter.target_token_ids(256)[:16])
-    adapter.run_pressure_batch()
+    native.present_hashes.add(b"target-hash")
+    adapter.capture_target_material((b"target-hash",))
+    first_count = adapter.run_pressure_batch()
     first_batch = tuple(
         entry["token_ids"]  # type: ignore[assignment]
         for entry in engine.added
     )
-    adapter.run_pressure_batch()
+    second_count = adapter.run_pressure_batch()
     second_batch = tuple(
         entry["token_ids"]  # type: ignore[assignment]
         for entry in engine.added[32:]
     )
-    adapter.run_pressure_batch()
+    third_count = adapter.run_pressure_batch()
 
     batch = tuple(
         entry["token_ids"]  # type: ignore[assignment]
         for entry in engine.added
     )
+    assert (first_count, second_count, third_count) == (32, 32, 32)
     assert len(first_batch) == 32
     assert len(second_batch) == 32
     assert len(batch) == 96
@@ -339,6 +342,25 @@ def test_adapter_runs_32_distinct_serial_pressure_requests_without_native_mutati
     for entry in (engine.added[0], engine.added[32]):
         with pytest.raises(ValueError):
             adapter.request_observation(str(entry["external_id"]))
+
+
+def test_adapter_stops_pressure_immediately_after_target_hash_disappears() -> None:
+    native = _ReadOnlyNativeSurface()
+    engine = _FakeEngine(native=native, auto_complete=True)
+    adapter = _build_adapter(engine, native)
+    target_hash = b"target-hash"
+    adapter.capture_target_material((target_hash,))
+
+    def lookup_hash(native_hash: bytes) -> bool:
+        native.lookup_calls += 1
+        assert native_hash == target_hash
+        return len(engine.added) < 3
+
+    native.lookup_hash = lookup_hash  # type: ignore[method-assign]
+
+    assert adapter.run_pressure_batch() == 3
+    assert len(engine.added) == 3
+    assert adapter.read_target_material_presence() is False
 
 
 def test_adapter_seeds_each_grid_point_once_and_constructs_valid_non_nested_targets() -> None:

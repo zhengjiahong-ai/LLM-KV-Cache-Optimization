@@ -47,9 +47,15 @@ def run_prefill_pair(
         raise ValueError("target material is absent at pair entry")
 
     pressure_batches = 0
+    pressure_requests = 0
     target_present_after_pressure = True
-    while pressure_batches < max_pressure_batches:
-        native.run_pressure_batch()
+    while pressure_requests < max_pressure_batches:
+        requests_in_batch = native.run_pressure_batch(
+            max_requests=max_pressure_batches - pressure_requests
+        )
+        if type(requests_in_batch) is not int or requests_in_batch <= 0:
+            raise ValueError("native pressure batch request count is invalid")
+        pressure_requests += requests_in_batch
         pressure_batches += 1
         target_present_after_pressure = native.read_target_material_presence()
         if not target_present_after_pressure:
@@ -83,6 +89,8 @@ def run_prefill_pair(
                 "target_present_before_pressure": True,
                 "target_present_after_pressure": False,
                 "pressure_batches": pressure_batches,
+                "pressure_requests": pressure_requests,
+                "pressure_input_tokens": pressure_requests * 512,
                 "miss_ttft_seconds": miss_ttft,
                 "hit_ttft_seconds": hit_ttft,
             }

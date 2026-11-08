@@ -105,6 +105,7 @@ def test_opt_in_a1_changes_logical_release_and_native_victims() -> None:
     assert a0_blocks == (1, 2)
     assert a1_blocks == (9, 10)
     assert coordinator.selection_trace()[0]["branch"] == "single_step"
+    assert coordinator.selection_trace()[0]["need"] == 2
 
 
 def test_default_runtime_path_remains_frozen_a0() -> None:

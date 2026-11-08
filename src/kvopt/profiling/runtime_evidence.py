@@ -243,10 +243,15 @@ def _eligible_prefix_tokens(
     *,
     current: _NativeHashEvidence,
     native_prompt_tokens: int,
+    native_cached_prefix_tokens: int,
     prior_events: Sequence[dict[str, object]],
 ) -> tuple[int | None, str | None]:
     if not prior_events:
-        return 0, None
+        # A native APC hit is direct evidence that the cached prefix was
+        # eligible, even when a concurrent producer has not yet persisted its
+        # VLLM_PREFIX_SNAPSHOT.  Keep this as a lower bound; do not infer any
+        # additional eligible content without a prior content-identity chain.
+        return native_cached_prefix_tokens, None
 
     compatible: list[_NativeHashEvidence] = []
     invalid_prior_evidence = False
@@ -280,6 +285,8 @@ def _eligible_prefix_tokens(
             compatible.append(evidence)
 
     if not compatible:
+        if native_cached_prefix_tokens > 0:
+            return native_cached_prefix_tokens, None
         reason = (
             "prior_native_hash_provenance_unavailable"
             if invalid_prior_evidence
@@ -293,7 +300,8 @@ def _eligible_prefix_tokens(
     )
     maximum_reusable_blocks = (native_prompt_tokens - 1) // current.block_size
     eligible_blocks = min(longest_blocks, maximum_reusable_blocks)
-    return eligible_blocks * current.block_size, None
+    snapshot_eligible = eligible_blocks * current.block_size
+    return max(snapshot_eligible, native_cached_prefix_tokens), None
 
 
 def derive_level_b_token_semantics(
@@ -545,7 +553,9 @@ def build_request_runtime_evidence_table(
                 native_prompt_tokens = _positive_int(
                     prompt, "native_prompt_tokens"
                 )
-                _non_negative_int(cached, "native_cached_prefix_tokens")
+                native_cached_prefix_tokens = _non_negative_int(
+                    cached, "native_cached_prefix_tokens"
+                )
                 current = _hash_evidence(
                     payload,
                     hashes_field="native_apc_block_hashes",
@@ -554,6 +564,7 @@ def build_request_runtime_evidence_table(
                 eligible, unavailable_reason = _eligible_prefix_tokens(
                     current=current,
                     native_prompt_tokens=native_prompt_tokens,
+                    native_cached_prefix_tokens=native_cached_prefix_tokens,
                     prior_events=_prior_prefix_snapshots(
                         artifacts.events, event_index
                     ),

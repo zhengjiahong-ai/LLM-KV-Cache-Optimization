@@ -1440,6 +1440,7 @@ def _coherent_child_request_snapshot(
     native_request_id: str,
     *,
     expected_token_count: int | None = None,
+    maximum_token_count: int = 30_720,
 ) -> tuple[str, int, tuple[int, ...], tuple[bytes, ...]]:
     """Extract prefix identity, reusable count, blocks and hashes from one record."""
     from kvopt.runtime.vllm.continuum_observation import (
@@ -1524,7 +1525,7 @@ def _coherent_child_request_snapshot(
                 block.get("native_hash_hex")
                 for block in blocks
             )
-            if prefix is None or not 16 <= token_count <= 30_720:
+            if prefix is None or not 16 <= token_count <= maximum_token_count:
                 continue
             if expected_token_count is not None and token_count != expected_token_count:
                 continue

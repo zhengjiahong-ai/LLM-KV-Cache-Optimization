@@ -1,0 +1,63 @@
+{
+  "true_relations": {
+    "F_contains_E": true,
+    "F_contains_A_prime": true,
+    "reason": "Every E and A' operating point is one of the 40 cells F already contains, so F can host both as pre-registered subgroups."
+  },
+  "false_relation": {
+    "E_contains_A_prime": false,
+    "A_prime_contains_E": false,
+    "reason": "E and A' choose different operating points for some groups, so neither cell set contains the other."
+  },
+  "correct_statement": "F ⊃ E and F ⊃ A′; E and A′ are neither nested nor disjoint",
+  "shared_groups": [
+    "g02",
+    "g03",
+    "g04",
+    "g06",
+    "g08",
+    "g09",
+    "g11",
+    "g12",
+    "g13",
+    "g16",
+    "g17",
+    "g18"
+  ],
+  "A_PRIME_only_groups": [],
+  "E_only_groups": [
+    "g05",
+    "g10",
+    "g19"
+  ],
+  "groups_whose_operating_point_moves": [
+    {
+      "group_id": "g03",
+      "A_PRIME": {
+        "condition": "C2",
+        "pressure_blocks": 1024,
+        "rho0": 0.355685
+      },
+      "E": {
+        "condition": "C1",
+        "pressure_blocks": 256,
+        "rho0": 0.182081
+      }
+    },
+    {
+      "group_id": "g16",
+      "A_PRIME": {
+        "condition": "C1",
+        "pressure_blocks": 256,
+        "rho0": 0.107009
+      },
+      "E": {
+        "condition": "C2",
+        "pressure_blocks": 1024,
+        "rho0": 0.444424
+      }
+    }
+  ],
+  "why_they_move": "A' picks the cheapest measured pressure inside a FROZEN band; E also accepts the 0.15-0.25 gap, which makes a different (cheaper) cell available for the same group. g03 moves to C1 (rho0 0.1821, in the gap) and g16 moves to C2 (rho0 0.4444), so the same group is studied at a different condition in the two designs.",
+  "consequence": "A' and E cannot be described as a subset and superset of one another, and their estimates are not nested comparisons. Only F's relation to each of them is nested."
+}

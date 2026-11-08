@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 from dataclasses import dataclass, field
 from types import ModuleType
@@ -8,7 +9,12 @@ from typing import Any
 import pytest
 
 from kvopt.continuum import BlockIdentity, FakeClock, RetentionMode
+from kvopt.costaware.a2_native import A2NativeChainSnapshot, A2NativeSnapshotRegistry
+from kvopt.profiling.experiment_events import InMemoryExperimentEventSink
 from kvopt.runtime.vllm.observer import install_retention_hook
+from scripts.spikes.phase2_minimal_observability_metal import (
+    MinimalMetalObservabilityBackend,
+)
 
 
 @dataclass
@@ -101,6 +107,10 @@ class _FakeIntegration:
     calls: list[dict[str, Any]] = field(default_factory=list)
     eviction_calls: list[BlockIdentity] = field(default_factory=list)
     committed: bool = False
+    returned_selection_calls: list[tuple[tuple[int, str | None], ...]] = field(
+        default_factory=list
+    )
+    lifecycle_events: list[str] = field(default_factory=list)
 
     def apply_pressure(self, **kwargs: Any) -> _HookResult:
         self.calls.append(kwargs)
@@ -109,7 +119,14 @@ class _FakeIntegration:
         if kwargs["mode"] is RetentionMode.CONTROLLED:
             self.committed = True
             kwargs["remove_selected"](self.result.selected_block_ids)
+        self.lifecycle_events.append("apply_pressure_return")
         return self.result
+
+    def observe_native_selection_returned(
+        self, selected: tuple[tuple[int, str | None], ...]
+    ) -> None:
+        self.lifecycle_events.append("selection_returned")
+        self.returned_selection_calls.append(selected)
 
     def observe_native_eviction(self, block_id: BlockIdentity) -> None:
         self.eviction_calls.append(block_id)
@@ -438,6 +455,88 @@ def test_opt_in_hashed_eviction_observer_copies_pre_cleanup_identity(
     assert observations[0].ref_count_before == 0
     assert observations[0].hash_removed_after is True
     assert observations[0].native_cache_key_before
+
+
+def test_selection_plan_is_bound_after_apply_returns_before_late_physical_eviction(
+    hook_environment,
+) -> None:
+    selected_block = _FakeBlock(8, ref_cnt=0, block_hash=b"selected-content")
+    integration = _FakeIntegration(_HookResult((8,)))
+    queue = _FakeFreeKVCacheBlockQueue([_FakeBlock(7), selected_block])
+    physical = []
+
+    def observe_physical(observation) -> None:
+        integration.lifecycle_events.append("physical_eviction")
+        physical.append(observation)
+
+    install_retention_hook(
+        mode=RetentionMode.CONTROLLED,
+        integration=integration,
+        clock=FakeClock(),
+        hashed_eviction_observer=observe_physical,
+    )
+
+    selected = queue.popleft_n(1)
+    assert selected == [selected_block]
+    assert integration.lifecycle_events == [
+        "apply_pressure_return",
+        "selection_returned",
+    ]
+    assert integration.returned_selection_calls == [
+        ((8, b"selected-content".hex()),)
+    ]
+
+    assert _FakeBlockPool()._maybe_evict_cached_block(selected_block) is True
+    assert integration.lifecycle_events == [
+        "apply_pressure_return",
+        "selection_returned",
+        "physical_eviction",
+    ]
+    assert physical[0].block_id == 8
+    assert physical[0].native_cache_key_before == b"selected-content".hex()
+
+
+def test_cpu_hook_hashed_eviction_invalidates_live_content_registry(
+    hook_environment,
+) -> None:
+    content = b"recycled-slot-content"
+    registry = A2NativeSnapshotRegistry()
+    registry.observe(
+        A2NativeChainSnapshot(
+            chain_id="program:prefix",
+            block_ids=(7,),
+            content_hashes=(content.hex(),),
+            native_hash_process_id=str(os.getpid()),
+        )
+    )
+
+    class _Unattributed:
+        def match_physical_eviction(self, _observation):
+            return {
+                "physical_attribution": "UNATTRIBUTED",
+                "physical_attribution_reason": "NO_PENDING_PLAN",
+            }
+
+    backend = object.__new__(MinimalMetalObservabilityBackend)
+    backend._phase2g_a2_registry = registry
+    backend._retention_integration = _Unattributed()
+    backend._sink = InMemoryExperimentEventSink()
+    backend._native_clock = FakeClock()
+    integration = _FakeIntegration()
+    install_retention_hook(
+        mode=RetentionMode.CONTROLLED,
+        integration=integration,
+        clock=FakeClock(),
+        hashed_eviction_observer=backend._observe_phase2b_native_hashed_eviction,
+    )
+
+    block = _FakeBlock(7, ref_cnt=0, block_hash=content)
+    assert registry.content_identity(7) is not None
+    assert _FakeBlockPool()._maybe_evict_cached_block(block) is True
+    assert registry.content_identity(7) is None
+    event = backend._sink.snapshot()[0]
+    assert event.event_type == "VLLM_NATIVE_HASHED_CACHE_ENTRY_EVICTED"
+    assert event.payload["physical_attribution"] == "UNATTRIBUTED"
 
 
 def test_legacy_hook_does_not_emit_hashed_eviction_audit(hook_environment) -> None:

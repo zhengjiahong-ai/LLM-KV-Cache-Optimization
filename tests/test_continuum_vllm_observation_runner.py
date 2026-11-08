@@ -33,6 +33,7 @@ from scripts.spikes.run_continuum_vllm_observation import (
     execute_plan,
     parse_args,
     require_observation_topology,
+    verify_cuda_runtime_identity,
     verify_runtime_identity,
 )
 
@@ -897,3 +898,68 @@ def test_runtime_identity_rejects_unqualified_profiles(field: str, value: object
 
     with pytest.raises(RunnerError):
         verify_runtime_identity(**inputs)  # type: ignore[arg-type]
+
+
+def test_cuda_runtime_identity_accepts_pinned_h800_profile() -> None:
+    assert verify_cuda_runtime_identity(
+        vllm_distribution_version="0.27.1",
+        vllm_module_version="0.27.1",
+        platform_plugin_class="vllm.platforms.cuda.NvmlCudaPlatform",
+        device_type="cuda",
+        torch_version="2.13.0+cu130",
+        torch_cuda_version="13.0",
+        cuda_available=True,
+        device_name="NVIDIA H800",
+        device_capability=(9, 0),
+        device_total_memory_bytes=85_521_285_120,
+    ) == {
+        "cuda_available": True,
+        "cuda_device_capability": [9, 0],
+        "cuda_device_name": "NVIDIA H800",
+        "cuda_device_total_memory_bytes": 85_521_285_120,
+        "device_type": "cuda",
+        "platform_plugin_class": "vllm.platforms.cuda.NvmlCudaPlatform",
+        "platform_plugin_identity": "vllm-cuda",
+        "qualification_status": "PENDING_REVIEW",
+        "torch_cuda_version_raw": "13.0",
+        "torch_version_raw": "2.13.0+cu130",
+        "vllm_distribution_version_raw": "0.27.1",
+        "vllm_module_version_raw": "0.27.1",
+        "vllm_release_version": "0.27.1",
+    }
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("vllm_distribution_version", "0.28.0"),
+        ("vllm_module_version", "0.27.0"),
+        ("platform_plugin_class", "vllm.platforms.cpu.CpuPlatform"),
+        ("device_type", "cpu"),
+        ("torch_cuda_version", None),
+        ("cuda_available", False),
+        ("device_name", ""),
+        ("device_capability", (7, 0)),
+        ("device_total_memory_bytes", 0),
+    ],
+)
+def test_cuda_runtime_identity_rejects_unqualified_profiles(
+    field: str,
+    value: object,
+) -> None:
+    inputs: dict[str, object] = {
+        "vllm_distribution_version": "0.27.1",
+        "vllm_module_version": "0.27.1",
+        "platform_plugin_class": "vllm.platforms.cuda.NvmlCudaPlatform",
+        "device_type": "cuda",
+        "torch_version": "2.13.0+cu130",
+        "torch_cuda_version": "13.0",
+        "cuda_available": True,
+        "device_name": "NVIDIA H800",
+        "device_capability": (9, 0),
+        "device_total_memory_bytes": 85_521_285_120,
+    }
+    inputs[field] = value
+
+    with pytest.raises(RunnerError):
+        verify_cuda_runtime_identity(**inputs)  # type: ignore[arg-type]
