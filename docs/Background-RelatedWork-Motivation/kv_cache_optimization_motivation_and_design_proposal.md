@@ -1,532 +1,631 @@
-# Research Motivation and Design Proposal: Four Optimization Directions for Continuum-Informed KV-Cache Management
+# Potential Future Research Directions: Four Optimization Ideas for Continuum-Informed KV-Cache Management
 
 **Project:** LLM-KV-Cache-Optimization  
-**Purpose:** Research motivation and design proposal; not an implementation-status report  
-**Scope:** Block-level intervention and victim selection; Entry-level unpin ordering and granularity  
-**Status:** Proposed hypotheses. None of the proposed gains should be treated as established until evaluated.
+**Document type:** Future-research proposal. **Not** an implementation plan, **not** a report of completed work, **not** an evaluation result.  
+**Scope:** Block-level intervention and victim selection; Entry-level unpin ordering and granularity.  
+**Status:** **POTENTIAL FUTURE WORK — UNAUTHORIZED FOR IMPLEMENTATION.**
+
+> **Document status — read this first.**
+>
+> 1. These four ideas are **potential future research directions**.
+> 2. They are **not part of the frozen Phase 3 evaluation campaign** and **do not expand the current strategy implementation scope**.
+> 3. They have **not all been fully implemented**; none of the four is a completed algorithm.
+> 4. Their **independent performance benefits have not been established**.
+> 5. Any further implementation or evaluation requires **project-level authorization and available time**.
+>
+> The project lead has decided to prioritize **completion of the existing Phase 3 experimental framework** and the **correct, complete evaluation of the existing experimental arms** (A0/A1/A2, extended in Phase 3 to the frozen six-arm design **N0/A0/A1/A2/A3/E0**). This document preserves Member 2's intellectual contribution; it must not be read as approval to build, schedule, or claim a result.
+
+**Authority and reading order** (all status claims in this document defer to these):
+
+- [`docs/research-status.md`](../research-status.md) — canonical M1 phase/gate ledger on `main`. **Unmerged PR proposals are unapproved.**
+- [`docs/experiments/README.md`](../experiments/README.md) — evidence navigation index and reading boundaries.
+- [`docs/baseline-freeze.md`](../baseline-freeze.md) — frozen Continuum-style baseline and excluded scope.
+- [`docs/experiment-plan.md`](../experiment-plan.md) — original RQ1–RQ4 framing and its current Phase 3 execution overlay (2026-11-03).
+- [`docs/team-responsibilities.md`](../team-responsibilities.md) — ownership; Phase 3 is now a frozen protocol with conditional authorization, not an open-ended roadmap.
+- [`项目动机文档.md`](项目动机文档.md) — project motivation and evidence boundary; [`专业术语表.md`](专业术语表.md) — terminology; [`相关工作总结.md`](相关工作总结.md) / [`References&Notes/论文总结.md`](References&Notes/论文总结.md) — literature; [`References&Notes/参考文献/文献索引.md`](References&Notes/参考文献/文献索引.md) — single bibliographic authority.
+
+**Evidence discipline (four levels, never mixed):** ① results reported by external paper authors (always with experimental conditions); ② design inspiration derived from a paper's mechanism; ③ hypotheses proposed in this document; ④ results actually measured by this repository. ① is never ④. A signal existing somewhere in the code is not evidence that it is consumed at the eviction decision point; a CPU/Mock or offline result is not a real-vLLM result; a real-vLLM run is not an independent Native performance conclusion.
+
+**Protocol note.** The active Phase 3 protocol is **Protocol v4 (Option F)**, accepted by M1 on 2026-11-06 (Issue #98 / PR #97) and engineered via PR #99; **Protocol v3 remains an immutable historical protocol**. G0 was accepted on 2026-11-07: the 40-run A0 load calibration is reused (not rerun), the 30-run A0 Noise Calibration is authorized, and the 240-run Main Campaign remains locked. The frozen campaign is the six-arm design **N0/A0/A1/A2/A3/E0**. The four ideas in this document are **not part of** that campaign and are **not approved implementation work**. This document **does not modify the frozen protocol, does not create a campaign, and does not define a new arm**. Any future evaluation requires a separate M1 decision recorded in [`docs/research-status.md`](../research-status.md).
+
+**Structure note.** Each idea uses the same 11-part structure (§5–§8): Research Question / Motivation / Related Work and Research Context / Existing Project Mechanisms / Current Implementation Status / Proposed Future Design / Engineering Requirements / Evaluation Plan / Expected Benefits / Failure Criteria and Research Risks / Relationship to the Current Phase 3 Scope. Statements are labelled **[P]** proposal (not built), **[I]** implemented in code today, **[E]** evaluated by accepted evidence, or **[N]** not established, so that proposal, implementation and evaluation are never conflated.
 
 ---
 
-## 1. Executive Summary
+## 1. Document Positioning and Scope
 
-This proposal organizes the next research questions into four independent but composable optimization ideas:
+### 1.1 What this document is
 
-1. **Block-level Idea 1 — Intervention and fallback:** When should a custom Block eviction policy intervene, and when should the system retain the native LRU decision?
-2. **Block-level Idea 2 — Continuum intermediate signals:** Should Block victim selection use signals available inside Continuum—such as tool type, tool duration, inter-request gaps, queue delay, program progress, and prefill/reload cost—instead of relying primarily on a final TTL deadline?
-3. **Entry-level Idea 3 — Unpin ordering:** Can the Entry release ordering (`_release_sort_key`) be improved by accounting for the downstream Blocks that become eligible and the actual victims that a Block selector would choose?
-4. **Entry-level Idea 4 — Unpin granularity:** Should protection be released for an entire Entry, or can a partial-tail unpin preserve valuable shallow prefixes while exposing only a subset of deeper Blocks?
+A record of four research questions, their motivation, their relation to prior work, the mechanisms in this repository that they build on, the engineering work they would require, and the evidence a future evaluation would need. The intent is to make each idea **testable and falsifiable** rather than to present it as an achievement.
 
-The central working hypothesis is that cache retention and physical eviction are coupled decisions. Entry unpin determines which Blocks become eligible; Block eviction determines which eligible Blocks are actually removed. Optimizing either stage in isolation can miss opportunities available to a coordinated decision. This is a research hypothesis, not yet a demonstrated project result.
+### 1.2 What this document is not
 
-The proposal deliberately reuses useful ideas from prior work. It does not claim novelty merely because it uses tool metadata, workflow information, cost-aware eviction, or fine-grained cache management. The practical objective is to test which ideas transfer to this repository, what incremental value they add over its actual baseline, and under what conditions they should be used.
+- Not a list of approved implementation tasks, and not a schedule.
+- Not a claim that any idea is implemented, integrated, or validated.
+- Not a performance claim for this project; no expected improvement numbers appear anywhere below.
+- Not an amendment to the frozen Phase 3 protocol, the frozen Phase 1B baseline, or any sealed experiment record.
 
-## 2. Project Reality and Current Implementation
+### 1.3 Current project priority
 
-### 2.1 Relevant current code paths
+The current priority is to finish a reliable experimental framework and evaluate the **existing** arms under controlled, real-vLLM 0.27.1 + GPU APC conditions. The frozen Phase 3 campaign evaluates six arms — **N0/A0/A1/A2/A3/E0** — with N0 as the absolute native baseline, A3 as the frozen suffix-cost Entry algorithm, and E0 as the strong simple control; see [Protocol v4 (Option F)](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/blob/main/docs/phase3-final-evaluation-protocol-v4.md) and [`docs/research-status.md`](../research-status.md) for exact semantics and authorization.
 
-The following repository files are the primary implementation references:
+| Arm | Entry forced release | Physical block victim selection |
+| --- | --- | --- |
+| **A0** | Frozen Continuum-style deterministic baseline | Native LRU under existing eligibility |
+| **A1** | Cost-aware Entry-level selection | Same Block-level baseline as A0 |
+| **A2** | A0 Entry-level release | Cost-aware Block-level selector |
 
-- [`src/kvopt/costaware/a2_native.py`](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/blob/main/src/kvopt/costaware/a2_native.py): constructs A2 snapshots and the current cost-aware Block selection inputs. Its `A2NativeBlockAdapter.select_victims()` is the **runtime** entry point: it implements the `EvictionPolicyAdapter` contract over live vLLM candidates and falls back to native LRU when content identity or reuse weights cannot be verified.
-- [`src/kvopt/costaware/a2_geometry.py`](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/blob/main/src/kvopt/costaware/a2_geometry.py): contains the deadline-derived `reuse_proxy()` and related geometric/cost calculations. The proxy is a ranking signal, not a calibrated probability of future reuse.
-- [`src/kvopt/costaware/a2_selector.py`](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/blob/main/src/kvopt/costaware/a2_selector.py): contains the **offline** Block-level selection logic (`A2BlockSelector.select()`) and comparison paths. It reasons over a `DecisionGeometry` reconstructed from recorded candidates, which is a different input from the live candidate list the runtime adapter receives.
-- [`src/kvopt/runtime/vllm/adapter.py`](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/blob/main/src/kvopt/runtime/vllm/adapter.py): defines the `EvictionPolicyAdapter` contract, plus `NativeLRUAdapter` (pure free-queue LRU ordered by `lru_rank`) and `RetentionAwareLRUAdapter` (the actual A0 path, which selects from the validated eligibility plan's `virtual_eligible_order`).
-- [`src/kvopt/runtime/vllm/bridge.py`](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/blob/main/src/kvopt/runtime/vllm/bridge.py): `VLLMEvictionBridge` snapshots a vLLM free queue into `EvictionCandidate`s in native LRU order and validates the returned victim set against the candidate set.
-- [`src/kvopt/runtime/vllm/retention_integration.py`](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/blob/main/src/kvopt/runtime/vllm/retention_integration.py): `RetentionRuntimeIntegration.apply_pressure()` is the runtime entry that couples pressure release with Block selection and feeds observed evictions back into the snapshot registry.
-- [`src/kvopt/continuum/selection.py`](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/blob/main/src/kvopt/continuum/selection.py): defines `EligibilityTier` (`TIER_1` for eligibility that exists before any pressure release, `TIER_2` for eligibility created by a pressure release) and `selection_key = (eligibility_tier, native_lru_rank)`.
-- [`src/kvopt/continuum/ttl.py`](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/blob/main/src/kvopt/continuum/ttl.py): `estimate_ttl()` and `TTLInput`, where the intermediate signals listed in §4.2 are consumed and collapsed into `ttl_seconds`.
-- [`src/kvopt/kv_cache/manager.py`](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/blob/main/src/kvopt/kv_cache/manager.py): the in-repository logical block allocator used by the simulator. It has no refcount or shared-ownership semantics, and `free()` releases every block of a request at once. It is not a model of vLLM's refcounted prefix caching.
-- [`src/kvopt/continuum/pressure.py`](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/blob/main/src/kvopt/continuum/pressure.py): contains pressure-release planning, `_release_sort_key()`, newly eligible Block calculation, and the iterative Entry release path.
-- [`src/kvopt/continuum/snapshots.py`](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/blob/main/src/kvopt/continuum/snapshots.py): represents retention snapshots and TTL decisions used by downstream code.
-- [`src/kvopt/continuum/history.py`](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/blob/main/src/kvopt/continuum/history.py): stores historical signals such as inter-request gaps and external tool durations.
-- [`src/kvopt/continuum/runtime.py`](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/blob/main/src/kvopt/continuum/runtime.py): coordinates runtime histories, including in-progress tool-gap state and completed tool observations.
-- [`docs/experiments/phase2g-a2-research-judgment.md`](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/blob/main/docs/experiments/phase2g-a2-research-judgment.md): current A2 research judgment and conditions for further evaluation.
-- [`docs/experiments/phase2g-a2-bounded-value-evaluation.md`](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/blob/main/docs/experiments/phase2g-a2-bounded-value-evaluation.md): bounded A2 evidence, including limitations in content verification and baseline comparability.
-- [`docs/experiments/phase2g-a1/README.md`](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/blob/main/docs/experiments/phase2g-a1/README.md): A1 evidence and comparison with simpler release heuristics.
-- [`docs/phase2a-m4-method-design-report.md`](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/blob/main/docs/phase2a-m4-method-design-report.md): earlier Entry-release method comparisons.
+`A2` is **not** an A1+A2 combined policy. A1-versus-A0 differences cannot by themselves establish the independent value of A1's q/λ/pair-lookahead signals, and **`Sufficient-first + earliest-deadline`** remains a required strong comparator for any future formal claim. Strategy implementations are **not** being expanded.
 
-**Two entry points, two baselines.** The offline `A2BlockSelector.select()` in `a2_selector.py` and the runtime `A2NativeBlockAdapter.select_victims()` in `a2_native.py` are distinct paths over different inputs. Results from one do not transfer automatically to the other. Every Idea 1 baseline comparison must be grounded in the runtime path: `NativeLRUAdapter` for pure free-queue LRU, and `RetentionAwareLRUAdapter` for the actual A0 decision. The real path restricts candidates to those the eligibility plan marks eligible and orders them by `(eligibility_tier, native_lru_rank)`. The internal helpers `native_selection()` in `a2_geometry.py` and `native_lru_order()` in `a2_selector.py` sort by `native_rank` alone and omit the tier constraint, so they are internal references rather than the A0 baseline.
+### 1.4 Authorization rule
 
-These files should be rechecked at the exact commit used for each experiment. Paths and behavior may change as the branch evolves.
+**[N]** No idea below is authorized. Starting any implementation or evaluation for these ideas requires an explicit project-level decision and available time; the canonical authorization state is `docs/research-status.md` on `main`. PRs or branches that have not been merged must not be presented as approved decisions.
 
-### 2.2 What the current architecture does—and does not—mean
+### 1.5 Terminology
 
-The current design separates two operations:
-
-- **Entry unpin/unprotect:** changes protection state and makes some Blocks eligible for reclamation.
-- **Physical Block eviction:** chooses which eligible Blocks are actually removed.
-
-These operations are related but not interchangeable. Unpinning an Entry does not itself prove that every newly eligible Block will be evicted immediately. Conversely, a Block's eventual eviction can affect one or more logical prefixes, especially when physical Blocks are shared.
-
-The current pressure-release path orders Entries using `_release_sort_key()` and recomputes newly eligible Blocks after a candidate release. The current ordering is deadline-first, with a native-rank-derived secondary key and deterministic identity ordering. The code documents `_release_sort_key()` as **the frozen A0 ordering**, not an ad-hoc heuristic: it is a reference rule for deciding which Entry to release, and it is not a direct minimization of the downstream eviction loss.
-
-At Block level, A2 derives a reuse ranking proxy from the TTL deadline. Continuum snapshots retain TTL-related inputs, but the current A2 score path compresses the deadline into a scalar ranking signal. The presence of a signal elsewhere in the repository does not mean the Block selector currently uses it directly.
-
-### 2.3 Existing evidence and its interpretation
-
-The repository's Phase 2G reports should be used as motivation, not as proof that a proposed replacement will work.
-
-- A2's bounded evaluation reports incomplete content verification in a substantial share of recorded decisions (the report records 402/778 decisions as `content_unverified`, about 51.7%). This limits how confidently policy choices can be attributed to actual physical-prefix loss.
-- The A2 report also warns that the selector's internal Native-LRU reference is not always identical to the actual A0 choice, because the real path can include eligibility/tier constraints. Concretely, `native_selection()` sorts by `native_rank` alone, while the A0 path orders by `(eligibility_tier, native_lru_rank)` and only over Blocks the eligibility plan marks eligible. Therefore, a valid comparison must reproduce the actual baseline candidate set and decision path, not merely call an internal LRU ordering helper.
-- The A1 report records that `Sufficient-first + earliest-deadline` reproduced all 54/54 recorded A1 Gate 2 release choices. This is evidence that the more complicated A1 ordering needs to demonstrate value beyond a simple heuristic.
-- The Phase 2A M4 report found that some proposed size-based heuristics were behaviorally identical to a simpler baseline, while a simple cost-per-released-Block ratio could be worse. A new score should therefore be justified by decision-level and outcome-level evidence, not by complexity alone.
-
-**Interpretation:** Existing evidence supports testing the assumptions behind the current design. It does not establish that A2, tool-aware scoring, joint optimization, or partial-tail unpin will improve performance.
+Terminology follows [`专业术语表.md`](专业术语表.md). In particular: **Entry**-level unpin / pressure release changes **eligibility** (logical layer); **Block**-level victim selection chooses objects; **eviction** removes physical Blocks (L1). Retention/TTL is L2, protection/unpin is L3, admission/scheduling is L4, prefetch/offload is L5, cluster coordination is L6, and paging/layout is L0. The four ideas live only in **L1 (Ideas 1–2)** and **L3 (Ideas 3–4)**.
 
 ---
 
-## 3. Idea 1 — Block-Level Intervention Gate and Native-LRU Fallback
+## 2. Current Experimental Arms and Accepted Evidence Boundary
 
-### 3.1 Research question
+### 2.1 Canonical status ledger (summary)
 
-Under what conditions should a custom cost-aware Block selector replace the native LRU victim set, and when should it fall back to the actual native decision?
+From [`docs/research-status.md`](../research-status.md) (canonical, `main`, M1 reconciliation 2026-11-03): Phase 0/1A (adapter validation) and Phase 1B (Continuum-style baseline, real-runtime validated) are `CLOSED`; Phase 2A H1 is `DIAGNOSTIC_ONLY` (29 independent paired-evaluable draws, below the threshold of 30), H2 did not unlock B1; Phase 2B/2C (fidelity, workload audit) and Phase 2E (frozen Native LRU/Continuum comparability campaign) are `CLOSED`, with Phase 2E explicitly **not** a cost-aware benefit result; Phase 2G A1 is `BOUNDED EVALUATION COMPLETED`; Phase 2G A2 is `INCONCLUSIVE`; W1-B is `ACCEPTED / CLOSED — BOUNDED_SMOKE_ONLY`; W1-C is `ACCEPTED / CLOSED` (the 20-task S50/S100 pilot completed; 18 full-payload-comparable tasks fed the later bounded Native evaluation, but **all historical pilot tasks are excluded from the formal Phase 3 cohort**). The bounded Native cost-aware evaluation (PR #82) is M1 `ACCEPTED / CLOSED` with A1 **0 better / 1 worse / 8 tied** and A2 **0 better / 3 worse / 6 tied** across nine frozen groups.
 
-This is a policy-selection problem rather than merely a scoring problem. A custom policy can be useful only if it has enough trustworthy information to predict a better outcome. If the candidate set or Block identity is incomplete, a more elaborate score may create false confidence.
+**Phase 3:** The active protocol is **Protocol v4 (Option F)**: M1 accepted Option F on 2026-11-06 (Issue #98 / PR #97); the engineering adaptation merged via PR #99 (`a7fe138`); Protocol v3 remains historical. Stage 1 (PR #93, six-arm materializer, E0/N0) and Stage 2 (PR #94, independent N/E/C evaluator) are **MERGED**. G0 was accepted on 2026-11-07: the existing **40-run A0 load calibration is reused (not rerun)**, the **30-run A0 Noise Calibration is authorized**, and the **240-run Main Campaign remains locked/unauthorized**. The campaign total is 310 runs, of which **270 are new**. **No formal benefit has been demonstrated, and no six-arm Main Campaign run has started.**
 
-### 3.2 Proposed hypothesis
+### 2.2 A1 — what the accepted evidence says
 
-**H1 — Evidence-aware conditional intervention:** A custom Block selector should intervene only when (a) the candidate set and relevant Block/prefix identity are sufficiently verified, (b) it proposes a materially different victim set from the actual baseline, and (c) offline evaluation predicts a benefit that exceeds a predeclared threshold. Otherwise, preserve the actual native LRU path.
+**[E]** The prior Gate 2 decision analysis found **54/54** recorded A1 **Gate 2 forced-release selections** reproduced by the simple **`Sufficient-first + earliest-deadline`** heuristic: on that corpus the score term was not needed to reproduce the recorded choices. The canonical ledger therefore states A1's **independent cost-model signal is unproven**. `Sufficient-first + earliest-deadline` is a documented analysis comparator / required strong comparator; it is **not** an implemented experimental arm in `src/`.
 
-This is a proposed decision rule, not an established optimal gate.
+**[E]** The bounded Native cost-aware evaluation (PR #82, M1 accepted 2026-10-27) reports **54/54 successful Native runs** over nine frozen groups with a single repeat: A1 **0 better / 1 worse / 8 tied**, A2 **0 better / 3 worse / 6 tied**, with no observed A1/A2 recomputation-token benefit in that predefined grid. It is exploratory single-repeat evidence, and content-level causal attribution is **`NOT_ESTABLISHED`**. (The earlier **54/54** selection-reproduction count is a different quantity from PR #82's 54 successful runs.) See [bounded results](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/blob/main/docs/continuum-native-cost-aware-bounded-results.md).
 
-The existing A2 report's D/Q-style structural diagnostics can remain useful as *candidate-scenario detectors*. They should not, by themselves, be treated as sufficient evidence to intervene. For example, a large difference in reuse-proxy values does not guarantee a different victim set, and a different victim set does not guarantee lower recomputation cost.
+**[E]** W1-B (M1 accepted, merged as `fc9626da`, 2026-10-23) reports 4 groups × A0/A1/A2 = **12 successful runs**, one repeat per arm/group. Per-group A1−A0 recomputed-token deltas are **−1056, 0, −1616, −1232** (descriptive sum **−3904**). M1 acceptance explicitly does **not** establish a population benefit, superiority over `Sufficient-first`, individual physical-eviction causality, or reproduction of the Continuum paper's original serving workload. RC3 labels the mechanism evidence **temporal association only**, with content-level causal attribution **`NOT_ESTABLISHED`**. This is a bounded Native comparability/mechanism smoke, not a formal effect estimate.
 
-### 3.3 Algorithm sketch
+### 2.3 A2 — what the accepted evidence says
 
-1. Construct the exact eligible candidate set that the real baseline sees — the same vLLM free-queue snapshot passed through `VLLMEvictionBridge.build_candidates()`, restricted to the Blocks the runtime eligibility plan actually marks eligible.
-2. Compute the actual baseline victim set for the same capacity target using `NativeLRUAdapter` and `RetentionAwareLRUAdapter`, not an internal `native_rank`-only ordering helper.
-3. Check whether content identity, ownership, prefix depth, and cost evidence are adequate.
-4. Compute the proposed custom victim set and the expected loss difference.
-5. Use the custom set only if the evidence and expected-gain conditions pass; otherwise use the actual baseline decision.
-6. Record the gate reason, selected set, fallback reason, and later outcome.
+**[E]** The Phase 2G A2 bounded evaluation is `INCONCLUSIVE`: **0 better / 3 worse / 33 tied** in **36 draws**, with attribution and decision-exposure limitations. It is neither proof of universal equivalence to LRU nor formal benefit. The recorded decisions include **402 of 778 (`content_unverified`, ≈51.7%)** fallbacks, and **82 of 122** forced-release windows that could not be paired or were identity-incomplete; Gate 2 v3 reports **72/72** selection pairs `NOT_OBSERVABLE`. A zero token difference does **not** prove equal decisions. W1-B reports **A2−A0 zero in every group** and no observed A2-vs-Native-LRU victim-set divergence.
 
-A production gate should not rely on an offline proxy alone until the proxy has been validated against real recomputation and latency outcomes.
+### 2.4 Evidence tiers and interpretation rules
 
-### 3.4 Evaluation
+**[E]** Logical release, physical hashed eviction, subsequent APC hit/miss, and request-level recomputation are **different observations** requiring different evidence; missing evidence must be preserved and fail closed. For requests with complete native hash/APC evidence, report `N` (native prompt tokens), `E` (reusable eligible prefix tokens), `C` (cached prefix tokens), with `0 ≤ C ≤ E ≤ N`, and separately `R = E − C` (eligible-prefix recomputation), `W = N − C` (actual prefill work), `S = N − E` (genuinely new suffix), `W = R + S`. The unit of inference is independent scenario draws or independently sampled tasks/session groups — **not** runtime repeats, turns, or request rows.
 
-Compare at least:
+### 2.5 What has NOT been demonstrated
 
-- **Actual native LRU baseline** — `NativeLRUAdapter` over the same vLLM free-queue snapshot, plus `RetentionAwareLRUAdapter` for the A0 path that respects the eligibility plan's `(eligibility_tier, native_lru_rank)` ordering. Do not substitute the internal `native_rank`-only helpers; they omit the tier constraint and are therefore not the A0 decision.
-- Always-on current A2, entered through the runtime `A2NativeBlockAdapter.select_victims()` rather than the offline `A2BlockSelector.select()`.
-- Gated A2 using only structural diagnostics.
-- Gated A2 using validated expected-loss estimates.
+**[N]** No accepted evidence establishes: an independent Native performance benefit for A1 or A2; a validated evidence-aware intervention policy (Idea 1); a Block selector consuming intermediate/workflow signals (Idea 2); a downstream-cost-aware Entry release ordering that models the physical victim set and resulting recomputation loss (Idea 3); or a partial-tail unpin mechanism (Idea 4). The frozen Phase 3 campaign has **not started**, so none of its hypotheses (H1/H2/H3) has been tested. The four ideas are **motivated** by the gaps above; they are **not** conclusions of those experiments.
 
-Report: intervention rate; fallback rate and reason; percentage of events where the victim set changes; estimated and measured recomputation cost; TTFT/prefill latency; end-to-end agent completion time; and regressions by workload class.
+### 2.6 Merged and unmerged material
 
-The gate should be evaluated on held-out tasks/workloads. Thresholds must be selected on training/validation traces, not tuned on the test set.
+**[E]** W1-C is **ACCEPTED / CLOSED** on `main`: the 20-task S50/S100 pilot completed, 18 tasks are full-payload comparable, and **all historical pilot tasks are excluded from the formal Phase 3 effect-estimate cohort** (they are engineering/regression data only). W1-A acquired 10 SWE-bench Verified tasks, all from Astropy, with 9/10 right-censored at the 50-step limit; W1-B replays sparse turns with controlled pressure, not the original cross-session serving arrival process.
 
-### 3.5 Failure criteria
-
-Reject or simplify the gate if it frequently intervenes without changing the victim set, if the predicted benefit does not correlate with measured benefit, if identity uncertainty is common enough to make the custom policy unusable, or if fallback overhead erases the gain.
-
-### 3.6 Source grounding
-
-- **Repository:** `docs/experiments/phase2g-a2-research-judgment.md`, especially its discussion of D/Q-style structural conditions and the need to distinguish proxy differences from actual value.
-- **Repository:** `docs/experiments/phase2g-a2-bounded-value-evaluation.md`, for `content_unverified` and the difference between an internal Native-LRU reference and the actual A0 path.
-- **Paper:** Liu, Yu, and Yang, *When Fancy Eviction Fails: Rethinking Cache Replacement For LLM Prefix Reuse*, arXiv:2609.28870v2, abstract and the paper's evaluation/discussion sections. The authors report that sophisticated policies often provide limited gains over LRU, while quick demotion to filter one-hit prompts, compute-aware eviction to prioritize expensive misses, and capacity-adaptive eviction granularity can help under particular structural conditions (§5.1, §5.2, §5.3). Use this as support for retaining a strong LRU baseline and evaluating conditional use—not as proof that this project's proposed gate will work.  
-  https://arxiv.org/abs/2609.28870
+**[N]** Approved and unapproved material must not be conflated. **Option F (PR #97) was M1-accepted on 2026-11-06** (Issue #98) and is the basis of Protocol v4; PR #99 merged its engineering adaptation (`a7fe138`). The protocol is frozen: any change or Main Campaign expansion requires a separate M1 decision. Other unmerged branches and pilot recommendations must not be presented as approved decisions.
 
 ---
 
-## 4. Idea 2 — Use Continuum Intermediate Signals for Block Victim Selection
+## 3. Status Matrix (four ideas × seven distinctions)
 
-### 4.1 Research question
+> **Reading rule:** columns 4–6 refer to the **idea itself**, not to the overlapping existing mechanism. "Yes for the overlapping arm" is explicitly annotated and must **not** be equated with completion of the research idea. **Code overlap ≠ implemented idea; CPU/Mock validation ≠ real-vLLM execution; real-vLLM execution ≠ independent Native performance evaluation.**
 
-Can Block victim selection benefit from Continuum signals that are available before they are collapsed into a final TTL deadline?
+| | **Idea 1** Evidence-aware Block intervention | **Idea 2** Workflow/runtime signals for Block victim selection | **Idea 3** Downstream-cost-aware Entry release ordering | **Idea 4** Partial-tail Entry unpinning |
+| --- | --- | --- | --- | --- |
+| **1. Existing code overlap** | `A2NativeBlockAdapter.select_victims()` (`a2_native.py:538`), offline `A2BlockSelector.select()`, `NativeLRUAdapter` / `RetentionAwareLRUAdapter` (`runtime/vllm/adapter.py`), `a2_contract.py` / `a2_selector.py` fallbacks | `continuum/history.py`, `runtime.py`, `ttl.py` (`TTLInput`), `a2_native.py` (`reuse_proxy`), `runtime/vllm/types.py` (decision-time contract) | `costaware/a1_entry.py`, `continuum/pressure.py` (`_release_sort_key`, `_newly_eligible_blocks_after_release`, loop, `diagnostic_first_release_program_id`), `replay.py` / `rules.py` | `continuum/snapshots.py` (`RetentionEntrySnapshot`), `retention.py` (whole-Entry release, reverse index), `pressure.py` (shared-owner check), `kv_cache/manager.py` (simulator allocator) |
+| **2. What is actually implemented** **[I]** | **Fail-closed Native-LRU fallback** on adapter-contract violation, contract-invalid input, `content_unverified`, `FALLBACK_REUSE_WEIGHT_MISSING`, or request-factory failure; audit fields for native/selected sets. Always-on A2 selector exists | Collection of server inter-request gaps, queue delay, ETA, prefill/reload cost; `ExternalToolDurationHistory` **write-only**; four signals → `TTLInput` → scalar `ttl_seconds` → `deadline_timestamp`; A2 derives `reuse_proxy` from the deadline | A1 cost-aware Entry scoring (`single_step` / `per_unit` / `pair_lookahead` / `deadline_fallback`), q-based `expected_recompute` proxy; frozen A0 ordering; newly-eligible Block computation; forced-first-release diagnostic hook | Whole-Entry Boolean `protected` + flat `block_ids`; lazy TTL expiry; deterministic pressure release; per-evicted-Block association trimming; observation-derived block↔prefix mapping |
+| **3. What remains unimplemented** **[P]** | No intervention **policy**: no evidence-sufficiency gate, no victim-set divergence test, no expected incremental benefit threshold, no candidate-set completeness gate, no policy-overhead accounting, no held-out threshold selection, no gated arm | No Block-level consumer of any history signal; no decision-time contract extension; no no-future-leakage check, missingness policy, time-to-next-use estimator, conditional-on-deadline ablation, or multi-signal model | No simulation of the downstream physical victim set; no victim→recomputation-loss mapping; no fixed lookahead unit with identical continuation policy; no downstream-aware ordering; comparator not an implemented arm; no pairwise ordering agreement / rank correlation reporting | No sub-Entry/range protection representation; no shared-ownership/refcount/eligibility correctness for ranges; no prefix-continuity recomputation; no native vLLM integration; no concurrency/allocation safety; no tail-length policy |
+| **4. CPU/Mock validation exists?** | **Partial** — unit/functional tests for A2 adapter and fallback; offline decision analyses (Gate 2, bounded evaluation) validate plumbing, **not** the gate idea | **Partial** — unit tests for TTL estimation and history recording; offline decision analyses. No CPU/Mock validation of Block-level signal use | **Partial** — offline decision analysis (54/54 reproduction, Phase 2A M4 report) and deterministic replay. No validation of downstream-aware ordering | **Partial** — unit tests for whole-Entry release / TTL semantics and deterministic replay. Simulator `free()` is request-level, **not** partial-tail |
+| **5. Real-vLLM execution exists?** | **No for the idea.** Yes for the overlapping always-on A2 + fallback (Phase 1A adapter validation, Phase 2G A2 bounded evaluation, W1-B 12 runs) | **No for the idea.** Yes for the overlapping TTL/A0/A2 path (Phase 1B real-runtime validation, W1-B) | **No for the idea.** Yes for the overlapping A1 arm (Phase 2G A1 bounded evaluation, W1-B 12 runs) | **No for the idea.** Yes for the overlapping whole-Entry A0 baseline (Phase 1B real-runtime validation, W1-B) |
+| **6. Independent Native performance evaluation?** | **No** — A2 `INCONCLUSIVE` (0/3/33 in 36 draws); W1-B `BOUNDED_SMOKE_ONLY`, A2−A0 zero in every group, no observed victim-set divergence | **No** — no accepted evidence for an intermediate-signal Block selector | **No** — 54/54 reproduction by a simple heuristic; independent cost-model signal unproven; W1-B A1−A0 is descriptive only, no formal effect or content-level causal attribution | **No** — no accepted evidence for partial-tail unpin |
+| **7. Current authorization status** | **NOT AUTHORIZED** — potential future research direction; not in frozen Phase 3 campaign | **NOT AUTHORIZED** — same | **NOT AUTHORIZED** — same | **NOT AUTHORIZED** — same |
 
-The question is not “should every intermediate variable be added to the score?” The correct question is whether particular signals add predictive or decision value beyond the current deadline-only proxy, under the same candidate set and capacity target.
+**[N]** No idea in this matrix is a completed algorithm or a validated performance improvement. Column 7 is uniform by decision of the project lead: further implementation or evaluation requires project-level authorization and available time. **Phase 3's conditional authorization applies only to the frozen six-arm campaign (N0/A0/A1/A2/A3/E0), not to these four ideas.**
 
-### 4.2 Relevant signals in the repository
+---
 
-The current repository contains or tracks the following types of information:
+## 4. Shared Implementation Ground Truth (code-audited)
 
-| Signal                                     | Repository source / meaning                                  | Reaches the Block selector today?                            | Potential use                                                | Caveat                                                       |
-| :----------------------------------------- | :----------------------------------------------------------- | :----------------------------------------------------------- | :----------------------------------------------------------- | :----------------------------------------------------------- |
-| `next_tool_type`                           | TTL input / next tool context; consumed by `_select_history()` in `ttl.py` | No — selects the history mode inside `estimate_ttl()`; only `ttl_seconds` survives | Condition future reuse estimates on tool category            | A tool category may be a weak proxy; validate by category and workload |
-| Global inter-request gap samples           | `ServerGapHistory.global_samples()`                          | No — compressed into `ttl_seconds`                           | Estimate request-arrival timing after a completed turn       | This is not the same as tool execution duration              |
-| Tool-conditioned inter-request gap samples | `ServerGapHistory.samples_for_tool()`                        | No — compressed into `ttl_seconds`                           | Estimate timing conditional on tool category                 | Requires enough samples and careful handling of censored traces |
-| External tool duration history             | `ExternalToolDurationHistory` / runtime coordinator          | **No — write-only; no read path under `src/`**               | Estimate external-tool waiting time                          | Recorded in `runtime.py` but never read; requires implementing a consumer first. Do not treat it as identical to request gap |
-| Queue delay                                | `QueueDelayHistory` → `queue_delay_t_seconds`                | No — enters the `ttl.py` benefit term                        | Model delay cost or the chance that cache space is needed soon | Queue delay is not itself a reuse probability                |
-| Program progress / `eta`                   | `CompletedProgramEtaHistory.eta()`                           | No — enters the `ttl.py` benefit term                        | Distinguish programs at different lifecycle stages           | Validate calibration and data availability                   |
-| Prefill/reload cost                        | `prefill_reload_seconds` provider                            | No — enters the `ttl.py` benefit term                        | Estimate cost of losing a prefix                             | Should be checked against measured prefill/recomputation cost |
-| Final TTL deadline                         | `TTLDecision.deadline_timestamp`                             | **Yes — the only one**                                       | Existing deadline-only ranking signal                        | A deadline-derived sigmoid is a ranking proxy, not a calibrated probability |
+This section records facts verified against the current source tree so that each idea does not need to re-derive them. Paths are relative to the repository root; line numbers refer to the current working tree and must be rechecked at the exact commit used by any future experiment.
 
-**Only the final TTL deadline reaches the Block selector.** The runtime decision-time contract is `EvictionCandidate` (`block_id`, `ref_cnt`, `has_block_hash`, `lru_rank`, `content_hash`) plus `EvictionContext` (`required_blocks`, `free_blocks`, `total_blocks`, `timestamp`). None of the first seven signals above appear in either structure. They are consumed inside `estimate_ttl()` and survive only as the scalar `ttl_seconds`, hence as `deadline_timestamp` at the Entry level. The presence of a signal in the runtime therefore does not make it available to Block victim selection.
+### 4.1 Decision layers and entry points
 
-Consequently, Idea 2 is not primarily a scoring change. Using any intermediate signal at Block level requires (a) extending `EvictionCandidate`/`EvictionContext` or an equivalent decision-time input, (b) tracing the signal's causal availability at the moment the native allocator requests victims — not merely its existence somewhere in the runtime — and (c) an ablation showing the signal adds value *conditional on the deadline*, since the deadline already carries compressed information from several of them.
+- **[I]** `EvictionPolicyAdapter` (`src/kvopt/runtime/vllm/adapter.py:11-25`), `NativeLRUAdapter` (`:27-39`, pure `lru_rank` order), `RetentionAwareLRUAdapter` (`:42-63`, uses `preparation.virtual_eligible_order`) are the L1 contract.
+- **[I]** `EligibilityTier` and `selection_key = (eligibility_tier, native_lru_rank)` (`src/kvopt/continuum/selection.py:100-103`): Tier 1 = eligibility existing before pressure release, Tier 2 = eligibility created by a release.
+- **[I]** Two distinct A2 entry points: runtime `A2NativeBlockAdapter.select_victims()` / `A2NativeSelectionCoordinator` (`a2_native.py:538,701`) over live vLLM candidates, and offline `A2BlockSelector.select()` (`a2_selector.py:327`) over a reconstructed `DecisionGeometry`. Results do not transfer automatically between them.
+- **[I]** Internal helpers `native_selection()` (`a2_geometry.py`) and `native_lru_order()` (`a2_selector.py`) sort by `native_rank` alone and omit the tier constraint; they are **not** the A0 baseline. Any comparison must reproduce the actual baseline candidate set and decision path.
+- **[I]** `ref_cnt` lives on the runtime candidate snapshot `EvictionCandidate` (`runtime/vllm/types.py:6-21`), populated by `VLLMEvictionBridge.build_candidates()`; `adapter.py` itself does not read it.
+- **[I]** `src/kvopt/kv_cache/manager.py` is a request-level logical allocator for the simulator: `_allocations: dict[str, set[int]]`, `free()` pops and returns **all** of a request's blocks at once; no refcount, hash, prefix, or partial-release semantics exist in `kv_cache/`. **It is not a model of vLLM's refcounted prefix caching.**
 
-`ExternalToolDurationHistory` needs a separate warning. It is recorded in `runtime.py`, but no code path under `src/` reads `global_samples()` or `samples_for_tool()`; only a test asserts the recorded samples, so it is write-only for serving today. Any experiment that uses it must first implement and test a consumer, and must state the observation semantics it assumes.
+### 4.2 Signal lifecycle: collection → TTL consumption → Block decision-time availability
 
-Before implementation, verify each signal's exact semantics and availability at the eviction decision point. In particular, distinguish (1) time from tool invocation to tool completion, (2) time from turn completion to next request arrival, and (3) remaining time conditional on a request not having arrived yet. These are different random variables.
+**[I]** The runtime decision-time contract is `EvictionCandidate` = `block_id, ref_cnt, has_block_hash, lru_rank, content_hash` and `EvictionContext` = `required_blocks, free_blocks, total_blocks, timestamp` (`runtime/vllm/types.py:6-31`). **None of the history signals below is a field of either structure.**
 
-### 4.3 Proposed modeling decomposition
+| Signal | Collected / stored | Consumed by `estimate_ttl()`? | Available at Block decision time? |
+| --- | --- | --- | --- |
+| Server inter-request gap history | `ServerGapHistory` (`continuum/history.py:27-49`); `_pending_server_gaps` on turn finish, written on next `RequestArrived` (`runtime.py:290-315,451-455`) | **Yes** — `TTLInput.global/tool_server_gap_samples_seconds` (`runtime.py:365-370`, `ttl.py:44-60`) | **No** |
+| External tool duration history | `ExternalToolDurationHistory` (`history.py:52-74`), written at `runtime.py:332` | **No** — write-only; **no production consumer under `src/`** (only tests read `global_samples()` / `samples_for_tool()`) | **No** |
+| Queue delay | `QueueDelayHistory` (`history.py:77-104`), `record_queue_delay()` (`runtime.py:174-203`) | **Yes** — `TTLInput.queue_delay_t_seconds` (`runtime.py:371,384`) | **No** |
+| ETA / memoryfulness | `CompletedProgramEtaHistory` (`history.py:107-155`) | **Yes** — `TTLInput.eta` (`runtime.py:372`) | **No** |
+| Prefill/recomputation cost | `PrefillReloadProvider.estimate()` (`ttl.py:12-16`) via `runtime.py:357-364` | **Yes** — `TTLInput.prefill_reload_seconds` (`runtime.py:386`) | **No** |
+| Final TTL deadline | `TTLDecision.deadline_timestamp = decision_timestamp + ttl_seconds` (`snapshots.py:286-334`); `RetentionEntrySnapshot.deadline_timestamp` | **No** — it is the *output* of TTL estimation | **Only indirectly**: A2 derives `reuse_proxy(deadline, t, tau)` from `retention_entries` (`a2_native.py:346-359`); A0/Native adapters read no deadline |
 
-Separate two questions:
+**[I]** `estimate_ttl()` consumes `global_server_gap_samples_seconds`, `tool_server_gap_samples_seconds`, `next_tool_type`, `queue_delay_t_seconds`, `eta`, `prefill_reload_seconds`, `default_ttl_seconds`, `duration_history_threshold` (`ttl.py:41-100`); its single `src/` call site is `runtime.py:436-439`. **Signal collection ≠ TTL consumption ≠ Block-level decision-time availability.** The three time quantities — tool invocation→completion, turn completion→next arrival, and remaining time conditional on no arrival yet — are different random variables.
 
-**A. When might the prefix be reused?**
+### 4.3 Protection representation and pressure release
 
-Estimate a conditional reuse or arrival-time quantity using signals such as tool type, observed tool duration, inter-request history, and program progress.
+**[I]** `RetentionEntrySnapshot` carries `ttl_decision`, `protected: bool`, `waiting_followup: bool`, and a flat `block_ids: tuple[BlockIdentity, ...]` (`snapshots.py:152-178`). `RetentionManager` maintains a reverse index `block → set[RetentionEntryKey]` and releases **whole Entries** via `replace(protected=False)` (`retention.py:82,98-110`). There is **no** Block-range/depth-level protection field anywhere in `continuum/`, `runtime/vllm/`, or `kv_cache/`.
 
-**B. How costly would eviction be?**
+**[I]** `_release_sort_key()` returns `(entry.deadline_timestamp, native_key, key.sort_key)`, where `native_key` is the minimum `native_lru_rank` among Blocks a release would newly expose (`pressure.py:325-350`); the code documents this as **the frozen A0 order**. The loop runs while `len(tier_1_ids | tier_2_ids) < target`, with `target = min(required_blocks, queue_len)` (`pressure.py:83,107`). `diagnostic_first_release_program_id` (`pressure.py:61,116-130`) forces the first release and bypasses `_release_sort_key()` for that step; such runs measure one specific release, **not** an ordering.
 
-Estimate the lost reusable prefix and the recomputation/prefill cost using prefix depth, verified Block identity, shared ownership, and measured prefill cost.
+**[I]** The frozen adaptation has no native pin API: protection is an independent project state table, protected Blocks remain native free cached Blocks with normal APC hash metadata, and `ref_cnt` must not be artificially raised (`docs/baseline-freeze.md` §4, §6).
 
-A simple conceptual expected-loss form is:
+---
+
+## 5. Idea 1 — Evidence-aware Block-level Intervention and Native-LRU Fallback
+
+### 5.1 Research Question
+
+**[P]** Under what conditions should a custom cost-aware Block selector replace the native LRU victim set, and when should the system retain the native decision? This is a **policy-selection** problem, not merely a scoring problem: a custom policy can help only if it has enough trustworthy information to predict a better outcome.
+
+### 5.2 Motivation
+
+**[I]** A2 already has a **fail-closed Native-LRU fallback**: `request_factory` failure → `request_factory_failed:*`; adapter-contract mismatch (live candidate identity, `required_blocks`, `timestamp`) → `adapter_contract_invalid`; contract violations (`required_blocks < 0`, duplicate `block_id`, hash conflicts, `reuse_weight` out of range, …) → `FALLBACK_CONTRACT_INVALID`; identity gaps → `FALLBACK_CONTENT_UNVERIFIED`; missing reuse weights → `FALLBACK_REUSE_WEIGHT_MISSING` (`a2_native.py:548-567`, `a2_contract.py:253-390`, `a2_selector.py:349-404`).
+
+**[N]** **This is not the full proposed intervention policy.** The existing fallback is a per-decision validity check: it asks "is this input trustworthy enough to run the custom selector?" It does not ask "should the custom policy intervene at all, given that the input is valid?" **[N]** There is no gate based on evidence sufficiency, candidate-set completeness, victim-set divergence, expected incremental benefit, or policy execution overhead; native and selected sets are written to audit but never compared (`a2_native.py:543,581-582,639`). Offline screening gates (`a2_compare.py`) and deployment switches (`ContinuumConfig.enabled`) are evaluation/deployment layers, not runtime intervention decisions.
+
+**[E]** The counter-evidence matters: *When Fancy Eviction Fails* reports that simple LRU is surprisingly robust against sophisticated policies on production prefix-reuse traces, with a capacity/trace-dependent counterexample (24 GiB, Qwen To-B: S3-FIFO/ARC 0.491 vs LRU 0.403). **[N]** Nothing in the project's accepted evidence shows that an always-on custom selector, or a gate over it, improves Native outcomes.
+
+### 5.3 Related Work and Research Context
+
+- *When Fancy Eviction Fails* (arXiv:2609.28870v2): §3 *Fancy Algorithms Do Not Work Well*, §5.1 *Quick Demotion*, §5.2 *Compute-awareness*, §5.3 *Block-Level vs. Session-Level Eviction*. Supports retaining a strong LRU baseline and evaluating conditional use; **does not** validate this project's gate.
+- RLT / LBGR (arXiv:2601.18999v1): randomization improves worst-case competitive ratio without a cost model, so "better than LRU" does not require cost-awareness — ablation must isolate the source of any gain.
+- Full per-paper context and conditions: [`References&Notes/论文总结.md`](References&Notes/论文总结.md) §8; comparisons: [`References&Notes/对比笔记.md`](References&Notes/对比笔记.md).
+
+### 5.4 Existing Project Mechanisms
+
+**[I]** `NativeLRUAdapter` (pure free-queue LRU) and `RetentionAwareLRUAdapter` (actual A0 path over `virtual_eligible_order`, ordered by `(eligibility_tier, native_lru_rank)`) define the baseline decision. `A2NativeSelectionCoordinator` filters candidates by `preparation.virtual_eligible_order` and constructs the decision context (`a2_native.py:701-737`); `VLLMEvictionBridge` snapshots the vLLM free queue and validates the returned victim set. Audit structures (`A2NativeEvidenceAudit`, `proxy_weighted_loss`, `cost_known`, `search_truncated`) exist but are diagnostic, not decision inputs.
+
+### 5.5 Current Implementation Status
+
+**[I]** Implemented: the always-on A2 runtime selector; the four fail-closed fallback families above; candidate/plan validation; audit export under `audit_sink`.
+**[P]** Not implemented: any of the seven gate components below, a gated variant, a divergence detector, an expected-benefit estimator, an overhead counter, or a held-out threshold selection procedure.
+**[E]** Evaluated: A2 always-on and its fallbacks in bounded/offline studies; A2 `INCONCLUSIVE` (0/3/33 in 36 draws), W1-B `BOUNDED_SMOKE_ONLY` with A2−A0 zero in every group and no observed victim-set divergence.
+**[N]** Independent Native performance benefit: not established. **See §3 matrix, row Idea 1.**
+
+### 5.6 Proposed Future Design
+
+**[P]** **H1 — Evidence-aware conditional intervention:** intervene only when all of the following hold, otherwise preserve the actual native LRU decision. The design must distinguish **seven separate components** (the current code only implements the last one):
+
+1. **Evidence sufficiency** — content identity, ownership, prefix depth and cost evidence are adequate, with explicit confidence/missingness status rather than a binary `content_unverified` flag.
+2. **Candidate-set completeness** — the eligible candidate set equals the set the real baseline sees, including Tier 1/Tier 2 eligibility and `ref_cnt` constraints.
+3. **Physical content identity** — hashed Block identity and prefix-chain membership are verified against native residency; no future knowledge.
+4. **Victim-set divergence** — the proposed victim set differs materially from the actual baseline victim set computed on the **same** candidate set and capacity target.
+5. **Expected incremental benefit** — an offline/validated estimate of the recomputation–latency benefit exceeds a **predeclared** threshold.
+6. **Policy execution overhead** — measured decision latency, metadata and memory overhead are below a predeclared bound, and are included in the comparison.
+7. **Native-LRU fallback** — when any condition fails, use `NativeLRUAdapter` / `RetentionAwareLRUAdapter` over the actual eligibility plan; record the fallback reason.
+
+**[P]** Algorithm sketch (unchanged in substance from the original proposal):
+
+1. Construct the exact eligible candidate set from `VLLMEvictionBridge.build_candidates()` restricted by the runtime eligibility plan.
+2. Compute the actual baseline victim set for the same capacity target using the real adapters — never `native_rank`-only helpers.
+3. Evaluate components 1–3; if any fails, fall back with a recorded reason.
+4. Compute the proposed victim set and expected loss difference (components 4–6).
+5. Intervene only if the divergence and expected-gain conditions pass; otherwise use the actual baseline decision.
+6. Record gate reason, selected set, fallback reason, divergence, overhead and later outcome.
+
+**[P]** The existing A2 D/Q-style structural diagnostics may serve as *candidate-scenario detectors*, never as sufficient evidence to intervene: a large reuse-proxy difference does not imply a different victim set, and a different victim set does not imply lower recomputation cost. A gate must not rely on an offline proxy until that proxy has been validated against measured recomputation and latency outcomes.
+
+### 5.7 Engineering Requirements
+
+**[P]** A gate component in the runtime `EvictionPolicyAdapter` path with access to both the baseline and proposed victim sets under one immutable candidate snapshot; an explicit evidence object carrying per-condition status; a divergence metric; a calibrated expected-benefit estimator; an overhead meter; a structured audit record (gate reason, fallback reason, both victim sets, later outcome); threshold selection on training/validation traces only; and a configuration that can disable the gate without altering the frozen A0 decision. No change to native `BlockPool`, hash, refcount or free-queue bookkeeping.
+
+### 5.8 Evaluation Plan
+
+| Element | Requirement for a future (authorized) evaluation |
+| --- | --- |
+| **Baseline** | Actual native LRU: `NativeLRUAdapter` over the same vLLM free-queue snapshot, plus `RetentionAwareLRUAdapter` for the A0 path respecting `(eligibility_tier, native_lru_rank)`. Do **not** substitute the `native_rank`-only internal helpers. |
+| **Comparison method** | Paired, same trace / same candidate set / same capacity target / same runtime: (a) native LRU, (b) always-on A2 via `A2NativeBlockAdapter.select_victims()`, (c) gated A2 using only structural diagnostics, (d) gated A2 using validated expected-loss estimates. Thresholds frozen on held-out validation traces; independent scenario/task groups as the unit of inference. |
+| **Required evidence** | Complete decision snapshots (candidate set, Tier, `ref_cnt`, content hash, native residency), both victim sets, gate/fallback reasons, subsequent Native hashed eviction, APC hit/miss, and request-level recomputation in `N/E/C/R/W/S` form. Preserve missingness and fail closed. |
+| **Main metrics** | Intervention rate; fallback rate and reason distribution; fraction of events with victim-set divergence; estimated vs measured recomputation cost; TTFT (P50/P95), prefill throughput, JCT; policy decision overhead; regressions by workload class. |
+| **Correctness checks** | Returned victim set is a legal subset of the eligible candidates; `ref_cnt`-zero constraint; native hash/refcount/APC bookkeeping unchanged; no future information used; identical baseline victim set reproduced when the gate declines. |
+| **Falsification conditions** | Frequent intervention without victim-set change; predicted benefit uncorrelated with measured benefit; identity uncertainty forcing near-total fallback; gate overhead erasing any gain; no improvement over always-on A2 on held-out tasks; or a simpler policy matching the gated outcome. |
+
+**[P]** Measurements needed to validate the **complete** idea: per-condition pass rates; the joint distribution of (evidence sufficient, candidates complete, identity verified); divergence frequency and magnitude; calibration of expected incremental benefit against measured `R`/`W`; overhead per decision; and the downstream outcome chain from gate decision → victim set → physical eviction → APC hit → recomputation. Without the full chain, a gate can only be shown to *change decisions*, not to *improve outcomes*.
+
+### 5.9 Expected Benefits
+
+**[P]** Qualitative only: fewer decisions made on unverifiable identity; avoidance of false confidence from elaborate scores; an auditable rule for when to depart from native LRU; a clean attribution of any gain to the gate rather than to the underlying selector. **No numeric performance improvement is claimed or predicted.** *When Fancy Eviction Fails* is explicit counter-evidence against assuming complexity helps.
+
+### 5.10 Failure Criteria and Research Risks
+
+**[P]** Reject or simplify the gate if it frequently intervenes without changing the victim set, if predicted benefit does not correlate with measured benefit, if identity uncertainty is common enough that almost all decisions fall back, or if fallback overhead erases the gain. Risks: the 402/778 `content_unverified` rate may persist and starve the gate; offline proxies may not transfer to Native; candidate completeness may be unverifiable at decision time; thresholds may overfit; the audit path itself may perturb timing. A null result here is a valid research outcome.
+
+### 5.11 Relationship to the Current Phase 3 Scope
+
+**[N]** Idea 1 is **outside** the frozen Phase 3 evaluation campaign. A2's existing fail-closed fallback is part of the current implementation and remains as is; the gated policy is **not** an approved arm, **not** implemented, and **not** validated. Any work on it requires project-level authorization and available time after the existing arms are correctly evaluated.
+
+---
+
+## 6. Idea 2 — Workflow-aware Signals for Block Victim Selection
+
+> In this document "workflow-aware" means signals derived from the **Agent workflow's online runtime lifecycle** (Continuum-style observations such as inter-request gaps, tool context, queue delay, program progress). It does **not** mean AEG/ASG workflow-graph structure as in SAGA/KVFlow, which requires external workflow information this project does not assume (see [`相关工作总结.md`](相关工作总结.md) §2.C–2.D).
+
+### 6.1 Research Question
+
+**[P]** Can Block victim selection benefit from signals that are recorded or consumed before they are collapsed into a final TTL deadline? The question is **not** "should every intermediate variable be added to the score?" but whether a particular signal adds predictive or decision value **beyond the current deadline-only proxy**, under the same candidate set and capacity target.
+
+### 6.2 Motivation
+
+**[I]** Some workflow/runtime signals are recorded in the repository, but **their existence does not mean the runtime Block selector consumes them** (§4.2). Server inter-request gaps, queue delay, ETA and prefill/reload cost are recorded and enter `estimate_ttl()`; `ExternalToolDurationHistory` is recorded **write-only** with no production consumer; the final TTL deadline is the *output* of TTL estimation and only influences A2 indirectly through a deadline-derived `reuse_proxy`. No history signal appears in `EvictionCandidate` / `EvictionContext`.
+
+**[E]** The literature supplies motivation, not transferable results: CacheWise reports that tool-call metadata can guide reuse-aware eviction, but its ~3.5× end-to-end figure is a scheduling+eviction composite and its pure eviction component is ~1.7×–2×; Continuum uses online observations to set a TTL, not a Block-level score; KVFlow relies on an Agent Step Graph. **[N]** None establishes that this project's signals improve its Block selector.
+
+### 6.3 Related Work and Research Context
+
+- CacheWise (arXiv:2606.16824v1) §3 *Coding Agent Workloads*, §5 *CACHEWISE Design* (§5.1 prefix-aware scheduling, §5.2 predictive eviction), §6 *Evaluation*.
+- Continuum (arXiv:2511.02230v6) §4.1 *Utility Model*, §4.2 *Setting the TTL Value*, §5.1–5.2 runtime mechanism; the paper's term is "queueing delay".
+- KVFlow (arXiv:2507.07400v1) §3 *Design of KVFlow* (ASG, `steps-to-execution`, Figure 3(a)), §3.1 *Workflow-Aware Eviction Policy* (Figure 3(b)), §3.2 *Overlapped KV Prefetching* — a distinct signal family requiring workflow structure; §3.2 prefetch is outside this project's scope.
+- Full conditions and non-transferable conclusions: [`References&Notes/论文总结.md`](References&Notes/论文总结.md) §6–§7 and [`References&Notes/对比笔记.md`](References&Notes/对比笔记.md) §6.2. Bibliographic authority: [`References&Notes/参考文献/文献索引.md`](References&Notes/参考文献/文献索引.md).
+
+### 6.4 Existing Project Mechanisms
+
+**[I]** `TTLInput` fields and `estimate_ttl()` (§4.2); `A2NativeReuseState` derives `reuse_weight` only when `lifecycle == TRACKED_FUTURE` and a deadline exists (`a2_native.py:78-85,346-359`); `A0` Block selection uses only `(eligibility_tier, native_lru_rank)` and reads no deadline. `ExternalToolDurationHistory` has no `src/` consumer (verified: `history.py:52-74`, `runtime.py:89,332`; only tests read it).
+
+### 6.5 Current Implementation Status
+
+**[I]** Implemented: signal collection, TTL consumption of four signals, the scalar `ttl_seconds`/`deadline_timestamp`, and A2's deadline-derived reuse proxy.
+**[P]** Not implemented: any Block-level consumer of an intermediate signal; a decision-time contract extension; data-availability instrumentation; no-future-leakage and missingness handling; conditional-on-deadline ablation; multi-signal models.
+**[E]** Evaluated: TTL/history mechanisms through unit tests and real-runtime validation of the A0 baseline; A2 bounded evaluation and W1-B for the always-on deadline-only A2 path.
+**[N]** Independent Native performance evaluation of an intermediate-signal Block selector: none. **See §3 matrix, row Idea 2.**
+
+### 6.6 Proposed Future Design
+
+**[P]** Separate two questions: **(A) when might the prefix be reused?** (conditional reuse/arrival-time estimate from tool type, duration, inter-request history, program progress) and **(B) how costly would eviction be?** (lost reusable prefix, verified Block identity, shared ownership, measured prefill cost). A conceptual expected-loss template (design abstraction only — the project has **no** calibrated $P_c$ or $C_c$):
 
 $$
 L(S) = \sum_{c \in \mathcal{C}} P_c(\text{reuse within } H \mid X_c) \left[ C_c(m_c) - C_c(j_c(S)) \right]
 $$
 
-where $S$ is the physical victim set; $c$ is a verifiable prefix chain; $X_c$ is the observed signal vector; $m_c$ is the currently reusable prefix length; $j_c(S)$ is the longest reusable prefix remaining after the eviction; and $C_c(\cdot)$ is the measured or calibrated prefill/recomputation cost. This is a design template, not a claim that the project already has a calibrated $P_c$ or $C_c$.
+with $S$ the physical victim set, $c$ a verifiable prefix chain, $X_c$ the observed signal vector, $m_c$ the currently reusable prefix length, $j_c(S)$ the longest reusable prefix remaining after eviction.
 
-A key safeguard: do not double-count the same information. TTL may already incorporate some of the tool-gap and program-lifecycle signals. An ablation should compare deadline-only scoring against intermediate-signal models and test whether the intermediate signals add value *conditional on the deadline*.
-
-### 4.4 Time-to-next-use and censored observations
-
-If the target is the remaining time until the next request, the model must account for elapsed time and the fact that no request has arrived yet. Let $G$ be the total gap, $e$ the elapsed time, $h$ a future horizon, and $F_X$ the conditional CDF given features $X$. Under an appropriate continuous-distribution model:
+**[P]** Time-to-next-use must condition on elapsed time and non-arrival. With total gap $G$, elapsed $e$, horizon $h$ and conditional CDF $F_X$:
 
 $$
 P(G - e \le h \mid G > e, X) = \frac{F_X(e + h) - F_X(e)}{1 - F_X(e)}
 $$
 
-This is not generally equal to $F_X(h)$. Traces cut off by task-step limits or collection termination are right-censored; treating them as completed observations can bias the estimated gap distribution. If sample counts are small, use a simple empirical survival baseline and report uncertainty rather than introducing a high-capacity model.
+This is not generally $F_X(h)$. Traces truncated by task-step limits or collection termination are **right-censored**; treating them as completed observations biases the gap distribution. Where cell counts are small, use a simple empirical survival baseline and report uncertainty rather than a high-capacity model.
 
-### 4.5 Experimental design
+**[P]** Required research plan components, each with an explicit deliverable:
 
-Use the same actual eligible set and the same capacity target for all variants:
+1. **Data availability** — a per-signal audit of (i) where the value is recorded, (ii) its provenance class (`NATIVE` / `OBSERVED` / `EXTERNAL` / `APPROXIMATED` / `UNAVAILABLE`), (iii) whether it is causally available **at the eviction decision point**, not merely elsewhere in the runtime, and (iv) its effective sample size after right censoring. Extension of `EvictionCandidate`/`EvictionContext` is part of the method and must be reported as such.
+2. **No-future-leakage** — prove the feature could have been computed from information available before the decision; reject any post-hoc or realized-reuse feature.
+3. **Missingness** — report missing/unavailable rates per signal per conditioning cell, preserve missingness and fail closed; do not impute with future outcomes.
+4. **Incremental-value testing** — compare variants on the same eligible candidate set and capacity target: native LRU; current A2 deadline-only proxy; deadline + one signal at a time; a tool-conditioned time-to-next-request model; a multi-signal expected-loss model; and the gated variant from Idea 1. Test whether each signal adds value **conditional on the deadline**, since the deadline already compresses several of them.
+5. **Ablation** — ablate tool type, tool duration, inter-request gap, queue delay, `eta` and prefill cost separately; report victim-set changes, ranking metrics, measured recomputation and end-to-end latency, with held-out tasks and confidence intervals. Do not infer value from score separation alone.
+6. **Double-counting safeguard** — TTL already absorbs tool-gap and program-lifecycle information; any correlated pair of features must be tested jointly and reported.
 
-1. Native LRU.
-2. Current A2 deadline-only proxy.
-3. Deadline plus one intermediate signal at a time.
-4. Tool-conditioned time-to-next-request model.
-5. Multi-signal model with calibrated or empirically validated expected loss.
-6. The gated variant from Idea 1.
+**[P]** Distinguish explicitly: (1) time from tool invocation to tool completion, (2) time from turn completion to next request arrival, (3) remaining time conditional on no arrival. These are different random variables; `ExternalToolDurationHistory` is not the same quantity as `ServerGapHistory`.
 
-Variants 3–5 require extending the decision-time input described in §4.2. Any such extension is part of the method and must be reported as such, together with evidence that the added signal is causally available at the decision point rather than merely recorded elsewhere in the runtime.
+### 6.7 Engineering Requirements
 
-Ablate tool type, tool duration, inter-request gap, queue delay, `eta`, and prefill cost separately. Report whether each signal changes the victim set, improves ranking metrics, reduces measured recomputation, and improves end-to-end latency. Use held-out tasks and confidence intervals; do not infer value from score separation alone.
+**[P]** Extend the decision-time input contract (or an equivalent immutable snapshot) with the selected signals; implement and test a consumer for `ExternalToolDurationHistory` before using it (today it is write-only); add provenance and no-future-leakage assertions; add right-censoring-aware estimators; preserve adapter immutability guarantees; keep native `BlockPool` bookkeeping unchanged; record per-signal missingness and overhead. Any new input must be justified as a decision-time observation, not reconstructed from a later outcome.
 
-### 4.6 Source grounding
+### 6.8 Evaluation Plan
 
-- **Repository:** `src/kvopt/costaware/a2_native.py` and `src/kvopt/costaware/a2_geometry.py` for the current deadline-derived proxy; `src/kvopt/continuum/ttl.py` for where the intermediate signals are consumed and collapsed; `src/kvopt/continuum/history.py`, `snapshots.py`, and `runtime.py` for the source and lifecycle of intermediate signals; `src/kvopt/runtime/vllm/types.py` and `bridge.py` for the decision-time contract that currently carries none of them.
-- **Paper:** Tiwari et al., *CacheWise: Understanding Workloads and Optimizing KVCache Management for Efficiently Serving LLM Coding Agents*, arXiv:2606.16824v1. The abstract describes reuse-aware eviction guided by lightweight predictions from tool-call metadata. Consult §3 (*Coding Agent Workloads*), §5 (*CACHEWISE Design*), and §6 (*Evaluation*) to identify what signals were used and how their contribution was measured. CacheWise demonstrates that tool metadata can be useful; it does not establish that every Continuum signal will improve this project's A2 policy.  
-  https://arxiv.org/abs/2606.16824
-- **Paper:** *Continuum: Efficient and Robust Multi-Turn LLM Agent Scheduling with KV Cache Time-to-Live*, arXiv:2511.02230v6. Consult §4.1 (*Utility Model*) and §4.2 (*Setting the TTL Value*) for the role of tool call durations, queueing delay, program continuity, and prefill/loading cost, and §5.1–§5.2 for the runtime mechanism. These are useful design inputs; they should not be assumed to be calibrated Block-level reuse probabilities.  
-  https://arxiv.org/abs/2511.02230
-- **Paper:** Pan et al., *KVFlow: Efficient Prefix Caching for Accelerating LLM-Based Multi-Agent Workflows*, arXiv:2507.07400v1. §3.1 (*Agent Step Graph and Steps-to-Execution*) introduces the Agent Step Graph and `steps-to-execution`; §3.2 (*Workflow-Aware Eviction Priority Assignment*) turns them into eviction priorities, including shared prefixes in tree-structured caches. This is a useful alternative signal family to compare with Continuum's online runtime signals.  
-  https://arxiv.org/abs/2507.07400
+| Element | Requirement |
+| --- | --- |
+| **Baseline** | Native LRU under the actual eligibility plan, plus current A2 deadline-only proxy on the **same** candidates and capacity target. |
+| **Comparison method** | Paired variants 1–6 above with all unrelated components fixed; one-signal-at-a-time additions; held-out tasks/workloads; independent scenario draws; no parameter retuning after outcome inspection. |
+| **Required evidence** | Decision-time availability proof per signal; content identity and `ref_cnt`; victim sets; Native hashed eviction; APC hit/miss; `N/E/C/R/W/S`; censoring and missingness counts per conditioning cell. |
+| **Main metrics** | Victim-set divergence; `R` and `W` (recomputed tokens / prefill work); TTFT P50/P95; JCT/throughput; calibration of predicted loss vs measured loss; per-signal decision overhead; results per workload class. |
+| **Correctness checks** | No future information in features; no leakage from TTL outputs reused as independent inputs; `0 ≤ C ≤ E ≤ N`; unchanged native hash/refcount bookkeeping; legal victim sets; right-censored traces not treated as complete. |
+| **Falsification conditions** | No signal changes the victim set beyond noise; no incremental value conditional on the deadline; predicted loss uncorrelated with measured recomputation; gains disappear on held-out tasks; missingness/censoring rates make the estimator unusable; or a simple deadline-only rule matches the multi-signal model. |
+
+### 6.9 Expected Benefits
+
+**[P]** Qualitative only: a principled separation of "when might this prefix be reused" from "what does losing it cost"; an auditable account of which signals are actually available at decision time; and a test of whether richer information beats a strong simple baseline. **No numeric performance improvement is claimed or predicted.**
+
+### 6.10 Failure Criteria and Research Risks
+
+**[P]** Reject a signal if it is unavailable at decision time, leaks future information, is entirely absorbed by the deadline, or fails to change outcomes on held-out data. Risks: binding constraint is **availability**, not quality — only the deadline-derived signal reaches A2 today; `ExternalToolDurationHistory` has no consumer to extend from; W1-A/W1-C traces are heavily right-censored (10 tasks, 9 at the 50-step limit; pilot 20 paired tasks), so conditional distributions may be unestimable; contract extension may break immutability; correlated signals may double-count; and on the reviewed H1 archive the deadline itself collapses to recency under COLD_START (§7.2.1).
+
+### 6.11 Relationship to the Current Phase 3 Scope
+
+**[N]** Idea 2 is **outside** the frozen Phase 3 evaluation campaign. The existing TTL/history machinery is part of the A0 baseline and stays frozen; no decision-time contract extension, no new signal consumer, and no intermediate-signal arm is approved. Any work requires project-level authorization and available time.
 
 ---
 
-## 5. Idea 3 — Improve Entry Unpin Ordering (`_release_sort_key`)
+## 7. Idea 3 — Downstream-cost-aware Entry Release Ordering
 
-### 5.1 Research question
+### 7.1 Research Question
 
-Can Entry unpin order be selected based on the downstream Block victim set and expected loss, rather than primarily on Entry deadline and a native-rank-derived secondary key?
+**[P]** Can Entry unpin order be selected from the **downstream physical victim set and resulting recomputation loss**, rather than primarily from Entry deadline and a native-rank-derived secondary key?
 
-### 5.2 Why the current frozen A0 ordering may leave value on the table
+### 7.2 Motivation
 
-The current pressure-release flow iteratively releases Entries until enough Blocks become eligible (`pressure.py`, the loop that runs while the union of Tier 1 and Tier 2 eligible Blocks is below the capacity target). For each candidate Entry, it can determine which additional Blocks would become eligible via `_newly_eligible_blocks_after_release()`. However, the Entry ordering does not directly minimize the physical Block loss produced by the downstream selector.
+**[I]** The pressure loop iteratively releases Entries until Tier 1 ∪ Tier 2 eligible Blocks reach `target`, and `_newly_eligible_blocks_after_release()` can compute the Blocks a release would expose (`pressure.py:83,107,285-323`). `_release_sort_key()` is the **frozen A0 order** and already consumes a downstream quantity — the minimum `native_lru_rank` among newly exposed Blocks — so a downstream-aware rule must beat a baseline that is **not** purely deadline-driven.
 
-This creates a potential cross-layer mismatch:
+**[I]** A potential cross-layer mismatch remains: Entry A may expose many low-cost victim Blocks; Entry B may expose few Blocks including a shallow/shared one whose eviction damages several prefixes; a deadline-first ordering may not distinguish them. A simple "cost per newly eligible Block" ratio is not automatically correct, because releases interact with capacity thresholds, shared Blocks, eligibility tiers and the final victim selector.
 
-- Entry A may expose many Blocks, but those Blocks may be low-cost victims.
-- Entry B may expose fewer Blocks, but include a shallow/shared Block whose eviction would damage several prefixes.
-- A deadline-first ordering may not distinguish these cases.
-- A simple “cost per newly eligible Block” ratio is not automatically correct, because release decisions interact with capacity thresholds, overlapping/shared Blocks, eligibility tiers, and the final victim selector.
+**[E]** **Runs with a forced first release answer a different question.** `diagnostic_first_release_program_id` bypasses `_release_sort_key()` for the first step; such runs measure one specific release, not an ordering, and must be excluded from ordering comparisons or reported as a separate stratum.
 
-`_release_sort_key()` is documented in code as **the frozen A0 ordering**, not an ad-hoc heuristic. It returns a three-part key: the Entry deadline, then the minimum `native_lru_rank` among the Blocks that release would newly expose, then a deterministic Entry sort key. Two consequences matter for this Idea. First, the A0 baseline already consumes a downstream quantity — the native rank of the Blocks a release would expose — so a downstream-aware ordering has to beat a baseline that is not purely deadline-driven. Second, A1's scoring rule was itself reproduced on 54/54 recorded Gate 2 release choices by a score-free `Sufficient-first + earliest-deadline` rule, so agreement with the baseline must be measured before any outcome difference is interpreted.
+### 7.2.1 Decision-space constraints from the reviewed M4 analysis (#81)
 
-**Runs with a forced first release answer a different question.** `RetentionAwareSelectionCoordinator.prepare()` accepts `diagnostic_first_release_program_id`. When it is set, the first pressure release is forced to that program and `_release_sort_key()` is bypassed for that step. Such runs measure the effect of one specific release, not the effect of an ordering. They must be excluded from ordering comparisons, or reported as a separate stratum, and their count must be stated in every Idea 3 result.
+**[E]** A read-only M4 analysis of the Phase 2A H1 archive (123 decisions / 474 candidate records) imposes four constraints on any future evaluation of this idea:
 
-### 5.3 Proposed hypothesis
+1. **Deadline collapses to recency under COLD_START.** With `prefill_reload_seconds < 1.0` (0.0095–0.1711 on H1), `default_ttl_seconds = max(0, log(prefill_reload_seconds)) = 0.0` (123/123), so `deadline − t == −elapsed` (474/474) and `rank((deadline − t)/sigma) == rank(−elapsed/sigma)` (114/114). Until COLD_START is exited, the deadline signal carries no information beyond recency. Exiting COLD_START changes the A0 baseline and requires separate authorization; this is a shared prerequisite for Ideas 2 and 3.
+2. **Stratify by A1 branch.** Gate 2 contained 54/54 `single_step` decisions; on H1, 93/123 are `single_step` (100% agreement between `Sufficient-first + deadline` and `Sufficient-first + A0_key`), and 30/123 enter `per_unit` (78 steps with ≥2 positive candidates). Any comparison must report `single_step` and `per_unit` strata separately.
+3. **Capacity geometry.** On H1, `target` has median 32 (max 150); `need = target − |eligible_now|` has median 5 blocks (range 1–88); candidate prefix length has mean 13.1 blocks (median 12), exposing about 2.6× the median deficit (`max N_i / need` median 5.33, max 24) and leaving `N_i − need` Blocks unprotected in Tier 1 on later steps.
+4. **Shared-prefix hypotheses are untestable on H1 Level-A.** H1 has 0/123 decisions (0/6220 Blocks) with Blocks shared across candidates (`N_i == block_count` on 474/474). Idea 3/4 shared-ownership effects cannot be evaluated until traces with shared Blocks are available.
 
-**H3 — Downstream-aware release ordering:** When the pressure manager must release one or more Entries, evaluate candidate releases by simulating their newly eligible Block sets and the downstream victim selector. Prefer a release plan that satisfies the capacity target while minimizing the expected incremental loss of the resulting physical victim set, subject to valid retention constraints.
+**[N]** These are analysis findings, not approval to change the A0 baseline or to run a new campaign. They must be rechecked against the exact archive and commit used by any future study.
 
-**Defining the lookahead unit.** The frozen loop releases Entries until the union of Tier 1 and Tier 2 eligible Blocks reaches `target = min(required_blocks, queue_len)`, so a single candidate release frequently does not satisfy the requested capacity on its own. The lookahead must therefore fix one of two clearly separated evaluation units and apply it to every candidate:
+### 7.3 Related Work and Research Context
 
-- **Marginal-step evaluation (default).** Score only what the single hypothetical release changes: the Blocks it newly exposes, and the victims the downstream selector takes from the eligible set after that release. This measures the first-order effect of choosing this Entry next. Because every candidate is scored at the same point in the same loop state, the comparison is like-for-like.
-- **Complete-loop evaluation.** Continue the simulation through the full release loop, applying the frozen A0 ordering to the remaining Entries until the capacity target is met, then score the final victim set. This captures the knock-on effect of an early release, but it is only a valid comparison of release choices if the continuation policy is identical for every candidate; otherwise the result compares continuation rules rather than first releases.
+- Continuum (arXiv:2511.02230v6) §4.1–4.2, §5.2 — retention duration, pressure management and recomputation cost. The downstream-aware ordering is an **extension to evaluate**, not a Continuum feature.
+- *When Fancy Eviction Fails* (arXiv:2609.28870v2) §4.5, §5.1–5.3, §6, Appendices A/C — limitations of generic replacement scores; supports measuring real miss cost and avoiding unvalidated ratios; **does not** validate Entry-unpin lookahead.
+- RLT (arXiv:2601.18999v1) — a richer rule can lose to a simpler one; competitive-ratio results are worst-case and cannot predict average performance.
+- Comparative context: [`References&Notes/对比笔记.md`](References&Notes/对比笔记.md) §7.3.
 
-Under either unit, all candidates must be evaluated under equivalent conditions: the same starting eligible set, the same requested capacity and `target`, and the same downstream Block selector. Mixing a marginal score for one candidate with a complete-loop score for another makes the resulting ranking meaningless. Runs whose first release is forced by `diagnostic_first_release_program_id` fall outside this comparison (§5.2).
+### 7.4 Existing Project Mechanisms
 
-This need not require exhaustive joint optimization initially. A practical first version can use one-step lookahead or beam search over candidate Entry releases, followed by the existing Block selector.
+**[I]** **A1** (`src/kvopt/costaware/a1_entry.py`) implements cost-aware **Entry-level** release scoring: `q = sigmoid((deadline − t)/tau)`, `expected_recompute = q·(min(need, N_i) + λ·(N_i − min)⁺)`, `per_unit = expected/N_i`, with full ordering keys `(expected_recompute, deadline, identity)` and `(per_unit, deadline, identity)` (`a1_entry.py:110-169`). Its branches are:
 
-### 5.4 Candidate algorithms
+- `single_step` — an Entry whose `N_i ≥ need` can satisfy the target alone;
+- `per_unit` — otherwise choose by `expected_recompute / N_i`;
+- `pair_lookahead` — when all `N_i = 0`, evaluate pairs via `newly_eligible_after_many` and a combined `q`;
+- `deadline_fallback` — earliest deadline when no pair is usable.
 
-Compare the following:
+**[N]** **A1 does not fully model the actual downstream physical victim set or the resulting recomputation loss.** `ReplayState` recomputes only the eligible set; `expected_recompute` is a weighted Block-unit proxy, and `docs/experiments/phase2g-a1/README.md` and `a1_compare.py` explicitly state that the downstream eviction step is not simulated. A separate offline analysis probe (`scripts/probes/a1_structural_gap.py`) simulates `evicted_blocks`/`realised_loss` but is not part of the A1 implementation.
 
-1. The frozen A0 ordering (`_release_sort_key()`).
-2. `Sufficient-first + earliest-deadline` baseline. This rule reproduced all 54/54 recorded A1 Gate 2 release choices, while A1's own ordering is `(expected_recompute, deadline, identity)` — so the reproduction means the score term was not needed on that corpus. Treat it as a required strong comparator, not a straw man.
-3. Lowest incremental expected loss per newly eligible Block (as a diagnostic baseline, not assumed optimal).
-4. One-step downstream-aware lookahead, scored under the marginal-step unit defined in §5.3: from the same loop state, simulate releasing each candidate Entry, run the actual Block selector on the resulting eligible set, and score only the change in the victim set.
-5. Bounded multi-step lookahead or beam search, scored under the complete-loop unit defined in §5.3 with an identical continuation policy for every candidate, if one-step lookahead demonstrates value and overhead is acceptable.
+**[E]** **54/54**: `Sufficient-first + earliest-deadline` reproduced all 54 recorded A1 Gate 2 **forced-release selections**, while A1's own ordering is `(expected_recompute, deadline, identity)` — the score term was not needed on that corpus. The canonical ledger states A1's independent cost-model signal is **unproven**. W1-B's later bounded Native evidence (A1−A0 descriptive sum −3904 tokens across 4 groups, one repeat per arm/group) is a comparability/mechanism smoke: it establishes **no** formal effect, **no** superiority over `Sufficient-first`, and **no** content-level causal attribution (`NOT_ESTABLISHED`). `Sufficient-first + earliest-deadline` is a documented analysis comparator, not an implemented arm in `src/`.
 
-For each candidate release $u$, a one-step score can be written as:
+### 7.5 Current Implementation Status
+
+**[I]** Implemented: A1's four scoring branches; frozen A0 `_release_sort_key()`; newly-eligible Block computation; the pressure loop; `diagnostic_first_release_program_id`.
+**[P]** Not implemented: downstream victim-set simulation, victim→recomputation-loss mapping, a fixed lookahead unit with identical continuation policy, downstream-aware release ordering, the strong comparator as an implemented arm, and pairwise ordering agreement / rank correlation reporting.
+**[E]** Evaluated: A1 offline decision analysis, Phase 2G A1 bounded evaluation, W1-B 12-run smoke — all with the limitations above.
+**[N]** Independent Native performance benefit: not established. **See §3 matrix, row Idea 3.**
+
+### 7.6 Proposed Future Design
+
+**[P]** **H3 — Downstream-aware release ordering:** when pressure requires releasing Entries, evaluate candidate releases by simulating their newly eligible Block sets **and** the downstream victim selector, and prefer a release plan that satisfies the capacity target while minimizing expected incremental loss of the resulting physical victim set, subject to valid retention constraints.
+
+**[P]** Six explicit requirements for any future downstream-aware implementation:
+
+1. **A fixed lookahead unit** — either *marginal-step* (default: score only what one hypothetical release changes, at the same loop state for every candidate) or *complete-loop* (simulate the full release loop with an identical continuation policy for every candidate). Mixing units makes the ranking meaningless.
+2. **An identical downstream Block selector** for all candidates — the actual A0/A2 runtime adapter, not an internal `native_rank`-only helper.
+3. **A consistent candidate set** — same starting eligible set, requested capacity, `target`, Tier 1/Tier 2 state and pressure events for every candidate.
+4. **A measurable physical victim set** — the actual selected Block IDs, with content identity and `ref_cnt` evidence, not the set of newly eligible Blocks.
+5. **Correct mapping from victim selection to recomputation** — from victim set → surviving reusable prefix → APC hit/miss → `N/E/C/R/W/S`; newly exposed but unselected Blocks must not be counted as immediately evicted.
+6. **A strong simple-rule comparator** — `Sufficient-first + earliest-deadline` implemented and reported as a required comparator, not a straw man, because of the 54/54 precedent.
+
+**[P]** Candidate algorithms (unchanged in substance): frozen A0 ordering; `Sufficient-first + earliest-deadline`; lowest incremental expected loss per newly eligible Block (diagnostic only); one-step downstream-aware lookahead under the marginal-step unit; bounded multi-step/beam search under the complete-loop unit if one-step lookahead demonstrates value. A one-step score template:
 
 $$
 J(u) = L(S_u) + \lambda \, O(u) + \mu \, R(u)
 $$
 
-where $S_u$ is the victim set returned by the downstream selector after hypothetical release $u$, $L(S_u)$ is expected recomputation loss, $O(u)$ is unnecessary exposure of Blocks that are newly unprotected but not selected as immediate victims, and $R(u)$ is a risk term for future eviction of those exposed Blocks. The weights $\lambda$ and $\mu$ require explicit justification and sensitivity analysis; do not tune them only to one trace.
+where $S_u$ is the victim set after hypothetical release $u$, $L$ the expected recomputation loss, $O$ unnecessary exposure of Blocks not selected as immediate victims, and $R$ future risk for exposed Blocks. Weights require explicit justification and sensitivity analysis; future exposure risk is included only if it can be estimated and validated.
 
-The model must not count all newly eligible Blocks as immediately evicted. It should distinguish actual victims from newly exposed-but-retained Blocks. Future exposure risk should be included only if it can be estimated and validated.
+### 7.7 Engineering Requirements
 
-### 5.5 Evaluation
+**[P]** A simulation hook that can run the real downstream selector on a hypothetical eligible set without mutating runtime state; exact reproduction of the pressure loop and `target`; recording of both newly eligible and physically selected Block sets; prefix-continuity/APC-hit computation; exclusion or separate stratification of `diagnostic_first_release_program_id` runs; deterministic replay of pressure events; planning-overhead measurement; and no change to the frozen A0 ordering itself.
 
-Use identical pressure events, eligible sets, requested capacity, `target`, and downstream selector for every candidate, and state which lookahead unit from §5.3 was used. Measure:
+### 7.8 Evaluation Plan
 
-- Number of Entry releases and Blocks exposed per pressure event.
-- The lookahead evaluation unit (marginal step or complete loop) and, for complete-loop runs, the continuation policy applied to non-candidate Entries. Report this for every result.
-- Whether any candidate release failed to satisfy the requested capacity on its own, and how many subsequent releases the loop then required.
-- **Pairwise ordering agreement and rank correlation** between every candidate method and the frozen A0 ordering, and between candidate methods: the share of pressure events where two methods select the same Entry, the share where they produce the same ordered release sequence, and Spearman/Kendall rank correlation over the induced Entry orderings.
-- Count of pressure events whose first release was forced by `diagnostic_first_release_program_id`, reported separately from unconstrained ordering decisions.
-- Actual physical victim set and its divergence from the real baseline.
-- Immediate and subsequent prefix recomputation.
-- Measured prefill/reload time and end-to-end completion time.
-- Planner runtime and memory overhead.
-- Frequency of redundant releases or exposed Blocks that were not needed for the capacity target.
+| Element | Requirement |
+| --- | --- |
+| **Baseline** | Frozen A0 ordering (`_release_sort_key()`) plus the strong `Sufficient-first + earliest-deadline` comparator; the actual downstream Block selector held fixed across all variants. |
+| **Comparison method** | Replay the same pressure events under each release order, then apply the identical downstream selector; report the lookahead unit for every result; exclude/stratify forced-first-release runs; paired comparisons over independent pressure events with confidence intervals. |
+| **Required evidence** | Per-event eligible set, `target`, newly eligible Blocks, physical victim set, content identity/`ref_cnt`, subsequent Native hashed eviction, APC hit/miss, and `N/E/C/R/W/S`; decision-level ground truth before any outcome claim. |
+| **Main metrics** | **Pairwise ordering agreement and rank correlation** (share of events with the same first Entry, same ordered release sequence, Spearman/Kendall over induced orderings) — mandatory; victim-set divergence; number of releases and Blocks exposed; immediate/subsequent recomputation; TTFT/JCT; planner overhead; redundant-release and exposed-but-not-evicted counts. |
+| **Correctness checks** | All candidates evaluated at the same loop state and capacity target; identical continuation policy for complete-loop runs; newly eligible ≠ physically evicted; `0 ≤ C ≤ E ≤ N`; forced-first-release counts reported separately; no future knowledge. |
+| **Falsification conditions** | Different ordering but identical victim set (nothing that matters changed); identical ordering credited with an outcome difference; no improvement over `Sufficient-first + earliest-deadline`; predicted loss uncorrelated with measured recomputation; overhead exceeding any gain; or results that do not survive held-out replay. |
 
-The agreement metrics are not optional. A method that produces a different ordering but the same victim set has changed nothing that matters, and a method that produces the same ordering cannot explain an outcome difference. Both cases must be separable from a genuine ranking change before any outcome delta is interpreted; this is the same failure mode that made the 54/54 `Sufficient-first` reproduction necessary to report.
+### 7.9 Expected Benefits
 
-A useful diagnostic is to replay the same pressure event under each release order and then apply the same downstream selector. This isolates the effect of unpin ordering from changes in Block scoring.
+**[P]** Qualitative only: a release order aligned with the physical cost of the victim set it creates; explicit separation of eligibility creation from physical removal; and a measurable answer to whether cross-layer lookahead beats a strong simple rule. **No numeric performance improvement is claimed or predicted.** The A0 baseline already consumes `native_lru_rank`, so headroom may be small.
 
-### 5.6 Source grounding
+### 7.10 Failure Criteria and Research Risks
 
-- **Repository:** `src/kvopt/continuum/pressure.py`, especially `_release_sort_key()` (documented in code as the frozen A0 order), `_newly_eligible_blocks_after_release()`, the loop that accumulates newly eligible Blocks, and the `diagnostic_first_release_program_id` override that can force the first release.
-- **Repository:** `docs/phase2a-m4-method-design-report.md`, for prior Entry-release heuristic comparisons and evidence that some seemingly more sophisticated rules were equivalent to a baseline or worse.
-- **Repository:** `docs/experiments/phase2g-a1/README.md`, for the 54/54 reproduction by `Sufficient-first + earliest-deadline`; use this as a required strong baseline.
-- **Paper:** *Continuum*, the retention/pressure-management and cost-model sections, for the underlying relationship between retention duration, pressure release, and recomputation cost. The proposed downstream-aware ordering is an extension to evaluate, not something that should be attributed to Continuum as an existing feature.  
-  https://arxiv.org/abs/2511.02230
-- **Paper:** *When Fancy Eviction Fails*, §4.5 (*Heavy-Tailed Session Footprints*), §5.1 (*Quick Demotion*), §5.2 (*Compute-awareness*), §5.3 (*Block-Level vs. Session-Level Eviction*), §6 (*Discussion*), and Appendices A and C (*Capacity Sweeps*; *Compute Savings under the Linear Cost Model*), on the limitations of generic replacement scores. This supports measuring real miss cost and avoiding unvalidated ratios; it does not directly validate this project's Entry-unpin lookahead.  
-  https://arxiv.org/abs/2609.28870
+**[P]** Reject or simplify if the ordering collapses onto a simple heuristic, if the victim set does not change, or if outcome gains vanish under paired held-out replay. Risks: 54/54 reproduction shows how quickly richer rules collapse; a single release often cannot satisfy `target`, so an ill-defined lookahead unit invalidates comparisons; the downstream selector may not be simulatable without mutating state; shared Blocks and Tier constraints complicate loss attribution; content identity may be unverifiable (402/778 `content_unverified` in the A2 bounded evaluation).
+
+### 7.11 Relationship to the Current Phase 3 Scope
+
+**[N]** Idea 3 is **outside** the frozen Phase 3 evaluation campaign. A1 is an existing experimental arm whose correct, complete evaluation is part of current work; the downstream-aware ordering is **not** implemented, **not** an approved arm, and **not** validated. The 54/54 finding and W1-B's bounded smoke are evidence boundaries, not support for a new method. Any work requires project-level authorization and available time.
 
 ---
 
-## 6. Idea 4 — Unpin Granularity: Whole-Entry vs. Partial-Tail Unpin
+## 8. Idea 4 — Partial-tail Entry Unpinning
 
-### 6.1 Research question
+### 8.1 Research Question
 
-When an Entry is selected for release, should the system unprotect the whole Entry, or only a suffix/tail of its Blocks while retaining protection for a shallow prefix?
+**[P]** When an Entry is selected for release, should the system unprotect the whole Entry, or only a suffix/tail of its Blocks while retaining protection for a shallow prefix? This is a **protection-granularity (L3)** problem. **Partial-tail unpin is not the same as partial physical eviction (L1)**: unpin changes eligibility; eviction removes physical Blocks.
 
-This is a protection-granularity problem. **Partial-tail unpin is not the same as partial physical eviction.** Unpin changes eligibility; eviction removes physical Blocks.
+### 8.2 Motivation
 
-### 6.2 Motivation
+**[P]** Whole-Entry release is simple but exposes a large Block set at once. If a long prefix has a shallow portion likely reused by several future requests and a deep suffix with lower expected reuse value, a partial-tail release might preserve the valuable prefix while making enough deeper Blocks reclaimable. This is only beneficial if the runtime can represent protection by Block range/depth and correctly account for shared physical Blocks.
 
-Whole-Entry release is simple, but may expose a large set of Blocks at once. If a long prefix has a shallow portion likely to be reused by multiple future requests and a deep suffix with lower expected reuse value or lower loss on eviction, a partial-tail release may preserve the more valuable prefix while making enough deeper Blocks reclaimable.
+**[N]** **Current retention protection is Entry-level and Boolean.** `RetentionEntrySnapshot.protected: bool` plus a flat `block_ids` tuple (`snapshots.py:152-178`); release is `replace(protected=False)` for the whole Entry (`retention.py:82,98-110`). A `block_ids` list is an **observation** of associated Blocks, not a protection range; `KVCacheManager.free()` releases **all** of a request's Blocks at once in the simulator. **Neither constitutes Partial Tail Unpin.**
 
-However, this is only beneficial if the runtime can represent protection by Block range/depth and correctly account for shared physical Blocks. A shared Block may be referenced by several logical prefix chains; releasing protection for one Entry must not incorrectly make the Block reclaimable while another owner still protects it.
+### 8.3 Related Work and Research Context
 
-### 6.3 Proposed hypothesis
+- *When Fancy Eviction Fails* (arXiv:2609.28870v2) §4.5 *Heavy-Tailed Session Footprints*, §5.1 *Quick Demotion*, §5.2 *Compute-awareness*, §5.3 *Block-Level vs Session-Level Eviction* — motivates position-aware/cost-aware granularity, but §5.3 is an **L1 eviction-granularity** discussion, not this project's **L3 protection-release** mechanism.
+- KVFlow (arXiv:2507.07400v1) §3 *Design of KVFlow* and §3.1 *Workflow-Aware Eviction Policy* — shared prefix nodes in a tree-structured cache; an eviction-priority (L1) mechanism, not protection granularity.
+- vLLM RFC #37003 — token-range retention directives (`RetentionDirective` with `start`, `end`, `priority`, `duration`) as an **engineering precedent only**. It is an open RFC, not a peer-reviewed paper, not an implemented feature, and its current status is **unverified** (see [`References&Notes/参考文献/关于vLLM的参考文档与网址.md`](References&Notes/参考文献/关于vLLM的参考文档与网址.md) §3 and §11.5).
+- Full context: [`References&Notes/论文总结.md`](References&Notes/论文总结.md) §8, [`References&Notes/对比笔记.md`](References&Notes/对比笔记.md) §7.4.
 
-**H4 — Prefix-preserving partial unpin:** Under pressure, release protection from a selected Entry's tail before unprotecting its full prefix, when the expected cost of preserving the shallow prefix is lower than the cost of exposing it to eviction and when enough tail Blocks can satisfy the capacity target.
+### 8.4 Existing Project Mechanisms
 
-This hypothesis should be tested against Whole-Entry release under the same pressure events and downstream Block selector.
+**[I]** Whole-Entry Boolean protection; lazy deterministic TTL expiry; pressure release over `(deadline, native_key, identity)`; a reverse index `block → set[RetentionEntryKey]` with `any()`-style shared-owner checks (`retention.py:31-72`, `pressure.py:258-303`); per-evicted-Block association trimming (`retention.py:138-145`); observation-derived block↔prefix mapping whose correctness must not be relied on by vLLM inference (`docs/baseline-freeze.md` §4–§6). `ref_cnt` exists only on runtime candidates; protected Blocks remain native free cached Blocks with normal APC hash metadata.
 
-### 6.4 Candidate granularity policies
+### 8.5 Current Implementation Status
 
-1. Whole-Entry unpin (current baseline).
-2. Fixed tail length or fixed tail fraction (simple diagnostic baselines).
-3. Tail length selected to meet the immediate Block-capacity target.
-4. Cost-aware partial-tail unpin based on verified prefix depth, shared ownership, and estimated recomputation cost.
-5. A joint policy combining partial-tail unpin with the downstream-aware Entry/Block decision from Idea 3.
+**[I]** Implemented: whole-Entry protection and release, TTL expiry, pressure loop, shared-owner checks at Entry granularity, simulator request-level allocator.
+**[P]** Not implemented: **any** sub-Entry/range protection, partial-tail release, tail-length policy, shared-ownership/range refcount-eligibility accounting, prefix-continuity recomputation, native vLLM integration of partial protection, or concurrency/allocation safety for ranges.
+**[E]** Evaluated: whole-Entry A0 baseline in Phase 1B real-runtime validation and W1-B; unit tests for TTL/protection semantics.
+**[N]** Independent Native performance evaluation of partial-tail unpin: none. **See §3 matrix, row Idea 4.**
 
-Do not begin with an unconstrained learned policy. First establish that the runtime can accurately track which Block ranges are protected, which are shared, and what prefix remains reusable after each possible eviction.
+### 8.6 Proposed Future Design
 
-### 6.5 Engineering and correctness requirements
+**[P]** **H4 — Prefix-preserving partial unpin:** under pressure, release protection from a selected Entry's tail before unprotecting its full prefix, when the expected cost of preserving the shallow prefix is lower than the cost of exposing it to eviction and when enough tail Blocks can satisfy the capacity target. Test against Whole-Entry release under the same pressure events and downstream Block selector.
 
-- Represent protection at a Block range/depth level. Today `RetentionEntrySnapshot` carries a single `protected` Boolean plus a `block_ids` tuple, so protection cannot be released for part of an Entry.
-- Preserve reference/ownership accounting for shared Blocks.
-- Distinguish “unprotected,” “eligible,” “selected as victim,” and “physically evicted.”
-- Recompute the surviving contiguous prefix after eviction; do not assume that retaining arbitrary later Blocks preserves prefix-cache hits.
-- Handle concurrent requests and pressure events without races between ownership updates and eviction.
-- Verify that partial unpin does not violate vLLM's ownership/refcount rules. `ref_cnt` lives on the runtime candidate layer — `EvictionCandidate` in `src/kvopt/runtime/vllm/types.py`, populated from the vLLM block snapshot by `VLLMEvictionBridge`. The in-repository `KVCacheManager` does **not** implement refcount-based ownership and frees all of a request's blocks at once, so it must not be used as the reference for shared-Block semantics.
-- Record the additional metadata and runtime overhead.
+**[P]** Candidate granularity policies (unchanged in substance): Whole-Entry unpin (current baseline); fixed tail length or fraction (simple diagnostics); tail length selected to meet the immediate capacity target; cost-aware partial-tail unpin based on verified prefix depth, shared ownership and estimated recomputation cost; and a joint policy with Idea 3. Do **not** begin with an unconstrained learned policy: first establish that the runtime can accurately track which Block ranges are protected, which are shared, and what prefix remains reusable after each possible eviction.
 
-### 6.6 Evaluation
+### 8.7 Engineering Requirements
 
-Compare whole-entry and partial-tail policies on identical traces and capacity targets. Report:
+**[P]** Missing requirements, all currently unmet:
 
-- Reusable prefix length preserved.
-- Immediate and future recomputation tokens/time.
-- Physical blocks freed per release event.
-- Number of entries/blocks exposed but not evicted.
-- Cache hit rate and prefix length of subsequent hits.
-- TTFT, prefill throughput, end-to-end agent completion time.
-- Correctness checks for shared ownership, prefix continuity, and concurrent pressure events.
-- Metadata and planning overhead.
+1. **Sub-Entry protection representation** — protection by Block range/depth instead of a single Boolean, with deterministic serialization and lazy-expiry semantics.
+2. **Shared physical Block ownership** — a Block may be referenced by several logical prefix chains; releasing one Entry's range must not make a Block reclaimable while another owner still protects it. The existing `any()` reverse-index check is Entry-granular and insufficient.
+3. **Refcount and eligibility correctness** — `ref_cnt > 0` Blocks must never be evictable; Tier 1/Tier 2 eligibility must be recomputed per range; native `BlockPool`/hash bookkeeping must remain authoritative and unchanged.
+4. **Prefix continuity** — recompute the surviving **contiguous** prefix after eviction; retaining arbitrary later Blocks does not preserve prefix-cache hits. Report `E`, `C`, `R`, `W`, `S` after partial release.
+5. **Native vLLM integration** — vLLM 0.27.1 has no native pin API; the project's independent protection table must represent ranges without raising `ref_cnt`, moving Blocks to a hidden pool, or duplicating `BlockPool` bookkeeping (`docs/baseline-freeze.md` §6).
+6. **Concurrency and allocation safety** — no races between ownership updates, pressure events and allocation; atomic range updates; deadlock avoidance retained; additional metadata and planning overhead measured.
+7. **Correctness observability** — distinguish "unprotected", "eligible", "selected as victim", and "physically evicted" in the audit trail.
 
-### 6.7 Source grounding
+### 8.8 Evaluation Plan
 
-- **Repository:** `src/kvopt/continuum/snapshots.py` and `src/kvopt/continuum/pressure.py`, for current Entry-level protection and whole-entry release behavior.
-- **Paper:** *When Fancy Eviction Fails*, §4.5 (*Heavy-Tailed Session Footprints*), §5.1 (*Quick Demotion*), §5.2 (*Compute-awareness*), and §5.3 (*Block-Level vs. Session-Level Eviction*). These results motivate exploring position-aware, cost-aware partial release/eviction, but the paper's block-level versus session-level eviction discussion must not be mislabeled as this project's partial-tail *unpin* mechanism.  
-  https://arxiv.org/abs/2609.28870
-- **Paper:** *KVFlow*, §3.1 (*Agent Step Graph and Steps-to-Execution*) and §3.2 (*Workflow-Aware Eviction Priority Assignment*), for the treatment of shared prefix nodes and dynamic suffixes in an Agent Step Graph. It motivates ownership-aware prefix-level decisions but does not itself prove partial-tail unpin is effective.  
-  https://arxiv.org/abs/2507.07400
-- **Engineering reference:** vLLM RFC #37003, Proposed Change, which discusses token-range retention directives. This is an architectural reference for range-based retention, not peer-reviewed evidence of performance gains.  
-  https://github.com/vllm-project/vllm/issues/37003
+| Element | Requirement |
+| --- | --- |
+| **Baseline** | Whole-Entry unpin (current frozen A0 behaviour) with the same Entry choice and the same downstream Block selector; plus fixed-tail simple diagnostics. |
+| **Comparison method** | Identical traces, pressure events and capacity targets; vary **only** unpin granularity; report the tail-length rule used; paired comparisons over independent events. |
+| **Required evidence** | Protected ranges per Entry, shared-owner map, `ref_cnt`/eligibility per Block, physical victim set, Native hashed eviction, subsequent APC hit prefix length, `N/E/C/R/W/S`. |
+| **Main metrics** | Reusable prefix length preserved; immediate and future recomputed tokens/time; physical Blocks freed per release event; Blocks exposed but not evicted; cache hit rate and hit-prefix length; TTFT/prefill throughput/JCT; metadata and planning overhead. |
+| **Correctness checks** | Shared ownership (no Block made reclaimable while another owner protects it); prefix continuity; `ref_cnt`-zero constraint; Tier correctness; concurrent pressure events without races; native hash/refcount/APC bookkeeping unchanged; no whole-Entry fallback silently used. |
+| **Falsification conditions** | Tail releases never preserve more reusable prefix than Whole-Entry at comparable capacity; correctness checks fail; overhead exceeds any gain; gains vanish on held-out traces; or the runtime cannot represent ranges at all — in which case the idea fails on representation grounds before any performance question. |
+
+### 8.9 Expected Benefits
+
+**[P]** Qualitative only: potentially preserving shallow prefixes shared by several future requests while still satisfying a capacity target; a clearer model of protection granularity; and an explicit test of whether sub-Entry protection is representable in this runtime. **No numeric performance improvement is claimed or predicted.**
+
+### 8.10 Failure Criteria and Research Risks
+
+**[P]** Reject if range protection cannot be represented safely, if shared-ownership/refcount correctness cannot be guaranteed, if prefix continuity is broken, or if outcomes do not improve on held-out traces. Risks: the logical Entry boundary is not the physical Block ownership boundary; a shared Block cannot be made reclaimable by releasing one owner; partial unpin ≠ partial physical eviction; the simulator `KVCacheManager` is not a valid reference; shared-prefix hypotheses are untestable on the reviewed H1 archive (0/6220 Blocks shared across candidates, §7.2.1); the idea may be **unimplementable rather than merely unproven**.
+
+### 8.11 Relationship to the Current Phase 3 Scope
+
+**[N]** Idea 4 is **outside** the frozen Phase 3 evaluation campaign. Protection remains an Entry-level Boolean in the frozen baseline; no range representation, no new arm, and no Native integration is approved. Any work requires project-level authorization and available time.
 
 ---
 
-## 7. How the Four Ideas Relate
+## 9. Cross-idea Relationships
 
-The four ideas should be studied independently first and combined only after their individual effects are understood.
+**[P]** The four ideas should be studied independently first and combined only after their individual effects are understood. All four remain potential future research directions; none is an approved combination.
 
-| Dimension                    | Main decision                     | Question answered                                            | First controlled comparison                                 |
-| :--------------------------- | :-------------------------------- | :----------------------------------------------------------- | :---------------------------------------------------------- |
-| Idea 1: Intervention gate    | Whether custom Block policy runs  | When should the policy depart from native LRU?               | Native LRU vs always-on A2 vs gated A2                      |
-| Idea 2: Intermediate signals | How to score candidate Blocks     | Does information beyond deadline improve expected loss?      | Deadline-only vs one-signal-at-a-time vs multi-signal       |
-| Idea 3: Unpin ordering       | Which Entry to unprotect first    | Which release makes the best downstream victim set available? | Frozen A0 order vs simple heuristic vs downstream lookahead |
-| Idea 4: Unpin granularity    | How much of an Entry to unprotect | Can the shallow prefix remain protected while enough tail Blocks become reclaimable? | Whole-Entry vs fixed-tail vs cost-aware partial-tail        |
+| Dimension | Main decision | Question answered | First controlled comparison (if ever authorized) |
+| --- | --- | --- | --- |
+| Idea 1: Intervention gate | Whether custom Block policy runs | When should the policy depart from native LRU? | Native LRU vs always-on A2 vs gated A2 |
+| Idea 2: Intermediate signals | How to score candidate Blocks | Does information beyond deadline improve expected loss? | Deadline-only vs one-signal-at-a-time vs multi-signal |
+| Idea 3: Unpin ordering | Which Entry to unprotect first | Which release makes the best downstream victim set available? | Frozen A0 order vs simple heuristic vs downstream lookahead |
+| Idea 4: Unpin granularity | How much of an Entry to unprotect | Can the shallow prefix remain protected while enough tail Blocks become reclaimable? | Whole-Entry vs fixed-tail vs cost-aware partial-tail |
 
-Potential interactions:
-
-- Idea 1 can gate the Block policy produced by Idea 2.
-- Idea 3 can use the Block loss estimator from Idea 2 to evaluate hypothetical Entry releases.
-- Idea 4 changes the set of eligible Blocks available to Idea 3 and the Block selector.
-- A full joint optimizer could select both an Entry/range to unpin and a physical victim set, but should be attempted only after simpler factored variants demonstrate measurable value.
-
-A conceptual joint objective is:
+**[P]** Potential interactions: Idea 1 can gate the Block policy produced by Idea 2; Idea 3 can use the Block loss estimator from Idea 2 to evaluate hypothetical releases; Idea 4 changes the eligible set available to Idea 3 and the Block selector. A conceptual joint objective:
 
 $$
 (U^*, S^*) = \arg\min_{U, S} J(U, S)
 $$
 
-subject to $S$ being a valid subset of Blocks eligible after unpin decision $U$, and the requested capacity being satisfied. $J$ should include expected recomputation/prefill cost and, only where measurable, the future risk caused by exposing but not evicting Blocks. This formulation is a research abstraction, not a claim that the current code already solves the joint problem.
+subject to $S$ being a valid subset of Blocks eligible after unpin decision $U$ and the requested capacity being satisfied. This is a **research abstraction**, not a claim that the current code solves the joint problem.
 
 ---
 
-## 8. Experimental Plan
+## 10. Future Evaluation Planning (shared prerequisites)
 
-### Phase A — Validate signals and ground truth
+**[N]** This section describes **what a future evaluation would need to prove** if a direction is ever authorized. It **creates no campaign, defines no new experimental arm, and modifies no protocol** (see the Protocol note at the top). Expected performance improvements are deliberately absent.
 
-The available Agent workload is the frozen W1-C pilot recorded in [`docs/continuum-w1c-feasibility-pilot.md`](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/blob/main/docs/continuum-w1c-feasibility-pilot.md): SWE-bench Verified (test split), `Qwen/Qwen2.5-Coder-3B-Instruct`, a 32,768-token model context limit with a 512-token maximum completion, Mini-SWE-Agent 1.14.4 on a single local worker, and **20 paired tasks** across 12 repositories executed under two independently run step budgets, S50 and S100. Those two budgets produced 1,000 and 1,800 successful model calls (plus 3 failed context-limit submissions under S100) and 464 and 943 tool calls respectively. In lifecycle terms, S50 recorded 0 natural completions and 20 step-limit right-censored runs; S100 recorded 1 natural completion (`psf__requests-2931`), 16 step-limit right-censored runs, and 3 context-limit failures (`astropy__astropy-8872`, `django__django-13569`, `sympy__sympy-21596`). The broader ~100-task acquisition is not authorized, so every sufficiency statement below must be made against these counts rather than against a hypothetical larger corpus.
+### 10.1 Authorization gate
 
-1. Confirm the exact semantics of each history signal and when it is available, and separate the signals that reach the Block selector (only the TTL deadline) from those compressed into `ttl_seconds` (§4.2).
-2. **Assess whether the available sample supports the proposed models; do not assume that it does.** Count the usable turn-gap observations after accounting for right-censored traces — tasks stopped by the S50/S100 step budget (20/20 under S50, 16/20 under S100), tasks that reach the 32,768-token context limit (3/20 under S100), and runs terminated by collection cutoff. Report the effective sample size per conditioning cell (per tool type, per program lifecycle stage) *before* fitting anything, and state explicitly whether each cell is large enough to estimate a conditional request-gap distribution. Where cell counts are small, fall back to a simple empirical survival baseline and report uncertainty rather than introducing a higher-capacity model.
-3. Verify Block identity, prefix depth, shared ownership, and the actual physical eviction outcome.
-4. Ensure the Native-LRU comparison uses the actual baseline candidate set and eligibility path — `NativeLRUAdapter` and `RetentionAwareLRUAdapter` over the validated eligibility plan — not the internal `native_rank`-only helpers.
-5. Measure whether predicted loss correlates with actual recomputation/prefill cost.
+Before any implementation or evaluation: an explicit project-level decision recorded in [`docs/research-status.md`](../research-status.md), confirmation of available time, a frozen predeclared protocol for that specific study, and a clear statement of which existing arms remain frozen. Unmerged PR proposals are unapproved.
 
-### Phase B — Isolated tests
+### 10.2 Shared evidence and statistical prerequisites
 
-Run each idea with all unrelated policy components fixed:
+- Reproduce the **actual** baseline candidate set and decision path (`NativeLRUAdapter` / `RetentionAwareLRUAdapter` over the eligibility plan), never the `native_rank`-only helpers.
+- Preserve the evidence tiers: decision snapshot → logical release → physical hashed eviction → APC hit/miss → request-level recomputation. Missing evidence fails closed.
+- Report `N/E/C/R/W/S` with `0 ≤ C ≤ E ≤ N`; use independent scenario/task groups as the unit of inference; do not pool turns or runtime repeats; use held-out tasks/workloads, paired comparisons and confidence intervals.
+- Include `Sufficient-first + earliest-deadline` as a strong comparator for any Entry-level claim.
+- Freeze thresholds on validation traces, never on the test set; no parameter retuning after outcome inspection.
 
-- **Idea 1:** compare baseline, always-on custom policy, and gated policy.
-- **Idea 2:** hold the candidate set and release policy fixed; add one signal at a time.
-- **Idea 3:** hold the downstream Block selector fixed; vary only Entry release order, excluding or separately reporting runs whose first release was forced by `diagnostic_first_release_program_id`.
-- **Idea 4:** hold the Entry choice and downstream selector fixed; vary only unpin granularity.
+### 10.3 Workload and data-availability boundary
 
-### Phase C — Factorial combination tests
+The historical Agent workload is the **W1-C S50/S100 pilot** ([`docs/continuum-w1c-feasibility-pilot.md`](../continuum-w1c-feasibility-pilot.md), **ACCEPTED / CLOSED** on `main`): SWE-bench Verified test split, `Qwen/Qwen2.5-Coder-3B-Instruct`, 32,768-token context limit, 512-token max completion, Mini-SWE-Agent 1.14.4 on one local worker, **20 paired tasks across 12 repositories** under independently run S50/S100 budgets. S50/S100 produced 1,000 / 1,800 successful model calls (plus 3 failed context-limit submissions under S100) and 464 / 943 tool calls; S50 recorded 0 natural completions and 20 step-limit right-censored runs, S100 recorded 1 natural completion, 16 right-censored runs and 3 context-limit failures.
 
-After isolated tests, run a small factorial comparison to estimate interactions:
+**This pilot is not the formal Phase 3 cohort.** Its 18 full-payload-comparable tasks are excluded from formal effect estimates (engineering regression/evaluator validation only). **G0 has accepted and bound the Cohort Seal: 40 qualified tasks in 20 Workload Groups, two tasks from different repositories per group, at least 10 repositories overall**, selected deterministically from the 80-ID candidate frame (40 Primary + 24 Reserve). Cohort/run bindings and hashes are recorded in the G0 v3 bundle. The 40-run A0 load calibration is complete and reused; the 30-run A0 Noise Calibration is authorized; the 240-run Main Campaign remains locked. No six-arm Main Campaign run has started.
 
-- Current vs new Block signal model.
-- Current vs downstream-aware Entry ordering.
-- Whole-Entry vs partial-tail unpin.
-- Native-LRU fallback vs always-on custom selection.
+**[P]** Before fitting any model, count usable turn-gap observations after right censoring, report the effective sample size per conditioning cell (per tool type, per program stage) and state whether each cell is large enough; where counts are small, fall back to a simple empirical survival baseline with uncertainty. Local deterministic token IDs are **not** Native submitted-input, APC eligibility, residency or physical-reuse evidence.
 
-Do not combine every proposed feature in the first experiment; otherwise, a positive or negative outcome cannot be attributed to a particular idea.
+### 10.4 Shared metric vocabulary
 
-### Phase D — Metrics and statistical discipline
+Victim-set divergence; pairwise ordering agreement / rank correlation (Idea 3); verified and unverified identity/ownership rates; `R`, `W`, `S`; TTFT P50/P95; JCT / session completion time; throughput; cache hit rate and surviving reusable prefix length; Entries released / Blocks exposed / Blocks physically freed; policy decision overhead and metadata; results per workload class and task, not just aggregate averages. Two methods that agree on the ordering cannot be credited with different outcomes; two that disagree on ordering but select the same victim set have not changed the decision that matters.
 
-Report at least:
+### 10.5 Staged structure (research agenda only, not a schedule)
 
-- Actual victim-set differences from the baseline.
-- Pairwise ordering agreement and rank correlation between candidate release orderings and the frozen A0 order (Idea 3), so identical decisions are distinguishable from genuinely different rankings.
-- Count of runs whose first release was forced by `diagnostic_first_release_program_id`, reported separately from unconstrained ordering decisions.
-- Verified and unverified identity/ownership rates.
-- Immediate and subsequent recomputation tokens and time.
-- Prefill/reload latency, TTFT, throughput, and end-to-end agent completion time.
-- Cache hit rate and surviving reusable prefix length.
-- Number of Entries released, Blocks exposed, and Blocks physically freed.
-- Planner CPU/runtime overhead and additional metadata.
-- Results per workload class and task, not just aggregate averages.
-
-Use multiple independent tasks/workloads, held-out evaluation traces, confidence intervals, and paired comparisons where the trace and pressure events can be replayed deterministically. A small number of single-run cases can validate plumbing but cannot establish robust performance gains. Two methods that agree on the ordering cannot be credited with different outcomes, and two methods that disagree on the ordering but select the same victim set have not changed the decision that matters; both situations must be reported rather than averaged away.
-
-### Phase E — Decision criteria
-
-Continue a direction if it changes actual decisions in a measurable subset of cases and improves an outcome metric without unacceptable regressions or overhead. Simplify or reject it if it merely changes internal scores, reproduces a simple baseline, depends on unreliable identity evidence, or fails to improve measured outcomes.
+1. **Ground truth** — exact signal semantics and decision-time availability; Block identity, prefix depth, shared ownership, physical eviction outcome; correlation of predicted loss with measured recomputation/prefill cost.
+2. **Isolated tests** — hold all unrelated components fixed: Idea 1 baseline/always-on/gated; Idea 2 one signal at a time; Idea 3 only release order; Idea 4 only granularity.
+3. **Factorial tests** — only after isolated effects are understood: Block signal model × Entry ordering × unpin granularity × fallback mode. Do not combine every feature in the first experiment.
+4. **Decision criteria** — continue a direction only if it changes actual decisions in a measurable subset of cases and improves an outcome metric without unacceptable regressions or overhead; simplify or reject if it merely changes internal scores, reproduces a simple baseline, depends on unreliable identity evidence, or fails to improve measured outcomes.
 
 ---
 
-## 9. Literature Notes and Exact Claims to Reuse
+## 11. Literature Notes and Exact Claims to Reuse
 
-The following are the relevant claims and where they should be checked in the original sources. When citing them in a paper or report, verify the exact wording and page/section against the version being cited; the notes below are paraphrases, not verbatim quotations.
+These are conservative paraphrases with source anchors, not verbatim quotations. Full per-paper reviews, experimental conditions and PPT material are in [`References&Notes/论文总结.md`](References&Notes/论文总结.md); titles/authors/versions/dates are authoritative only in [`References&Notes/参考文献/文献索引.md`](References&Notes/参考文献/文献索引.md). Section numbers refer to the PDF versions held in this repository and may shift in later revisions.
 
-> **Verification status.** Authors, titles, arXiv identifiers, and section numbers below were checked against the PDFs held in this repository at `docs/Background-RelatedWork-Motivation/References&Notes/参考文献/`. The versions consulted are **arXiv:2507.07400v1** (KVFlow, 10 Jul 2025), **arXiv:2511.02230v6** (Continuum, 25 May 2026), **arXiv:2606.16824v1** (CacheWise, 15 Jun 2026), and **arXiv:2609.28870v2** (*When Fancy Eviction Fails*, 1 Oct 2026). Author names are listed in each paper's byline order as printed on its first page. Section numbers refer to those versions and may shift in later revisions. The *claims* each paper is used to support remain conservative paraphrases, not verbatim quotations.
+> **Verification status.** Versions consulted: **arXiv:2507.07400v1** (KVFlow, 10 Jul 2025), **arXiv:2511.02230v6** (Continuum, 25 May 2026), **arXiv:2606.16824v1** (CacheWise, 15 Jun 2026), **arXiv:2609.28870v2** (*When Fancy Eviction Fails*, 1 Oct 2026). Author names follow each PDF's first-page byline order. Paper results are **never** this project's results.
 
-### 9.1 CacheWise
+### 11.1 CacheWise
 
-**Source:** Shubham Tiwari, Tapan Chugh, Nash Rickert, Simon Peter, Ratul Mahajan (University of Washington), and Haiying Shen (University of Virginia), *CacheWise: Understanding Workloads and Optimizing KVCache Management for Efficiently Serving LLM Coding Agents*, arXiv:2606.16824v1, 15 Jun 2026.  
-**Where to consult:** §3 *Coding Agent Workloads* for the workload characterization; §5 *CACHEWISE Design* for the reuse-prediction method and the reuse-aware eviction it drives; §6 *Evaluation* for the ablations.  
-**Useful point:** Coding-agent workloads alternate model calls with external tool calls, and the abstract states that CACHEWISE "combines prefix-aware scheduling with reuse-aware eviction guided by lightweight predictions from tool call metadata." §3 further reports that tool metadata such as tool type and arguments captures meaningful structure in execution behavior.  
-**Use in this project:** Support Idea 2's premise that tool-aware signals are worth testing. Do not claim that CacheWise validates Continuum's specific signal set or the proposed joint Entry/Block optimizer.  
-**Link:** https://arxiv.org/abs/2606.16824
+Shubham Tiwari, Tapan Chugh, Nash Rickert, Simon Peter, Ratul Mahajan, Haiying Shen, *CacheWise: Understanding Workloads and Optimizing KVCache Management for Efficiently Serving LLM Coding Agents*, arXiv:2606.16824v1, 15 Jun 2026. §3 *Coding Agent Workloads*, §5 *CACHEWISE Design*, §6 *Evaluation*. The abstract describes "prefix-aware scheduling with reuse-aware eviction guided by lightweight predictions from tool call metadata"; §3 reports tool metadata (type, arguments) captures meaningful structure. **Use:** support the premise that tool-aware signals are worth testing; do not claim CacheWise validates Continuum's signal set or a joint Entry/Block optimizer; its ~3.5× is an end-to-end composite, not an eviction-only result. https://arxiv.org/abs/2606.16824
 
-### 9.2 Continuum
+### 11.2 Continuum
 
-**Source:** Hanchen Li, Runyuan He, Qiuyang Mang (UC Berkeley), Qizheng Zhang (Stanford University), Huanzhi Mao (UC Berkeley), Xiaokun Chen (Tensormesh), Hangrui Zhou (Tsinghua University), Alvin Cheung, Joseph Gonzalez, Ion Stoica (UC Berkeley), *Continuum: Efficient and Robust Multi-Turn LLM Agent Scheduling with KV Cache Time-to-Live*, arXiv:2511.02230v6, 25 May 2026. Names are listed in byline order.  
-**Where to consult:** §4.1 *Utility Model* for the cost model; §4.2 *Setting the TTL Value* for how TTL is derived from tool call durations, prefill/loading costs, and measurements of program continuity; §5.1 *Tool Call Handler* and §5.2 *Efficient Pin with TTL in Scheduler* for the runtime mechanism. The paper's term is "queueing delay."  
-**Useful point:** Multi-turn Agent cache management can use TTL and lifecycle information while considering queueing and prefill/reload costs.  
-**Use in this project:** Ground the existing source of intermediate signals and motivate testing them at Block level. Do not equate a TTL deadline with a calibrated reuse probability or assume Continuum already implements the proposed Block selector.  
-**Link:** https://arxiv.org/abs/2511.02230
+Hanchen Li, Runyuan He, Qiuyang Mang, Qizheng Zhang, Huanzhi Mao, Xiaokun Chen, Hangrui Zhou, Alvin Cheung, Joseph Gonzalez, Ion Stoica, *Continuum: Efficient and Robust Multi-Turn LLM Agent Scheduling with KV Cache Time-to-Live*, arXiv:2511.02230v6, 25 May 2026. §4.1 *Utility Model*, §4.2 *Setting the TTL Value*, §5.1 *Tool Call Handler*, §5.2 *Efficient Pin with TTL in Scheduler* (paper's term: "queueing delay"). **Use:** ground the source of intermediate signals; do not equate a TTL deadline with a calibrated reuse probability or assume Continuum implements a Block selector. https://arxiv.org/abs/2511.02230
 
-### 9.3 KVFlow
+### 11.3 KVFlow
 
-**Source:** Zaifeng Pan, Ajkumar Patel, Zhengding Hu (UC San Diego), Yipeng Shen (AWS), Yue Guan (UC San Diego), Wan-Lu Li (AWS), Lianhui Qin (UC San Diego), Yida Wang (AWS), Yufei Ding (UC San Diego), *KVFlow: Efficient Prefix Caching for Accelerating LLM-Based Multi-Agent Workflows*, arXiv:2507.07400v1, 10 Jul 2025. Names are listed in byline order.  
-**Where to consult:** §3.1 *Agent Step Graph and Steps-to-Execution* for the graph representation, the `steps-to-execution` value, and shared-prefix handling in tree-structured caches; §3.2 *Workflow-Aware Eviction Priority Assignment* for how those values become eviction priorities.  
-**Useful point:** Workflow proximity to future activation can guide fine-grained KV-node eviction, including shared prefix structures. The paper describes preserving "shared prefixes in tree-structured caches" and retaining shared nodes while any agent still needs them.  
-**Use in this project:** A useful comparator to online Continuum signals. Consider workflow-distance information as an additional baseline or signal, rather than assuming it is equivalent to tool-duration/inter-request-gap history.  
-**Link:** https://arxiv.org/abs/2507.07400
+Zaifeng Pan, Ajjkumar Patel, Zhengding Hu, Yipeng Shen, Yue Guan, Wan-Lu Li, Lianhui Qin, Yida Wang, Yufei Ding, *KVFlow: Efficient Prefix Caching for Accelerating LLM-Based Multi-Agent Workflows*, arXiv:2507.07400v1, 10 Jul 2025. §3 *Design of KVFlow* (ASG, `steps-to-execution`, Figure 3(a)), §3.1 *Workflow-Aware Eviction Policy* (Figure 3(b)), §3.2 *Overlapped KV Prefetching*. The paper describes preserving "shared prefixes in tree-structured caches". **Use:** an alternative signal-family comparator, not a variant of online gap/duration history; §3.2 prefetch is outside this project's scope. https://arxiv.org/abs/2507.07400
 
-### 9.4 When Fancy Eviction Fails
+### 11.4 When Fancy Eviction Fails
 
-**Source:** Yiyu Liu, Minlan Yu, and Juncheng Yang (Harvard University), *When Fancy Eviction Fails: Rethinking Cache Replacement For LLM Prefix Reuse*, arXiv:2609.28870v2, 1 Oct 2026.  
-**Where to consult:** Abstract; §3 *Fancy Algorithms Do Not Work Well* for the LRU baseline result; §4.5 *Heavy-Tailed Session Footprints*; §5.1 *Quick Demotion*; §5.2 *Compute-awareness*; §5.3 *Block-Level vs. Session-Level Eviction*; §6 *Discussion*; Appendix A *Capacity Sweeps* and Appendix C *Compute Savings under the Linear Cost Model*. The paper's design principles are, in its own words, "keeping recency as the baseline while incorporating quick demotion to filter one-hit prompts, compute-aware eviction to prioritize expensive misses, and capacity-adaptive eviction granularity."  
-**Useful point:** Across the paper's studied production traces and policies, sophisticated policies often provide limited gains over LRU, while quick demotion, compute-aware eviction, and capacity-adaptive eviction granularity can help in specific conditions.  
-**Use in this project:** Justify a strong LRU baseline, careful conditional intervention, cost-aware outcome measurement, and testing partial granularity. Do not treat the paper's block-level versus session-level eviction discussion as identical to partial-tail unpin.  
-**Link:** https://arxiv.org/abs/2609.28870
+Yiyu Liu, Minlan Yu, Juncheng Yang, *When Fancy Eviction Fails: Rethinking Cache Replacement For LLM Prefix Reuse*, arXiv:2609.28870v2, 1 Oct 2026. Abstract; §3 *Fancy Algorithms Do Not Work Well*; §4.5 *Heavy-Tailed Session Footprints*; §5.1 *Quick Demotion*; §5.2 *Compute-awareness*; §5.3 *Block-Level vs. Session-Level Eviction*; §6 *Discussion*; Appendix A *Capacity Sweeps*, Appendix C *Compute Savings under the Linear Cost Model*. The paper's design principles are "keeping recency as the baseline while incorporating quick demotion to filter one-hit prompts, compute-aware eviction to prioritize expensive misses, and capacity-adaptive eviction granularity". **Use:** justify a strong LRU baseline, conditional intervention, cost-aware measurement and multi-capacity evaluation; do not treat §5.3 as identical to partial-tail unpin; do not generalize "LRU is robust" without its 24 GiB Qwen To-B counterexample. https://arxiv.org/abs/2609.28870
 
-### 9.5 vLLM RFC #37003
+### 11.5 vLLM RFC #37003
 
-**Source:** vLLM issue/RFC #37003, "[RFC]: Context-Aware KV-Cache Retention API (Prioritized Evictions)," Proposed Change.  
-**Useful point:** Token-range retention directives (`RetentionDirective` with `start`, `end`, `priority`, and `duration`) are an engineering precedent for representing retention at finer than whole-entry granularity.  
-**Use in this project:** Inform the API/data-model discussion for Idea 4. This is an RFC/engineering proposal, not peer-reviewed evidence of performance gains, and nothing in it should be cited as a measured result. **Verification note:** In offline/restricted environments where `github.com` cannot be queried directly, the title and description are cross-referenced against the repository's reference notes at `docs/Background-RelatedWork-Motivation/References&Notes/参考文献/关于vLLM的参考文档与网址.md`; confirm the live issue status before citing it externally.  
-**Link:** https://github.com/vllm-project/vllm/issues/37003
+vLLM issue/RFC #37003, "[RFC]: Context-Aware KV-Cache Retention API (Prioritized Evictions)", Proposed Change. Token-range retention directives (`RetentionDirective` with `start`, `end`, `priority`, `duration`) are an **engineering precedent** for sub-Entry retention representation. **This is an open RFC, not a peer-reviewed paper, not an implemented feature, and carries no performance evidence.** Its current status, title accuracy and body text are **unverified** (no github.com access); see [`References&Notes/参考文献/关于vLLM的参考文档与网址.md`](References&Notes/参考文献/关于vLLM的参考文档与网址.md) §3. https://github.com/vllm-project/vllm/issues/37003
 
 ---
 
-## 10. Unresolved Risks and Open Questions
+## 12. Unresolved Risks and Open Questions
 
-These risks are not removed by better experimental design. They are stated here so that a null or negative result is not mistaken for a failed experiment.
+**[P]** These risks are not removed by better experimental design; a null or negative result is not a failed experiment.
 
 **Risks.**
 
-- **Identity evidence may stay too weak to act on.** The A2 bounded evaluation records 402 of 778 decisions falling back with `content_unverified`, and 82 of 122 forced-release windows remained unpairable or identity-incomplete. If that rate persists on the W1-C workload, Ideas 1 and 2 will spend most of their decisions in fallback and no scoring improvement will be observable.
-- **The baseline is already downstream-aware.** `_release_sort_key()` consumes the native rank of the Blocks a release would expose. Idea 3's headroom is therefore smaller than a deadline-only baseline would imply, and the A1 precedent — a score-free rule reproducing 54/54 recorded choices — shows how quickly an apparently richer ordering collapses onto a simple one.
-- **Signal availability, not signal quality, is the binding constraint on Idea 2.** Only the TTL deadline reaches the Block selector today. Until the decision-time contract is extended, Idea 2 cannot be tested at all, and `ExternalToolDurationHistory` has no consumer to extend from.
-- **Sample size may not support the models.** The W1-C pilot is 20 paired tasks. Whether it yields enough uncensored turn-gap observations per tool type and program stage to estimate a conditional gap distribution is an open question that Phase A must settle before any model is fit.
-- **Partial-tail unpin may be unimplementable rather than merely unproven.** Protection is an Entry-level Boolean, and the in-repository `KVCacheManager` has no sub-request granularity. Idea 4 may fail on representation and ownership grounds before any performance question arises.
-- **Attribution may not survive combination.** Each idea is testable in isolation, but the factorial stage assumes the isolated effects compose. Nothing in the current evidence establishes that they do.
+- **Identity evidence may stay too weak to act on.** The A2 bounded evaluation records 402/778 decisions falling back with `content_unverified` and 82/122 forced-release windows unpairable or identity-incomplete; if that persists, Ideas 1 and 2 spend most decisions in fallback.
+- **The baseline is already downstream-aware.** `_release_sort_key()` consumes the native rank of newly exposed Blocks; the 54/54 precedent shows how quickly a richer ordering collapses onto a simple one.
+- **Signal availability is the binding constraint for Idea 2.** Only a deadline-derived signal reaches A2; `ExternalToolDurationHistory` has no consumer.
+- **Sample size may not support the models.** W1-A: 10 Astropy tasks, 9 right-censored; W1-C pilot: 20 paired tasks, heavily censored, on an unmerged branch. Effective sample sizes per conditioning cell are unknown.
+- **Partial-tail unpin may be unimplementable rather than merely unproven.** Protection is an Entry-level Boolean; the simulator has no sub-request granularity; shared ownership and native refcount semantics are unresolved.
+- **Attribution may not survive combination.** Nothing in the accepted evidence establishes that isolated effects compose.
+- **Authorization and time are not guaranteed.** No work on these ideas may begin without a project-level decision.
 
 **Open questions.**
 
 - Does the Tier 1/Tier 2 split leave enough Tier 2 movement for Entry-ordering changes to alter the victim set at all?
 - How much of the deadline's information is already carried by native recency, and does any residual add value conditional on both?
 - Can the runtime carry an additional signal to the eviction decision point without breaking the immutability guarantees the adapter contract relies on?
-- Do the W1-C traces contain enough repeated pressure events at comparable capacity to support paired comparison, or are events too heterogeneous to pool?
-- Which idea, if any, survives the factorial stage, and does any interaction reverse an isolated gain?
+- Is `Sufficient-first + earliest-deadline` implementable as a first-class arm, and does it remain necessary once a downstream-aware rule exists?
+- Do the available traces contain enough repeated pressure events at comparable capacity to support paired comparison?
+- Which idea, if any, survives isolated testing, and does any interaction reverse an isolated gain?
 
-## 11. Final Recommendation
+---
 
-The strongest immediate research plan is:
+## 13. Recommendation and Authorization Boundary
 
-1. Establish reliable decision-level ground truth and the actual Native-LRU baseline.
-2. Test whether Continuum intermediate signals add predictive value beyond the current deadline proxy (Idea 2).
-3. Test conditional intervention using the signal/loss model validated in Phase A (Idea 1).
-4. With the Block selector fixed, test whether downstream-aware Entry release ordering improves the physical victim set (Idea 3).
-5. Separately test whether partial-tail unpin preserves more reusable prefix at comparable capacity (Idea 4).
-6. Only then evaluate combinations, so each gain or regression can be attributed.
+**[N]** **Current recommendation: do not implement or schedule any of the four ideas.** Preserve them as a research contribution with the status recorded in §3. The project's priority remains the completion of a reliable Phase 3 experimental framework and the correct, complete evaluation of the frozen six-arm campaign **N0/A0/A1/A2/A3/E0** under Protocol v4 (Option F); authorization is defined only by [`docs/research-status.md`](../research-status.md) on `main`.
 
-The four ideas are technically distinct and all are reasonable research directions. No idea in this proposal has demonstrated a gain: the project evidence motivates testing them and does not establish that any of them improves performance. The deliverable should therefore present them as testable optimization hypotheses, directly cite the relevant prior work, and define what result would support or reject each one.
+**[N]** No idea in this document has demonstrated a gain. The accepted project evidence motivates testing the underlying assumptions; it does not establish that an evidence-aware gate, an intermediate-signal Block selector, a downstream-aware Entry ordering, or partial-tail unpin improves performance. Reviews of this work should present the four ideas as **testable hypotheses with explicit engineering prerequisites**, cite prior work with its experimental conditions, and state for each what result would support or reject it.
+
+**[P]** If any idea is ever authorized, the first step is low-cost archive and prerequisite checks (§7.2.1): verify temporal release-budget exposure on existing archives; check gap-sample empirical CDF / TTL quantile ordering once `ttl_seconds > 0` exits COLD_START; run offline reload/JCT checks before changing `RetentionEntrySnapshot` for Idea 4; and keep shared-prefix Entry hypotheses paused until traces with shared Blocks are available. If those checks and a `per_unit`-stratum replay show no independent gain over `Sufficient-first`, record the negative finding rather than proceeding.
+
+**[N]** Neither this document nor any linked document expands the current strategy implementation scope, modifies a frozen protocol or baseline, creates a new campaign or experimental arm, or changes sealed evidence.
