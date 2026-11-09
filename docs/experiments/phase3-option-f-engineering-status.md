@@ -9,11 +9,15 @@
   the accepted final G0 review bundle, regenerated on the real evidence server
   after the final Seal Group-ID identity checks.
 - G0: accepted by M1 on 2026-11-07.
-- Noise Calibration: M1-authorized, exactly 30 A0 runs; execution owner is M6.
-- Main Campaign: remains locked pending completed Noise Calibration, frozen
-  tied threshold, and all applicable G1/G2/G3-CM/G4 gates.
-- M1 authorization record:
-  `docs/experiments/phase3-option-f-noise-calibration-authorization.md`
+- Noise Calibration: included as Stage A (30 A0 runs) in the one-shot 270-run
+  pipeline authorization; execution owner is M6.
+- Main Campaign: 240 runs are conditionally authorized as Stage B, with
+  automatic transition only after the independent Noise evaluator produces a
+  valid pooled threshold and all applicable mandatory gates pass. No
+  intermediate manual M1 review is required.
+- Operative authorization:
+  `docs/experiments/phase3-option-f-270-run-pipeline-authorization.md`
+- Historical Noise-only authorization is superseded and retained for history.
 - PR #99 merged as `a7fe138354720412b393ac584e8d1d6ed8cd4709`.
 - GPU executions performed by this change: zero.
 
@@ -92,3 +96,20 @@ Native evidence, and submit the independent Noise evaluation to M1.
 
 The 240-run Main Campaign remains unauthorized. No A0 Load Calibration rerun,
 cohort reacquisition, or campaign scope expansion is permitted.
+
+
+## M1 one-shot execution decision — 2026-11-09
+
+M1 authorizes one continuous compute window for exactly 270 new runs:
+30 A0 Noise Calibration runs followed automatically by 240 Main Campaign runs,
+conditional on the machine-verified transition gate in the operative
+authorization record. The controller must compute and persist the Protocol v4
+pooled Noise estimator and tied threshold, validate all mandatory applicable
+gates and frozen evidence bindings, and continue without intermediate manual
+M1 approval only when all checks pass. Any mandatory failure, undefined
+required pooled value, or evidence mismatch must stop the pipeline before Main.
+
+This changes the execution authorization and orchestration only. It does not
+change Protocol v4, the G0 v3 cohort, frozen plans, run IDs, configurations,
+estimands, or the 270-run budget. Existing 40-run A0 Load Calibration remains
+reused and must not be rerun.
