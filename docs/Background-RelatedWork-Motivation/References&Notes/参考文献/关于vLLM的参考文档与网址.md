@@ -1,15 +1,15 @@
 # vLLM 参考文档与网址
 
-[Implementation — vLLM](https://docs.vllm.ai/en/v0.6.0/automatic_prefix_caching/details.html)
+## vLLM 0.27.1 GPU APC 的项目边界
 
-该页面说明 vLLM v0.6.0 的自动前缀缓存实现：每个 KV block 由块内 token 与此前前缀 token 的哈希共同标识，逻辑块通过哈希映射到物理块。相同哈希的请求可共享同一物理块。分页存储由 PagedAttention 提供，自动前缀缓存则利用哈希表管理可复用块。
+项目使用 Native vLLM 的 BlockPool、free queue、refcount、APC hash 和物理清理。Phase 1A adapter 接收 Native 合法候选，并通过 Native 路径执行选出的 victim。Phase 1B 另维护逻辑 retention 状态和资格过滤。解除 Entry 保护后，关联 Block 是否可回收仍由引用及其余保护约束决定。项目的具体候选与 victim 顺序以[适配器设计](../../../policy-adapter-design.md)、[基线冻结](../../../baseline-freeze.md)和 [Phase 1B final report](../../../experiments/phase1b-continuum/final-report.md)为准。
 
-该版本页面还明确了前缀缓存满时的逐出顺序：只考虑 `ref_cnt = 0` 的块；若有多个候选，则优先逐出最久未使用块；时间相同则优先逐出最长前缀末端的块。该说明可作为本项目“vLLM 风格 LRU”基线的语义参考，但不等同于当前所有 vLLM 版本或配置的默认行为。
+## 历史 APC 文档与 CPU offload API
 
-[lru - vLLM](https://docs.vllm.ai/en/latest/api/vllm/v1/kv_offload/cpu/policies/lru/)
+- v0.6.0 的 APC 文档说明由块内 token 和前缀构造 hash，逐出从零引用候选中按 LRU 选择，同时间按较长前缀末端优先。该规则属于旧版本，不能据此推定 0.27.1 的并列顺序。[vLLM v0.6.0 APC Implementation](https://docs.vllm.ai/en/v0.6.0/automatic_prefix_caching/details.html)
+- vLLM V1 的 LRUCachePolicy API 位于 CPU KV offload 模块，其对象、队列与 GPU APC 的 Native victim 路径不同。该链接跟随 latest 版本。[CPU offload LRU API](https://docs.vllm.ai/en/latest/api/vllm/v1/kv_offload/cpu/policies/lru/)
+- 本地 Paged Attention 笔记描述历史 attention kernel 与数据布局，包含 query/key/value 的向量组织。它不能作为当前 BlockPool 的实现规范。[历史 kernel 笔记](paged_attention.md)
 
-该页面是当前 vLLM V1 的 **CPU KV offload** `LRUCachePolicy` API 文档，不是 GPU 前缀缓存逐出策略的通用规范。它可用于了解 CPU 端 LRU policy 的接口和实现位置，但不应用来证明本项目 GPU KV cache 的默认逐出行为。
+## RFC #37003
 
-[RFC: Context-Aware KV-Cache Retention API (Prioritized Evictions)](https://github.com/vllm-project/vllm/issues/37003)
-
-该 RFC 当前仍为 Open 状态，属于接口提案而非已合并功能。它提出让编排器为 token 范围声明 `priority` 和 `duration`，未被标注的块继续走既有 LRU 路径。提案强调由编排器提供工作流信息，vLLM 负责执行优先级与 TTL。它可用于说明社区正在讨论保留指令接口，不应作为本项目或 vLLM 已取得性能收益的证据。
+该提案允许 orchestrator 通过 token range 指定 priority 和 duration，未标注的块沿用 LRU。其价值在于展示保留指令和请求调度可以使用不同的接口。issue 正文及讨论中的原型属于提案材料，未核实该 API 的上游发布状态，项目的独立保护表不依赖该接口。[Context-Aware KV-Cache Retention API (Prioritized Evictions)](https://github.com/vllm-project/vllm/issues/37003)
