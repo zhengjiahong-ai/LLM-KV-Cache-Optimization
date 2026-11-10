@@ -41,6 +41,10 @@
 
 The campaign separates Entry Release from physical Block Victim Selection. A0−N0 is the registered forced-Entry-Release contrast; A1/A3/E0 change Entry Release selection; A2 changes physical block selection. The Phase 3 Native scheduler is held fixed. TTL inputs/decisions are observable, but no Static-TTL arm is present. Therefore the campaign does not independently estimate Dynamic TTL versus Static TTL or the program-level scheduler's performance effect. See [mechanism coverage and claim boundaries](experiments/phase3-mechanism-coverage-and-claim-boundaries.md).
 
+## Future research reserve — outside the frozen campaign
+
+Four potential follow-on directions have been retained for later consideration: (1) evidence-aware gating of custom Block selection; (2) workflow/runtime signals for Block victim selection; (3) downstream-cost-aware Entry Release ordering; and (4) partial-tail Entry unpinning. They are research hypotheses, not current RQs or registered arms. They do not modify the frozen six-arm grid, Protocol v4, or the one-shot 270-run authorization. No implementation or evaluation is authorized. See [Potential Future Research Directions](future-research-directions.md).
+
 ## Project Theme and Research Objective
 
 **Cost-Aware Optimization of Continuum-Style KV Cache Management on vLLM**
