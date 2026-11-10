@@ -120,6 +120,17 @@ These boundaries are deliberate. They prevent the report from attributing an obs
 
 No cost-aware policy is described as superior until the 270-run evidence, independent evaluation, applicable gates, and M1 final review support that claim.
 
+## 7. Potential future research directions
+
+The following ideas are retained as a **research reserve**, separate from the formal Phase 3 hypotheses and current campaign:
+
+- **Evidence-aware Block intervention:** a benefit-aware policy gate over the actual Native-LRU baseline, beyond the existing input/contract fallback.
+- **Workflow-aware Block signals:** determine whether online lifecycle signals add value to Block selection beyond the final TTL-derived deadline.
+- **Downstream-cost-aware Entry Release:** choose Entry release order by simulating the actual downstream victim set and its recomputation consequences.
+- **Partial-tail Entry unpinning:** investigate sub-Entry protection granularity while preserving prefix continuity and shared-owner correctness.
+
+All four remain proposals with unresolved implementation, data, and evaluation requirements. None is a completed contribution or proven improvement; none is included in Phase 3 or authorized for implementation. The [Potential Future Research Directions](future-research-directions.md) document is the detailed source for their status, prerequisites, and falsification criteria.
+
 ## 7. Current formal campaign at a glance
 
 | Component | Runs | Status / interpretation |
