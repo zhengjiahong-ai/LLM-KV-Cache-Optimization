@@ -238,6 +238,12 @@ Do not claim that any cost-aware candidate is superior before the 270-run eviden
 
 **270-run pipeline: AUTHORIZED / NOT STARTED.** M6 pre-launch readiness must still record the host, runner, GPU allocation, full resource reservation, and frozen-hash validation. The 240-run Main stage may start only after the machine-verified Noise transition gate passes. Authorization is not evidence that the compute window is ready or that any run has started.
 
+
+
+## Historical plan archive
+
+The complete pre-2026-11-10 experimental plan, including the original Ours-Evict/Ours-Full roadmap, earlier RQ1–RQ4 formulations, and the 310-run draft budget, is preserved verbatim in [the historical plan archive](archive/experiment-plan-pre-phase3-reframing-2026-11-10.md). Those statements document earlier planning and are not current Phase 3 authorization or arm definitions.
+
 ## Historical roadmap note
 
 Earlier project plans used Ours-Evict, Ours-Evict+Retention, and Ours-Full as conceptual stages. Those names are preserved in historical design documents, but they are not the current Phase 3 arm names and must not be used to imply that Phase 3 evaluates a monolithic Ours-Evict system. The current registered policy map is N0/A0/A1/A2/A3/E0.
