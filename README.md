@@ -141,6 +141,7 @@ The four potential follow-on directions (not part of Phase 3 and not authorized 
 
 ## Key Documents
 
+- [**Post-Phase-3 experimental roadmap**](docs/post-phase3-experimental-roadmap.md) — proposed Phase 4 algorithm development and Phase 5 four-system evaluation under representative Agent workloads; planning only, not an execution authorization.
 - [**M1 canonical research status**](docs/research-status.md) — current phase, accepted decisions, execution authorization, and claim boundaries.
 - [**Experiment and decision index**](docs/experiments/README.md) — navigation across historical evidence and current Phase 3 records.
 - [**Phase 3 Final Evaluation Protocol v4 — Option F**](docs/phase3-final-evaluation-protocol-v4.md) — frozen estimands, operating points, populations, noise estimator, and gates.

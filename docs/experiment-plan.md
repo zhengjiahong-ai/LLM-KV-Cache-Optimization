@@ -45,6 +45,10 @@ The campaign separates Entry Release from physical Block Victim Selection. A0−
 
 Four potential follow-on directions have been retained for later consideration: (1) evidence-aware gating of custom Block selection; (2) workflow/runtime signals for Block victim selection; (3) downstream-cost-aware Entry Release ordering; and (4) partial-tail Entry unpinning. They are research hypotheses, not current RQs or registered arms. They do not modify the frozen six-arm grid, Protocol v4, or the one-shot 270-run authorization. No implementation or evaluation is authorized. See [Potential Future Research Directions](future-research-directions.md).
 
+## Post-Phase-3 staged experimental roadmap — planning only
+
+The proposed follow-on sequence is now recorded in [Post-Phase-3 Experimental Roadmap](post-phase3-experimental-roadmap.md): Phase 4 will diagnose accepted Phase 3 evidence and develop/freeze a candidate; Phase 5 will compare Native vLLM, the authors' public Continuum implementation, our A0-derived full-system adaptation, and the final Cost-Aware system on an independent, more representative Agent workload cohort. Phase 5 relaxes artificial C1/C2 pressure injection and fixed synthetic arrival timing, but retains matched software/resource/workload conditions needed for fair comparisons. This is a planning record only: it does not alter Phase 3 or authorize Phase 4/5 implementation, data acquisition, or execution.
+
 ## Project Theme and Research Objective
 
 **Cost-Aware Optimization of Continuum-Style KV Cache Management on vLLM**
