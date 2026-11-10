@@ -118,6 +118,14 @@ M1 has accepted M2's four proposals for preservation as potential future researc
 
 These directions are **not part of Phase 3 Protocol v4**, do not create experimental arms, and do not authorize implementation, new data acquisition, smoke tests, or GPU runs. Current priority remains the already-authorized one-shot 270-run pipeline and its independent analysis. Any follow-on work requires a separate M1 decision, available time, and a study-specific frozen protocol. See [Potential Future Research Directions](future-research-directions.md) for the consolidated research agenda.
 
+## Post-Phase-3 staged experimental roadmap — planning only
+
+M1 has recorded a proposed three-stage research sequence in [Post-Phase-3 Experimental Roadmap](post-phase3-experimental-roadmap.md): (1) complete and adjudicate the frozen Phase 3 controlled component campaign; (2) use accepted results for Phase 4 diagnosis and algorithm development; and (3) conduct a separate Phase 5 full-system comparison on an independent, more representative Agent workload cohort.
+
+The proposed Phase 5 comparison has four primary systems: Native vLLM, the authors' Continuum Official Public Implementation, the project's A0-derived full-system Continuum-style adaptation, and the Phase 4 frozen Cost-Aware candidate. The roadmap explicitly distinguishes Phase 3 A0 from an A0-derived full-system configuration with the project scheduler enabled, and it preserves the official repository's stated limitation that its public code does not include the paper's estimator.
+
+**This is a planning decision only.** It does not change Phase 3 Protocol v4, G0, the 270-run authorization, or the current execution priority. Phase 4/5 implementation, new data acquisition, GPU runs, and final system definitions each require separate M1 approval and a study-specific frozen protocol.
+
 ## Phase status ledger
 
 | Phase / evidence | Status | What is supported / what is not |
