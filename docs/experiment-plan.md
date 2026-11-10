@@ -1,10 +1,10 @@
 # Experimental Plan
 
-> **Research positioning (2026-11-10):** This plan is for cost-aware optimization within the project-side Continuum-style KV cache management adaptation on vLLM. Historical Ours-Evict / Ours-Full roadmap sections below are retained as design history where they differ from the current frozen Phase 3 protocol. For the current formal questions and claim boundaries, use [Research Motivation and Contributions](research-motivation-and-contributions.md), [Research Status](research-status.md), and [Protocol v4](phase3-final-evaluation-protocol-v4.md).
+> **Research positioning (2026-11-10):** This plan describes cost-aware optimization within the project-side Continuum-style KV cache management adaptation on vLLM. The earlier Ours-Evict / Ours-Full roadmap is preserved as historical design context in [Architecture](architecture.md) and [Phase 2 joint design](phase2-cost-aware-joint-design.md); it is not the operative Phase 3 policy definition. For the current formal questions and claim boundaries, use [Research Motivation and Contributions](research-motivation-and-contributions.md), [Research Status](research-status.md), and [Protocol v4](phase3-final-evaluation-protocol-v4.md).
 
 ## Current Phase 3 execution overlay (M1 reconciliation, 2026-11-10)
 
-**Canonical status:** [docs/research-status.md](research-status.md). This overlay records the current frozen Option F campaign and M1 execution authorization. It does not rewrite historical research questions or prior phase verdicts.
+**Canonical status:** [docs/research-status.md](research-status.md). This section is the current operative Phase 3 framing and execution summary. It supersedes earlier eviction-only RQ labels and the 310-run draft plan where they conflict; prior phase verdicts and immutable evidence records remain unchanged.
 
 ### Current delivery and authorization
 
@@ -52,7 +52,7 @@ The motivating system manages program/session lifecycle, tool-gap and reuse hist
 1. **Entry Release:** which retained logical entry should yield when protected cache must be released.
 2. **Physical Block Victim Selection:** which eligible KV blocks should be removed by Native vLLM.
 
-The project does not claim exact source-level reproduction of the original Continuum system. The Phase 1B adaptation is an engineering baseline; Phase 2–3 investigate local optimization choices within that baseline.
+The project does not claim exact source-level reproduction of the original Continuum system. The Phase 1B adaptation is an engineering baseline; the later cost-aware work, especially Phase 2G and Phase 3, investigates local optimization choices within that baseline.
 
 See [Research Motivation and Contributions](research-motivation-and-contributions.md) for the canonical project narrative and [Research Status](research-status.md) for the current phase and evidence boundaries.
 
@@ -184,7 +184,7 @@ The Main Campaign is 20 Workload Groups × C1/C2 × six arms. Noise uses five fr
 - The primary paired arm-minus-A0 population is 18 complete Groups.
 - H3-0 uses all 20 Groups / 38 Headroom-qualified cells; H3-R uses 9 RESPONSIVE Groups / 16 cells.
 
-Use the exact Protocol v4 population, weighting, bootstrap, missingness, and gate definitions. Do not replace them with the older exploratory workload categories below.
+Use the exact Protocol v4 population, weighting, bootstrap, missingness, and gate definitions. Do not substitute exploratory workload categories from historical plans or post-hoc labels for the frozen Group/condition populations above.
 
 ## Metrics and evidence
 
