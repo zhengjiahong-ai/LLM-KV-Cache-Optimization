@@ -179,6 +179,7 @@ For each non-A0 arm, report arm−A0 under Protocol v4:
 - Concise answers to the registered research questions.
 - Supported contribution claims only.
 - Future independent scheduler and Static-TTL ablations, if pursued, require separate protocols and authorization.
+- The proposed Phase 4/5 follow-on sequence is documented separately in [Post-Phase-3 Experimental Roadmap](post-phase3-experimental-roadmap.md); it is not part of the Phase 3 result set or report claims.
 - Avoid implying those unmeasured effects are established by Phase 3.
 
 ## 12. Reproducibility package
