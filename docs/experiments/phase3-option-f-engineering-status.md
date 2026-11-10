@@ -20,6 +20,8 @@
 - Historical Noise-only authorization is superseded and retained for history.
 - PR #99 merged as `a7fe138354720412b393ac584e8d1d6ed8cd4709`.
 - GPU executions performed by this change: zero.
+- One-shot pipeline execution: authorized, but no campaign-start or completed-run evidence is recorded on current main.
+- Pre-launch readiness: M6 must separately record the execution host, runner, GPU allocation, full 270-run reservation, and frozen-hash checks; authorization alone does not establish readiness.
 
 ## Implemented engineering scope
 
@@ -80,8 +82,7 @@ generated and locally validated a v3 bundle exercising the added Seal Group-ID
 check. Its core freeze hashes equal v2 because the real Seal and A0 Manifest
 identities are consistent; its archive SHA-256 is
 `7b3a78c8e582067e6a236885aa91980cf51a77bf2787d774b82733612cd94529`.
-Every generated input remains unauthorized. Noise Calibration and the Main
-Campaign remain locked until their respective M1 gate decisions.
+At the time the G0 v3 bundle was generated, every generated input remained unauthorized and both stages were locked pending M1 decisions. The subsequent G0 acceptance (2026-11-07) and one-shot authorization (2026-11-09) below supersede that pre-decision state. The original G0 manifest remains immutable with execution_authorized=false; the separate M1 amendment is the operative execution authority.
 
 
 ## M1 decision — 2026-11-07

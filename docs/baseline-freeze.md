@@ -1,6 +1,8 @@
 # Baseline Freeze Decision Record
 
-> **Scope and authority:** This is the immutable **Phase 1B baseline semantics contract**, not the active Phase 2 experimental authorization or a definition of current A0/A1/A2 research results. Phase 1B is closed and real-runtime validated. For W0/W1, the Phase 2G arm mapping, and which experiments remain unapproved, consult [current research status](research-status.md) and [the experiment index](experiments/README.md). Later cost-aware policy development does not retroactively alter the frozen Continuum-style project adaptation; nor should that adaptation be presented as a byte-for-byte reproduction of the original Continuum paper.
+> **Scope and authority:** This is the immutable **Phase 1B baseline semantics contract**, not the active Phase 3 protocol or a definition of current six-arm results. Phase 1B is closed and real-runtime validated. For current positioning and execution status, consult [Research Motivation and Contributions](research-motivation-and-contributions.md), [canonical research status](research-status.md), [the experiment index](experiments/README.md), and [Protocol v4](phase3-final-evaluation-protocol-v4.md). Later policy work does not retroactively alter the frozen Phase 1B semantics; nor should this adaptation be presented as a byte-for-byte reproduction of the original Continuum paper.
+>
+> **Historical terminology clarification (2026-11-10):** “Baseline 1” and “Baseline 2” below are labels local to the original Phase 1B freeze decision, not Phase 3 arm names. In Phase 3, N0 is the no-forced-Entry-Release control and A0 is the project-side Continuum-style Entry Release baseline with Native LRU physical selection. Phase 3 does not compare a complete Continuum system against untouched Vanilla vLLM. The final “Cost-Aware system” status snapshot below is historical and superseded by current positioning and Protocol v4.
 
 ## Purpose
 

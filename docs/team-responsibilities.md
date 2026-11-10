@@ -1,44 +1,50 @@
 # Team Responsibilities
 
+> **Current project positioning (2026-11-10):** The project optimizes a project-side Continuum-style program-aware KV cache management adaptation on vLLM. Phase 1B establishes the baseline; the current research evaluates cost-aware Entry Release and physical Block Victim Selection. Exact reproduction of the original Continuum system is not claimed. See [Research Motivation and Contributions](research-motivation-and-contributions.md) and [Research Status](research-status.md).
+
 This document defines ownership and phase responsibilities for the seven project members. For the **current** phase and its authorized scope, read [`research-status.md`](research-status.md); the baseline responsibilities below remain historical/general guidance where newer M1 authorizations assign narrower operational ownership.
 
 ## Project hierarchy
 
-The overall topic is KV Cache Management Optimization, but the research contribution has a clear priority:
+~~~text
+System foundation
+    Continuum-style program-aware multi-turn KV cache management
 
-```text
-Primary research core
-    Cost-Aware Eviction / Victim Selection
+Current optimization targets
+    Cost-Aware Entry Release
+    Cost-Aware Physical Block Victim Selection
 
-Supporting mechanism
-    Retention / Protection
+Supporting system mechanism
+    Program-level scheduling adaptation
+~~~
 
-System coordination
-    Scheduling
-```
+The project does not treat Continuum retention and scheduling as unrelated add-ons: they form part of the adapted system baseline. The optimization contribution is evaluated at the specific cache decision layers varied by the frozen protocol.
 
-Retention and scheduling remain in scope because they are required by the Continuum system baseline and may later be evaluated as extensions. They must not displace eviction as the primary proposed algorithm.
+## Current Phase 3 ownership and execution authority
 
-## Current Phase 2 W0/W1 ownership overlay
+This overlay is authoritative for the current Option F campaign and takes precedence over the historical role descriptions below.
 
-This overlay takes precedence over broad early-phase role labels; it does not modify the frozen Phase 1B baseline.
+- **M1:** research architecture, phase grants, canonical status, Protocol v4 freeze, fairness/claim boundaries, integration, and final evidence adjudication.
+- **M4:** frozen Protocol v4 semantics and post-campaign effect/statistical analysis. No routine protocol redesign is authorized.
+- **M6:** pre-launch readiness, one-shot 270-run execution, automatic Noise-to-Main transition, Native evidence, independent evaluator outputs, execution statistics, and immutable evidence archive.
+- **M5:** shared workload/runner substrate only if a concrete interface gap remains.
+- **M2/M3:** background/source-mechanism review and frozen baseline support.
+- **M7:** final report and presentation preparation after the evidence and claims are accepted.
 
-- **M1:** architecture, phase gates, evidence/claim adjudication, integration, and canonical status documentation.
-- **M4:** cost-aware A1/A2 decision-space analysis, simple-heuristic/Sufficient-first comparator, mechanism and claim review. Does not lead data acquisition.
-- **M6:** Continuum/SWE-bench data source audit, frozen sample, Agent trajectory acquisition, conversion, W1-B native replay/smoke, W1-C stratified sampling and S50/S100 pilot, provenance and analysis.
-- **M5:** common benchmark/runner substrate and concrete integration gaps, rather than default owner of W1-A/W1-C trajectory collection.
-- **M2/M3:** research background/paper-mechanism and frozen baseline support, respectively.
+**Current gate:** G0 v3 was accepted by M1 on 2026-11-07. The one-shot 270-run pipeline is AUTHORIZED / NOT STARTED. M6 must still record the execution host, runner, GPU allocation, full resource reservation, and frozen-hash checks. The 240-run Main stage is conditional on the machine-verified Noise transition gate; no intermediate manual M1 review is required if that gate passes.
 
-**Current gate:** W0/W1-A closed; W1-B PR #73 still under M1 review; W1-C bounded feasibility authorized; full 100-task acquisition and formal policy-benefit campaign not authorized.
+## Historical initial role descriptions
+
+The Member 1–7 descriptions and the original Ours-Evict / Ours-Full implementation roadmap below document the project's earlier division of labor. They are retained for provenance and are **not the active execution assignments** where they conflict with the current Phase 3 overlay above. In particular, the old mandatory Ours-Evict deliverable is not the current Phase 3 arm definition.
 
 ## Shared rules
 
 1. `main` must remain runnable; all changes go through task branches and PRs.
-2. `docs/experiment-plan.md` and `docs/baseline-freeze.md` are authoritative for frozen decisions.
-3. Do not silently simplify a frozen baseline or expand scheduler/runtime scope.
-4. Real performance claims must use the real vLLM backend, not the deterministic simulator.
-5. Primary eviction experiments and full-system experiments must be reported separately.
-6. Full-system gains must not be attributed to eviction without component evidence.
+2. `docs/research-status.md` is the canonical live status; Protocol v4 and the M1 authorization govern the current campaign; `docs/baseline-freeze.md` governs immutable Phase 1B semantics.
+3. Do not silently simplify a frozen baseline or change the cohort, manifests, arms, estimands, gates, or run plan.
+4. Real performance claims require valid Native vLLM evidence and independent evaluation, not simulator output alone.
+5. Keep logical Entry Release, physical Block Victim Selection, Native physical eviction, later APC status, and recomputed-token outcomes as separate evidence levels.
+6. Do not attribute Dynamic TTL or scheduler performance effects to Phase 3; neither has a corresponding randomized treatment.
 
 ---
 
@@ -46,7 +52,7 @@ This overlay takes precedence over broad early-phase role labels; it does not mo
 
 ### Primary goal
 
-Own the end-to-end architecture while keeping the **eviction decision boundary central** and integrating supporting retention/scheduling mechanisms without conflating their effects.
+Own the end-to-end architecture of the project-side Continuum-style cache-management adaptation and preserve clean boundaries between lifecycle/retention, logical Entry Release, physical block-victim selection, and Native vLLM ownership.
 
 ### Responsibilities
 
@@ -61,8 +67,8 @@ Own the end-to-end architecture while keeping the **eviction decision boundary c
 ### Q&A ownership
 
 - Overall architecture and project scope.
-- Why eviction is the research core.
-- Why retention/scheduling are included but treated as supporting/system layers.
+- Why cost-aware Entry Release and physical Block Victim Selection are studied within a Continuum-style system foundation.
+- Why Phase 3 fixes Native scheduling and separates logical release from physical eviction.
 - vLLM integration and fairness boundaries.
 
 ---

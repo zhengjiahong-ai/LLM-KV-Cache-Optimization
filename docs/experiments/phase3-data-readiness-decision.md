@@ -1,5 +1,7 @@
 # Phase 3 Data Readiness and Execution Decision (M1)
 
+> **Historical status:** This is the pre-G0 data-readiness and cohort-acquisition decision. The cohort was subsequently sealed, G0 v3 was accepted on 2026-11-07, and the one-shot 270-run pipeline was authorized on 2026-11-09. Use [the canonical M1 status ledger](../research-status.md) and [the operative 270-run authorization](phase3-option-f-270-run-pipeline-authorization.md) for current state. This record is retained as provenance and is not the current execution authorization.
+
 Date: 2026-11-03  
 Current main: `27249ab93953f531544ec8e226fc891adda60457`  
 Frozen Protocol v3 HEAD: `3a8c3882ad248715b2f5ea90e34baa3875ea0226`  

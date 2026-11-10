@@ -1,6 +1,8 @@
 # Phase 3 — Final Evaluation Protocol（M4 交付）
 
-**状态**：`DESIGN_ONLY` — 待 M1 审查冻结。未授权任何 GPU Campaign。
+> **Historical protocol draft — superseded:** This earlier design-only protocol was superseded by [Phase 3 Final Evaluation Protocol v4 — Option F](phase3-final-evaluation-protocol-v4.md), the sole operative protocol for the current 270-run campaign. The original text below is retained for revision history; do not use its older hypotheses, arm details, budget, or gate wording as current authorization.
+
+**Original status at drafting time**：`DESIGN_ONLY` — 待 M1 审查冻结。未授权任何 GPU Campaign。
 **作者**：M4（协议与统计）。负载与执行可行性由 M6 另报，本协议只冻结审查所需的口径与门槛。
 **输入**：Phase 1B 冻结基线、Phase 2E/2G 已封存结果、Phase 2H history-rich smoke、Phase 2I 冻结算法（PR #87）与实现（PR #88）。
 **边界**：本文档只做协议设计、规模与统计评估。不启动正式运行、不改算法、不改 Runtime。

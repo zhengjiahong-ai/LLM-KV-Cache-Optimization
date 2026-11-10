@@ -1,6 +1,8 @@
 # Bounded Native Cost-Aware evaluation results
 
-Status: **ACCEPTED / CLOSED — M1 bounded result review (2026-10-27)**
+Status: **ACCEPTED / CLOSED — M1 bounded Phase 2 result review (2026-10-27)**
+
+> **Historical result boundary:** This is the accepted 54-run Phase 2 bounded evaluation of its then-frozen A0/A1/A2 definitions. It is not a result from the current Phase 3 Option F campaign, and its A1/A2 labels must not be treated as outcomes for the current 270-run study. Current Phase 3 execution is authorized but remains NOT STARTED until M6 records execution evidence.
 
 This report records M1 acceptance of the completed low-cost bounded evaluation.
 It is an exploratory paired comparison on nine predefined two-task workload

@@ -1,437 +1,249 @@
 # Experimental Plan
 
-## Current Phase 3 execution overlay (2026-11-03)
+> **Research positioning (2026-11-10):** This plan describes cost-aware optimization within the project-side Continuum-style KV cache management adaptation on vLLM. The earlier Ours-Evict / Ours-Full roadmap is preserved as historical design context in [Architecture](architecture.md) and [Phase 2 joint design](phase2-cost-aware-joint-design.md); it is not the operative Phase 3 policy definition. For the current formal questions and claim boundaries, use [Research Motivation and Contributions](research-motivation-and-contributions.md), [Research Status](research-status.md), and [Protocol v4](phase3-final-evaluation-protocol-v4.md).
 
-**Canonical status:** [`docs/research-status.md`](research-status.md). This overlay records the current M1-approved Phase 3 direction. Historical research questions and Phase 2 verdicts below remain historical and are not retroactively changed.
+## Current Phase 3 execution overlay (M1 reconciliation, 2026-11-10)
 
-### Phase 3 delivery status
+**Canonical status:** [docs/research-status.md](research-status.md). This section is the current operative Phase 3 framing and execution summary. It supersedes earlier eviction-only RQ labels and the 310-run draft plan where they conflict; prior phase verdicts and immutable evidence records remain unchanged.
 
-| Item | Status | Evidence |
+### Current delivery and authorization
+
+| Item | Status | Evidence / boundary |
 | --- | --- | --- |
-| M4 Final Evaluation Protocol v3 | MERGED / FROZEN | [PR #90](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/90); M1 freeze recorded on merge 2026-11-03 |
-| M6 workload/execution feasibility | MERGED | [PR #92](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/92) |
-| Six-arm Materializer, E0/N0 | MERGED — Stage 1 complete | [PR #93](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/93) |
-| Independent N/E/C Evaluator | MERGED — Stage 2 complete | [PR #94](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/94) |
-| Final data readiness | NEXT — M6 | [M1 data-readiness decision](experiments/phase3-data-readiness-decision.md) |
-| Final Evaluation | CONDITIONALLY AUTHORIZED | M6 must freeze a compliant cohort/run manifest; applicable protocol gates still control Main Campaign start |
+| Protocol v3 | Historical / superseded | PR #90 remains immutable history |
+| Protocol v4 — Option F | **FROZEN** | [Protocol v4](phase3-final-evaluation-protocol-v4.md) |
+| Six-arm materializer | **MERGED** | PR #93; CPU/Mock and materialization validation |
+| Independent N/E/C evaluator | **MERGED** | PR #94; RC1–RC4 closed |
+| G0 v3 | **ACCEPTED by M1 (2026-11-07)** | 40 tasks / 20 Groups / 10 repositories; existing 40-run A0 calibration bound |
+| One-shot execution | **AUTHORIZED / NOT STARTED** | [M1 270-run authorization](experiments/phase3-option-f-270-run-pipeline-authorization.md) |
+| M6 pre-launch readiness | **NOT YET RECORDED ON MAIN** | Host, runner, GPU allocation, resource reservation, and hash validation must be reported before launch |
 
-### Final cohort requirement
+### Frozen campaign
 
-- 40 **new qualified Agent tasks** arranged into 20 independent Workload Groups.
-- Two tasks per group, from different repositories.
-- Minimum repository coverage: **10 repositories**, as required by frozen Protocol v3 and M6 PR #92.
-- Existing W1-C's 20 acquired pilot tasks (18 full-payload comparable) are engineering/regression data only and are excluded from the formal cohort.
-- M6 must confirm the real Full Payload, Explicit Token IDs, sidecars, Prefill Profile and Native Replay readiness of each selected task. The remaining 80 W1-C IDs are candidates, not acquired traces.
-- If fewer than 40 qualified tasks or fewer than 10 repositories are available, report the actual shortfall; do not lower the threshold or expand the frozen candidate frame without M1 approval.
+- Six arms: **N0 / A0 / A1 / A2 / A3 / E0**.
+- Main: **20 Groups × C1/C2 × 6 arms = 240 runs**.
+- Noise: **5 frozen Groups × C1/C2 × 3 repeats = 30 runs**.
+- Total new-run budget: **270** in one continuous compute window.
+- Existing A0 Load Calibration: **40 runs, reused; no rerun**.
+- The Workload Group is the statistical unit. C1/C2 are repeated operating conditions within a Group, not independent groups.
+- The Main primary paired population is 18 complete Groups; H3-0 uses all 20 Groups / 38 Headroom-qualified cells; H3-R uses 9 RESPONSIVE Groups / 16 cells.
 
-### Final experiment plan
+### Fixed conditions and gates
 
-The six arms remain N0/A0/A1/A2/A3/E0. The planned scale remains:
+- C1 and C2 are the frozen operating-point names. Their required_blocks are 256 and 1024 respectively; source labels L_LOW / L_HIGH are provenance only and must not be promoted to “low pressure” / “high pressure”.
+- Headroom requires rho0 >= 0.05 and R0 >= 512; frozen result: 38/40 cells.
+- FLAT / WEAK / RESPONSIVE strata are frozen as 3 / 8 / 9 Groups and are not post-hoc exclusion filters.
+- The 30-run Noise stage must produce and persist the exact Protocol v4 pooled estimator and tied threshold.
+- Main may start only after the machine-verified transition gate validates all 30 Noise Run IDs, the independent evaluator, all applicable mandatory gates, and all frozen hashes.
+- Any missing evidence, undefined required pooled value, mandatory gate failure, or hash mismatch stops the pipeline before Main. No intermediate manual M1 review is required when the automatic gate passes.
 
-| Set | Runs |
-| --- | ---: |
-| A0 Load Calibration | 40 |
-| A0 Noise Calibration | 30 |
-| Main Campaign (20 groups × 2 loads × 6 arms) | 240 |
-| **Total** | **310** |
+### Research interpretation
 
-The PR #92 estimate is 3–5 RTX 4090D GPU-hours with a 6-hour ceiling; M6 must reconfirm the estimate against the actual qualified cohort.
+The campaign separates Entry Release from physical Block Victim Selection. A0−N0 is the registered forced-Entry-Release contrast; A1/A3/E0 change Entry Release selection; A2 changes physical block selection. The Phase 3 Native scheduler is held fixed. TTL inputs/decisions are observable, but no Static-TTL arm is present. Therefore the campaign does not independently estimate Dynamic TTL versus Static TTL or the program-level scheduler's performance effect. See [mechanism coverage and claim boundaries](experiments/phase3-mechanism-coverage-and-claim-boundaries.md).
 
-M6 is authorized to select, acquire and qualify the formal dataset within the existing 80-candidate W1-C frame. Once 40 qualified tasks / 20 cross-repository groups / at least 10 repositories are frozen in a SHA-256-bound cohort/run manifest, M6 may proceed with the 40-run A0 load calibration and 30-run A0 noise calibration. After the applicable frozen protocol gates and G0 manifest are satisfied, proceed to the 240-run Main Campaign under this M1 authorization. Any shortfall or protocol deviation returns to M1; do not reopen the frozen protocol or expand the candidate frame.
+## Project Theme and Research Objective
 
-No separate Stage 3 Cohort Seal engineering milestone is required. The final run manifest must still SHA-256 bind task membership, group pairing, Frozen Request Order, Native Enqueue Order, Replay Timeline, Session pairing and per-request History Predecessors before formal execution.
+**Cost-Aware Optimization of Continuum-Style KV Cache Management on vLLM**
 
----
+The project builds upon a project-side Continuum-style adaptation for program-aware, multi-turn KV cache management on vLLM 0.27.1. Its research objective is to determine whether cost-aware decisions can improve cache management under memory pressure.
 
-## Project Theme
+The motivating system manages program/session lifecycle, tool-gap and reuse history, dynamic TTL, soft retention, pressure-driven release, and program-level scheduling. The optimization study focuses on two distinct decisions:
 
-**Cost-Aware KV Cache Eviction for LLM Serving**
+1. **Entry Release:** which retained logical entry should yield when protected cache must be released.
+2. **Physical Block Victim Selection:** which eligible KV blocks should be removed by Native vLLM.
 
-The primary research question is:
+The project does not claim exact source-level reproduction of the original Continuum system. The Phase 1B adaptation is an engineering baseline; the later cost-aware work, especially Phase 2G and Phase 3, investigates local optimization choices within that baseline.
 
-> When GPU KV-cache capacity is insufficient, which cached blocks/prefixes should be evicted so that future recomputation cost is minimized without introducing excessive policy overhead or unfair queueing effects?
-
-The project keeps retention and scheduling in scope as supporting/system-level mechanisms, but they do not replace eviction/victim selection as the research core.
-
-## Research hierarchy
-
-```text
-Primary contribution
-    Cost-Aware Eviction / Victim Selection
-
-Supporting extension
-    Retention / Protection
-
-System extension
-    Scheduling Coordination
-```
-
----
+See [Research Motivation and Contributions](research-motivation-and-contributions.md) for the canonical project narrative and [Research Status](research-status.md) for the current phase and evidence boundaries.
 
 ## Research Questions
 
-### RQ1 — Core eviction question
+The formal Phase 3 questions are defined by frozen Protocol v4 and must not be changed by this narrative document.
 
-Can Cost-Aware victim selection outperform native recency-based vLLM APC LRU under identical scheduling and cache budgets?
+### RQ1 — Continuum-style forced Entry Release
 
-Primary comparison:
+Under the shared pressure path, Native LRU/APC and Native scheduler, what is the incremental effect of the frozen project-side Continuum-style forced Entry Release path versus the no-forced-release control (A0−N0)?
 
-```text
-vLLM native APC LRU
-vs.
-Ours-Evict
-```
+### RQ2 — Cost-Aware Entry Release
 
-This is the project's main algorithmic comparison.
+Do the registered Cost-Aware Entry Release policies (A1/A3) improve the recomputation outcome relative to the adapted baseline A0?
 
-### RQ2 — Why and when does Cost-Aware eviction help?
+### RQ3 — Cost-Aware physical Block Victim Selection
 
-Under which workload conditions does Cost-Aware eviction reduce expensive recomputation most effectively?
+Does changing only the physical victim selector (A2), while retaining A0 Entry Release, improve the recomputation outcome relative to A0?
 
-Candidate dimensions:
+### RQ4 — Cost-model discriminability
 
-- short vs. long requests;
-- mixed request lengths;
-- low vs. high cache pressure;
-- low vs. high prefix reuse;
-- heterogeneous recomputation cost;
-- steady vs. bursty arrivals where useful.
+Does the suffix-cost-aware decision path (A3) produce the required robustly discriminable decisions beyond the deadline-only Step 2 comparator (E0), under the exact G3-CM definition?
 
-Analysis should connect:
+### RQ5 — Workload heterogeneity
 
-```text
-victim-selection change
-    -> fewer costly evictions
-    -> fewer recomputed/prefill tokens
-    -> latency / throughput impact
-```
+How do the registered effects vary across the frozen FLAT / WEAK / RESPONSIVE strata and fixed C1/C2 operating points?
 
-### RQ3 — Does retention further improve the eviction-centered method?
+Dynamic TTL and program-level scheduling remain important Continuum-style baseline mechanisms, but the current Phase 3 design does not independently estimate Dynamic-TTL-versus-Static-TTL or scheduler-performance effects.
 
-After `Ours-Evict` is validated independently, evaluate whether a retention/protection mechanism provides additional benefit.
+## System foundation and execution baselines
 
-Comparison structure:
+### Native vLLM execution path
 
-```text
-Ours-Evict
-vs.
-Ours-Evict+Retention
-```
+The underlying execution backend is vLLM 0.27.1 GPU Automatic Prefix Caching (APC), using Native scheduling and Native physical LRU block-victim selection unless a registered arm explicitly changes the victim selector.
 
-Retention is an extension, not a prerequisite for the core method.
+The Native path remains responsible for allocation, reference counts, APC hash metadata, physical block reuse, free-queue state, and cleanup.
 
-### RQ4 — Does scheduling coordination further improve full-system performance?
+### Project-side Continuum-style cache-management adaptation
 
-Evaluate the incremental effect of scheduling coordination only after the eviction and retention components are separately measurable.
+**Status: Phase 1B IMPLEMENTED AND REAL-RUNTIME VALIDATED.**
 
-Comparison structure:
+This adaptation is the system foundation for the current optimization study. Its validated scope includes:
 
-```text
-Ours-Evict+Retention
-vs.
-Ours-Full
-```
+- explicit program/session identity across native request IDs;
+- tool-gap and server inter-request-gap history;
+- dynamic TTL estimation and PrefillReload inputs;
+- soft retention protection and lazy expiry;
+- deterministic pressure-driven logical Entry Release;
+- a narrow program-level admission-order scheduling adapter;
+- preservation of Native vLLM APC / BlockPool ownership.
 
-Full-system comparisons may additionally include Continuum.
+It is a documented project-side adaptation, not a byte-for-byte or source-level reproduction of the original Continuum system. The Phase 1B scheduler adapter is engineering/integration evidence; its performance effect is not estimated by Phase 3.
 
----
+### Phase 3 baseline and control roles
 
-## Baselines
+- **N0:** no forced Entry Release, with the same pressure request/barrier/replay path, Native LRU/APC, and Native scheduler.
+- **A0:** frozen project-side Continuum-style Entry Release with Native LRU physical block selection. This is the adapted Entry Release baseline, not a full public-Continuum system arm.
 
-### Baseline 1 — vLLM 0.27.1 native APC + native scheduler
+## Phase 3 registered policy arms
 
-**Status: FROZEN**
+| Arm | Logical Entry Release | Physical Block Victim Selection | Research role |
+| --- | --- | --- | --- |
+| N0 | No-op; no forced Entry Release | Native LRU | Control for the forced-release path |
+| A0 | Frozen project-side Continuum-style Entry Release | Native LRU | Adapted Entry Release baseline |
+| A1 | Cost-Aware Entry Release | Native LRU | Cost-aware change at the Entry Release layer |
+| A2 | Same frozen A0 Entry Release | Cost-Aware block selector | Cost-aware change at the physical victim layer |
+| A3 | Suffix-cost-aware Entry Release | Native LRU | Alternative cost-aware Entry Release candidate |
+| E0 | A1 branch ladder with deadline-only Step 2 | Native LRU | Strong deadline-only comparator |
 
-Validated native GPU APC path:
+A2 is **not** an A1+A2 combined policy. A1/A3/E0 change the logical Entry Release decision; A2 changes physical victim selection while retaining the A0 Entry Release path.
 
-```text
-BlockPool.get_new_blocks()
-    -> FreeKVCacheBlockQueue.popleft_n()
-    -> BlockPool._maybe_evict_cached_block()
-```
+## Decision layers and attribution
 
-This is the primary weak/native baseline for RQ1.
+The system-level decision chain is:
 
-### Baseline 2 — Continuum-style adapted system
+~~~text
+program/session lifecycle and retention state
+    -> memory pressure
+    -> logical Entry Release
+    -> newly eligible Native KV blocks
+    -> physical Block Victim Selection
+    -> Native hashed eviction / BlockPool cleanup
+    -> later APC prefix availability
+    -> recomputed prompt tokens
+~~~
 
-**Status: IMPLEMENTED AND REAL-RUNTIME VALIDATED**
+Entry Release changes eligibility; it does not itself evict a physical block. A selected victim is not, by itself, proof of a later APC miss. A later miss is not, by itself, proof of additional recomputation. Each transition requires its own evidence.
 
-Continuum is the strong system-level baseline and includes the mechanisms frozen in `docs/baseline-freeze.md`:
+The current policy candidates are the six frozen Phase 3 arms. The earlier Ours-Evict / Ours-Evict+Retention / Ours-Full labels are retained only as historical conceptual roadmap terminology; they are not aliases for A1, A2, or any combined Phase 3 treatment. See [Research Motivation and Contributions](research-motivation-and-contributions.md).
 
-- explicit program/session identity;
-- tool-gap/reuse history;
-- dynamic TTL;
-- soft retention protection;
-- lazy expiry / pressure release;
-- narrow program-level admission-order scheduling adaptation;
-- native vLLM BlockPool bookkeeping.
-
-Continuum is reproduced as a full-system comparison point because retention+scheduling are intrinsic to that baseline. This does not change the project's own research core from eviction to scheduling.
-
-### Optional component baselines
-
-ARC, RLT, SAGA/WA-LRU, or another eviction/reuse-aware method may be used if they improve attribution and are feasible within project time.
-
----
-
-## Proposed Method
-
-### Ours-Evict — mandatory core method
-
-The proposed core method ranks eviction candidates according to estimated eviction loss.
-
-Conceptually:
-
-```text
-EvictionLoss = f(
-    recomputation_cost,
-    reuse_signal,
-    memory_footprint,
-    cache_pressure
-)
-```
-
-Possible runtime signals include:
-
-- cached token/block count;
-- estimated prefill/recomputation cost;
-- recent reuse history;
-- cache pressure;
-- memory released by eviction;
-- request/prefix age when justified.
-
-The exact score is not yet frozen.
-
-The method must not be merely:
-
-- renamed LRU;
-- fixed TTL;
-- manual tuning of Continuum;
-- offline future knowledge;
-- scheduler-only prioritization.
-
-`Ours-Evict` must run with native scheduling and be independently evaluable.
-
-### Ours-Evict+Retention — optional/secondary extension
-
-May add retention/protection if evidence shows that proactive preservation complements victim selection.
-
-### Ours-Full — system extension
-
-May add scheduling coordination after the eviction and retention effects are separately measurable.
-
----
-
-## Architecture and Backend
+## Backend and adapter boundary
 
 Backend:
 
-```text
+~~~text
 vLLM 0.27.1
 GPU Automatic Prefix Caching (APC)
-```
+~~~
 
-Phase 0 backend validation: **COMPLETE**.
+Validated Native GPU APC path:
 
-Phase 1A common block-level eviction adapter: **COMPLETE**.
+~~~text
+BlockPool.get_new_blocks()
+    -> FreeKVCacheBlockQueue.popleft_n()
+    -> BlockPool._maybe_evict_cached_block()
+~~~
 
-Validated project decision path:
+The Phase 1A VLLMEvictionBridge / EvictionPolicyAdapter is the physical block-victim selection boundary. It is varied by A2; it is not the logical Entry Release boundary. Native BlockPool cleanup and ownership remain unchanged.
 
-```text
-vLLM free cached blocks
-    -> VLLMEvictionBridge
-    -> EvictionCandidate[]
-    -> EvictionPolicyAdapter
-    -> selected block IDs
-    -> native BlockPool cleanup
-```
+## Formal Phase 3 execution design
 
-This adapter is the primary execution boundary for RQ1/RQ2.
+The frozen campaign is governed by [Protocol v4](phase3-final-evaluation-protocol-v4.md) and the [one-shot M1 authorization](experiments/phase3-option-f-270-run-pipeline-authorization.md).
 
-Retention and scheduler adapters are auxiliary layers around this core path.
+| Component | Runs | Current status |
+| --- | ---: | --- |
+| Existing A0 Load Calibration | 40 | Completed earlier, bound into G0, reused without rerun |
+| A0 Noise Calibration | 30 | Authorized as Stage A; not yet reported as executed |
+| Six-arm Main Campaign | 240 | Conditionally pre-authorized after the automatic Noise transition gate |
+| **New execution budget** | **270** | One continuous compute window |
 
----
+The Main Campaign is 20 Workload Groups × C1/C2 × six arms. Noise uses five frozen Groups × C1/C2 × three repeats. The Workload Group is the independent statistical unit; cells, turns, and repeats must not be counted as independent groups.
 
-## Experimental Structure
+## Frozen workload and operating-point interpretation
 
-### A. Primary eviction experiments
+- G0 v3 binds 40 tasks / 20 Workload Groups / 10 repositories.
+- C1 and C2 are frozen operating-point names with 256 and 1024 required blocks respectively. Do not relabel them as low/high pressure.
+- Headroom qualification is frozen at 38/40 cells.
+- FLAT / WEAK / RESPONSIVE are frozen at 3 / 8 / 9 Groups.
+- The primary paired arm-minus-A0 population is 18 complete Groups.
+- H3-0 uses all 20 Groups / 38 Headroom-qualified cells; H3-R uses 9 RESPONSIVE Groups / 16 cells.
 
-Hold fixed:
+Use the exact Protocol v4 population, weighting, bootstrap, missingness, and gate definitions. Do not substitute exploratory workload categories from historical plans or post-hoc labels for the frozen Group/condition populations above.
 
-- native scheduler;
-- model;
-- request trace;
-- cache budget;
-- batching/runtime settings;
-- hardware;
-- random seed where applicable.
+## Metrics and evidence
 
-Compare:
+The primary outcome is aggregate recomputed tokens, Σ(E−C), with N, E, and C independently derived. Enforce 0 ≤ C ≤ E ≤ N.
 
-```text
-Native LRU
-vs.
-Ours-Evict
-```
+- R = E−C: eligible-prefix recomputation;
+- W = N−C: actual prefill work;
+- S = N−E: genuinely new suffix;
+- W = R+S.
 
-This experiment answers the main research question.
+Report the exact registered arm contrasts and group-level uncertainty. TTFT, throughput, TPOT, cache-hit measures, victim-decision overhead, and mechanism counts are supporting outcomes where available; they do not replace the registered primary outcome.
 
-### B. Retention extension experiments
+Logical Entry Release, physical hashed eviction, subsequent APC status, and request-level recomputation are separate evidence tiers. Missing evidence must remain missing and fail closed where the protocol requires it.
 
-Compare:
+## Fairness and claim boundaries
 
-```text
-Ours-Evict
-vs.
-Ours-Evict+Retention
-```
+All six Phase 3 arms use the Native vLLM scheduler. The model/runtime identity, frozen request inputs, cache configuration, replay timeline, pressure conditions, and other registered controls must remain bound to the frozen manifests.
 
-Purpose: quantify additional benefit from retention.
+The campaign can estimate the registered local policy contrasts within the project-side Continuum-style adaptation. It does **not** estimate:
 
-### C. Full-system experiments
+- a complete original Continuum-versus-Vanilla-vLLM system effect;
+- Dynamic TTL versus Static TTL (there is no Static-TTL arm);
+- the program-level scheduler's performance contribution (all arms use Native scheduling);
+- exact source-level or original-paper workload reproduction.
 
-Compare:
+Do not claim that any cost-aware candidate is superior before the 270-run evidence, independent evaluation, applicable gates, and M1 final review are complete.
 
-```text
-vLLM native
-vs.
-Continuum-style adapted system
-vs.
-Ours-Full
-```
+## Ownership and current authority
 
-Purpose: evaluate end-to-end system performance.
+- **M1:** research architecture, phase grants, canonical status, protocol freeze, fairness/claim boundaries, integration, and final evidence adjudication.
+- **M4:** frozen Protocol v4 semantics and post-campaign effect/statistical analysis; no routine protocol redesign is authorized.
+- **M6:** pre-launch readiness, one-shot 270-run execution, automatic Noise-to-Main transition, Native evidence, independent evaluator outputs, execution statistics, and immutable evidence archive.
+- **M5:** shared workload/runner substrate only when a concrete interface gap remains.
+- **M2/M3:** background/source-mechanism review and frozen baseline support.
+- **M7:** report and presentation preparation after results and claims have been accepted.
 
-Do not use C alone to claim superiority of the eviction algorithm.
+## Current freeze state (2026-11-10)
 
----
+### Frozen / accepted
 
-## Workloads
+- Project positioning: cost-aware optimization within a project-side Continuum-style KV cache-management adaptation.
+- Backend: vLLM 0.27.1 GPU APC.
+- Phase 1B Continuum-style adaptation: scope frozen, implemented, and real-runtime validated.
+- Phase 3 Protocol v4 — Option F: FROZEN.
+- Six-arm materializer and independent N/E/C evaluator: merged.
+- G0 v3: accepted by M1 on 2026-11-07.
+- Existing 40-run A0 Load Calibration: reused, not rerun.
+- New-run plan: 30 Noise + conditionally 240 Main, one continuous compute window.
 
-The final matrix should remain compact and reproducible.
+### Execution state
 
-Recommended categories:
+**270-run pipeline: AUTHORIZED / NOT STARTED.** M6 pre-launch readiness must still record the host, runner, GPU allocation, full resource reservation, and frozen-hash validation. The 240-run Main stage may start only after the machine-verified Noise transition gate passes. Authorization is not evidence that the compute window is ready or that any run has started.
 
-- short-request workload;
-- long-request workload;
-- mixed-length workload;
-- high cache-pressure workload;
-- reuse-sensitive workload;
-- controlled multi-turn/session workload for Continuum/system experiments.
 
-Multi-turn/session traces are required for the strong system baseline, but the primary eviction experiments should also include scheduler-independent controlled workloads.
 
----
+## Historical plan archive
 
-## Metrics
+The complete pre-2026-11-10 experimental plan, including the original Ours-Evict/Ours-Full roadmap, earlier RQ1–RQ4 formulations, and the 310-run draft budget, is preserved verbatim in [the historical plan archive](archive/experiment-plan-pre-phase3-reframing-2026-11-10.md). Those statements document earlier planning and are not current Phase 3 authorization or arm definitions.
 
-### Core eviction metrics
+## Historical roadmap note
 
-- eviction count;
-- evicted blocks/tokens;
-- recomputed tokens or equivalent recomputation volume;
-- cache hit/reuse rate;
-- victim-selection decision latency;
-- additional policy metadata/CPU overhead.
-
-### Serving metrics
-
-- throughput;
-- TTFT;
-- TPOT;
-- end-to-end latency.
-
-### Supporting system metrics
-
-For retention/scheduling extensions:
-
-- protected KV volume / retention lifetime;
-- queueing/waiting time;
-- program/session completion time;
-- scheduling decisions / admission order;
-- preemption/reload events where relevant.
-
----
-
-## Fairness Rules
-
-For primary eviction comparisons, scheduler behavior must remain identical.
-
-For full-system comparisons, policy-specific retention/scheduling may differ only when intrinsic to the compared system and must be documented.
-
-All formal comparisons should keep constant where applicable:
-
-- model and revision;
-- vLLM version;
-- hardware;
-- request trace;
-- cache/memory budget;
-- batching settings;
-- generation parameters;
-- metric definitions;
-- seeds.
-
----
-
-## Ownership
-
-### Member 1
-
-Owns backend/runtime architecture, adapter boundaries, baseline freeze, integration, and fairness rules.
-
-### Member 2
-
-Owns background/related work and verifies original mechanism vs. adaptation claims.
-
-### Member 3
-
-Owns implementation and validation of native/Continuum baselines according to `docs/baseline-freeze.md`.
-
-### Member 4
-
-Owns the **Cost-Aware eviction algorithm first**. Retention/scheduling extensions come only after `Ours-Evict` is independently implemented and validated.
-
-### Member 5
-
-Owns shared reproducible workload/benchmark substrate and runner interface support. M6 owns current W0/W1 source-specific Agent acquisition, replay materialization and evidence.
-
-### Member 6
-
-Owns evaluation and must separate eviction attribution from retention/scheduling/full-system effects. In current W0/W1 stages, also owns Agent trajectory collection, frozen sample design, source provenance, Native replay and statistical/missingness reporting.
-
----
-
-## Current Freeze State
-
-### Frozen
-
-- Overall topic: KV Cache Management Optimization for LLM Inference
-- **Primary research core: Cost-Aware KV Cache Eviction / Victim Selection**
-- Supporting scope: retention + scheduling coordination
-- Backend: vLLM 0.27.1 GPU APC
-- Native baseline: vLLM APC LRU + native scheduler
-- Strong system baseline: Continuum-style adapted system
-- Phase 0: CLOSED
-- Phase 1A: CLOSED
-- Phase 1B Continuum adaptation scope: FROZEN
-- Phase 1B implementation and real-runtime validation: COMPLETE
-
-### Not frozen
-
-- exact Cost-Aware eviction score;
-- exact proposed retention extension;
-- exact proposed scheduling extension;
-- formal model/dataset/workload matrix;
-- final hyperparameters.
-
-For current authorization and outcome status after these initial freeze notes, consult **[`research-status.md`](research-status.md)**; this section records the original foundational freeze and must not be read as the latest execution authorization.
-
-Before the exact `Ours-Evict` score is frozen:
-
-1. Member 5 prepares reproducible cache-pressure/reuse workloads;
-2. Member 6 profiles the frozen baselines and identifies costly eviction behavior;
-3. Member 2 refreshes the novelty boundary against current related work;
-4. Member 4 finalizes the Cost-Aware objective and score from the observed bottleneck;
-5. Member 1 keeps the runtime/policy interface and fairness boundary stable.
-
-The method must still start from `Ours-Evict`, not from a monolithic retention+scheduling system.
+Earlier project plans used Ours-Evict, Ours-Evict+Retention, and Ours-Full as conceptual stages. Those names are preserved in historical design documents, but they are not the current Phase 3 arm names and must not be used to imply that Phase 3 evaluates a monolithic Ours-Evict system. The current registered policy map is N0/A0/A1/A2/A3/E0.

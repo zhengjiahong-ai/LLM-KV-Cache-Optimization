@@ -1,5 +1,7 @@
 # W1-C-derived formal Native Cost-Aware campaign protocol
 
+> **Historical candidate protocol:** This W1-C-derived Phase 2 document is retained as a protocol-design artifact. It is not the operative authorization for the accepted 54-run bounded Native evaluation (PR #82), and its A0/A1/A2/A3/B1 terminology must not be conflated with the current Phase 3 Option F six-arm mapping. Current execution is governed by [Protocol v4](phase3-final-evaluation-protocol-v4.md) and the [one-shot 270-run authorization](experiments/phase3-option-f-270-run-pipeline-authorization.md).
+
 ## Status and scope
 
 This is the candidate protocol submitted for M1 freeze. It does not authorize
