@@ -2,7 +2,7 @@
 
 The project studies KV-cache management on **vLLM 0.27.1 GPU APC**, with a clear hierarchy of concerns.
 
-> **Current research/evaluation interpretation:** This architecture records the validated Phase 1A block adapter and the original proposed system hierarchy. The later Phase 2G evaluation explicitly separates **Entry forced-release** from **physical Block victim selection**; the original `Ours-Evict` schematic below is a research goal, **not** a claim that its independent benefit has been established. Read [canonical status](research-status.md), [experiment index](experiments/README.md), and [frozen Phase 1B baseline](baseline-freeze.md) for their different authority levels.
+> **Current research/evaluation interpretation (2026-11-10):** The project keeps cost-aware KV eviction as its research core, while the frozen Phase 3 campaign distinguishes Entry Release from physical Block Victim Selection. The six-arm Option F mapping and claim boundaries are current; the original `Ours-Evict` schematic below remains a research hierarchy, not a claim that an independent final method has already been validated. Read [canonical status](research-status.md), [experiment index](experiments/README.md), and [frozen Phase 1B baseline](baseline-freeze.md) for their different authority levels.
 
 ## Research hierarchy
 
@@ -48,17 +48,26 @@ SchedulingPolicyAdapter          EvictionPolicyAdapter
                  GPU APC KV Cache
 ```
 
-## Two decision layers in current Phase 2 evaluation
+## Phase 3 decision layers and six-arm mapping
 
-The Phase 1A `EvictionPolicyAdapter` remains the **validated physical block-victim boundary**. Phase 2G additionally evaluates a logically separate **entry forced-release** choice in the Continuum retention/pressure layer. Releasing a protected entry changes eligibility; it does **not** itself evict a KV block.
+The Phase 1A EvictionPolicyAdapter remains the **physical block-victim boundary**. The Continuum-style pressure path also makes a separate **Entry Release** decision: releasing a protected entry changes eligibility; it does **not** itself evict a KV block.
 
-| Evaluated arm | Entry-release selection | Physical block-victim selection | Attribution boundary |
+| Arm | Entry-release selection | Physical block-victim selection | Attribution boundary |
 | --- | --- | --- | --- |
-| A0 | Frozen Continuum-style project adaptation | Native LRU | Baseline |
-| A1 | Cost-Aware Entry selector | Same Native LRU as A0 | Entry release / exposed candidate pool |
-| A2 | Same frozen A0 entry release | Cost-Aware Block selector | Physical victim choice |
+| N0 | No-op; no forced Entry Release | Native LRU | Control for the forced-release path; pressure request/barrier/timeline remain active |
+| A0 | Frozen project-side Continuum-style Entry Release | Native LRU | Baseline Entry Release policy; not a complete public Continuum reproduction |
+| A1 | Cost-Aware Entry Release | Native LRU | Entry-level selection and resulting eligible candidate pool |
+| A2 | Same frozen A0 Entry Release | Cost-Aware Block selector | Physical victim choice only |
+| A3 | Suffix-cost-aware Entry Release | Native LRU | Suffix-cost Entry decision path |
+| E0 | A1 branch ladder with deadline-only Step 2 | Native LRU | Strong deadline-only comparator |
 
-A2 does **not** combine A1 and A2. Do not compare their recomputation results as if they changed the same choice layer. A1 may change which blocks become eligible; A2 may change which eligible block is selected. The actual evidence chain is: **logical release → selected candidate/victim → Native hashed eviction → later APC prefix status → recomputed tokens**, and each arrow requires runtime evidence. A controlled comparison cannot attribute a token delta to a specific victim from co-occurrence alone.
+A2 does **not** combine A1 and A2. A1/A3/E0 change which entries are released; A2 changes which legal Native block is selected. The evidence chain remains: **logical release → selected candidate/victim → Native hashed eviction → later APC prefix status → recomputed tokens**. Each transition requires its own evidence; co-occurrence alone is not physical causal attribution.
+
+All Phase 3 arms use the **Native vLLM scheduler**. The campaign does not include a program-level scheduler treatment. The narrow Continuum scheduler adapter was implemented and real-runtime validated in Phase 1B, but its performance effect is outside the current 270-run estimands.
+
+The registered A0−N0 H3-0 contrast uses every Headroom-qualified cell (20 Groups / 38 cells); H3-R is a separate RESPONSIVE-only contrast (9 Groups / 16 cells). This is a forced-Entry-Release comparison under shared Native scheduling and Native LRU/APC, not a complete Continuum-versus-Vanilla-vLLM system comparison.
+
+Dynamic TTL inputs and decisions are instrumented for mechanism inspection. There is no Static-TTL arm, so Phase 3 cannot independently estimate Dynamic TTL's advantage over Static TTL. See [mechanism coverage and claim boundaries](experiments/phase3-mechanism-coverage-and-claim-boundaries.md).
 
 ### Phase 1A physical block adapter
 

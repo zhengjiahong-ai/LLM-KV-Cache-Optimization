@@ -6,7 +6,7 @@ This is a **navigation index**, not a replacement for primary evidence, historic
 
 | Topic | Recommended record | Reading boundary |
 | --- | --- | --- |
-| Overall status and current authorization | [Research status](../research-status.md) | Protocol v3 frozen; Stage 1/2 merged; M6 formal dataset selection next; 310-run evaluation conditionally authorized after cohort freeze and gates |
+| Overall status and current authorization | [Research status](../research-status.md) | Protocol v4 / Option F frozen; G0 accepted; one-shot 270-run pipeline authorized but not started; Main is conditional on the automatic Noise gate |
 | Phase 2A H1/H2 original verdicts | [H1/H2 closeout](../phase2a-h1-h2-closeout-verdict-record.md) | H1 `DIAGNOSTIC_ONLY`; H2 not all-pass, B1 locked |
 | Phase 2B/2C fidelity lessons | [Phase 2B fidelity repair](../phase2b-m6-experimental-fidelity-repair-spec.md), [Phase 2C audit](../phase2c-m6-workload-reuse-audit.md) | Separate replay fidelity from real Native content sharing and context growth |
 | Phase 2E baseline measurements | [Measured campaign](../phase2e-m6-measured-campaign-report.md) | Native LRU vs Continuum baseline on predefined synthetic grid, **not** A1 benefit |
@@ -25,21 +25,39 @@ This is a **navigation index**, not a replacement for primary evidence, historic
 
 | Topic | Primary record | Current reading boundary |
 | --- | --- | --- |
-| M1 current data decision | [Phase 3 Data Readiness Decision](phase3-data-readiness-decision.md) | 40 new qualified tasks / 20 groups; minimum 10 repositories; M6 formal dataset selection/acquisition is next |
-| M4 Final Evaluation Protocol v3 | [PR #90](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/90) | Merged and frozen by M1 on 2026-11-03; protocol HEAD `3a8c388` |
-| M6 Workload & Execution Feasibility | [PR #92](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/92), [report](phase3-workload-execution-feasibility.md) | Merged; feasibility report only. 20 pilot tasks acquired, 18 comparable; remaining 80 are candidate IDs, not traces |
-| Stage 1 — six-arm Materializer, E0/N0 | [PR #93](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/93), [closeout](phase3-engineering-preparation-stage1.md) | Merged; CPU/Mock only; cell materializer does not build/acquire the final cohort |
-| Stage 2 — independent N/E/C Evaluator | [PR #94](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/94), [closeout](phase3-engineering-preparation-stage2.md) | Merged; RC1–RC4 closed; E independent of C; history predecessor relation is timeline-derived |
-| Final Evaluation matrix | [M4 Protocol v3 PR #90](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/90), [M6 feasibility report](phase3-workload-execution-feasibility.md) | Six arms; 40 load calibration + 30 noise calibration + 240 main = 310 runs; conditionally authorized after cohort freeze and applicable gates |
+| M1 canonical status | [Research status](../research-status.md) | Current as of 2026-11-10; main @ f005ecf; G0 accepted; 270-run pipeline authorized / not started |
+| Frozen final protocol | [Protocol v4 — Option F](../phase3-final-evaluation-protocol-v4.md) | Current protocol; fixed operating points, estimands, populations, Noise estimator, and gates are frozen. Protocol v3 is historical. |
+| G0 review bundle | [G0 v3 README](phase3-option-f-g0-v3/README.md) | Accepted by M1 on 2026-11-07; 40 tasks / 20 Groups / 10 repositories; 40-run A0 calibration evidence reused. The bundle's execution_authorized=false is its original freeze state, not the later M1 authorization. |
+| Option F engineering | [Engineering status](phase3-option-f-engineering-status.md), [PR #99](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/99) | Merged; G0 v3 accepted; existing A0 calibration reused; no new GPU run performed by the engineering PR. |
+| Operative execution authorization | [One-shot 270-run authorization](phase3-option-f-270-run-pipeline-authorization.md) | 30 A0 Noise runs, then 240 Main runs only after machine-verified transition gate; one compute window; no intermediate manual M1 review. |
+| Earlier continuous-execution decision | [Intermediate authorization record](phase3-option-f-continuous-execution-authorization.md) | Retained as decision history; the one-shot 270-run amendment is the operative execution contract. |
+| Mechanism coverage | [Phase 3 mechanism coverage and claim boundaries](phase3-mechanism-coverage-and-claim-boundaries.md) | Separates TTL observability, forced-release effect, physical victim selection, and scheduler validation; prevents full-Continuum or scheduler-effect overclaims. |
+| Final reporting structure | [Phase 3 final report outline](../phase3-final-report-outline.md) | Pre-registered report structure and evidence checklist; contains no campaign results. |
+| Current execution state | [Research status](../research-status.md) | No committed pre-launch host/runner/GPU reservation or 270-run start record at current main HEAD. Do not infer readiness from authorization. |
 
-The frozen M6 feasibility report and Protocol v3 require **at least ten repositories**. M6 must not lower this threshold. If the existing candidate frame cannot produce 40 new qualified tasks across at least ten repositories, report the actual shortfall for M1 review. The 18 historical W1-C pilot tasks remain excluded from formal effect estimates.
+The accepted G0 cohort contains 40 qualified tasks in 20 Workload Groups across 10 repositories. The existing 40-run A0 Load Calibration is reused and must not be rerun. The new execution budget is **270 runs**: 30 A0 Noise Calibration + 240 six-arm Main Campaign. Main is conditionally pre-authorized and may start only after the frozen Noise evaluator and every applicable mandatory transition condition pass.
 
+## Phase 3 arm mapping
+
+- **N0**: no-op forced Entry Release; pressure requests, barriers, replay timeline, Native LRU/APC and Native scheduler remain active.
+- **A0**: frozen project-side Continuum-style Entry Release + Native LRU.
+- **A1**: Cost-Aware Entry Release + Native LRU.
+- **A2**: A0 Entry Release + Cost-Aware physical block-victim selector.
+- **A3**: suffix-cost-aware Entry Release + Native LRU.
+- **E0**: A1 branch ladder with deadline-only Step 2 + Native LRU.
+
+A1/A3/E0 are Entry Release policies; A2 changes physical block selection. A2 is not an A1+A2 combination. The registered A0−N0 H3-0/H3-R contrasts test the forced-release path against the no-forced-release control, not a complete Continuum-versus-Vanilla-vLLM system comparison.
+
+The frozen M6 feasibility report and G0 require **at least ten repositories**. The accepted G0 cohort meets the 40-task / 20-Group / 10-repository requirement. The historical 18 W1-C pilot tasks remain excluded from formal Phase 3 effect estimates.
 
 ## Interpret the three algorithm layers correctly
 
-- **A0**: Continuum-style frozen **entry release** plus Native LRU **block victim**.
-- **A1**: Cost-Aware **entry release** with A0's Native LRU block selection.
-- **A2**: A0 entry release with Cost-Aware **block victim selection**.
+- **A0**: frozen project-side Continuum-style **Entry Release** plus Native LRU **block victim**.
+- **A1**: Cost-Aware **Entry Release** with A0's Native LRU block selection.
+- **A2**: A0 Entry Release with Cost-Aware **physical block-victim selection**.
+- **A3**: suffix-cost-aware Entry Release with Native LRU block selection.
+- **E0**: A1 branch ladder with deadline-only Step 2 and Native LRU block selection.
+- **N0**: no-op forced Entry Release control; the pressure path remains active.
 
 These are not three implementations of the same choice layer; A2 is not a joint A1+A2 policy. Sufficient-first plus earliest-deadline is a needed strong comparator before claiming the standalone value of A1's scoring model.
 
@@ -47,7 +65,7 @@ These are not three implementations of the same choice layer; A2 is not a joint 
 
 Native input identity, logical retention release, Native hashed block eviction, APC eligibility, residency, and recomputed tokens are separate evidence tiers. When Native Level-B evidence is complete, `N` = prompt tokens, `E` = eligible reusable prefix, `C` = cached prefix, `R = E - C`, `W = N - C`, `S = N - E`.
 
-Do not pool turns or repeated runtime runs as independent sample draws. Do not cite early offline reports as though they prove physical benefit. Do not claim a production or original Continuum serving distribution from synthetic arrivals or sparse-turn replay.
+Do not pool turns or repeated runtime runs as independent sample draws. Do not cite early offline reports as though they prove physical benefit. Do not claim a production or original Continuum serving distribution from synthetic arrivals or sparse-turn replay. Phase 3 records TTL inputs/decisions but has no Static-TTL arm; it therefore does not estimate Dynamic TTL versus Static TTL. All Phase 3 arms use the Native scheduler; the program-level scheduler's performance effect is not estimated. The Phase 1B scheduler implementation/validation is separate evidence.
 
 ## Preservation
 

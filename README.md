@@ -23,43 +23,30 @@ System coordination
 
 Retention and scheduling are included where needed to reproduce strong system baselines and to evaluate later coordination extensions. They do not replace eviction as the main research problem.
 
-## Current Status
+## Current Status (as of 2026-11-10)
 
-The authoritative **M1 project and authorization ledger** is
-[`docs/research-status.md`](docs/research-status.md). Phase 3 execution history
-and the current data-readiness decision are indexed in
-[`docs/experiments/README.md`](docs/experiments/README.md).
+**Repository:** [zhengjiahong-ai/LLM-KV-Cache-Optimization](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization)  
+**Current main HEAD:** `f005ecf239c1a982d0a751f430e24fa8ca47e46e`
 
-```text
-Phase 0 / 1A / 1B             CLOSED — real vLLM/APC integration and baseline
-Phase 2A–2I                   CLOSED / bounded findings preserved; see ledger
-Phase 3 Protocol v3           PR #90 MERGED — FROZEN by M1 (reviewed HEAD 3a8c388)
-Phase 3 Workload Feasibility  PR #92 MERGED — feasibility established, not a final dataset
-Phase 3 Stage 1               PR #93 MERGED — six-arm materializer, E0/N0 CPU/Mock
-Phase 3 Stage 2               PR #94 MERGED — independent N/E/C evaluator (RC1–RC4)
-Final dataset                 NEXT — M6 selects/acquires 40 tasks + 24 reserves from 80 candidates
-Final evaluation              CONDITIONALLY AUTHORIZED — after cohort seal and frozen gates
-```
+- Phase 0 / 1A / 1B: **CLOSED**. The common vLLM/APC adapter and the project’s Continuum-style baseline have been integrated and real-runtime validated.
+- Phase 2A–2I: historical research and bounded evaluations are closed; their positive, negative, and inconclusive findings remain scoped to their original evidence.
+- Phase 3 Protocol v4 — Option F: **FROZEN**. Protocol v3 remains historical.
+- G0 v3: **ACCEPTED by M1 on 2026-11-07**. The sealed cohort contains 40 qualified tasks, 20 Workload Groups, and 10 repositories. The existing 40-run A0 Load Calibration is reused.
+- One-shot execution: **270-run pipeline authorized on 2026-11-09**, comprising 30 A0 Noise Calibration runs followed automatically by 240 Main Campaign runs if the machine-verified transition gate passes.
+- Execution state: **AUTHORIZED, NOT STARTED** as of this repository snapshot. The authorization is not evidence of a reserved GPU allocation or a completed run. M6’s pre-launch host/runner/allocation confirmation must be recorded before launch.
 
-Current data boundary:
-- W1-C froze 100 candidate task IDs; 20 were acquired for the S50/S100 pilot.
-- 18 pilot tasks are full-payload comparable, but all historical pilot tasks are
-  excluded from the formal Phase 3 cohort.
-- The remaining 80 IDs are candidates, not acquired Agent traces. They span
-  ten repositories in the current frozen frame.
-- The frozen minimum for the final cohort is **at least 10 repositories**,
-  with 20 groups and two tasks from different repositories per group.
-- M6's next deliverable is an evidence-backed data-readiness report. No Native
-  calibration or GPU campaign has started.
+The 270 new runs are exactly:
 
-The Phase 3 comparison remains six arms: N0/A0/A1/A2/A3/E0. The planned
-evaluation remains 40 A0 load-calibration runs + 30 A0 noise-calibration runs
-+ 240 main-campaign runs = 310 runs. The estimate in M6 PR #92 is 3–5 RTX
-4090D GPU-hours with a 6-hour planning ceiling; M6 must reconfirm against the
-actual qualified cohort before formal execution.
+| Stage | Runs | Scope |
+| --- | ---: | --- |
+| A0 Noise Calibration | 30 | 5 frozen Groups × C1/C2 × 3 repeats |
+| Main Campaign | 240 | 20 Groups × C1/C2 × 6 arms |
+| **Total new runs** | **270** | One continuous compute window |
 
-The real backend is frozen to **vLLM 0.27.1** with GPU Automatic Prefix
-Caching (APC).
+The earlier 40-run A0 Load Calibration is existing evidence bound into G0. It is **not** part of the 270 new runs and must not be rerun.
+
+The formal backend is vLLM 0.27.1 with GPU Automatic Prefix Caching (APC). The six arms are N0/A0/A1/A2/A3/E0. The statistical unit is the Workload Group, not a cell, request, turn, or runtime repeat. See the [canonical M1 status ledger](docs/research-status.md) and [Phase 3 Protocol v4](docs/phase3-final-evaluation-protocol-v4.md).
+
 ## Research Structure
 
 ### Core contribution path
@@ -137,6 +124,16 @@ Continuum is reproduced as a strong **system-level baseline**, including the ret
 
 This does **not** mean the proposed method becomes scheduler-centric. Continuum's full-system mechanisms are reproduced because they are intrinsic to that baseline.
 
+## Phase 3 evaluation boundary
+
+Phase 3 keeps the Native vLLM scheduler fixed across all six arms. It does not contain a program-level scheduling treatment or estimate the performance effect of Continuum scheduling.
+
+The registered A0−N0 contrast evaluates the incremental effect of the frozen project-side forced Entry Release path against a no-forced-release control under the same pressure requests, replay barriers, Native LRU/APC path, and Native scheduler. It is **not** a full-system Continuum-versus-Vanilla-vLLM comparison.
+
+TTL inputs and TTL decisions are instrumented for mechanism inspection. Because there is no Static-TTL arm, Phase 3 does not independently estimate Dynamic TTL's advantage over Static TTL. The program-level scheduler was separately implemented and validated in Phase 1B; its performance contribution is not measured by the current 270-run campaign.
+
+For the exact arm definitions, registered contrasts, and reporting restrictions, see [Phase 3 mechanism coverage and claim boundaries](docs/experiments/phase3-mechanism-coverage-and-claim-boundaries.md).
+
 ## Proposed Method
 
 The proposed method starts from **Cost-Aware Eviction / Victim Selection**.
@@ -166,16 +163,20 @@ Ours-Full = Eviction + Retention + Scheduling
 
 ## Key Documents
 
-- [**Current Phase 2 research status**](docs/research-status.md) — authoritative stage/gate ledger, evidence boundaries and PR status.
-- [**Phase 2 experiment index**](docs/experiments/README.md) — historical-to-current evidence reading order and algorithm-stage distinctions.
-
-- [`docs/experiment-plan.md`](docs/experiment-plan.md) — research questions and experimental hierarchy.
-- [`docs/baseline-freeze.md`](docs/baseline-freeze.md) — frozen Phase 1B Continuum adaptation scope.
-- [`docs/continuum-baseline-implementation.md`](docs/continuum-baseline-implementation.md) — current Phase 1B implementation and validation index.
-- [`docs/experiments/phase1b-continuum/final-report.md`](docs/experiments/phase1b-continuum/final-report.md) — final Phase 1B real-runtime evidence.
-- [`docs/policy-adapter-design.md`](docs/policy-adapter-design.md) — validated Phase 1A block-level eviction adapter.
-- [`docs/archive/`](docs/archive/) — superseded spikes and historical implementation records.
-- [`docs/team-responsibilities.md`](docs/team-responsibilities.md) — ownership and phase responsibilities.
+- [**M1 canonical research status**](docs/research-status.md) — current phase, accepted decisions, execution authorization, and claim boundaries.
+- [**Experiment and decision index**](docs/experiments/README.md) — navigation across historical evidence and current Phase 3 records.
+- [**Phase 3 Final Evaluation Protocol v4 — Option F**](docs/phase3-final-evaluation-protocol-v4.md) — frozen estimands, operating points, populations, noise estimator, and gates.
+- [**One-shot 270-run authorization**](docs/experiments/phase3-option-f-270-run-pipeline-authorization.md) — operative M1 execution authorization and automatic transition contract.
+- [**Option F engineering status**](docs/experiments/phase3-option-f-engineering-status.md) — G0 acceptance, engineering validation, and execution status.
+- [**Mechanism coverage and claim boundaries**](docs/experiments/phase3-mechanism-coverage-and-claim-boundaries.md) — what Phase 1B validated and what Phase 3 can/cannot establish.
+- [**Final report outline**](docs/phase3-final-report-outline.md) — planned structure for the eventual research report.
+- [**Experimental plan**](docs/experiment-plan.md) — research questions and experiment hierarchy.
+- [**Baseline freeze**](docs/baseline-freeze.md) — immutable Phase 1B Continuum-style semantics.
+- [**Continuum baseline implementation**](docs/continuum-baseline-implementation.md) — implementation and real-runtime validation index.
+- [**Phase 1B final report**](docs/experiments/phase1b-continuum/final-report.md) — accepted baseline evidence.
+- [**Policy adapter design**](docs/policy-adapter-design.md) — validated physical block-level eviction boundary.
+- [**Team responsibilities**](docs/team-responsibilities.md) — project ownership.
+- [**Archive**](docs/archive/) — superseded spikes and historical implementation records.
 
 ## Team Responsibilities
 

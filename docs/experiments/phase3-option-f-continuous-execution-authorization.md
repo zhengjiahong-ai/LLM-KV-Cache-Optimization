@@ -1,5 +1,7 @@
 # M1 Decision — Single-Allocation Continuous Phase 3 Noise + Main Execution
 
+> **Execution-control status:** This is an intermediate 2026-11-09 decision record. The later [One-Shot 270-Run Phase 3 Execution Authorization](phase3-option-f-270-run-pipeline-authorization.md) is the operative execution contract and prevails if any wording differs. This file is retained as decision history.
+
 **Date:** 2026-11-09
 **Decision owner:** M1
 **Implementation owner:** M6

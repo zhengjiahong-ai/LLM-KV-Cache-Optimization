@@ -1,47 +1,43 @@
 # Experimental Plan
 
-## Current Phase 3 execution overlay (2026-11-03)
+## Current Phase 3 execution overlay (M1 reconciliation, 2026-11-10)
 
-**Canonical status:** [`docs/research-status.md`](research-status.md). This overlay records the current M1-approved Phase 3 direction. Historical research questions and Phase 2 verdicts below remain historical and are not retroactively changed.
+**Canonical status:** [docs/research-status.md](research-status.md). This overlay records the current frozen Option F campaign and M1 execution authorization. It does not rewrite historical research questions or prior phase verdicts.
 
-### Phase 3 delivery status
+### Current delivery and authorization
 
-| Item | Status | Evidence |
+| Item | Status | Evidence / boundary |
 | --- | --- | --- |
-| M4 Final Evaluation Protocol v3 | MERGED / FROZEN | [PR #90](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/90); M1 freeze recorded on merge 2026-11-03 |
-| M6 workload/execution feasibility | MERGED | [PR #92](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/92) |
-| Six-arm Materializer, E0/N0 | MERGED — Stage 1 complete | [PR #93](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/93) |
-| Independent N/E/C Evaluator | MERGED — Stage 2 complete | [PR #94](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/94) |
-| Final data readiness | NEXT — M6 | [M1 data-readiness decision](experiments/phase3-data-readiness-decision.md) |
-| Final Evaluation | CONDITIONALLY AUTHORIZED | M6 must freeze a compliant cohort/run manifest; applicable protocol gates still control Main Campaign start |
+| Protocol v3 | Historical / superseded | PR #90 remains immutable history |
+| Protocol v4 — Option F | **FROZEN** | [Protocol v4](phase3-final-evaluation-protocol-v4.md) |
+| Six-arm materializer | **MERGED** | PR #93; CPU/Mock and materialization validation |
+| Independent N/E/C evaluator | **MERGED** | PR #94; RC1–RC4 closed |
+| G0 v3 | **ACCEPTED by M1 (2026-11-07)** | 40 tasks / 20 Groups / 10 repositories; existing 40-run A0 calibration bound |
+| One-shot execution | **AUTHORIZED / NOT STARTED** | [M1 270-run authorization](experiments/phase3-option-f-270-run-pipeline-authorization.md) |
+| M6 pre-launch readiness | **NOT YET RECORDED ON MAIN** | Host, runner, GPU allocation, resource reservation, and hash validation must be reported before launch |
 
-### Final cohort requirement
+### Frozen campaign
 
-- 40 **new qualified Agent tasks** arranged into 20 independent Workload Groups.
-- Two tasks per group, from different repositories.
-- Minimum repository coverage: **10 repositories**, as required by frozen Protocol v3 and M6 PR #92.
-- Existing W1-C's 20 acquired pilot tasks (18 full-payload comparable) are engineering/regression data only and are excluded from the formal cohort.
-- M6 must confirm the real Full Payload, Explicit Token IDs, sidecars, Prefill Profile and Native Replay readiness of each selected task. The remaining 80 W1-C IDs are candidates, not acquired traces.
-- If fewer than 40 qualified tasks or fewer than 10 repositories are available, report the actual shortfall; do not lower the threshold or expand the frozen candidate frame without M1 approval.
+- Six arms: **N0 / A0 / A1 / A2 / A3 / E0**.
+- Main: **20 Groups × C1/C2 × 6 arms = 240 runs**.
+- Noise: **5 frozen Groups × C1/C2 × 3 repeats = 30 runs**.
+- Total new-run budget: **270** in one continuous compute window.
+- Existing A0 Load Calibration: **40 runs, reused; no rerun**.
+- The Workload Group is the statistical unit. C1/C2 are repeated operating conditions within a Group, not independent groups.
+- The Main primary paired population is 18 complete Groups; H3-0 uses all 20 Groups / 38 Headroom-qualified cells; H3-R uses 9 RESPONSIVE Groups / 16 cells.
 
-### Final experiment plan
+### Fixed conditions and gates
 
-The six arms remain N0/A0/A1/A2/A3/E0. The planned scale remains:
+- C1 and C2 are the frozen operating-point names. Their required_blocks are 256 and 1024 respectively; source labels L_LOW / L_HIGH are provenance only and must not be promoted to “low pressure” / “high pressure”.
+- Headroom requires rho0 >= 0.05 and R0 >= 512; frozen result: 38/40 cells.
+- FLAT / WEAK / RESPONSIVE strata are frozen as 3 / 8 / 9 Groups and are not post-hoc exclusion filters.
+- The 30-run Noise stage must produce and persist the exact Protocol v4 pooled estimator and tied threshold.
+- Main may start only after the machine-verified transition gate validates all 30 Noise Run IDs, the independent evaluator, all applicable mandatory gates, and all frozen hashes.
+- Any missing evidence, undefined required pooled value, mandatory gate failure, or hash mismatch stops the pipeline before Main. No intermediate manual M1 review is required when the automatic gate passes.
 
-| Set | Runs |
-| --- | ---: |
-| A0 Load Calibration | 40 |
-| A0 Noise Calibration | 30 |
-| Main Campaign (20 groups × 2 loads × 6 arms) | 240 |
-| **Total** | **310** |
+### Research interpretation
 
-The PR #92 estimate is 3–5 RTX 4090D GPU-hours with a 6-hour ceiling; M6 must reconfirm the estimate against the actual qualified cohort.
-
-M6 is authorized to select, acquire and qualify the formal dataset within the existing 80-candidate W1-C frame. Once 40 qualified tasks / 20 cross-repository groups / at least 10 repositories are frozen in a SHA-256-bound cohort/run manifest, M6 may proceed with the 40-run A0 load calibration and 30-run A0 noise calibration. After the applicable frozen protocol gates and G0 manifest are satisfied, proceed to the 240-run Main Campaign under this M1 authorization. Any shortfall or protocol deviation returns to M1; do not reopen the frozen protocol or expand the candidate frame.
-
-No separate Stage 3 Cohort Seal engineering milestone is required. The final run manifest must still SHA-256 bind task membership, group pairing, Frozen Request Order, Native Enqueue Order, Replay Timeline, Session pairing and per-request History Predecessors before formal execution.
-
----
+The campaign separates Entry Release from physical Block Victim Selection. A0−N0 is the registered forced-Entry-Release contrast; A1/A3/E0 change Entry Release selection; A2 changes physical block selection. The Phase 3 Native scheduler is held fixed. TTL inputs/decisions are observable, but no Static-TTL arm is present. Therefore the campaign does not independently estimate Dynamic TTL versus Static TTL or the program-level scheduler's performance effect. See [mechanism coverage and claim boundaries](experiments/phase3-mechanism-coverage-and-claim-boundaries.md).
 
 ## Project Theme
 
