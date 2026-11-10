@@ -137,6 +137,8 @@ The current research does not assume that a particular cost-aware policy is alre
 
 A2 is not a combined A1+A2 policy. Entry Release and physical victim selection are separate decisions. The exact definitions, metrics, estimands, and gates are frozen in [Phase 3 Protocol v4](docs/phase3-final-evaluation-protocol-v4.md).
 
+The four potential follow-on directions (not part of Phase 3 and not authorized for implementation) are preserved in [Potential Future Research Directions](docs/future-research-directions.md): evidence-aware Block intervention, workflow-aware Block signals, downstream-cost-aware Entry Release, and partial-tail Entry unpinning.
+
 ## Key Documents
 
 - [**M1 canonical research status**](docs/research-status.md) — current phase, accepted decisions, execution authorization, and claim boundaries.

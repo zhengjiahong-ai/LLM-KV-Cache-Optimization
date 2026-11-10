@@ -107,6 +107,17 @@ These are component-level contrasts within the project-side Continuum-style cach
 
 The Phase 1B baseline adaptation is not an exact source-level reproduction of Continuum. The current Phase 3 claims must remain limited to the frozen protocol, evaluated decision layers, workload, and evidence. See [Research Motivation and Contributions](research-motivation-and-contributions.md) for the canonical project narrative.
 
+## Potential future research directions — research reserve only
+
+M1 has accepted M2's four proposals for preservation as potential future research directions:
+
+1. **Evidence-aware Block intervention** — decide when a validated cost-aware selector should replace the actual Native-LRU victim set.
+2. **Workflow-aware Block signals** — test whether online lifecycle signals add value beyond the TTL-derived deadline proxy.
+3. **Downstream-cost-aware Entry Release** — evaluate release order through the actual downstream physical victim set and recomputation loss.
+4. **Partial-tail Entry unpinning** — investigate range-level protection while preserving shallow reusable prefixes.
+
+These directions are **not part of Phase 3 Protocol v4**, do not create experimental arms, and do not authorize implementation, new data acquisition, smoke tests, or GPU runs. Current priority remains the already-authorized one-shot 270-run pipeline and its independent analysis. Any follow-on work requires a separate M1 decision, available time, and a study-specific frozen protocol. See [Potential Future Research Directions](future-research-directions.md) for the consolidated research agenda.
+
 ## Phase status ledger
 
 | Phase / evidence | Status | What is supported / what is not |
