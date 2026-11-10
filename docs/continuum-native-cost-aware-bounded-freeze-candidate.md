@@ -1,6 +1,8 @@
 # Bounded Native Cost-Aware evaluation freeze candidate
 
-Status: **PENDING M1 FINAL FREEZE**
+> **Historical candidate:** This Phase 2 bounded-evaluation candidate was superseded by the accepted 54-run Native evaluation recorded in [bounded results](continuum-native-cost-aware-bounded-results.md) and PR #82. Its PENDING M1 FINAL FREEZE label records the candidate's original state and is not the current project or Phase 3 status. The current Phase 3 campaign is separately governed by Protocol v4 and the one-shot 270-run authorization.
+
+Status at the time of drafting: **PENDING M1 FINAL FREEZE**
 
 This candidate supersedes the unexecuted 3B/108-run protocol. It does not
 change or reinterpret any earlier Metal, H800, W1-A, W1-B, or W1-C evidence.

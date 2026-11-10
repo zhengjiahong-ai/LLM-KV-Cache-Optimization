@@ -1,6 +1,6 @@
 # Cost-Aware KV 淘汰：Entry + Block 联合设计（最小版）
 
-> **Historical design-stage scope:** The “design draft / not implemented” note below describes this document's **original drafting stage**, not the present repository. Later Phase 2G A1 and A2 were separately implemented and bounded-evaluated, but their independent cost-model value remains unproven. The combined A3 method is **not authorized**. Consult [canonical research status](research-status.md) and [experiment index](experiments/README.md) for the current verdict; do not retrospectively convert this design's illustrative proxy predictions into measured Native token benefit.
+> **Historical design-stage scope:** This Phase 2 joint Entry/Block design proposal is not the current Phase 3 protocol or implementation specification. Later Phase 2G A1/A2 were separately implemented and bounded-evaluated; their independent cost-model value remained unproven in that bounded campaign. The “A3” label and combined Entry+Block proposal inside this historical draft must not be conflated with current Phase 3 A3, the frozen suffix-cost-aware Entry Release arm. Current six-arm mapping is N0/A0/A1/A2/A3/E0 in [Protocol v4](phase3-final-evaluation-protocol-v4.md). Consult [canonical research status](research-status.md) and [experiment index](experiments/README.md); illustrative proxy predictions are not measured Native token benefit.
 
 > 状态：**设计草案，未实现**
 > 依 M1 裁定：本文只做设计，不做 runtime 策略实现、不做大规模实验。

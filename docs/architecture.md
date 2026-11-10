@@ -4,7 +4,7 @@
 
 The project studies KV-cache management on **vLLM 0.27.1 GPU APC**, with a clear hierarchy of concerns.
 
-> **Current research/evaluation interpretation (2026-11-10):** The project keeps cost-aware KV eviction as its research core, while the frozen Phase 3 campaign distinguishes Entry Release from physical Block Victim Selection. The six-arm Option F mapping and claim boundaries are current; the original `Ours-Evict` schematic below remains a research hierarchy, not a claim that an independent final method has already been validated. Read [canonical status](research-status.md), [experiment index](experiments/README.md), and [frozen Phase 1B baseline](baseline-freeze.md) for their different authority levels.
+> **Current research/evaluation interpretation (2026-11-10):** The project studies cost-aware optimization within a project-side Continuum-style, program-aware cache-management adaptation. The Phase 3 campaign evaluates local changes to logical Entry Release and physical Block Victim Selection; it does not evaluate a monolithic Ours-Evict system or a full-system Continuum-versus-Vanilla comparison. Earlier Ours-Evict / Ours-Full diagrams below are historical conceptual roadmap only. The current six-arm mapping and claim boundaries are defined above and in [canonical status](research-status.md), [experiment index](experiments/README.md), and [Protocol v4](phase3-final-evaluation-protocol-v4.md).
 
 ## Research hierarchy
 
@@ -97,7 +97,7 @@ It must support at minimum:
 
 - native block-level LRU equivalence;
 - Continuum retention-aware eligibility/fallback behavior;
-- future Cost-Aware victim selection.
+- the registered A2 Cost-Aware physical block-victim selector.
 
 The project must preserve native vLLM ownership of:
 
@@ -109,9 +109,7 @@ The project must preserve native vLLM ownership of:
 
 ## Retention layer
 
-Retention is a supporting mechanism around eviction.
-
-It may determine whether a cached prefix/block should currently be protected from ordinary victim selection, but it does not replace the eviction policy itself.
+Retention is part of the Continuum-style system foundation. It determines whether a cached logical entry or observed prefix should remain protected during its retention window, and when pressure may release that protection. It is distinct from physical Block Victim Selection: releasing protection changes eligibility but does not itself remove a physical KV block.
 
 For the Continuum baseline, retention state is maintained independently of native vLLM block semantics:
 
@@ -127,7 +125,7 @@ Protected blocks remain native free cached blocks and are filtered before ordina
 
 ## Scheduling layer
 
-Scheduling coordination is included because Continuum's defining system behavior requires program-level scheduling adaptation and because later full-system experiments may study coordination benefits.
+The narrow program-level admission-order adapter is part of the Phase 1B Continuum-style system adaptation and was real-runtime validated at its controlled Native request boundary. Phase 3 does not install or vary this adapter: every Phase 3 arm uses the Native vLLM scheduler. Its performance contribution is therefore not estimated by the current campaign.
 
 The frozen first boundary is narrow:
 
@@ -141,7 +139,7 @@ read-only scheduler snapshot
 
 The first implementation does not modify running-request preemption order.
 
-Scheduling is therefore a **system coordination layer**, not the primary algorithmic contribution.
+Scheduling is therefore a validated system-integration mechanism, not a Phase 3 treatment or a demonstrated performance advantage.
 
 ## Baseline architecture
 
@@ -164,11 +162,11 @@ explicit program/session identity
     -> native APC / BlockPool backend
 ```
 
-Continuum is intentionally reproduced as a system-level baseline even though the proposed research core is eviction.
+The project-side Continuum-style adaptation is the system foundation for the current cost-aware optimization study. It is not an exact reproduction of the original system and is not compared as a complete system against untouched Vanilla vLLM in Phase 3.
 
 ## Proposed architecture
 
-**Original conceptual roadmap, not a completed method/acceptance record.** The staged `Ours-Evict` / `Ours-Full` names below represent the original research hierarchy. Actual evaluated Phase 2G A0/A1/A2 policies have the two-level definitions above; the strong Sufficient-first comparator and formal Native benefit evaluation are not yet complete. See [current research status](research-status.md).
+**Historical conceptual roadmap only.** The staged `Ours-Evict` / `Ours-Full` names below predate the current Phase 3 Option F design. They are not current arm names, and the old statement that a formal Native benefit campaign is still pending is superseded by the accepted Protocol v4 and the current 270-run authorization. The operative Phase 3 mapping is N0/A0/A1/A2/A3/E0 above; the campaign is authorized but not yet started. See [current research status](research-status.md).
 
 The proposed method should be developed in stages:
 
@@ -191,33 +189,14 @@ Ours-Full
 
 ## Experiment boundaries
 
-### Primary algorithm experiment
+The current formal campaign is component-level within the adapted Continuum-style system:
 
-Hold scheduling fixed and compare victim selection:
+- A0−N0: incremental effect of the frozen forced Entry Release path under shared Native LRU/APC and Native scheduling;
+- A1−A0 and A3−A0: registered Entry Release policy changes;
+- A2−A0: physical block-victim selector change while retaining A0 Entry Release;
+- A3 versus E0: registered suffix-cost versus deadline-only discriminability comparison.
 
-```text
-vLLM native LRU
-vs.
-Cost-Aware Eviction
-```
-
-### Supporting component experiments
-
-Evaluate whether retention further improves the eviction-centered method.
-
-### Full-system experiment
-
-Compare intrinsic system combinations such as:
-
-```text
-vLLM native
-vs.
-Continuum-style adapted system
-vs.
-Ours-Full
-```
-
-A full-system gain must not be attributed to eviction alone without the eviction-only/component results.
+The campaign does not estimate a full-system Continuum-versus-Vanilla effect, Dynamic-TTL-versus-Static-TTL effect, or program-level scheduler-performance effect. A full-system follow-up would require a separate protocol and M1 authorization.
 
 ## Simulator
 
