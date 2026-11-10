@@ -1,16 +1,19 @@
-# Phase 3 Final Research Report — Outline and Evidence Checklist
+# Cost-Aware Optimization of Continuum-Style KV Cache Management on vLLM
+
+## Phase 3 Final Research Report — Outline and Evidence Checklist
 
 **Status:** Reporting scaffold only; no Phase 3 Noise or Main results are pre-filled.  
 **As of:** 2026-11-10  
 **Frozen design:** Protocol v4 — Option F  
 **Execution authority:** M1 one-shot 270-run authorization
 
-This outline is intended to turn the completed project history and the forthcoming 270-run evidence into a coherent research report. It is not a new protocol and must not be used to change estimands, populations, gates, or run plans.
+This outline organizes the report around the project’s actual research target: a project-side Continuum-style multi-turn KV cache management adaptation on vLLM, and cost-aware optimization at its Entry Release and physical Block Victim Selection layers. It is a reporting scaffold, not a new protocol; it must not change estimands, populations, gates, or run plans.
 
 ## 1. Executive summary
 
-- Research problem and motivation.
-- The exact contribution evaluated in Phase 3.
+- Why program-aware, Continuum-style KV cache management is the chosen system foundation.
+- Why cache pressure creates two separate cost-sensitive decisions: logical Entry Release and physical Block Victim Selection.
+- The exact local policy changes evaluated in Phase 3.
 - Backend, workload, cohort, and six-arm design.
 - Primary results and uncertainty.
 - Registered H3-0/H3-R findings.
@@ -23,14 +26,15 @@ Do not write outcome claims until the Native campaign, independent evaluators, a
 
 - KV cache reuse and Automatic Prefix Caching in vLLM.
 - Cost of recomputation and the eviction/victim-selection problem.
-- Continuum's multi-turn retention and program-level scheduling ideas.
+- Continuum's program-aware multi-turn retention, TTL, pressure handling, and scheduling ideas.
+- The project's vLLM adaptation boundary and the distinction between reproducing system mechanisms and optimizing selected decisions.
 - Distinction between eviction, retention/protection, and scheduling.
 - Related cost-aware and adaptive cache policies.
 - Precise project adaptation boundary: Continuum-style implementation, not byte-for-byte reproduction.
 
 ## 3. Research questions and hypotheses
 
-Organize the report around the frozen Phase 3 questions:
+Organize the report around the frozen Phase 3 questions within the Continuum-style adapted cache-management system:
 
 1. What is the incremental effect of the project-side forced Entry Release path (A0−N0)?
 2. Do Cost-Aware Entry Release variants improve over A0 (A1/A3)?
@@ -156,6 +160,7 @@ For each non-A0 arm, report arm−A0 under Protocol v4:
 - Why a null or tied result is not automatically equivalence.
 - Workload and operating-point limitations.
 - Difference between the project adaptation and the original Continuum paper.
+- Why Phase 3 supports component-level claims about selected cache decisions, not a full-system Continuum-versus-Vanilla comparison.
 - Implications for cost-aware eviction design.
 
 ## 10. Threats to validity and limitations

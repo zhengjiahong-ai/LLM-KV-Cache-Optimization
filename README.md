@@ -1,27 +1,19 @@
-# KV Cache Management Optimization for LLM Inference
+# Cost-Aware Optimization of Continuum-Style KV Cache Management on vLLM
 
-## Goal
+## Project Positioning
 
-This course project studies **cost-aware KV-cache eviction for LLM serving** on a real vLLM backend.
+This project investigates how to improve **Continuum-style, program-aware KV cache management** adapted to vLLM 0.27.1, with a focus on cost-aware decisions under GPU memory pressure.
 
-The broader system context includes retention/protection and scheduling coordination, but the research contribution remains centered on one primary decision:
+The project is not a generic KV-cache eviction framework developed independently of a system baseline. It first builds and validates a project-side Continuum-style management baseline, then studies whether cost-aware policies can improve two distinct decisions within that management path:
 
-> **When GPU KV-cache capacity is insufficient, which cached blocks/prefixes should be evicted to minimize future recomputation cost?**
+1. **Entry Release:** when retained cache entries must yield to memory pressure, which logical entry should be released first?
+2. **Physical Block Victim Selection:** after entries become eligible, which physical KV blocks should Native vLLM actually evict?
 
-The project therefore uses the following hierarchy:
+The system foundation includes program/session identity, tool-gap and reuse history, dynamic TTL estimation, soft retention protection, pressure-driven release, and a narrow program-level scheduling adaptation. These mechanisms are adapted to vLLM interfaces; the project does not claim a byte-for-byte or source-level reproduction of the original Continuum system.
 
-```text
-Primary research core
-    Cost-Aware Eviction / Victim Selection
+**Working research title:** *Cost-Aware Optimization of Continuum-Style KV Cache Management on vLLM.*
 
-Supporting cache mechanism
-    Retention / Protection
-
-System coordination
-    Scheduling
-```
-
-Retention and scheduling are included where needed to reproduce strong system baselines and to evaluate later coordination extensions. They do not replace eviction as the main research problem.
+See [Research Motivation and Contributions](docs/research-motivation-and-contributions.md) for the canonical motivation, research questions, contribution boundaries, and terminology.
 
 ## Current Status (as of 2026-11-10)
 
@@ -49,117 +41,101 @@ The formal backend is vLLM 0.27.1 with GPU Automatic Prefix Caching (APC). The s
 
 ## Research Structure
 
-### Core contribution path
+~~~text
+Research target
+    Continuum-style, program-aware multi-turn KV cache management on vLLM
 
-```text
-vLLM native APC LRU
-        vs.
-Cost-Aware Eviction
-```
+System foundation
+    Project-side Continuum-style adaptation
+    - Program / Session lifecycle and reuse history
+    - Dynamic TTL and soft retention protection
+    - Pressure-driven Entry Release
+    - Narrow program-level scheduling adaptation
 
-This comparison is the primary algorithmic contribution and must remain independently evaluable with native scheduling fixed.
+Cost-aware optimization under memory pressure
+    A. Entry Release policy
+       A0 baseline / A1 Cost-Aware / A3 suffix-cost-aware / E0 deadline-only comparator
+    B. Physical Block Victim Selection
+       Native LRU baseline / A2 Cost-Aware selector
 
-### Supporting / system-level path
+Native execution substrate
+    vLLM 0.27.1 GPU APC / KVCacheManager / BlockPool
+~~~
 
-```text
-Eviction
-  + Retention
-  + Scheduling coordination
-```
-
-These layers are used for:
-
-- reproducing Continuum-style system behavior;
-- testing whether retention further strengthens eviction decisions;
-- testing whether scheduling coordination further improves end-to-end performance.
+The project therefore studies cost-aware optimization **inside a Continuum-style cache-management design**. Retention, Entry Release, physical block selection, and scheduling are related but distinct mechanisms; results must be attributed only to the decision layer actually varied.
 
 ## Current Architecture
 
-```mermaid
+~~~mermaid
 flowchart TD
-    A[Workload / Session Events] --> B[Request & Session Observation]
-    B --> C[Retention State Manager]
-    C --> D[Scheduling Policy Adapter]
-    D --> E[vLLM Scheduler]
-    C --> F[Retention Eligibility Filter]
-    F --> G[Eviction Policy Adapter]
-    G --> H[vLLM KVCacheManager / BlockPool]
-    E --> H
-    H --> I[GPU APC KV Cache]
-    H --> J[Metrics / Profiling]
-```
+    A[Workload / Program / Session Events] --> B[Lifecycle and Reuse-History Observation]
+    B --> C[Continuum-Style State: Dynamic TTL and Retention]
+    C --> D[Pressure-Driven Entry Release]
+    D --> E[Eligible Native KV Blocks]
+    E --> F[Physical Victim Selection: Native LRU or A2]
+    F --> G[vLLM KVCacheManager / BlockPool]
+    G --> H[GPU Automatic Prefix Caching]
+    G --> I[Native Evidence and Recompute Metrics]
+    C -. Phase 1B scheduling adaptation .-> J[Native Scheduler Boundary]
+    J -. Phase 3 uses Native scheduler in every arm .-> G
+~~~
 
-The **Eviction Policy Adapter is the primary research decision boundary**. Retention and scheduling provide context or coordination around it.
-
-The validated Phase 1A eviction path is:
-
-```text
-vLLM cached free blocks
-    -> VLLMEvictionBridge
-    -> EvictionPolicyAdapter
-    -> selected block IDs
-    -> native BlockPool allocation / eviction bookkeeping
-```
+The common native execution path remains authoritative for allocation, reference counts, APC hashes, physical block reuse, and cleanup. Entry Release changes eligibility; it does not itself perform physical block eviction.
 
 ## Baselines
 
-### Baseline 1 — vLLM native system
+### Baseline 1 — Native vLLM
 
-- vLLM 0.27.1
-- GPU APC
-- native block-level LRU behavior
-- native scheduler
+- vLLM 0.27.1;
+- GPU Automatic Prefix Caching;
+- Native block-level LRU victim selection;
+- Native scheduler.
 
-### Baseline 2 — Continuum-style adapted system
+This is the underlying execution baseline and the unchanged physical-victim policy in most Phase 3 arms.
 
-Continuum is reproduced as a strong **system-level baseline**, including the retention and scheduling mechanisms required by the frozen Phase 1B scope:
+### Baseline 2 — Project-side Continuum-style adaptation
 
-- explicit `program_id/session_id`;
-- online tool-gap / reuse history;
-- dynamic TTL estimation;
-- soft retention protection;
-- lazy expiry and deterministic pressure release;
-- narrow program-level admission-order scheduling adaptation;
-- existing Phase 1A eviction path and native BlockPool cleanup.
+Phase 1B implemented and real-runtime validated a Continuum-style adaptation to vLLM 0.27.1. Its validated scope includes:
 
-This does **not** mean the proposed method becomes scheduler-centric. Continuum's full-system mechanisms are reproduced because they are intrinsic to that baseline.
+- explicit program/session identity across native request IDs;
+- tool-gap and server inter-request-gap history;
+- dynamic TTL estimation and PrefillReload inputs;
+- soft retention protection and lazy expiry;
+- deterministic pressure-driven Entry Release;
+- a narrow program-level admission-order scheduling adapter;
+- native APC and BlockPool allocation/eviction ownership.
+
+This is a **project-side adaptation**, not an exact reproduction of the original paper's source code, serving traces, or complete system. The implementation and validation boundary is documented in [Continuum Baseline Implementation](docs/continuum-baseline-implementation.md) and the [Phase 1B final report](docs/experiments/phase1b-continuum/final-report.md).
+
+The frozen Phase 3 A0 arm uses the project-side Continuum-style Entry Release path with Native LRU physical block selection. It should not be described as a full-system Continuum-versus-Vanilla-vLLM comparison.
 
 ## Phase 3 evaluation boundary
 
-Phase 3 keeps the Native vLLM scheduler fixed across all six arms. It does not contain a program-level scheduling treatment or estimate the performance effect of Continuum scheduling.
+The formal Phase 3 campaign evaluates **local cost-aware policy changes within the project-side Continuum-style cache-management path**. It is not a full-system comparison of the original Continuum system against untouched vLLM.
 
-The registered A0−N0 contrast evaluates the incremental effect of the frozen project-side forced Entry Release path against a no-forced-release control under the same pressure requests, replay barriers, Native LRU/APC path, and Native scheduler. It is **not** a full-system Continuum-versus-Vanilla-vLLM comparison.
+- **A0 − N0:** incremental effect of the frozen forced Entry Release path versus no forced Entry Release, with pressure requests, replay barriers, Native LRU/APC, and the Native scheduler held in common.
+- **A1 − A0 and A3 − A0:** changes to the Entry Release decision.
+- **A2 − A0:** changes only physical block-victim selection, retaining the A0 Entry Release path.
+- **A3 versus E0:** registered cost-model discriminability comparison against the deadline-only Step 2 comparator.
 
-TTL inputs and TTL decisions are instrumented for mechanism inspection. Because there is no Static-TTL arm, Phase 3 does not independently estimate Dynamic TTL's advantage over Static TTL. The program-level scheduler was separately implemented and validated in Phase 1B; its performance contribution is not measured by the current 270-run campaign.
+All Phase 3 arms use the Native vLLM scheduler. The Phase 1B program-level scheduler adaptation was separately implemented and real-runtime validated, but its performance effect is not estimated by this campaign.
 
-For the exact arm definitions, registered contrasts, and reporting restrictions, see [Phase 3 mechanism coverage and claim boundaries](docs/experiments/phase3-mechanism-coverage-and-claim-boundaries.md).
+TTL inputs and decisions are available for mechanism inspection. There is no Static-TTL arm, so Phase 3 does not estimate Dynamic TTL versus Static TTL. No optimization benefit is claimed before the formal run evidence and independent evaluation are accepted.
 
-## Proposed Method
+## Cost-Aware Optimization Candidates
 
-The proposed method starts from **Cost-Aware Eviction / Victim Selection**.
+The current research does not assume that a particular cost-aware policy is already superior. It evaluates several candidates at two decision layers:
 
-Conceptually:
+| Arm | Entry Release | Physical Block Victim | Purpose |
+| --- | --- | --- | --- |
+| N0 | No forced Entry Release | Native LRU | Control |
+| A0 | Frozen Continuum-style Entry Release | Native LRU | Adapted baseline |
+| A1 | Cost-Aware Entry Release | Native LRU | Entry-level cost-aware candidate |
+| A2 | Same A0 Entry Release | Cost-Aware selector | Physical block-level candidate |
+| A3 | Suffix-cost-aware Entry Release | Native LRU | Entry-level suffix-cost candidate |
+| E0 | A1 branch ladder with deadline-only Step 2 | Native LRU | Strong deadline-only comparator |
 
-```text
-EvictionLoss = f(
-    recomputation_cost,
-    reuse_signal,
-    memory_footprint,
-    cache_pressure
-)
-```
-
-The **final independently validated Ours-Evict contribution and scoring claim** are not frozen. This conceptual sketch is not an assertion that no Cost-Aware code exists: A1 (entry-level forced release) and A2 (block-level victim selection) have already been implemented and evaluated in bounded studies, with their independent algorithmic value still under investigation. See [current status](docs/research-status.md) and the [experiment index](docs/experiments/README.md).
-
-After the eviction-only method is validated, optional extensions may add:
-
-```text
-Ours-Evict
-Ours-Evict+Retention
-Ours-Full = Eviction + Retention + Scheduling
-```
-
-`Ours-Evict` must remain an independently meaningful method and experiment.
+A2 is not a combined A1+A2 policy. Entry Release and physical victim selection are separate decisions. The exact definitions, metrics, estimands, and gates are frozen in [Phase 3 Protocol v4](docs/phase3-final-evaluation-protocol-v4.md).
 
 ## Key Documents
 
@@ -180,13 +156,13 @@ Ours-Full = Eviction + Retention + Scheduling
 
 ## Team Responsibilities
 
-Member 1 — Architecture, scheduler/cache interfaces, integration, project management  
-Member 2 — Background, related work, motivation  
-Member 3 — Baseline system implementation and validation  
-Member 4 — **Cost-Aware eviction** design and implementation, then optional coordination extensions  
-Member 5 — Dataset, workload and benchmark framework  
-Member 6 — Evaluation, visualization, profiling and attribution analysis  
-Member 7 — Slides and presentation
+Member 1 — Research architecture, Continuum-style baseline integration, phase gates and final evidence adjudication  
+Member 2 — Continuum / related-work mechanism review and research motivation  
+Member 3 — Continuum-style baseline implementation and regression support  
+Member 4 — Cost-Aware Entry Release and physical block-victim policy design and analysis  
+Member 5 — Shared workload, benchmark and runner infrastructure  
+Member 6 — Formal workload execution, independent evaluation and evidence analysis  
+Member 7 — Research narrative, slides and presentation
 
 ## Development Rules
 

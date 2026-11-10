@@ -1,5 +1,7 @@
 # Experimental Plan
 
+> **Research positioning (2026-11-10):** This plan is for cost-aware optimization within the project-side Continuum-style KV cache management adaptation on vLLM. Historical Ours-Evict / Ours-Full roadmap sections below are retained as design history where they differ from the current frozen Phase 3 protocol. For the current formal questions and claim boundaries, use [Research Motivation and Contributions](research-motivation-and-contributions.md), [Research Status](research-status.md), and [Protocol v4](phase3-final-evaluation-protocol-v4.md).
+
 ## Current Phase 3 execution overlay (M1 reconciliation, 2026-11-10)
 
 **Canonical status:** [docs/research-status.md](research-status.md). This overlay records the current frozen Option F campaign and M1 execution authorization. It does not rewrite historical research questions or prior phase verdicts.
@@ -39,98 +41,46 @@
 
 The campaign separates Entry Release from physical Block Victim Selection. A0−N0 is the registered forced-Entry-Release contrast; A1/A3/E0 change Entry Release selection; A2 changes physical block selection. The Phase 3 Native scheduler is held fixed. TTL inputs/decisions are observable, but no Static-TTL arm is present. Therefore the campaign does not independently estimate Dynamic TTL versus Static TTL or the program-level scheduler's performance effect. See [mechanism coverage and claim boundaries](experiments/phase3-mechanism-coverage-and-claim-boundaries.md).
 
-## Project Theme
+## Project Theme and Research Objective
 
-**Cost-Aware KV Cache Eviction for LLM Serving**
+**Cost-Aware Optimization of Continuum-Style KV Cache Management on vLLM**
 
-The primary research question is:
+The project builds upon a project-side Continuum-style adaptation for program-aware, multi-turn KV cache management on vLLM 0.27.1. Its research objective is to determine whether cost-aware decisions can improve cache management under memory pressure.
 
-> When GPU KV-cache capacity is insufficient, which cached blocks/prefixes should be evicted so that future recomputation cost is minimized without introducing excessive policy overhead or unfair queueing effects?
+The motivating system manages program/session lifecycle, tool-gap and reuse history, dynamic TTL, soft retention, pressure-driven release, and program-level scheduling. The optimization study focuses on two distinct decisions:
 
-The project keeps retention and scheduling in scope as supporting/system-level mechanisms, but they do not replace eviction/victim selection as the research core.
+1. **Entry Release:** which retained logical entry should yield when protected cache must be released.
+2. **Physical Block Victim Selection:** which eligible KV blocks should be removed by Native vLLM.
 
-## Research hierarchy
+The project does not claim exact source-level reproduction of the original Continuum system. The Phase 1B adaptation is an engineering baseline; Phase 2–3 investigate local optimization choices within that baseline.
 
-```text
-Primary contribution
-    Cost-Aware Eviction / Victim Selection
-
-Supporting extension
-    Retention / Protection
-
-System extension
-    Scheduling Coordination
-```
-
----
+See [Research Motivation and Contributions](research-motivation-and-contributions.md) for the canonical project narrative and [Research Status](research-status.md) for the current phase and evidence boundaries.
 
 ## Research Questions
 
-### RQ1 — Core eviction question
+The formal Phase 3 questions are defined by frozen Protocol v4 and must not be changed by this narrative document.
 
-Can Cost-Aware victim selection outperform native recency-based vLLM APC LRU under identical scheduling and cache budgets?
+### RQ1 — Continuum-style forced Entry Release
 
-Primary comparison:
+Under the shared pressure path, Native LRU/APC and Native scheduler, what is the incremental effect of the frozen project-side Continuum-style forced Entry Release path versus the no-forced-release control (A0−N0)?
 
-```text
-vLLM native APC LRU
-vs.
-Ours-Evict
-```
+### RQ2 — Cost-Aware Entry Release
 
-This is the project's main algorithmic comparison.
+Do the registered Cost-Aware Entry Release policies (A1/A3) improve the recomputation outcome relative to the adapted baseline A0?
 
-### RQ2 — Why and when does Cost-Aware eviction help?
+### RQ3 — Cost-Aware physical Block Victim Selection
 
-Under which workload conditions does Cost-Aware eviction reduce expensive recomputation most effectively?
+Does changing only the physical victim selector (A2), while retaining A0 Entry Release, improve the recomputation outcome relative to A0?
 
-Candidate dimensions:
+### RQ4 — Cost-model discriminability
 
-- short vs. long requests;
-- mixed request lengths;
-- low vs. high cache pressure;
-- low vs. high prefix reuse;
-- heterogeneous recomputation cost;
-- steady vs. bursty arrivals where useful.
+Does the suffix-cost-aware decision path (A3) produce the required robustly discriminable decisions beyond the deadline-only Step 2 comparator (E0), under the exact G3-CM definition?
 
-Analysis should connect:
+### RQ5 — Workload heterogeneity
 
-```text
-victim-selection change
-    -> fewer costly evictions
-    -> fewer recomputed/prefill tokens
-    -> latency / throughput impact
-```
+How do the registered effects vary across the frozen FLAT / WEAK / RESPONSIVE strata and fixed C1/C2 operating points?
 
-### RQ3 — Does retention further improve the eviction-centered method?
-
-After `Ours-Evict` is validated independently, evaluate whether a retention/protection mechanism provides additional benefit.
-
-Comparison structure:
-
-```text
-Ours-Evict
-vs.
-Ours-Evict+Retention
-```
-
-Retention is an extension, not a prerequisite for the core method.
-
-### RQ4 — Does scheduling coordination further improve full-system performance?
-
-Evaluate the incremental effect of scheduling coordination only after the eviction and retention components are separately measurable.
-
-Comparison structure:
-
-```text
-Ours-Evict+Retention
-vs.
-Ours-Full
-```
-
-Full-system comparisons may additionally include Continuum.
-
----
+Dynamic TTL and program-level scheduling remain important Continuum-style baseline mechanisms, but the current Phase 3 design does not independently estimate Dynamic-TTL-versus-Static-TTL or scheduler-performance effects.
 
 ## Baselines
 

@@ -1,23 +1,30 @@
 # Architecture
 
+> **Project objective:** Cost-aware optimization of a project-side Continuum-style, program-aware KV cache management adaptation on vLLM 0.27.1. Continuum-style lifecycle/retention is the system foundation; cost-aware Entry Release and physical Block Victim Selection are the current optimization targets. This is not a claim of exact reproduction of the original Continuum system. See [Research Motivation and Contributions](research-motivation-and-contributions.md).
+
 The project studies KV-cache management on **vLLM 0.27.1 GPU APC**, with a clear hierarchy of concerns.
 
 > **Current research/evaluation interpretation (2026-11-10):** The project keeps cost-aware KV eviction as its research core, while the frozen Phase 3 campaign distinguishes Entry Release from physical Block Victim Selection. The six-arm Option F mapping and claim boundaries are current; the original `Ours-Evict` schematic below remains a research hierarchy, not a claim that an independent final method has already been validated. Read [canonical status](research-status.md), [experiment index](experiments/README.md), and [frozen Phase 1B baseline](baseline-freeze.md) for their different authority levels.
 
 ## Research hierarchy
 
-```text
-Primary research core
-    Eviction / Victim Selection
+~~~text
+System foundation
+    Project-side Continuum-style program-aware cache management
+    - Program / Session lifecycle and reuse history
+    - Dynamic TTL and soft retention protection
+    - Pressure-driven Entry Release
+    - Narrow program-level scheduling adaptation
 
-Supporting cache mechanism
-    Retention / Protection
+Current optimization targets
+    1. Cost-Aware Entry Release
+    2. Cost-Aware Physical Block Victim Selection
 
-System coordination
-    Scheduling
-```
+Native execution substrate
+    vLLM 0.27.1 GPU APC / KVCacheManager / BlockPool
+~~~
 
-The broader architecture includes all three because strong baselines such as Continuum couple retention with scheduling. However, the proposed research contribution remains centered on improving **which cached KV blocks/prefixes are evicted under memory pressure**.
+Retention and scheduling are intrinsic to the Continuum-style system foundation. The formal Phase 3 campaign changes only registered cache decision policies; it holds the Native scheduler fixed.
 
 ## System Layers
 

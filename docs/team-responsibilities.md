@@ -1,23 +1,24 @@
 # Team Responsibilities
 
+> **Current project positioning (2026-11-10):** The project optimizes a project-side Continuum-style program-aware KV cache management adaptation on vLLM. Phase 1B establishes the baseline; the current research evaluates cost-aware Entry Release and physical Block Victim Selection. Exact reproduction of the original Continuum system is not claimed. See [Research Motivation and Contributions](research-motivation-and-contributions.md) and [Research Status](research-status.md).
+
 This document defines ownership and phase responsibilities for the seven project members. For the **current** phase and its authorized scope, read [`research-status.md`](research-status.md); the baseline responsibilities below remain historical/general guidance where newer M1 authorizations assign narrower operational ownership.
 
 ## Project hierarchy
 
-The overall topic is KV Cache Management Optimization, but the research contribution has a clear priority:
+~~~text
+System foundation
+    Continuum-style program-aware multi-turn KV cache management
 
-```text
-Primary research core
-    Cost-Aware Eviction / Victim Selection
+Current optimization targets
+    Cost-Aware Entry Release
+    Cost-Aware Physical Block Victim Selection
 
-Supporting mechanism
-    Retention / Protection
+Supporting system mechanism
+    Program-level scheduling adaptation
+~~~
 
-System coordination
-    Scheduling
-```
-
-Retention and scheduling remain in scope because they are required by the Continuum system baseline and may later be evaluated as extensions. They must not displace eviction as the primary proposed algorithm.
+The project does not treat Continuum retention and scheduling as unrelated add-ons: they form part of the adapted system baseline. The optimization contribution is evaluated at the specific cache decision layers varied by the frozen protocol.
 
 ## Current Phase 2 W0/W1 ownership overlay
 

@@ -65,28 +65,47 @@ See [Option F engineering status](experiments/phase3-option-f-engineering-status
 
 ## Research objective and decision layers
 
-The project studies **cost-aware KV-cache eviction / victim selection on real vLLM 0.27.1 with GPU APC**. The longer-term research hierarchy remains:
+### Project objective
 
-1. **Core research:** cost-aware KV eviction and victim selection.
-2. **Supporting cache mechanism:** retention / protection, including the Continuum-style Entry Release path.
-3. **System coordination:** scheduling.
+The project investigates **cost-aware optimization of a Continuum-style, program-aware KV cache management adaptation on vLLM 0.27.1**. The Continuum-style adaptation is the system foundation; cost-aware policy design is the optimization direction.
 
-The Phase 3 campaign evaluates two distinct decision layers. Entry Release changes which cached entries become eligible; physical Block Victim Selection chooses among eligible Native blocks. They must not be collapsed into one generic “eviction algorithm” when attributing effects.
+The project is organized around four related but non-interchangeable layers:
 
-| Arm | Entry forced-release policy | Physical block-victim policy | Interpretation |
+1. **Program-aware cache lifecycle:** program/session identity, tool-gap and reuse history, dynamic TTL, and retention protection.
+2. **Entry Release under pressure:** deciding which logically retained cache entry should be released so its blocks become eligible.
+3. **Physical Block Victim Selection:** choosing which eligible Native KV blocks are actually evicted by the vLLM cache path.
+4. **Program-level scheduling:** a narrow Continuum-style admission-order adaptation, implemented and real-runtime validated in Phase 1B.
+
+Entry Release is not physical eviction. Releasing a protected entry changes eligibility; Native vLLM still performs physical block eviction and owns BlockPool bookkeeping.
+
+### Current Phase 3 policy map
+
+| Arm | Entry Release policy | Physical block-victim policy | Role in the Continuum-style optimization study |
 | --- | --- | --- | --- |
-| N0 | No-op; no forced Entry Release | Native LRU | No-forced-release control; pressure requests, barriers, timeline, APC and Native scheduler remain active |
-| A0 | Frozen project-side Continuum-style Entry Release | Native LRU | Continuum-style Entry Release baseline; not a complete public-paper reproduction |
-| A1 | Frozen Cost-Aware Entry Release | Native LRU | Changes the Entry Release decision relative to A0 |
-| A2 | Same frozen A0 Entry Release | Cost-Aware block selector | Changes only physical victim selection relative to A0 |
-| A3 | Suffix-cost-aware Entry Release | Native LRU | Tests the suffix-cost Entry decision path |
-| E0 | A1 branch ladder with deadline-only Step 2 | Native LRU | Strong deadline-only comparator for the cost-aware Step 2 |
+| N0 | No forced Entry Release | Native LRU | Control for the incremental forced-release path |
+| A0 | Frozen project-side Continuum-style Entry Release | Native LRU | Adapted Entry Release baseline |
+| A1 | Cost-Aware Entry Release | Native LRU | Cost-aware change at the Entry Release layer |
+| A2 | Same frozen A0 Entry Release | Cost-Aware block selector | Cost-aware change at the physical victim layer |
+| A3 | Suffix-cost-aware Entry Release | Native LRU | Alternative cost-aware Entry Release candidate |
+| E0 | A1 branch ladder with deadline-only Step 2 | Native LRU | Strong deadline-only comparator for A3 |
 
-A2 is **not** an A1+A2 combined policy. A1/A3/E0 operate at the Entry Release layer; A2 operates at the physical block-victim layer. The primary metric is aggregate recomputed tokens, `Σ(E-C)`, with independently derived `N`, `E`, and `C`. E must never be completed from C.
+A2 is not an A1+A2 combined policy. A1/A3/E0 change Entry Release; A2 changes physical block selection. The main outcome remains aggregate recomputed tokens, Σ(E−C), with N, E, and C independently derived.
 
-The registered H3-0 contrast is **A0 − N0** over every Headroom-qualified cell (20 Groups / 38 cells); H3-R is a separate RESPONSIVE-only contrast (9 Groups / 16 cells). This measures the incremental effect of the frozen forced-Entry-Release path against the no-forced-release control under the shared Native scheduler and Native LRU/APC path. It is **not** a full Continuum-versus-Vanilla-vLLM system comparison.
+### What the formal campaign can establish
 
-Dynamic TTL inputs and decisions are observable through the lifecycle evidence, but there is no Static-TTL arm; therefore Phase 3 cannot independently estimate Dynamic TTL's advantage over Static TTL. Likewise, the Phase 3 arms all use Native scheduling; the program-level scheduler's performance effect is not estimated by this campaign. Phase 1B separately implemented and real-runtime validated the narrow program-level admission-order adaptation. See [mechanism coverage and claim boundaries](experiments/phase3-mechanism-coverage-and-claim-boundaries.md).
+- **A0 − N0 (H3-0 / H3-R):** the incremental effect of the frozen forced Entry Release path against no forced Entry Release, under shared Native LRU/APC and Native scheduling.
+- **A1 − A0 / A3 − A0:** the incremental effect of the registered Entry Release policy variants.
+- **A2 − A0:** the incremental effect of cost-aware physical block-victim selection while retaining A0 Entry Release.
+- **A3 versus E0:** whether the suffix-cost model produces the registered level of robustly discriminable decisions beyond the deadline-only comparator.
+
+These are component-level contrasts within the project-side Continuum-style cache-management adaptation. They are **not** a full-system comparison of the original Continuum paper against untouched Vanilla vLLM.
+
+### Mechanisms present but not causally evaluated in Phase 3
+
+- **Dynamic TTL:** its history inputs, selected values, and deadlines can be inspected through lifecycle evidence. There is no Static-TTL arm, so the campaign does not estimate Dynamic TTL versus Static TTL.
+- **Program-level scheduling:** the narrow adapter was implemented and real-runtime validated in Phase 1B. All Phase 3 arms use the Native scheduler, so this campaign does not estimate the scheduler's performance contribution.
+
+The Phase 1B baseline adaptation is not an exact source-level reproduction of Continuum. The current Phase 3 claims must remain limited to the frozen protocol, evaluated decision layers, workload, and evidence. See [Research Motivation and Contributions](research-motivation-and-contributions.md) for the canonical project narrative.
 
 ## Phase status ledger
 

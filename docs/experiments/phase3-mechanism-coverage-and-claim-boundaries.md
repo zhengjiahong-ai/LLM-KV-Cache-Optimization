@@ -6,15 +6,16 @@
 
 This document explains what the completed Phase 1B baseline work established, what the current 270-run Phase 3 campaign measures, and which claims remain outside its design. It is an interpretation guide; it does not amend the frozen protocol, estimands, cohort, manifests, or execution authorization.
 
-## 1. Research hierarchy
+## 1. Project objective and mechanism hierarchy
 
-The project has three related but distinct layers:
+The project studies **cost-aware optimization of a project-side Continuum-style, program-aware KV cache management adaptation on vLLM 0.27.1**. Continuum-style lifecycle and retention mechanisms provide the system foundation; the formal optimization study focuses on two decisions made under cache pressure.
 
-1. **Cost-aware KV eviction / victim selection** — the central research objective.
-2. **Retention / protection** — supporting cache mechanism, including the project-side Continuum-style Entry Release path.
-3. **Program-level scheduling** — system coordination required by the Continuum-style baseline.
+1. **Program-aware retention context:** program/session identity, tool-gap and reuse history, dynamic TTL, and soft protection.
+2. **Entry Release:** which logically retained entry should be released under pressure, making its blocks eligible.
+3. **Physical Block Victim Selection:** which eligible Native blocks should actually be evicted.
+4. **Program-level scheduling:** a narrow Phase 1B adaptation, validated separately and held out of the Phase 3 treatment grid.
 
-Entry Release and physical Block Victim Selection are separate decisions. Releasing a protected entry changes which blocks become eligible; it does not itself perform Native block eviction.
+Entry Release and physical eviction are different events. Logical release changes eligibility; Native vLLM remains responsible for selecting/removing physical blocks and maintaining BlockPool/APC state. The current Phase 3 campaign therefore tests local cost-aware changes within the adapted Continuum-style management path, not a full-system Continuum-versus-Vanilla comparison.
 
 ## 2. What Phase 1B established
 

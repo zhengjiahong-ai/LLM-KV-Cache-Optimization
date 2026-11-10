@@ -1,6 +1,6 @@
 # Experiment and Decision Index
 
-This is a **navigation index**, not a replacement for primary evidence, historical final reports, or M1 approvals. For live stage authorizations, read [the canonical status ledger](../research-status.md). Historical reports retain their original scope and outcomes; later results do not retroactively rewrite them.
+This is a **navigation index**, not a replacement for primary evidence, historical final reports, or M1 approvals. The project studies cost-aware optimization of a project-side Continuum-style KV cache management adaptation on vLLM: Phase 1B establishes the system baseline, while Phase 2–3 investigate cost-aware Entry Release and physical block-victim decisions. For the canonical motivation and contribution boundaries, read [Research Motivation and Contributions](../research-motivation-and-contributions.md); for live status, read [the M1 status ledger](../research-status.md). Historical reports retain their original scope and outcomes.
 
 ## Reading order
 
@@ -50,7 +50,7 @@ A1/A3/E0 are Entry Release policies; A2 changes physical block selection. A2 is 
 
 The frozen M6 feasibility report and G0 require **at least ten repositories**. The accepted G0 cohort meets the 40-task / 20-Group / 10-repository requirement. The historical 18 W1-C pilot tasks remain excluded from formal Phase 3 effect estimates.
 
-## Interpret the three algorithm layers correctly
+## Interpret the two cache decision layers and scheduler boundary
 
 - **A0**: frozen project-side Continuum-style **Entry Release** plus Native LRU **block victim**.
 - **A1**: Cost-Aware **Entry Release** with A0's Native LRU block selection.
@@ -59,9 +59,13 @@ The frozen M6 feasibility report and G0 require **at least ten repositories**. T
 - **E0**: A1 branch ladder with deadline-only Step 2 and Native LRU block selection.
 - **N0**: no-op forced Entry Release control; the pressure path remains active.
 
-These are not three implementations of the same choice layer; A2 is not a joint A1+A2 policy. Sufficient-first plus earliest-deadline is a needed strong comparator before claiming the standalone value of A1's scoring model.
+These are not interchangeable implementations of one choice. A1/A3/E0 operate at the logical Entry Release layer; A2 operates at the physical block-victim layer. A2 is not a joint A1+A2 policy. E0 is the deadline-only Step 2 comparator for the A1-style branch ladder. The Phase 3 scheduler is held at Native vLLM across all arms; the Phase 1B scheduling adapter is separate baseline integration evidence, not a Phase 3 treatment.
 
-## Evidence/claim guardrails
+## Project positioning and evidence/claim guardrails
+
+The project target is a **Continuum-style, program-aware cache-management adaptation**, not a generic cache eviction framework. The Phase 3 campaign evaluates local policy changes within that adaptation. It does not establish that the complete original Continuum system has been reproduced or that the entire system outperforms Vanilla vLLM.
+
+
 
 Native input identity, logical retention release, Native hashed block eviction, APC eligibility, residency, and recomputed tokens are separate evidence tiers. When Native Level-B evidence is complete, `N` = prompt tokens, `E` = eligible reusable prefix, `C` = cached prefix, `R = E - C`, `W = N - C`, `S = N - E`.
 
