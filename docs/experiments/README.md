@@ -6,7 +6,7 @@ This is a **navigation index**, not a replacement for primary evidence, historic
 
 | Topic | Recommended record | Reading boundary |
 | --- | --- | --- |
-| Overall status and current authorization | [Research status](../research-status.md) | Protocol v4 / Option F frozen; G0 accepted; one-shot 270-run pipeline authorized but not started; Main is conditional on the automatic Noise gate |
+| Overall status and current authorization | [Research status](../research-status.md) | Protocol v4 / Option F execution complete; 270/270 runs reconciled; final M1/M4 adjudication pending |
 | Phase 2A H1/H2 original verdicts | [H1/H2 closeout](../phase2a-h1-h2-closeout-verdict-record.md) | H1 `DIAGNOSTIC_ONLY`; H2 not all-pass, B1 locked |
 | Phase 2B/2C fidelity lessons | [Phase 2B fidelity repair](../phase2b-m6-experimental-fidelity-repair-spec.md), [Phase 2C audit](../phase2c-m6-workload-reuse-audit.md) | Separate replay fidelity from real Native content sharing and context growth |
 | Phase 2E baseline measurements | [Measured campaign](../phase2e-m6-measured-campaign-report.md) | Native LRU vs Continuum baseline on predefined synthetic grid, **not** A1 benefit |
@@ -33,7 +33,8 @@ This is a **navigation index**, not a replacement for primary evidence, historic
 | Earlier continuous-execution decision | [Intermediate authorization record](phase3-option-f-continuous-execution-authorization.md) | Retained as decision history; the one-shot 270-run amendment is the operative execution contract. |
 | Mechanism coverage | [Phase 3 mechanism coverage and claim boundaries](phase3-mechanism-coverage-and-claim-boundaries.md) | Separates TTL observability, forced-release effect, physical victim selection, and scheduler validation; prevents full-Continuum or scheduler-effect overclaims. |
 | Final reporting structure | [Phase 3 final report outline](../phase3-final-report-outline.md) | Pre-registered report structure and evidence checklist; contains no campaign results. |
-| Current execution state | [Research status](../research-status.md) | No committed pre-launch host/runner/GPU reservation or 270-run start record at current main HEAD. Do not infer readiness from authorization. |
+| Current execution state | [Research status](../research-status.md) | 270/270 runs complete; immutable evidence submitted for final M1/M4 adjudication. |
+| Final M6 results | [Phase 3 Option F final results](phase3-option-f-final-results.md) | 30/30 Noise and 240/240 Main complete; archive validated; submitted for M1/M4 final adjudication. |
 
 The accepted G0 cohort contains 40 qualified tasks in 20 Workload Groups across 10 repositories. The existing 40-run A0 Load Calibration is reused and must not be rerun. The new execution budget is **270 runs**: 30 A0 Noise Calibration + 240 six-arm Main Campaign. Main is conditionally pre-authorized and may start only after the frozen Noise evaluator and every applicable mandatory transition condition pass.
 

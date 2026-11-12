@@ -1,7 +1,7 @@
 # Research Status (M1 canonical status index)
 
-Status: **ACTIVE — Phase 3 Protocol v4 / Option F frozen; G0 accepted; one-shot 270-run pipeline authorized; execution not yet started**  
-As-of reconciliation: 2026-11-10, `main` @ `f005ecf239c1a982d0a751f430e24fa8ca47e46e`; [PR #99](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/99) merged; operative [M1 one-shot authorization](experiments/phase3-option-f-270-run-pipeline-authorization.md).  
+Status: **UNDER REVIEW — Phase 3 Option F execution complete; 270/270 runs reconciled; final M1/M4 adjudication pending**
+As-of execution: 2026-11-12, execution code `00a512111f15abddcad329572f6e50ccaaa76775`; [final M6 results](experiments/phase3-option-f-final-results.md); immutable evidence archive SHA-256 `d36a3765296199806e1aef04dcc655fd16d3afb6d7a5bc5a125397bea90ce5c8`.
 Owner: M1. This document indexes decisions and evidence; it does **not** amend sealed artifacts or replace their final reports.
 
 ## How to read the evidence
@@ -55,9 +55,9 @@ The controller must reconcile all 30 Noise Run IDs, run the independent Protocol
 
 The original G0 v3 manifest intentionally remains immutable with `execution_authorized=false`. The separate M1 one-shot amendment is the operative execution authority; do not rewrite the G0 manifest to make it appear that authorization existed at freeze time.
 
-### Execution state — do not infer readiness from authorization
+### Execution state
 
-As of main HEAD `f005ecf`, the repository contains the authorization but no execution ledger proving that the 270-run campaign has started or that a GPU allocation is reserved. M6 must record the pre-launch host, runner, GPU allocation, resource reservation, and frozen-hash verification before launch. Until such evidence is committed, the correct status is **AUTHORIZED / NOT STARTED**.
+M6 reports the one-shot pipeline **COMPLETE**: 30/30 Noise and 240/240 Main runs, automatic transition `MAIN_AUTHORIZED_BY_PIPELINE`, and all 270 result identities reconciled. Noise passed with `sigma_run = sigma_delta = tied threshold = 0`. Main found A1/A2/A3/E0 tied with A0 on aggregate recomputed tokens, while N0 recomputed more than A0. These are submitted results pending final M1/M4 evidence adjudication, not yet an M1-accepted final verdict.
 
 The current six-arm campaign is N0/A0/A1/A2/A3/E0. Its new-run budget is **270**, not 310: the 40-run A0 Load Calibration already exists and is reused. The Main grid is 20 Groups × C1/C2 × 6 arms = 240; the Noise stage is 5 Groups × C1/C2 × 3 repeats = 30.
 
@@ -143,7 +143,7 @@ The proposed Phase 5 comparison has four primary systems: Native vLLM, the autho
 | Phase 2 W1-B — PR #73 | **ACCEPTED / CLOSED — `BOUNDED_SMOKE_ONLY`** | M1 approved HEAD `4b902da` and merged as `fc9626da` (2026-10-23). M6 reports 4 groups × A0/A1/A2 = 12 successful runs; A1−A0 recompute delta −3904 tokens and A2−A0 zero. Limited descriptive/native comparability evidence; no formal effect or content-level causal attribution |
 | Phase 2 W1-C | **ACCEPTED / CLOSED** | Cross-repository stratified sampling and the 20-task S50/S100 feasibility pilot completed; 18 full-payload-comparable task pairs fed the later bounded Native evaluation |
 | Bounded Native Cost-Aware evaluation — PR #82 | **M1 ACCEPTED / CLOSED (2026-10-27)** | RTX 4090D campaign reports 54/54 successful Native runs over nine frozen groups; A1: 0 better / 1 worse / 8 tied, A2: 0 better / 3 worse / 6 tied. No observed A1/A2 recomputation-token benefit in this predefined grid. Exploratory single-repeat evidence; content-level causal attribution `NOT_ESTABLISHED`. External evidence archive handed to M4; no independent archive rehash in this M1 review. |
-| Phase 3 Option F — PR #99 / Protocol v4 | **ACTIVE — G0 ACCEPTED; 270-RUN PIPELINE AUTHORIZED / NOT STARTED** | G0 v3 binds 40 tasks / 20 Groups / 10 repositories and the existing 40-run A0 calibration. The one-shot pipeline is 30 Noise + conditional 240 Main. No result or readiness claim until M6 commits execution evidence. |
+| Phase 3 Option F — PR #99 / Protocol v4 | **UNDER REVIEW — 270/270 COMPLETE** | Noise 30/30 and Main 240/240 completed. A0 outperformed N0 on recomputation; A1/A2/A3/E0 showed zero incremental effect versus A0. Archive and internal manifest validated; final M1/M4 adjudication pending. |
 
 ### W1-B closeout — M1 acceptance and evidence boundaries
 
