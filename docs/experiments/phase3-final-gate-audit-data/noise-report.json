@@ -1,0 +1,19 @@
+{
+  "cell_count": 10,
+  "df": 20,
+  "estimator_frozen": true,
+  "run_count": 30,
+  "schema_version": "phase3.option_f_noise_report.v1",
+  "sigma_delta": 0.0,
+  "sigma_run": 0.0,
+  "status": "PASS",
+  "stratum_sigma_max_min_ratio": null,
+  "stratum_sigma_max_min_ratio_status": "UNDEFINED_ALL_STRATUM_SIGMAS_ZERO",
+  "stratum_sigma_run": {
+    "FLAT": 0.0,
+    "RESPONSIVE": 0.0,
+    "WEAK": 0.0
+  },
+  "stratum_status": "DIAGNOSTIC_ONLY",
+  "tied_threshold": 0.0
+}

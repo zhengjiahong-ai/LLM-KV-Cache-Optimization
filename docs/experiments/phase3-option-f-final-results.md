@@ -1,6 +1,6 @@
 # Phase 3 Option F Final Evaluation Results
 
-**Status:** M6 execution and offline analysis complete; pending M1/M4 final adjudication
+**Status:** execution complete; final audit found a G1 enqueue-order failure and process deviation; pending M1/M4 adjudication
 
 **Execution code:** `00a512111f15abddcad329572f6e50ccaaa76775`
 
@@ -25,6 +25,13 @@ replace the immutable external evidence archive.
 - A pre-execution launch attempt stopped before any Native request because
   `VLLM_ENABLE_V1_MULTIPROCESSING=0` was absent. Its failure archive is
   retained separately and is not mixed with the successful campaign.
+
+The transition record describes what the controller persisted, not proof that
+all frozen transition gates were evaluated. A later read-only audit found that
+the historical transition omitted a complete G1/G4/Cohort ledger. It also
+found actual Native enqueue order equal to the frozen order in only 48/240
+Main runs. This is a recorded process deviation and retrospective G1 failure;
+it is not retroactively relabeled as PASS.
 
 ## 2. Noise calibration
 
@@ -78,6 +85,11 @@ For A3 specifically:
 - only 7 decisions had two audited candidates;
 - A3 selected the same entry as frozen A1 in all 127 decisions.
 
+Under the registered branch taxonomy this is S2A=127, S2B=0 and S2C=0
+(C1: 63/0/0; C2: 64/0/0). A3 and E0 selected different programs in zero
+decisions. G3-CM therefore has zero PROFILE_ROBUST and zero PROFILE_SENSITIVE
+discriminable decisions; `H2 = NOT_EVALUABLE`.
+
 This is weak exposure for demonstrating incremental value from the A3 cost
 model. Under the frozen campaign, the model did not change an A1 choice, so a
 zero A3−A0 effect does not establish general equivalence of the policies.
@@ -106,6 +118,10 @@ runs. The independent N/E/C outcome remains the formal effect evidence.
 No additional GPU execution is required for this report. Any algorithm redesign
 or independent full-system comparison belongs to a separately authorized later
 phase.
+
+The effect summaries above are bounded descriptive results from the completed
+execution. Because G1 enqueue-order equality failed, they must not be presented
+as an all-gates-passed confirmatory result without M1/M4 adjudication.
 
 ## 6. Reproducibility identities
 

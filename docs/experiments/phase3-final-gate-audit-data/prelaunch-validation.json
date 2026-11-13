@@ -1,0 +1,25 @@
+{
+  "authorization_sha256": "d4ce34d41494a14c5862275bff8293670b1464d6b4b7efd6f07cf4f602af68b3",
+  "environment": {
+    "active_compute_processes": [],
+    "cuda": "13.0",
+    "gpu": "NVIDIA GeForce RTX 4090 D",
+    "gpu_query": "GPU-22217d95-497b-f94c-f97f-c3b39ed04a05, 00000000:AB:00.0, NVIDIA GeForce RTX 4090 D, 0, 24564, 580.105.08",
+    "schema_version": "phase3.option_f_native_environment.v1",
+    "status": "PASS",
+    "torch": "2.13.0+cu130",
+    "vllm": "0.27.1"
+  },
+  "g0_freeze_manifest_sha256": "db9ebb8a388d30f6d9bc1c58a19dd8b97b9ce0a7afdafea124987754fbcde971",
+  "git_sha": "00a512111f15abddcad329572f6e50ccaaa76775",
+  "input_bundle_sha256": "8af98526e9b278bfea6e12e54fb089b88ffab98dee8af7a44e2073096f146a31",
+  "main_plan_sha256": "5828ce55dbc23ca14aa5c0074ae8c795f51ecb301bd01de003eb8c7045e27f21",
+  "main_run_count": 240,
+  "main_run_id_unique_count": 240,
+  "noise_plan_sha256": "2107d1fc42d7e37c0528d681cb5c1ff2dc703e7e8573376e8ffadae76e6f33f5",
+  "noise_run_count": 30,
+  "noise_run_id_unique_count": 30,
+  "schema_version": "phase3.option_f_unified_prelaunch.v1",
+  "status": "PASS",
+  "total_run_count": 270
+}

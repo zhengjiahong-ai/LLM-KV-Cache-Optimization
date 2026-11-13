@@ -1,0 +1,461 @@
+{
+  "H3_0": {
+    "cell_count": 38,
+    "group_count": 20,
+    "mean_A0_minus_N0": -3123.2
+  },
+  "H3_R": {
+    "cell_count": 16,
+    "group_count": 9,
+    "mean_A0_minus_N0": -6435.555555555556
+  },
+  "S10": "ENFORCED",
+  "interactions": {
+    "A1": {
+      "Interaction_A": {
+        "N_analyzed": 18,
+        "mean": 0.0,
+        "verdict_allowed": true
+      },
+      "Interaction_B": {
+        "N_analyzed": 7,
+        "group_ids": [
+          "g03",
+          "g04",
+          "g05",
+          "g10",
+          "g12",
+          "g16",
+          "g19"
+        ],
+        "mean": 0.0,
+        "status": "DIAGNOSTIC_ONLY_BELOW_MINIMUM_8",
+        "verdict_allowed": false
+      }
+    },
+    "A2": {
+      "Interaction_A": {
+        "N_analyzed": 18,
+        "mean": 0.0,
+        "verdict_allowed": true
+      },
+      "Interaction_B": {
+        "N_analyzed": 7,
+        "group_ids": [
+          "g03",
+          "g04",
+          "g05",
+          "g10",
+          "g12",
+          "g16",
+          "g19"
+        ],
+        "mean": 0.0,
+        "status": "DIAGNOSTIC_ONLY_BELOW_MINIMUM_8",
+        "verdict_allowed": false
+      }
+    },
+    "A3": {
+      "Interaction_A": {
+        "N_analyzed": 18,
+        "mean": 0.0,
+        "verdict_allowed": true
+      },
+      "Interaction_B": {
+        "N_analyzed": 7,
+        "group_ids": [
+          "g03",
+          "g04",
+          "g05",
+          "g10",
+          "g12",
+          "g16",
+          "g19"
+        ],
+        "mean": 0.0,
+        "status": "DIAGNOSTIC_ONLY_BELOW_MINIMUM_8",
+        "verdict_allowed": false
+      }
+    },
+    "E0": {
+      "Interaction_A": {
+        "N_analyzed": 18,
+        "mean": 0.0,
+        "verdict_allowed": true
+      },
+      "Interaction_B": {
+        "N_analyzed": 7,
+        "group_ids": [
+          "g03",
+          "g04",
+          "g05",
+          "g10",
+          "g12",
+          "g16",
+          "g19"
+        ],
+        "mean": 0.0,
+        "status": "DIAGNOSTIC_ONLY_BELOW_MINIMUM_8",
+        "verdict_allowed": false
+      }
+    },
+    "N0": {
+      "Interaction_A": {
+        "N_analyzed": 18,
+        "mean": -225.77777777777777,
+        "verdict_allowed": true
+      },
+      "Interaction_B": {
+        "N_analyzed": 7,
+        "group_ids": [
+          "g03",
+          "g04",
+          "g05",
+          "g10",
+          "g12",
+          "g16",
+          "g19"
+        ],
+        "mean": 374.85714285714283,
+        "status": "DIAGNOSTIC_ONLY_BELOW_MINIMUM_8",
+        "verdict_allowed": false
+      }
+    }
+  },
+  "nec_cell_count": 40,
+  "nec_cells_sha256": "60c2372dcb96773132447360e0feabb6a4650592f05164f88b7e294cab6373d3",
+  "per_condition_descriptive": {
+    "A1": {
+      "C1": {
+        "N_analyzed": 18,
+        "mean_delta": 0.0
+      },
+      "C2": {
+        "N_analyzed": 20,
+        "mean_delta": 0.0
+      }
+    },
+    "A2": {
+      "C1": {
+        "N_analyzed": 18,
+        "mean_delta": 0.0
+      },
+      "C2": {
+        "N_analyzed": 20,
+        "mean_delta": 0.0
+      }
+    },
+    "A3": {
+      "C1": {
+        "N_analyzed": 18,
+        "mean_delta": 0.0
+      },
+      "C2": {
+        "N_analyzed": 20,
+        "mean_delta": 0.0
+      }
+    },
+    "E0": {
+      "C1": {
+        "N_analyzed": 18,
+        "mean_delta": 0.0
+      },
+      "C2": {
+        "N_analyzed": 20,
+        "mean_delta": 0.0
+      }
+    },
+    "N0": {
+      "C1": {
+        "N_analyzed": 18,
+        "mean_delta": 2031.111111111111
+      },
+      "C2": {
+        "N_analyzed": 20,
+        "mean_delta": 3021.6
+      }
+    }
+  },
+  "primary": {
+    "A1": {
+      "N_analyzed": 18,
+      "group_weight": 0.05555555555555555,
+      "mean_delta": 0.0
+    },
+    "A2": {
+      "N_analyzed": 18,
+      "group_weight": 0.05555555555555555,
+      "mean_delta": 0.0
+    },
+    "A3": {
+      "N_analyzed": 18,
+      "group_weight": 0.05555555555555555,
+      "mean_delta": 0.0
+    },
+    "E0": {
+      "N_analyzed": 18,
+      "group_weight": 0.05555555555555555,
+      "mean_delta": 0.0
+    },
+    "N0": {
+      "N_analyzed": 18,
+      "group_weight": 0.05555555555555555,
+      "mean_delta": 1918.2222222222222
+    }
+  },
+  "schema_version": "phase3.option_f_results.v1",
+  "statistical_unit": "GROUP",
+  "status": "PASS",
+  "stratified_effects": {
+    "A1": {
+      "FLAT": {
+        "N_analyzed": 3,
+        "cell_count": 6,
+        "group_ids": [
+          "g01",
+          "g14",
+          "g20"
+        ],
+        "mean_delta": 0.0,
+        "population": "PAIRED_PRIMARY_INTERSECT_STRATUM",
+        "statistical_unit": "GROUP",
+        "within_group_conditions_averaged_first": true
+      },
+      "RESPONSIVE": {
+        "N_analyzed": 7,
+        "cell_count": 14,
+        "group_ids": [
+          "g03",
+          "g04",
+          "g05",
+          "g10",
+          "g12",
+          "g16",
+          "g19"
+        ],
+        "mean_delta": 0.0,
+        "population": "PAIRED_PRIMARY_INTERSECT_STRATUM",
+        "statistical_unit": "GROUP",
+        "within_group_conditions_averaged_first": true
+      },
+      "WEAK": {
+        "N_analyzed": 8,
+        "cell_count": 16,
+        "group_ids": [
+          "g02",
+          "g06",
+          "g07",
+          "g08",
+          "g11",
+          "g13",
+          "g15",
+          "g17"
+        ],
+        "mean_delta": 0.0,
+        "population": "PAIRED_PRIMARY_INTERSECT_STRATUM",
+        "statistical_unit": "GROUP",
+        "within_group_conditions_averaged_first": true
+      }
+    },
+    "A2": {
+      "FLAT": {
+        "N_analyzed": 3,
+        "cell_count": 6,
+        "group_ids": [
+          "g01",
+          "g14",
+          "g20"
+        ],
+        "mean_delta": 0.0,
+        "population": "PAIRED_PRIMARY_INTERSECT_STRATUM",
+        "statistical_unit": "GROUP",
+        "within_group_conditions_averaged_first": true
+      },
+      "RESPONSIVE": {
+        "N_analyzed": 7,
+        "cell_count": 14,
+        "group_ids": [
+          "g03",
+          "g04",
+          "g05",
+          "g10",
+          "g12",
+          "g16",
+          "g19"
+        ],
+        "mean_delta": 0.0,
+        "population": "PAIRED_PRIMARY_INTERSECT_STRATUM",
+        "statistical_unit": "GROUP",
+        "within_group_conditions_averaged_first": true
+      },
+      "WEAK": {
+        "N_analyzed": 8,
+        "cell_count": 16,
+        "group_ids": [
+          "g02",
+          "g06",
+          "g07",
+          "g08",
+          "g11",
+          "g13",
+          "g15",
+          "g17"
+        ],
+        "mean_delta": 0.0,
+        "population": "PAIRED_PRIMARY_INTERSECT_STRATUM",
+        "statistical_unit": "GROUP",
+        "within_group_conditions_averaged_first": true
+      }
+    },
+    "A3": {
+      "FLAT": {
+        "N_analyzed": 3,
+        "cell_count": 6,
+        "group_ids": [
+          "g01",
+          "g14",
+          "g20"
+        ],
+        "mean_delta": 0.0,
+        "population": "PAIRED_PRIMARY_INTERSECT_STRATUM",
+        "statistical_unit": "GROUP",
+        "within_group_conditions_averaged_first": true
+      },
+      "RESPONSIVE": {
+        "N_analyzed": 7,
+        "cell_count": 14,
+        "group_ids": [
+          "g03",
+          "g04",
+          "g05",
+          "g10",
+          "g12",
+          "g16",
+          "g19"
+        ],
+        "mean_delta": 0.0,
+        "population": "PAIRED_PRIMARY_INTERSECT_STRATUM",
+        "statistical_unit": "GROUP",
+        "within_group_conditions_averaged_first": true
+      },
+      "WEAK": {
+        "N_analyzed": 8,
+        "cell_count": 16,
+        "group_ids": [
+          "g02",
+          "g06",
+          "g07",
+          "g08",
+          "g11",
+          "g13",
+          "g15",
+          "g17"
+        ],
+        "mean_delta": 0.0,
+        "population": "PAIRED_PRIMARY_INTERSECT_STRATUM",
+        "statistical_unit": "GROUP",
+        "within_group_conditions_averaged_first": true
+      }
+    },
+    "E0": {
+      "FLAT": {
+        "N_analyzed": 3,
+        "cell_count": 6,
+        "group_ids": [
+          "g01",
+          "g14",
+          "g20"
+        ],
+        "mean_delta": 0.0,
+        "population": "PAIRED_PRIMARY_INTERSECT_STRATUM",
+        "statistical_unit": "GROUP",
+        "within_group_conditions_averaged_first": true
+      },
+      "RESPONSIVE": {
+        "N_analyzed": 7,
+        "cell_count": 14,
+        "group_ids": [
+          "g03",
+          "g04",
+          "g05",
+          "g10",
+          "g12",
+          "g16",
+          "g19"
+        ],
+        "mean_delta": 0.0,
+        "population": "PAIRED_PRIMARY_INTERSECT_STRATUM",
+        "statistical_unit": "GROUP",
+        "within_group_conditions_averaged_first": true
+      },
+      "WEAK": {
+        "N_analyzed": 8,
+        "cell_count": 16,
+        "group_ids": [
+          "g02",
+          "g06",
+          "g07",
+          "g08",
+          "g11",
+          "g13",
+          "g15",
+          "g17"
+        ],
+        "mean_delta": 0.0,
+        "population": "PAIRED_PRIMARY_INTERSECT_STRATUM",
+        "statistical_unit": "GROUP",
+        "within_group_conditions_averaged_first": true
+      }
+    },
+    "N0": {
+      "FLAT": {
+        "N_analyzed": 3,
+        "cell_count": 6,
+        "group_ids": [
+          "g01",
+          "g14",
+          "g20"
+        ],
+        "mean_delta": 184.0,
+        "population": "PAIRED_PRIMARY_INTERSECT_STRATUM",
+        "statistical_unit": "GROUP",
+        "within_group_conditions_averaged_first": true
+      },
+      "RESPONSIVE": {
+        "N_analyzed": 7,
+        "cell_count": 14,
+        "group_ids": [
+          "g03",
+          "g04",
+          "g05",
+          "g10",
+          "g12",
+          "g16",
+          "g19"
+        ],
+        "mean_delta": 4283.428571428572,
+        "population": "PAIRED_PRIMARY_INTERSECT_STRATUM",
+        "statistical_unit": "GROUP",
+        "within_group_conditions_averaged_first": true
+      },
+      "WEAK": {
+        "N_analyzed": 8,
+        "cell_count": 16,
+        "group_ids": [
+          "g02",
+          "g06",
+          "g07",
+          "g08",
+          "g11",
+          "g13",
+          "g15",
+          "g17"
+        ],
+        "mean_delta": 499.0,
+        "population": "PAIRED_PRIMARY_INTERSECT_STRATUM",
+        "statistical_unit": "GROUP",
+        "within_group_conditions_averaged_first": true
+      }
+    }
+  }
+}

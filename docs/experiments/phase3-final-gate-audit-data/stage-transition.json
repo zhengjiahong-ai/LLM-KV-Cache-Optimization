@@ -1,0 +1,9 @@
+{
+  "diagnostic_ratio_status": "UNDEFINED_ALL_STRATUM_SIGMAS_ZERO",
+  "noise_report_sha256": "3ddf57fb5cebab177da36db2ee190aa0875cb08873d771a3f869c3caae1e46b6",
+  "noise_run_count": 30,
+  "noise_run_ids_sha256": "f0649f918980158045010874bedd7e997c6ce6290943e8c02b69ac3c4d5c2b60",
+  "schema_version": "phase3.option_f_automatic_stage_transition.v1",
+  "status": "MAIN_AUTHORIZED_BY_PIPELINE",
+  "tied_threshold": 0.0
+}

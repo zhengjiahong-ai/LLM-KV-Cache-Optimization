@@ -18,6 +18,7 @@ def main() -> int:
     parser.add_argument("--repository", type=Path, default=Path.cwd())
     parser.add_argument("--g0-directory", type=Path, required=True)
     parser.add_argument("--input-directory", type=Path, required=True)
+    parser.add_argument("--cohort-seal", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     arguments = parser.parse_args()
     repository = arguments.repository.resolve()
@@ -44,6 +45,7 @@ def main() -> int:
         "noise_plan_sha256": g0 / "noise-run-plan.json",
         "main_plan_sha256": g0 / "main-run-plan.json",
         "input_bundle_sha256": inputs / "manifest.json",
+        "cohort_seal_sha256": arguments.cohort_seal.resolve(),
     }
     for path in paths.values():
         if not path.is_file():

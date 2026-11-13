@@ -33,6 +33,41 @@
   },
   "classification_sha256": "82b23d68a0af0fa715dca6886250aee395f308ce1882a0416096f4ebfc029ec6",
   "decision_row_count": 635,
+  "g2": {
+    "by_condition": {
+      "C1": {
+        "S2A": 63,
+        "S2B": 0,
+        "S2C": 0
+      },
+      "C2": {
+        "S2A": 64,
+        "S2B": 0,
+        "S2C": 0
+      }
+    },
+    "global": {
+      "S2A": 127,
+      "S2B": 0,
+      "S2C": 0
+    },
+    "s2b_fraction_among_step2": 0.0,
+    "status": "PASS"
+  },
+  "g3_cm": {
+    "discriminable_by_condition": {
+      "C1": 0,
+      "C2": 0
+    },
+    "discriminable_count": 0,
+    "h2": "NOT_EVALUABLE",
+    "minimum_required_profile_robust_count": 8,
+    "profile_robust_count": 0,
+    "profile_sensitive_count": 0,
+    "reason": "A3_AND_E0_NEVER_SELECTED_DIFFERENT_PROGRAMS",
+    "s2a_count": 127,
+    "status": "NOT_EVALUABLE"
+  },
   "main_run_count": 240,
   "schema_version": "phase3.algorithm_exposure_audit.v1",
   "source_archive": "phase3-option-f-unified-270-runs-v2-evidence.tar.gz",

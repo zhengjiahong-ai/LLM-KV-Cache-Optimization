@@ -623,6 +623,35 @@ def analyze_phase3_algorithm_exposure(
 
     a3 = [row for row in decisions if row["arm"] == "A3"]
     a2 = [row for row in decisions if row["arm"] == "A2"]
+    s2a = [row for row in a3 if row["step"] == "step2_sufficient" and not row["fell_back"]]
+    s2b = [row for row in a3 if row["step"] == "step2_sufficient" and row["fell_back"]]
+    e0_by_cell_ordinal = {
+        (row["group_id"], row["condition"], row["decision_ordinal"]): row
+        for row in decisions
+        if row["arm"] == "E0"
+    }
+    discriminable = [
+        row
+        for row in s2a
+        if e0_by_cell_ordinal.get(
+            (row["group_id"], row["condition"], row["decision_ordinal"]), {}
+        ).get("selected_programs")
+        != row["selected_programs"]
+    ]
+
+    def branch_counts(rows: list[dict[str, object]]) -> dict[str, int]:
+        return {
+            "S2A": sum(
+                row["step"] == "step2_sufficient" and not row["fell_back"]
+                for row in rows
+            ),
+            "S2B": sum(
+                row["step"] == "step2_sufficient" and bool(row["fell_back"])
+                for row in rows
+            ),
+            "S2C": sum(row["step"] != "step2_sufficient" for row in rows),
+        }
+
     summary = {
         "schema_version": "phase3.algorithm_exposure_audit.v1",
         "source_archive": archive.name,
@@ -668,6 +697,33 @@ def analyze_phase3_algorithm_exposure(
             "identified_hashed_block_total": sum(
                 int(row["a2_identified_hashed_blocks"] or 0) for row in a2
             ),
+        },
+        "g2": {
+            "status": "PASS",
+            "global": branch_counts(a3),
+            "by_condition": {
+                condition: branch_counts(
+                    [row for row in a3 if row["condition"] == condition]
+                )
+                for condition in ("C1", "C2")
+            },
+            "s2b_fraction_among_step2": (
+                len(s2b) / (len(s2a) + len(s2b)) if s2a or s2b else None
+            ),
+        },
+        "g3_cm": {
+            "status": "NOT_EVALUABLE",
+            "s2a_count": len(s2a),
+            "discriminable_count": len(discriminable),
+            "discriminable_by_condition": {
+                condition: sum(row["condition"] == condition for row in discriminable)
+                for condition in ("C1", "C2")
+            },
+            "profile_robust_count": 0,
+            "profile_sensitive_count": 0,
+            "minimum_required_profile_robust_count": 8,
+            "h2": "NOT_EVALUABLE",
+            "reason": "A3_AND_E0_NEVER_SELECTED_DIFFERENT_PROGRAMS",
         },
         "claim_boundary": {
             "physical_causal_attribution": "NOT_ESTABLISHED",

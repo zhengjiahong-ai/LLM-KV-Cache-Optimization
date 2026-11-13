@@ -135,6 +135,11 @@ deadline-only Step 2 ordering in all 127. It had the same seven multi-candidate
 opportunities and no evidence fallback. E0 and A3 selected the same program in
 all paired decisions.
 
+The registered G2 counts are S2A=127, S2B=0 and S2C=0 (C1: 63/0/0;
+C2: 64/0/0). Because A3 and E0 never selected different programs, G3-CM has
+zero PROFILE_ROBUST and zero PROFILE_SENSITIVE discriminable decisions. This
+is below the frozen minimum of eight, so `H2 = NOT_EVALUABLE`.
+
 ## 5. Score separation and selection divergence
 
 All seven multi-candidate A3 decisions had nonzero first-versus-second score

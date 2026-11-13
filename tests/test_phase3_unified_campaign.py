@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
 import pytest
@@ -14,6 +15,7 @@ from kvopt.workload.phase3_unified_campaign import (
     RunSpec,
     UnifiedCampaignController,
     ValidatedCampaign,
+    _validate_cohort_binding,
 )
 
 RESPONSIVE = {"g03", "g04", "g05", "g09", "g10", "g12", "g16", "g18", "g19"}
@@ -217,3 +219,23 @@ def test_main_inventory_is_exact_twenty_by_two_by_six(tmp_path: Path) -> None:
         for condition in ("C1", "C2")
         for arm in ARMS
     }
+
+
+def test_cohort_seal_must_match_g0_candidate_hash(tmp_path: Path) -> None:
+    seal = tmp_path / "cohort-seal.json"
+    seal.write_text('{"schema_version":"phase3.cohort_seal.v1"}\n')
+    expected = hashlib.sha256(seal.read_bytes()).hexdigest()
+    assert _validate_cohort_binding(
+        {"cohort_seal": {"sha256": expected}}, seal
+    ) == expected
+
+    seal.write_text('{"schema_version":"phase3.cohort_seal.v1","changed":true}\n')
+    with pytest.raises(ValueError, match="differs from G0 freeze"):
+        _validate_cohort_binding({"cohort_seal": {"sha256": expected}}, seal)
+
+
+def test_cohort_seal_binding_cannot_be_omitted(tmp_path: Path) -> None:
+    seal = tmp_path / "cohort-seal.json"
+    seal.write_text("{}\n")
+    with pytest.raises(TypeError, match="lacks Cohort Seal binding"):
+        _validate_cohort_binding({}, seal)

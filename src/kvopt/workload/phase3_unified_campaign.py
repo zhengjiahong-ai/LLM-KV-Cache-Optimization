@@ -203,6 +203,23 @@ def _expected_noise_rows(plan: Mapping[str, object]) -> dict[str, Mapping[str, o
     return result
 
 
+def _validate_cohort_binding(
+    candidate: Mapping[str, object], cohort_seal_path: Path
+) -> str:
+    """Bind the executed Cohort Seal to the G0 candidate, not only its path."""
+
+    binding = candidate.get("cohort_seal")
+    if not isinstance(binding, Mapping):
+        raise TypeError("G0 candidate lacks Cohort Seal binding")
+    expected = binding.get("sha256")
+    if not isinstance(expected, str) or len(expected) != 64:
+        raise ValueError("G0 candidate Cohort Seal SHA-256 is invalid")
+    observed = _sha256(cohort_seal_path)
+    if observed != expected:
+        raise ValueError("executed Cohort Seal differs from G0 freeze")
+    return observed
+
+
 def _main_input_rows(input_directory: Path, manifest: Mapping[str, object]) -> dict[str, dict[str, object]]:
     cells = manifest.get("cells")
     if not isinstance(cells, list) or len(cells) != 40:
@@ -290,6 +307,7 @@ def validate_campaign(inputs: FrozenInputs) -> ValidatedCampaign:
         if g0.get(field) != _sha256(path):
             raise ValueError(f"G0 binding mismatch: {field}")
     candidate = _read(paths["candidate"])
+    cohort_seal_sha256 = _validate_cohort_binding(candidate, inputs.cohort_seal_path)
     evidence = candidate.get("a0_execution_evidence")
     if not isinstance(evidence, Mapping) or not evidence:
         raise ValueError("G0 candidate lacks external A0 execution evidence")
@@ -326,6 +344,7 @@ def validate_campaign(inputs: FrozenInputs) -> ValidatedCampaign:
         "noise_plan_sha256": _sha256(paths["noise_plan"]),
         "main_plan_sha256": _sha256(paths["main_plan"]),
         "input_bundle_sha256": _sha256(paths["bundle"]),
+        "cohort_seal_sha256": cohort_seal_sha256,
     }
     for field, expected in expected_authorization.items():
         if authorization.get(field) != expected:
