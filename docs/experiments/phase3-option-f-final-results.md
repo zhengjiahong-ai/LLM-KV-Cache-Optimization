@@ -1,6 +1,6 @@
 # Phase 3 Option F Final Evaluation Results
 
-**Status:** execution complete; final audit found a G1 enqueue-order failure and process deviation; pending M1/M4 adjudication
+**Status:** execution complete; frozen replay-order deviation retained, actual-order E and paired effects independently recovered; pending M1/M4 adjudication
 
 **Execution code:** `00a512111f15abddcad329572f6e50ccaaa76775`
 
@@ -30,7 +30,7 @@ The transition record describes what the controller persisted, not proof that
 all frozen transition gates were evaluated. A later read-only audit found that
 the historical transition omitted a complete G1/G4/Cohort ledger. It also
 found actual Native enqueue order equal to the frozen order in only 48/240
-Main runs. This is a recorded process deviation and retrospective G1 failure;
+Main runs. This is a recorded frozen replay execution-conformance deviation;
 it is not retroactively relabeled as PASS.
 
 ## 2. Noise calibration
@@ -119,9 +119,13 @@ No additional GPU execution is required for this report. Any algorithm redesign
 or independent full-system comparison belongs to a separately authorized later
 phase.
 
-The effect summaries above are bounded descriptive results from the completed
-execution. Because G1 enqueue-order equality failed, they must not be presented
-as an all-gates-passed confirmatory result without M1/M4 adjudication.
+The subsequent actual-order audit found 8 exact cells, 32 cells where all six
+arms shared the same non-frozen order, and zero cross-arm-different cells. It
+independently reconstructed all 5,760 request-arm E values from actual evidence:
+none changed, all 40 cells retained cross-arm E equality, and the registered
+fixed-population effects reproduced exactly. The frozen replay deviation remains
+a limitation, and the result must not be presented as fully execution-conformant
+without M1/M4 adjudication.
 
 ## 6. Reproducibility identities
 

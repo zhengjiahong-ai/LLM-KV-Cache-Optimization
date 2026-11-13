@@ -15,7 +15,8 @@ modifies the immutable evidence nor retroactively authorizes Main.
 | Cohort Seal SHA | PASS; observed and frozen SHA are both `9e528b173e2205a3f5137ee036e842dc739e7827e5f294dd7907c180ee38ea5f` | The historical authorization record omitted this field |
 | Run inventory | PASS; 30 Noise and 240 Main IDs exactly reconcile across plan, state, results and Native directories | Completed |
 | Normalized cross-arm configuration | PASS, 40/40 cells | Not persisted as a stage-transition gate |
-| Actual Native enqueue order | **FAIL; 48/240 runs exact, 192/240 differ from the frozen order** | Not checked before/during Main admission |
+| Frozen replay execution conformance | **FAIL; 48/240 runs exact, 192/240 differ from the frozen order** | Not checked before/during Main admission |
+| Cross-arm actual enqueue-order equality | PASS, 40/40 cells; 32 cells share a common deviation | Established by the subsequent read-only actual-order audit |
 | N0/cross-arm Pressure Boundary sequence | PASS, 40/40 cells | Not persisted as a stage-transition gate |
 | Independent N/E/C | PASS, 40/40 cell reports | Evaluated after collection |
 | G2 branch composition | S2A=127, S2B=0, S2C=0 | Post-collection evidence |
@@ -36,11 +37,14 @@ without a persisted proof of all stated transition checks. The read-only
 checks above are retrospective evidence only and are deliberately not labeled
 as execution-time PASS results.
 
-Because G1 actual enqueue equality fails, the completed campaign cannot be
-reported as satisfying every frozen mandatory gate. The immutable results may
-still support bounded descriptive findings, but their formal status and the
-effect of the order deviation require M1/M4 adjudication. No GPU rerun is
-performed or requested by this audit.
+The frozen replay execution-conformance check fails, so the completed campaign
+cannot be reported as satisfying every frozen execution contract. A subsequent
+read-only audit established that all six arms had identical actual order in
+every cell, all 5,760 actual-order E values were determinate and unchanged, and
+the fixed-population effect estimates were identical. This supports a bounded
+paired-effect interpretation under an explicitly retained process deviation;
+final status still requires M1/M4 adjudication. No GPU rerun is performed or
+requested.
 
 ## Evidence location
 
@@ -48,6 +52,10 @@ performed or requested by this audit.
 gate ledger, authorization and prelaunch records, pipeline/noise/transition/
 main reports, the 40 N/E/C reports, algorithm-exposure outputs, and a SHA-256
 manifest.
+
+The follow-up [Actual Native Order and E Sensitivity Audit](phase3-actual-order-audit.md)
+contains the per-cell cross-arm sequence comparison and actual-order E
+reconstruction required to interpret the mismatch.
 
 Reproduction:
 

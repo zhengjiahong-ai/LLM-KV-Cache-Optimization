@@ -36,7 +36,8 @@ This is a **navigation index**, not a replacement for primary evidence, historic
 | Current execution state | [Research status](../research-status.md) | 270/270 runs complete; immutable evidence submitted for final M1/M4 adjudication. |
 | Final M6 results | [Phase 3 Option F final results](phase3-option-f-final-results.md) | 30/30 Noise and 240/240 Main complete; archive validated; submitted for M1/M4 final adjudication. |
 | Algorithm exposure audit | [Exposure and zero-effect investigation](phase3-algorithm-exposure-audit.md) | Read-only decision-level audit of candidate competition, branch coverage, score separation, Native execution, and evidence gaps. |
-| Final gate/process audit | [Final gate and process audit](phase3-final-gate-audit.md) | Read-only reconciliation records the Cohort binding gap, transition-ledger deviation, G1 enqueue-order failure, G2/G3-CM, G4, and evidence locations. |
+| Final gate/process audit | [Final gate and process audit](phase3-final-gate-audit.md) | Read-only reconciliation records the Cohort binding gap, transition-ledger deviation, frozen replay enqueue-order failure, G2/G3-CM, G4, and evidence locations. |
+| Actual-order sensitivity audit | [Actual Native order and E audit](phase3-actual-order-audit.md) | 8/40 cells exact to frozen order; 32/40 share one non-frozen order across all six arms; actual E is determinate and unchanged for 5,760/5,760 request-arm observations; fixed-population effects reproduce exactly. The replay-conformance deviation remains recorded. |
 
 The accepted G0 cohort contains 40 qualified tasks in 20 Workload Groups across 10 repositories. The existing 40-run A0 Load Calibration is reused and must not be rerun. The new execution budget is **270 runs**: 30 A0 Noise Calibration + 240 six-arm Main Campaign. Main is conditionally pre-authorized and may start only after the frozen Noise evaluator and every applicable mandatory transition condition pass.
 
