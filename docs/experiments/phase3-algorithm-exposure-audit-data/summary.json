@@ -1,0 +1,40 @@
+{
+  "a2": {
+    "cost_known_count": 53,
+    "forced_decision_count": 127,
+    "identified_hashed_block_total": 72522,
+    "search_truncated_count": 51,
+    "selected_differs_from_native_lru_count": 0
+  },
+  "a3": {
+    "a3_vs_a1_selection_differences": 0,
+    "audit_candidate_count": 134,
+    "candidate_count_distribution": {
+      "1": 120,
+      "2": 7
+    },
+    "complete_victim_geometry_candidate_count": 134,
+    "content_verified_candidate_count": 134,
+    "decision_count": 127,
+    "genuine_multi_scored_opportunities": 7,
+    "prefill_evidence_candidate_count": 134,
+    "scored_candidate_count_distribution": {
+      "1": 120,
+      "2": 7
+    },
+    "step_counts": {
+      "step2_sufficient": 127
+    }
+  },
+  "claim_boundary": {
+    "cross_run_native_hash_identity": "NOT_PORTABLE",
+    "downstream_recompute_per_decision": "NOT_ESTABLISHED",
+    "physical_causal_attribution": "NOT_ESTABLISHED"
+  },
+  "classification_sha256": "82b23d68a0af0fa715dca6886250aee395f308ce1882a0416096f4ebfc029ec6",
+  "decision_row_count": 635,
+  "main_run_count": 240,
+  "schema_version": "phase3.algorithm_exposure_audit.v1",
+  "source_archive": "phase3-option-f-unified-270-runs-v2-evidence.tar.gz",
+  "source_archive_sha256": "d36a3765296199806e1aef04dcc655fd16d3afb6d7a5bc5a125397bea90ce5c8"
+}
