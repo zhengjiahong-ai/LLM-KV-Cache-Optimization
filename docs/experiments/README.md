@@ -35,6 +35,7 @@ This is a **navigation index**, not a replacement for primary evidence, historic
 | Final reporting structure | [Phase 3 final report outline](../phase3-final-report-outline.md) | Pre-registered report structure and evidence checklist; contains no campaign results. |
 | Current execution state | [Research status](../research-status.md) | 270/270 runs complete; immutable evidence submitted for final M1/M4 adjudication. |
 | Final M6 results | [Phase 3 Option F final results](phase3-option-f-final-results.md) | 30/30 Noise and 240/240 Main complete; archive validated; submitted for M1/M4 final adjudication. |
+| Algorithm exposure audit | [Exposure and zero-effect investigation](phase3-algorithm-exposure-audit.md) | Read-only decision-level audit of candidate competition, branch coverage, score separation, Native execution, and evidence gaps. |
 
 The accepted G0 cohort contains 40 qualified tasks in 20 Workload Groups across 10 repositories. The existing 40-run A0 Load Calibration is reused and must not be rerun. The new execution budget is **270 runs**: 30 A0 Noise Calibration + 240 six-arm Main Campaign. Main is conditionally pre-authorized and may start only after the frozen Noise evaluator and every applicable mandatory transition condition pass.
 
