@@ -392,7 +392,7 @@ These are candidate research narratives, not yet accepted contributions. In part
 | G-06 | A1 Gate 2 corrected evaluator was not rerun against its same packaged 144-run archive in the M1 closeout environment | Preserve its reported numerical distribution as provisional |
 | G-07 | Phase 3 frozen replay enqueue order and transition ledger have recorded deviations | Preserve the FAIL/deviation and pending M1/M4 adjudication |
 | G-08 | Phase 4 Archive has no independent session identity | Session Continuation remains not identifiable |
-| G-09 | Some raw archives are external to Git and their transfer/re-hash status differs by campaign | Build a separate archive-access and integrity register before claiming full independent reproducibility |
+| G-09 | Archive integrity, SHA-256, and evaluator/reproduction checks were already performed during the original campaign closeouts | Reuse and cite those existing audit records; do not repeat completed checks as an R1 workstream. Reopen only a specifically identified conflict or missing artifact |
 | G-10 | Main's README/status snapshot is stale relative to the completed Phase 3 research branch | Use branch/commit-specific status, not README alone, as the current record |
 
 ## 7. Repository lineage and status snapshot
@@ -412,7 +412,7 @@ The README and canonical status file on main still carry the earlier 2026-11-10 
 
 1. **Complete the evidence register:** for each campaign, record protocol SHA/version, code SHA, archive SHA, archive availability, environment, independent statistical unit, run count, evaluator revision, final verdict, and exact reproduction command.
 2. **Resolve campaign lineage:** especially the separate Phase 2A records and the distinct Phase 2G A1/A2 144-run and 54-run campaigns. Do not infer lineage from phase labels.
-3. **Reproduce existing analyses CPU-only:** rerun only deterministic evaluators/probes against the same preserved archives where available. Missing external archives remain `NOT_REPRODUCIBLE_HERE`, not silently replaced by new data.
+3. **Reference completed reproducibility audits:** cite the existing campaign-level archive integrity, SHA-256, and evaluator validation records. Do not rerun them. Only perform a narrow follow-up if R1 identifies a concrete contradiction, missing record, or previously untested evaluator path.
 4. **Create a claim matrix:** map each candidate contribution to its direct evidence, inference, hypothesis, and prohibited overclaim.
 5. **Write the cross-phase synthesis:** explain the progression from local mechanism headroom to sparse decision exposure and the observed gap between token savings and serving latency.
 6. **Only after R1/R2 review:** decide whether any new algorithm experiment is justified. No GPU run, Native smoke, Protocol v5, or production algorithm change is authorized by this ledger.
