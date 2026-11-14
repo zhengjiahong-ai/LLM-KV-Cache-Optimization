@@ -358,14 +358,15 @@ These are component-level contrasts within the project-side Continuum-style cach
 **Reference:** [Phase 4 session-continuation report](experiments/phase4-session-continuation-data/phase4-session-continuation-report.md).
 
 - 40 Sessions and 480 C1 request rows were reconstructed.
-- Event stream has no independent `session_id`; each Program maps to exactly one Session.
-- Session Continuation and Program Continuation are therefore observationally equivalent in this Archive.
-- The report's continuation results are Program-level proxies, not independent Session Continuation evidence.
+- Event stream has no independent `session_id`; each Program maps to exactly one Session, with no program owning multiple sessions. Session Continuation and Program Continuation are observationally equivalent in this Archive.
+- Right-censoring was applied at replay-window end: censored shares were 4.8% / 8.1% / 12.1% / 54.2% for 5s / 15s / 60s / 300s windows. Censored observations were excluded from ordinary binary metrics, not treated as negatives.
+- `TOOL_GAP` was the only useful baseline signal: at 60s it had 422 valid rows, Brier 0.0788 and AUC 0.594. This is a weak Program Continuation proxy, not independent Session Continuation evidence. At 300s only four negatives remained among 220 valid rows, so the result is unstable; 15s had only 12 positives.
+- The report's continuation results are Program-level proxies, not independent Session Continuation evidence. The expected-loss combination remained preliminary diagnostic, with no demonstrated positive-gain flips.
 - A new study would require explicit session identity, multiple sessions per program (or multiple programs per session), and explicit session-switch lifecycle events.
 
-**Supported:** the current Archive cannot independently identify Session Continuation.
+**Supported:** the current Archive cannot independently identify Session Continuation; right-censoring is necessary to avoid false negative labels, and TOOL_GAP provides only a weak program-level signal.
 
-**Not established:** that Session Continuation is unlearnable or unimportant in real Agent workloads.
+**Not established:** that Session Continuation is unlearnable or unimportant in real Agent workloads, or that the continuation-cost proxy is an effective policy.
 
 ## 5. Candidate research contributions (not yet final claims)
 
@@ -569,9 +570,9 @@ The supported conclusion is that prediction error and ranking accuracy did not t
 
 **First-pass synthesis:** the evidence does not support the simple story that “Cost-Aware failed because the model was inaccurate.” It supports a more specific account: local optimization headroom can exist, but the tested workloads and runtime states often did not expose sufficiently rich, identity-verified, decision-time candidate competition; where competition did exist, the tested cost signals either agreed with simpler rules or failed to produce a beneficial downstream choice. The project therefore has stronger evidence for a decision-exposure / evidence-identifiability problem than for a universally ineffective Cost-Aware objective.
 
-## 10. R1.2 next review batch
+## 10. R1.3 next review batch
 
-The next batch should finish the remaining cross-phase reconciliation rather than repeat completed integrity checks:
+M4's independent review has been incorporated into the first synthesis revision. Remaining work is limited to final M1 adjudication and any specifically identified factual conflict; do not repeat completed integrity checks:
 
 1. **Early hypothesis chain:** H1-R1 proxy, H2 M1–M4, Phase 2A M6 profiling, and the Phase 2B/2C content-topology correction.
 2. **Phase 2G campaign separation:** reconcile each A1/A2 sub-campaign, its evaluator status, and the exact claims it can support.
