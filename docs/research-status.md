@@ -19,9 +19,11 @@ The revised cross-phase synthesis is available in [Research Results and Contribu
 - Unit of inference matters: independent scenario draws or independently sampled tasks/session groups, **not** runtime repeats, turns or request rows.
 - No source-generated Agent trace is the author's original paper-run serving trace unless independently established.
 
-## Current Phase 3 status (M1 reconciliation, 2026-11-10)
+## Phase 3 status snapshot (historical M1 reconciliation, 2026-11-10)
 
-Current main: `f005ecf239c1a982d0a751f430e24fa8ca47e46e`.
+Historical snapshot recorded at that review: `f005ecf239c1a982d0a751f430e24fa8ca47e46e`.
+
+**Current repository main as checked 2026-11-14:** `18a0a9198403af735350cbbfd9aae20e7b2b39bd`. The historical hash above is retained as a dated snapshot, not presented as current main. The R1 research branch and PR #108 contain subsequent Phase 3/4 research and synthesis work; these have not all been integrated into main.
 
 | Record / PR | Delivered scope | Current state | Boundary |
 | --- | --- | --- | --- |
