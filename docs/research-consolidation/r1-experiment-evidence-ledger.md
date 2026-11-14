@@ -420,3 +420,162 @@ The README and canonical status file on main still carry the earlier 2026-11-10 
 ---
 
 **R1 initial inventory complete only at the document-index level.** Raw-archive independent reproduction, final M1 adjudication, and contribution promotion remain open work.
+
+
+## 9. Cross-phase result reconciliation — first pass
+
+This section compares the results by research question. It is a synthesis layer only: it does not alter any campaign verdict, normalize unlike metrics, or pool samples across campaigns.
+
+### 9.1 Campaign lineage: records that must remain separate
+
+| Research record | Frozen scope / unit | Result | Correct status |
+|---|---|---|---|
+| Phase 2A H1-R1 | 126 planned runs; 29 paired-evaluable independent scenario draws | 13 better / 14 worse / 2 tied; mean delta −0.00833; 95% CI [−0.03580, +0.01781] | Campaign accepted and closed; rule remains DIAGNOSTIC_ONLY because the 30-draw gate was missed and effect criteria failed. Not proof of ineffectiveness. |
+| Phase 2A H2 | Four measurement components | M1/M2/M3 PASS; M4 FAIL with zero supporting cells and zero pairwise block-level headroom | Measurement review closed; B1 remained locked. M4 applies to the frozen single-prefix comparator, not every possible multi-Entry policy. |
+| Phase 2A M6 formal profiling | 54 runs; 18 scenarios; 60 forced-release decisions | Four features met planned-return-weighted prefill-proxy support thresholds; observed/planned strict-horizon labels flipped in 10/174 candidate outcomes | GAP-PROVISIONAL / PROXY_SUPPORTED, not RUNTIME_STABLE; no direct recomputation or serving-impact result. This is not the H1 126-run campaign. |
+| Phase 2G A1 Gate 2 report | 36 scenario draws | Reported 12 BETTER / 1 WORSE / 22 TIED / 1 INCONCLUSIVE; mean −24.23 | Provisional only: shipped evaluator used N-C instead of frozen E-C and silently omitted requests without Native observations; corrected evaluator was not rerun against that same packaged archive in the M1 closeout environment. |
+| Phase 2G A2 Gate 2 v3 | 144 runs; 36 scenario draws; 72 repeat pairs | 0 BETTER / 0 WORSE / 36 TIED; mean 0 | INCONCLUSIVE for A2 effectiveness: all 72 selection comparisons were SELECTION_NOT_OBSERVABLE, not proved equal. |
+| Phase 2G A2 bounded-value evaluation | Separate 144-run campaign; 36 scenario draws | 0 BETTER / 3 WORSE / 33 TIED; mean +26.2222 tokens | INCONCLUSIVE; request-level arm differences are valid, but frozen selection pairing and physical identity attribution remain incomplete. |
+| Phase 2G bounded Native PR #82 | 54 runs; 9 W1-C groups; one run per arm/group | A1: 0 BETTER / 1 WORSE / 8 TIED, mean +412.44; A2: 0 BETTER / 3 WORSE / 6 TIED, mean +321.78 | M1 accepted as a bounded exploratory negative finding; no group improved, but n=9 and one repeat do not establish universal inferiority or stability. |
+| Phase 2H History-Rich Smoke | 6 runs; 2 scenarios; one observation per arm/scenario | A1's sole divergence from A0 increased recomputation by 6,320 tokens in HR02; A2's effective choices matched Native LRU | Descriptive mechanism evidence only; not a population performance campaign. |
+| Phase 2I A3 preflight | One 180-request HR02 Native replay | Gate C passed for two content-verified non-fallback multi-candidate decisions; Gate O failed because 756 physical evictions could not be uniquely attributed to the three A3 Entry decisions | FAIL_CLOSED; integration preflight, not an A3 value campaign. |
+| Phase 3 Option F | 30 Noise + 240 Main runs; primary unit = Workload Group; 18 paired Groups | A1/A2/A3/E0 − A0 = 0; N0 − A0 = +1,918.22 tokens | Execution complete; replay-order deviation retained; actual-order effects recovered; pending final M1/M4 adjudication. |
+
+The separate Phase 2G A2 campaigns must not be collapsed into a single 288-run result. Likewise, the Phase 2A H1 campaign and Phase 2A M6 formal profiling report have different designs, units, and estimands.
+
+### 9.2 From proxy headroom to Native evidence
+
+#### Phase 2A: proxy evidence existed, but runtime value was not established
+
+The H1-R1 reverse-deadline rule did not pass its frozen independent-validation gate. Its campaign was accepted, but its rule was not promoted: 29 paired-evaluable draws were below the required 30, the mean effect was negative, the confidence interval crossed zero, better draws did not exceed worse draws, and family agreement was only 3/6.
+
+The separate 54-run M6 formal profiling campaign did show heterogeneity and four decision-time features associated with the planned-return-weighted prefill proxy. However, those features were only PROXY_SUPPORTED; the labels were based on planned timing, 10/174 strict-horizon labels changed under observed timing, and the report explicitly recorded runtime_replicated=false. This is evidence for candidate signals, not evidence that a runtime policy reduces Native recomputation.
+
+H2 adds a distinct mechanism result: isolated prefill cost was nonlinear, partial-prefix APC semantics were confirmed, and eviction position changed measured outcomes in the registered M3 cells. But the frozen M4 single-prefix comparator found zero additional block-level headroom. The nonlinear cost curve alone therefore did not justify a Cost-Aware runtime policy.
+
+#### Phase 2B/2C: logical ownership was not Native content identity
+
+The Phase 2B fidelity repair established real same-content Native APC reuse and real request overlap in a bounded seven-request smoke, while TTL-history evidence remained NOT_OBSERVABLE.
+
+The Phase 2C historical audit then showed why the earlier H1 logical workload labels could not be treated as cross-program content sharing:
+
+- 1,068 request rows were reconstructed;
+- 495 turn requests had eligible reusable prefixes;
+- same-program native hash chains were stable;
+- different-program first chains matched in 0/771 comparisons;
+- the compiler's ownership_group labels did not produce identical submitted token content across programs.
+
+This does not invalidate the historical H1 verdict or its replay-order fidelity. It limits what H1 can say about shared-prefix Native cache geometry. The key distinction is: replay fidelity passed, while the intended cross-program content topology did not materialize.
+
+#### Phase 2D: local victim-selection headroom was demonstrated under a deliberately shared fixture
+
+Phase 2D E1 re-examined the historical pressure decisions and found only one legal protected Entry in each. E2 then constructed a real shared-root fixture: two protected logical Entries shared eight Native blocks, with four initially reclaimable blocks per candidate. E3 produced four valid paired comparisons with a 64-token absolute difference; the direction reversed when the designated future-return target was reversed. E4 demonstrated positive Native scheduler-to-completion overlap before the pressure decision.
+
+This is an important positive result, but its scope is narrow:
+
+- it demonstrates local headroom in a controlled shared-prefix fixture;
+- the intervention chose the first logical Entry released, while Native LRU still selected physical victims;
+- the future-return target was controlled by the experiment, so online predictability was not demonstrated;
+- the report's per-arm observed_recomputed_tokens is calculated as N-C, whereas later Protocol v4 reports use eligible-prefix recomputation E-C. The paired same-input delta is useful local headroom evidence, but its absolute values must not be pooled or relabelled as Protocol v4 E-C without a metric-level derivation.
+
+Thus Phase 2D does not contradict H2-M4: H2-M4 tested a frozen single-prefix comparator, while Phase 2D introduced simultaneous shared-protected Entries. The latter establishes a different decision geometry, not a retroactive reversal of the former verdict.
+
+### 9.3 Continuum-style release can reduce recomputation, but token savings did not establish serving gains
+
+Phase 2E compared Native LRU with the frozen Continuum baseline on 36 predefined synthetic scenario draws, with two repeats per scenario and arm (144 successful runs). The mean paired difference was −192 recomputed tokens per scenario for Continuum minus Native LRU; 29 draws were negative, seven tied, and none were positive. The family mechanism was realized in 132/144 runs; the 12 non-realized runs were retained as such.
+
+The same report found no comparable TTFT improvement: mean TTFT was 0.729370 s for Native LRU and 0.729779 s for Continuum, while queue delay dominated the queued-to-first-token interval. The workload was prefill-focused with max_new_tokens=1, and the report did not establish production-distribution generality or per-eviction causality.
+
+Phase 3 later found a positive N0-versus-A0 recomputation contrast, but this is not a direct replication of Phase 2E: the workload, model/runtime environment, protocol, arm definitions, and estimand differ. Together, the campaigns support a bounded statement that the project's Continuum-style Entry Release mechanism can reduce eligible-prefix recomputation in tested controlled workloads. They do not establish an equivalent end-to-end latency benefit or a full-system Continuum-versus-vanilla-vLLM comparison.
+
+### 9.4 Why tested Cost-Aware variants did not show incremental benefit
+
+The negative evidence is not one homogeneous result. It is a sequence of different failure modes.
+
+**A1 Entry ordering**
+
+- In the Phase 2G 54-run bounded archive, A1's q and deadline ordering were aligned because the bounded campaign remained in COLD_START with a run-constant default TTL. The root cause of identical ordering was the constant cold-start TTL, not simply the numeric fact that TTL was zero.
+- The per-run history sample volume was about 10 against a threshold of 100, and the history object did not accumulate across runs. An existing W1-A warm-start path was excluded by the bounded campaign-kind gate; even if injected, its ASTROPY-only history would move the mode to GLOBAL, not TOOL_SPECIFIC, because the v10 tool label had no matching samples.
+- The offline A1 replay reproduced 29/29 observed first picks. Changing lambda altered two choices, both in g05. Only g05-moderate had a nonzero Native recomputation difference (+3,712 tokens), with one repeat; content-level causal attribution was not established. The choice was near the exact flip boundary, so stable regression was not established.
+- In Phase 2H, history-rich execution produced positive q spans across all six A1 multi-candidate decisions. Yet A1 matched Sufficient-first + Minimum Overshoot in all six; its only divergence from A0 increased recomputation by 6,320 tokens in HR02. This shows that non-degenerate q values alone did not demonstrate independent q value.
+
+**A2 Block selection**
+
+- In the Phase 2G PR #82 54-run archive, 601 block decisions were audited: 167 fell back, 434 ran cost-known greedy selection, and none of the 434 greedy selections changed the Rank-LRU selected set. Of the 434, 368 had no marginal-cost signal; 66 had differing marginal costs but Greedy still selected the Rank-LRU set. Exact optimality was not established for those 66 because search was truncated; it is incorrect to claim that exact search proved Rank-LRU optimal in all 434.
+- A separate 144-run Gate 2 v3 campaign had identical token totals, but all 72 repeat-level selection comparisons were unobservable. A second separate 144-run bounded-value campaign observed 0/3/33 better/worse/tied with mean +26.2222 tokens, but remained inconclusive due selection and physical-identity gaps.
+- In Phase 2H, all 54 effective incremental-greedy decisions matched Native LRU, while 384 other allocation decisions fell back due content-unverified evidence.
+- In Phase 3, A2 had 53 cost-known decisions and 74 content-unverified fallbacks; the selected victim sequence matched Native LRU in all 127 decisions.
+
+Across these distinct campaigns, no tested A2 configuration produced a demonstrated positive recomputation gain. The recurring explanations differ: evidence fallback, candidate geometry, absent or non-discriminating cost signals, and incomplete identity attribution. The data do not prove that every possible Block Cost-Aware policy is ineffective.
+
+**A3 and deadline-only E0**
+
+Phase 2I's target-CUDA preflight failed Gate O and therefore did not establish A3 physical causal attribution or value. Phase 3 later executed A3's registered path, but A3 selected the same Entry as A1 in all 127 decisions; only seven decisions had two candidates, and Cost and Deadline ranks agreed in all seven. E0 also made no different program selection from A3. Thus the Phase 3 zero effects show no incremental value under this cohort and decision geometry, not general equivalence.
+
+### 9.5 Phase 3: strong mechanism contrast, weak incremental algorithm exposure
+
+The 270-run Option F campaign provides the strongest controlled result in the current project:
+
+- N0 minus A0 = +1,918.22 tokens over 18 paired Groups;
+- A1/A2/A3/E0 minus A0 = 0 over the same 18-Group primary population;
+- registered H3-0 and H3-R forced-release contrasts also favor A0 over N0, but use different populations (20 Groups / 38 cells and 9 RESPONSIVE Groups / 16 cells respectively).
+
+The exposure audit explains why this did not discriminate among the cost-aware variants:
+
+- 127 forced Entry Release decisions per release-enabled arm;
+- 120 single-candidate decisions;
+- only seven two-candidate decisions (5.5%);
+- A3 and A1 chose the same Entry in all 127 decisions;
+- A2 had 53 cost-known and 74 fallback decisions, with no observed victim-sequence divergence from Native LRU;
+- all seven multi-candidate A3 decisions ranked candidates identically under Cost and Deadline.
+
+This is adequate resource-pressure execution but inadequate algorithm-decision exposure. A large number of pressure events or physical blocks does not imply a large number of genuine choices.
+
+The actual-order audit further bounds the interpretation: frozen enqueue order matched in only 8/40 cells; 32 cells had a common six-arm order different from the frozen order; no cell had cross-arm-different order. Actual-order E was determinate in all 5,760 request-arm observations, no E values changed, and fixed-population effects reproduced exactly. The historical frozen-order conformance deviation remains a FAIL/deviation; the retrospective result recovery does not turn it into a PASS. Final M1/M4 adjudication remains pending.
+
+### 9.6 Stage 0 and P2: no positive loss-only opportunity in the real cohort; capacity value remains open
+
+The Stage 0 A0-anchored prefix-state loss oracle evaluated all seven real competitive decisions in the Phase 3 archive. A0 was optimal under this loss-only model in all seven; the avoidable-prefix-loss upper bound was zero across the 18 primary Groups. This is not a Native cache-state replay and does not model capacity gains from releasing a different chain. Capacity benefit remains NOT_EVALUATED, so the result does not terminate all Entry Ordering research.
+
+P2 then evaluated candidate-chain future prefix-demand overlap as an offline prediction target:
+
+- only five of the seven real decisions passed the contiguous victim-identity eligibility check;
+- P2-A/B had REAL MAE 87.4 blocks, flipped all five eligible decisions, and produced zero positive-gain flips;
+- P2-C had REAL MAE 346.5 blocks, flipped none, and produced zero gain;
+- the 106 constructed-historical scenarios remain separate from REAL. Their positive oracle opportunities (704 tokens total) were not captured as positive-gain flips by the tested predictors.
+
+The supported conclusion is that prediction error and ranking accuracy did not translate into demonstrated downstream decision value in these studies. The reports do not establish an online predictor or a joint deployed-policy effect.
+
+### 9.7 Consolidated findings
+
+| Finding | Evidence | Confidence / boundary |
+|---|---|---|
+| The project-side Entry Release / Continuum-style mechanism can reduce eligible-prefix recomputation in tested controlled workloads | Phase 2E and Phase 3 N0/A0 contrasts | Supported within each frozen cohort; not a full-system or production-distribution claim |
+| Local Entry-release headroom can exist when multiple protected Entries share real Native blocks | Phase 2D E2/E3 | Demonstrated in a controlled fixture; online predictability and generality not established |
+| Proxy loss heterogeneity is not equivalent to realized Native policy value | Phase 2A M6 profiling, Phase 2G and Phase 3 | Supported by the gap between proxy support and subsequent runtime decision outcomes |
+| A1's tested q signal did not demonstrate independent decision value | Phase 2G offline replay and Phase 2H history-rich smoke | Bounded to the tested histories, candidate sets, and comparators |
+| A2's tested greedy cost signal did not change the compared Native-LRU victim set | Phase 2G PR #82, Phase 2H, Phase 3 | Strong repeated observation in tested archives; not universal algorithm equivalence |
+| The tested cost-aware variants did not improve Phase 3's primary recomputation metric over A0 | Phase 3, 18 paired Groups | Formal within-cohort result; no general equivalence claim |
+| Token savings need not produce measurable TTFT gains | Phase 2E | Queue-dominated, prefill-focused synthetic workload; no general latency conclusion |
+| Native content identity, residency, eligibility, physical eviction, and recomputation must be audited separately | Phase 2B/2C, Phase 2D, Phase 2I, Phase 3 | A core methodological lesson supported across multiple phases |
+
+### 9.8 Open reconciliation items for the next pass
+
+1. Reconcile Phase 2A H1/H2 with the separate Phase 2A M6 formal profiling record without merging their sample counts or estimands.
+2. Complete the Phase 2G campaign lineage table in the experiment index so each A1/A2 Gate 2, bounded-value, and PR #82 archive is unambiguously named.
+3. Review the exact Phase 2D paired metric semantics (N-C) against the later canonical E-C definition; preserve the local paired headroom result without silently relabelling its absolute values.
+4. Review Phase 2G's corrected A1 evaluator and A2 offline correction as separate evidence layers; keep unverified/provisional results marked as such.
+5. Record the Phase 3 actual-order recovery and frozen-order FAIL/deviation side by side; do not close the final M1/M4 adjudication by implication.
+
+**First-pass synthesis:** the evidence does not support the simple story that “Cost-Aware failed because the model was inaccurate.” It supports a more specific account: local optimization headroom can exist, but the tested workloads and runtime states often did not expose sufficiently rich, identity-verified, decision-time candidate competition; where competition did exist, the tested cost signals either agreed with simpler rules or failed to produce a beneficial downstream choice. The project therefore has stronger evidence for a decision-exposure / evidence-identifiability problem than for a universally ineffective Cost-Aware objective.
+
+## 10. R1.2 next review batch
+
+The next batch should finish the remaining cross-phase reconciliation rather than repeat completed integrity checks:
+
+1. **Early hypothesis chain:** H1-R1 proxy, H2 M1–M4, Phase 2A M6 profiling, and the Phase 2B/2C content-topology correction.
+2. **Phase 2G campaign separation:** reconcile each A1/A2 sub-campaign, its evaluator status, and the exact claims it can support.
+3. **Metric and estimand crosswalk:** distinguish E-C eligible-prefix recomputation, N-C actual prefill, planned-return-weighted prefill proxy, block-count proxy, and serving metrics.
+4. **Claim matrix:** label each proposed research contribution as directly demonstrated, bounded inference, hypothesis, or unsupported.
+
+No new GPU run, Native smoke, algorithm implementation, Protocol v5, or archive revalidation is authorized by this review.
