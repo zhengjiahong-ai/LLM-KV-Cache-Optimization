@@ -1,6 +1,6 @@
 # 研究结果综合分析与方法贡献提炼
 
-**状态：** M1 综合分析草稿（R1.2）  
+**状态：** M1 综合分析修订稿（R1.3；吸收 M4 独立互审）  
 **日期：** 2026-11-14  
 **适用范围：** Phase 0/1 至 Phase 4 已提交的实验、审计与离线研究  
 **证据索引：** [R1 跨阶段实验与证据账本](r1-experiment-evidence-ledger.md)  
@@ -34,6 +34,8 @@ Phase 3 中各臂的含义必须按决策层理解，不能把 A1/A2/A3 当成�
 | E0 | A1 分支阶梯中的 deadline-only Step 2 | Native LRU | A3 的强 deadline-only 对照 |
 
 A1/A3/E0 改变逻辑 Entry 的释放选择；A2 改变物理 Block 的选择。Entry Release 只改变受保护 Entry 的 eligibility，不等于已经发生物理 Block eviction。
+
+**A0 的冻结 Entry Release 排序键**为 `(entry.deadline_timestamp, min_{b ∈ NewlyEligible(e)} native_lru_rank(b), key.sort_key)`；若 `NewlyEligible(e)` 为空，第二键按 `+∞` 处理。因此 A0 不是纯 deadline-first：它以 deadline 为主键，再以仅因释放该 Entry 而新获得驱逐资格的 Blocks 中最小 Native LRU rank、以及确定性 Entry identity 排序；实际物理 Block victim selection 仍由 Native LRU 执行。
 
 ### 0.2 统一 Token 口径
 
@@ -94,7 +96,8 @@ Phase 2B 修复了 bounded Native smoke 的输入身份与运行时证据路径�
 
 Phase 2C 对历史 H1 Archive 的只读审计进一步发现：
 - 重建 1,068 条 request rows；
-- 495 条 turn requests 具有 eligible reusable prefix；
+- 495 条 turn requests 具有 eligible reusable prefix，其中 288 full hits（58.18%）、48 partial hits（9.70%）、159 misses（32.12%）；
+- 另有 408 个 first eligible-turn predecessors 被正确分类为 `NO_REUSE_ELIGIBLE_PREFIX`，不是 miss；
 - 同一 program 的 native hash chain 保持一致；
 - 不同 program 的 first native hash chain 相等次数为 0/771；
 - H1 compiler 的 ownership_group / logical prefix 标签并没有形成跨 program 的相同 submitted token content。
@@ -150,7 +153,7 @@ Phase 2E 对 Native LRU 与冻结 Continuum baseline 做了 36 个预定义 scen
 
 没有 group 显示 A1 或 A2 的重算 Token 改善。M1 接受的是这九个预定义 group 上的 bounded exploratory negative finding；单次执行不能证明普遍劣势、run-to-run stability 或 content-level causality。
 
-**A1 Gate 2 的 144-run 历史记录。** 早期报告给出 12 BETTER / 1 WORSE / 22 TIED / 1 INCONCLUSIVE、mean delta -24.23，但原 evaluator 把 N-C 当作 recomputation，且只从 Native observation 构造样本、可能静默遗漏缺失请求。指标缺陷已被源码审查证明，修正后的 evaluator 实现已接受；但在 M1 closeout 环境中，原始 144-run archive 不可用，未对同一 archive 完成修正后的数值重算。因此这组数值必须标为 **PROVISIONAL**，不能作为已验证的 A1 token benefit。
+**A1 Gate 2 的 36-draw / 144-run 历史记录。** 早期报告中的 12 BETTER / 1 WORSE / 22 TIED / 1 INCONCLUSIVE 是将 144 runs 的 repeats 聚合后得到的 36 个 scenario-draw outcomes，不是 144 个独立结果；mean delta -24.23。但原 evaluator 把 N-C 当作 recomputation，且只从 Native observation 构造样本、可能静默遗漏缺失请求。指标缺陷已被源码审查证明，修正后的 evaluator 实现已接受；但在 M1 closeout 环境中，原始 144-run archive 不可用，未对同一 archive 完成修正后的数值重算。因此这组数值必须标为 **PROVISIONAL**，不能作为已验证的 A1 token benefit。
 
 **A2 Gate 2 v3（独立的 144-run campaign）。** 36 draws 的 token result 为 0 BETTER / 0 WORSE / 36 TIED、mean delta 0；但 72/72 repeat-pair 的 selection evidence 均为 SELECTION_NOT_OBSERVABLE，proved-equal 和 proved-divergent 均为 0。因此该 campaign 对 A2 effectiveness 的正式判断是 INCONCLUSIVE，不是 A2 与 LRU 等价。
 
@@ -189,14 +192,12 @@ Phase 3 Option F 完成 30 Noise + 240 Main runs。Protocol v4 的 primary stati
 
 A0−N0 的 H3-0 是 20 Groups / 38 cells，mean = -3,123.2 tokens；H3-R 是 9 RESPONSIVE Groups / 16 cells，mean = -6,435.56 tokens。这两个是不同注册总体，不应与 18-Group primary 混为一谈。
 
-**Phase 3 的关键解释不是“压力不足”。**
-- A0/A1/A2/A3/E0 每臂均有 127 次 forced Entry Release decisions；
-- 其中 120 次只有一个 legal Entry candidate；
-- 只有 7/127（5.5%）是真正的双候选竞争机会；
-- A3 的七次多候选决策中，Cost 与 Deadline 排名完全一致（Spearman 1.0），选择同一 Entry；A3 与 A1 在 127 次决策中选择同一 Entry；
-- A2 53 次 cost-known greedy + 74 次 content-unverified fallback，最终 127 次 victim sequence 均与 Native LRU 相同。
+**Phase 3 的关键解释不是“压力不足”。** Exposure audit 在 39 个 cells 中记录了每个 release-enabled arm 127 个 forced-release decision events；这些事件按 cell 聚类，不能当作 127 个独立样本。
+- 对 Entry-ordering treatment arms A1/A3/E0，120/127 个事件只有一个 legal Entry candidate，只有 7/127（5.5%）具有两个候选。A0 是冻结的 Entry Release 参照；A2 沿用 A0 的 Entry Release，所测试的增量决策位于物理 Block-victim 层，而不是另一种 Entry ordering。
+- A3 的七次双候选决策中，Cost 与 Deadline 排名完全一致（Spearman 1.0），选择同一 Entry；A3 与 A1 在 127 个配对事件中选择同一 Entry。
+- A2 的 127 个 Block-victim decision events 中，53 次使用 cost-known incremental greedy，74 次因 `content_unverified` fallback；最终 127 次 victim sequence 均与 Native LRU 相同。
 
-因此该 campaign 有充分的资源压力与物理执行记录，却没有充分的 algorithm-decision exposure。策略被调用 127 次，不等于 cost model 获得 127 次真实的候选竞争机会。
+因此该 campaign 有充分的资源压力与物理执行记录，却没有充分的 algorithm-decision exposure。策略被调用 127 次，不等于 cost model 获得 127 次真实的候选竞争机会；7/127 是描述性暴露计数，不是独立样本比例估计。
 
 **Replay-order deviation 必须继续保留。** 实际 Native enqueue order 与 frozen order 完全一致的只有 8/40 cells；32/40 cells 中六臂共享同一个、但不同于 frozen 的实际顺序；没有 cell 出现 cross-arm-different order。只读 actual-order audit 对 5,760 个 request-arm observations 独立重建 E，全部 determinate，E 值 0 个变化，固定总体的注册效果完全复现。该结果支持在观察到的共同顺序偏差下解释配对效果，但不能把历史 frozen-order conformance FAIL 追认为 PASS。最终确认状态仍待 M1/M4 adjudication。
 
@@ -209,6 +210,7 @@ A0−N0 的 H3-0 是 20 Groups / 38 cells，mean = -3,123.2 tokens；H3-R 是 9 
 - 该 oracle 不是 Native cache-state replay，也不模拟换链释放容量产生的收益，capacity benefit 为 NOT_EVALUATED。
 
 **P2 future prefix-demand predictor：**
+- 候选只有在 victim hashes 被证明为同一 program 历史链的连续后缀时才进入评估；18 个候选因此被 `EXCLUDED`（REAL 4、CONSTRUCTED_HISTORICAL 14），包括两个 REAL decisions（g10-c1、g10-c2），不以默认推断补齐，也不计作零收益；
 - 七次真实竞争决策中只有五次通过 contiguous victim-identity eligibility；
 - P2-A/B 在这五次 REAL decisions 全部 flip，但 0 次 positive-gain flip，REAL MAE 87.4 blocks；
 - P2-C 在 REAL 上 0 flip、0 gain，MAE 346.5 blocks；
@@ -216,10 +218,10 @@ A0−N0 的 H3-0 是 20 Groups / 38 cells，mean = -3,123.2 tokens；H3-R 是 9 
 - 独立单决策反事实增量不是联合部署策略效果。
 
 **Phase 4 Session Continuation：**
-- 40 Sessions、480 C1 request rows；
-- event stream 没有独立 session_id，且 program_id == session instance_id，没有 program 对应多个 sessions；
-- Session Continuation 与 Program Continuation 在该 Archive 中观测等价；
-- 报告只能提供 Program Continuation proxy，不能宣称识别或验证了 Session Continuation。
+- 40 Sessions、480 C1 request rows；event stream 没有独立 `session_id`，且 `program_id == session instance_id`，没有 program 对应多个 sessions，因此 Session Continuation 与 Program Continuation 在该 Archive 中观测等价。
+- 采用 replay-window right-censoring：5s / 15s / 60s / 300s 窗口的 censored share 分别为 4.8% / 8.1% / 12.1% / 54.2%；被删失窗口不作为负例，也不进入普通二分类指标。
+- 在 60s 窗口，`TOOL_GAP` program-level proxy 有 422 个有效样本，Brier = 0.0788、AUC = 0.594，属于弱区分信号，不是 Session Continuation 证据。15s 窗口仅 12 个正例，估计不稳定；300s 窗口 220 个有效样本中只有 4 个负例，不应作为稳定结果。
+- 报告只能提供 Program Continuation proxy，不能宣称识别或验证了 Session Continuation，也没有验证 continuation-cost 组合模型。
 
 ---
 
@@ -237,14 +239,14 @@ A0−N0 的 H3-0 是 20 Groups / 38 cells，mean = -3,123.2 tokens；H3-R 是 9 
 | Phase 2A M6 proxy signals 能稳定预测 runtime loss | **仅 PROXY_SUPPORTED** | 4 个特征通过 planned-proxy thresholds | planned/observed label 有 10/174 flips；runtime_replicated=false |
 | H1 workload 的跨 program logical sharing 代表 Native 内容共享 | **被 Phase 2C 否定** | different-program first hash chain 0/771 相等 | ownership_group / program labels 未物化成相同 submitted token content |
 | Shared-protected 多 Entry 状态可存在选择 headroom | **在 Phase 2D fixture 中支持** | 2 Entry 共享 8 Native blocks；E3 四对有 64-token N-C 差异 | 局部 fixture；未来返回目标受控；在线可预测性与普遍性未证明 |
-| Continuum-style Entry Release 可减少重算 prefix work | **在受控 cohort 中支持** | Phase 2E mean -192 tokens/scenario；Phase 3 N0−A0 +1,918.22 tokens/group | 不同 campaign、cohort、estimand；不代表完整系统性能或 production generality |
+| Continuum-style Entry Release 可减少重算 prefix work | **在各自受控 cohort 中支持** | Phase 2E 是 36-draw synthetic scenario-level campaign；Phase 3 是 18-group Native campaign。两者 cohort 与 estimand 不同，分别观察到重算工作下降，不合并为 pooled effect | 不代表完整系统性能或 production generality |
 | 减少重算 Token 会带来 TTFT 改善 | **未获支持** | Phase 2E mean TTFT 没有相应改善，queue delay 主导 | 该 workload 的 token-to-TTFT transfer 弱；不能外推为所有服务负载都无关系 |
 | A1 的 q/λ 对简单规则有独立价值 | **未证明** | PR #82 无正向组；Phase 2H 六次选择均可由 Minimum Overshoot 复现；Phase 3 竞争机会稀少 | cold-start / history threshold 与 tool-label mismatch；q 与 deadline 同序或选择结果被更简单规则复现 |
 | A2 的 Block cost-aware greedy 优于 Native LRU | **未证明；测试范围内没有正向收益** | PR #82 无正向组；Phase 2H 54/54 effective greedy 与 LRU 相同；Phase 3 127/127 victim sequence 相同 | fallback、缺少信号、Greedy 不改变集合；部分 exact / physical attribution 不可判定 |
 | A3 suffix-cost ordering 优于 deadline-only E0 | **未证明** | Phase 3 仅 7 个双候选决策，Cost 与 Deadline 排序一致；A3/E0 无选择差异 | 竞争决策数量低，且信号排序同向；不能声称普遍等价 |
 | Stage 0 的当前真实竞争决策存在正的 loss-only avoidable prefix loss | **当前 cohort 不支持** | 七次竞争决策中 A0 均为 loss-only oracle 最优；上界 0 | oracle 不模拟 capacity gain；capacity benefit NOT_EVALUATED |
 | P2 能把未来 prefix-demand 预测转化为正向决策价值 | **当前 REAL cohort 不支持** | 5 个有效 REAL decisions 全部 flip（A/B）但 0 positive-gain flips；P2-C 不 flip | MAE / ranking accuracy 不等于 downstream gain；REAL 样本很少；构造样本不能替代真实 |
-| Session Continuation 可由当前 Archive 独立学习 | **不可识别** | 无 session_id，program 与 session 一一对应 | 数据结构缺少独立 session identity / switch events；不是模型算法失败 |
+| Session Continuation 可由当前 Archive 独立学习 | **不可识别** | 无独立 `session_id`，program 与 session 一一对应；60s `TOOL_GAP` 仅提供弱 Program Continuation proxy（422 valid，Brier 0.0788，AUC 0.594） | right-censoring 已单独处理；数据结构缺少独立 session identity / switch events；不是模型算法失败 |
 
 ### 2.1 跨阶段看似矛盾的结果如何统一解释
 
@@ -280,19 +282,21 @@ Phase 1A/1B 将逻辑 retention / Entry Release 与物理 Block victim selection
 
 并用 R=E-C、W=N-C、S=N-E 和 W=R+S 固定指标语义。证据缺失时保留 NOT_OBSERVABLE / INDETERMINATE，而不是把缺失当作相等、零收益或 PASS。
 
+P2 进一步要求 victim hashes 必须可证明为同一 program 历史链的连续后缀才纳入候选；18 个候选（REAL 4、CONSTRUCTED 14）被 fail-closed 排除，包括两个 REAL decisions。Phase 4 则明确审计 session identity，并将 replay-window 末端 right-censored observations 排除出普通二分类负例，避免把不可识别目标或观察窗口不足误作模型标签。
+
 **价值：** 避免把逻辑释放、物理淘汰、cache miss 和重算量混成同一事件；使跨臂比较的指标、统计总体和证据强度可以独立审查。  
 **性质：** 方法学 / evaluator 贡献。
 
 ### 3.3 工作负载保真贡献：逻辑 ownership 不等于真实 Native content sharing
 
-Phase 2B/2C 证明 workload compiler 的逻辑 ownership_group 不能替代真实 submitted token identity 与 Native hash chain。必须分别审计 content overlap potential、reuse eligibility、physical residency 和 realized APC。
+Phase 2B/2C 在审计的历史 H1 workload 中显示，workload compiler 的逻辑 `ownership_group` 不能替代真实 submitted token identity 与 Native hash chain。该结果支持一个一般实验原则，但不构成对所有 workload 的普遍证明。必须分别审计 content overlap potential、reuse eligibility、physical residency 和 realized APC。
 
 **价值：** 给出了一套防止“逻辑上共享、运行时并未共享”误判的实验设计与审计方法。  
 **性质：** 工作负载构造与证据识别方法贡献；同时是对早期 H1 workload 解释范围的重要修正。
 
 ### 3.4 实验设计贡献：资源压力暴露与算法决策暴露是两个不同维度
 
-Phase 3 每个 release-enabled arm 有 127 次 forced Entry Release decisions，但只有 7 次双候选竞争（5.5%）。这说明大量压力事件、物理 Block eviction 或策略函数调用，不能代替真正的算法决策机会。
+Phase 3 exposure audit 在 39 个 cells 中记录每个 release-enabled arm 127 个 decision events；对 A1/A3/E0 的 Entry-ordering treatment，只有 7/127 个事件具有双候选竞争（5.5%），其余 120 个只有一个 legal Entry candidate。A2 沿用 A0 的 Entry Release，其增量处理位于 Block-victim 层。上述计数按 cell 聚类，是描述性 exposure 统计，不是 127 个独立样本。这说明大量压力事件、物理 Block eviction 或策略函数调用，不能代替真正的算法决策机会。
 
 建议后续所有策略实验明确报告：
 - decision count；
@@ -324,6 +328,8 @@ Phase 2E 观察到场景级 recomputation 下降，但 TTFT 没有相应改善�
 **性质：** 有边界的负向实证发现。
 
 ### 3.7 负面结果贡献：已测试 Cost-Aware 变体没有显示增量收益，且失败机制可区分
+
+以下是不同 campaign 中反复出现的机制模式；各 campaign 的总体、统计单位、estimand 和策略定义不同，本节不合并样本量、效应量或显著性。
 
 - A1：q / deadline 在冷启动数据中同序；History-Rich smoke 中 q 虽非退化，但选择可由 Minimum Overshoot 复现；唯一偏离 A0 的结果增加了重算量。
 - A2：多轮中出现 fallback、无差异 cost signal 或 cost-known greedy 仍不改变 Native-LRU victim set；部分 campaign 的选择或物理归因不可观测。
