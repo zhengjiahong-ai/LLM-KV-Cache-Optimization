@@ -48,7 +48,7 @@ For Native request evidence:
 - Actual prefill tokens: `W = N - C`.
 - New suffix tokens: `S = N - E`.
 
-Do not call `N-C` recomputed tokens. Do not infer `E) from `C`. Entry Release, physical Block eviction, APC residency, and downstream recomputation are separate evidence layers.
+Do not call `N-C` recomputed tokens. Do not infer `E` from `C`. Entry Release, physical Block eviction, APC residency, and downstream recomputation are separate evidence layers.
 
 ## 2. Cross-phase inventory
 
@@ -419,7 +419,7 @@ The README and canonical status file on main still carry the earlier 2026-11-10 
 
 ---
 
-**R1 initial inventory complete only at the document-index level.** Raw-archive independent reproduction, final M1 adjudication, and contribution promotion remain open work.
+**R1 initial inventory and first synthesis draft are recorded.** Raw-archive independent reproduction is not reopened as a routine workstream; final M1/M4 adjudication and contribution promotion remain open work. See [Research Results and Contributions](research-results-and-contributions.md).
 
 
 ## 9. Cross-phase result reconciliation — first pass
