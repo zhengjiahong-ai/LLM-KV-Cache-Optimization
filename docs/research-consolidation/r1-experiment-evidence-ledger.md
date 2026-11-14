@@ -1,6 +1,6 @@
 # R1 — Cross-Phase Experiment and Evidence Ledger
 
-**Status:** INITIAL INVENTORY / DRAFT — not a final M1 research adjudication  
+**Status:** INITIAL INVENTORY + R1.2 FIRST SYNTHESIS / DRAFT — not a final M1 research adjudication  
 **As of:** 2026-11-14  
 **Prepared from:** `research/phase3-stage0-oracle` @ `69acd43b59eed73484a8538b9836e4cd752aea32`  
 **Main snapshot:** `main` @ `18a0a9198403af735350cbbfd9aae20e7b2b39bd`
