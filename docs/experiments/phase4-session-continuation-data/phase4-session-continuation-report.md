@@ -27,6 +27,8 @@
 | Tool gap unpaired start/end | 0 |
 | Source request timestamps | 480 |
 | Explicit session-switch events | 0 |
+| Right-censored replay-window end events | 40 |
+| Requests missing observation end | 0 |
 
 **数据缺口**：
 
@@ -53,45 +55,48 @@
 
 所有在线特征只使用决策前信息；窗口标签、oracle 与未来 overlap 只用于离线评估。
 
-## 3. Continuation Probability by Window
+## 3. Continuation Probability by Window（Right-Censored）
 
-| Window (s) | rows | positive | negative | positive rate |
-|---:|---:|---:|---:|---:|
-| 5 | 480 | 0 | 480 | 0.000 |
-| 15 | 480 | 12 | 468 | 0.025 |
-| 60 | 480 | 374 | 106 | 0.779 |
-| 300 | 480 | 436 | 44 | 0.908 |
+删除规则：请求时刻到该轨迹 observation end 的剩余时间不足 W 秒时，该窗口记为 `CENSORED`；只有完整观察 W 秒且窗口内没有同 session 后续请求才记为负例。CENSORED 不进入普通二分类指标。
+
+| Window (s) | rows | censored | valid | positive | negative | censored rate | positive rate (valid) |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 5 | 480 | 23 | 457 | 0 | 457 | 0.048 | 0.000 |
+| 15 | 480 | 39 | 441 | 12 | 429 | 0.081 | 0.027 |
+| 60 | 480 | 58 | 422 | 356 | 66 | 0.121 | 0.844 |
+| 300 | 480 | 260 | 220 | 216 | 4 | 0.542 | 0.982 |
 
 > 由于 session≡program，这张表同时是 session-level 与 program-level 的**同一组标签**；不能当作两个独立目标。
 
 ## 4. Baseline Comparison（Group-isolated）
 
-Leave-one-Group-out；同一 Group 的两个 session 不跨 train/test。指标为 held-out Brier / AUC / accuracy。
+Leave-one-Group-out；同一 Group 的两个 session 不跨 train/test。指标只在未被右删失的 held-out 样本上计算；CENSORED 不参与 Brier/AUC/Accuracy。
 
-| Window | Baseline | Brier | AUC | Accuracy |
-|---:|---|---:|---:|---:|
-| 5 | GLOBAL | 0.0000 | n/a | 1.000 |
-| 5 | PROGRAM | 0.0000 | n/a | 1.000 |
-| 5 | TOOL_GAP | 0.0003 | n/a | 1.000 |
-| 5 | SESSION_HISTORY | 0.0000 | n/a | 1.000 |
-| 15 | GLOBAL | 0.0251 | 0.038 | 0.975 |
-| 15 | PROGRAM | 0.0251 | 0.038 | 0.975 |
-| 15 | TOOL_GAP | 0.0240 | 0.960 | 0.960 |
-| 15 | SESSION_HISTORY | 0.0251 | 0.038 | 0.975 |
-| 60 | GLOBAL | 0.1760 | 0.245 | 0.779 |
-| 60 | PROGRAM | 0.1760 | 0.245 | 0.779 |
-| 60 | TOOL_GAP | 0.1028 | 0.686 | 0.881 |
-| 60 | SESSION_HISTORY | 0.1760 | 0.245 | 0.779 |
-| 300 | GLOBAL | 0.0833 | 0.460 | 0.908 |
-| 300 | PROGRAM | 0.0833 | 0.460 | 0.908 |
-| 300 | TOOL_GAP | 0.0745 | 0.646 | 0.908 |
-| 300 | SESSION_HISTORY | 0.0833 | 0.460 | 0.908 |
+| Window | Baseline | n valid | Brier | AUC | Accuracy |
+|---:|---|---:|---:|---:|---:|
+| 5 | GLOBAL | 457 | 0.0000 | n/a | 1.000 |
+| 5 | PROGRAM | 457 | 0.0000 | n/a | 1.000 |
+| 5 | TOOL_GAP | 457 | 0.0004 | n/a | 1.000 |
+| 5 | SESSION_HISTORY | 457 | 0.0000 | n/a | 1.000 |
+| 15 | GLOBAL | 441 | 0.0273 | 0.037 | 0.973 |
+| 15 | PROGRAM | 441 | 0.0273 | 0.037 | 0.973 |
+| 15 | TOOL_GAP | 441 | 0.0262 | 0.956 | 0.957 |
+| 15 | SESSION_HISTORY | 441 | 0.0273 | 0.037 | 0.973 |
+| 60 | GLOBAL | 422 | 0.1368 | 0.128 | 0.844 |
+| 60 | PROGRAM | 422 | 0.1368 | 0.128 | 0.844 |
+| 60 | TOOL_GAP | 422 | 0.0788 | 0.594 | 0.915 |
+| 60 | SESSION_HISTORY | 422 | 0.1368 | 0.128 | 0.844 |
+| 300 | GLOBAL | 220 | 0.0180 | 0.160 | 0.982 |
+| 300 | PROGRAM | 220 | 0.0180 | 0.160 | 0.982 |
+| 300 | TOOL_GAP | 220 | 0.0188 | 0.307 | 0.982 |
+| 300 | SESSION_HISTORY | 220 | 0.0180 | 0.160 | 0.982 |
 
 **解读**：
 
 - 5s 窗口没有正例，AUC 不可定义；15s 只有 12 个正例，估计不稳定。
+- 60s 窗口删失 12.1%，有效 422；300s 窗口删失 54.2%，有效 220，且只有 4 个负例，指标不应过度解读。
 - `PROGRAM` 与 `SESSION_HISTORY` 在本 Archive 上退化为 `GLOBAL`：每个 program 只属于一个 Group，leave-one-Group-out 时 test program 在 train 中完全 unseen，只能回退 global。这不是模型调参问题，而是 program/session 与 Group 绑定的数据设计限制。
-- `TOOL_GAP` 是唯一有稳定信号的基线：60s 窗口 AUC 0.686、Brier 0.103，说明“上一次 tool gap 长度”比 program 身份更有用。
+- `TOOL_GAP` 是唯一有稳定信号的基线：60s 窗口 Brier 0.079、AUC 0.594，删失后信号仍存在但弱于未删失版本。
 - 这仍是 **program-level proxy**；不能把 tool gap 对 program 续接的预测能力写成 session continuation 结论。
 
 ## 5. Expected Loss Proxy
@@ -105,7 +110,7 @@ EL(candidate) = P_program_continue(program, t, W=60s) * P2-B_prefix_loss(candida
 - `P_program_continue` 来自其他 Group 的历史频率，**不是** session continuation；由于 program 在 leave-one-Group-out 中完全 unseen，它实际退化为训练集 global rate，不能当作 program-specific 概率。
 - `P2-B_prefix_loss` 来自 Stage 0 loss oracle 的 P2-B 深度代理；
 - 每个场景只改一个决策，收益是独立单决策反事实增量，不是联合策略效果；
-- 这是初步 proxy，不用于宣称算法有效。
+- 这是**初步 diagnostic**；本轮没有验证“续接预测 + 成本模型”的有效组合，不能据此宣称算法有效。
 
 - 场景：55（REAL 2，CONSTRUCTED 53）；
 - flips：15；正 gain flips：0；
@@ -116,6 +121,7 @@ EL(candidate) = P_program_continue(program, t, W=60s) * P2-B_prefix_loss(candida
 - 这里只使用 C1 cell 的 55 个有效场景（2 REAL + 53 CONSTRUCTED），不是 P2 的 111 个 C1+C2 场景；两组数字不可直接比较。
 - 15 次 flip、0 次正 gain；EL proxy 没有找到可用的独立单决策收益。
 - 预期损失中的 `P_program_continue` 是 program-level 历史频率，不是 session continuation；该结果不能用于宣称 Session 模型有效。
+- 它仍是 **preliminary diagnostic**：没有验证有效的续接预测与成本模型组合，不能作为算法收益证据。
 
 > 由于 Session Continuation 不可独立识别，本 EL 只能作为 **program-level proxy diagnostic**；不能把它当作 Session Continuation 模型的收益。
 

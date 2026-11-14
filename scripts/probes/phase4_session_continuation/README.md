@@ -24,6 +24,21 @@ Session Continuation and Program Continuation are therefore observationally
 identical in this archive. The report gives a **program-level proxy** only and
 does not claim a Session Continuation result.
 
+## Right-censoring
+
+Each request's observable remaining time is measured from its session's
+`W1B_RIGHT_CENSORED_REPLAY_WINDOW_ENDED` timestamp. A request with less than W
+seconds remaining is `CENSORED` for that window and is excluded from the binary
+Brier/AUC/accuracy metrics; it is not counted as a negative. Only a request with
+at least W seconds remaining and no later same-session request inside W is a
+negative.
+
+Censored share by window: 5s 4.8%, 15s 8.1%, 60s 12.1%, 300s 54.2%.
+
+The Expected Loss section is a preliminary program-level diagnostic only; it
+does not establish a validated continuation-prediction plus cost-model
+combination.
+
 ## Outputs
 
 - `phase4-session-continuation-report.md`: data audit, target contract, window

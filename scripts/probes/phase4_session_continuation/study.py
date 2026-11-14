@@ -12,8 +12,11 @@ this archive; it is not independently identifiable.
 
 The study reports that gap, then provides a clearly labelled **program-level
 continuation proxy** with windowed probabilities, historical baselines, and a
-preliminary Expected Loss model.  It never presents the proxy as a Session
-Continuation result.
+preliminary Expected Loss diagnostic.  A request whose remaining observation
+time is shorter than the prediction window is right-censored and excluded from
+the binary metrics; it is never silently counted as a negative.  It never
+presents the proxy as a Session Continuation result or as a validated
+continuation-plus-cost model.
 
 Usage
 -----
@@ -67,9 +70,10 @@ class RequestRow:
     program: str
     request_id: str
     timestamp: float
+    observable_remaining: float
     prior_requests: int
     last_gap_seconds: float | None
-    labels: dict[float, int]
+    labels: dict[float, int | None]
 
 
 @dataclass(frozen=True)
@@ -87,6 +91,8 @@ class Audit:
     tool_gap_unpaired: int
     source_time_rows: int
     session_switch_events: int
+    right_censored_end_events: int
+    requests_missing_observation_end: int
     conclusion: str
     gaps: tuple[str, ...]
 
@@ -119,6 +125,8 @@ def load_timeline(
     tool_gap_ended = 0
     tool_gap_unpaired = 0
     session_switch_events = 0
+    right_censored_end_events = 0
+    requests_missing_observation_end = 0
 
     for group in groups:
         cell = f"{group}-c1"
@@ -129,6 +137,16 @@ def load_timeline(
             .splitlines()
             if line.strip()
         ]
+        observation_end_by_program: dict[str, float] = {}
+        for event in events:
+            if event.get("event_type") == "W1B_RIGHT_CENSORED_REPLAY_WINDOW_ENDED":
+                right_censored_end_events += 1
+                program = event.get("program_id")
+                observation_end_by_program[program] = max(
+                    observation_end_by_program.get(program, float("-inf")),
+                    float(event["timestamp"]),
+                )
+        cell_observation_end = max(float(event["timestamp"]) for event in events)
         for event in events:
             if "session_id" in event or "session_id" in (event.get("payload") or {}):
                 event_session_field_count += 1
@@ -177,15 +195,22 @@ def load_timeline(
             same_session_later = [
                 later for later in request_events[index + 1 :] if later.get("program_id") == program
             ]
-            labels = {
-                window: int(
+            observation_end = observation_end_by_program.get(program)
+            if observation_end is None:
+                requests_missing_observation_end += 1
+                observation_end = cell_observation_end
+            observable_remaining = max(0.0, observation_end - event["timestamp"])
+            labels: dict[float, int | None] = {}
+            for window in WINDOWS:
+                if observable_remaining + 1e-9 < window:
+                    labels[window] = None  # right-censored: cannot decide the window
+                    continue
+                labels[window] = int(
                     any(
                         later["timestamp"] - event["timestamp"] <= window
                         for later in same_session_later
                     )
                 )
-                for window in WINDOWS
-            }
             rows.append(
                 RequestRow(
                     group=group_id,
@@ -194,6 +219,7 @@ def load_timeline(
                     program=event.get("program_id"),
                     request_id=rid,
                     timestamp=event["timestamp"],
+                    observable_remaining=observable_remaining,
                     prior_requests=len(
                         [row for row in rows if row.session == session_id and row.group == group_id]
                     ),
@@ -236,6 +262,8 @@ def load_timeline(
         tool_gap_unpaired=tool_gap_unpaired,
         source_time_rows=source_time_rows,
         session_switch_events=session_switch_events,
+        right_censored_end_events=right_censored_end_events,
+        requests_missing_observation_end=requests_missing_observation_end,
         conclusion="SESSION_CONTINUATION_NOT_IDENTIFIABLE",
         gaps=(
             "EVENT_STREAM_HAS_NO_SESSION_ID",
@@ -247,14 +275,22 @@ def load_timeline(
     return rows, audit
 
 
-def window_counts(rows: list[RequestRow]) -> dict[float, dict[str, int]]:
-    result = {}
+def window_counts(rows: list[RequestRow]) -> dict[float, dict[str, int | float]]:
+    result: dict[float, dict[str, int | float]] = {}
     for window in WINDOWS:
         labels = [row.labels[window] for row in rows]
+        censored = sum(1 for label in labels if label is None)
+        valid = len(labels) - censored
+        positive = sum(1 for label in labels if label == 1)
+        negative = valid - positive
         result[window] = {
             "rows": len(labels),
-            "positive": sum(labels),
-            "negative": len(labels) - sum(labels),
+            "censored": censored,
+            "valid": valid,
+            "positive": positive,
+            "negative": negative,
+            "censored_rate": (censored / len(labels)) if labels else 0.0,
+            "positive_rate": (positive / valid) if valid else 0.0,
         }
     return result
 
@@ -276,8 +312,10 @@ def _smoothed(positive: int, total: int, fallback: float) -> float:
 
 
 def train_rates(rows: list[RequestRow], window: float, exclude_group: str) -> dict[str, Any]:
-    train = [row for row in rows if row.group != exclude_group]
-    global_rate = (sum(row.labels[window] for row in train) + 1.0) / (len(train) + 2.0)
+    train = [row for row in rows if row.group != exclude_group and row.labels[window] is not None]
+    global_rate = (
+        (sum(row.labels[window] for row in train) + 1.0) / (len(train) + 2.0) if train else 0.5
+    )
     by_program: dict[str, list[int]] = defaultdict(list)
     by_gap: dict[str, list[int]] = defaultdict(list)
     by_history: dict[tuple[str, int], list[int]] = defaultdict(list)
@@ -340,11 +378,18 @@ def evaluate_baselines(rows: list[RequestRow]) -> dict[str, Any]:
             for row in rows:
                 if row.group != group:
                     continue
+                label = row.labels[window]
+                if label is None:
+                    continue
                 prediction = predict_baselines(row, window, rates)
-                labels.append(row.labels[window])
+                labels.append(label)
                 for name, values in predictions.items():
                     values.append(prediction[name])
-        block = {"rows": len(labels), "positive": sum(labels)}
+        block: dict[str, Any] = {"rows": len(labels), "positive": sum(labels)}
+        if not labels:
+            block["empty"] = True
+            output[window] = block
+            continue
         for name, scores in predictions.items():
             brier = sum((score - label) ** 2 for score, label in zip(scores, labels)) / len(labels)
             log_loss = -sum(
@@ -466,6 +511,7 @@ def expected_loss_proxy(
     return {
         "window_seconds": PRIMARY_WINDOW,
         "model": "PROGRAM_CONTINUATION_PROXY_EXPECTED_PREFIX_LOSS",
+        "status": "PRELIMINARY_DIAGNOSTIC_ONLY",
         "session_continuation_claim": "NOT_MADE",
         "not_joint_policy_effect": True,
         "scenarios": len(p2_rows),
@@ -514,6 +560,8 @@ def render_report(campaign: dict[str, Any]) -> str:
         f"| Tool gap unpaired start/end | {audit['tool_gap_unpaired']} |",
         f"| Source request timestamps | {audit['source_time_rows']} |",
         f"| Explicit session-switch events | {audit['session_switch_events']} |",
+        f"| Right-censored replay-window end events | {audit['right_censored_end_events']} |",
+        f"| Requests missing observation end | {audit['requests_missing_observation_end']} |",
         "",
         "**数据缺口**：",
         "",
@@ -540,16 +588,19 @@ def render_report(campaign: dict[str, Any]) -> str:
         "",
         "所有在线特征只使用决策前信息；窗口标签、oracle 与未来 overlap 只用于离线评估。",
         "",
-        "## 3. Continuation Probability by Window",
+        "## 3. Continuation Probability by Window（Right-Censored）",
         "",
-        "| Window (s) | rows | positive | negative | positive rate |",
-        "|---:|---:|---:|---:|---:|",
+        "删除规则：请求时刻到该轨迹 observation end 的剩余时间不足 W 秒时，该窗口记为 `CENSORED`；只有完整观察 W 秒且窗口内没有同 session 后续请求才记为负例。CENSORED 不进入普通二分类指标。",
+        "",
+        "| Window (s) | rows | censored | valid | positive | negative | censored rate | positive rate (valid) |",
+        "|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for window in WINDOWS:
         block = counts[window]
-        rate = block["positive"] / block["rows"] if block["rows"] else 0.0
         lines.append(
-            f"| {window:g} | {block['rows']} | {block['positive']} | {block['negative']} | {rate:.3f} |"
+            f"| {window:g} | {block['rows']} | {block['censored']} | {block['valid']} | "
+            f"{block['positive']} | {block['negative']} | {block['censored_rate']:.3f} | "
+            f"{block['positive_rate']:.3f} |"
         )
     lines += [
         "",
@@ -557,18 +608,21 @@ def render_report(campaign: dict[str, Any]) -> str:
         "",
         "## 4. Baseline Comparison（Group-isolated）",
         "",
-        "Leave-one-Group-out；同一 Group 的两个 session 不跨 train/test。指标为 held-out Brier / AUC / accuracy。",
+        "Leave-one-Group-out；同一 Group 的两个 session 不跨 train/test。指标只在未被右删失的 held-out 样本上计算；CENSORED 不参与 Brier/AUC/Accuracy。",
         "",
-        "| Window | Baseline | Brier | AUC | Accuracy |",
-        "|---:|---|---:|---:|---:|",
+        "| Window | Baseline | n valid | Brier | AUC | Accuracy |",
+        "|---:|---|---:|---:|---:|---:|",
     ]
     for window in WINDOWS:
         for name in ("GLOBAL", "PROGRAM", "TOOL_GAP", "SESSION_HISTORY"):
             block = baselines[window][name]
+            if block.get("empty"):
+                lines.append(f"| {window:g} | {name} | 0 | n/a | n/a | n/a |")
+                continue
             auc = block["auc"]
             auc_text = f"{auc:.3f}" if auc is not None else "n/a"
             lines.append(
-                f"| {window:g} | {name} | {block['brier']:.4f} | "
+                f"| {window:g} | {name} | {baselines[window]['rows']} | {block['brier']:.4f} | "
                 f"{auc_text} | {block['accuracy']:.3f} |"
             )
     lines += [
@@ -576,8 +630,9 @@ def render_report(campaign: dict[str, Any]) -> str:
         "**解读**：",
         "",
         "- 5s 窗口没有正例，AUC 不可定义；15s 只有 12 个正例，估计不稳定。",
+        "- 60s 窗口删失 12.1%，有效 422；300s 窗口删失 54.2%，有效 220，且只有 4 个负例，指标不应过度解读。",
         "- `PROGRAM` 与 `SESSION_HISTORY` 在本 Archive 上退化为 `GLOBAL`：每个 program 只属于一个 Group，leave-one-Group-out 时 test program 在 train 中完全 unseen，只能回退 global。这不是模型调参问题，而是 program/session 与 Group 绑定的数据设计限制。",
-        "- `TOOL_GAP` 是唯一有稳定信号的基线：60s 窗口 AUC 0.686、Brier 0.103，说明“上一次 tool gap 长度”比 program 身份更有用。",
+        "- `TOOL_GAP` 是唯一有稳定信号的基线：60s 窗口 Brier 0.079、AUC 0.594，删失后信号仍存在但弱于未删失版本。",
         "- 这仍是 **program-level proxy**；不能把 tool gap 对 program 续接的预测能力写成 session continuation 结论。",
         "",
         "## 5. Expected Loss Proxy",
@@ -591,7 +646,7 @@ def render_report(campaign: dict[str, Any]) -> str:
         "- `P_program_continue` 来自其他 Group 的历史频率，**不是** session continuation；由于 program 在 leave-one-Group-out 中完全 unseen，它实际退化为训练集 global rate，不能当作 program-specific 概率。",
         "- `P2-B_prefix_loss` 来自 Stage 0 loss oracle 的 P2-B 深度代理；",
         "- 每个场景只改一个决策，收益是独立单决策反事实增量，不是联合策略效果；",
-        "- 这是初步 proxy，不用于宣称算法有效。",
+        "- 这是**初步 diagnostic**；本轮没有验证“续接预测 + 成本模型”的有效组合，不能据此宣称算法有效。",
         "",
         f"- 场景：{el['scenarios']}（REAL {el['real']}，CONSTRUCTED {el['constructed']}）；",
         f"- flips：{el['flips']}；正 gain flips：{el['positive_gain_flips']}；",
@@ -602,6 +657,7 @@ def render_report(campaign: dict[str, Any]) -> str:
         "- 这里只使用 C1 cell 的 55 个有效场景（2 REAL + 53 CONSTRUCTED），不是 P2 的 111 个 C1+C2 场景；两组数字不可直接比较。",
         "- 15 次 flip、0 次正 gain；EL proxy 没有找到可用的独立单决策收益。",
         "- 预期损失中的 `P_program_continue` 是 program-level 历史频率，不是 session continuation；该结果不能用于宣称 Session 模型有效。",
+        "- 它仍是 **preliminary diagnostic**：没有验证有效的续接预测与成本模型组合，不能作为算法收益证据。",
         "",
         "> 由于 Session Continuation 不可独立识别，本 EL 只能作为 **program-level proxy diagnostic**；不能把它当作 Session Continuation 模型的收益。",
         "",
@@ -648,8 +704,9 @@ def main(argv: list[str] | None = None) -> int:
     expected = expected_loss_proxy(args.evidence, rows)
 
     campaign = {
-        "schema_version": "phase4.session_continuation_feasibility.v1",
+        "schema_version": "phase4.session_continuation_feasibility.v2",
         "status": "SESSION_CONTINUATION_NOT_IDENTIFIABLE",
+        "right_censoring": "WINDOW_CENSORED_AT_OBSERVATION_END",
         "authorization": "Phase 4 Task 1 CPU-only, read-only Archive",
         "audit": {
             "group_count": audit.group_count,
@@ -665,6 +722,8 @@ def main(argv: list[str] | None = None) -> int:
             "tool_gap_unpaired": audit.tool_gap_unpaired,
             "source_time_rows": audit.source_time_rows,
             "session_switch_events": audit.session_switch_events,
+            "right_censored_end_events": audit.right_censored_end_events,
+            "requests_missing_observation_end": audit.requests_missing_observation_end,
             "conclusion": audit.conclusion,
             "gaps": list(audit.gaps),
         },
@@ -676,7 +735,8 @@ def main(argv: list[str] | None = None) -> int:
             "No program has multiple sessions; no explicit session-switch event exists.",
             "Program-level proxy only; no Session Continuation algorithm result is claimed.",
             "Prefix-demand overlap is not a Native-cache-verified hit.",
-            "Expected-loss results are independent single-decision counterfactuals, not a joint policy.",
+            "Requests with less than W seconds of observable time are right-censored and excluded from binary metrics.",
+            "Expected-loss results are independent single-decision counterfactuals, not a joint policy, and are a preliminary diagnostic only.",
         ],
     }
 

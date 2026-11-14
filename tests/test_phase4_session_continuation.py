@@ -24,7 +24,7 @@ def _load_module():
     return module
 
 
-def _row(module, group: str, program: str, label_60: int, prior: int, gap: float | None):
+def _row(module, group: str, program: str, label_60: int | None, prior: int, gap: float | None):
     return module.RequestRow(
         group=group,
         cell=f"{group}-c1",
@@ -32,6 +32,7 @@ def _row(module, group: str, program: str, label_60: int, prior: int, gap: float
         program=program,
         request_id=f"{program}:turn:{prior + 1}",
         timestamp=float(prior),
+        observable_remaining=300.0,
         prior_requests=prior,
         last_gap_seconds=gap,
         labels={window: (label_60 if window == 60.0 else 0) for window in module.WINDOWS},
@@ -58,8 +59,24 @@ def test_window_counts() -> None:
     ]
     counts = module.window_counts(rows)
     assert counts[60.0]["rows"] == 2
+    assert counts[60.0]["valid"] == 2
+    assert counts[60.0]["censored"] == 0
     assert counts[60.0]["positive"] == 1
     assert counts[60.0]["negative"] == 1
+
+
+def test_window_counts_excludes_censored() -> None:
+    module = _load_module()
+    rows = [
+        _row(module, "g01", "p1", 1, 0, None),
+        _row(module, "g01", "p2", None, 0, 1.0),
+    ]
+    counts = module.window_counts(rows)
+    assert counts[60.0]["censored"] == 1
+    assert counts[60.0]["valid"] == 1
+    assert counts[60.0]["positive"] == 1
+    assert counts[60.0]["negative"] == 0
+    assert counts[60.0]["positive_rate"] == 1.0
 
 
 def test_train_rates_excludes_held_out_group() -> None:
