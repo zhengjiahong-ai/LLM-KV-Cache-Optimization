@@ -400,14 +400,14 @@ These are candidate research narratives, not yet accepted contributions. In part
 
 As checked on 2026-11-14:
 
-- `main`: `18a0a9198403af735350cbbfd9aae20e7b2b39bd`.
-- `research/phase3-stage0-oracle`: `69acd43b59eed73484a8538b9836e4cd752aea32`, 16 commits ahead of main and zero commits behind.
-- PR #104 (270-run execution) remains open against main.
-- PR #105 (Phase 3 null-mechanism analysis) remains open against the Phase 3 execution branch.
-- PR #106 (P2 depth study) and PR #107 (Session Continuation feasibility) are merged into the research branch, not main.
-- The research branch descends from the PR #104/#105 work and contains the #106/#107 follow-up analyses.
+- `main` after PR #104 merge: `c3a53bfc45bd36d4026876658d21d3b4bf845e23`.
+- `research/phase3-stage0-oracle`: `9cca2a42b452f8b84559da94e026a990d9d75c19` before the targeted status/index maintenance in PR #109.
+- PR #104 (270-run execution and actual-order bounded paired-effect evidence) is merged into `main`.
+- PR #105 (Phase 3 null-mechanism analysis) remains open on its original feature-branch base; its analysis is included in the research integration branch and is being promoted through PR #109.
+- PR #106 (P2 depth study), PR #107 (Session Continuation feasibility), and PR #108 (R1.3 synthesis package) are merged into the research integration branch.
+- PR #109 promotes the integrated Phase 3/4 retrospective evidence and M4-reviewed synthesis to `main`.
 
-The README and canonical status file on main still carry the earlier 2026-11-10 pre-execution snapshot. The research branch's status file records 270/270 complete and final M1/M4 adjudication pending. This discrepancy must be resolved through an explicit integration/merge sequence; do not silently copy the later status over historical records.
+The older README and status snapshot were pre-execution records. The dated historical snapshot in the status ledger remains preserved; current status is updated through this reviewable mainline promotion.
 
 ## 8. R1 next actions
 
