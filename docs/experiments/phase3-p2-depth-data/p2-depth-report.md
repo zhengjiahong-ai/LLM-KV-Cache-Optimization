@@ -1,81 +1,85 @@
-# Phase 3 P2 离线研究：在线未来复用深度预测
+# Phase 3 P2 离线研究：候选链条件化在线预测
 
 **Author**: M4  
 **Status**: `P2_CPU_ONLY_OFFLINE_RESEARCH` — 只读 Archive，无 GPU、无 Native smoke、无生产算法修改。  
-**Input**: Stage 0 A0-Anchored Prefix-State Loss Oracle（完整 24 请求前缀状态重算；不是 Native State Oracle）。
+**Oracle**: Stage 0 A0-Anchored Prefix-State Loss Oracle（完整 24 请求前缀状态重算；不是 Native State Oracle）。
 
 ## 0. 结论
 
-- 场景总数：**127**（REAL 7，CONSTRUCTED_HISTORICAL 120）。
-- 在线 P2 预测深度 MAE：**134.8 blocks**（REAL 91.6；CONSTRUCTED 137.3）。
-- P2 decision flips：**35**（REAL 7；CONSTRUCTED 28）；其中正 gain flips：**0**。
-- P2 全轨迹 gain 合计：**-20032 tokens**；hindsight oracle gain 合计：**704 tokens**。
-- P2 与 one-decision hindsight oracle 同 gain：**108/127**（REAL 3/7；CONSTRUCTED 105/120）。
+- 预测目标与标签已重新对齐：在线预测的是候选链的未来 **prefix-demand overlap**，不是经过 Native Cache 验证的真实复用深度。
+- 所有 P2 变体只使用决策时刻之前的信息；未来 overlap、oracle 选择与 victim 信息只作为离线标签。
+- 每一条收益都是**独立单决策反事实增量**，不是联合部署 P2 的策略效果；REAL 与 CONSTRUCTED_HISTORICAL 继续分开。
 
-> 本轮没有发现 P2 在线预测器在现有/构造场景中稳定产生正收益的证据。该结论限于 prefix-state loss 通道；容量收益仍未评估。
+**一句话结果**：P2-A/B 的预测 MAE 较低（134.3 blocks）但在有效 REAL 5 次上全部 flip、0 次正 gain；P2-C 的 MAE 更差（460.1 blocks）且 0 次 flip、0 次 gain。预测精度与实际决策价值没有对齐。
 
-**关键失败模式（REAL）**：7 次真实竞争决策上 P2 全部 flip，4 次为负 gain、3 次为 0；P2 的深度预测并不低（MAE 91.6 blocks），但它无法识别“未来请求会使用哪一条链”。REAL 的 oracle 最优始终是 A0，P2 却选择了另一条链；这说明下一轮 P2 的关键不是继续拟合深度，而是预测**未来请求/session 的 program 续接**。
+## 1. 三种在线预测器
 
-## 1. 场景定义
+- **P2-A** `P2_A_ORIGINAL_MAX`：原始对照。program 历史请求两两 LCP 的最大值。
+- **P2-B** `P2_B_CHAIN_MAX`：候选链条件化。当前候选链与每个历史同 program 链的 LCP，取最大值。
+- **P2-C** `P2_C_CHAIN_WEIGHTED`：候选链条件化加权估计。对上述 LCP 做 recency-weighted mean。
 
-- **REAL**：Archive 中真实存在两个候选的 7 次决策；A0 选择与另一候选均为观测。
-- **CONSTRUCTED_HISTORICAL**：单候选决策与同一 cell 中最近的其他 program chain 配对；这是**反事实构造**，不是观测到的候选竞争。
+三者都只使用决策前历史；无历史时使用决策前全 cell 的 pairwise 中位数 fallback。
 
-REAL 与 CONSTRUCTED 在表中分开报告；任何 CONSTRUCTED 结果都不能直接当作真实决策收益。
+## 2. Victim identity 与 Fail-Closed
 
-## 2. 在线 P2 模型
+- 候选只在 victim hashes 可证明为某条历史同 program 链的**连续后缀**时进入评估。
+- 不能证明连续后缀的候选/场景记为 `EXCLUDED`，不使用 `chain_length - need + 1` 默认推断。
+- 本轮排除：**18** 个候选（REAL 4，CONSTRUCTED 14）；原因：{'victim_hashes_not_a_contiguous_suffix_of_any_prior_chain': 18}。
+- REAL 的 4 个候选排除对应 g10-c1、g10-c2 两个决策；其余 5 个 REAL 决策进入评估（7 个真实竞争决策中 2 个被排除）。
+- REAL 与 CONSTRUCTED 的排除项都保留在证据 JSON 的 exclusions 中，不当作 0 收益。
 
-P2 只能使用决策前信息：
+## 3. 汇总：预测精度与决策价值分开
 
-- program 在决策前的 request 链与两两 LCP 深度；
-- 若 program 无历史，使用决策前全 cell 的历史深度中位数；
-- 候选的 `chain_length`、`first_victim_depth` 与 `need`。
+| 方法 | 场景类 | n | MAE (blocks) | ranking accuracy | flips | 正 gain flips | 独立单决策 P2 gain 和 | 独立单决策 oracle gain 和 |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| P2-A original history max LCP | REAL | 5 | 87.4 | 0.200 | 5 | 0 | -4144 | 0 |
+| P2-A original history max LCP | CONSTRUCTED_HISTORICAL | 106 | 136.6 | 0.745 | 24 | 0 | -11104 | 704 |
+| P2-A original history max LCP | ALL | 111 | 134.3 | 0.721 | 29 | 0 | -15248 | 704 |
+| P2-B candidate-chain max LCP | REAL | 5 | 87.4 | 0.200 | 5 | 0 | -4144 | 0 |
+| P2-B candidate-chain max LCP | CONSTRUCTED_HISTORICAL | 106 | 136.6 | 0.745 | 24 | 0 | -11104 | 704 |
+| P2-B candidate-chain max LCP | ALL | 111 | 134.3 | 0.721 | 29 | 0 | -15248 | 704 |
+| P2-C candidate-chain weighted mean | REAL | 5 | 346.5 | 0.800 | 0 | 0 | 0 | 0 |
+| P2-C candidate-chain weighted mean | CONSTRUCTED_HISTORICAL | 106 | 465.4 | 0.972 | 0 | 0 | 0 | 704 |
+| P2-C candidate-chain weighted mean | ALL | 111 | 460.1 | 0.964 | 0 | 0 | 0 | 704 |
 
-预测目标：该 chain 在决策后的最深复用深度（hindsight label，仅用于离线评估）。
-P2 loss score = `max(0, predicted_depth - first_victim_depth + 1) * 16`，越低越好。
+> `independent_single_decision_p2_gain_sum_tokens` 是各场景“只改一个决策”的增量之和，**不是**联合 P2 策略的总体效果；不能把任何一个总和表述为部署 P2 的收益。
 
-## 3. 汇总
+## 4. REAL 场景明细（仅完整后缀可证明的决策）
 
-| 场景类 | n | MAE (blocks) | flips | 正 gain flips | P2 gain 合计 | oracle gain 合计 |
-|---|---:|---:|---:|---:|---:|---:|
-| REAL | 7 | 91.6 | 7 | 0 | -4896 | 0 |
-| CONSTRUCTED_HISTORICAL | 120 | 137.3 | 28 | 0 | -15136 | 704 |
-| ALL | 127 | 134.8 | 35 | 0 | -20032 | 704 |
+| cell | A0 | oracle | P2-A | P2-B | P2-C |
+|---|---|---|---|---|---|
+| g09-c1 | sympy__sympy-13551 | django__django-12050 (0) | django__django-12050 (0) | django__django-12050 (0) | sympy__sympy-13551 (0) |
+| g09-c2 | sympy__sympy-13551 | sympy__sympy-13551 (0) | django__django-12050 (-1552) | django__django-12050 (-1552) | sympy__sympy-13551 (0) |
+| g16-c1 | django__django-13363 | django__django-13363 (0) | matplotlib__matplotlib-25287 (-1040) | matplotlib__matplotlib-25287 (-1040) | django__django-13363 (0) |
+| g16-c2 | django__django-13363 | django__django-13363 (0) | matplotlib__matplotlib-25287 (0) | matplotlib__matplotlib-25287 (0) | django__django-13363 (0) |
+| g18-c2 | sympy__sympy-13974 | sympy__sympy-13974 (0) | django__django-16032 (-1552) | django__django-16032 (-1552) | sympy__sympy-13974 (0) |
 
-## 4. REAL 场景明细
+## 5. CONSTRUCTED_HISTORICAL：oracle gain > 0 的场景
 
-| cell | A0 | P2 choice | P2 gain | oracle gain | matches oracle |
-|---|---|---|---:|---:|---|
-| g09-c1 | sympy__sympy-13551 | django__django-12050 | 0 | 0 | True |
-| g09-c2 | sympy__sympy-13551 | django__django-12050 | -1552 | 0 | False |
-| g10-c1 | matplotlib__matplotlib-26466 | django__django-15569 | -752 | 0 | False |
-| g10-c2 | matplotlib__matplotlib-26466 | django__django-15569 | 0 | 0 | True |
-| g16-c1 | django__django-13363 | matplotlib__matplotlib-25287 | -1040 | 0 | False |
-| g16-c2 | django__django-13363 | matplotlib__matplotlib-25287 | 0 | 0 | True |
-| g18-c2 | sympy__sympy-13974 | django__django-16032 | -1552 | 0 | False |
+| cell | A0 | oracle | P2-C choice | P2-C gain | oracle gain |
+|---|---|---|---|---:|---:|
+| g12-c1 | pydata__xarray-4695 | django__django-14170 | pydata__xarray-4695 | 0 | 64 |
+| g12-c2 | pydata__xarray-4695 | django__django-14170 | pydata__xarray-4695 | 0 | 64 |
+| g16-c1 | matplotlib__matplotlib-25287 | django__django-13363 | matplotlib__matplotlib-25287 | 0 | 576 |
 
-## 5. CONSTRUCTED_HISTORICAL：oracle gain > 0 的全部场景
-
-| cell | A0 | P2 choice | P2 gain | oracle gain | matches oracle |
-|---|---|---|---:|---:|---|
-| g16-c1 | matplotlib__matplotlib-25287 | matplotlib__matplotlib-25287 | 0 | 576 | False |
-| g12-c1 | pydata__xarray-4695 | pydata__xarray-4695 | 0 | 64 | False |
-| g12-c2 | pydata__xarray-4695 | pydata__xarray-4695 | 0 | 64 | False |
-
-其余 117 个 CONSTRUCTED_HISTORICAL 场景 oracle gain = 0；P2 在这些场景中没有可实现的损失收益。
+其余 103 个有效 CONSTRUCTED 场景 oracle gain = 0。
 
 ## 6. 解释与边界
 
-- P2 是**在线**预测器：不使用未来 request、oracle 选择或事后 victim 信息；hindsight 只用于评估。
-- CONSTRUCTED_HISTORICAL 场景是人为配对，不能替代真实候选竞争；其结果只用于检验模型是否能在更多历史形态上产生分歧。
-- 全轨迹收益由 Stage 0 loss oracle 计算，不做局部收益累加；它不是 Native State Oracle，容量收益未评估。
+- **P2-A 与 P2-B 在本 cohort 上完全同值**：候选链条件化的最大 LCP 已经由另一条历史链达到，因此 P2-B 没有改变排序；这是观测事实，不是实现错误。
+- **P2-C 的 MAE 更差但 flip 为 0**：加权估计把预测深度压低，候选分数在多数场景落到 0，tie 保留 A0；因此它“不犯错”但不产生任何决策价值。
+- `ranking_accuracy` 在 oracle gain = 0 的场景中被 tie 抬高，不能单独当作预测能力；必须与 positive-gain flip、全轨迹 gain 一起看。
+- 预测精度与实际决策价值分开报告；MAE/ranking accuracy 不能替代全轨迹 gain。
+- `future_prefix_demand_overlap` 是请求前缀重合，不等于 Native cache hit。
+- REAL 与 CONSTRUCTED_HISTORICAL 不可合并解释；CONSTRUCTED 是反事实构造。
+- 全轨迹收益来自 loss oracle，不是 Native State Oracle；容量收益未评估。
 - 不授权 GPU、Native smoke、Protocol v5 或 Partial Release 实现。
 
 ## 7. 后续
 
 1. 保留本轮结果；不启动 GPU。
-2. P2 继续 CPU-only 离线研究：优先预测**未来请求/session 的 program 续接**，而不是只拟合历史复用深度；扩大真实/构造场景，比较 A0、P2、ideal hindsight oracle。
-3. P1 暴露几何作为独立诊断保留，不因 loss-only oracle 为零而取消。
+2. P2 继续 CPU-only：先解决“未来请求/session program 续接”的预测目标，再扩展候选与场景。
+3. P1 暴露几何作为独立诊断保留。
 
 ## 8. 复现
 

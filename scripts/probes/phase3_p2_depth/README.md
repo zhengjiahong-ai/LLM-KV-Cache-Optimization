@@ -1,4 +1,4 @@
-# P2 online future-reuse-depth study
+# P2 candidate-chain-conditioned online study
 
 CPU-only, read-only offline study authorized after Stage 0. No GPU, Native
 smoke, Protocol v5, or Partial Release implementation.
@@ -10,16 +10,32 @@ python scripts/probes/phase3_p2_depth/p2_study.py \
     --out      docs/experiments/phase3-p2-depth-data
 ```
 
-Scenarios are split into `REAL` (the 7 observed two-candidate decisions) and
-`CONSTRUCTED_HISTORICAL` (single-candidate decisions paired with the most recent
-other-program chain in the same cell; these are artificial counterfactuals, not
-observed candidate competitions).
+## Predictors
 
-P2 is an **online** predictor: it may use only prior request history and the
-candidate's current geometry. The future reuse depth and the one-decision
-hindsight oracle are offline labels. Full-trajectory gains use the Stage 0
-A0-Anchored Prefix-State Loss Oracle, not a Native State Oracle; capacity gains
-remain unassessed.
+- **P2-A** original control: pairwise same-program history max LCP.
+- **P2-B** candidate-chain-conditioned max LCP against other prior same-program chains.
+- **P2-C** candidate-chain-conditioned recency-weighted mean of those LCPs.
+
+All predictors use only information available before the decision. The source
+chain that produced the candidate is excluded from P2-B/C history; otherwise the
+self-LCP would collapse the score to `need`.
+
+## Contracts
+
+- **Victim suffix:** a candidate is evaluated only when its actual victim hashes
+  are provably a contiguous suffix of a prior same-program request chain. If no
+  such chain exists, the candidate/scenario is `EXCLUDED`; the depth is never
+  defaulted from `chain_length - need + 1`.
+- **Label:** `future_prefix_demand_overlap` is the deepest later request-prefix
+  overlap. It is not a Native-cache-verified hit.
+- **Gain:** each scenario changes exactly one decision, keeping the rest at A0.
+  Sums are independent single-decision counterfactual increments, not a joint
+  P2 policy effect.
+- **Scenarios:** `REAL` and `CONSTRUCTED_HISTORICAL` are always reported
+  separately; constructed scenarios are artificial pairings.
+
+Full-trajectory gains use the Stage 0 A0-Anchored Prefix-State Loss Oracle, not a
+Native State Oracle; Native capacity gains remain unassessed.
 
 Outputs: `p2-depth-evidence.json`, `p2-depth-report.md`, `sha256-manifest.txt`.
 Tests: `tests/test_phase3_p2_depth.py`.
