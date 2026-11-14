@@ -21,7 +21,7 @@ This directory contains the project's cross-phase research synthesis and evidenc
 1. Start with [canonical research status](../research-status.md) for the current project state and pending decisions.
 2. Read [Research Results and Contributions](research-results-and-contributions.md) for the integrated scientific interpretation.
 3. Use the [R1 evidence ledger](r1-experiment-evidence-ledger.md) to trace each statement to its original campaign, protocol, archive, and report.
-5. For a formal claim, cite the frozen protocol and primary result report rather than this synthesis alone.
+4. For a formal claim, cite the frozen protocol and primary result report rather than this synthesis alone.
 
 ## Status and boundaries
 
