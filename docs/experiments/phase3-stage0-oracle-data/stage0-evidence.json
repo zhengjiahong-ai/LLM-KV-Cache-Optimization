@@ -1,0 +1,1835 @@
+{
+  "schema_version": "phase3.stage0_oracle.v1",
+  "status": "STOP_ENTRY_ORDERING",
+  "authorization": "M1 Stage 0 CPU-only full-trajectory Oracle + P2 offline study",
+  "model": "A0_ANCHORED_PREFIX_STATE_COUNTERFACTUAL",
+  "a0_native_replay": "NOT_AVAILABLE",
+  "oracle_gain_is_upper_bound": true,
+  "complete_cells_primary": 36,
+  "complete_groups_primary": 18,
+  "primary_cells": 36,
+  "primary_groups": 18,
+  "count_groups_ge_512": 0,
+  "effect_floor_tokens": 512,
+  "h30_sensitivity_mean_gain_tokens": 0.0,
+  "decisions_total": 127,
+  "decisions_selected_victim_subset_physical": "127/127",
+  "competitive_decisions": 7,
+  "competitive_selected_victim_subset_physical": "7/7",
+  "oracle_gain_total_tokens": 0,
+  "p2": {
+    "decisions": 7,
+    "p2_flips": 0,
+    "p2_flips_with_positive_gain": 0,
+    "rows": [
+      {
+        "cell": "g09-c1",
+        "decision_event_index": 404,
+        "need": 97,
+        "a0_program": "sympy__sympy-13551",
+        "p2_program": "sympy__sympy-13551",
+        "p2_flip": false,
+        "p2_depth_scores": {
+          "django__django-12050": 1552,
+          "sympy__sympy-13551": 0
+        },
+        "p2_full_trajectory_gain": 0,
+        "oracle_best_gain": 0
+      },
+      {
+        "cell": "g09-c2",
+        "decision_event_index": 404,
+        "need": 97,
+        "a0_program": "sympy__sympy-13551",
+        "p2_program": "sympy__sympy-13551",
+        "p2_flip": false,
+        "p2_depth_scores": {
+          "django__django-12050": 1552,
+          "sympy__sympy-13551": 0
+        },
+        "p2_full_trajectory_gain": 0,
+        "oracle_best_gain": 0
+      },
+      {
+        "cell": "g10-c1",
+        "decision_event_index": 730,
+        "need": 127,
+        "a0_program": "matplotlib__matplotlib-26466",
+        "p2_program": "matplotlib__matplotlib-26466",
+        "p2_flip": false,
+        "p2_depth_scores": {
+          "django__django-15569": 752,
+          "matplotlib__matplotlib-26466": 0
+        },
+        "p2_full_trajectory_gain": 0,
+        "oracle_best_gain": 0
+      },
+      {
+        "cell": "g10-c2",
+        "decision_event_index": 730,
+        "need": 127,
+        "a0_program": "matplotlib__matplotlib-26466",
+        "p2_program": "matplotlib__matplotlib-26466",
+        "p2_flip": false,
+        "p2_depth_scores": {
+          "django__django-15569": 0,
+          "matplotlib__matplotlib-26466": 0
+        },
+        "p2_full_trajectory_gain": 0,
+        "oracle_best_gain": 0
+      },
+      {
+        "cell": "g16-c1",
+        "decision_event_index": 402,
+        "need": 101,
+        "a0_program": "django__django-13363",
+        "p2_program": "django__django-13363",
+        "p2_flip": false,
+        "p2_depth_scores": {
+          "django__django-13363": 0,
+          "matplotlib__matplotlib-25287": 1040
+        },
+        "p2_full_trajectory_gain": 0,
+        "oracle_best_gain": 0
+      },
+      {
+        "cell": "g16-c2",
+        "decision_event_index": 402,
+        "need": 101,
+        "a0_program": "django__django-13363",
+        "p2_program": "django__django-13363",
+        "p2_flip": false,
+        "p2_depth_scores": {
+          "django__django-13363": 0,
+          "matplotlib__matplotlib-25287": 0
+        },
+        "p2_full_trajectory_gain": 0,
+        "oracle_best_gain": 0
+      },
+      {
+        "cell": "g18-c2",
+        "decision_event_index": 406,
+        "need": 97,
+        "a0_program": "sympy__sympy-13974",
+        "p2_program": "sympy__sympy-13974",
+        "p2_flip": false,
+        "p2_depth_scores": {
+          "django__django-16032": 1552,
+          "sympy__sympy-13974": 0
+        },
+        "p2_full_trajectory_gain": 0,
+        "oracle_best_gain": 0
+      }
+    ]
+  },
+  "groups": [
+    {
+      "group": "g01",
+      "cells": [
+        "g01-c1",
+        "g01-c2"
+      ],
+      "complete": true,
+      "oracle_gain_tokens": 0.0,
+      "oracle_gain_upper_bound": true
+    },
+    {
+      "group": "g02",
+      "cells": [
+        "g02-c1",
+        "g02-c2"
+      ],
+      "complete": true,
+      "oracle_gain_tokens": 0.0,
+      "oracle_gain_upper_bound": true
+    },
+    {
+      "group": "g03",
+      "cells": [
+        "g03-c1",
+        "g03-c2"
+      ],
+      "complete": true,
+      "oracle_gain_tokens": 0.0,
+      "oracle_gain_upper_bound": true
+    },
+    {
+      "group": "g04",
+      "cells": [
+        "g04-c1",
+        "g04-c2"
+      ],
+      "complete": true,
+      "oracle_gain_tokens": 0.0,
+      "oracle_gain_upper_bound": true
+    },
+    {
+      "group": "g05",
+      "cells": [
+        "g05-c1",
+        "g05-c2"
+      ],
+      "complete": true,
+      "oracle_gain_tokens": 0.0,
+      "oracle_gain_upper_bound": true
+    },
+    {
+      "group": "g06",
+      "cells": [
+        "g06-c1",
+        "g06-c2"
+      ],
+      "complete": true,
+      "oracle_gain_tokens": 0.0,
+      "oracle_gain_upper_bound": true
+    },
+    {
+      "group": "g07",
+      "cells": [
+        "g07-c1",
+        "g07-c2"
+      ],
+      "complete": true,
+      "oracle_gain_tokens": 0.0,
+      "oracle_gain_upper_bound": true
+    },
+    {
+      "group": "g08",
+      "cells": [
+        "g08-c1",
+        "g08-c2"
+      ],
+      "complete": true,
+      "oracle_gain_tokens": 0.0,
+      "oracle_gain_upper_bound": true
+    },
+    {
+      "group": "g10",
+      "cells": [
+        "g10-c1",
+        "g10-c2"
+      ],
+      "complete": true,
+      "oracle_gain_tokens": 0.0,
+      "oracle_gain_upper_bound": true
+    },
+    {
+      "group": "g11",
+      "cells": [
+        "g11-c1",
+        "g11-c2"
+      ],
+      "complete": true,
+      "oracle_gain_tokens": 0.0,
+      "oracle_gain_upper_bound": true
+    },
+    {
+      "group": "g12",
+      "cells": [
+        "g12-c1",
+        "g12-c2"
+      ],
+      "complete": true,
+      "oracle_gain_tokens": 0.0,
+      "oracle_gain_upper_bound": true
+    },
+    {
+      "group": "g13",
+      "cells": [
+        "g13-c1",
+        "g13-c2"
+      ],
+      "complete": true,
+      "oracle_gain_tokens": 0.0,
+      "oracle_gain_upper_bound": true
+    },
+    {
+      "group": "g14",
+      "cells": [
+        "g14-c1",
+        "g14-c2"
+      ],
+      "complete": true,
+      "oracle_gain_tokens": 0.0,
+      "oracle_gain_upper_bound": true
+    },
+    {
+      "group": "g15",
+      "cells": [
+        "g15-c1",
+        "g15-c2"
+      ],
+      "complete": true,
+      "oracle_gain_tokens": 0.0,
+      "oracle_gain_upper_bound": true
+    },
+    {
+      "group": "g16",
+      "cells": [
+        "g16-c1",
+        "g16-c2"
+      ],
+      "complete": true,
+      "oracle_gain_tokens": 0.0,
+      "oracle_gain_upper_bound": true
+    },
+    {
+      "group": "g17",
+      "cells": [
+        "g17-c1",
+        "g17-c2"
+      ],
+      "complete": true,
+      "oracle_gain_tokens": 0.0,
+      "oracle_gain_upper_bound": true
+    },
+    {
+      "group": "g19",
+      "cells": [
+        "g19-c1",
+        "g19-c2"
+      ],
+      "complete": true,
+      "oracle_gain_tokens": 0.0,
+      "oracle_gain_upper_bound": true
+    },
+    {
+      "group": "g20",
+      "cells": [
+        "g20-c1",
+        "g20-c2"
+      ],
+      "complete": true,
+      "oracle_gain_tokens": 0.0,
+      "oracle_gain_upper_bound": true
+    }
+  ],
+  "cells": [
+    {
+      "cell": "g01-c1",
+      "decisions": 5,
+      "need": 65,
+      "a0_programs": [
+        "django__django-13401",
+        "astropy__astropy-7671",
+        "django__django-13401",
+        "astropy__astropy-7671",
+        "django__django-13401"
+      ],
+      "competitive_indices": [],
+      "competitive_a0_programs": [],
+      "baseline_recomputed": 77168,
+      "oracle_recomputed": 77168,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "oracle_choices": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "oracle_programs": [
+        "django__django-13401",
+        "astropy__astropy-7671",
+        "django__django-13401",
+        "astropy__astropy-7671",
+        "django__django-13401"
+      ],
+      "alternatives": [],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g01-c2",
+      "decisions": 5,
+      "need": 65,
+      "a0_programs": [
+        "django__django-13401",
+        "astropy__astropy-7671",
+        "django__django-13401",
+        "astropy__astropy-7671",
+        "django__django-13401"
+      ],
+      "competitive_indices": [],
+      "competitive_a0_programs": [],
+      "baseline_recomputed": 78992,
+      "oracle_recomputed": 78992,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "oracle_choices": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "oracle_programs": [
+        "django__django-13401",
+        "astropy__astropy-7671",
+        "django__django-13401",
+        "astropy__astropy-7671",
+        "django__django-13401"
+      ],
+      "alternatives": [],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g02-c1",
+      "decisions": 4,
+      "need": 99,
+      "a0_programs": [
+        "django__django-12276",
+        "matplotlib__matplotlib-14623",
+        "django__django-12276",
+        "matplotlib__matplotlib-14623"
+      ],
+      "competitive_indices": [],
+      "competitive_a0_programs": [],
+      "baseline_recomputed": 32880,
+      "oracle_recomputed": 32880,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "oracle_choices": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "oracle_programs": [
+        "django__django-12276",
+        "matplotlib__matplotlib-14623",
+        "django__django-12276",
+        "matplotlib__matplotlib-14623"
+      ],
+      "alternatives": [],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g02-c2",
+      "decisions": 4,
+      "need": 99,
+      "a0_programs": [
+        "django__django-12276",
+        "matplotlib__matplotlib-14623",
+        "django__django-12276",
+        "matplotlib__matplotlib-14623"
+      ],
+      "competitive_indices": [],
+      "competitive_a0_programs": [],
+      "baseline_recomputed": 48976,
+      "oracle_recomputed": 48976,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "oracle_choices": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "oracle_programs": [
+        "django__django-12276",
+        "matplotlib__matplotlib-14623",
+        "django__django-12276",
+        "matplotlib__matplotlib-14623"
+      ],
+      "alternatives": [],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g03-c1",
+      "decisions": 2,
+      "need": 76,
+      "a0_programs": [
+        "django__django-15572",
+        "psf__requests-2317"
+      ],
+      "competitive_indices": [],
+      "competitive_a0_programs": [],
+      "baseline_recomputed": 8304,
+      "oracle_recomputed": 8304,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        0,
+        0
+      ],
+      "oracle_choices": [
+        0,
+        0
+      ],
+      "oracle_programs": [
+        "django__django-15572",
+        "psf__requests-2317"
+      ],
+      "alternatives": [],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g03-c2",
+      "decisions": 2,
+      "need": 76,
+      "a0_programs": [
+        "django__django-15572",
+        "psf__requests-2317"
+      ],
+      "competitive_indices": [],
+      "competitive_a0_programs": [],
+      "baseline_recomputed": 20592,
+      "oracle_recomputed": 20592,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        0,
+        0
+      ],
+      "oracle_choices": [
+        0,
+        0
+      ],
+      "oracle_programs": [
+        "django__django-15572",
+        "psf__requests-2317"
+      ],
+      "alternatives": [],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g04-c1",
+      "decisions": 2,
+      "need": 127,
+      "a0_programs": [
+        "pydata__xarray-3305",
+        "django__django-14053"
+      ],
+      "competitive_indices": [],
+      "competitive_a0_programs": [],
+      "baseline_recomputed": 15264,
+      "oracle_recomputed": 15264,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        0,
+        0
+      ],
+      "oracle_choices": [
+        0,
+        0
+      ],
+      "oracle_programs": [
+        "pydata__xarray-3305",
+        "django__django-14053"
+      ],
+      "alternatives": [],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g04-c2",
+      "decisions": 2,
+      "need": 127,
+      "a0_programs": [
+        "pydata__xarray-3305",
+        "django__django-14053"
+      ],
+      "competitive_indices": [],
+      "competitive_a0_programs": [],
+      "baseline_recomputed": 27552,
+      "oracle_recomputed": 27552,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        0,
+        0
+      ],
+      "oracle_choices": [
+        0,
+        0
+      ],
+      "oracle_programs": [
+        "pydata__xarray-3305",
+        "django__django-14053"
+      ],
+      "alternatives": [],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g05-c1",
+      "decisions": 2,
+      "need": 61,
+      "a0_programs": [
+        "pylint-dev__pylint-4551",
+        "django__django-11603"
+      ],
+      "competitive_indices": [],
+      "competitive_a0_programs": [],
+      "baseline_recomputed": 11920,
+      "oracle_recomputed": 11920,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        0,
+        0
+      ],
+      "oracle_choices": [
+        0,
+        0
+      ],
+      "oracle_programs": [
+        "pylint-dev__pylint-4551",
+        "django__django-11603"
+      ],
+      "alternatives": [],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g05-c2",
+      "decisions": 2,
+      "need": 61,
+      "a0_programs": [
+        "pylint-dev__pylint-4551",
+        "django__django-11603"
+      ],
+      "competitive_indices": [],
+      "competitive_a0_programs": [],
+      "baseline_recomputed": 32400,
+      "oracle_recomputed": 32400,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        0,
+        0
+      ],
+      "oracle_choices": [
+        0,
+        0
+      ],
+      "oracle_programs": [
+        "pylint-dev__pylint-4551",
+        "django__django-11603"
+      ],
+      "alternatives": [],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g06-c1",
+      "decisions": 5,
+      "need": 23,
+      "a0_programs": [
+        "django__django-11400",
+        "pytest-dev__pytest-8399",
+        "django__django-11400",
+        "pytest-dev__pytest-8399",
+        "django__django-11400"
+      ],
+      "competitive_indices": [],
+      "competitive_a0_programs": [],
+      "baseline_recomputed": 30128,
+      "oracle_recomputed": 30128,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "oracle_choices": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "oracle_programs": [
+        "django__django-11400",
+        "pytest-dev__pytest-8399",
+        "django__django-11400",
+        "pytest-dev__pytest-8399",
+        "django__django-11400"
+      ],
+      "alternatives": [],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g06-c2",
+      "decisions": 5,
+      "need": 23,
+      "a0_programs": [
+        "django__django-11400",
+        "pytest-dev__pytest-8399",
+        "django__django-11400",
+        "pytest-dev__pytest-8399",
+        "django__django-11400"
+      ],
+      "competitive_indices": [],
+      "competitive_a0_programs": [],
+      "baseline_recomputed": 42416,
+      "oracle_recomputed": 42416,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "oracle_choices": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "oracle_programs": [
+        "django__django-11400",
+        "pytest-dev__pytest-8399",
+        "django__django-11400",
+        "pytest-dev__pytest-8399",
+        "django__django-11400"
+      ],
+      "alternatives": [],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g07-c1",
+      "decisions": 4,
+      "need": 127,
+      "a0_programs": [
+        "django__django-12858",
+        "scikit-learn__scikit-learn-25747",
+        "django__django-12858",
+        "scikit-learn__scikit-learn-25747"
+      ],
+      "competitive_indices": [],
+      "competitive_a0_programs": [],
+      "baseline_recomputed": 57216,
+      "oracle_recomputed": 57216,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "oracle_choices": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "oracle_programs": [
+        "django__django-12858",
+        "scikit-learn__scikit-learn-25747",
+        "django__django-12858",
+        "scikit-learn__scikit-learn-25747"
+      ],
+      "alternatives": [],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g07-c2",
+      "decisions": 4,
+      "need": 127,
+      "a0_programs": [
+        "django__django-12858",
+        "scikit-learn__scikit-learn-25747",
+        "django__django-12858",
+        "scikit-learn__scikit-learn-25747"
+      ],
+      "competitive_indices": [],
+      "competitive_a0_programs": [],
+      "baseline_recomputed": 69504,
+      "oracle_recomputed": 69504,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "oracle_choices": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "oracle_programs": [
+        "django__django-12858",
+        "scikit-learn__scikit-learn-25747",
+        "django__django-12858",
+        "scikit-learn__scikit-learn-25747"
+      ],
+      "alternatives": [],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g08-c1",
+      "decisions": 2,
+      "need": 88,
+      "a0_programs": [
+        "sphinx-doc__sphinx-8721",
+        "django__django-13449"
+      ],
+      "competitive_indices": [],
+      "competitive_a0_programs": [],
+      "baseline_recomputed": 24064,
+      "oracle_recomputed": 24064,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        0,
+        0
+      ],
+      "oracle_choices": [
+        0,
+        0
+      ],
+      "oracle_programs": [
+        "sphinx-doc__sphinx-8721",
+        "django__django-13449"
+      ],
+      "alternatives": [],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g08-c2",
+      "decisions": 2,
+      "need": 88,
+      "a0_programs": [
+        "sphinx-doc__sphinx-8721",
+        "django__django-13449"
+      ],
+      "competitive_indices": [],
+      "competitive_a0_programs": [],
+      "baseline_recomputed": 36352,
+      "oracle_recomputed": 36352,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        0,
+        0
+      ],
+      "oracle_choices": [
+        0,
+        0
+      ],
+      "oracle_programs": [
+        "sphinx-doc__sphinx-8721",
+        "django__django-13449"
+      ],
+      "alternatives": [],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g09-c1",
+      "decisions": 1,
+      "need": 97,
+      "a0_programs": [
+        "sympy__sympy-13551"
+      ],
+      "competitive_indices": [
+        0
+      ],
+      "competitive_a0_programs": [
+        "sympy__sympy-13551"
+      ],
+      "baseline_recomputed": 1552,
+      "oracle_recomputed": 1552,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        1
+      ],
+      "oracle_choices": [
+        1
+      ],
+      "oracle_programs": [
+        "sympy__sympy-13551"
+      ],
+      "alternatives": [
+        {
+          "choices": [
+            0
+          ],
+          "programs": [
+            "django__django-12050"
+          ],
+          "competitive_programs": [
+            "django__django-12050"
+          ],
+          "total_recomputed": 1552,
+          "gain_tokens": 0
+        }
+      ],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g09-c2",
+      "decisions": 1,
+      "need": 97,
+      "a0_programs": [
+        "sympy__sympy-13551"
+      ],
+      "competitive_indices": [
+        0
+      ],
+      "competitive_a0_programs": [
+        "sympy__sympy-13551"
+      ],
+      "baseline_recomputed": 13840,
+      "oracle_recomputed": 13840,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        1
+      ],
+      "oracle_choices": [
+        1
+      ],
+      "oracle_programs": [
+        "sympy__sympy-13551"
+      ],
+      "alternatives": [
+        {
+          "choices": [
+            0
+          ],
+          "programs": [
+            "django__django-12050"
+          ],
+          "competitive_programs": [
+            "django__django-12050"
+          ],
+          "total_recomputed": 15392,
+          "gain_tokens": -1552
+        }
+      ],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g10-c1",
+      "decisions": 2,
+      "need": 127,
+      "a0_programs": [
+        "matplotlib__matplotlib-26466",
+        "django__django-15569"
+      ],
+      "competitive_indices": [
+        0
+      ],
+      "competitive_a0_programs": [
+        "matplotlib__matplotlib-26466"
+      ],
+      "baseline_recomputed": 10256,
+      "oracle_recomputed": 10256,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        1,
+        0
+      ],
+      "oracle_choices": [
+        1,
+        0
+      ],
+      "oracle_programs": [
+        "matplotlib__matplotlib-26466",
+        "django__django-15569"
+      ],
+      "alternatives": [
+        {
+          "choices": [
+            0,
+            0
+          ],
+          "programs": [
+            "django__django-15569",
+            "django__django-15569"
+          ],
+          "competitive_programs": [
+            "django__django-15569"
+          ],
+          "total_recomputed": 11008,
+          "gain_tokens": -752
+        }
+      ],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g10-c2",
+      "decisions": 2,
+      "need": 127,
+      "a0_programs": [
+        "matplotlib__matplotlib-26466",
+        "django__django-15569"
+      ],
+      "competitive_indices": [
+        0
+      ],
+      "competitive_a0_programs": [
+        "matplotlib__matplotlib-26466"
+      ],
+      "baseline_recomputed": 34480,
+      "oracle_recomputed": 34480,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        1,
+        0
+      ],
+      "oracle_choices": [
+        1,
+        0
+      ],
+      "oracle_programs": [
+        "matplotlib__matplotlib-26466",
+        "django__django-15569"
+      ],
+      "alternatives": [
+        {
+          "choices": [
+            0,
+            0
+          ],
+          "programs": [
+            "django__django-15569",
+            "django__django-15569"
+          ],
+          "competitive_programs": [
+            "django__django-15569"
+          ],
+          "total_recomputed": 34480,
+          "gain_tokens": 0
+        }
+      ],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g11-c1",
+      "decisions": 3,
+      "need": 67,
+      "a0_programs": [
+        "django__django-16901",
+        "pydata__xarray-3095",
+        "django__django-16901"
+      ],
+      "competitive_indices": [],
+      "competitive_a0_programs": [],
+      "baseline_recomputed": 34240,
+      "oracle_recomputed": 34240,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        0,
+        0,
+        0
+      ],
+      "oracle_choices": [
+        0,
+        0,
+        0
+      ],
+      "oracle_programs": [
+        "django__django-16901",
+        "pydata__xarray-3095",
+        "django__django-16901"
+      ],
+      "alternatives": [],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g11-c2",
+      "decisions": 3,
+      "need": 67,
+      "a0_programs": [
+        "django__django-16901",
+        "pydata__xarray-3095",
+        "django__django-16901"
+      ],
+      "competitive_indices": [],
+      "competitive_a0_programs": [],
+      "baseline_recomputed": 45568,
+      "oracle_recomputed": 45568,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        0,
+        0,
+        0
+      ],
+      "oracle_choices": [
+        0,
+        0,
+        0
+      ],
+      "oracle_programs": [
+        "django__django-16901",
+        "pydata__xarray-3095",
+        "django__django-16901"
+      ],
+      "alternatives": [],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g12-c1",
+      "decisions": 5,
+      "need": 4,
+      "a0_programs": [
+        "django__django-14170",
+        "pydata__xarray-4695",
+        "django__django-14170",
+        "pydata__xarray-4695",
+        "django__django-14170"
+      ],
+      "competitive_indices": [],
+      "competitive_a0_programs": [],
+      "baseline_recomputed": 20736,
+      "oracle_recomputed": 20736,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "oracle_choices": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "oracle_programs": [
+        "django__django-14170",
+        "pydata__xarray-4695",
+        "django__django-14170",
+        "pydata__xarray-4695",
+        "django__django-14170"
+      ],
+      "alternatives": [],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g12-c2",
+      "decisions": 5,
+      "need": 4,
+      "a0_programs": [
+        "django__django-14170",
+        "pydata__xarray-4695",
+        "django__django-14170",
+        "pydata__xarray-4695",
+        "django__django-14170"
+      ],
+      "competitive_indices": [],
+      "competitive_a0_programs": [],
+      "baseline_recomputed": 33024,
+      "oracle_recomputed": 33024,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "oracle_choices": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "oracle_programs": [
+        "django__django-14170",
+        "pydata__xarray-4695",
+        "django__django-14170",
+        "pydata__xarray-4695",
+        "django__django-14170"
+      ],
+      "alternatives": [],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g13-c1",
+      "decisions": 2,
+      "need": 98,
+      "a0_programs": [
+        "django__django-11490",
+        "scikit-learn__scikit-learn-14894"
+      ],
+      "competitive_indices": [],
+      "competitive_a0_programs": [],
+      "baseline_recomputed": 32896,
+      "oracle_recomputed": 32896,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        0,
+        0
+      ],
+      "oracle_choices": [
+        0,
+        0
+      ],
+      "oracle_programs": [
+        "django__django-11490",
+        "scikit-learn__scikit-learn-14894"
+      ],
+      "alternatives": [],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g13-c2",
+      "decisions": 2,
+      "need": 98,
+      "a0_programs": [
+        "django__django-11490",
+        "scikit-learn__scikit-learn-14894"
+      ],
+      "competitive_indices": [],
+      "competitive_a0_programs": [],
+      "baseline_recomputed": 45104,
+      "oracle_recomputed": 45104,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        0,
+        0
+      ],
+      "oracle_choices": [
+        0,
+        0
+      ],
+      "oracle_programs": [
+        "django__django-11490",
+        "scikit-learn__scikit-learn-14894"
+      ],
+      "alternatives": [],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g14-c1",
+      "decisions": 7,
+      "need": 127,
+      "a0_programs": [
+        "django__django-12754",
+        "sphinx-doc__sphinx-10323",
+        "django__django-12754",
+        "sphinx-doc__sphinx-10323",
+        "django__django-12754",
+        "sphinx-doc__sphinx-10323",
+        "django__django-12754"
+      ],
+      "competitive_indices": [],
+      "competitive_a0_programs": [],
+      "baseline_recomputed": 113792,
+      "oracle_recomputed": 113792,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "oracle_choices": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "oracle_programs": [
+        "django__django-12754",
+        "sphinx-doc__sphinx-10323",
+        "django__django-12754",
+        "sphinx-doc__sphinx-10323",
+        "django__django-12754",
+        "sphinx-doc__sphinx-10323",
+        "django__django-12754"
+      ],
+      "alternatives": [],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g14-c2",
+      "decisions": 7,
+      "need": 127,
+      "a0_programs": [
+        "django__django-12754",
+        "sphinx-doc__sphinx-10323",
+        "django__django-12754",
+        "sphinx-doc__sphinx-10323",
+        "django__django-12754",
+        "sphinx-doc__sphinx-10323",
+        "django__django-12754"
+      ],
+      "competitive_indices": [],
+      "competitive_a0_programs": [],
+      "baseline_recomputed": 113792,
+      "oracle_recomputed": 113792,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "oracle_choices": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "oracle_programs": [
+        "django__django-12754",
+        "sphinx-doc__sphinx-10323",
+        "django__django-12754",
+        "sphinx-doc__sphinx-10323",
+        "django__django-12754",
+        "sphinx-doc__sphinx-10323",
+        "django__django-12754"
+      ],
+      "alternatives": [],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g15-c1",
+      "decisions": 3,
+      "need": 127,
+      "a0_programs": [
+        "sympy__sympy-22714",
+        "django__django-17087",
+        "sympy__sympy-22714"
+      ],
+      "competitive_indices": [],
+      "competitive_a0_programs": [],
+      "baseline_recomputed": 47312,
+      "oracle_recomputed": 47312,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        0,
+        0,
+        0
+      ],
+      "oracle_choices": [
+        0,
+        0,
+        0
+      ],
+      "oracle_programs": [
+        "sympy__sympy-22714",
+        "django__django-17087",
+        "sympy__sympy-22714"
+      ],
+      "alternatives": [],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g15-c2",
+      "decisions": 3,
+      "need": 127,
+      "a0_programs": [
+        "sympy__sympy-22714",
+        "django__django-17087",
+        "sympy__sympy-22714"
+      ],
+      "competitive_indices": [],
+      "competitive_a0_programs": [],
+      "baseline_recomputed": 55936,
+      "oracle_recomputed": 55936,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        0,
+        0,
+        0
+      ],
+      "oracle_choices": [
+        0,
+        0,
+        0
+      ],
+      "oracle_programs": [
+        "sympy__sympy-22714",
+        "django__django-17087",
+        "sympy__sympy-22714"
+      ],
+      "alternatives": [],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g16-c1",
+      "decisions": 2,
+      "need": 101,
+      "a0_programs": [
+        "django__django-13363",
+        "matplotlib__matplotlib-25287"
+      ],
+      "competitive_indices": [
+        0
+      ],
+      "competitive_a0_programs": [
+        "django__django-13363"
+      ],
+      "baseline_recomputed": 4240,
+      "oracle_recomputed": 4240,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        0,
+        0
+      ],
+      "oracle_choices": [
+        0,
+        0
+      ],
+      "oracle_programs": [
+        "django__django-13363",
+        "matplotlib__matplotlib-25287"
+      ],
+      "alternatives": [
+        {
+          "choices": [
+            1,
+            0
+          ],
+          "programs": [
+            "matplotlib__matplotlib-25287",
+            "matplotlib__matplotlib-25287"
+          ],
+          "competitive_programs": [
+            "matplotlib__matplotlib-25287"
+          ],
+          "total_recomputed": 5280,
+          "gain_tokens": -1040
+        }
+      ],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g16-c2",
+      "decisions": 2,
+      "need": 101,
+      "a0_programs": [
+        "django__django-13363",
+        "matplotlib__matplotlib-25287"
+      ],
+      "competitive_indices": [
+        0
+      ],
+      "competitive_a0_programs": [
+        "django__django-13363"
+      ],
+      "baseline_recomputed": 28304,
+      "oracle_recomputed": 28304,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        0,
+        0
+      ],
+      "oracle_choices": [
+        0,
+        0
+      ],
+      "oracle_programs": [
+        "django__django-13363",
+        "matplotlib__matplotlib-25287"
+      ],
+      "alternatives": [
+        {
+          "choices": [
+            1,
+            0
+          ],
+          "programs": [
+            "matplotlib__matplotlib-25287",
+            "matplotlib__matplotlib-25287"
+          ],
+          "competitive_programs": [
+            "matplotlib__matplotlib-25287"
+          ],
+          "total_recomputed": 28304,
+          "gain_tokens": 0
+        }
+      ],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g17-c1",
+      "decisions": 2,
+      "need": 48,
+      "a0_programs": [
+        "django__django-11095",
+        "sphinx-doc__sphinx-9281"
+      ],
+      "competitive_indices": [],
+      "competitive_a0_programs": [],
+      "baseline_recomputed": 39824,
+      "oracle_recomputed": 39824,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        0,
+        0
+      ],
+      "oracle_choices": [
+        0,
+        0
+      ],
+      "oracle_programs": [
+        "django__django-11095",
+        "sphinx-doc__sphinx-9281"
+      ],
+      "alternatives": [],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g17-c2",
+      "decisions": 2,
+      "need": 48,
+      "a0_programs": [
+        "django__django-11095",
+        "sphinx-doc__sphinx-9281"
+      ],
+      "competitive_indices": [],
+      "competitive_a0_programs": [],
+      "baseline_recomputed": 47808,
+      "oracle_recomputed": 47808,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        0,
+        0
+      ],
+      "oracle_choices": [
+        0,
+        0
+      ],
+      "oracle_programs": [
+        "django__django-11095",
+        "sphinx-doc__sphinx-9281"
+      ],
+      "alternatives": [],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g18-c1",
+      "decisions": 0,
+      "need": 0,
+      "a0_programs": [],
+      "competitive_indices": [],
+      "competitive_a0_programs": [],
+      "baseline_recomputed": 0,
+      "oracle_recomputed": 0,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [],
+      "oracle_choices": [],
+      "oracle_programs": [],
+      "alternatives": [],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g18-c2",
+      "decisions": 1,
+      "need": 97,
+      "a0_programs": [
+        "sympy__sympy-13974"
+      ],
+      "competitive_indices": [
+        0
+      ],
+      "competitive_a0_programs": [
+        "sympy__sympy-13974"
+      ],
+      "baseline_recomputed": 11792,
+      "oracle_recomputed": 11792,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        1
+      ],
+      "oracle_choices": [
+        1
+      ],
+      "oracle_programs": [
+        "sympy__sympy-13974"
+      ],
+      "alternatives": [
+        {
+          "choices": [
+            0
+          ],
+          "programs": [
+            "django__django-16032"
+          ],
+          "competitive_programs": [
+            "django__django-16032"
+          ],
+          "total_recomputed": 13344,
+          "gain_tokens": -1552
+        }
+      ],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g19-c1",
+      "decisions": 2,
+      "need": 40,
+      "a0_programs": [
+        "django__django-13513",
+        "sympy__sympy-12419"
+      ],
+      "competitive_indices": [],
+      "competitive_a0_programs": [],
+      "baseline_recomputed": 6848,
+      "oracle_recomputed": 6848,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        0,
+        0
+      ],
+      "oracle_choices": [
+        0,
+        0
+      ],
+      "oracle_programs": [
+        "django__django-13513",
+        "sympy__sympy-12419"
+      ],
+      "alternatives": [],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g19-c2",
+      "decisions": 2,
+      "need": 40,
+      "a0_programs": [
+        "django__django-13513",
+        "sympy__sympy-12419"
+      ],
+      "competitive_indices": [],
+      "competitive_a0_programs": [],
+      "baseline_recomputed": 33280,
+      "oracle_recomputed": 33280,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        0,
+        0
+      ],
+      "oracle_choices": [
+        0,
+        0
+      ],
+      "oracle_programs": [
+        "django__django-13513",
+        "sympy__sympy-12419"
+      ],
+      "alternatives": [],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g20-c1",
+      "decisions": 8,
+      "need": 40,
+      "a0_programs": [
+        "django__django-11138",
+        "sympy__sympy-19783",
+        "django__django-11138",
+        "sympy__sympy-19783",
+        "django__django-11138",
+        "sympy__sympy-19783",
+        "django__django-11138",
+        "sympy__sympy-19783"
+      ],
+      "competitive_indices": [],
+      "competitive_a0_programs": [],
+      "baseline_recomputed": 97248,
+      "oracle_recomputed": 97248,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "oracle_choices": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "oracle_programs": [
+        "django__django-11138",
+        "sympy__sympy-19783",
+        "django__django-11138",
+        "sympy__sympy-19783",
+        "django__django-11138",
+        "sympy__sympy-19783",
+        "django__django-11138",
+        "sympy__sympy-19783"
+      ],
+      "alternatives": [],
+      "a0_exact": true,
+      "recorded_exact": true
+    },
+    {
+      "cell": "g20-c2",
+      "decisions": 8,
+      "need": 40,
+      "a0_programs": [
+        "django__django-11138",
+        "sympy__sympy-19783",
+        "django__django-11138",
+        "sympy__sympy-19783",
+        "django__django-11138",
+        "sympy__sympy-19783",
+        "django__django-11138",
+        "sympy__sympy-19783"
+      ],
+      "competitive_indices": [],
+      "competitive_a0_programs": [],
+      "baseline_recomputed": 98544,
+      "oracle_recomputed": 98544,
+      "oracle_gain_tokens": 0,
+      "oracle_gain_upper_bound": true,
+      "a0_choices": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "oracle_choices": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "oracle_programs": [
+        "django__django-11138",
+        "sympy__sympy-19783",
+        "django__django-11138",
+        "sympy__sympy-19783",
+        "django__django-11138",
+        "sympy__sympy-19783",
+        "django__django-11138",
+        "sympy__sympy-19783"
+      ],
+      "alternatives": [],
+      "a0_exact": true,
+      "recorded_exact": true
+    }
+  ],
+  "limitations": [
+    "Native cache state is not replayable from the archive; results are A0-anchored prefix-state counterfactuals.",
+    "The model is loss-only: it removes candidate victims and restores A0-evicted blocks, but does not model capacity gains from evicting a different chain. A positive capacity effect is outside this model.",
+    "Counterfactual eviction uses each candidate's deepest need blocks; the 19 quantum over-eviction cases are not modeled and are single-candidate.",
+    "Cross-run Native prefix hashes are not portable; all counterfactual block identities come from the A0 run.",
+    "P2 depth scores are offline hindsight features and must not be treated as online features.",
+    "This study does not authorize GPU execution, Protocol v4 changes, or P3 partial release."
+  ]
+}
