@@ -1,6 +1,6 @@
 # Research Status (M1 canonical status index)
 
-Status: **UNDER REVIEW — Phase 3 Option F execution complete; 270/270 runs reconciled; final M1 adjudication pending**
+Status: **PHASE 3 M1-ACCEPTED — bounded paired-effect interpretation; 270/270 runs reconciled; execution deviations retained**
 As-of execution: 2026-11-12, execution code `00a512111f15abddcad329572f6e50ccaaa76775`; [final M6 results](experiments/phase3-option-f-final-results.md); immutable evidence archive SHA-256 `d36a3765296199806e1aef04dcc655fd16d3afb6d7a5bc5a125397bea90ce5c8`.
 Owner: M1. This document indexes decisions and evidence; it does **not** amend sealed artifacts or replace their final reports.
 
@@ -23,7 +23,7 @@ The revised cross-phase synthesis is available in [Research Results and Contribu
 
 Historical snapshot recorded at that review: `f005ecf239c1a982d0a751f430e24fa8ca47e46e`.
 
-**Current repository main as checked 2026-11-14:** `18a0a9198403af735350cbbfd9aae20e7b2b39bd`. The historical hash above is retained as a dated snapshot, not presented as current main. The R1 research branch and PR #108 contain subsequent Phase 3/4 research and synthesis work; these have not all been integrated into main.
+**Main after PR #104 merge (2026-11-14):** `c3a53bfc45bd36d4026876658d21d3b4bf845e23`. PR #104 promotes the completed 270-run campaign and its accepted bounded paired-effect interpretation. PR #109 is the open mainline promotion PR for follow-up Phase 3/4 audits and the M4-reviewed R1.3 synthesis.
 
 | Record / PR | Delivered scope | Current state | Boundary |
 | --- | --- | --- | --- |
@@ -124,7 +124,7 @@ M1 has accepted M2's four proposals for preservation as potential future researc
 3. **Downstream-cost-aware Entry Release** — evaluate release order through the actual downstream physical victim set and recomputation loss.
 4. **Partial-tail Entry unpinning** — investigate range-level protection while preserving shallow reusable prefixes.
 
-These directions are **not part of Phase 3 Protocol v4**, do not create experimental arms, and do not authorize implementation, new data acquisition, smoke tests, or GPU runs. Current priority remains the already-authorized one-shot 270-run pipeline and its independent analysis. Any follow-on work requires a separate M1 decision, available time, and a study-specific frozen protocol. See [Potential Future Research Directions](future-research-directions.md) for the consolidated research agenda.
+These directions are **not part of Phase 3 Protocol v4**, do not create experimental arms, and do not authorize implementation, new data acquisition, smoke tests, or GPU runs. The 270-run campaign and its registered offline audits are complete. Any follow-on work requires a separate M1 decision, available time, and a study-specific frozen protocol. See [Potential Future Research Directions](future-research-directions.md) for the consolidated research agenda.
 
 ## Post-Phase-3 staged experimental roadmap — planning only
 
@@ -132,7 +132,7 @@ M1 has recorded a proposed three-stage research sequence in [Post-Phase-3 Experi
 
 The proposed Phase 5 comparison has four primary systems: Native vLLM, the authors' Continuum Official Public Implementation, the project's A0-derived full-system Continuum-style adaptation, and the Phase 4 frozen Cost-Aware candidate. The roadmap explicitly distinguishes Phase 3 A0 from an A0-derived full-system configuration with the project scheduler enabled, and it preserves the official repository's stated limitation that its public code does not include the paper's estimator.
 
-**This is a planning decision only.** It does not change Phase 3 Protocol v4, G0, the 270-run authorization, or the current execution priority. Phase 4/5 implementation, new data acquisition, GPU runs, and final system definitions each require separate M1 approval and a study-specific frozen protocol.
+**This is a planning decision only.** It does not change Phase 3 Protocol v4, G0, or historical execution authorization. Phase 4/5 implementation, new data acquisition, GPU runs, and final system definitions each require separate M1 approval and a study-specific frozen protocol.
 
 ## Phase status ledger
 
@@ -151,7 +151,7 @@ The proposed Phase 5 comparison has four primary systems: Native vLLM, the autho
 | Phase 2 W1-B — PR #73 | **ACCEPTED / CLOSED — `BOUNDED_SMOKE_ONLY`** | M1 approved HEAD `4b902da` and merged as `fc9626da` (2026-10-23). M6 reports 4 groups × A0/A1/A2 = 12 successful runs; A1−A0 recompute delta −3904 tokens and A2−A0 zero. Limited descriptive/native comparability evidence; no formal effect or content-level causal attribution |
 | Phase 2 W1-C | **ACCEPTED / CLOSED** | Cross-repository stratified sampling and the 20-task S50/S100 feasibility pilot completed; 18 full-payload-comparable task pairs fed the later bounded Native evaluation |
 | Bounded Native Cost-Aware evaluation — PR #82 | **M1 ACCEPTED / CLOSED (2026-10-27)** | RTX 4090D campaign reports 54/54 successful Native runs over nine frozen groups; A1: 0 better / 1 worse / 8 tied, A2: 0 better / 3 worse / 6 tied. No observed A1/A2 recomputation-token benefit in this predefined grid. Exploratory single-repeat evidence; content-level causal attribution `NOT_ESTABLISHED`. External evidence archive handed to M4; no independent archive rehash in this M1 review. |
-| Phase 3 Option F — PR #99 / Protocol v4 | **UNDER REVIEW — 270/270 COMPLETE** | Noise 30/30 and Main 240/240 completed. Frozen enqueue order failed in 32/40 cells, but all six arms shared the same actual order in every cell; a read-only actual-order audit independently recovered unchanged E for 5,760/5,760 request-arm observations and exactly reproduced the fixed-population effects. A0 outperformed N0 on recomputation; A1/A2/A3/E0 showed zero incremental effect versus A0. The replay-conformance deviation remains recorded; final M1/M4 adjudication is pending. |
+| Phase 3 Option F — PR #104 / Protocol v4 | **M1 ACCEPTED — BOUNDED PAIRED-EFFECT INTERPRETATION** | Noise 30/30 and Main 240/240 completed. Frozen enqueue order failed in 32/40 cells, but all six arms shared the same actual order in every cell; the read-only actual-order audit recovered unchanged E for 5,760/5,760 request-arm observations and reproduced fixed-population effects. M1 accepted this bounded interpretation. Frozen replay-conformance FAIL, historical Cohort/authorization binding gap, and incomplete transition-ledger checks remain recorded deviations; none is retroactively labeled PASS. A0 outperformed N0 on recomputation; A1/A2/A3/E0 showed zero incremental effect versus A0 in this cohort. |
 
 ### W1-B closeout — M1 acceptance and evidence boundaries
 
@@ -186,13 +186,11 @@ Logical release, physical hashed eviction, subsequent APC hit/miss and request-l
 
 - **M1**: phase grants, canonical status, protocol freeze, architecture/fairness boundary, documentation authority, and final experimental verdicts.
 - **M4**: frozen Protocol v4 semantics and post-campaign effect/statistical analysis. No routine protocol redesign is authorized.
-- **M6**: pre-launch compute-window preparation, 270-run execution, automatic Noise-to-Main transition, Native evidence, independent evaluator outputs, execution statistics, and immutable evidence archive.
+- **M6**: completed the 270-run execution, automatic Noise-to-Main transition, Native evidence, evaluator outputs, execution statistics, and immutable evidence archive; future execution requires separate M1 authorization.
 - **M5**: shared workload/runner substrate only if a concrete interface gap remains.
 - **M2/M3**: background/source-mechanism review and frozen baseline support.
 
-**Immediate next action:** M6 records the pre-launch execution host, runner, GPU allocation, 270-run resource reservation, and all frozen-hash checks. It then executes the already-authorized one-shot pipeline exactly as specified. No additional smoke, load-calibration rerun, cohort replacement, parameter tuning, or protocol change is authorized. The automatic transition gate controls whether the 240-run Main stage may start. After collection, M4 performs the registered analysis and M1 reviews the complete evidence before any final research claim.
-
-The authorization does not establish that the compute window is ready, that any GPU run has started, or that the Main stage is unconditionally authorized.
+**Current next action:** complete the targeted mainline review of PR #109, which promotes the Phase 3 retrospective audits, Phase 4 feasibility record, and M4-reviewed R1.3 synthesis. No GPU rerun, Native smoke, algorithm implementation, or Protocol v5 is implied by that documentation promotion. Phase 3 bounded paired-effect acceptance and its residual execution deviations remain distinct from broader algorithmic or full-system claims.
 
 ## Provenance and reading order
 
