@@ -86,6 +86,8 @@
 
 ### 3.1 决定 E 与 C 的链条
 
+本文件统一采用 Protocol v4 的命名：`N = Native Prompt Tokens`，`E = Eligible Prefix Tokens`，`C = Native APC Cached Tokens`；`Recomputed = E − C`，`Actual Prefill = N − C`。`E − C` 不叫 `N`。
+
 `recomputed_tokens = E − C`。本轮复算显示（E4、E6）：
 
 - **`E`（eligible prefix）在 A0/A1/A2/A3/E0 之间完全相同**，逐请求级。
@@ -422,10 +424,12 @@ $$
 
 #### 8.0.2 状态转移必须逐项建模
 
+> **N/E/C 命名约定（Protocol v4）**：`N = Native Prompt Tokens`，`E = Eligible Prefix Tokens`，`C = Native APC Cached Tokens`；`Recomputed = E − C`，`Actual Prefill = N − C`。**不得把 `E − C` 记作 `N`。** A1/A3 公式里的候选新解锁量是 `new_blocks`，不是本节的 `N`；Stage-0 产出统一写 `new_blocks_i`，避免与 Native Prompt Tokens 混淆。
+
 1. **选择与释放**：候选 X 的 blocks 变为 evictable；X 从 protected 集合移除。后续决策的 candidate set 由新的 protected 集合重新生成，**不得复用记录里的 `selection_trace` 候选列表**。
 2. **Native eviction**：按冻结的 Native LRU/APC 与 128-block 量子选择物理受害者，更新 cache 内容与 LRU 顺序。`matched_physical_blocks`、`predicted_victim`、`predicted_physical_overlap` 是**模拟输出**，用于与 archive 对账，不是 oracle 的输入。
-3. **请求级 N/E/C**：请求按固定时间线到达；`E` 由冻结历史决定且必须臂无关；`C` 由模拟 cache 决定；`N = E − C`；`recomputed = N`。逐请求记录，禁止用 cell 级 aggregate 代替。
-4. **后续决策的状态依赖**：`need = target − |E|`、每个候选的 `N_i`、候选集大小、甚至决策次数，都由新状态重算。释放 X 会改变后续 `need` 与候选集，因此**第 i 次决策的收益不能与第 i+1 次独立相加**。
+3. **请求级 N/E/C**：请求按固定时间线到达；`N` 是请求自身的 Native Prompt Tokens，`E` 由冻结历史决定且必须臂无关，`C` 由模拟 cache 决定；逐请求计算 `Recomputed = E − C` 与 `Actual Prefill = N − C`。逐请求记录，禁止用 cell 级 aggregate 代替，也禁止把 `E − C` 重新命名为 `N`。
+4. **后续决策的状态依赖**：`need = target − |E|`、每个候选的 `new_blocks_i`、候选集大小、甚至决策次数，都由新状态重算。释放 X 会改变后续 `need` 与候选集，因此**第 i 次决策的收益不能与第 i+1 次独立相加**。
 5. **TTL/deadline**：由冻结 request history 决定，臂无关；释放改变"保护是否还在"，不改变未来 deadline 的数值。若实现中发现 TTL 状态依赖释放，必须显式建模并在产出中标注。
 
 #### 8.0.3 Oracle 目标
@@ -451,15 +455,16 @@ $$
 
 - 先用记录中的 A0 策略跑同一模拟器，逐请求比较 `E`、`C`、`recomputed_tokens`，逐决策比较 `matched_physical_blocks`、`predicted_victim`、`predicted_physical_overlap`；必须与 archive **逐整数完全一致**。
 - 任何 cell 不能精确复现 → 标记 `NOT_REPLAYABLE`，从 oracle 统计中剔除并报告；不得静默替换成局部估算。
-- 预注册覆盖率门槛：18 个 primary groups / 36 cells 中至少 **33 个 cell** 可精确重放，否则 Stage-0 判 **INVALID**，先修模拟器，不做"继续/停止"判断。
+- 预注册覆盖率门槛：18 个 primary groups / 36 cells 中至少 **33 个 cell** 可精确重放，且至少 **15 个 Group 的 C1/C2 两个 cell 都精确重放**。不满足则 Stage-0 判 **INVALID**，先修模拟器，不做"继续/停止"判断。
+- **缺失值规则（必须与 18-Group 统计单位一致）**：只有 C1/C2 **均完整（`EXACT`）** 的 primary Group 才定义 `G_g` 并进入 Group-level 门槛。任一 cell 为 `NOT_REPLAYABLE` / `INTRACTABLE` / 缺失时，该 Group 记为 `INCOMPLETE`，从 `G_g` 与 `count` 中剔除并单独报告；**不得把不完整 cell 当作 0 收益，也不得对不完整 Group 计算两 cell 平均。** `complete_groups < 15` 或 `complete_cells < 33` 时，Stage-0 为 `STAGE0_INVALID`，不得用剩余 Group 直接下继续/停止结论。
 - 为什么必须 fail closed：g18-c1 没有任何 forced release，A0−N0 仍差 544 tokens；σ_run=0 只覆盖 10 个 A0 cell，不能假定其余 cell 的 A0 轨迹可精确复现。把不可复现的 cell 混进 oracle 会把 baseline 噪声误记成"选择收益"。
 - 额外校验：模拟器应复现 20 个已知 A0−N0 差异的方向与量级（尤其 18 个 H3-0 差异 cell）；若不能，说明 Native eviction 模型不完整。
 
 #### 8.0.6 产出字段
 
-`per_cell`: `oracle_gain_tokens`、`oracle_status`（`EXACT` / `INTRACTABLE` / `NOT_REPLAYABLE`）、`counterfactual_decision_count`、`candidate_set_sizes`、`first_divergence_decision`、`divergence_full_trajectory_gain`、`physical_eviction_validation`。
-`per_group`: `oracle_gain_tokens`（两 cell 平均；g09/g18 单 cell 权重 1，若纳入 H3-0 敏感性分析）。
-`campaign`: `replay_coverage_cells`、`divergence_rate`、`divergence_gain_distribution`、`oracle_intractable_cells`、`oracle_not_replayable_cells`。
+`per_cell`: `oracle_gain_tokens`、`oracle_status`（`EXACT` / `INTRACTABLE` / `NOT_REPLAYABLE` / `MISSING`）、`counterfactual_decision_count`、`candidate_set_sizes`、`first_divergence_decision`、`divergence_full_trajectory_gain`、`physical_eviction_validation`。
+`per_group`: 仅对 C1/C2 均 `EXACT` 的 Group 给出 `oracle_gain_tokens = (G_C1 + G_C2)/2` 与 `status = COMPLETE`；任一 cell 不完整时 `status = INCOMPLETE`，列出 `missing_cells`/`reasons`，**不填 0、不算平均**。g09/g18 单 cell 只进入 H3-0 敏感性分析，不进入 primary gate。
+`campaign`: `complete_cells`、`complete_groups`、`incomplete_groups`、`incomplete_cells`、`coverage_status`、`divergence_rate`、`divergence_gain_distribution`、`oracle_intractable_cells`、`oracle_not_replayable_cells`。
 
 `divergence_full_trajectory_gain` 必须是从分歧点开始、按 oracle 继续策略**重新模拟整条剩余轨迹**得到的差，不是该决策点的局部 `ΔR`。
 
@@ -475,21 +480,23 @@ $$
 
 旧稿的"判据 A：≥8 个 cell 的 oracle 收益 ≥512 tokens"与"判据 B：oracle 上界中位数 <512 tokens/cell 则停止"可以同时成立（例如 8 个 cell 很大、其余很小，中位数仍 <512），因而是**冲突的**。本修订改为单一、互斥、按顺序判定的 group-level 规则。
 
-- **主总体**：18 个 complete paired Groups / 36 cells。每个 group 的 oracle 收益 `G_g = (G_{g,C1} + G_{g,C2}) / 2`。**统计单元是 group，不是 cell**；同一 group 的两个 condition 是重复测量，不能当作独立样本。
-- **H3-0（20 Groups / 38 cells）与 H3-R（9 Groups / 16 cells）**：只作敏感性分析。g09/g18 是事后加入，二者占 H3-0 group-value 总量的 44.7%；**不得**用 H3-0 的高值救活一个 primary gate 失败的结果。
+- **主总体**：18 个 complete paired Groups / 36 cells。每个 group 的 oracle 收益 `G_g = (G_{g,C1} + G_{g,C2}) / 2`，**仅当该 group 的 C1/C2 两个 cell 都是 `EXACT` 时定义**。统计单元是 group，不是 cell；同一 group 的两个 condition 是重复测量，不能当作独立样本。
+- **缺失值处理**：`complete_cells` 是 primary 36 个 cell 中 `EXACT` 的数量；`complete_groups` 是 C1/C2 均 `EXACT` 的 primary group 数量。任一 cell 为 `NOT_REPLAYABLE` / `INTRACTABLE` / `MISSING` 时，该 group 记为 `INCOMPLETE`，从 `G_g` 与门槛 `count` 中剔除并单独报告。**不得把不完整 cell 当作 0 收益，也不得对不完整 group 计算两 cell 平均或把它塞进 18-group 均值。**
+- **H3-0（20 Groups / 38 cells）与 H3-R（9 Groups / 16 cells）**：只作敏感性分析。g09/g18 是事后加入，二者占 H3-0 group-value 总量的 44.7%；**不得**用 H3-0 的高值救活一个 primary gate 失败的结果。g09/g18 是单 cell group，不进入 primary 18-group 门槛。
 - **效应下限**：`Δ_min = 512 tokens/group`（32 blocks × 16 tokens）。这是预注册的 **materiality floor**，不是噪声门槛；`σ_run = 0` 只覆盖 10 个 A0 cell，不能为 240 个主 run 提供噪声地板。这里不做 p 值/显著性主张：oracle 是确定性重放，独立单元是 group，门槛是决策规则。
-- **单一判定顺序（先判无效，再判继续/停止）**：
+- **单一判定顺序（先判无效/缺失，再判继续/停止）**：
 
 | 顺序 | 条件 | 判定 | 行动 |
 |---:|---|---|---|
-| 1 | `replay_coverage < 33/36` 或 任一 `G_g < 0` | `STAGE0_INVALID` | 先修模拟器/证据链；**不做**继续/停止判断 |
-| 2 | `count(G_g ≥ 512) ≥ 8` | `CONTINUE_P1` | 进入 P1 的 CPU 参数扫描；GPU 仍需单独授权 |
-| 3 | `4 ≤ count(G_g ≥ 512) < 8` | `INCONCLUSIVE_GEOMETRY` | 先做 P1 CPU 扫描并重新过门；不得直接进 GPU |
-| 4 | `count(G_g ≥ 512) ≤ 3` | `STOP_ENTRY_ORDERING` | 在本 workload 几何下停止 Entry 排序；转 P2/P3 |
+| 1 | `complete_cells < 33` 或 `complete_groups < 15` 或 任一完整 Group 的 `G_g < 0` | `STAGE0_INVALID` | 先修模拟器/证据链；**不做**继续/停止判断 |
+| 2 | `count_complete(G_g ≥ 512) ≥ 8` | `CONTINUE_P1` | 进入 P1 的 CPU 参数扫描；GPU 仍需单独授权 |
+| 3 | `4 ≤ count_complete(G_g ≥ 512) < 8` | `INCONCLUSIVE_GEOMETRY` | 先做 P1 CPU 扫描并重新过门；不得直接进 GPU |
+| 4 | `count_complete(G_g ≥ 512) ≤ 3` | `STOP_ENTRY_ORDERING` | 在本 workload 几何下停止 Entry 排序；转 P2/P3 |
 
-- `count` 的分母固定为 18 个 primary groups；`G_g` 用两 cell 平均，**不**把 36 个 cell 当独立样本。
+- `count_complete` 的**可判定总体是 `complete_groups`**，不是把缺失 group 当成 0 后的 18；报告必须同时给出 `complete_groups`、`incomplete_groups` 与其 `missing_cells`/`reasons`。
+- 若 `complete_groups` 为 15–17，结论必须标注为"在 N 个完整 Group 上的条件判定"；缺失 group 不得被解释为无收益。由于最多 3 个 group 不完整，`count_complete ≤ 3` 时即使缺失 group 全部达标也不足 8，`STOP` 仍成立。
 - `G_g` 的中位数、总量、top-5 集中度只作描述，不再作为门控条件；这样就不会再出现"≥8 个 cell 达标"和"中位数 <512"同时触发。
-- 若 oracle 在某个 group 上为负（`G_g < 0`），在 A0 可精确重放的前提下只能是模拟器/状态机缺陷；按 `STAGE0_INVALID` 处理，不解释为"oracle 更差"。
+- 若 oracle 在某个完整 group 上为负（`G_g < 0`），在 A0 可精确重放的前提下只能是模拟器/状态机缺陷；按 `STAGE0_INVALID` 处理，不解释为"oracle 更差"。
 
 ### 方案 P1：暴露几何重设计（change decision geometry）
 
