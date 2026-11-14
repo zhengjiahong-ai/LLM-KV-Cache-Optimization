@@ -4,6 +4,12 @@ Status: **UNDER REVIEW — Phase 3 Option F execution complete; 270/270 runs rec
 As-of execution: 2026-11-12, execution code `00a512111f15abddcad329572f6e50ccaaa76775`; [final M6 results](experiments/phase3-option-f-final-results.md); immutable evidence archive SHA-256 `d36a3765296199806e1aef04dcc655fd16d3afb6d7a5bc5a125397bea90ce5c8`.
 Owner: M1. This document indexes decisions and evidence; it does **not** amend sealed artifacts or replace their final reports.
 
+## Research synthesis (R1.2, 2026-11-14)
+
+The first consolidated research synthesis is available in [Research Results and Contributions](research-consolidation/research-results-and-contributions.md). It integrates three questions: what the cross-phase experiments establish, which hypotheses were supported / not supported / not identifiable, and which system, measurement, and experimental-method contributions are defensible. The [R1 evidence ledger](research-consolidation/r1-experiment-evidence-ledger.md) remains the navigation and provenance layer.
+
+**Status boundary:** this synthesis is an M1 working draft, not the final Phase 3 verdict. The 270-run Option F execution and actual-order read-only recovery are complete, but the frozen enqueue-order deviation remains recorded and final M1/M4 adjudication is pending. No new GPU run, Native smoke, algorithm implementation, or Protocol v5 is authorized by this documentation update.
+
 ## How to read the evidence
 
 - **Campaign delivered / code merged** does not imply **hypothesis supported** or **formal algorithm benefit demonstrated**.
