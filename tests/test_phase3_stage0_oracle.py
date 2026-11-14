@@ -106,3 +106,100 @@ def test_p2_depth_score_uses_future_same_program_reuse(stage0) -> None:
     assert stage0.p2_depth_score(trajectory, 0, 0) == 16
     # The p2 candidate has no future p2 request, so the same-program proxy is 0.
     assert stage0.p2_depth_score(trajectory, 0, 1) == 0
+
+
+def _multi_decision_trajectory(stage0):
+    requests = tuple(
+        stage0.RequestPoint(
+            request_id=f"p1:turn:{index}",
+            program_id="p1",
+            event_index=event_index,
+            n=32,
+            e=32,
+            c=32,
+            hashes=("a", "b"),
+        )
+        for index, event_index in ((1, 1), (2, 20), (3, 40))
+    )
+    candidates = (
+        stage0.Candidate("p1", "prefix-a0", 1, frozenset({"b"}), 2),
+        stage0.Candidate("p2", "prefix-alt", 1, frozenset({"a"}), 1),
+    )
+    decisions = tuple(
+        stage0.Decision(
+            cell="g01-c1",
+            event_index=event_index,
+            need=1,
+            candidates=candidates,
+            a0_index=0,
+            matched_count=1,
+            a0_victim_subset_physical=True,
+            a0_selected_program="p1",
+        )
+        for event_index in (10, 30)
+    )
+    return stage0.CellTrajectory(
+        cell="g01-c1",
+        requests=requests,
+        decisions=decisions,
+        r_a0=0,
+        r_a0_recorded=0,
+    )
+
+
+def test_multiple_decisions_compose_over_the_full_trajectory(stage0) -> None:
+    trajectory = _multi_decision_trajectory(stage0)
+    a0 = stage0.simulate_path(trajectory, stage0.a0_choices(trajectory))
+    one_flip = stage0.simulate_path(trajectory, (1, 0))
+    two_flips = stage0.simulate_path(trajectory, (1, 1))
+    assert a0.total == 0
+    # First flip only damages request 2; the block is re-added for request 3.
+    assert one_flip.total == 32
+    # The second decision re-evicts it and damages request 3 too.
+    assert two_flips.total == 64
+
+
+def test_prefix_restore_can_increase_cached_prefix(stage0) -> None:
+    requests = (stage0.RequestPoint("p1:turn:1", "p1", 20, 32, 32, 16, ("a", "b")),)
+    candidates = (
+        stage0.Candidate("p1", "prefix-a0", 1, frozenset({"b"}), 2),
+        stage0.Candidate("p2", "prefix-alt", 1, frozenset({"c"}), 1),
+    )
+    decisions = (stage0.Decision("g01-c1", 10, 1, candidates, 0, 1, True, "p1"),)
+    trajectory = stage0.CellTrajectory("g01-c1", requests, decisions, 16, 16)
+    a0 = stage0.simulate_path(trajectory, (0,))
+    restored = stage0.simulate_path(trajectory, (1,))
+    assert a0.per_request[0]["C_counterfactual"] == 16
+    assert restored.per_request[0]["C_counterfactual"] == 32
+    assert a0.total - restored.total == 16
+
+
+def test_reused_evicted_block_is_only_lost_once(stage0) -> None:
+    requests = tuple(
+        stage0.RequestPoint(
+            request_id=f"p1:turn:{index}",
+            program_id="p1",
+            event_index=event_index,
+            n=32,
+            e=32,
+            c=32,
+            hashes=("a", "b"),
+        )
+        for index, event_index in ((1, 1), (2, 20), (3, 40))
+    )
+    candidates = (
+        stage0.Candidate("p1", "prefix-a0", 1, frozenset({"c"}), 2),
+        stage0.Candidate("p2", "prefix-alt", 1, frozenset({"a"}), 1),
+    )
+    decisions = (stage0.Decision("g01-c1", 10, 1, candidates, 0, 1, True, "p1"),)
+    trajectory = stage0.CellTrajectory("g01-c1", requests, decisions, 0, 0)
+    result = stage0.simulate_path(trajectory, (1,))
+    # Request 2 recomputes a, re-adds it; request 3 hits it again.
+    assert [row["C_counterfactual"] for row in result.per_request] == [32, 0, 32]
+    assert result.total == 32
+
+
+def test_wrong_choice_count_fails_closed(stage0) -> None:
+    trajectory = _trajectory(stage0)
+    with pytest.raises(ValueError):
+        stage0.simulate_path(trajectory, ())

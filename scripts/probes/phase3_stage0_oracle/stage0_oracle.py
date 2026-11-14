@@ -214,33 +214,77 @@ def load_cell(evidence: Path, cell: str) -> CellTrajectory:
         trace = (a3_event["payload"].get("selection_trace") or [{}])[0]
         audits = trace.get("audits") or []
         if not audits:
-            continue
+            raise ValueError(f"{cell}@{event_index}: missing A3 audit list")
+        if trace.get("need") is None:
+            raise ValueError(f"{cell}@{event_index}: missing A3 need")
         need = int(trace["need"])
+        if any(a.get("need") not in (None, need) for a in audits):
+            raise ValueError(f"{cell}@{event_index}: audit need disagrees with trace need")
         a0_selected = forced_event["payload"]["selected_releases"][0]["program_id"]
         physical = item["physical"] or set()
+        if not physical:
+            raise ValueError(f"{cell}@{event_index}: missing physical eviction identity map")
         candidates: list[Candidate] = []
+        audits_by_program = {a["key"][0]: a for a in audits}
+        if len(audits_by_program) != len(audits):
+            raise ValueError(f"{cell}@{event_index}: duplicate audit program")
         for raw in forced_event["payload"]["candidates"]:
             program = raw["program_id"]
-            audit = next((a for a in audits if a["key"][0] == program), None)
+            audit = audits_by_program.get(program)
             if audit is None:
-                continue
+                raise ValueError(f"{cell}@{event_index}: candidate {program} has no A3 audit")
             victim_ids = raw["initially_reclaimable_block_ids"][:need]
+            if len(victim_ids) != need:
+                raise ValueError(
+                    f"{cell}@{event_index}/{program}: victim block count "
+                    f"{len(victim_ids)} != need {need}"
+                )
+            if len(set(victim_ids)) != len(victim_ids):
+                raise ValueError(f"{cell}@{event_index}/{program}: duplicate victim block id")
             mapped = [item["map"].get(block_id) for block_id in victim_ids]
             if any(value is None for value in mapped):
-                continue
+                missing = [block_id for block_id, value in zip(victim_ids, mapped) if value is None]
+                raise ValueError(
+                    f"{cell}@{event_index}/{program}: unmapped victim block ids {missing[:8]}"
+                )
             depths = audit.get("victim_depths") or []
+            victim_blocks = audit.get("victim_block_ids") or []
+            if len(depths) != need or len(victim_blocks) != need:
+                raise ValueError(
+                    f"{cell}@{event_index}/{program}: victim depth/identity length "
+                    f"{len(depths)}/{len(victim_blocks)} != need {need}"
+                )
+            if len(set(depths)) != need or len(set(victim_blocks)) != need:
+                raise ValueError(f"{cell}@{event_index}/{program}: duplicate victim depth/identity")
+            if any(depths[index] <= depths[index + 1] for index in range(len(depths) - 1)):
+                raise ValueError(
+                    f"{cell}@{event_index}/{program}: victim depths are not strictly descending"
+                )
+            chain_length = audit.get("chain_length")
+            if not isinstance(chain_length, int) or min(depths) < 1 or max(depths) > chain_length:
+                raise ValueError(
+                    f"{cell}@{event_index}/{program}: victim depths outside chain length"
+                )
             candidates.append(
                 Candidate(
                     program_id=program,
                     prefix_id=raw["prefix_id"],
                     need=need,
                     victim_hashes=frozenset(mapped),
-                    first_victim_depth=min(depths) if depths else None,
+                    first_victim_depth=min(depths),
                 )
+            )
+        if len(candidates) != len(audits):
+            raise ValueError(
+                f"{cell}@{event_index}: {len(candidates)} candidates != {len(audits)} audits"
             )
         a0_candidate = next((c for c in candidates if c.program_id == a0_selected), None)
         if a0_candidate is None:
-            continue
+            raise ValueError(f"{cell}@{event_index}: A0 selected {a0_selected} is not a candidate")
+        if not (a0_candidate.victim_hashes <= physical):
+            raise ValueError(
+                f"{cell}@{event_index}: predicted victims are not contained in physical evictions"
+            )
         decisions.append(
             Decision(
                 cell=cell,
@@ -249,7 +293,7 @@ def load_cell(evidence: Path, cell: str) -> CellTrajectory:
                 candidates=tuple(candidates),
                 a0_index=candidates.index(a0_candidate),
                 matched_count=len(physical),
-                a0_victim_subset_physical=a0_candidate.victim_hashes <= physical,
+                a0_victim_subset_physical=True,
                 a0_selected_program=a0_selected,
             )
         )
@@ -510,22 +554,23 @@ def render_report(campaign: dict[str, Any]) -> str:
     """Render the independent Stage-0 report from the evidence object."""
     cells = [cell for cell in campaign["cells"] if cell["alternatives"]]
     lines: list[str] = [
-        "# Phase 3 Stage 0：完整轨迹 Oracle 与 P2 离线价值模型",
+        "# Phase 3 Stage 0：A0-Anchored Prefix-State Loss Oracle 与 P2 离线研究",
         "",
         "**Author**: M4  ",
         "**Status**: `STAGE0_CPU_ONLY_AUTHORIZED` — 只读 Archive，无 GPU，无 Native smoke，无生产算法修改。  ",
-        "**Authorization**: M1 对 Stage 0 的正式授权（完整轨迹 Oracle + P2 离线研究）。  ",
-        "**Model**: A0-anchored prefix-state counterfactual（A0 逐请求基线 + 候选受害者前缀损失 + 完整 24 请求重算）。",
+        "**Authorization**: M1 对 Stage 0 的正式授权（A0-Anchored Prefix-State Loss Oracle + P2 离线研究）。  ",
+        "**Model**: A0-Anchored Prefix-State Loss Oracle（A0 逐请求基线 + 候选受害者前缀损失 + 完整 24 请求重算）。",
         "",
         "## 0. 结论",
         "",
         f"- Stage-0 gate：**`{campaign['status']}`**。",
+        "- 该名称是审查后的正式定位：本工具**不是**完整 Native State Oracle，不模拟 Native Cache 容量、LRU 状态或反事实选择对后续候选集合的影响。",
         f"- primary 18 Groups / 36 cells 全部完整；`count_complete(G_g >= 512) = {campaign['count_groups_ge_512']}`。",
-        f"- Oracle Gain **上界合计 = {campaign['oracle_gain_total_tokens']} tokens**；18 个 primary Group 的上界均为 0。",
-        "- 在现有 Archive 的 7 次真实竞争决策上，A0 的选择已经是 oracle 最优：另一候选的全轨迹收益为 0 或负值。",
-        "- 因此本轮没有任何正的 **avoidable-loss** Oracle Gain；继续优化 Entry 排序在本 archive 上没有可实现的避免损失空间。",
+        f"- avoidable-prefix-loss 上界合计 = **{campaign['oracle_gain_total_tokens']} tokens**；18 个 primary Group 的上界均为 0。",
+        "- 在现有 Archive 的 7 次真实竞争决策上，A0 的选择已经是 loss oracle 最优：另一候选的全轨迹收益为 0 或负值。",
+        "- 因此现有七次竞争决策中没有发现正的 **avoidable-prefix-loss** 收益；这不终止整个 Entry Ordering 研究路线。",
         "",
-        '> 这是**avoidable-loss 上界为 0** 的结论，不是"所有 Entry 策略都无收益"的证明。模型只移除候选的预测受害者、并允许恢复 A0 已驱逐块；它**不建模**换一条链释放容量所带来的正效应。若上界仍为 0，则现有 7 次决策中没有可避免的受害者损失收益；容量效应需要更完整的 Native state 重放才能检验。',
+        "> **RC2 边界**：0 tokens 只证明现有七次竞争决策中没有发现正的 avoidable-prefix-loss 收益。模型没有模拟换链释放容量产生的收益，因此**不得**据此终止整个 Entry Ordering 研究路线。容量收益维度保留为 `NOT_EVALUATED`。",
         "",
         "## 1. 合同与命名",
         "",
@@ -543,7 +588,7 @@ def render_report(campaign: dict[str, Any]) -> str:
         "",
         "## 2. 方法",
         "",
-        "### 2.1 为什么是 A0-anchored 而不是 Native replay",
+        "### 2.1 为什么是 A0-anchored loss oracle 而不是 Native replay",
         "",
         "Archive 没有可独立重置并重放的完整 Native cache state；跨 run 的 native prefix hash 不可移植（`cross_run_native_hash_identity = NOT_PORTABLE`）。因此本阶段不宣称 Native replay，而是：",
         "",
@@ -551,13 +596,14 @@ def render_report(campaign: dict[str, Any]) -> str:
         "2. 在每次 forced-release 决策，把候选的最深 `need` 个 block（`initially_reclaimable_block_ids[:need]`）作为反事实受害者；",
         "3. 与 A0 选择做集合差：`extra = D_candidate - D_A0` 从未来 cache 中移除，`restore = D_A0 - D_candidate` 恢复 A0 已驱逐但候选不会驱逐的块；",
         "4. 对全部 24 个请求重新计算 `C_cf` 与 `Recomputed_cf = E - C_cf`，使用后重新加入；",
-        "5. Oracle 枚举每个 cell 的全部可达候选序列，取完整轨迹最小值；**不**把逐决策局部收益相加。",
+        "5. Loss oracle 枚举每个 cell 的全部可达候选序列，取完整轨迹最小值；**不**把逐决策局部收益相加。",
         "",
         "### 2.2 有效性验证",
         "",
         f"- A0 逐请求：`R_A0` 与 Archive `aggregate_recomputed_tokens` 逐 cell 精确一致（{campaign['complete_cells_primary']}/{campaign['complete_cells_primary']} primary cells）。",
         f"- 每决策受害者集合：预测受害者是物理驱逐集的子集，`{campaign['decisions_selected_victim_subset_physical']}`；7 次竞争决策 `{campaign['competitive_selected_victim_subset_physical']}`。",
-        "- 19 次 `matched=128 > need` 的量子过量全部是单候选决策，不存在排序选择，因而不会改变 oracle 的候选空间。",
+        "- **Fail-closed**：固定校验 127 次决策与 7 次竞争决策；缺失 audit、候选、或 block identity 映射直接抛错，不静默跳过；每个候选校验 victim block 数、victim depth 数、唯一性、depth 严格降序与 chain range。",
+        "- 19 次 `matched=128 > need` 的量子过量全部是单候选决策，不存在排序选择，因而不会改变 loss oracle 的候选空间。",
         "- **`A0_NATIVE_REPLAY = NOT_AVAILABLE`**：本阶段没有把 prefix-state 模型冒充为 Native 重执行。",
         "",
         "### 2.3 边界",
@@ -593,7 +639,7 @@ def render_report(campaign: dict[str, Any]) -> str:
         "",
         f"- primary Groups：{campaign['primary_groups']}；完整 Groups：{campaign['complete_groups_primary']}；完整 cells：{campaign['complete_cells_primary']}。",
         f"- `count_complete(G_g >= {campaign['effect_floor_tokens']}) = {campaign['count_groups_ge_512']}`。",
-        "- H3-0 sensitivity mean gain（upper bound）：**0 tokens/group**；g09/g18 的单 cell 不进入 primary gate。",
+        "- H3-0 sensitivity mean avoidable-loss gain：**0 tokens/group**；g09/g18 的单 cell 不进入 primary gate。",
         "",
         "| 判定条件 | 结果 |",
         "|---|---|",
@@ -621,9 +667,9 @@ def render_report(campaign: dict[str, Any]) -> str:
         "",
         "## 6. 建议",
         "",
-        "1. **不启动 GPU Campaign。** avoidable-loss 上界为 0，且当前没有正收益路径；容量效应需要更完整的 Native state 重放，当前 archive 不支持。",
-        "2. **不推进 P2 的 GPU 验证。** 7 次竞争决策上 P2 无正 gain。",
-        '3. **P1 的 CPU 参数扫描可保留为暴露几何的诊断**，但它不再是\\"追求 oracle gain\\"的后续：本 archive 的候选暴露本身不足，先确认 P1 能否把 multi-candidate rate 提升到 ≥20%；若无，则 Entry 排序路线在本 workload 家族应停止。',
+        "1. **不启动 GPU Campaign。** avoidable-prefix-loss 上界为 0；容量收益维度为 `NOT_EVALUATED`，不得据此终止整个 Entry Ordering 研究路线。",
+        "2. **P2 继续 CPU-only 离线研究**：定位为在线未来复用深度预测模型，比较 A0、现有 P2 与 ideal hindsight oracle；不授权 P2 的 GPU 验证。",
+        "3. **P1 的 CPU 参数扫描保留为独立暴露几何诊断**，不因当前 loss-only oracle 为零而取消；先确认 P1 能否把 multi-candidate rate 提升到 ≥20%。",
         "4. **P3 仍暂缓**，本阶段不授权 Partial Release 实现。",
         "",
         "## 7. 限制",
@@ -659,6 +705,24 @@ def main(argv: list[str] | None = None) -> int:
     trajectories: list[CellTrajectory] = []
     for cell in cells:
         trajectories.append(load_cell(args.evidence, cell))
+
+    loaded_decisions = sum(len(trajectory.decisions) for trajectory in trajectories)
+    loaded_competitive = sum(
+        1
+        for trajectory in trajectories
+        for decision in trajectory.decisions
+        if len(decision.candidates) >= 2
+    )
+    if loaded_decisions != 127:
+        raise ValueError(f"expected 127 decisions, found {loaded_decisions}")
+    if loaded_competitive != 7:
+        raise ValueError(f"expected 7 competitive decisions, found {loaded_competitive}")
+    if any(
+        not decision.a0_victim_subset_physical
+        for trajectory in trajectories
+        for decision in trajectory.decisions
+    ):
+        raise ValueError("a predicted victim set is not contained in physical evictions")
 
     oracle_rows = [enumerate_oracle(t) for t in trajectories]
     p2 = p2_analysis(trajectories)
@@ -716,7 +780,7 @@ def main(argv: list[str] | None = None) -> int:
     elif count_high >= 4:
         gate = "INCONCLUSIVE_GEOMETRY"
     else:
-        gate = "STOP_ENTRY_ORDERING"
+        gate = "STOP_AVOIDABLE_LOSS_MODEL_ON_CURRENT_COHORT"
 
     # H3-0 sensitivity only.
     h3_cells = [cell for cell in cells if cell not in H3_EXCLUDED_CELLS]
@@ -725,10 +789,13 @@ def main(argv: list[str] | None = None) -> int:
     campaign = {
         "schema_version": "phase3.stage0_oracle.v1",
         "status": gate,
-        "authorization": "M1 Stage 0 CPU-only full-trajectory Oracle + P2 offline study",
-        "model": "A0_ANCHORED_PREFIX_STATE_COUNTERFACTUAL",
+        "authorization": "M1 Stage 0 CPU-only A0-Anchored Prefix-State Loss Oracle + P2 offline study",
+        "oracle_name": "A0-Anchored Prefix-State Loss Oracle",
+        "model": "A0_ANCHORED_PREFIX_STATE_LOSS_ORACLE",
         "a0_native_replay": "NOT_AVAILABLE",
         "oracle_gain_is_upper_bound": True,
+        "avoidable_loss_upper_bound": True,
+        "capacity_gain_dimension": "NOT_EVALUATED",
         "complete_cells_primary": complete_cells,
         "complete_groups_primary": complete_groups,
         "primary_cells": len(
