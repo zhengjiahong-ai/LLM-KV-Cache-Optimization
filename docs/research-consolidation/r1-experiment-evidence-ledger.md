@@ -400,14 +400,12 @@ These are candidate research narratives, not yet accepted contributions. In part
 
 As checked on 2026-11-14:
 
-- `main` after PR #104 merge: `c3a53bfc45bd36d4026876658d21d3b4bf845e23`.
-- `research/phase3-stage0-oracle`: `9cca2a42b452f8b84559da94e026a990d9d75c19` before the targeted status/index maintenance in PR #109.
-- PR #104 (270-run execution and actual-order bounded paired-effect evidence) is merged into `main`.
-- PR #105 (Phase 3 null-mechanism analysis) remains open on its original feature-branch base; its analysis is included in the research integration branch and is being promoted through PR #109.
-- PR #106 (P2 depth study), PR #107 (Session Continuation feasibility), and PR #108 (R1.3 synthesis package) are merged into the research integration branch.
-- PR #109 promotes the integrated Phase 3/4 retrospective evidence and M4-reviewed synthesis to `main`.
+- `main` after PR #109 merge: `9ee8f271b9cb55c64c45e1da1eadca8f870444e3`.
+- PR #104 (270-run execution and actual-order bounded paired-effect evidence) and PR #109 (Phase 3/4 retrospective evidence and M4-reviewed R1.3 synthesis) are merged into `main`.
+- PR #105's null-mechanism analysis is included in the PR #109 merge; its original PR is superseded by the integrated mainline record.
+- PR #106 (P2 depth study), PR #107 (Session Continuation feasibility), and PR #108 (R1.3 synthesis package) were integrated through the research branch and are now present on `main`.
 
-The older README and status snapshot were pre-execution records. The dated historical snapshot in the status ledger remains preserved; current status is updated through this reviewable mainline promotion.
+The 2026-11-10 pre-execution snapshot remains preserved as historical context. Current canonical status is recorded in `docs/research-status.md` and the root README.
 
 ## 8. R1 next actions
 
