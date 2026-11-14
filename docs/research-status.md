@@ -8,7 +8,7 @@ Owner: M1. This document indexes decisions and evidence; it does **not** amend s
 
 The revised cross-phase synthesis is available in [Research Results and Contributions](research-consolidation/research-results-and-contributions.md). It incorporates M4's independent review: Phase 4 right-censoring and weak TOOL_GAP proxy results, Phase 2C APC hit distribution, P2 fail-closed exclusions, exact A0 ordering, Phase 3 decision-layer / cell-clustering corrections, and explicit campaign-estimand boundaries. The [R1 evidence ledger](research-consolidation/r1-experiment-evidence-ledger.md) remains the navigation and provenance layer.
 
-**Status boundary:** this synthesis is an M1 working draft, not the final Phase 3 verdict. The 270-run Option F execution and actual-order read-only recovery are complete, but the frozen enqueue-order deviation remains recorded and final M1/M4 adjudication is pending. No new GPU run, Native smoke, algorithm implementation, or Protocol v5 is authorized by this documentation update.
+**Status boundary:** the R1.3 synthesis is an M1 working synthesis, not a completed Related Work novelty review or final paper claim. The Phase 3 bounded paired-effect interpretation has been accepted by M1; the frozen enqueue-order deviation and historical execution gaps remain recorded. No new GPU run, Native smoke, algorithm implementation, or Protocol v5 is authorized by this documentation update.
 
 ## How to read the evidence
 
@@ -23,7 +23,7 @@ The revised cross-phase synthesis is available in [Research Results and Contribu
 
 Historical snapshot recorded at that review: `f005ecf239c1a982d0a751f430e24fa8ca47e46e`.
 
-**Main after PR #104 merge (2026-11-14):** `c3a53bfc45bd36d4026876658d21d3b4bf845e23`. PR #104 promotes the completed 270-run campaign and its accepted bounded paired-effect interpretation. PR #109 is the open mainline promotion PR for follow-up Phase 3/4 audits and the M4-reviewed R1.3 synthesis.
+**Main after PR #109 merge (2026-11-14):** `9ee8f271b9cb55c64c45e1da1eadca8f870444e3`. PR #104 promoted the completed 270-run campaign and accepted bounded paired-effect interpretation; PR #109 promoted the Phase 3/4 retrospective audits and M4-reviewed R1.3 synthesis.
 
 | Record / PR | Delivered scope | Current state | Boundary |
 | --- | --- | --- | --- |
@@ -190,7 +190,7 @@ Logical release, physical hashed eviction, subsequent APC hit/miss and request-l
 - **M5**: shared workload/runner substrate only if a concrete interface gap remains.
 - **M2/M3**: background/source-mechanism review and frozen baseline support.
 
-**Current next action:** complete the targeted mainline review of PR #109, which promotes the Phase 3 retrospective audits, Phase 4 feasibility record, and M4-reviewed R1.3 synthesis. No GPU rerun, Native smoke, algorithm implementation, or Protocol v5 is implied by that documentation promotion. Phase 3 bounded paired-effect acceptance and its residual execution deviations remain distinct from broader algorithmic or full-system claims.
+**Current next action:** use the merged M4 null-mechanism analysis and R1.3 synthesis to decide the next research direction and any required Related Work review. This is analysis/planning only; no GPU rerun, Native smoke, algorithm implementation, or Protocol v5 is authorized. Phase 3 bounded paired-effect acceptance and its residual execution deviations remain distinct from broader algorithmic or full-system claims.
 
 ## Provenance and reading order
 
