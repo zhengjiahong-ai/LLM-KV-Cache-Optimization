@@ -18,7 +18,7 @@ See [Research Motivation and Contributions](docs/research-motivation-and-contrib
 ## Current Status (as of 2026-11-14)
 
 **Repository:** [zhengjiahong-ai/LLM-KV-Cache-Optimization](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization)  
-**Main HEAD after PR #104 merge:** `c3a53bfc45bd36d4026876658d21d3b4bf845e23`
+**Main HEAD after PR #109 merge:** `9ee8f271b9cb55c64c45e1da1eadca8f870444e3`
 
 - Phase 0 / 1A / 1B: **CLOSED**. The common vLLM/APC adapter and the project’s Continuum-style baseline have been integrated and real-runtime validated.
 - Phase 2A–2I: historical research and bounded evaluations are closed; their positive, negative, and inconclusive findings remain scoped to their original evidence.
@@ -26,7 +26,7 @@ See [Research Motivation and Contributions](docs/research-motivation-and-contrib
 - G0 v3: **ACCEPTED by M1 on 2026-11-07**. The sealed cohort contains 40 qualified tasks, 20 Workload Groups, and 10 repositories. The existing 40-run A0 Load Calibration is reused.
 - One-shot execution: **COMPLETE** — 30/30 Noise + 240/240 Main runs; all 270 run identities reconciled.
 - Phase 3 final M1 decision: **ACCEPTED for bounded paired-effect interpretation**, with frozen replay-order conformance failure, historical authorization gap, and transition-ledger gap retained as recorded deviations. This is not a claim that every frozen execution gate passed.
-- Mainline promotion: PR #104 is merged. PR #109 carries the subsequent Phase 3/4 evidence package and M4-reviewed R1.3 synthesis for final mainline review.
+- Mainline promotion: PR #104 and PR #109 are merged. Phase 3/4 retrospective evidence and the M4-reviewed R1.3 synthesis are now on `main`.
 - Research boundary: tested Cost-Aware arms did not demonstrate incremental recomputation benefit over A0 in this cohort; this does not establish universal algorithm equivalence or impossibility.
 
 The 270 new runs are exactly:
