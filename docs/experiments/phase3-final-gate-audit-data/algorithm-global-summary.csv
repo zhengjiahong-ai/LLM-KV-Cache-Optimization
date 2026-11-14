@@ -1,0 +1,7 @@
+arm,run_count,pressure_event_count,pressure_request_count,forced_release_count,candidate_total,multi_candidate_decisions,multi_scored_decisions,fallback_decisions,newly_eligible_blocks,physical_outcomes,matched_physical_blocks,unmatched_physical_blocks
+N0,40,40,40,0,0,0,0,0,0,0,0,0
+A0,40,40,40,127,134,7,0,0,154765,127,14241,0
+A1,40,40,40,127,134,7,7,0,154765,127,14241,0
+A2,40,40,40,127,134,7,0,74,154765,127,14241,0
+A3,40,40,40,127,134,7,7,0,154765,127,14241,0
+E0,40,40,40,127,134,7,7,0,154765,127,14241,0
