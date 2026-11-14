@@ -4,9 +4,9 @@ Status: **UNDER REVIEW — Phase 3 Option F execution complete; 270/270 runs rec
 As-of execution: 2026-11-12, execution code `00a512111f15abddcad329572f6e50ccaaa76775`; [final M6 results](experiments/phase3-option-f-final-results.md); immutable evidence archive SHA-256 `d36a3765296199806e1aef04dcc655fd16d3afb6d7a5bc5a125397bea90ce5c8`.
 Owner: M1. This document indexes decisions and evidence; it does **not** amend sealed artifacts or replace their final reports.
 
-## Research synthesis (R1.2, 2026-11-14)
+## Research synthesis (R1.3, 2026-11-14; M4 review incorporated)
 
-The first consolidated research synthesis is available in [Research Results and Contributions](research-consolidation/research-results-and-contributions.md). It integrates three questions: what the cross-phase experiments establish, which hypotheses were supported / not supported / not identifiable, and which system, measurement, and experimental-method contributions are defensible. The [R1 evidence ledger](research-consolidation/r1-experiment-evidence-ledger.md) remains the navigation and provenance layer.
+The revised cross-phase synthesis is available in [Research Results and Contributions](research-consolidation/research-results-and-contributions.md). It incorporates M4's independent review: Phase 4 right-censoring and weak TOOL_GAP proxy results, Phase 2C APC hit distribution, P2 fail-closed exclusions, exact A0 ordering, Phase 3 decision-layer / cell-clustering corrections, and explicit campaign-estimand boundaries. The [R1 evidence ledger](research-consolidation/r1-experiment-evidence-ledger.md) remains the navigation and provenance layer.
 
 **Status boundary:** this synthesis is an M1 working draft, not the final Phase 3 verdict. The 270-run Option F execution and actual-order read-only recovery are complete, but the frozen enqueue-order deviation remains recorded and final M1/M4 adjudication is pending. No new GPU run, Native smoke, algorithm implementation, or Protocol v5 is authorized by this documentation update.
 
@@ -140,9 +140,9 @@ The proposed Phase 5 comparison has four primary systems: Native vLLM, the autho
 | Phase 1B | CLOSED | Continuum-style baseline integrated and real-runtime validated; project adaptation is not asserted byte-for-byte equivalent to the paper |
 | Phase 2A H1 | CLOSED — `DIAGNOSTIC_ONLY` | 29 independent paired-evaluable draws, below threshold 30; no rule promotion; Phase 2C later identified content-topology fidelity limitations |
 | Phase 2A H2 | CLOSED | M1/M2/M3 measurements passed their gates; M4 failed; aggregate did not unlock B1 |
-| Phase 2B / 2C | CLOSED | Native evidence/fidelity repair and a workload audit; historical H1 artifacts remain sealed |
+| Phase 2B / 2C | CLOSED | Native evidence/fidelity repair and workload audit; among 495 eligible turn prefixes, 288 full hits / 48 partial hits / 159 misses; 408 first eligible predecessors are no-prior-eligible-prefix, not misses. Different-program first hash chains matched 0/771 in the audited H1 workload; this is workload-specific, not universal |
 | Phase 2E | CLOSED | Frozen Native LRU/Continuum measured comparability campaign; outcome is workload/measurement evidence, not cost-aware benefit |
-| Phase 2G A1 | BOUNDED EVALUATION COMPLETED | Native evidence of some beneficial entry-release differences; prior Gate 2 decision analysis found 54/54 A1 selections reproduced by simple sufficient-first heuristic; independent cost-model signal unproven |
+| Phase 2G A1 | BOUNDED EVALUATION COMPLETED; token verdict remains PROVISIONAL | W1-B's four-group smoke had descriptive A1−A0 reductions only; PR #82's separate nine-group bounded evaluation found 0 better / 1 worse / 8 tied (mean +412.44 tokens), Phase 2H's sole A1 divergence increased recomputation by 6,320 tokens, and Phase 3 showed no A1/A0 difference with sparse two-candidate exposure. No independent A1 benefit is demonstrated; historical Gate 2 token values remain provisional pending corrected same-archive evaluation |
 | Phase 2G A2 | INCONCLUSIVE | Bounded evaluation found 0 better / 3 worse / 33 tied in 36 draws; attribution and decision exposure limitations; neither proof of universal equivalence nor formal benefit |
 | Phase 2 W0 — PR #71 | CLOSED / `CONDITIONAL_GO` | Public Continuum/SWE-bench source and converter path audited; paper-run per-request trajectories absent |
 | Phase 2 W1-A — PR #72 | CLOSED / `CONDITIONAL_GO` | 10 frozen SWE-bench Verified Agent tasks acquired; reported 453 model / 271 tool calls; 1 submitted, 9 right-censored at step limit; local tokenization and wrapper timing have explicit provenance |
