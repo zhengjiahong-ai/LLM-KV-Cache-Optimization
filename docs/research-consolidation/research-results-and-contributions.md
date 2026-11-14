@@ -4,7 +4,7 @@
 **日期：** 2026-11-14  
 **适用范围：** Phase 0/1 至 Phase 4 已提交的实验、审计与离线研究  
 **证据索引：** [R1 跨阶段实验与证据账本](r1-experiment-evidence-ledger.md)  
-**当前裁定边界：** Phase 3 Option F 的 270-run 执行及只读复核已完成，但最终 M1/M4 adjudication 仍待完成。
+**当前裁定边界：** Phase 3 Option F 的 270-run 执行及只读复核已完成，但最终 M1 adjudication 仍待完成。
 
 > 本文是对既有证据的综合解释，不替代冻结协议、原始 Archive、阶段最终报告或 M1 正式裁定。它不修改历史结果、不合并不同 campaign 的样本、不将描述性结果升级为正式假设通过，也不授权新 GPU 实验。
 
@@ -377,7 +377,7 @@ Phase 2E 观察到场景级 recomputation 下降，但 TTFT 没有相应改善�
 ## 6. 明确保留的未解决边界
 
 1. Phase 3 frozen enqueue-order conformance deviation 仍保留；actual-order recovery 不追认原 Gate PASS。
-2. Phase 3 最终 M1/M4 adjudication 尚未完成。
+2. Phase 3 最终 M1 adjudication 尚未完成。
 3. A1 Gate 2 历史 144-run 数值仍为 PROVISIONAL，修正 evaluator 未在同一原始 Archive 上完成最终复算。
 4. 多个历史 campaign 的 physical victim → downstream recomputation per-event causality 仍不完整。
 5. Phase 2D 的 N-C 局部差异不与 Protocol v4 E-C 绝对值混用。
