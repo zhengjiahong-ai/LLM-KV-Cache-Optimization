@@ -27,6 +27,22 @@ The research content is therefore credible enough to serve as a basis for a pape
 
 My recommendation is **major revision of the synthesis document, not of the research**: fix the factual/status issues, tighten the units and decision-layer wording, and add the omitted Phase 2C/Phase 4 evidence. No new experiment is needed.
 
+### Required-change map
+
+| ID | Severity | Location | Issue | Required action |
+|---|---|---|---|---|
+| R-01 | Blocking | research-results §1.9 | Phase 4 omits right-censoring and TOOL_GAP proxy | Add censored rates and 60s Brier/AUC with caveat |
+| R-02 | Blocking | research-status lines 22–24 | “Current main” contradicts ledger | Update hash or label historical |
+| R-03 | Blocking | research-status line 145 | A1 row overstates benefit | Rewrite with W1-B vs PR #82/Phase 3 distinction |
+| R-04 | Blocking | research-results §1.8 | A2 included as Entry chooser; 39-cell clustering absent | Rewrite as decision events and layer-specific choices |
+| R-05 | Recommended | research-results §1.6 | A1 Gate 2 144 runs vs 36 draws ambiguous | State “36 draws / 144 runs” |
+| R-06 | Recommended | research-results §1.3 | Phase 2C hit distribution omitted | Add 288/48/159 and 408 figures |
+| R-07 | Recommended | research-results §1.9 / §3 | P2 fail-closed and Phase 4 identity audit under-credited | Add data-identifiability contribution |
+| R-08 | Recommended | research-results §0.1 | A0 sort key under-specified | Add deadline/native-rank/identity key |
+| R-09 | Recommended | research-results §3.3 | “Prove” overgeneralizes one workload | Scope to audited H1 workload |
+| R-10 | Recommended | research-results §3.7 | Cross-campaign pattern lacks no-pooling note | Add explicit no-pooling disclaimer |
+| R-11 | Recommended | research-results §4 | Phase 2E/Phase 3 estimand difference unclear | Add units/estimand distinction |
+
 ---
 
 ## 1. What the synthesis gets right
