@@ -1,0 +1,3861 @@
+{
+  "schema_version": "phase3.p2_depth_study.v1",
+  "status": "P2_CPU_ONLY_OFFLINE_RESEARCH",
+  "authorization": "M1 P2 CPU-only offline research",
+  "p2_definition": "online future reuse depth predictor; no future features",
+  "oracle": "A0-Anchored Prefix-State Loss Oracle (not Native State Oracle)",
+  "capacity_gain_dimension": "NOT_EVALUATED",
+  "summary": {
+    "all": {
+      "scenarios": 127,
+      "prediction_mae_blocks": 134.82677165354332,
+      "flips": 35,
+      "positive_gain_flips": 0,
+      "p2_gain_total": -20032,
+      "oracle_gain_total": 704,
+      "p2_matches_oracle": 108,
+      "max_p2_gain": 0,
+      "max_oracle_gain": 576
+    },
+    "REAL": {
+      "scenarios": 7,
+      "prediction_mae_blocks": 91.57142857142857,
+      "flips": 7,
+      "positive_gain_flips": 0,
+      "p2_gain_total": -4896,
+      "oracle_gain_total": 0,
+      "p2_matches_oracle": 3,
+      "max_p2_gain": 0,
+      "max_oracle_gain": 0
+    },
+    "CONSTRUCTED_HISTORICAL": {
+      "scenarios": 120,
+      "prediction_mae_blocks": 137.35,
+      "flips": 28,
+      "positive_gain_flips": 0,
+      "p2_gain_total": -15136,
+      "oracle_gain_total": 704,
+      "p2_matches_oracle": 105,
+      "max_p2_gain": 0,
+      "max_oracle_gain": 576
+    }
+  },
+  "rows": [
+    {
+      "cell": "g01-c1",
+      "decision_index": 0,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-13401",
+      "candidates": [
+        {
+          "program": "django__django-13401",
+          "predicted_depth": 543,
+          "actual_depth": 714,
+          "p2_score": 0,
+          "first_victim_depth": 650,
+          "chain_length": 714,
+          "selected": true
+        },
+        {
+          "program": "astropy__astropy-7671",
+          "predicted_depth": 1112,
+          "actual_depth": 1277,
+          "p2_score": 0,
+          "first_victim_depth": 1213,
+          "chain_length": 1277,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-13401",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g01-c1",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "astropy__astropy-7671",
+      "candidates": [
+        {
+          "program": "astropy__astropy-7671",
+          "predicted_depth": 1462,
+          "actual_depth": 1627,
+          "p2_score": 0,
+          "first_victim_depth": 1501,
+          "chain_length": 1627,
+          "selected": true
+        },
+        {
+          "program": "django__django-13401",
+          "predicted_depth": 543,
+          "actual_depth": 714,
+          "p2_score": 0,
+          "first_victim_depth": 588,
+          "chain_length": 714,
+          "selected": false
+        }
+      ],
+      "p2_choice": "astropy__astropy-7671",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g01-c1",
+      "decision_index": 2,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-13401",
+      "candidates": [
+        {
+          "program": "django__django-13401",
+          "predicted_depth": 714,
+          "actual_depth": 886,
+          "p2_score": 0,
+          "first_victim_depth": 760,
+          "chain_length": 886,
+          "selected": true
+        },
+        {
+          "program": "astropy__astropy-7671",
+          "predicted_depth": 1462,
+          "actual_depth": 1627,
+          "p2_score": 0,
+          "first_victim_depth": 1501,
+          "chain_length": 1627,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-13401",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g01-c1",
+      "decision_index": 3,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "astropy__astropy-7671",
+      "candidates": [
+        {
+          "program": "astropy__astropy-7671",
+          "predicted_depth": 1627,
+          "actual_depth": 1812,
+          "p2_score": 0,
+          "first_victim_depth": 1686,
+          "chain_length": 1812,
+          "selected": true
+        },
+        {
+          "program": "django__django-13401",
+          "predicted_depth": 714,
+          "actual_depth": 886,
+          "p2_score": 0,
+          "first_victim_depth": 760,
+          "chain_length": 886,
+          "selected": false
+        }
+      ],
+      "p2_choice": "astropy__astropy-7671",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g01-c1",
+      "decision_index": 4,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-13401",
+      "candidates": [
+        {
+          "program": "django__django-13401",
+          "predicted_depth": 1574,
+          "actual_depth": 1746,
+          "p2_score": 0,
+          "first_victim_depth": 1619,
+          "chain_length": 1746,
+          "selected": true
+        },
+        {
+          "program": "astropy__astropy-7671",
+          "predicted_depth": 1627,
+          "actual_depth": 1812,
+          "p2_score": 0,
+          "first_victim_depth": 1685,
+          "chain_length": 1812,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-13401",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g01-c2",
+      "decision_index": 0,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-13401",
+      "candidates": [
+        {
+          "program": "django__django-13401",
+          "predicted_depth": 543,
+          "actual_depth": 714,
+          "p2_score": 0,
+          "first_victim_depth": 650,
+          "chain_length": 714,
+          "selected": true
+        },
+        {
+          "program": "astropy__astropy-7671",
+          "predicted_depth": 1112,
+          "actual_depth": 1277,
+          "p2_score": 0,
+          "first_victim_depth": 1213,
+          "chain_length": 1277,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-13401",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g01-c2",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "astropy__astropy-7671",
+      "candidates": [
+        {
+          "program": "astropy__astropy-7671",
+          "predicted_depth": 1462,
+          "actual_depth": 1627,
+          "p2_score": 0,
+          "first_victim_depth": 1501,
+          "chain_length": 1627,
+          "selected": true
+        },
+        {
+          "program": "django__django-13401",
+          "predicted_depth": 543,
+          "actual_depth": 714,
+          "p2_score": 0,
+          "first_victim_depth": 588,
+          "chain_length": 714,
+          "selected": false
+        }
+      ],
+      "p2_choice": "astropy__astropy-7671",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g01-c2",
+      "decision_index": 2,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-13401",
+      "candidates": [
+        {
+          "program": "django__django-13401",
+          "predicted_depth": 714,
+          "actual_depth": 886,
+          "p2_score": 0,
+          "first_victim_depth": 760,
+          "chain_length": 886,
+          "selected": true
+        },
+        {
+          "program": "astropy__astropy-7671",
+          "predicted_depth": 1462,
+          "actual_depth": 1627,
+          "p2_score": 0,
+          "first_victim_depth": 1501,
+          "chain_length": 1627,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-13401",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g01-c2",
+      "decision_index": 3,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "astropy__astropy-7671",
+      "candidates": [
+        {
+          "program": "astropy__astropy-7671",
+          "predicted_depth": 1627,
+          "actual_depth": 1812,
+          "p2_score": 0,
+          "first_victim_depth": 1686,
+          "chain_length": 1812,
+          "selected": true
+        },
+        {
+          "program": "django__django-13401",
+          "predicted_depth": 714,
+          "actual_depth": 886,
+          "p2_score": 0,
+          "first_victim_depth": 760,
+          "chain_length": 886,
+          "selected": false
+        }
+      ],
+      "p2_choice": "astropy__astropy-7671",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g01-c2",
+      "decision_index": 4,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-13401",
+      "candidates": [
+        {
+          "program": "django__django-13401",
+          "predicted_depth": 1574,
+          "actual_depth": 1746,
+          "p2_score": 0,
+          "first_victim_depth": 1664,
+          "chain_length": 1746,
+          "selected": true
+        },
+        {
+          "program": "astropy__astropy-7671",
+          "predicted_depth": 1627,
+          "actual_depth": 1812,
+          "p2_score": 0,
+          "first_victim_depth": 1730,
+          "chain_length": 1812,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-13401",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g02-c1",
+      "decision_index": 0,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-12276",
+      "candidates": [
+        {
+          "program": "django__django-12276",
+          "predicted_depth": 964,
+          "actual_depth": 1079,
+          "p2_score": 0,
+          "first_victim_depth": 981,
+          "chain_length": 1079,
+          "selected": true
+        },
+        {
+          "program": "matplotlib__matplotlib-14623",
+          "predicted_depth": 808,
+          "actual_depth": 947,
+          "p2_score": 0,
+          "first_victim_depth": 849,
+          "chain_length": 947,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-12276",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g02-c1",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "matplotlib__matplotlib-14623",
+      "candidates": [
+        {
+          "program": "matplotlib__matplotlib-14623",
+          "predicted_depth": 947,
+          "actual_depth": 1096,
+          "p2_score": 0,
+          "first_victim_depth": 970,
+          "chain_length": 1096,
+          "selected": true
+        },
+        {
+          "program": "django__django-12276",
+          "predicted_depth": 964,
+          "actual_depth": 1079,
+          "p2_score": 192,
+          "first_victim_depth": 953,
+          "chain_length": 1079,
+          "selected": false
+        }
+      ],
+      "p2_choice": "matplotlib__matplotlib-14623",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g02-c1",
+      "decision_index": 2,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-12276",
+      "candidates": [
+        {
+          "program": "django__django-12276",
+          "predicted_depth": 1079,
+          "actual_depth": 1194,
+          "p2_score": 192,
+          "first_victim_depth": 1068,
+          "chain_length": 1194,
+          "selected": false
+        },
+        {
+          "program": "matplotlib__matplotlib-14623",
+          "predicted_depth": 947,
+          "actual_depth": 1096,
+          "p2_score": 0,
+          "first_victim_depth": 970,
+          "chain_length": 1096,
+          "selected": true
+        }
+      ],
+      "p2_choice": "matplotlib__matplotlib-14623",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g02-c1",
+      "decision_index": 3,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "matplotlib__matplotlib-14623",
+      "candidates": [
+        {
+          "program": "matplotlib__matplotlib-14623",
+          "predicted_depth": 1384,
+          "actual_depth": 1523,
+          "p2_score": 0,
+          "first_victim_depth": 1396,
+          "chain_length": 1523,
+          "selected": true
+        },
+        {
+          "program": "django__django-12276",
+          "predicted_depth": 1079,
+          "actual_depth": 1194,
+          "p2_score": 208,
+          "first_victim_depth": 1067,
+          "chain_length": 1194,
+          "selected": false
+        }
+      ],
+      "p2_choice": "matplotlib__matplotlib-14623",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g02-c2",
+      "decision_index": 0,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-12276",
+      "candidates": [
+        {
+          "program": "django__django-12276",
+          "predicted_depth": 964,
+          "actual_depth": 1079,
+          "p2_score": 0,
+          "first_victim_depth": 981,
+          "chain_length": 1079,
+          "selected": true
+        },
+        {
+          "program": "matplotlib__matplotlib-14623",
+          "predicted_depth": 808,
+          "actual_depth": 947,
+          "p2_score": 0,
+          "first_victim_depth": 849,
+          "chain_length": 947,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-12276",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g02-c2",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "matplotlib__matplotlib-14623",
+      "candidates": [
+        {
+          "program": "matplotlib__matplotlib-14623",
+          "predicted_depth": 947,
+          "actual_depth": 1096,
+          "p2_score": 0,
+          "first_victim_depth": 970,
+          "chain_length": 1096,
+          "selected": true
+        },
+        {
+          "program": "django__django-12276",
+          "predicted_depth": 964,
+          "actual_depth": 1079,
+          "p2_score": 192,
+          "first_victim_depth": 953,
+          "chain_length": 1079,
+          "selected": false
+        }
+      ],
+      "p2_choice": "matplotlib__matplotlib-14623",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g02-c2",
+      "decision_index": 2,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-12276",
+      "candidates": [
+        {
+          "program": "django__django-12276",
+          "predicted_depth": 1079,
+          "actual_depth": 1194,
+          "p2_score": 192,
+          "first_victim_depth": 1068,
+          "chain_length": 1194,
+          "selected": false
+        },
+        {
+          "program": "matplotlib__matplotlib-14623",
+          "predicted_depth": 947,
+          "actual_depth": 1096,
+          "p2_score": 0,
+          "first_victim_depth": 970,
+          "chain_length": 1096,
+          "selected": true
+        }
+      ],
+      "p2_choice": "matplotlib__matplotlib-14623",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g02-c2",
+      "decision_index": 3,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "matplotlib__matplotlib-14623",
+      "candidates": [
+        {
+          "program": "matplotlib__matplotlib-14623",
+          "predicted_depth": 1384,
+          "actual_depth": 1523,
+          "p2_score": 0,
+          "first_victim_depth": 1409,
+          "chain_length": 1523,
+          "selected": true
+        },
+        {
+          "program": "django__django-12276",
+          "predicted_depth": 1079,
+          "actual_depth": 1194,
+          "p2_score": 0,
+          "first_victim_depth": 1080,
+          "chain_length": 1194,
+          "selected": false
+        }
+      ],
+      "p2_choice": "matplotlib__matplotlib-14623",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g03-c1",
+      "decision_index": 0,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-15572",
+      "candidates": [
+        {
+          "program": "django__django-15572",
+          "predicted_depth": 1069,
+          "actual_depth": 1181,
+          "p2_score": 0,
+          "first_victim_depth": 1106,
+          "chain_length": 1181,
+          "selected": true
+        },
+        {
+          "program": "psf__requests-2317",
+          "predicted_depth": 776,
+          "actual_depth": 862,
+          "p2_score": 0,
+          "first_victim_depth": 787,
+          "chain_length": 862,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-15572",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g03-c1",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "psf__requests-2317",
+      "candidates": [
+        {
+          "program": "psf__requests-2317",
+          "predicted_depth": 862,
+          "actual_depth": 948,
+          "p2_score": 672,
+          "first_victim_depth": 821,
+          "chain_length": 948,
+          "selected": false
+        },
+        {
+          "program": "django__django-15572",
+          "predicted_depth": 1069,
+          "actual_depth": 1181,
+          "p2_score": 256,
+          "first_victim_depth": 1054,
+          "chain_length": 1181,
+          "selected": true
+        }
+      ],
+      "p2_choice": "django__django-15572",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g03-c2",
+      "decision_index": 0,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-15572",
+      "candidates": [
+        {
+          "program": "django__django-15572",
+          "predicted_depth": 1069,
+          "actual_depth": 1181,
+          "p2_score": 0,
+          "first_victim_depth": 1106,
+          "chain_length": 1181,
+          "selected": true
+        },
+        {
+          "program": "psf__requests-2317",
+          "predicted_depth": 776,
+          "actual_depth": 862,
+          "p2_score": 0,
+          "first_victim_depth": 787,
+          "chain_length": 862,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-15572",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g03-c2",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "psf__requests-2317",
+      "candidates": [
+        {
+          "program": "psf__requests-2317",
+          "predicted_depth": 862,
+          "actual_depth": 948,
+          "p2_score": 672,
+          "first_victim_depth": 821,
+          "chain_length": 948,
+          "selected": false
+        },
+        {
+          "program": "django__django-15572",
+          "predicted_depth": 1069,
+          "actual_depth": 1181,
+          "p2_score": 256,
+          "first_victim_depth": 1054,
+          "chain_length": 1181,
+          "selected": true
+        }
+      ],
+      "p2_choice": "django__django-15572",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g04-c1",
+      "decision_index": 0,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "pydata__xarray-3305",
+      "candidates": [
+        {
+          "program": "pydata__xarray-3305",
+          "predicted_depth": 1169,
+          "actual_depth": 1288,
+          "p2_score": 128,
+          "first_victim_depth": 1162,
+          "chain_length": 1288,
+          "selected": true
+        },
+        {
+          "program": "django__django-14053",
+          "predicted_depth": 822,
+          "actual_depth": 901,
+          "p2_score": 768,
+          "first_victim_depth": 775,
+          "chain_length": 901,
+          "selected": false
+        }
+      ],
+      "p2_choice": "pydata__xarray-3305",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g04-c1",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-14053",
+      "candidates": [
+        {
+          "program": "django__django-14053",
+          "predicted_depth": 901,
+          "actual_depth": 979,
+          "p2_score": 800,
+          "first_victim_depth": 852,
+          "chain_length": 979,
+          "selected": false
+        },
+        {
+          "program": "pydata__xarray-3305",
+          "predicted_depth": 1169,
+          "actual_depth": 1288,
+          "p2_score": 144,
+          "first_victim_depth": 1161,
+          "chain_length": 1288,
+          "selected": true
+        }
+      ],
+      "p2_choice": "pydata__xarray-3305",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g04-c2",
+      "decision_index": 0,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "pydata__xarray-3305",
+      "candidates": [
+        {
+          "program": "pydata__xarray-3305",
+          "predicted_depth": 1169,
+          "actual_depth": 1288,
+          "p2_score": 128,
+          "first_victim_depth": 1162,
+          "chain_length": 1288,
+          "selected": true
+        },
+        {
+          "program": "django__django-14053",
+          "predicted_depth": 822,
+          "actual_depth": 901,
+          "p2_score": 768,
+          "first_victim_depth": 775,
+          "chain_length": 901,
+          "selected": false
+        }
+      ],
+      "p2_choice": "pydata__xarray-3305",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g04-c2",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-14053",
+      "candidates": [
+        {
+          "program": "django__django-14053",
+          "predicted_depth": 901,
+          "actual_depth": 979,
+          "p2_score": 800,
+          "first_victim_depth": 852,
+          "chain_length": 979,
+          "selected": false
+        },
+        {
+          "program": "pydata__xarray-3305",
+          "predicted_depth": 1169,
+          "actual_depth": 1288,
+          "p2_score": 144,
+          "first_victim_depth": 1161,
+          "chain_length": 1288,
+          "selected": true
+        }
+      ],
+      "p2_choice": "pydata__xarray-3305",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g05-c1",
+      "decision_index": 0,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "pylint-dev__pylint-4551",
+      "candidates": [
+        {
+          "program": "pylint-dev__pylint-4551",
+          "predicted_depth": 675,
+          "actual_depth": 734,
+          "p2_score": 32,
+          "first_victim_depth": 674,
+          "chain_length": 734,
+          "selected": false
+        },
+        {
+          "program": "django__django-11603",
+          "predicted_depth": 1112,
+          "actual_depth": 1253,
+          "p2_score": 0,
+          "first_victim_depth": 1193,
+          "chain_length": 1253,
+          "selected": true
+        }
+      ],
+      "p2_choice": "django__django-11603",
+      "p2_gain": -976,
+      "oracle_gain": 0,
+      "p2_matches_oracle": false
+    },
+    {
+      "cell": "g05-c1",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-11603",
+      "candidates": [
+        {
+          "program": "django__django-11603",
+          "predicted_depth": 1394,
+          "actual_depth": 1535,
+          "p2_score": 0,
+          "first_victim_depth": 1408,
+          "chain_length": 1535,
+          "selected": true
+        },
+        {
+          "program": "pylint-dev__pylint-4551",
+          "predicted_depth": 675,
+          "actual_depth": 734,
+          "p2_score": 1104,
+          "first_victim_depth": 607,
+          "chain_length": 734,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-11603",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g05-c2",
+      "decision_index": 0,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "pylint-dev__pylint-4551",
+      "candidates": [
+        {
+          "program": "pylint-dev__pylint-4551",
+          "predicted_depth": 675,
+          "actual_depth": 734,
+          "p2_score": 32,
+          "first_victim_depth": 674,
+          "chain_length": 734,
+          "selected": false
+        },
+        {
+          "program": "django__django-11603",
+          "predicted_depth": 1112,
+          "actual_depth": 1253,
+          "p2_score": 0,
+          "first_victim_depth": 1193,
+          "chain_length": 1253,
+          "selected": true
+        }
+      ],
+      "p2_choice": "django__django-11603",
+      "p2_gain": -976,
+      "oracle_gain": 0,
+      "p2_matches_oracle": false
+    },
+    {
+      "cell": "g05-c2",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-11603",
+      "candidates": [
+        {
+          "program": "django__django-11603",
+          "predicted_depth": 1394,
+          "actual_depth": 1535,
+          "p2_score": 0,
+          "first_victim_depth": 1408,
+          "chain_length": 1535,
+          "selected": true
+        },
+        {
+          "program": "pylint-dev__pylint-4551",
+          "predicted_depth": 675,
+          "actual_depth": 734,
+          "p2_score": 1104,
+          "first_victim_depth": 607,
+          "chain_length": 734,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-11603",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g06-c1",
+      "decision_index": 0,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-11400",
+      "candidates": [
+        {
+          "program": "django__django-11400",
+          "predicted_depth": 1247,
+          "actual_depth": 1461,
+          "p2_score": 0,
+          "first_victim_depth": 1439,
+          "chain_length": 1461,
+          "selected": true
+        },
+        {
+          "program": "pytest-dev__pytest-8399",
+          "predicted_depth": 500,
+          "actual_depth": 558,
+          "p2_score": 0,
+          "first_victim_depth": 536,
+          "chain_length": 558,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-11400",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g06-c1",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "pytest-dev__pytest-8399",
+      "candidates": [
+        {
+          "program": "pytest-dev__pytest-8399",
+          "predicted_depth": 558,
+          "actual_depth": 615,
+          "p2_score": 1120,
+          "first_victim_depth": 489,
+          "chain_length": 615,
+          "selected": false
+        },
+        {
+          "program": "django__django-11400",
+          "predicted_depth": 1247,
+          "actual_depth": 1461,
+          "p2_score": 0,
+          "first_victim_depth": 1335,
+          "chain_length": 1461,
+          "selected": true
+        }
+      ],
+      "p2_choice": "django__django-11400",
+      "p2_gain": -1664,
+      "oracle_gain": 0,
+      "p2_matches_oracle": false
+    },
+    {
+      "cell": "g06-c1",
+      "decision_index": 2,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-11400",
+      "candidates": [
+        {
+          "program": "django__django-11400",
+          "predicted_depth": 1461,
+          "actual_depth": 1622,
+          "p2_score": 0,
+          "first_victim_depth": 1496,
+          "chain_length": 1622,
+          "selected": true
+        },
+        {
+          "program": "pytest-dev__pytest-8399",
+          "predicted_depth": 558,
+          "actual_depth": 615,
+          "p2_score": 1120,
+          "first_victim_depth": 489,
+          "chain_length": 615,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-11400",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g06-c1",
+      "decision_index": 3,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "pytest-dev__pytest-8399",
+      "candidates": [
+        {
+          "program": "pytest-dev__pytest-8399",
+          "predicted_depth": 615,
+          "actual_depth": 674,
+          "p2_score": 1088,
+          "first_victim_depth": 548,
+          "chain_length": 674,
+          "selected": false
+        },
+        {
+          "program": "django__django-11400",
+          "predicted_depth": 1461,
+          "actual_depth": 1622,
+          "p2_score": 0,
+          "first_victim_depth": 1496,
+          "chain_length": 1622,
+          "selected": true
+        }
+      ],
+      "p2_choice": "django__django-11400",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g06-c1",
+      "decision_index": 4,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-11400",
+      "candidates": [
+        {
+          "program": "django__django-11400",
+          "predicted_depth": 1622,
+          "actual_depth": 1836,
+          "p2_score": 0,
+          "first_victim_depth": 1793,
+          "chain_length": 1836,
+          "selected": true
+        },
+        {
+          "program": "pytest-dev__pytest-8399",
+          "predicted_depth": 615,
+          "actual_depth": 674,
+          "p2_score": 0,
+          "first_victim_depth": 631,
+          "chain_length": 674,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-11400",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g06-c2",
+      "decision_index": 0,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-11400",
+      "candidates": [
+        {
+          "program": "django__django-11400",
+          "predicted_depth": 1247,
+          "actual_depth": 1461,
+          "p2_score": 0,
+          "first_victim_depth": 1439,
+          "chain_length": 1461,
+          "selected": true
+        },
+        {
+          "program": "pytest-dev__pytest-8399",
+          "predicted_depth": 500,
+          "actual_depth": 558,
+          "p2_score": 0,
+          "first_victim_depth": 536,
+          "chain_length": 558,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-11400",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g06-c2",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "pytest-dev__pytest-8399",
+      "candidates": [
+        {
+          "program": "pytest-dev__pytest-8399",
+          "predicted_depth": 558,
+          "actual_depth": 615,
+          "p2_score": 1120,
+          "first_victim_depth": 489,
+          "chain_length": 615,
+          "selected": false
+        },
+        {
+          "program": "django__django-11400",
+          "predicted_depth": 1247,
+          "actual_depth": 1461,
+          "p2_score": 0,
+          "first_victim_depth": 1335,
+          "chain_length": 1461,
+          "selected": true
+        }
+      ],
+      "p2_choice": "django__django-11400",
+      "p2_gain": -1664,
+      "oracle_gain": 0,
+      "p2_matches_oracle": false
+    },
+    {
+      "cell": "g06-c2",
+      "decision_index": 2,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-11400",
+      "candidates": [
+        {
+          "program": "django__django-11400",
+          "predicted_depth": 1461,
+          "actual_depth": 1622,
+          "p2_score": 0,
+          "first_victim_depth": 1496,
+          "chain_length": 1622,
+          "selected": true
+        },
+        {
+          "program": "pytest-dev__pytest-8399",
+          "predicted_depth": 558,
+          "actual_depth": 615,
+          "p2_score": 1120,
+          "first_victim_depth": 489,
+          "chain_length": 615,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-11400",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g06-c2",
+      "decision_index": 3,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "pytest-dev__pytest-8399",
+      "candidates": [
+        {
+          "program": "pytest-dev__pytest-8399",
+          "predicted_depth": 615,
+          "actual_depth": 674,
+          "p2_score": 1088,
+          "first_victim_depth": 548,
+          "chain_length": 674,
+          "selected": false
+        },
+        {
+          "program": "django__django-11400",
+          "predicted_depth": 1461,
+          "actual_depth": 1622,
+          "p2_score": 0,
+          "first_victim_depth": 1496,
+          "chain_length": 1622,
+          "selected": true
+        }
+      ],
+      "p2_choice": "django__django-11400",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g06-c2",
+      "decision_index": 4,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-11400",
+      "candidates": [
+        {
+          "program": "django__django-11400",
+          "predicted_depth": 1622,
+          "actual_depth": 1836,
+          "p2_score": 0,
+          "first_victim_depth": 1793,
+          "chain_length": 1836,
+          "selected": true
+        },
+        {
+          "program": "pytest-dev__pytest-8399",
+          "predicted_depth": 615,
+          "actual_depth": 674,
+          "p2_score": 0,
+          "first_victim_depth": 631,
+          "chain_length": 674,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-11400",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g07-c1",
+      "decision_index": 0,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-12858",
+      "candidates": [
+        {
+          "program": "django__django-12858",
+          "predicted_depth": 1469,
+          "actual_depth": 1637,
+          "p2_score": 0,
+          "first_victim_depth": 1511,
+          "chain_length": 1637,
+          "selected": true
+        },
+        {
+          "program": "scikit-learn__scikit-learn-25747",
+          "predicted_depth": 689,
+          "actual_depth": 772,
+          "p2_score": 704,
+          "first_victim_depth": 646,
+          "chain_length": 772,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-12858",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g07-c1",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "scikit-learn__scikit-learn-25747",
+      "candidates": [
+        {
+          "program": "scikit-learn__scikit-learn-25747",
+          "predicted_depth": 772,
+          "actual_depth": 855,
+          "p2_score": 704,
+          "first_victim_depth": 729,
+          "chain_length": 855,
+          "selected": false
+        },
+        {
+          "program": "django__django-12858",
+          "predicted_depth": 1469,
+          "actual_depth": 1637,
+          "p2_score": 0,
+          "first_victim_depth": 1511,
+          "chain_length": 1637,
+          "selected": true
+        }
+      ],
+      "p2_choice": "django__django-12858",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g07-c1",
+      "decision_index": 2,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-12858",
+      "candidates": [
+        {
+          "program": "django__django-12858",
+          "predicted_depth": 1637,
+          "actual_depth": 1803,
+          "p2_score": 0,
+          "first_victim_depth": 1677,
+          "chain_length": 1803,
+          "selected": true
+        },
+        {
+          "program": "scikit-learn__scikit-learn-25747",
+          "predicted_depth": 772,
+          "actual_depth": 855,
+          "p2_score": 704,
+          "first_victim_depth": 729,
+          "chain_length": 855,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-12858",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g07-c1",
+      "decision_index": 3,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "scikit-learn__scikit-learn-25747",
+      "candidates": [
+        {
+          "program": "scikit-learn__scikit-learn-25747",
+          "predicted_depth": 939,
+          "actual_depth": 1022,
+          "p2_score": 720,
+          "first_victim_depth": 895,
+          "chain_length": 1022,
+          "selected": false
+        },
+        {
+          "program": "django__django-12858",
+          "predicted_depth": 1637,
+          "actual_depth": 1803,
+          "p2_score": 0,
+          "first_victim_depth": 1676,
+          "chain_length": 1803,
+          "selected": true
+        }
+      ],
+      "p2_choice": "django__django-12858",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g07-c2",
+      "decision_index": 0,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-12858",
+      "candidates": [
+        {
+          "program": "django__django-12858",
+          "predicted_depth": 1469,
+          "actual_depth": 1637,
+          "p2_score": 0,
+          "first_victim_depth": 1511,
+          "chain_length": 1637,
+          "selected": true
+        },
+        {
+          "program": "scikit-learn__scikit-learn-25747",
+          "predicted_depth": 689,
+          "actual_depth": 772,
+          "p2_score": 704,
+          "first_victim_depth": 646,
+          "chain_length": 772,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-12858",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g07-c2",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "scikit-learn__scikit-learn-25747",
+      "candidates": [
+        {
+          "program": "scikit-learn__scikit-learn-25747",
+          "predicted_depth": 772,
+          "actual_depth": 855,
+          "p2_score": 704,
+          "first_victim_depth": 729,
+          "chain_length": 855,
+          "selected": false
+        },
+        {
+          "program": "django__django-12858",
+          "predicted_depth": 1469,
+          "actual_depth": 1637,
+          "p2_score": 0,
+          "first_victim_depth": 1511,
+          "chain_length": 1637,
+          "selected": true
+        }
+      ],
+      "p2_choice": "django__django-12858",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g07-c2",
+      "decision_index": 2,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-12858",
+      "candidates": [
+        {
+          "program": "django__django-12858",
+          "predicted_depth": 1637,
+          "actual_depth": 1803,
+          "p2_score": 0,
+          "first_victim_depth": 1677,
+          "chain_length": 1803,
+          "selected": true
+        },
+        {
+          "program": "scikit-learn__scikit-learn-25747",
+          "predicted_depth": 772,
+          "actual_depth": 855,
+          "p2_score": 704,
+          "first_victim_depth": 729,
+          "chain_length": 855,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-12858",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g07-c2",
+      "decision_index": 3,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "scikit-learn__scikit-learn-25747",
+      "candidates": [
+        {
+          "program": "scikit-learn__scikit-learn-25747",
+          "predicted_depth": 939,
+          "actual_depth": 1022,
+          "p2_score": 720,
+          "first_victim_depth": 895,
+          "chain_length": 1022,
+          "selected": false
+        },
+        {
+          "program": "django__django-12858",
+          "predicted_depth": 1637,
+          "actual_depth": 1803,
+          "p2_score": 0,
+          "first_victim_depth": 1676,
+          "chain_length": 1803,
+          "selected": true
+        }
+      ],
+      "p2_choice": "django__django-12858",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g08-c1",
+      "decision_index": 0,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "sphinx-doc__sphinx-8721",
+      "candidates": [
+        {
+          "program": "sphinx-doc__sphinx-8721",
+          "predicted_depth": 656,
+          "actual_depth": 719,
+          "p2_score": 400,
+          "first_victim_depth": 632,
+          "chain_length": 719,
+          "selected": false
+        },
+        {
+          "program": "django__django-13449",
+          "predicted_depth": 1124,
+          "actual_depth": 1295,
+          "p2_score": 0,
+          "first_victim_depth": 1208,
+          "chain_length": 1295,
+          "selected": true
+        }
+      ],
+      "p2_choice": "django__django-13449",
+      "p2_gain": -1408,
+      "oracle_gain": 0,
+      "p2_matches_oracle": false
+    },
+    {
+      "cell": "g08-c1",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-13449",
+      "candidates": [
+        {
+          "program": "django__django-13449",
+          "predicted_depth": 1636,
+          "actual_depth": 1807,
+          "p2_score": 0,
+          "first_victim_depth": 1792,
+          "chain_length": 1807,
+          "selected": true
+        },
+        {
+          "program": "sphinx-doc__sphinx-8721",
+          "predicted_depth": 656,
+          "actual_depth": 719,
+          "p2_score": 0,
+          "first_victim_depth": 704,
+          "chain_length": 719,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-13449",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g08-c2",
+      "decision_index": 0,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "sphinx-doc__sphinx-8721",
+      "candidates": [
+        {
+          "program": "sphinx-doc__sphinx-8721",
+          "predicted_depth": 656,
+          "actual_depth": 719,
+          "p2_score": 400,
+          "first_victim_depth": 632,
+          "chain_length": 719,
+          "selected": false
+        },
+        {
+          "program": "django__django-13449",
+          "predicted_depth": 1124,
+          "actual_depth": 1295,
+          "p2_score": 0,
+          "first_victim_depth": 1208,
+          "chain_length": 1295,
+          "selected": true
+        }
+      ],
+      "p2_choice": "django__django-13449",
+      "p2_gain": -1408,
+      "oracle_gain": 0,
+      "p2_matches_oracle": false
+    },
+    {
+      "cell": "g08-c2",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-13449",
+      "candidates": [
+        {
+          "program": "django__django-13449",
+          "predicted_depth": 1636,
+          "actual_depth": 1807,
+          "p2_score": 0,
+          "first_victim_depth": 1792,
+          "chain_length": 1807,
+          "selected": true
+        },
+        {
+          "program": "sphinx-doc__sphinx-8721",
+          "predicted_depth": 656,
+          "actual_depth": 719,
+          "p2_score": 0,
+          "first_victim_depth": 704,
+          "chain_length": 719,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-13449",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g09-c1",
+      "decision_index": 0,
+      "label": "REAL",
+      "a0_program": "sympy__sympy-13551",
+      "candidates": [
+        {
+          "program": "django__django-12050",
+          "predicted_depth": 913,
+          "actual_depth": 1006,
+          "p2_score": 64,
+          "first_victim_depth": 910,
+          "chain_length": 1006,
+          "selected": true
+        },
+        {
+          "program": "sympy__sympy-13551",
+          "predicted_depth": 810,
+          "actual_depth": 889,
+          "p2_score": 288,
+          "first_victim_depth": 793,
+          "chain_length": 889,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-12050",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g09-c2",
+      "decision_index": 0,
+      "label": "REAL",
+      "a0_program": "sympy__sympy-13551",
+      "candidates": [
+        {
+          "program": "django__django-12050",
+          "predicted_depth": 913,
+          "actual_depth": 1006,
+          "p2_score": 64,
+          "first_victim_depth": 910,
+          "chain_length": 1006,
+          "selected": true
+        },
+        {
+          "program": "sympy__sympy-13551",
+          "predicted_depth": 810,
+          "actual_depth": 889,
+          "p2_score": 288,
+          "first_victim_depth": 793,
+          "chain_length": 889,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-12050",
+      "p2_gain": -1552,
+      "oracle_gain": 0,
+      "p2_matches_oracle": false
+    },
+    {
+      "cell": "g10-c1",
+      "decision_index": 0,
+      "label": "REAL",
+      "a0_program": "matplotlib__matplotlib-26466",
+      "candidates": [
+        {
+          "program": "django__django-15569",
+          "predicted_depth": 1176,
+          "actual_depth": 1301,
+          "p2_score": 32,
+          "first_victim_depth": 1175,
+          "chain_length": 1301,
+          "selected": true
+        },
+        {
+          "program": "matplotlib__matplotlib-26466",
+          "predicted_depth": 817,
+          "actual_depth": 896,
+          "p2_score": 768,
+          "first_victim_depth": 770,
+          "chain_length": 896,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-15569",
+      "p2_gain": -752,
+      "oracle_gain": 0,
+      "p2_matches_oracle": false
+    },
+    {
+      "cell": "g10-c1",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-15569",
+      "candidates": [
+        {
+          "program": "django__django-15569",
+          "predicted_depth": 1176,
+          "actual_depth": 1301,
+          "p2_score": 48,
+          "first_victim_depth": 1174,
+          "chain_length": 1301,
+          "selected": true
+        },
+        {
+          "program": "matplotlib__matplotlib-26466",
+          "predicted_depth": 817,
+          "actual_depth": 896,
+          "p2_score": 784,
+          "first_victim_depth": 769,
+          "chain_length": 896,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-15569",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g10-c2",
+      "decision_index": 0,
+      "label": "REAL",
+      "a0_program": "matplotlib__matplotlib-26466",
+      "candidates": [
+        {
+          "program": "django__django-15569",
+          "predicted_depth": 1176,
+          "actual_depth": 1301,
+          "p2_score": 32,
+          "first_victim_depth": 1175,
+          "chain_length": 1301,
+          "selected": true
+        },
+        {
+          "program": "matplotlib__matplotlib-26466",
+          "predicted_depth": 817,
+          "actual_depth": 896,
+          "p2_score": 768,
+          "first_victim_depth": 770,
+          "chain_length": 896,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-15569",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g10-c2",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-15569",
+      "candidates": [
+        {
+          "program": "django__django-15569",
+          "predicted_depth": 1176,
+          "actual_depth": 1301,
+          "p2_score": 0,
+          "first_victim_depth": 1280,
+          "chain_length": 1301,
+          "selected": true
+        },
+        {
+          "program": "matplotlib__matplotlib-26466",
+          "predicted_depth": 817,
+          "actual_depth": 896,
+          "p2_score": 0,
+          "first_victim_depth": 875,
+          "chain_length": 896,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-15569",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g11-c1",
+      "decision_index": 0,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-16901",
+      "candidates": [
+        {
+          "program": "django__django-16901",
+          "predicted_depth": 955,
+          "actual_depth": 1123,
+          "p2_score": 0,
+          "first_victim_depth": 1057,
+          "chain_length": 1123,
+          "selected": true
+        },
+        {
+          "program": "pydata__xarray-3095",
+          "predicted_depth": 819,
+          "actual_depth": 905,
+          "p2_score": 0,
+          "first_victim_depth": 839,
+          "chain_length": 905,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-16901",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g11-c1",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "pydata__xarray-3095",
+      "candidates": [
+        {
+          "program": "pydata__xarray-3095",
+          "predicted_depth": 905,
+          "actual_depth": 997,
+          "p2_score": 560,
+          "first_victim_depth": 871,
+          "chain_length": 997,
+          "selected": false
+        },
+        {
+          "program": "django__django-16901",
+          "predicted_depth": 955,
+          "actual_depth": 1123,
+          "p2_score": 0,
+          "first_victim_depth": 997,
+          "chain_length": 1123,
+          "selected": true
+        }
+      ],
+      "p2_choice": "django__django-16901",
+      "p2_gain": -960,
+      "oracle_gain": 0,
+      "p2_matches_oracle": false
+    },
+    {
+      "cell": "g11-c1",
+      "decision_index": 2,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-16901",
+      "candidates": [
+        {
+          "program": "django__django-16901",
+          "predicted_depth": 1630,
+          "actual_depth": 1798,
+          "p2_score": 0,
+          "first_victim_depth": 1792,
+          "chain_length": 1798,
+          "selected": true
+        },
+        {
+          "program": "pydata__xarray-3095",
+          "predicted_depth": 905,
+          "actual_depth": 997,
+          "p2_score": 0,
+          "first_victim_depth": 991,
+          "chain_length": 997,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-16901",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g11-c2",
+      "decision_index": 0,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-16901",
+      "candidates": [
+        {
+          "program": "django__django-16901",
+          "predicted_depth": 955,
+          "actual_depth": 1123,
+          "p2_score": 0,
+          "first_victim_depth": 1057,
+          "chain_length": 1123,
+          "selected": true
+        },
+        {
+          "program": "pydata__xarray-3095",
+          "predicted_depth": 819,
+          "actual_depth": 905,
+          "p2_score": 0,
+          "first_victim_depth": 839,
+          "chain_length": 905,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-16901",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g11-c2",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "pydata__xarray-3095",
+      "candidates": [
+        {
+          "program": "pydata__xarray-3095",
+          "predicted_depth": 905,
+          "actual_depth": 997,
+          "p2_score": 560,
+          "first_victim_depth": 871,
+          "chain_length": 997,
+          "selected": false
+        },
+        {
+          "program": "django__django-16901",
+          "predicted_depth": 955,
+          "actual_depth": 1123,
+          "p2_score": 0,
+          "first_victim_depth": 997,
+          "chain_length": 1123,
+          "selected": true
+        }
+      ],
+      "p2_choice": "django__django-16901",
+      "p2_gain": -960,
+      "oracle_gain": 0,
+      "p2_matches_oracle": false
+    },
+    {
+      "cell": "g11-c2",
+      "decision_index": 2,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-16901",
+      "candidates": [
+        {
+          "program": "django__django-16901",
+          "predicted_depth": 1630,
+          "actual_depth": 1798,
+          "p2_score": 0,
+          "first_victim_depth": 1792,
+          "chain_length": 1798,
+          "selected": true
+        },
+        {
+          "program": "pydata__xarray-3095",
+          "predicted_depth": 905,
+          "actual_depth": 997,
+          "p2_score": 0,
+          "first_victim_depth": 991,
+          "chain_length": 997,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-16901",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g12-c1",
+      "decision_index": 0,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-14170",
+      "candidates": [
+        {
+          "program": "django__django-14170",
+          "predicted_depth": 729,
+          "actual_depth": 818,
+          "p2_score": 0,
+          "first_victim_depth": 815,
+          "chain_length": 818,
+          "selected": true
+        },
+        {
+          "program": "pydata__xarray-4695",
+          "predicted_depth": 996,
+          "actual_depth": 1117,
+          "p2_score": 0,
+          "first_victim_depth": 1114,
+          "chain_length": 1117,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-14170",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g12-c1",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "pydata__xarray-4695",
+      "candidates": [
+        {
+          "program": "pydata__xarray-4695",
+          "predicted_depth": 1117,
+          "actual_depth": 1239,
+          "p2_score": 0,
+          "first_victim_depth": 1147,
+          "chain_length": 1239,
+          "selected": true
+        },
+        {
+          "program": "django__django-14170",
+          "predicted_depth": 729,
+          "actual_depth": 818,
+          "p2_score": 64,
+          "first_victim_depth": 726,
+          "chain_length": 818,
+          "selected": false
+        }
+      ],
+      "p2_choice": "pydata__xarray-4695",
+      "p2_gain": 0,
+      "oracle_gain": 64,
+      "p2_matches_oracle": false
+    },
+    {
+      "cell": "g12-c1",
+      "decision_index": 2,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-14170",
+      "candidates": [
+        {
+          "program": "django__django-14170",
+          "predicted_depth": 818,
+          "actual_depth": 907,
+          "p2_score": 608,
+          "first_victim_depth": 781,
+          "chain_length": 907,
+          "selected": false
+        },
+        {
+          "program": "pydata__xarray-4695",
+          "predicted_depth": 1117,
+          "actual_depth": 1239,
+          "p2_score": 80,
+          "first_victim_depth": 1113,
+          "chain_length": 1239,
+          "selected": true
+        }
+      ],
+      "p2_choice": "pydata__xarray-4695",
+      "p2_gain": -544,
+      "oracle_gain": 0,
+      "p2_matches_oracle": false
+    },
+    {
+      "cell": "g12-c1",
+      "decision_index": 3,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "pydata__xarray-4695",
+      "candidates": [
+        {
+          "program": "pydata__xarray-4695",
+          "predicted_depth": 1239,
+          "actual_depth": 1360,
+          "p2_score": 96,
+          "first_victim_depth": 1234,
+          "chain_length": 1360,
+          "selected": true
+        },
+        {
+          "program": "django__django-14170",
+          "predicted_depth": 818,
+          "actual_depth": 907,
+          "p2_score": 608,
+          "first_victim_depth": 781,
+          "chain_length": 907,
+          "selected": false
+        }
+      ],
+      "p2_choice": "pydata__xarray-4695",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g12-c1",
+      "decision_index": 4,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-14170",
+      "candidates": [
+        {
+          "program": "django__django-14170",
+          "predicted_depth": 907,
+          "actual_depth": 997,
+          "p2_score": 608,
+          "first_victim_depth": 870,
+          "chain_length": 997,
+          "selected": false
+        },
+        {
+          "program": "pydata__xarray-4695",
+          "predicted_depth": 1239,
+          "actual_depth": 1360,
+          "p2_score": 112,
+          "first_victim_depth": 1233,
+          "chain_length": 1360,
+          "selected": true
+        }
+      ],
+      "p2_choice": "pydata__xarray-4695",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g12-c2",
+      "decision_index": 0,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-14170",
+      "candidates": [
+        {
+          "program": "django__django-14170",
+          "predicted_depth": 729,
+          "actual_depth": 818,
+          "p2_score": 0,
+          "first_victim_depth": 815,
+          "chain_length": 818,
+          "selected": true
+        },
+        {
+          "program": "pydata__xarray-4695",
+          "predicted_depth": 996,
+          "actual_depth": 1117,
+          "p2_score": 0,
+          "first_victim_depth": 1114,
+          "chain_length": 1117,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-14170",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g12-c2",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "pydata__xarray-4695",
+      "candidates": [
+        {
+          "program": "pydata__xarray-4695",
+          "predicted_depth": 1117,
+          "actual_depth": 1239,
+          "p2_score": 0,
+          "first_victim_depth": 1147,
+          "chain_length": 1239,
+          "selected": true
+        },
+        {
+          "program": "django__django-14170",
+          "predicted_depth": 729,
+          "actual_depth": 818,
+          "p2_score": 64,
+          "first_victim_depth": 726,
+          "chain_length": 818,
+          "selected": false
+        }
+      ],
+      "p2_choice": "pydata__xarray-4695",
+      "p2_gain": 0,
+      "oracle_gain": 64,
+      "p2_matches_oracle": false
+    },
+    {
+      "cell": "g12-c2",
+      "decision_index": 2,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-14170",
+      "candidates": [
+        {
+          "program": "django__django-14170",
+          "predicted_depth": 818,
+          "actual_depth": 907,
+          "p2_score": 608,
+          "first_victim_depth": 781,
+          "chain_length": 907,
+          "selected": false
+        },
+        {
+          "program": "pydata__xarray-4695",
+          "predicted_depth": 1117,
+          "actual_depth": 1239,
+          "p2_score": 80,
+          "first_victim_depth": 1113,
+          "chain_length": 1239,
+          "selected": true
+        }
+      ],
+      "p2_choice": "pydata__xarray-4695",
+      "p2_gain": -544,
+      "oracle_gain": 0,
+      "p2_matches_oracle": false
+    },
+    {
+      "cell": "g12-c2",
+      "decision_index": 3,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "pydata__xarray-4695",
+      "candidates": [
+        {
+          "program": "pydata__xarray-4695",
+          "predicted_depth": 1239,
+          "actual_depth": 1360,
+          "p2_score": 96,
+          "first_victim_depth": 1234,
+          "chain_length": 1360,
+          "selected": true
+        },
+        {
+          "program": "django__django-14170",
+          "predicted_depth": 818,
+          "actual_depth": 907,
+          "p2_score": 608,
+          "first_victim_depth": 781,
+          "chain_length": 907,
+          "selected": false
+        }
+      ],
+      "p2_choice": "pydata__xarray-4695",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g12-c2",
+      "decision_index": 4,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-14170",
+      "candidates": [
+        {
+          "program": "django__django-14170",
+          "predicted_depth": 907,
+          "actual_depth": 997,
+          "p2_score": 608,
+          "first_victim_depth": 870,
+          "chain_length": 997,
+          "selected": false
+        },
+        {
+          "program": "pydata__xarray-4695",
+          "predicted_depth": 1239,
+          "actual_depth": 1360,
+          "p2_score": 112,
+          "first_victim_depth": 1233,
+          "chain_length": 1360,
+          "selected": true
+        }
+      ],
+      "p2_choice": "pydata__xarray-4695",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g13-c1",
+      "decision_index": 0,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-11490",
+      "candidates": [
+        {
+          "program": "django__django-11490",
+          "predicted_depth": 1564,
+          "actual_depth": 1745,
+          "p2_score": 0,
+          "first_victim_depth": 1648,
+          "chain_length": 1745,
+          "selected": true
+        },
+        {
+          "program": "scikit-learn__scikit-learn-14894",
+          "predicted_depth": 305,
+          "actual_depth": 403,
+          "p2_score": 0,
+          "first_victim_depth": 306,
+          "chain_length": 403,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-11490",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g13-c1",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "scikit-learn__scikit-learn-14894",
+      "candidates": [
+        {
+          "program": "scikit-learn__scikit-learn-14894",
+          "predicted_depth": 990,
+          "actual_depth": 1088,
+          "p2_score": 480,
+          "first_victim_depth": 961,
+          "chain_length": 1088,
+          "selected": false
+        },
+        {
+          "program": "django__django-11490",
+          "predicted_depth": 1564,
+          "actual_depth": 1745,
+          "p2_score": 0,
+          "first_victim_depth": 1618,
+          "chain_length": 1745,
+          "selected": true
+        }
+      ],
+      "p2_choice": "django__django-11490",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g13-c2",
+      "decision_index": 0,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-11490",
+      "candidates": [
+        {
+          "program": "django__django-11490",
+          "predicted_depth": 1564,
+          "actual_depth": 1745,
+          "p2_score": 0,
+          "first_victim_depth": 1648,
+          "chain_length": 1745,
+          "selected": true
+        },
+        {
+          "program": "scikit-learn__scikit-learn-14894",
+          "predicted_depth": 305,
+          "actual_depth": 403,
+          "p2_score": 0,
+          "first_victim_depth": 306,
+          "chain_length": 403,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-11490",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g13-c2",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "scikit-learn__scikit-learn-14894",
+      "candidates": [
+        {
+          "program": "scikit-learn__scikit-learn-14894",
+          "predicted_depth": 990,
+          "actual_depth": 1088,
+          "p2_score": 0,
+          "first_victim_depth": 1024,
+          "chain_length": 1088,
+          "selected": true
+        },
+        {
+          "program": "django__django-11490",
+          "predicted_depth": 1564,
+          "actual_depth": 1745,
+          "p2_score": 0,
+          "first_victim_depth": 1681,
+          "chain_length": 1745,
+          "selected": false
+        }
+      ],
+      "p2_choice": "scikit-learn__scikit-learn-14894",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g14-c1",
+      "decision_index": 0,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-12754",
+      "candidates": [
+        {
+          "program": "django__django-12754",
+          "predicted_depth": 744,
+          "actual_depth": 924,
+          "p2_score": 0,
+          "first_victim_depth": 798,
+          "chain_length": 924,
+          "selected": true
+        },
+        {
+          "program": "sphinx-doc__sphinx-10323",
+          "predicted_depth": 1139,
+          "actual_depth": 1270,
+          "p2_score": 0,
+          "first_victim_depth": 1144,
+          "chain_length": 1270,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-12754",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g14-c1",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "sphinx-doc__sphinx-10323",
+      "candidates": [
+        {
+          "program": "sphinx-doc__sphinx-10323",
+          "predicted_depth": 1270,
+          "actual_depth": 1458,
+          "p2_score": 0,
+          "first_victim_depth": 1332,
+          "chain_length": 1458,
+          "selected": true
+        },
+        {
+          "program": "django__django-12754",
+          "predicted_depth": 744,
+          "actual_depth": 924,
+          "p2_score": 0,
+          "first_victim_depth": 798,
+          "chain_length": 924,
+          "selected": false
+        }
+      ],
+      "p2_choice": "sphinx-doc__sphinx-10323",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g14-c1",
+      "decision_index": 2,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-12754",
+      "candidates": [
+        {
+          "program": "django__django-12754",
+          "predicted_depth": 924,
+          "actual_depth": 1105,
+          "p2_score": 0,
+          "first_victim_depth": 978,
+          "chain_length": 1105,
+          "selected": true
+        },
+        {
+          "program": "sphinx-doc__sphinx-10323",
+          "predicted_depth": 1270,
+          "actual_depth": 1458,
+          "p2_score": 0,
+          "first_victim_depth": 1331,
+          "chain_length": 1458,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-12754",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g14-c1",
+      "decision_index": 3,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "sphinx-doc__sphinx-10323",
+      "candidates": [
+        {
+          "program": "sphinx-doc__sphinx-10323",
+          "predicted_depth": 1458,
+          "actual_depth": 1640,
+          "p2_score": 0,
+          "first_victim_depth": 1514,
+          "chain_length": 1640,
+          "selected": true
+        },
+        {
+          "program": "django__django-12754",
+          "predicted_depth": 924,
+          "actual_depth": 1105,
+          "p2_score": 0,
+          "first_victim_depth": 979,
+          "chain_length": 1105,
+          "selected": false
+        }
+      ],
+      "p2_choice": "sphinx-doc__sphinx-10323",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g14-c1",
+      "decision_index": 4,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-12754",
+      "candidates": [
+        {
+          "program": "django__django-12754",
+          "predicted_depth": 1105,
+          "actual_depth": 1285,
+          "p2_score": 0,
+          "first_victim_depth": 1159,
+          "chain_length": 1285,
+          "selected": true
+        },
+        {
+          "program": "sphinx-doc__sphinx-10323",
+          "predicted_depth": 1458,
+          "actual_depth": 1640,
+          "p2_score": 0,
+          "first_victim_depth": 1514,
+          "chain_length": 1640,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-12754",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g14-c1",
+      "decision_index": 5,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "sphinx-doc__sphinx-10323",
+      "candidates": [
+        {
+          "program": "sphinx-doc__sphinx-10323",
+          "predicted_depth": 1640,
+          "actual_depth": 1828,
+          "p2_score": 0,
+          "first_victim_depth": 1702,
+          "chain_length": 1828,
+          "selected": true
+        },
+        {
+          "program": "django__django-12754",
+          "predicted_depth": 1105,
+          "actual_depth": 1285,
+          "p2_score": 0,
+          "first_victim_depth": 1159,
+          "chain_length": 1285,
+          "selected": false
+        }
+      ],
+      "p2_choice": "sphinx-doc__sphinx-10323",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g14-c1",
+      "decision_index": 6,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-12754",
+      "candidates": [
+        {
+          "program": "django__django-12754",
+          "predicted_depth": 1645,
+          "actual_depth": 1826,
+          "p2_score": 0,
+          "first_victim_depth": 1792,
+          "chain_length": 1826,
+          "selected": true
+        },
+        {
+          "program": "sphinx-doc__sphinx-10323",
+          "predicted_depth": 1640,
+          "actual_depth": 1828,
+          "p2_score": 0,
+          "first_victim_depth": 1794,
+          "chain_length": 1828,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-12754",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g14-c2",
+      "decision_index": 0,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-12754",
+      "candidates": [
+        {
+          "program": "django__django-12754",
+          "predicted_depth": 744,
+          "actual_depth": 924,
+          "p2_score": 0,
+          "first_victim_depth": 798,
+          "chain_length": 924,
+          "selected": true
+        },
+        {
+          "program": "sphinx-doc__sphinx-10323",
+          "predicted_depth": 1139,
+          "actual_depth": 1270,
+          "p2_score": 0,
+          "first_victim_depth": 1144,
+          "chain_length": 1270,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-12754",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g14-c2",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "sphinx-doc__sphinx-10323",
+      "candidates": [
+        {
+          "program": "sphinx-doc__sphinx-10323",
+          "predicted_depth": 1270,
+          "actual_depth": 1458,
+          "p2_score": 0,
+          "first_victim_depth": 1332,
+          "chain_length": 1458,
+          "selected": true
+        },
+        {
+          "program": "django__django-12754",
+          "predicted_depth": 744,
+          "actual_depth": 924,
+          "p2_score": 0,
+          "first_victim_depth": 798,
+          "chain_length": 924,
+          "selected": false
+        }
+      ],
+      "p2_choice": "sphinx-doc__sphinx-10323",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g14-c2",
+      "decision_index": 2,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-12754",
+      "candidates": [
+        {
+          "program": "django__django-12754",
+          "predicted_depth": 924,
+          "actual_depth": 1105,
+          "p2_score": 0,
+          "first_victim_depth": 978,
+          "chain_length": 1105,
+          "selected": true
+        },
+        {
+          "program": "sphinx-doc__sphinx-10323",
+          "predicted_depth": 1270,
+          "actual_depth": 1458,
+          "p2_score": 0,
+          "first_victim_depth": 1331,
+          "chain_length": 1458,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-12754",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g14-c2",
+      "decision_index": 3,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "sphinx-doc__sphinx-10323",
+      "candidates": [
+        {
+          "program": "sphinx-doc__sphinx-10323",
+          "predicted_depth": 1458,
+          "actual_depth": 1640,
+          "p2_score": 0,
+          "first_victim_depth": 1514,
+          "chain_length": 1640,
+          "selected": true
+        },
+        {
+          "program": "django__django-12754",
+          "predicted_depth": 924,
+          "actual_depth": 1105,
+          "p2_score": 0,
+          "first_victim_depth": 979,
+          "chain_length": 1105,
+          "selected": false
+        }
+      ],
+      "p2_choice": "sphinx-doc__sphinx-10323",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g14-c2",
+      "decision_index": 4,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-12754",
+      "candidates": [
+        {
+          "program": "django__django-12754",
+          "predicted_depth": 1105,
+          "actual_depth": 1285,
+          "p2_score": 0,
+          "first_victim_depth": 1159,
+          "chain_length": 1285,
+          "selected": true
+        },
+        {
+          "program": "sphinx-doc__sphinx-10323",
+          "predicted_depth": 1458,
+          "actual_depth": 1640,
+          "p2_score": 0,
+          "first_victim_depth": 1514,
+          "chain_length": 1640,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-12754",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g14-c2",
+      "decision_index": 5,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "sphinx-doc__sphinx-10323",
+      "candidates": [
+        {
+          "program": "sphinx-doc__sphinx-10323",
+          "predicted_depth": 1640,
+          "actual_depth": 1828,
+          "p2_score": 0,
+          "first_victim_depth": 1702,
+          "chain_length": 1828,
+          "selected": true
+        },
+        {
+          "program": "django__django-12754",
+          "predicted_depth": 1105,
+          "actual_depth": 1285,
+          "p2_score": 0,
+          "first_victim_depth": 1159,
+          "chain_length": 1285,
+          "selected": false
+        }
+      ],
+      "p2_choice": "sphinx-doc__sphinx-10323",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g14-c2",
+      "decision_index": 6,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-12754",
+      "candidates": [
+        {
+          "program": "django__django-12754",
+          "predicted_depth": 1645,
+          "actual_depth": 1826,
+          "p2_score": 0,
+          "first_victim_depth": 1792,
+          "chain_length": 1826,
+          "selected": true
+        },
+        {
+          "program": "sphinx-doc__sphinx-10323",
+          "predicted_depth": 1640,
+          "actual_depth": 1828,
+          "p2_score": 0,
+          "first_victim_depth": 1794,
+          "chain_length": 1828,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-12754",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g15-c1",
+      "decision_index": 0,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "sympy__sympy-22714",
+      "candidates": [
+        {
+          "program": "sympy__sympy-22714",
+          "predicted_depth": 444,
+          "actual_depth": 564,
+          "p2_score": 112,
+          "first_victim_depth": 438,
+          "chain_length": 564,
+          "selected": false
+        },
+        {
+          "program": "django__django-17087",
+          "predicted_depth": 1434,
+          "actual_depth": 1651,
+          "p2_score": 0,
+          "first_victim_depth": 1525,
+          "chain_length": 1651,
+          "selected": true
+        }
+      ],
+      "p2_choice": "django__django-17087",
+      "p2_gain": -2016,
+      "oracle_gain": 0,
+      "p2_matches_oracle": false
+    },
+    {
+      "cell": "g15-c1",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-17087",
+      "candidates": [
+        {
+          "program": "django__django-17087",
+          "predicted_depth": 1651,
+          "actual_depth": 1857,
+          "p2_score": 0,
+          "first_victim_depth": 1731,
+          "chain_length": 1857,
+          "selected": true
+        },
+        {
+          "program": "sympy__sympy-22714",
+          "predicted_depth": 444,
+          "actual_depth": 564,
+          "p2_score": 112,
+          "first_victim_depth": 438,
+          "chain_length": 564,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-17087",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g15-c1",
+      "decision_index": 2,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "sympy__sympy-22714",
+      "candidates": [
+        {
+          "program": "sympy__sympy-22714",
+          "predicted_depth": 1165,
+          "actual_depth": 1285,
+          "p2_score": 128,
+          "first_victim_depth": 1158,
+          "chain_length": 1285,
+          "selected": false
+        },
+        {
+          "program": "django__django-17087",
+          "predicted_depth": 1651,
+          "actual_depth": 1857,
+          "p2_score": 0,
+          "first_victim_depth": 1730,
+          "chain_length": 1857,
+          "selected": true
+        }
+      ],
+      "p2_choice": "django__django-17087",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g15-c2",
+      "decision_index": 0,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "sympy__sympy-22714",
+      "candidates": [
+        {
+          "program": "sympy__sympy-22714",
+          "predicted_depth": 444,
+          "actual_depth": 564,
+          "p2_score": 112,
+          "first_victim_depth": 438,
+          "chain_length": 564,
+          "selected": false
+        },
+        {
+          "program": "django__django-17087",
+          "predicted_depth": 1434,
+          "actual_depth": 1651,
+          "p2_score": 0,
+          "first_victim_depth": 1525,
+          "chain_length": 1651,
+          "selected": true
+        }
+      ],
+      "p2_choice": "django__django-17087",
+      "p2_gain": -2016,
+      "oracle_gain": 0,
+      "p2_matches_oracle": false
+    },
+    {
+      "cell": "g15-c2",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-17087",
+      "candidates": [
+        {
+          "program": "django__django-17087",
+          "predicted_depth": 1651,
+          "actual_depth": 1857,
+          "p2_score": 0,
+          "first_victim_depth": 1731,
+          "chain_length": 1857,
+          "selected": true
+        },
+        {
+          "program": "sympy__sympy-22714",
+          "predicted_depth": 444,
+          "actual_depth": 564,
+          "p2_score": 112,
+          "first_victim_depth": 438,
+          "chain_length": 564,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-17087",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g15-c2",
+      "decision_index": 2,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "sympy__sympy-22714",
+      "candidates": [
+        {
+          "program": "sympy__sympy-22714",
+          "predicted_depth": 1165,
+          "actual_depth": 1285,
+          "p2_score": 0,
+          "first_victim_depth": 1280,
+          "chain_length": 1285,
+          "selected": true
+        },
+        {
+          "program": "django__django-17087",
+          "predicted_depth": 1651,
+          "actual_depth": 1857,
+          "p2_score": 0,
+          "first_victim_depth": 1852,
+          "chain_length": 1857,
+          "selected": false
+        }
+      ],
+      "p2_choice": "sympy__sympy-22714",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g16-c1",
+      "decision_index": 0,
+      "label": "REAL",
+      "a0_program": "django__django-13363",
+      "candidates": [
+        {
+          "program": "django__django-13363",
+          "predicted_depth": 654,
+          "actual_depth": 716,
+          "p2_score": 624,
+          "first_victim_depth": 616,
+          "chain_length": 716,
+          "selected": false
+        },
+        {
+          "program": "matplotlib__matplotlib-25287",
+          "predicted_depth": 1187,
+          "actual_depth": 1311,
+          "p2_score": 0,
+          "first_victim_depth": 1211,
+          "chain_length": 1311,
+          "selected": true
+        }
+      ],
+      "p2_choice": "matplotlib__matplotlib-25287",
+      "p2_gain": -1040,
+      "oracle_gain": 0,
+      "p2_matches_oracle": false
+    },
+    {
+      "cell": "g16-c1",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "matplotlib__matplotlib-25287",
+      "candidates": [
+        {
+          "program": "matplotlib__matplotlib-25287",
+          "predicted_depth": 1187,
+          "actual_depth": 1311,
+          "p2_score": 0,
+          "first_victim_depth": 1276,
+          "chain_length": 1311,
+          "selected": true
+        },
+        {
+          "program": "django__django-13363",
+          "predicted_depth": 654,
+          "actual_depth": 716,
+          "p2_score": 0,
+          "first_victim_depth": 681,
+          "chain_length": 716,
+          "selected": false
+        }
+      ],
+      "p2_choice": "matplotlib__matplotlib-25287",
+      "p2_gain": 0,
+      "oracle_gain": 576,
+      "p2_matches_oracle": false
+    },
+    {
+      "cell": "g16-c2",
+      "decision_index": 0,
+      "label": "REAL",
+      "a0_program": "django__django-13363",
+      "candidates": [
+        {
+          "program": "django__django-13363",
+          "predicted_depth": 654,
+          "actual_depth": 716,
+          "p2_score": 624,
+          "first_victim_depth": 616,
+          "chain_length": 716,
+          "selected": false
+        },
+        {
+          "program": "matplotlib__matplotlib-25287",
+          "predicted_depth": 1187,
+          "actual_depth": 1311,
+          "p2_score": 0,
+          "first_victim_depth": 1211,
+          "chain_length": 1311,
+          "selected": true
+        }
+      ],
+      "p2_choice": "matplotlib__matplotlib-25287",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g16-c2",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "matplotlib__matplotlib-25287",
+      "candidates": [
+        {
+          "program": "matplotlib__matplotlib-25287",
+          "predicted_depth": 1187,
+          "actual_depth": 1311,
+          "p2_score": 0,
+          "first_victim_depth": 1280,
+          "chain_length": 1311,
+          "selected": true
+        },
+        {
+          "program": "django__django-13363",
+          "predicted_depth": 654,
+          "actual_depth": 716,
+          "p2_score": 0,
+          "first_victim_depth": 685,
+          "chain_length": 716,
+          "selected": false
+        }
+      ],
+      "p2_choice": "matplotlib__matplotlib-25287",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g17-c1",
+      "decision_index": 0,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-11095",
+      "candidates": [
+        {
+          "program": "django__django-11095",
+          "predicted_depth": 1069,
+          "actual_depth": 1180,
+          "p2_score": 0,
+          "first_victim_depth": 1133,
+          "chain_length": 1180,
+          "selected": true
+        },
+        {
+          "program": "sphinx-doc__sphinx-9281",
+          "predicted_depth": 557,
+          "actual_depth": 728,
+          "p2_score": 0,
+          "first_victim_depth": 681,
+          "chain_length": 728,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-11095",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g17-c1",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "sphinx-doc__sphinx-9281",
+      "candidates": [
+        {
+          "program": "sphinx-doc__sphinx-9281",
+          "predicted_depth": 1650,
+          "actual_depth": 1822,
+          "p2_score": 0,
+          "first_victim_depth": 1792,
+          "chain_length": 1822,
+          "selected": true
+        },
+        {
+          "program": "django__django-11095",
+          "predicted_depth": 1069,
+          "actual_depth": 1180,
+          "p2_score": 0,
+          "first_victim_depth": 1150,
+          "chain_length": 1180,
+          "selected": false
+        }
+      ],
+      "p2_choice": "sphinx-doc__sphinx-9281",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g17-c2",
+      "decision_index": 0,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-11095",
+      "candidates": [
+        {
+          "program": "django__django-11095",
+          "predicted_depth": 1069,
+          "actual_depth": 1180,
+          "p2_score": 0,
+          "first_victim_depth": 1133,
+          "chain_length": 1180,
+          "selected": true
+        },
+        {
+          "program": "sphinx-doc__sphinx-9281",
+          "predicted_depth": 557,
+          "actual_depth": 728,
+          "p2_score": 0,
+          "first_victim_depth": 681,
+          "chain_length": 728,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-11095",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g17-c2",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "sphinx-doc__sphinx-9281",
+      "candidates": [
+        {
+          "program": "sphinx-doc__sphinx-9281",
+          "predicted_depth": 1650,
+          "actual_depth": 1822,
+          "p2_score": 0,
+          "first_victim_depth": 1792,
+          "chain_length": 1822,
+          "selected": true
+        },
+        {
+          "program": "django__django-11095",
+          "predicted_depth": 1069,
+          "actual_depth": 1180,
+          "p2_score": 0,
+          "first_victim_depth": 1150,
+          "chain_length": 1180,
+          "selected": false
+        }
+      ],
+      "p2_choice": "sphinx-doc__sphinx-9281",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g18-c2",
+      "decision_index": 0,
+      "label": "REAL",
+      "a0_program": "sympy__sympy-13974",
+      "candidates": [
+        {
+          "program": "django__django-16032",
+          "predicted_depth": 925,
+          "actual_depth": 1019,
+          "p2_score": 48,
+          "first_victim_depth": 923,
+          "chain_length": 1019,
+          "selected": true
+        },
+        {
+          "program": "sympy__sympy-13974",
+          "predicted_depth": 684,
+          "actual_depth": 748,
+          "p2_score": 528,
+          "first_victim_depth": 652,
+          "chain_length": 748,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-16032",
+      "p2_gain": -1552,
+      "oracle_gain": 0,
+      "p2_matches_oracle": false
+    },
+    {
+      "cell": "g19-c1",
+      "decision_index": 0,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-13513",
+      "candidates": [
+        {
+          "program": "django__django-13513",
+          "predicted_depth": 900,
+          "actual_depth": 990,
+          "p2_score": 0,
+          "first_victim_depth": 951,
+          "chain_length": 990,
+          "selected": true
+        },
+        {
+          "program": "sympy__sympy-12419",
+          "predicted_depth": 902,
+          "actual_depth": 1003,
+          "p2_score": 0,
+          "first_victim_depth": 964,
+          "chain_length": 1003,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-13513",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g19-c1",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "sympy__sympy-12419",
+      "candidates": [
+        {
+          "program": "sympy__sympy-12419",
+          "predicted_depth": 1003,
+          "actual_depth": 1104,
+          "p2_score": 432,
+          "first_victim_depth": 977,
+          "chain_length": 1104,
+          "selected": true
+        },
+        {
+          "program": "django__django-13513",
+          "predicted_depth": 900,
+          "actual_depth": 990,
+          "p2_score": 608,
+          "first_victim_depth": 863,
+          "chain_length": 990,
+          "selected": false
+        }
+      ],
+      "p2_choice": "sympy__sympy-12419",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g19-c2",
+      "decision_index": 0,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-13513",
+      "candidates": [
+        {
+          "program": "django__django-13513",
+          "predicted_depth": 900,
+          "actual_depth": 990,
+          "p2_score": 0,
+          "first_victim_depth": 951,
+          "chain_length": 990,
+          "selected": true
+        },
+        {
+          "program": "sympy__sympy-12419",
+          "predicted_depth": 902,
+          "actual_depth": 1003,
+          "p2_score": 0,
+          "first_victim_depth": 964,
+          "chain_length": 1003,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-13513",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g19-c2",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "sympy__sympy-12419",
+      "candidates": [
+        {
+          "program": "sympy__sympy-12419",
+          "predicted_depth": 1003,
+          "actual_depth": 1104,
+          "p2_score": 0,
+          "first_victim_depth": 1024,
+          "chain_length": 1104,
+          "selected": true
+        },
+        {
+          "program": "django__django-13513",
+          "predicted_depth": 900,
+          "actual_depth": 990,
+          "p2_score": 0,
+          "first_victim_depth": 910,
+          "chain_length": 990,
+          "selected": false
+        }
+      ],
+      "p2_choice": "sympy__sympy-12419",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g20-c1",
+      "decision_index": 0,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-11138",
+      "candidates": [
+        {
+          "program": "django__django-11138",
+          "predicted_depth": 832,
+          "actual_depth": 978,
+          "p2_score": 0,
+          "first_victim_depth": 939,
+          "chain_length": 978,
+          "selected": true
+        },
+        {
+          "program": "sympy__sympy-19783",
+          "predicted_depth": 760,
+          "actual_depth": 948,
+          "p2_score": 0,
+          "first_victim_depth": 909,
+          "chain_length": 948,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-11138",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g20-c1",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "sympy__sympy-19783",
+      "candidates": [
+        {
+          "program": "sympy__sympy-19783",
+          "predicted_depth": 948,
+          "actual_depth": 1115,
+          "p2_score": 0,
+          "first_victim_depth": 989,
+          "chain_length": 1115,
+          "selected": true
+        },
+        {
+          "program": "django__django-11138",
+          "predicted_depth": 832,
+          "actual_depth": 978,
+          "p2_score": 0,
+          "first_victim_depth": 852,
+          "chain_length": 978,
+          "selected": false
+        }
+      ],
+      "p2_choice": "sympy__sympy-19783",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g20-c1",
+      "decision_index": 2,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-11138",
+      "candidates": [
+        {
+          "program": "django__django-11138",
+          "predicted_depth": 978,
+          "actual_depth": 1124,
+          "p2_score": 0,
+          "first_victim_depth": 998,
+          "chain_length": 1124,
+          "selected": true
+        },
+        {
+          "program": "sympy__sympy-19783",
+          "predicted_depth": 948,
+          "actual_depth": 1115,
+          "p2_score": 0,
+          "first_victim_depth": 989,
+          "chain_length": 1115,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-11138",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g20-c1",
+      "decision_index": 3,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "sympy__sympy-19783",
+      "candidates": [
+        {
+          "program": "sympy__sympy-19783",
+          "predicted_depth": 1115,
+          "actual_depth": 1303,
+          "p2_score": 0,
+          "first_victim_depth": 1176,
+          "chain_length": 1303,
+          "selected": true
+        },
+        {
+          "program": "django__django-11138",
+          "predicted_depth": 978,
+          "actual_depth": 1124,
+          "p2_score": 0,
+          "first_victim_depth": 997,
+          "chain_length": 1124,
+          "selected": false
+        }
+      ],
+      "p2_choice": "sympy__sympy-19783",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g20-c1",
+      "decision_index": 4,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-11138",
+      "candidates": [
+        {
+          "program": "django__django-11138",
+          "predicted_depth": 1124,
+          "actual_depth": 1271,
+          "p2_score": 0,
+          "first_victim_depth": 1144,
+          "chain_length": 1271,
+          "selected": true
+        },
+        {
+          "program": "sympy__sympy-19783",
+          "predicted_depth": 1115,
+          "actual_depth": 1303,
+          "p2_score": 0,
+          "first_victim_depth": 1176,
+          "chain_length": 1303,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-11138",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g20-c1",
+      "decision_index": 5,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "sympy__sympy-19783",
+      "candidates": [
+        {
+          "program": "sympy__sympy-19783",
+          "predicted_depth": 1303,
+          "actual_depth": 1470,
+          "p2_score": 0,
+          "first_victim_depth": 1343,
+          "chain_length": 1470,
+          "selected": true
+        },
+        {
+          "program": "django__django-11138",
+          "predicted_depth": 1124,
+          "actual_depth": 1271,
+          "p2_score": 0,
+          "first_victim_depth": 1144,
+          "chain_length": 1271,
+          "selected": false
+        }
+      ],
+      "p2_choice": "sympy__sympy-19783",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g20-c1",
+      "decision_index": 6,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-11138",
+      "candidates": [
+        {
+          "program": "django__django-11138",
+          "predicted_depth": 1417,
+          "actual_depth": 1563,
+          "p2_score": 0,
+          "first_victim_depth": 1437,
+          "chain_length": 1563,
+          "selected": true
+        },
+        {
+          "program": "sympy__sympy-19783",
+          "predicted_depth": 1470,
+          "actual_depth": 1657,
+          "p2_score": 0,
+          "first_victim_depth": 1531,
+          "chain_length": 1657,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-11138",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g20-c1",
+      "decision_index": 7,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "sympy__sympy-19783",
+      "candidates": [
+        {
+          "program": "sympy__sympy-19783",
+          "predicted_depth": 1657,
+          "actual_depth": 1824,
+          "p2_score": 0,
+          "first_victim_depth": 1792,
+          "chain_length": 1824,
+          "selected": true
+        },
+        {
+          "program": "django__django-11138",
+          "predicted_depth": 1417,
+          "actual_depth": 1563,
+          "p2_score": 0,
+          "first_victim_depth": 1531,
+          "chain_length": 1563,
+          "selected": false
+        }
+      ],
+      "p2_choice": "sympy__sympy-19783",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g20-c2",
+      "decision_index": 0,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-11138",
+      "candidates": [
+        {
+          "program": "django__django-11138",
+          "predicted_depth": 832,
+          "actual_depth": 978,
+          "p2_score": 0,
+          "first_victim_depth": 939,
+          "chain_length": 978,
+          "selected": true
+        },
+        {
+          "program": "sympy__sympy-19783",
+          "predicted_depth": 760,
+          "actual_depth": 948,
+          "p2_score": 0,
+          "first_victim_depth": 909,
+          "chain_length": 948,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-11138",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g20-c2",
+      "decision_index": 1,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "sympy__sympy-19783",
+      "candidates": [
+        {
+          "program": "sympy__sympy-19783",
+          "predicted_depth": 948,
+          "actual_depth": 1115,
+          "p2_score": 0,
+          "first_victim_depth": 989,
+          "chain_length": 1115,
+          "selected": true
+        },
+        {
+          "program": "django__django-11138",
+          "predicted_depth": 832,
+          "actual_depth": 978,
+          "p2_score": 0,
+          "first_victim_depth": 852,
+          "chain_length": 978,
+          "selected": false
+        }
+      ],
+      "p2_choice": "sympy__sympy-19783",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g20-c2",
+      "decision_index": 2,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-11138",
+      "candidates": [
+        {
+          "program": "django__django-11138",
+          "predicted_depth": 978,
+          "actual_depth": 1124,
+          "p2_score": 0,
+          "first_victim_depth": 998,
+          "chain_length": 1124,
+          "selected": true
+        },
+        {
+          "program": "sympy__sympy-19783",
+          "predicted_depth": 948,
+          "actual_depth": 1115,
+          "p2_score": 0,
+          "first_victim_depth": 989,
+          "chain_length": 1115,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-11138",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g20-c2",
+      "decision_index": 3,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "sympy__sympy-19783",
+      "candidates": [
+        {
+          "program": "sympy__sympy-19783",
+          "predicted_depth": 1115,
+          "actual_depth": 1303,
+          "p2_score": 0,
+          "first_victim_depth": 1176,
+          "chain_length": 1303,
+          "selected": true
+        },
+        {
+          "program": "django__django-11138",
+          "predicted_depth": 978,
+          "actual_depth": 1124,
+          "p2_score": 0,
+          "first_victim_depth": 997,
+          "chain_length": 1124,
+          "selected": false
+        }
+      ],
+      "p2_choice": "sympy__sympy-19783",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g20-c2",
+      "decision_index": 4,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-11138",
+      "candidates": [
+        {
+          "program": "django__django-11138",
+          "predicted_depth": 1124,
+          "actual_depth": 1271,
+          "p2_score": 0,
+          "first_victim_depth": 1144,
+          "chain_length": 1271,
+          "selected": true
+        },
+        {
+          "program": "sympy__sympy-19783",
+          "predicted_depth": 1115,
+          "actual_depth": 1303,
+          "p2_score": 0,
+          "first_victim_depth": 1176,
+          "chain_length": 1303,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-11138",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g20-c2",
+      "decision_index": 5,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "sympy__sympy-19783",
+      "candidates": [
+        {
+          "program": "sympy__sympy-19783",
+          "predicted_depth": 1303,
+          "actual_depth": 1470,
+          "p2_score": 0,
+          "first_victim_depth": 1343,
+          "chain_length": 1470,
+          "selected": true
+        },
+        {
+          "program": "django__django-11138",
+          "predicted_depth": 1124,
+          "actual_depth": 1271,
+          "p2_score": 0,
+          "first_victim_depth": 1144,
+          "chain_length": 1271,
+          "selected": false
+        }
+      ],
+      "p2_choice": "sympy__sympy-19783",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g20-c2",
+      "decision_index": 6,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "django__django-11138",
+      "candidates": [
+        {
+          "program": "django__django-11138",
+          "predicted_depth": 1417,
+          "actual_depth": 1563,
+          "p2_score": 0,
+          "first_victim_depth": 1437,
+          "chain_length": 1563,
+          "selected": true
+        },
+        {
+          "program": "sympy__sympy-19783",
+          "predicted_depth": 1470,
+          "actual_depth": 1657,
+          "p2_score": 0,
+          "first_victim_depth": 1531,
+          "chain_length": 1657,
+          "selected": false
+        }
+      ],
+      "p2_choice": "django__django-11138",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    },
+    {
+      "cell": "g20-c2",
+      "decision_index": 7,
+      "label": "CONSTRUCTED_HISTORICAL",
+      "a0_program": "sympy__sympy-19783",
+      "candidates": [
+        {
+          "program": "sympy__sympy-19783",
+          "predicted_depth": 1657,
+          "actual_depth": 1824,
+          "p2_score": 0,
+          "first_victim_depth": 1792,
+          "chain_length": 1824,
+          "selected": true
+        },
+        {
+          "program": "django__django-11138",
+          "predicted_depth": 1417,
+          "actual_depth": 1563,
+          "p2_score": 0,
+          "first_victim_depth": 1531,
+          "chain_length": 1563,
+          "selected": false
+        }
+      ],
+      "p2_choice": "sympy__sympy-19783",
+      "p2_gain": 0,
+      "oracle_gain": 0,
+      "p2_matches_oracle": true
+    }
+  ],
+  "limitations": [
+    "The 7 REAL decisions are the only observed candidate competitions.",
+    "CONSTRUCTED_HISTORICAL scenarios are artificial pairings, not observed decisions.",
+    "Full-trajectory gains use the loss oracle, which does not model Native capacity or LRU evolution.",
+    "P2 is evaluated offline; this is not an online deployment result."
+  ]
+}
