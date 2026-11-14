@@ -1,0 +1,1145 @@
+{
+  "schema_version": "phase4.session_continuation_feasibility.v2",
+  "status": "SESSION_CONTINUATION_NOT_IDENTIFIABLE",
+  "right_censoring": "WINDOW_CENSORED_AT_OBSERVATION_END",
+  "authorization": "Phase 4 Task 1 CPU-only, read-only Archive",
+  "audit": {
+    "group_count": 20,
+    "session_count": 40,
+    "group_sessions": {
+      "2": 20
+    },
+    "session_requests": {
+      "12": 40
+    },
+    "request_rows": 480,
+    "event_session_field_count": 0,
+    "program_equals_session": "PASS",
+    "multi_session_programs": 0,
+    "tool_gap_started": 440,
+    "tool_gap_ended": 440,
+    "tool_gap_unpaired": 0,
+    "source_time_rows": 480,
+    "session_switch_events": 0,
+    "right_censored_end_events": 40,
+    "requests_missing_observation_end": 0,
+    "conclusion": "SESSION_CONTINUATION_NOT_IDENTIFIABLE",
+    "gaps": [
+      "EVENT_STREAM_HAS_NO_SESSION_ID",
+      "SESSION_ID_EQUALS_PROGRAM_ID",
+      "NO_PROGRAM_WITH_MULTIPLE_SESSIONS",
+      "NO_EXPLICIT_SESSION_SWITCH_EVENT"
+    ]
+  },
+  "window_counts": {
+    "5.0": {
+      "rows": 480,
+      "censored": 23,
+      "valid": 457,
+      "positive": 0,
+      "negative": 457,
+      "censored_rate": 0.04791666666666667,
+      "positive_rate": 0.0
+    },
+    "15.0": {
+      "rows": 480,
+      "censored": 39,
+      "valid": 441,
+      "positive": 12,
+      "negative": 429,
+      "censored_rate": 0.08125,
+      "positive_rate": 0.027210884353741496
+    },
+    "60.0": {
+      "rows": 480,
+      "censored": 58,
+      "valid": 422,
+      "positive": 356,
+      "negative": 66,
+      "censored_rate": 0.12083333333333333,
+      "positive_rate": 0.8436018957345972
+    },
+    "300.0": {
+      "rows": 480,
+      "censored": 260,
+      "valid": 220,
+      "positive": 216,
+      "negative": 4,
+      "censored_rate": 0.5416666666666666,
+      "positive_rate": 0.9818181818181818
+    }
+  },
+  "baselines": {
+    "5.0": {
+      "rows": 457,
+      "positive": 0,
+      "GLOBAL": {
+        "brier": 5.257368834678987e-06,
+        "log_loss": 0.0022955254170023906,
+        "accuracy": 1.0,
+        "auc": null
+      },
+      "PROGRAM": {
+        "brier": 5.257368834678987e-06,
+        "log_loss": 0.0022955254170023906,
+        "accuracy": 1.0,
+        "auc": null
+      },
+      "TOOL_GAP": {
+        "brier": 0.0003608895260863074,
+        "log_loss": 0.010294957362002208,
+        "accuracy": 1.0,
+        "auc": null
+      },
+      "SESSION_HISTORY": {
+        "brier": 5.257368834678987e-06,
+        "log_loss": 0.0022955254170023906,
+        "accuracy": 1.0,
+        "auc": null
+      }
+    },
+    "15.0": {
+      "rows": 441,
+      "positive": 12,
+      "GLOBAL": {
+        "brier": 0.027324844917384704,
+        "log_loss": 0.14875275987877362,
+        "accuracy": 0.9727891156462585,
+        "auc": 0.037296037296037296
+      },
+      "PROGRAM": {
+        "brier": 0.027324844917384704,
+        "log_loss": 0.14875275987877362,
+        "accuracy": 0.9727891156462585,
+        "auc": 0.037296037296037296
+      },
+      "TOOL_GAP": {
+        "brier": 0.02616765295508741,
+        "log_loss": 0.08252607678965918,
+        "accuracy": 0.9569160997732427,
+        "auc": 0.9560994560994561
+      },
+      "SESSION_HISTORY": {
+        "brier": 0.027324844917384704,
+        "log_loss": 0.14875275987877362,
+        "accuracy": 0.9727891156462585,
+        "auc": 0.037296037296037296
+      }
+    },
+    "60.0": {
+      "rows": 422,
+      "positive": 356,
+      "GLOBAL": {
+        "brier": 0.13681166881357618,
+        "log_loss": 0.4528691578376124,
+        "accuracy": 0.8436018957345972,
+        "auc": 0.1277025876744978
+      },
+      "PROGRAM": {
+        "brier": 0.13681166881357618,
+        "log_loss": 0.4528691578376124,
+        "accuracy": 0.8436018957345972,
+        "auc": 0.1277025876744978
+      },
+      "TOOL_GAP": {
+        "brier": 0.07875799242185892,
+        "log_loss": 0.29459095863711054,
+        "accuracy": 0.9146919431279621,
+        "auc": 0.5936329588014981
+      },
+      "SESSION_HISTORY": {
+        "brier": 0.13681166881357618,
+        "log_loss": 0.4528691578376124,
+        "accuracy": 0.8436018957345972,
+        "auc": 0.1277025876744978
+      }
+    },
+    "300.0": {
+      "rows": 220,
+      "positive": 216,
+      "GLOBAL": {
+        "brier": 0.017969855959913128,
+        "log_loss": 0.0936689972133403,
+        "accuracy": 0.9818181818181818,
+        "auc": 0.1597222222222222
+      },
+      "PROGRAM": {
+        "brier": 0.017969855959913128,
+        "log_loss": 0.0936689972133403,
+        "accuracy": 0.9818181818181818,
+        "auc": 0.1597222222222222
+      },
+      "TOOL_GAP": {
+        "brier": 0.018814589620231685,
+        "log_loss": 0.09929192861767087,
+        "accuracy": 0.9818181818181818,
+        "auc": 0.3072916666666667
+      },
+      "SESSION_HISTORY": {
+        "brier": 0.017969855959913128,
+        "log_loss": 0.0936689972133403,
+        "accuracy": 0.9818181818181818,
+        "auc": 0.1597222222222222
+      }
+    }
+  },
+  "expected_loss": {
+    "window_seconds": 60.0,
+    "model": "PROGRAM_CONTINUATION_PROXY_EXPECTED_PREFIX_LOSS",
+    "status": "PRELIMINARY_DIAGNOSTIC_ONLY",
+    "session_continuation_claim": "NOT_MADE",
+    "not_joint_policy_effect": true,
+    "scenarios": 55,
+    "real": 2,
+    "constructed": 53,
+    "flips": 15,
+    "positive_gain_flips": 0,
+    "independent_gain_sum_tokens": -6592,
+    "oracle_gain_sum_tokens": 640,
+    "rows": [
+      {
+        "cell": "g01-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "django__django-13401",
+        "el_choice": "django__django-13401",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "django__django-13401": 0.8606965174129353,
+          "astropy__astropy-7671": 0.8606965174129353
+        },
+        "expected_loss_scores": {
+          "django__django-13401": 0.0,
+          "astropy__astropy-7671": 0.0
+        }
+      },
+      {
+        "cell": "g01-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "astropy__astropy-7671",
+        "el_choice": "astropy__astropy-7671",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "astropy__astropy-7671": 0.8606965174129353,
+          "django__django-13401": 0.8606965174129353
+        },
+        "expected_loss_scores": {
+          "astropy__astropy-7671": 0.0,
+          "django__django-13401": 0.0
+        }
+      },
+      {
+        "cell": "g01-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "django__django-13401",
+        "el_choice": "django__django-13401",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "django__django-13401": 0.8606965174129353,
+          "astropy__astropy-7671": 0.8606965174129353
+        },
+        "expected_loss_scores": {
+          "django__django-13401": 0.0,
+          "astropy__astropy-7671": 0.0
+        }
+      },
+      {
+        "cell": "g01-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "astropy__astropy-7671",
+        "el_choice": "astropy__astropy-7671",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "astropy__astropy-7671": 0.8606965174129353,
+          "django__django-13401": 0.8606965174129353
+        },
+        "expected_loss_scores": {
+          "astropy__astropy-7671": 0.0,
+          "django__django-13401": 0.0
+        }
+      },
+      {
+        "cell": "g01-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "django__django-13401",
+        "el_choice": "django__django-13401",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "django__django-13401": 0.8606965174129353,
+          "astropy__astropy-7671": 0.8606965174129353
+        },
+        "expected_loss_scores": {
+          "django__django-13401": 0.0,
+          "astropy__astropy-7671": 0.0
+        }
+      },
+      {
+        "cell": "g02-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "django__django-12276",
+        "el_choice": "django__django-12276",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "django__django-12276": 0.8362282878411911,
+          "matplotlib__matplotlib-14623": 0.8362282878411911
+        },
+        "expected_loss_scores": {
+          "django__django-12276": 0.0,
+          "matplotlib__matplotlib-14623": 0.0
+        }
+      },
+      {
+        "cell": "g02-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "matplotlib__matplotlib-14623",
+        "el_choice": "matplotlib__matplotlib-14623",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "matplotlib__matplotlib-14623": 0.8362282878411911,
+          "django__django-12276": 0.8362282878411911
+        },
+        "expected_loss_scores": {
+          "matplotlib__matplotlib-14623": 0.0,
+          "django__django-12276": 160.5558312655087
+        }
+      },
+      {
+        "cell": "g02-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "django__django-12276",
+        "el_choice": "matplotlib__matplotlib-14623",
+        "el_flip": true,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "django__django-12276": 0.8362282878411911,
+          "matplotlib__matplotlib-14623": 0.8362282878411911
+        },
+        "expected_loss_scores": {
+          "django__django-12276": 160.5558312655087,
+          "matplotlib__matplotlib-14623": 0.0
+        }
+      },
+      {
+        "cell": "g03-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "django__django-15572",
+        "el_choice": "django__django-15572",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "django__django-15572": 0.8362282878411911,
+          "psf__requests-2317": 0.8362282878411911
+        },
+        "expected_loss_scores": {
+          "django__django-15572": 0.0,
+          "psf__requests-2317": 0.0
+        }
+      },
+      {
+        "cell": "g03-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "psf__requests-2317",
+        "el_choice": "django__django-15572",
+        "el_flip": true,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "psf__requests-2317": 0.8362282878411911,
+          "django__django-15572": 0.8362282878411911
+        },
+        "expected_loss_scores": {
+          "psf__requests-2317": 561.9454094292804,
+          "django__django-15572": 214.07444168734492
+        }
+      },
+      {
+        "cell": "g04-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "pydata__xarray-3305",
+        "el_choice": "pydata__xarray-3305",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "pydata__xarray-3305": 0.8341584158415841,
+          "django__django-14053": 0.8341584158415841
+        },
+        "expected_loss_scores": {
+          "pydata__xarray-3305": 106.77227722772277,
+          "django__django-14053": 640.6336633663366
+        }
+      },
+      {
+        "cell": "g04-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "django__django-14053",
+        "el_choice": "pydata__xarray-3305",
+        "el_flip": true,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "django__django-14053": 0.8341584158415841,
+          "pydata__xarray-3305": 0.8341584158415841
+        },
+        "expected_loss_scores": {
+          "django__django-14053": 667.3267326732673,
+          "pydata__xarray-3305": 120.11881188118811
+        }
+      },
+      {
+        "cell": "g05-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "pylint-dev__pylint-4551",
+        "el_choice": "django__django-11603",
+        "el_flip": true,
+        "el_gain": -976,
+        "oracle_gain": 0,
+        "p_continue": {
+          "pylint-dev__pylint-4551": 0.8383084577114428,
+          "django__django-11603": 0.8383084577114428
+        },
+        "expected_loss_scores": {
+          "pylint-dev__pylint-4551": 26.82587064676617,
+          "django__django-11603": 0.0
+        }
+      },
+      {
+        "cell": "g05-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "django__django-11603",
+        "el_choice": "django__django-11603",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "django__django-11603": 0.8383084577114428,
+          "pylint-dev__pylint-4551": 0.8383084577114428
+        },
+        "expected_loss_scores": {
+          "django__django-11603": 0.0,
+          "pylint-dev__pylint-4551": 925.4925373134329
+        }
+      },
+      {
+        "cell": "g06-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "django__django-11400",
+        "el_choice": "django__django-11400",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "django__django-11400": 0.8345679012345679,
+          "pytest-dev__pytest-8399": 0.8345679012345679
+        },
+        "expected_loss_scores": {
+          "django__django-11400": 0.0,
+          "pytest-dev__pytest-8399": 0.0
+        }
+      },
+      {
+        "cell": "g06-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "pytest-dev__pytest-8399",
+        "el_choice": "django__django-11400",
+        "el_flip": true,
+        "el_gain": -1664,
+        "oracle_gain": 0,
+        "p_continue": {
+          "pytest-dev__pytest-8399": 0.8345679012345679,
+          "django__django-11400": 0.8345679012345679
+        },
+        "expected_loss_scores": {
+          "pytest-dev__pytest-8399": 934.716049382716,
+          "django__django-11400": 0.0
+        }
+      },
+      {
+        "cell": "g06-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "django__django-11400",
+        "el_choice": "django__django-11400",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "django__django-11400": 0.8345679012345679,
+          "pytest-dev__pytest-8399": 0.8345679012345679
+        },
+        "expected_loss_scores": {
+          "django__django-11400": 0.0,
+          "pytest-dev__pytest-8399": 934.716049382716
+        }
+      },
+      {
+        "cell": "g07-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "django__django-12858",
+        "el_choice": "django__django-12858",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "django__django-12858": 0.8366336633663366,
+          "scikit-learn__scikit-learn-25747": 0.8366336633663366
+        },
+        "expected_loss_scores": {
+          "django__django-12858": 0.0,
+          "scikit-learn__scikit-learn-25747": 588.990099009901
+        }
+      },
+      {
+        "cell": "g07-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "scikit-learn__scikit-learn-25747",
+        "el_choice": "django__django-12858",
+        "el_flip": true,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "scikit-learn__scikit-learn-25747": 0.8366336633663366,
+          "django__django-12858": 0.8366336633663366
+        },
+        "expected_loss_scores": {
+          "scikit-learn__scikit-learn-25747": 588.990099009901,
+          "django__django-12858": 0.0
+        }
+      },
+      {
+        "cell": "g07-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "django__django-12858",
+        "el_choice": "django__django-12858",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "django__django-12858": 0.8366336633663366,
+          "scikit-learn__scikit-learn-25747": 0.8366336633663366
+        },
+        "expected_loss_scores": {
+          "django__django-12858": 0.0,
+          "scikit-learn__scikit-learn-25747": 588.990099009901
+        }
+      },
+      {
+        "cell": "g07-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "scikit-learn__scikit-learn-25747",
+        "el_choice": "django__django-12858",
+        "el_flip": true,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "scikit-learn__scikit-learn-25747": 0.8366336633663366,
+          "django__django-12858": 0.8366336633663366
+        },
+        "expected_loss_scores": {
+          "scikit-learn__scikit-learn-25747": 602.3762376237623,
+          "django__django-12858": 0.0
+        }
+      },
+      {
+        "cell": "g08-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "sphinx-doc__sphinx-8721",
+        "el_choice": "django__django-13449",
+        "el_flip": true,
+        "el_gain": -1408,
+        "oracle_gain": 0,
+        "p_continue": {
+          "sphinx-doc__sphinx-8721": 0.8582089552238806,
+          "django__django-13449": 0.8582089552238806
+        },
+        "expected_loss_scores": {
+          "sphinx-doc__sphinx-8721": 343.2835820895522,
+          "django__django-13449": 0.0
+        }
+      },
+      {
+        "cell": "g08-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "django__django-13449",
+        "el_choice": "django__django-13449",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "django__django-13449": 0.8582089552238806,
+          "sphinx-doc__sphinx-8721": 0.8582089552238806
+        },
+        "expected_loss_scores": {
+          "django__django-13449": 0.0,
+          "sphinx-doc__sphinx-8721": 0.0
+        }
+      },
+      {
+        "cell": "g09-c1",
+        "label": "REAL",
+        "a0_program": "sympy__sympy-13551",
+        "el_choice": "django__django-12050",
+        "el_flip": true,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "django__django-12050": 0.8362282878411911,
+          "sympy__sympy-13551": 0.8362282878411911
+        },
+        "expected_loss_scores": {
+          "django__django-12050": 53.51861042183623,
+          "sympy__sympy-13551": 240.83374689826303
+        }
+      },
+      {
+        "cell": "g10-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "django__django-15569",
+        "el_choice": "django__django-15569",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "django__django-15569": 0.8341584158415841,
+          "matplotlib__matplotlib-26466": 0.8341584158415841
+        },
+        "expected_loss_scores": {
+          "django__django-15569": 40.039603960396036,
+          "matplotlib__matplotlib-26466": 653.980198019802
+        }
+      },
+      {
+        "cell": "g11-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "django__django-16901",
+        "el_choice": "django__django-16901",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "django__django-16901": 0.8532338308457711,
+          "pydata__xarray-3095": 0.8532338308457711
+        },
+        "expected_loss_scores": {
+          "django__django-16901": 0.0,
+          "pydata__xarray-3095": 0.0
+        }
+      },
+      {
+        "cell": "g11-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "pydata__xarray-3095",
+        "el_choice": "django__django-16901",
+        "el_flip": true,
+        "el_gain": -960,
+        "oracle_gain": 0,
+        "p_continue": {
+          "pydata__xarray-3095": 0.8532338308457711,
+          "django__django-16901": 0.8532338308457711
+        },
+        "expected_loss_scores": {
+          "pydata__xarray-3095": 477.81094527363183,
+          "django__django-16901": 0.0
+        }
+      },
+      {
+        "cell": "g11-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "django__django-16901",
+        "el_choice": "django__django-16901",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "django__django-16901": 0.8532338308457711,
+          "pydata__xarray-3095": 0.8532338308457711
+        },
+        "expected_loss_scores": {
+          "django__django-16901": 0.0,
+          "pydata__xarray-3095": 0.0
+        }
+      },
+      {
+        "cell": "g12-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "django__django-14170",
+        "el_choice": "django__django-14170",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "django__django-14170": 0.8341584158415841,
+          "pydata__xarray-4695": 0.8341584158415841
+        },
+        "expected_loss_scores": {
+          "django__django-14170": 0.0,
+          "pydata__xarray-4695": 0.0
+        }
+      },
+      {
+        "cell": "g12-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "pydata__xarray-4695",
+        "el_choice": "pydata__xarray-4695",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 64,
+        "p_continue": {
+          "pydata__xarray-4695": 0.8341584158415841,
+          "django__django-14170": 0.8341584158415841
+        },
+        "expected_loss_scores": {
+          "pydata__xarray-4695": 0.0,
+          "django__django-14170": 53.386138613861384
+        }
+      },
+      {
+        "cell": "g12-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "django__django-14170",
+        "el_choice": "pydata__xarray-4695",
+        "el_flip": true,
+        "el_gain": -544,
+        "oracle_gain": 0,
+        "p_continue": {
+          "django__django-14170": 0.8341584158415841,
+          "pydata__xarray-4695": 0.8341584158415841
+        },
+        "expected_loss_scores": {
+          "django__django-14170": 507.16831683168317,
+          "pydata__xarray-4695": 66.73267326732673
+        }
+      },
+      {
+        "cell": "g12-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "pydata__xarray-4695",
+        "el_choice": "pydata__xarray-4695",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "pydata__xarray-4695": 0.8341584158415841,
+          "django__django-14170": 0.8341584158415841
+        },
+        "expected_loss_scores": {
+          "pydata__xarray-4695": 80.07920792079207,
+          "django__django-14170": 507.16831683168317
+        }
+      },
+      {
+        "cell": "g12-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "django__django-14170",
+        "el_choice": "pydata__xarray-4695",
+        "el_flip": true,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "django__django-14170": 0.8341584158415841,
+          "pydata__xarray-4695": 0.8341584158415841
+        },
+        "expected_loss_scores": {
+          "django__django-14170": 507.16831683168317,
+          "pydata__xarray-4695": 93.42574257425743
+        }
+      },
+      {
+        "cell": "g13-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "scikit-learn__scikit-learn-14894",
+        "el_choice": "django__django-11490",
+        "el_flip": true,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "scikit-learn__scikit-learn-14894": 0.8362282878411911,
+          "django__django-11490": 0.8362282878411911
+        },
+        "expected_loss_scores": {
+          "scikit-learn__scikit-learn-14894": 401.3895781637717,
+          "django__django-11490": 0.0
+        }
+      },
+      {
+        "cell": "g14-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "sphinx-doc__sphinx-10323",
+        "el_choice": "sphinx-doc__sphinx-10323",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "sphinx-doc__sphinx-10323": 0.8362282878411911,
+          "django__django-12754": 0.8362282878411911
+        },
+        "expected_loss_scores": {
+          "sphinx-doc__sphinx-10323": 0.0,
+          "django__django-12754": 0.0
+        }
+      },
+      {
+        "cell": "g14-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "django__django-12754",
+        "el_choice": "django__django-12754",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "django__django-12754": 0.8362282878411911,
+          "sphinx-doc__sphinx-10323": 0.8362282878411911
+        },
+        "expected_loss_scores": {
+          "django__django-12754": 0.0,
+          "sphinx-doc__sphinx-10323": 0.0
+        }
+      },
+      {
+        "cell": "g14-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "sphinx-doc__sphinx-10323",
+        "el_choice": "sphinx-doc__sphinx-10323",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "sphinx-doc__sphinx-10323": 0.8362282878411911,
+          "django__django-12754": 0.8362282878411911
+        },
+        "expected_loss_scores": {
+          "sphinx-doc__sphinx-10323": 0.0,
+          "django__django-12754": 0.0
+        }
+      },
+      {
+        "cell": "g14-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "django__django-12754",
+        "el_choice": "django__django-12754",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "django__django-12754": 0.8362282878411911,
+          "sphinx-doc__sphinx-10323": 0.8362282878411911
+        },
+        "expected_loss_scores": {
+          "django__django-12754": 0.0,
+          "sphinx-doc__sphinx-10323": 0.0
+        }
+      },
+      {
+        "cell": "g14-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "sphinx-doc__sphinx-10323",
+        "el_choice": "sphinx-doc__sphinx-10323",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "sphinx-doc__sphinx-10323": 0.8362282878411911,
+          "django__django-12754": 0.8362282878411911
+        },
+        "expected_loss_scores": {
+          "sphinx-doc__sphinx-10323": 0.0,
+          "django__django-12754": 0.0
+        }
+      },
+      {
+        "cell": "g14-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "django__django-12754",
+        "el_choice": "django__django-12754",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "django__django-12754": 0.8362282878411911,
+          "sphinx-doc__sphinx-10323": 0.8362282878411911
+        },
+        "expected_loss_scores": {
+          "django__django-12754": 0.0,
+          "sphinx-doc__sphinx-10323": 0.0
+        }
+      },
+      {
+        "cell": "g15-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "django__django-17087",
+        "el_choice": "django__django-17087",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "django__django-17087": 0.835820895522388,
+          "sympy__sympy-22714": 0.835820895522388
+        },
+        "expected_loss_scores": {
+          "django__django-17087": 0.0,
+          "sympy__sympy-22714": 93.61194029850746
+        }
+      },
+      {
+        "cell": "g15-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "sympy__sympy-22714",
+        "el_choice": "django__django-17087",
+        "el_flip": true,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "sympy__sympy-22714": 0.835820895522388,
+          "django__django-17087": 0.835820895522388
+        },
+        "expected_loss_scores": {
+          "sympy__sympy-22714": 106.98507462686567,
+          "django__django-17087": 0.0
+        }
+      },
+      {
+        "cell": "g16-c1",
+        "label": "REAL",
+        "a0_program": "django__django-13363",
+        "el_choice": "matplotlib__matplotlib-25287",
+        "el_flip": true,
+        "el_gain": -1040,
+        "oracle_gain": 0,
+        "p_continue": {
+          "django__django-13363": 0.835820895522388,
+          "matplotlib__matplotlib-25287": 0.835820895522388
+        },
+        "expected_loss_scores": {
+          "django__django-13363": 521.5522388059701,
+          "matplotlib__matplotlib-25287": 0.0
+        }
+      },
+      {
+        "cell": "g16-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "matplotlib__matplotlib-25287",
+        "el_choice": "matplotlib__matplotlib-25287",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 576,
+        "p_continue": {
+          "matplotlib__matplotlib-25287": 0.835820895522388,
+          "django__django-13363": 0.835820895522388
+        },
+        "expected_loss_scores": {
+          "matplotlib__matplotlib-25287": 0.0,
+          "django__django-13363": 0.0
+        }
+      },
+      {
+        "cell": "g17-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "django__django-11095",
+        "el_choice": "django__django-11095",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "django__django-11095": 0.8557213930348259,
+          "sphinx-doc__sphinx-9281": 0.8557213930348259
+        },
+        "expected_loss_scores": {
+          "django__django-11095": 0.0,
+          "sphinx-doc__sphinx-9281": 0.0
+        }
+      },
+      {
+        "cell": "g17-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "sphinx-doc__sphinx-9281",
+        "el_choice": "sphinx-doc__sphinx-9281",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "sphinx-doc__sphinx-9281": 0.8557213930348259,
+          "django__django-11095": 0.8557213930348259
+        },
+        "expected_loss_scores": {
+          "sphinx-doc__sphinx-9281": 0.0,
+          "django__django-11095": 0.0
+        }
+      },
+      {
+        "cell": "g19-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "django__django-13513",
+        "el_choice": "django__django-13513",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "django__django-13513": 0.8362282878411911,
+          "sympy__sympy-12419": 0.8362282878411911
+        },
+        "expected_loss_scores": {
+          "django__django-13513": 0.0,
+          "sympy__sympy-12419": 0.0
+        }
+      },
+      {
+        "cell": "g19-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "sympy__sympy-12419",
+        "el_choice": "sympy__sympy-12419",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "sympy__sympy-12419": 0.8362282878411911,
+          "django__django-13513": 0.8362282878411911
+        },
+        "expected_loss_scores": {
+          "sympy__sympy-12419": 361.25062034739454,
+          "django__django-13513": 508.4267990074442
+        }
+      },
+      {
+        "cell": "g20-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "django__django-11138",
+        "el_choice": "django__django-11138",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "django__django-11138": 0.8731343283582089,
+          "sympy__sympy-19783": 0.8731343283582089
+        },
+        "expected_loss_scores": {
+          "django__django-11138": 0.0,
+          "sympy__sympy-19783": 0.0
+        }
+      },
+      {
+        "cell": "g20-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "sympy__sympy-19783",
+        "el_choice": "sympy__sympy-19783",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "sympy__sympy-19783": 0.8731343283582089,
+          "django__django-11138": 0.8731343283582089
+        },
+        "expected_loss_scores": {
+          "sympy__sympy-19783": 0.0,
+          "django__django-11138": 0.0
+        }
+      },
+      {
+        "cell": "g20-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "django__django-11138",
+        "el_choice": "django__django-11138",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "django__django-11138": 0.8731343283582089,
+          "sympy__sympy-19783": 0.8731343283582089
+        },
+        "expected_loss_scores": {
+          "django__django-11138": 0.0,
+          "sympy__sympy-19783": 0.0
+        }
+      },
+      {
+        "cell": "g20-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "sympy__sympy-19783",
+        "el_choice": "sympy__sympy-19783",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "sympy__sympy-19783": 0.8731343283582089,
+          "django__django-11138": 0.8731343283582089
+        },
+        "expected_loss_scores": {
+          "sympy__sympy-19783": 0.0,
+          "django__django-11138": 0.0
+        }
+      },
+      {
+        "cell": "g20-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "django__django-11138",
+        "el_choice": "django__django-11138",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "django__django-11138": 0.8731343283582089,
+          "sympy__sympy-19783": 0.8731343283582089
+        },
+        "expected_loss_scores": {
+          "django__django-11138": 0.0,
+          "sympy__sympy-19783": 0.0
+        }
+      },
+      {
+        "cell": "g20-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "sympy__sympy-19783",
+        "el_choice": "sympy__sympy-19783",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "sympy__sympy-19783": 0.8731343283582089,
+          "django__django-11138": 0.8731343283582089
+        },
+        "expected_loss_scores": {
+          "sympy__sympy-19783": 0.0,
+          "django__django-11138": 0.0
+        }
+      },
+      {
+        "cell": "g20-c1",
+        "label": "CONSTRUCTED_HISTORICAL",
+        "a0_program": "sympy__sympy-19783",
+        "el_choice": "sympy__sympy-19783",
+        "el_flip": false,
+        "el_gain": 0,
+        "oracle_gain": 0,
+        "p_continue": {
+          "sympy__sympy-19783": 0.8731343283582089,
+          "django__django-11138": 0.8731343283582089
+        },
+        "expected_loss_scores": {
+          "sympy__sympy-19783": 0.0,
+          "django__django-11138": 0.0
+        }
+      }
+    ]
+  },
+  "limitations": [
+    "Session Continuation is observationally identical to Program Continuation because session_id == program_id.",
+    "No program has multiple sessions; no explicit session-switch event exists.",
+    "Program-level proxy only; no Session Continuation algorithm result is claimed.",
+    "Prefix-demand overlap is not a Native-cache-verified hit.",
+    "Requests with less than W seconds of observable time are right-censored and excluded from binary metrics.",
+    "Expected-loss results are independent single-decision counterfactuals, not a joint policy, and are a preliminary diagnostic only."
+  ]
+}
