@@ -166,6 +166,22 @@ def evaluate_run_candidate_exposure(
         hashless = outcome.get("hashless_physical_block_ids", [])
         if not all(isinstance(value, list) for value in (matched, unmatched, hashless)):
             raise ValueError("physical outcome block sets are incomplete")
+        outcome_sets = tuple(set(value) for value in (matched, unmatched, hashless))
+        if any(len(raw) != len(unique) for raw, unique in zip(
+            (matched, unmatched, hashless), outcome_sets, strict=True
+        )):
+            raise ValueError("physical outcome block sets contain duplicates")
+        if any(
+            outcome_sets[left].intersection(outcome_sets[right])
+            for left, right in ((0, 1), (0, 2), (1, 2))
+        ):
+            raise ValueError("physical outcome block sets must be disjoint")
+        selected_set = set(selected_blocks)
+        if len(selected_set) != len(selected_blocks):
+            raise ValueError("selection plan block IDs contain duplicates")
+        observed_physical = set().union(*outcome_sets)
+        if not observed_physical.issubset(selected_set):
+            raise ValueError("physical outcome contains a block outside the selection plan")
         later_programs = {
             str(row.get("program_id"))
             for row in observations
@@ -256,6 +272,10 @@ def compare_candidate_exposure(
             for arm in arms
         }
         physical = {
+            arm: tuple(decisions_by_arm[arm][identity]["matched_physical_block_ids"])
+            for arm in arms
+        }
+        planned = {
             arm: tuple(decisions_by_arm[arm][identity]["selected_physical_block_ids"])
             for arm in arms
         }
@@ -271,6 +291,9 @@ def compare_candidate_exposure(
                 },
                 "physical_victim_set_by_arm": {
                     arm: list(value) for arm, value in physical.items()
+                },
+                "planned_physical_block_set_by_arm": {
+                    arm: list(value) for arm, value in planned.items()
                 },
                 "logical_selection_differs": logical_differs,
                 "physical_victim_set_differs": physical_differs,

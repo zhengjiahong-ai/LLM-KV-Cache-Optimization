@@ -438,10 +438,21 @@ def evaluate_native_enqueue_order(
     assert isinstance(expected_raw, list) and isinstance(per_program_raw, Mapping)
     expected = tuple(str(row) for row in expected_raw)
     expected_set = set(expected)
-    submitted_rows = sorted(
-        (row for row in events if row.get("event_type") == "VLLM_REQUEST_SUBMITTED"),
-        key=lambda row: int(row.get("event_index", -1)),
-    )
+    submitted_unsorted = [
+        row for row in events if row.get("event_type") == "VLLM_REQUEST_SUBMITTED"
+    ]
+    indices = []
+    for row in submitted_unsorted:
+        event_index = row.get("event_index")
+        if isinstance(event_index, bool) or not isinstance(event_index, int) or event_index < 0:
+            raise ValueError("Native submission event_index must be non-negative integer")
+        request_id = row.get("request_id")
+        if not isinstance(request_id, str) or not request_id:
+            raise ValueError("Native submission event lacks request_id")
+        indices.append(event_index)
+    if len(indices) != len(set(indices)):
+        raise ValueError("Native submission event indexes must be unique")
+    submitted_rows = sorted(submitted_unsorted, key=lambda row: row["event_index"])
     actual = tuple(
         str(row["request_id"])
         for row in submitted_rows
