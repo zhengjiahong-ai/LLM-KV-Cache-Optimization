@@ -82,7 +82,8 @@ All events are merged with the explicit tie rule:
 
 The merged arrival order is the expected Native enqueue order. The plan also
 stores every per-program request order so an execution cannot pass merely by
-containing the right request set.
+containing the right request set. Source requests must have strictly positive
+duration; equal submit/completion timestamps fail closed before event sorting.
 
 #### CPU event-driven capacity proof
 
@@ -138,14 +139,19 @@ It reports:
 The last item is deliberately not causal. Every report retains
 `downstream_recompute_attribution=NOT_ESTABLISHED`.
 
-The cross-arm comparator aligns decisions by ordinal and reports separately:
+The cross-arm comparator aligns decisions by a common frozen decision-boundary
+identity, requires every arm to expose the same identity set, and reports
+separately:
 
 - logical Entry-selection divergence;
 - physical victim-set divergence;
 - exposure counts per arm.
 
-Different decision counts, missing arms, missing plans or incomplete physical
-outcomes fail closed.
+Duplicate event indexes, decision bindings, SelectionPlans or Physical Outcomes
+fail closed. Scores count as valid only when they are finite non-Boolean numeric
+values; invalid scores remain explicit unscored candidates. Different decision
+identity sets, missing arms, missing plans or incomplete physical outcomes fail
+closed.
 
 ## 4. Data and evidence contract
 
@@ -268,11 +274,11 @@ The new tests cover:
 
 Actual CPU validation on this branch:
 
-- focused Phase 5A tests: **19 passed**;
+- focused Phase 5A tests: **31 passed**;
 - Phase 5A plus related historical Replay/acquisition/token/physical/order tests:
-  **68 passed**;
+  **80 passed**;
 - full CPU suite excluding the historical test whose purpose is to reject a
-  dirty worktree: **1,975 passed, 15 skipped, 1 deselected**;
+  dirty worktree: **1,987 passed, 15 skipped, 1 deselected**;
 - Ruff on all new Python and test files: **PASS**;
 - `git diff --check`: **PASS**.
 

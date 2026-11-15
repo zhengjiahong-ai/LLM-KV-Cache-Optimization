@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections import Counter
 from collections.abc import Mapping, Sequence
 
@@ -29,32 +30,97 @@ def _program(candidate: Mapping[str, object]) -> str:
     return value
 
 
+def _unique_event_indices(events: Sequence[Mapping[str, object]]) -> None:
+    indices = []
+    for row in events:
+        value = row.get("event_index")
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise ValueError("event_index must be a non-negative integer")
+        indices.append(value)
+    if len(indices) != len(set(indices)):
+        raise ValueError("event stream contains duplicate event_index values")
+
+
+def _unique_by_key(
+    rows: Sequence[Mapping[str, object]],
+    *,
+    label: str,
+    key,
+) -> dict[object, Mapping[str, object]]:
+    result = {}
+    for row in rows:
+        payload = _payload(row, label)
+        identity = key(payload)
+        if identity in result:
+            raise ValueError(f"{label} identity is not unique")
+        result[identity] = payload
+    return result
+
+
+def _binding_index(payload: Mapping[str, object]) -> int:
+    value = payload.get("forced_release_event_index")
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError("decision binding has invalid forced_release_event_index")
+    return value
+
+
+def _decision_id(payload: Mapping[str, object], label: str) -> str:
+    value = payload.get("decision_id")
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"{label} lacks decision_id")
+    return value
+
+
+def _finite_score(candidate: Mapping[str, object]) -> float | None:
+    value = candidate.get("score")
+    if value is None:
+        value = candidate.get("expected_recompute")
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    result = float(value)
+    return result if math.isfinite(result) else None
+
+
+def _decision_identity(
+    binding: Mapping[str, object], decision: Mapping[str, object]
+) -> str:
+    for field in ("frozen_decision_boundary_id", "boundary_id"):
+        value = binding.get(field, decision.get(field))
+        if isinstance(value, str) and value:
+            return value
+    raise ValueError("decision lacks a stable frozen boundary identity")
+
+
 def evaluate_run_candidate_exposure(
     *, run_id: str, arm: str, events: Sequence[Mapping[str, object]]
 ) -> dict[str, object]:
     """Summarize complete candidates, physical victims and future reuse signals."""
 
+    _unique_event_indices(events)
     decisions = _events(events, "FORCED_RELEASE_DECISION")
-    bindings = {
-        int(_payload(row, "decision binding")["forced_release_event_index"]): _payload(
-            row, "decision binding"
-        )
-        for row in _events(events, "FORCED_RELEASE_DECISION_BINDING")
-    }
-    plans = {
-        str(_payload(row, "selection plan").get("decision_id")): _payload(
-            row, "selection plan"
-        )
-        for row in _events(events, "NATIVE_ENTRY_RELEASE_SELECTION_PLAN")
-    }
-    outcomes = {
-        str(_payload(row, "physical outcome").get("decision_id")): _payload(
-            row, "physical outcome"
-        )
-        for row in _events(events, "NATIVE_ENTRY_RELEASE_PHYSICAL_OUTCOME")
-    }
+    bindings = _unique_by_key(
+        _events(events, "FORCED_RELEASE_DECISION_BINDING"),
+        label="decision binding",
+        key=_binding_index,
+    )
+    binding_decision_ids = [
+        _decision_id(payload, "decision binding") for payload in bindings.values()
+    ]
+    if len(binding_decision_ids) != len(set(binding_decision_ids)):
+        raise ValueError("one decision has more than one binding")
+    plans = _unique_by_key(
+        _events(events, "NATIVE_ENTRY_RELEASE_SELECTION_PLAN"),
+        label="selection plan",
+        key=lambda payload: _decision_id(payload, "selection plan"),
+    )
+    outcomes = _unique_by_key(
+        _events(events, "NATIVE_ENTRY_RELEASE_PHYSICAL_OUTCOME"),
+        label="physical outcome",
+        key=lambda payload: _decision_id(payload, "physical outcome"),
+    )
     observations = _events(events, "VLLM_NATIVE_REQUEST_OBSERVATION")
     rows = []
+    stable_identities: set[str] = set()
     for ordinal, decision in enumerate(decisions, start=1):
         decision_index = int(decision.get("event_index", -1))
         payload = _payload(decision, "forced release decision")
@@ -82,6 +148,10 @@ def evaluate_run_candidate_exposure(
         decision_id = binding.get("decision_id")
         if not isinstance(decision_id, str) or not decision_id:
             raise ValueError("decision binding lacks decision_id")
+        stable_identity = _decision_identity(binding, payload)
+        if stable_identity in stable_identities:
+            raise ValueError("frozen decision boundary identity is not unique")
+        stable_identities.add(stable_identity)
         plan = plans.get(decision_id)
         outcome = outcomes.get(decision_id)
         if plan is None or outcome is None:
@@ -102,10 +172,13 @@ def evaluate_run_candidate_exposure(
             if int(row.get("event_index", -1)) > decision_index
         }
         reuse_opportunities = sorted(set(candidate_programs).intersection(later_programs))
-        scored = sum(
-            candidate.get("score") is not None
-            or candidate.get("expected_recompute") is not None
-            for candidate in candidates
+        scores = [_finite_score(candidate) for candidate in candidates]
+        scored = sum(value is not None for value in scores)
+        invalid_scores = sum(
+            (candidate.get("score") is not None
+             or candidate.get("expected_recompute") is not None)
+            and value is None
+            for candidate, value in zip(candidates, scores, strict=True)
         )
         complete = sum(
             bool(candidate.get("block_ids"))
@@ -117,10 +190,12 @@ def evaluate_run_candidate_exposure(
             {
                 "ordinal": ordinal,
                 "decision_id": decision_id,
+                "decision_identity": stable_identity,
                 "event_index": decision_index,
                 "legal_candidate_count": len(candidates),
                 "multi_candidate": len(candidates) >= 2,
                 "scored_candidate_count": scored,
+                "invalid_score_candidate_count": invalid_scores,
                 "physical_identity_complete_candidate_count": complete,
                 "selected_program_ids": list(selected_programs),
                 "selected_physical_block_ids": list(selected_blocks),
@@ -145,7 +220,7 @@ def evaluate_run_candidate_exposure(
 def compare_candidate_exposure(
     reports: Mapping[str, Mapping[str, object]], *, required_arms: Sequence[str]
 ) -> dict[str, object]:
-    """Compare logical choices and victim sets at aligned decision ordinals."""
+    """Compare choices and victims using a shared frozen decision identity."""
 
     arms = tuple(required_arms)
     if set(reports) != set(arms):
@@ -153,25 +228,35 @@ def compare_candidate_exposure(
     if any(report.get("status") != "PASS" for report in reports.values()):
         raise ValueError("candidate exposure comparison requires passing reports")
     decisions_by_arm = {}
-    counts = set()
+    identities_by_arm = {}
     for arm in arms:
         rows = reports[arm].get("decisions")
         if not isinstance(rows, list):
             raise TypeError("candidate exposure report lacks decisions")
-        decisions_by_arm[arm] = rows
-        counts.add(len(rows))
-    if len(counts) != 1:
-        raise ValueError("arms expose different decision counts")
+        by_identity = {}
+        for row in rows:
+            identity = row.get("decision_identity")
+            if not isinstance(identity, str) or not identity:
+                raise ValueError("candidate exposure decision lacks stable identity")
+            if identity in by_identity:
+                raise ValueError("candidate exposure decision identity is not unique")
+            by_identity[identity] = row
+        decisions_by_arm[arm] = by_identity
+        identities_by_arm[arm] = frozenset(by_identity)
+    identity_sets = set(identities_by_arm.values())
+    if len(identity_sets) != 1:
+        raise ValueError("arms expose different decision identity sets")
+    aligned_identities = sorted(next(iter(identity_sets), frozenset()))
     comparison = []
     logical_divergence = 0
     physical_divergence = 0
-    for index in range(next(iter(counts), 0)):
+    for identity in aligned_identities:
         logical = {
-            arm: tuple(decisions_by_arm[arm][index]["selected_program_ids"])
+            arm: tuple(decisions_by_arm[arm][identity]["selected_program_ids"])
             for arm in arms
         }
         physical = {
-            arm: tuple(decisions_by_arm[arm][index]["selected_physical_block_ids"])
+            arm: tuple(decisions_by_arm[arm][identity]["selected_physical_block_ids"])
             for arm in arms
         }
         logical_differs = len(set(logical.values())) > 1
@@ -180,7 +265,7 @@ def compare_candidate_exposure(
         physical_divergence += physical_differs
         comparison.append(
             {
-                "decision_ordinal": index + 1,
+                "decision_identity": identity,
                 "logical_selection_by_arm": {
                     arm: list(value) for arm, value in logical.items()
                 },
@@ -195,7 +280,7 @@ def compare_candidate_exposure(
     for arm, rows in decisions_by_arm.items():
         exposure[f"{arm}:decisions"] = len(rows)
         exposure[f"{arm}:multi_candidate"] = sum(
-            bool(row["multi_candidate"]) for row in rows
+            bool(row["multi_candidate"]) for row in rows.values()
         )
     return {
         "schema_version": "phase5.candidate_exposure_comparison.v1",

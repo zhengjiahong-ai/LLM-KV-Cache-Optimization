@@ -109,6 +109,14 @@ def test_n_session_plan_rejects_program_set_and_turn_order_drift() -> None:
         materialize_n_session_plan(sessions=invalid, arrival_plan=arrival)
 
 
+def test_n_session_plan_rejects_zero_duration_request() -> None:
+    sessions = _sessions(2)
+    sessions["p1"][0]["model_completion_monotonic_seconds"] = 10.0
+    arrival = fixed_arrival_plan(tuple(sessions), stagger_seconds=0.25)
+    with pytest.raises(ValueError, match="duration must be positive"):
+        materialize_n_session_plan(sessions=sessions, arrival_plan=arrival)
+
+
 @pytest.mark.parametrize("program_count", [2, 4, 8, 16])
 def test_event_driven_capacity_supports_requested_program_counts(
     program_count: int,

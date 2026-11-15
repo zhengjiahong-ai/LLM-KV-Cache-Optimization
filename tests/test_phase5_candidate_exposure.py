@@ -45,6 +45,7 @@ def _events(selected: str = "program-a", blocks: list[int] | None = None) -> lis
             "payload": {
                 "forced_release_event_index": 5,
                 "decision_id": "decision-1",
+                "boundary_id": "pressure:boundary-1",
             },
         },
         {
@@ -73,6 +74,23 @@ def _events(selected: str = "program-a", blocks: list[int] | None = None) -> lis
             "payload": {"native_cached_prefix_tokens": 16},
         },
     ]
+
+
+def _two_decisions(arm: str) -> dict[str, object]:
+    first = _events()
+    second = deepcopy(_events(selected="program-b", blocks=[20, 21]))
+    for row in second:
+        row["event_index"] += 100
+        payload = row["payload"]
+        if "decision_id" in payload:
+            payload["decision_id"] = "decision-2"
+        if "forced_release_event_index" in payload:
+            payload["forced_release_event_index"] += 100
+        if "boundary_id" in payload:
+            payload["boundary_id"] = "pressure:boundary-2"
+    return evaluate_run_candidate_exposure(
+        run_id=f"run-{arm.lower()}", arm=arm, events=[*first, *second]
+    )
 
 
 def test_candidate_exposure_records_competition_physical_and_reuse_tiers() -> None:
@@ -106,6 +124,52 @@ def test_candidate_exposure_fails_closed_on_missing_binding_or_plan() -> None:
         evaluate_run_candidate_exposure(run_id="invalid", arm="A0", events=without_plan)
 
 
+@pytest.mark.parametrize(
+    ("event_type", "message"),
+    [
+        ("FORCED_RELEASE_DECISION_BINDING", "decision binding identity"),
+        ("NATIVE_ENTRY_RELEASE_SELECTION_PLAN", "selection plan identity"),
+        ("NATIVE_ENTRY_RELEASE_PHYSICAL_OUTCOME", "physical outcome identity"),
+    ],
+)
+def test_candidate_exposure_rejects_duplicate_lifecycle_evidence(
+    event_type: str, message: str
+) -> None:
+    events = _events()
+    duplicate = deepcopy(next(row for row in events if row["event_type"] == event_type))
+    duplicate["event_index"] = 100
+    events.append(duplicate)
+    with pytest.raises(ValueError, match=message):
+        evaluate_run_candidate_exposure(run_id="invalid", arm="A0", events=events)
+
+
+def test_candidate_exposure_rejects_duplicate_event_index() -> None:
+    events = _events()
+    events[-1]["event_index"] = events[0]["event_index"]
+    with pytest.raises(ValueError, match="duplicate event_index"):
+        evaluate_run_candidate_exposure(run_id="invalid", arm="A0", events=events)
+
+
+def test_candidate_exposure_rejects_second_binding_for_same_decision() -> None:
+    events = _events()
+    duplicate = deepcopy(events[1])
+    duplicate["event_index"] = 100
+    duplicate["payload"]["forced_release_event_index"] = 50
+    events.append(duplicate)
+    with pytest.raises(ValueError, match="more than one binding"):
+        evaluate_run_candidate_exposure(run_id="invalid", arm="A0", events=events)
+
+
+@pytest.mark.parametrize("invalid", [float("nan"), float("inf"), True, "1.0"])
+def test_invalid_candidate_score_is_not_counted(invalid: object) -> None:
+    events = _events()
+    events[0]["payload"]["candidates"][0]["score"] = invalid
+    report = evaluate_run_candidate_exposure(run_id="run", arm="A0", events=events)
+    decision = report["decisions"][0]
+    assert decision["scored_candidate_count"] == 1
+    assert decision["invalid_score_candidate_count"] == 1
+
+
 def test_candidate_exposure_rejects_selection_outside_legal_candidates() -> None:
     with pytest.raises(ValueError, match="outside the legal candidate set"):
         evaluate_run_candidate_exposure(
@@ -135,7 +199,33 @@ def test_cross_arm_comparison_rejects_missing_arm_and_decision_mismatch() -> Non
     a1 = deepcopy(a0)
     a1["arm"] = "A1"
     a1["decisions"] = []
-    with pytest.raises(ValueError, match="different decision counts"):
+    with pytest.raises(ValueError, match="different decision identity sets"):
+        compare_candidate_exposure(
+            {"A0": a0, "A1": a1}, required_arms=("A0", "A1")
+        )
+
+
+def test_cross_arm_comparison_aligns_by_stable_boundary_not_ordinal() -> None:
+    first = _two_decisions("A0")
+    second = _two_decisions("A1")
+    second["decisions"] = list(reversed(second["decisions"]))
+    report = compare_candidate_exposure(
+        {"A0": first, "A1": second}, required_arms=("A0", "A1")
+    )
+    assert report["status"] == "PASS"
+    assert [row["decision_identity"] for row in report["comparisons"]] == [
+        "pressure:boundary-1",
+        "pressure:boundary-2",
+    ]
+    assert report["logical_selection_divergence_count"] == 0
+
+
+def test_cross_arm_comparison_rejects_identity_drift() -> None:
+    a0 = evaluate_run_candidate_exposure(run_id="a0", arm="A0", events=_events())
+    a1 = deepcopy(a0)
+    a1["arm"] = "A1"
+    a1["decisions"][0]["decision_identity"] = "pressure:different"
+    with pytest.raises(ValueError, match="different decision identity sets"):
         compare_candidate_exposure(
             {"A0": a0, "A1": a1}, required_arms=("A0", "A1")
         )

@@ -250,8 +250,8 @@ def materialize_n_session_plan(
             )
             if submitted < previous_submit:
                 raise ValueError("source submissions must be monotonic per program")
-            if completed < submitted:
-                raise ValueError("source completion precedes submission")
+            if completed <= submitted:
+                raise ValueError("source request duration must be positive")
             declared_turn = call.get("turn_index", turn_index)
             if declared_turn != turn_index:
                 raise ValueError("source turn indexes must be contiguous")
