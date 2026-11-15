@@ -215,6 +215,15 @@ def test_actual_native_enqueue_gate_fails_on_unknown_native_observation() -> Non
     assert report["unknown_nonpressure_request_ids"] == ["unknown:turn:1"]
 
 
+def test_actual_native_enqueue_gate_rejects_duplicate_event_index() -> None:
+    seal = _seal()
+    order = list(seal["replay_plan"]["expected_native_enqueue_order"])
+    events = _submission_events(order)
+    events[1]["event_index"] = events[0]["event_index"]
+    with pytest.raises(ValueError, match="event indexes must be unique"):
+        evaluate_native_enqueue_order(seal=seal, events=events)
+
+
 def test_cross_arm_gate_requires_each_arm_pass_and_same_sequence() -> None:
     seal = _seal()
     order = list(seal["replay_plan"]["expected_native_enqueue_order"])
