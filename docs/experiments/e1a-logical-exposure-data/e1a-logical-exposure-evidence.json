@@ -1,0 +1,418 @@
+{
+  "schema_version": "phase4.e1a_logical_exposure.v1",
+  "status": "E1A_EXECUTED_DATA_GAP_FOR_MODELED_EXPOSURE",
+  "authorization": "M1 E1-A: CPU-only, read-only existing W1-C / Phase 3 data; no new data, GPU, Native smoke, production change, or Protocol v4 change.",
+  "freeze_sha256": "dabf3022f24acf4e012704a1a01e208f252557396b0cb6ae020fc775fcdcc9e9",
+  "observed": {
+    "decision_count": 127,
+    "decision_cells": 39,
+    "candidate_count_distribution": {
+      "1": 120,
+      "2": 7
+    },
+    "multi_candidate_events": 7,
+    "multi_candidate_groups": [
+      "g09",
+      "g10",
+      "g16",
+      "g18"
+    ],
+    "multi_candidate_group_count": 4,
+    "multi_candidate_rate_all_decisions": 0.05511811023622047,
+    "multi_candidate_rate_live_decisions": 0.05511811023622047,
+    "denominators": {
+      "all_forced_release_decision_events": 127,
+      "events_with_at_least_one_candidate": 127
+    },
+    "candidate_differential_downstream_opportunity": {
+      "horizon_seconds": 60.0,
+      "numerator_events": 5,
+      "denominator_multi_candidate_events": 7,
+      "rate": 0.7142857142857143,
+      "groups": [
+        "g09",
+        "g16",
+        "g18"
+      ],
+      "group_count": 3,
+      "events": [
+        {
+          "cell": "g09-c1",
+          "decision_timestamp": 399.2891961669993,
+          "candidate_programs": [
+            "django__django-12050",
+            "sympy__sympy-13551"
+          ],
+          "later_programs": [
+            "django__django-12050"
+          ],
+          "downstream_request_count": 1
+        },
+        {
+          "cell": "g09-c2",
+          "decision_timestamp": 399.2891961669993,
+          "candidate_programs": [
+            "django__django-12050",
+            "sympy__sympy-13551"
+          ],
+          "later_programs": [
+            "django__django-12050"
+          ],
+          "downstream_request_count": 1
+        },
+        {
+          "cell": "g16-c1",
+          "decision_timestamp": 428.9898484580008,
+          "candidate_programs": [
+            "django__django-13363",
+            "matplotlib__matplotlib-25287"
+          ],
+          "later_programs": [
+            "matplotlib__matplotlib-25287"
+          ],
+          "downstream_request_count": 1
+        },
+        {
+          "cell": "g16-c2",
+          "decision_timestamp": 428.9898484580008,
+          "candidate_programs": [
+            "django__django-13363",
+            "matplotlib__matplotlib-25287"
+          ],
+          "later_programs": [
+            "matplotlib__matplotlib-25287"
+          ],
+          "downstream_request_count": 1
+        },
+        {
+          "cell": "g18-c2",
+          "decision_timestamp": 372.449909125,
+          "candidate_programs": [
+            "django__django-16032",
+            "sympy__sympy-13974"
+          ],
+          "later_programs": [
+            "django__django-16032"
+          ],
+          "downstream_request_count": 1
+        }
+      ],
+      "label": "PROGRAM_LEVEL_DIFFERENTIAL_OPPORTUNITY",
+      "not_a_prefix_hit_claim": true
+    },
+    "downstream_request_counts": [
+      1,
+      1,
+      2,
+      2,
+      1,
+      1,
+      1
+    ]
+  },
+  "secondary_horizons": {
+    "15.0": {
+      "decision_count": 127,
+      "decision_cells": 39,
+      "candidate_count_distribution": {
+        "1": 120,
+        "2": 7
+      },
+      "multi_candidate_events": 7,
+      "multi_candidate_groups": [
+        "g09",
+        "g10",
+        "g16",
+        "g18"
+      ],
+      "multi_candidate_group_count": 4,
+      "multi_candidate_rate_all_decisions": 0.05511811023622047,
+      "multi_candidate_rate_live_decisions": 0.05511811023622047,
+      "denominators": {
+        "all_forced_release_decision_events": 127,
+        "events_with_at_least_one_candidate": 127
+      },
+      "candidate_differential_downstream_opportunity": {
+        "horizon_seconds": 15.0,
+        "numerator_events": 0,
+        "denominator_multi_candidate_events": 7,
+        "rate": 0.0,
+        "groups": [],
+        "group_count": 0,
+        "events": [],
+        "label": "PROGRAM_LEVEL_DIFFERENTIAL_OPPORTUNITY",
+        "not_a_prefix_hit_claim": true
+      },
+      "downstream_request_counts": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "60.0": {
+      "decision_count": 127,
+      "decision_cells": 39,
+      "candidate_count_distribution": {
+        "1": 120,
+        "2": 7
+      },
+      "multi_candidate_events": 7,
+      "multi_candidate_groups": [
+        "g09",
+        "g10",
+        "g16",
+        "g18"
+      ],
+      "multi_candidate_group_count": 4,
+      "multi_candidate_rate_all_decisions": 0.05511811023622047,
+      "multi_candidate_rate_live_decisions": 0.05511811023622047,
+      "denominators": {
+        "all_forced_release_decision_events": 127,
+        "events_with_at_least_one_candidate": 127
+      },
+      "candidate_differential_downstream_opportunity": {
+        "horizon_seconds": 60.0,
+        "numerator_events": 5,
+        "denominator_multi_candidate_events": 7,
+        "rate": 0.7142857142857143,
+        "groups": [
+          "g09",
+          "g16",
+          "g18"
+        ],
+        "group_count": 3,
+        "events": [
+          {
+            "cell": "g09-c1",
+            "decision_timestamp": 399.2891961669993,
+            "candidate_programs": [
+              "django__django-12050",
+              "sympy__sympy-13551"
+            ],
+            "later_programs": [
+              "django__django-12050"
+            ],
+            "downstream_request_count": 1
+          },
+          {
+            "cell": "g09-c2",
+            "decision_timestamp": 399.2891961669993,
+            "candidate_programs": [
+              "django__django-12050",
+              "sympy__sympy-13551"
+            ],
+            "later_programs": [
+              "django__django-12050"
+            ],
+            "downstream_request_count": 1
+          },
+          {
+            "cell": "g16-c1",
+            "decision_timestamp": 428.9898484580008,
+            "candidate_programs": [
+              "django__django-13363",
+              "matplotlib__matplotlib-25287"
+            ],
+            "later_programs": [
+              "matplotlib__matplotlib-25287"
+            ],
+            "downstream_request_count": 1
+          },
+          {
+            "cell": "g16-c2",
+            "decision_timestamp": 428.9898484580008,
+            "candidate_programs": [
+              "django__django-13363",
+              "matplotlib__matplotlib-25287"
+            ],
+            "later_programs": [
+              "matplotlib__matplotlib-25287"
+            ],
+            "downstream_request_count": 1
+          },
+          {
+            "cell": "g18-c2",
+            "decision_timestamp": 372.449909125,
+            "candidate_programs": [
+              "django__django-16032",
+              "sympy__sympy-13974"
+            ],
+            "later_programs": [
+              "django__django-16032"
+            ],
+            "downstream_request_count": 1
+          }
+        ],
+        "label": "PROGRAM_LEVEL_DIFFERENTIAL_OPPORTUNITY",
+        "not_a_prefix_hit_claim": true
+      },
+      "downstream_request_counts": [
+        1,
+        1,
+        2,
+        2,
+        1,
+        1,
+        1
+      ]
+    },
+    "300.0": {
+      "decision_count": 127,
+      "decision_cells": 39,
+      "candidate_count_distribution": {
+        "1": 120,
+        "2": 7
+      },
+      "multi_candidate_events": 7,
+      "multi_candidate_groups": [
+        "g09",
+        "g10",
+        "g16",
+        "g18"
+      ],
+      "multi_candidate_group_count": 4,
+      "multi_candidate_rate_all_decisions": 0.05511811023622047,
+      "multi_candidate_rate_live_decisions": 0.05511811023622047,
+      "denominators": {
+        "all_forced_release_decision_events": 127,
+        "events_with_at_least_one_candidate": 127
+      },
+      "candidate_differential_downstream_opportunity": {
+        "horizon_seconds": 300.0,
+        "numerator_events": 5,
+        "denominator_multi_candidate_events": 7,
+        "rate": 0.7142857142857143,
+        "groups": [
+          "g09",
+          "g16",
+          "g18"
+        ],
+        "group_count": 3,
+        "events": [
+          {
+            "cell": "g09-c1",
+            "decision_timestamp": 399.2891961669993,
+            "candidate_programs": [
+              "django__django-12050",
+              "sympy__sympy-13551"
+            ],
+            "later_programs": [
+              "django__django-12050"
+            ],
+            "downstream_request_count": 1
+          },
+          {
+            "cell": "g09-c2",
+            "decision_timestamp": 399.2891961669993,
+            "candidate_programs": [
+              "django__django-12050",
+              "sympy__sympy-13551"
+            ],
+            "later_programs": [
+              "django__django-12050"
+            ],
+            "downstream_request_count": 1
+          },
+          {
+            "cell": "g16-c1",
+            "decision_timestamp": 428.9898484580008,
+            "candidate_programs": [
+              "django__django-13363",
+              "matplotlib__matplotlib-25287"
+            ],
+            "later_programs": [
+              "matplotlib__matplotlib-25287"
+            ],
+            "downstream_request_count": 1
+          },
+          {
+            "cell": "g16-c2",
+            "decision_timestamp": 428.9898484580008,
+            "candidate_programs": [
+              "django__django-13363",
+              "matplotlib__matplotlib-25287"
+            ],
+            "later_programs": [
+              "matplotlib__matplotlib-25287"
+            ],
+            "downstream_request_count": 1
+          },
+          {
+            "cell": "g18-c2",
+            "decision_timestamp": 372.449909125,
+            "candidate_programs": [
+              "django__django-16032",
+              "sympy__sympy-13974"
+            ],
+            "later_programs": [
+              "django__django-16032"
+            ],
+            "downstream_request_count": 1
+          }
+        ],
+        "label": "PROGRAM_LEVEL_DIFFERENTIAL_OPPORTUNITY",
+        "not_a_prefix_hit_claim": true
+      },
+      "downstream_request_counts": [
+        1,
+        1,
+        2,
+        2,
+        1,
+        1,
+        1
+      ]
+    }
+  },
+  "data_sources": {
+    "w1c_report_available": true,
+    "w1c_raw_trace_roots": [],
+    "w1c_raw_traces_status": "W1C_RAW_TRACES_NOT_PRESENT_IN_WORKSPACE",
+    "protected_entry_snapshot_status": "PROTECTED_ENTRY_SNAPSHOT_NOT_PRESENT",
+    "data_qualification": [
+      "PHASE3_OBSERVED_DECISIONS",
+      "MODELED_LOGICAL_EXPOSURE_NOT_NATIVE",
+      "W1C_RAW_TRACES_NOT_PRESENT_IN_WORKSPACE",
+      "PROTECTED_ENTRY_SNAPSHOT_NOT_PRESENT",
+      "NO_NATURAL_SERVING_TRACE_CLAIM",
+      "NO_NATIVE_CANDIDATE_CLAIM",
+      "NO_FUTURE_INFORMATION"
+    ]
+  },
+  "models": [
+    {
+      "id": "M0_OBSERVED_PHASE3",
+      "description": "Use only the actual FORCED_RELEASE_DECISION candidate list in the frozen Phase 3 A0 archive. This is observed exposure, not modeled candidate expansion.",
+      "candidate_source": "forced_release_decision.candidates",
+      "retention_multiplier": 1.0,
+      "horizon_seconds": 60.0,
+      "status": "EXECUTABLE"
+    },
+    {
+      "id": "M1_RETENTION_X2",
+      "status": "NOT_EXECUTABLE_MISSING_PROTECTED_ENTRY_SNAPSHOT",
+      "reason": "the frozen archive exposes actual candidates, not the full protected-entry set; no modeled candidate expansion is fabricated"
+    },
+    {
+      "id": "M2_RETENTION_X4",
+      "status": "NOT_EXECUTABLE_MISSING_PROTECTED_ENTRY_SNAPSHOT",
+      "reason": "the frozen archive exposes actual candidates, not the full protected-entry set; no modeled candidate expansion is fabricated"
+    },
+    {
+      "id": "M3_RETENTION_X8",
+      "status": "NOT_EXECUTABLE_MISSING_PROTECTED_ENTRY_SNAPSHOT",
+      "reason": "the frozen archive exposes actual candidates, not the full protected-entry set; no modeled candidate expansion is fabricated"
+    }
+  ],
+  "recommendation": "DO_NOT_PROCEED_P1B_ON_CURRENT_DATA",
+  "limitations": [
+    "No W1-C raw per-request traces are present in the workspace.",
+    "No complete protected-entry snapshot is present, so modeled candidate expansion is not identifiable.",
+    "The observed candidate counts are actual Phase 3 decision payloads, not a natural multi-session serving estimate.",
+    "The downstream differential metric is program-level, not a Native prefix-hit or physical-victim result."
+  ]
+}
