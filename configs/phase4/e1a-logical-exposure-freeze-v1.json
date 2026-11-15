@@ -1,0 +1,79 @@
+{
+  "schema_version": "phase4.e1a_logical_exposure_freeze.v1",
+  "status": "FROZEN_BEFORE_EXECUTION",
+  "created_at": "2026-11-15T10:10:00+08:00",
+  "authorization": "M1 E1-A: CPU-only, read-only existing W1-C / Phase 3 data; no new data, GPU, Native smoke, production change, or Protocol v4 change.",
+  "base_commit": "ced1d1ce1d9135c1d013d34acd9850648a2e1d42",
+  "data_sources": {
+    "phase3_archive": "local/phase3-option-f-unified-270-runs-v2-evidence/phase3-option-f-unified-270-runs-v2",
+    "phase3_exposure_audit": "docs/experiments/phase3-algorithm-exposure-audit-data",
+    "w1c_report": "docs/continuum-w1c-feasibility-pilot.md",
+    "w1c_raw_traces": "REQUIRED_IF_AVAILABLE",
+    "protected_entry_snapshot": "REQUIRED_FOR_MODELED_RETENTION"
+  },
+  "primary_model": {
+    "id": "M0_OBSERVED_PHASE3",
+    "description": "Use only the actual FORCED_RELEASE_DECISION candidate list in the frozen Phase 3 A0 archive. This is observed exposure, not modeled candidate expansion.",
+    "candidate_source": "forced_release_decision.candidates",
+    "retention_multiplier": 1.0,
+    "horizon_seconds": 60.0,
+    "status": "EXECUTABLE"
+  },
+  "sensitivity_models": [
+    {
+      "id": "M1_RETENTION_X2",
+      "description": "Recompute candidates under a 2x retention window.",
+      "candidate_source": "protected_entry_snapshot",
+      "retention_multiplier": 2.0,
+      "horizon_seconds": 60.0,
+      "status": "EXECUTABLE_ONLY_WITH_PROTECTED_SNAPSHOT"
+    },
+    {
+      "id": "M2_RETENTION_X4",
+      "description": "Recompute candidates under a 4x retention window.",
+      "candidate_source": "protected_entry_snapshot",
+      "retention_multiplier": 4.0,
+      "horizon_seconds": 60.0,
+      "status": "EXECUTABLE_ONLY_WITH_PROTECTED_SNAPSHOT"
+    },
+    {
+      "id": "M3_RETENTION_X8",
+      "description": "Recompute candidates under an 8x retention window.",
+      "candidate_source": "protected_entry_snapshot",
+      "retention_multiplier": 8.0,
+      "horizon_seconds": 60.0,
+      "status": "EXECUTABLE_ONLY_WITH_PROTECTED_SNAPSHOT"
+    }
+  ],
+  "metrics": {
+    "rate_denominators": [
+      "all_forced_release_decision_events",
+      "events_with_at_least_one_candidate"
+    ],
+    "primary_rate": "observed_multi_candidate_rate",
+    "candidate_differential_downstream_opportunity": {
+      "definition": "Among multi-candidate events, a later request within H belongs to a candidate program but not every candidate program; this is a program-level differential opportunity, not a Native prefix-hit claim.",
+      "numerator": "multi_candidate events with at least one program-differential later request",
+      "denominator": "multi_candidate events",
+      "horizon_seconds": 60.0,
+      "label": "PROGRAM_LEVEL_DIFFERENTIAL_OPPORTUNITY"
+    },
+    "secondary_horizons_seconds": [15.0, 60.0, 300.0],
+    "secondary_horizon_note": "300s is descriptive only because Phase 4 right-censoring was 54.2%."
+  },
+  "data_qualification": [
+    "PHASE3_OBSERVED_DECISIONS",
+    "MODELED_LOGICAL_EXPOSURE_NOT_NATIVE",
+    "W1C_RAW_TRACES_NOT_PRESENT_IN_WORKSPACE",
+    "PROTECTED_ENTRY_SNAPSHOT_NOT_PRESENT",
+    "NO_NATURAL_SERVING_TRACE_CLAIM",
+    "NO_NATIVE_CANDIDATE_CLAIM",
+    "NO_FUTURE_INFORMATION"
+  ],
+  "freeze_policy": {
+    "no_post_hoc_model_selection": true,
+    "report_all_pre_registered_models": true,
+    "not_executable_models_must_be_reported_not_dropped": true,
+    "no_forced_ttl_or_pressure": true
+  }
+}
