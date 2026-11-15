@@ -1,6 +1,0 @@
-096245709db268237ea8367fce9c9dd01a4c7e2a3e84ab7177032b6684693e56  D:/LLM-KV-Cache-Optimization/scripts/probes/e1a_logical_exposure/audit.py
-fd9d0ee235a9b96852c64841973fc514168b3ac5155c440d507fcccf60e43c35  D:/LLM-KV-Cache-Optimization/tests/test_e1a_logical_exposure.py
-dabf3022f24acf4e012704a1a01e208f252557396b0cb6ae020fc775fcdcc9e9  D:/LLM-KV-Cache-Optimization/configs/phase4/e1a-logical-exposure-freeze-v1.json
-04b804818a566c973927d9d35b87a137c2c719f6232e64cc0afb65dc60a3d890  D:/LLM-KV-Cache-Optimization/scripts/probes/e1a_logical_exposure/README.md
-92154056c191c0a5d3b9bf128d794623b22587ee7225fa01b28c139b084b733c  docs/experiments/e1a-logical-exposure-data/e1a-logical-exposure-evidence.json
-e807598796792095eed7760143f494484a634031a61c795f479efd847ffefb36  docs/experiments/e1a-logical-exposure-data/e1a-logical-exposure-report.md
