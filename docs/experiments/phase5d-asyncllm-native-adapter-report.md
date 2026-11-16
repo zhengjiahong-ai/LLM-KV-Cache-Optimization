@@ -121,10 +121,13 @@ consumer. Adapter construction rejects an already-started `output_handler`, so
 the first `add_request()` starts the background handler with the proxy already
 installed.
 
-The proxy also observes `abort_requests_async()`. That observation establishes
-only `NATIVE_ABORT_DISPATCHED`. The code exposes an explicit
-`confirm_native_terminal(..., ABORT_CONFIRMED, ...)` seam for a future verified
-runtime acknowledgement; it never promotes dispatch return to confirmation.
+The proxy observes `abort_requests_async()` only as
+`NATIVE_ABORT_DISPATCHED`. EngineCore terminal outputs are classified by their
+pinned finish reason: STOP/LENGTH/REPETITION are natural terminal outputs,
+ABORT is accepted only through the explicitly allowlisted
+`PINNED_CORE_ABORT_TERMINAL_OUTPUT` source, and ERROR fails the adapter rather
+than becoming a successful terminal. Caller-facing confirmation cannot assert a
+natural terminal. Abort dispatch or API return never confirms an abort.
 
 ## 5. Timing and evidence contract
 
