@@ -1,6 +1,6 @@
 # Phase 5C Pinned vLLM API Feasibility Report
 
-**Status:** CPU interface proof complete; pinned-server source inventory prepared;
+**Status:** CPU interface proof and pinned vLLM 0.27.1 source inventory complete;
 GPU Conformance, Trace Acquisition, and effect experiments were not executed.
 
 **Base commit:** `2867c63` (PR #117 merge)
@@ -18,8 +18,9 @@ all-request drain as asynchronous execution. This report combines:
 
 The exact installed 0.27.1 source is not present in the local macOS environment.
 `scripts/spikes/audit_phase5c_vllm_api.py` therefore performs a read-only,
-version-locked source inventory on the existing CUDA environment before any later
-GPU authorization. It creates no engine and performs no GPU work.
+version-locked source inventory on the existing server environment. It creates no
+engine and performs no GPU work. The audit was executed successfully in no-GPU mode
+on 2026-11-16.
 
 ## 2. Source and behavior evidence
 
@@ -165,11 +166,11 @@ CPU tests cover partial output, incremental terminal collection, same-batch term
 observation, single-owner enforcement, unknown/duplicate outputs, dispatch rollback,
 pump failure and deterministic arrival mapping.
 
-## 6. Required pinned-server inventory
+## 6. Pinned-server source inventory
 
-Before requesting GPU Conformance, run the read-only audit under the existing CUDA
-environment. It requires exactly `vLLM 0.27.1` and records method signatures, source
-paths, first lines, method-source SHA-256 and complete source-file SHA-256 for:
+The read-only audit was executed under the existing pinned Python environment. It
+required exactly `vLLM 0.27.1` and recorded method signatures, source paths, first
+lines, method-source SHA-256 and complete source-file SHA-256 for:
 
 - `LLM.enqueue` and `wait_for_completion`;
 - `LLMEngine.add_request` and `step`;
@@ -177,8 +178,19 @@ paths, first lines, method-source SHA-256 and complete source-file SHA-256 for:
 - `AsyncLLM.add_request` and `_run_output_handler`; and
 - OutputProcessor and RequestOutputCollector methods.
 
-Any missing method, version drift, or signature drift fails closed. This source
-inventory is read-only and is not itself GPU Conformance.
+Observed result:
+
+- audit status: `PASS`;
+- output: `artifacts/phase5c-vllm-api-source-audit-v1.json`;
+- audit SHA-256:
+  `bb7e222bd2f0f20c66b6a9d358b78fa00fe50153858ceec286247c4d851e1fb0`;
+- engine created: `false`;
+- GPU execution: `false`.
+
+The no-GPU process reported that Triton had no active driver and that no CUDA runtime
+was available. These messages are expected for no-GPU mode and do not affect Python
+source inspection. Any missing method, version drift, or signature drift would have
+failed closed. This source inventory is not itself GPU Conformance.
 
 ## 7. Arrival Timing fidelity
 
@@ -246,7 +258,9 @@ These values are planning estimates, not execution authorization.
 
 `SYNC_MP_PRIVATE_PUMP = POSSIBLE_HIGH_RISK_NOT_RECOMMENDED`
 
-`ASYNC_LLM_OUTPUT_COLLECTOR_PATH = FEASIBLE_PENDING_PINNED_0_27_1_PROOF`
+`ASYNC_LLM_OUTPUT_COLLECTOR_PATH = FEASIBLE_SOURCE_PROOF_COMPLETE`
+
+`PINNED_VLLM_0_27_1_SOURCE_INVENTORY = PASS`
 
 `NATIVE_SCHEDULER_AND_KV_OWNERSHIP = UNCHANGED_BY_PROPOSED_ADAPTER`
 
