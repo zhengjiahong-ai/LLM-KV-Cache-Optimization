@@ -202,7 +202,10 @@ def _adapter(
         clock=_Clock(),
         frontend_has_internal_request=callback,
         verified_abort_confirmation_sources=frozenset(
-            {"PINNED_CORE_ABORT_ACK_EVENT"}
+            {
+                "PINNED_CORE_ABORT_ACK_EVENT",
+                "PINNED_CORE_ABORT_TERMINAL_OUTPUT",
+            }
         ),
     )
 
