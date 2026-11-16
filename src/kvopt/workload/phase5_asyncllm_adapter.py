@@ -198,10 +198,12 @@ class AsyncLLMNativeAdapter:
                 self._frontend_has_internal_request = None
                 self._frontend_state_query_source = "NOT_OBSERVABLE"
         if any(
-            not isinstance(source, str) or not source
+            source != "PINNED_CORE_ABORT_TERMINAL_OUTPUT"
             for source in verified_abort_confirmation_sources
         ):
-            raise ValueError("verified abort confirmation sources must be non-empty")
+            raise ValueError(
+                "only the pinned per-request EngineCore ABORT terminal source is supported"
+            )
         self._verified_abort_confirmation_sources = (
             verified_abort_confirmation_sources
         )
@@ -449,34 +451,6 @@ class AsyncLLMNativeAdapter:
             identity_kind="INTERNAL",
         )
 
-    async def confirm_native_terminal(
-        self,
-        logical_request_id: str,
-        *,
-        kind: NativeTerminalKind,
-        timestamp: float,
-        confirmation_source: str,
-    ) -> None:
-        source = _identity(confirmation_source, "confirmation_source")
-        if (
-            kind is NativeTerminalKind.ABORT_CONFIRMED
-            and source not in self._verified_abort_confirmation_sources
-        ):
-            raise AsyncLLMAdapterError(
-                "abort confirmation source is not independently verified"
-            )
-        async with self._lock:
-            if kind is NativeTerminalKind.NATURAL:
-                raise AsyncLLMAdapterError(
-                    "natural terminal confirmation is reserved for EngineCore Observer"
-                )
-            self._confirm_native_terminal_locked(
-                self._record(logical_request_id),
-                kind=kind,
-                timestamp=_timestamp(timestamp, "Native terminal timestamp"),
-                confirmation_source=source,
-            )
-
     async def collect_completed(
         self, *, timeout_seconds: float, wait_for_one: bool
     ) -> tuple[RequestCompletion, ...]:
@@ -557,7 +531,9 @@ class AsyncLLMNativeAdapter:
         blockers = []
         if observability != "OBSERVABLE":
             blockers.append("REQUEST_STATE_NOT_OBSERVABLE")
-        if not self._verified_abort_confirmation_sources:
+        if "PINNED_CORE_ABORT_TERMINAL_OUTPUT" not in (
+            self._verified_abort_confirmation_sources
+        ):
             blockers.append("ABORT_CONFIRMATION_SOURCE_NOT_ESTABLISHED")
         if self._pending_natural_terminal or self._pending_abort_dispatch:
             blockers.append("UNBOUND_ENGINE_CORE_EVIDENCE")
