@@ -96,13 +96,19 @@ The following landmarks are not interchangeable:
 | Client dispatch returned | Input was accepted by the client transport/API | Scheduler admission or GPU start |
 | EngineCore output observed | Incremental Core progress was received | Request terminal state |
 | OutputProcessor partial output | A processed partial result exists | Capacity may be released |
-| OutputProcessor terminal output | Frontend request lifecycle is terminal | Exact physical GPU completion time |
+| `OUTPUT_PROCESSOR_TERMINAL` | The frontend OutputProcessor has emitted a terminal result | Native execution or resource release is confirmed |
+| `NATIVE_TERMINAL_CONFIRMED` | EngineCore natural termination or a confirmed abort has closed the Native lifecycle | Exact physical GPU completion time |
 | Scheduler queued/scheduled event | Native scheduler timing, if emitted | It cannot be inferred from dispatch return |
 
-Phase 5 uses `OutputProcessor terminal` as its proposed Native completion landmark.
-Partial results never release inflight capacity. EngineCore batch timestamps remain
-batch observations and do not manufacture strict per-request hardware completion
-ordering.
+Phase 5 keeps these two terminal events separate. `OUTPUT_PROCESSOR_TERMINAL` is a
+frontend observation and does not release Native inflight capacity. Capacity is
+released only after `NATIVE_TERMINAL_CONFIRMED`. For natural completion, the latter
+requires EngineCore terminal evidence. For a frontend Stop String, OutputProcessor
+may emit Finished first and then call `abort_requests_async()`; the adapter must wait
+for explicit Native abort confirmation or equivalent verified Core lifecycle evidence.
+The return of a client send operation alone must not be labelled abort confirmation.
+Partial results never release capacity. EngineCore batch timestamps remain batch
+observations and do not manufacture strict per-request hardware completion ordering.
 
 ## 4. Recommended adapter design
 
@@ -118,11 +124,16 @@ The recommended adapter is version-locked to vLLM 0.27.1 and built around
    client-dispatched, not scheduler-admitted.
 5. One vLLM-owned output handler consumes Core outputs and applies OutputProcessor
    semantics.
-6. One adapter task per RequestOutputCollector observes partial and terminal outputs.
-7. Only terminal processed outputs enter the Phase 5B local completion queue.
-8. Existing Native queued/scheduled hooks, if present, remain the only evidence for
+6. One adapter task per RequestOutputCollector observes partial and frontend-terminal
+   outputs.
+7. A frontend terminal records `OUTPUT_PROCESSOR_TERMINAL`; it does not release
+   Native inflight capacity.
+8. Natural Core termination or a confirmed abort records
+   `NATIVE_TERMINAL_CONFIRMED`; only then may the request enter the controller's
+   completion queue and release capacity.
+9. Existing Native queued/scheduled hooks, if present, remain the only evidence for
    scheduler timing.
-9. Adapter failure, Core death, abort, timeout and cancellation atomically fail and
+10. Adapter failure, Core death, abort, timeout and cancellation atomically fail and
    clean every outstanding request.
 
 The adapter may observe but must not replace the scheduler, BlockPool, prefix cache,
@@ -137,8 +148,9 @@ therefore remains with vLLM.
 
 - exactly one bound output owner;
 - accepts only outputs after OutputProcessor semantics;
-- distinguishes partial and terminal outputs;
-- exposes terminal completions through a local incremental queue;
+- distinguishes partial and frontend-terminal outputs;
+- proves only the frontend side of the terminal contract; Phase 5D must add Native
+  terminal confirmation before capacity release;
 - rejects unknown, duplicate and identity-mismatched outputs;
 - supports registration rollback after dispatch failure; and
 - broadcasts pump failure to all outstanding requests exactly once.
