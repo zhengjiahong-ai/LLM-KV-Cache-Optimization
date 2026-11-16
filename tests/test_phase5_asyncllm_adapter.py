@@ -570,6 +570,42 @@ def test_pinned_request_states_mapping_is_used_when_has_request_is_absent() -> N
     )
 
 
+def test_core_abort_terminal_is_not_misclassified_as_natural() -> None:
+    async def scenario() -> None:
+        engine = _AsyncLLM()
+        adapter = _adapter(engine)
+        handle = await adapter.submit(_spec())
+        await adapter.abort("r1")
+        await adapter.observe_core_terminal(
+            handle.native_request_id, finish_reason="ABORT", timestamp=702.0
+        )
+        row = adapter.report()["requests"][0]
+        assert row["native_terminal_kind"] == "ABORT_CONFIRMED"
+        assert row["native_terminal_source"] == "PINNED_CORE_ABORT_TERMINAL_OUTPUT"
+        await adapter.shutdown()
+        await engine.close()
+
+    asyncio.run(scenario())
+
+
+def test_public_terminal_seam_cannot_assert_natural_completion() -> None:
+    async def scenario() -> None:
+        engine = _AsyncLLM()
+        adapter = _adapter(engine)
+        await adapter.submit(_spec())
+        with pytest.raises(AsyncLLMAdapterError, match="reserved for EngineCore Observer"):
+            await adapter.confirm_native_terminal(
+                "r1",
+                kind=NativeTerminalKind.NATURAL,
+                timestamp=700.0,
+                confirmation_source="CALLER_ASSERTION",
+            )
+        await adapter.shutdown(require_native_confirmation=False)
+        await engine.close()
+
+    asyncio.run(scenario())
+
+
 def test_missing_abort_confirmation_source_keeps_gpu_conformance_not_ready() -> None:
     engine = _AsyncLLM()
     adapter = AsyncLLMNativeAdapter(
