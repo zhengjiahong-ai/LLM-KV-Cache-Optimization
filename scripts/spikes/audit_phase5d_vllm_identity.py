@@ -55,7 +55,7 @@ def build_report() -> dict[str, object]:
     add_request = async_module.AsyncLLM.add_request
     run_output_handler = async_module.AsyncLLM._run_output_handler
     collector_class = output_module.RequestOutputCollector
-    has_request = output_module.OutputProcessor.has_request
+    has_request = getattr(output_module.OutputProcessor, "has_request", None)
     abort_requests = output_module.OutputProcessor.abort_requests
 
     external_id = "phase5d-interface-probe"
@@ -80,9 +80,24 @@ def build_report() -> dict[str, object]:
         run_output_handler,
         "vllm.v1.engine.async_llm.AsyncLLM._run_output_handler",
     )
-    has_request_record = _source_record(
-        has_request, "vllm.v1.engine.output_processor.OutputProcessor.has_request"
-    )
+    if has_request is not None:
+        state_query_record = _source_record(
+            has_request,
+            "vllm.v1.engine.output_processor.OutputProcessor.has_request",
+        )
+        state_query_source = "HAS_REQUEST_METHOD"
+        if "request_id in self.request_states" not in str(
+            state_query_record["source"]
+        ):
+            raise RuntimeError("OutputProcessor internal RequestState query changed")
+    else:
+        state_query_record = _source_record(
+            output_module.OutputProcessor.__init__,
+            "vllm.v1.engine.output_processor.OutputProcessor.__init__",
+        )
+        state_query_source = "REQUEST_STATES_MAPPING"
+        if "self.request_states" not in str(state_query_record["source"]):
+            raise RuntimeError("OutputProcessor RequestState mapping is unavailable")
     abort_record = _source_record(
         abort_requests,
         "vllm.v1.engine.output_processor.OutputProcessor.abort_requests",
@@ -99,8 +114,6 @@ def build_report() -> dict[str, object]:
     if "engine_core = self.engine_core" not in str(handler_record["source"]):
         raise RuntimeError("output handler no longer captures EngineCore client")
 
-    if "request_id in self.request_states" not in str(has_request_record["source"]):
-        raise RuntimeError("OutputProcessor internal RequestState query changed")
     abort_source = str(abort_record["source"])
     if "internal" not in abort_source or "external_req_ids" not in abort_source:
         raise RuntimeError("OutputProcessor abort identity routing changed")
@@ -108,7 +121,7 @@ def build_report() -> dict[str, object]:
         assign_record,
         add_record,
         handler_record,
-        has_request_record,
+        state_query_record,
         abort_record,
     ):
         record.pop("source")
@@ -126,12 +139,13 @@ def build_report() -> dict[str, object]:
         "collector_internal_identity_match": collector.request_id == internal_id,
         "output_handler_capture_contract": "ENGINE_CORE_CAPTURED_AT_HANDLER_START",
         "request_state_query_identity": "INTERNAL_REQUEST_ID",
+        "request_state_query_source": state_query_source,
         "abort_identity_modes": ["EXTERNAL", "INTERNAL"],
         "methods": [
             assign_record,
             add_record,
             handler_record,
-            has_request_record,
+            state_query_record,
             abort_record,
         ],
     }

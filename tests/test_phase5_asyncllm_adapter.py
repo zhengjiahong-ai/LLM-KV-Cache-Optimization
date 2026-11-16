@@ -546,6 +546,30 @@ def test_missing_request_state_observer_is_explicitly_not_observable() -> None:
     asyncio.run(scenario())
 
 
+def test_pinned_request_states_mapping_is_used_when_has_request_is_absent() -> None:
+    class OutputProcessorView:
+        def __init__(self) -> None:
+            self.request_states: dict[str, object] = {}
+
+    engine = _AsyncLLM()
+    engine.output_processor = OutputProcessorView()  # type: ignore[attr-defined]
+    adapter = AsyncLLMNativeAdapter(
+        engine=engine,
+        vllm_version=PINNED_VLLM_VERSION,
+        run_epoch_monotonic=100.0,
+        clock=_Clock(),
+        verified_abort_confirmation_sources=frozenset(
+            {"PINNED_CORE_ABORT_ACK_EVENT"}
+        ),
+    )
+    report = adapter.report()
+    assert report["request_state_observability"] == "OBSERVABLE"
+    assert (
+        report["request_state_query_source"]
+        == "ASYNCLLM_OUTPUT_PROCESSOR_REQUEST_STATES_MAPPING"
+    )
+
+
 def test_missing_abort_confirmation_source_keeps_gpu_conformance_not_ready() -> None:
     engine = _AsyncLLM()
     adapter = AsyncLLMNativeAdapter(

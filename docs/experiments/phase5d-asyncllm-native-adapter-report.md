@@ -210,7 +210,8 @@ interface audit. It requires exactly vLLM 0.27.1 with request-ID randomization
 enabled, invokes the real `InputProcessor.assign_request_id()` on a probe request,
 constructs a real `RequestOutputCollector`, and verifies external/internal identity
 separation. It also hashes and checks the installed `AsyncLLM.add_request()`,
-`_run_output_handler()`, `OutputProcessor.has_request()` and abort-routing source.
+`_run_output_handler()`, the pinned RequestState query surface (`has_request()`
+when present, otherwise the internal `request_states` mapping), and abort-routing source.
 The corresponding pytest is skipped when vLLM is absent; a server-side PASS report
 is required before Phase 5E can accept a GPU Conformance plan.
 
@@ -221,7 +222,7 @@ is required before Phase 5E can accept a GPU Conformance plan.
 | RC1 | External ID is passed to AsyncLLM; randomized internal ID is read from `collector.request_id`; Core, internal abort and RequestState paths use the internal ID; processed output uses the external ID. |
 | RC2 | Proxy installation is automatic during adapter construction and rejects non-`None` `output_handler`; the API-shaped integration test proves the background handler captures the proxy. |
 | RC3 | Active Submit tasks are tracked; cancellation uses shielded rollback; Shutdown blocks admission, joins Submit, and runs in a shielded reusable task. |
-| RC4 | Real `OutputProcessor.has_request(internal_id)` is auto-bound when present; absence is `NOT_OBSERVABLE` and blocks conformance. |
+| RC4 | The pinned internal-ID state query is auto-bound through `OutputProcessor.has_request()` when available or the actual `request_states` mapping on vLLM 0.27.1; absence of both is `NOT_OBSERVABLE` and blocks conformance. |
 | RC5 | Every abort path uses the unified dispatch event; collector fatal state wakes blocked completion polling immediately. |
 | RC6 | Abort confirmation is accepted only from an explicitly allowlisted independent source; the default list is empty and Abort Conformance remains `NOT_READY`. |
 

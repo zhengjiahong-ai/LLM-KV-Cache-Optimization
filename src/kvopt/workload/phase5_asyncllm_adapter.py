@@ -184,6 +184,16 @@ class AsyncLLMNativeAdapter:
                 self._frontend_state_query_source = (
                     "ASYNCLLM_OUTPUT_PROCESSOR_HAS_REQUEST"
                 )
+            elif isinstance(
+                getattr(output_processor, "request_states", None), Mapping
+            ):
+                request_states = output_processor.request_states
+                self._frontend_has_internal_request = (
+                    lambda request_id: request_id in request_states
+                )
+                self._frontend_state_query_source = (
+                    "ASYNCLLM_OUTPUT_PROCESSOR_REQUEST_STATES_MAPPING"
+                )
             else:
                 self._frontend_has_internal_request = None
                 self._frontend_state_query_source = "NOT_OBSERVABLE"
