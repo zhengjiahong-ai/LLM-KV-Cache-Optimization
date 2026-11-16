@@ -551,7 +551,7 @@ def test_pinned_request_states_mapping_is_used_when_has_request_is_absent() -> N
         run_epoch_monotonic=100.0,
         clock=_Clock(),
         verified_abort_confirmation_sources=frozenset(
-            {"PINNED_CORE_ABORT_ACK_EVENT"}
+            {"PINNED_CORE_ABORT_TERMINAL_OUTPUT"}
         ),
     )
     report = adapter.report()
