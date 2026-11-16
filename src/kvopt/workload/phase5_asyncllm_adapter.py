@@ -365,26 +365,74 @@ class AsyncLLMNativeAdapter:
             prefer_internal=False,
         )
 
-    async def observe_core_natural_terminal(
-        self, internal_request_id: str, *, timestamp: float
+    async def observe_core_terminal(
+        self,
+        internal_request_id: str,
+        *,
+        finish_reason: object,
+        timestamp: float,
     ) -> None:
+        """Classify the pinned EngineCore finish reason without conflating aborts."""
         internal_id = _identity(internal_request_id, "internal_request_id")
+        reason = getattr(finish_reason, "name", None)
+        if reason is None:
+            reason = str(finish_reason).upper()
+        reason = str(reason).upper().rsplit(".", 1)[-1]
         observed = _timestamp(timestamp, "Native terminal timestamp")
-        async with self._lock:
-            record = self._by_internal.get(internal_id)
-            if record is None:
-                if internal_id in self._pending_natural_terminal:
+
+        if reason in {"STOP", "LENGTH", "REPETITION"}:
+            async with self._lock:
+                record = self._by_internal.get(internal_id)
+                if record is None:
+                    if internal_id in self._pending_natural_terminal:
+                        raise AsyncLLMAdapterError(
+                            "pending Native terminal was observed twice"
+                        )
+                    self._pending_natural_terminal[internal_id] = observed
+                    return
+                self._confirm_native_terminal_locked(
+                    record,
+                    kind=NativeTerminalKind.NATURAL,
+                    timestamp=observed,
+                    confirmation_source="ENGINE_CORE_NATURAL_TERMINAL_OUTPUT",
+                )
+            return
+
+        if reason == "ABORT":
+            async with self._lock:
+                record = self._by_internal.get(internal_id)
+                if record is None:
                     raise AsyncLLMAdapterError(
-                        "pending Native terminal was observed twice"
+                        "unbound EngineCore abort terminal cannot be confirmed"
                     )
-                self._pending_natural_terminal[internal_id] = observed
-                return
-            self._confirm_native_terminal_locked(
-                record,
-                kind=NativeTerminalKind.NATURAL,
-                timestamp=observed,
-                confirmation_source="ENGINE_CORE_TERMINAL_OUTPUT",
+                if "PINNED_CORE_ABORT_TERMINAL_OUTPUT" not in (
+                    self._verified_abort_confirmation_sources
+                ):
+                    raise AsyncLLMAdapterError(
+                        "EngineCore abort terminal source is not independently verified"
+                    )
+                self._confirm_native_terminal_locked(
+                    record,
+                    kind=NativeTerminalKind.ABORT_CONFIRMED,
+                    timestamp=observed,
+                    confirmation_source="PINNED_CORE_ABORT_TERMINAL_OUTPUT",
+                )
+            return
+
+        if reason == "ERROR":
+            error = AsyncLLMAdapterError(
+                f"EngineCore emitted request-level ERROR terminal for {internal_id}"
             )
+            async with self._lock:
+                record = self._by_internal.get(internal_id)
+                if record is not None:
+                    self._mark_failure(record, error, "NATIVE_CORE_ERROR_TERMINAL")
+                self._set_fatal(error)
+            return
+
+        raise AsyncLLMAdapterError(
+            f"unsupported EngineCore finish reason: {reason!r}"
+        )
 
     def observe_internal_abort_dispatched(self, internal_request_id: str) -> None:
         internal_id = _identity(internal_request_id, "internal_request_id")
@@ -418,6 +466,10 @@ class AsyncLLMNativeAdapter:
                 "abort confirmation source is not independently verified"
             )
         async with self._lock:
+            if kind is NativeTerminalKind.NATURAL:
+                raise AsyncLLMAdapterError(
+                    "natural terminal confirmation is reserved for EngineCore Observer"
+                )
             self._confirm_native_terminal_locked(
                 self._record(logical_request_id),
                 kind=kind,
@@ -905,8 +957,10 @@ class PinnedEngineCoreLifecycleProxy:
                 raise AsyncLLMAdapterError(
                     "terminal EngineCore batch lacks monotonic timestamp"
                 )
-            await self._adapter.observe_core_natural_terminal(
-                getattr(output, "request_id", None), timestamp=timestamp
+            await self._adapter.observe_core_terminal(
+                getattr(output, "request_id", None),
+                finish_reason=getattr(output, "finish_reason", None),
+                timestamp=timestamp,
             )
         return batch
 
