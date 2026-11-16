@@ -212,6 +212,8 @@ constructs a real `RequestOutputCollector`, and verifies external/internal ident
 separation. It also hashes and checks the installed `AsyncLLM.add_request()`,
 `_run_output_handler()`, the pinned RequestState query surface (`has_request()`
 when present, otherwise the internal `request_states` mapping), and abort-routing source.
+Lifecycle ordering is verified from Python AST call nodes rather than brittle source
+substring positions, so type annotations and comments cannot create false matches.
 The corresponding pytest is skipped when vLLM is absent; a server-side PASS report
 is required before Phase 5E can accept a GPU Conformance plan.
 

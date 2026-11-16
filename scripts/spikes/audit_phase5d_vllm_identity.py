@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import importlib
 import inspect
 import json
+import textwrap
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -32,6 +34,27 @@ def _source_record(value: object, identity: str) -> dict[str, object]:
         "source_file_sha256": _sha256(path.read_bytes()),
         "source": source,
     }
+
+
+def _call_line(source: str, call_name: str) -> int:
+    tree = ast.parse(textwrap.dedent(source))
+    lines = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        function = node.func
+        name = (
+            function.attr
+            if isinstance(function, ast.Attribute)
+            else function.id
+            if isinstance(function, ast.Name)
+            else None
+        )
+        if name == call_name:
+            lines.append(node.lineno)
+    if not lines:
+        raise RuntimeError(f"AsyncLLM.add_request lacks call to {call_name}")
+    return min(lines)
 
 
 def build_report() -> dict[str, object]:
@@ -103,13 +126,15 @@ def build_report() -> dict[str, object]:
         "vllm.v1.engine.output_processor.OutputProcessor.abort_requests",
     )
     add_source = str(add_record["source"])
-    required_order = (
-        "self.input_processor.assign_request_id(request)",
-        "self._run_output_handler()",
-        "RequestOutputCollector",
-    )
-    positions = [add_source.find(fragment) for fragment in required_order]
-    if any(position < 0 for position in positions) or positions != sorted(positions):
+    lifecycle_call_lines = {
+        "assign_request_id": _call_line(add_source, "assign_request_id"),
+        "run_output_handler": _call_line(add_source, "_run_output_handler"),
+        "request_output_collector": _call_line(
+            add_source, "RequestOutputCollector"
+        ),
+    }
+    positions = list(lifecycle_call_lines.values())
+    if positions != sorted(positions) or len(set(positions)) != len(positions):
         raise RuntimeError("AsyncLLM.add_request lifecycle ordering changed")
     if "engine_core = self.engine_core" not in str(handler_record["source"]):
         raise RuntimeError("output handler no longer captures EngineCore client")
@@ -138,6 +163,7 @@ def build_report() -> dict[str, object]:
         "external_identity_preserved": request.external_req_id == external_id,
         "collector_internal_identity_match": collector.request_id == internal_id,
         "output_handler_capture_contract": "ENGINE_CORE_CAPTURED_AT_HANDLER_START",
+        "add_request_lifecycle_call_lines": lifecycle_call_lines,
         "request_state_query_identity": "INTERNAL_REQUEST_ID",
         "request_state_query_source": state_query_source,
         "abort_identity_modes": ["EXTERNAL", "INTERNAL"],
