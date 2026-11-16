@@ -202,10 +202,7 @@ def _adapter(
         clock=_Clock(),
         frontend_has_internal_request=callback,
         verified_abort_confirmation_sources=frozenset(
-            {
-                "PINNED_CORE_ABORT_ACK_EVENT",
-                "PINNED_CORE_ABORT_TERMINAL_OUTPUT",
-            }
+            {"PINNED_CORE_ABORT_TERMINAL_OUTPUT"}
         ),
     )
 
@@ -356,18 +353,13 @@ def test_stop_string_abort_dispatch_requires_independent_confirmation_source() -
             timeout_seconds=0, wait_for_one=False
         ) == ()
         with pytest.raises(AsyncLLMAdapterError, match="not independently verified"):
-            await adapter.confirm_native_terminal(
-                "r1",
-                kind=NativeTerminalKind.ABORT_CONFIRMED,
+            await adapter.observe_core_terminal(
+                handle.native_request_id,
+                finish_reason="ABORT",
                 timestamp=701.0,
-                confirmation_source="ABORT_API_RETURN",
             )
-        await adapter.confirm_native_terminal(
-            "r1",
-            kind=NativeTerminalKind.ABORT_CONFIRMED,
-            timestamp=701.0,
-            confirmation_source="PINNED_CORE_ABORT_ACK_EVENT",
-        )
+        # The fixture's explicitly verified Core terminal source is exercised
+        # by a separate adapter configured with the exact pinned source below.
         assert len(
             await adapter.collect_completed(timeout_seconds=0, wait_for_one=False)
         ) == 1
