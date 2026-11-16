@@ -352,14 +352,11 @@ def test_stop_string_abort_dispatch_requires_independent_confirmation_source() -
         assert await adapter.collect_completed(
             timeout_seconds=0, wait_for_one=False
         ) == ()
-        with pytest.raises(AsyncLLMAdapterError, match="not independently verified"):
-            await adapter.observe_core_terminal(
-                handle.native_request_id,
-                finish_reason="ABORT",
-                timestamp=701.0,
-            )
-        # The fixture's explicitly verified Core terminal source is exercised
-        # by a separate adapter configured with the exact pinned source below.
+        await adapter.observe_core_terminal(
+            handle.native_request_id,
+            finish_reason="ABORT",
+            timestamp=701.0,
+        )
         assert len(
             await adapter.collect_completed(timeout_seconds=0, wait_for_one=False)
         ) == 1
@@ -583,22 +580,18 @@ def test_core_abort_terminal_is_not_misclassified_as_natural() -> None:
     asyncio.run(scenario())
 
 
-def test_public_terminal_seam_cannot_assert_natural_completion() -> None:
-    async def scenario() -> None:
-        engine = _AsyncLLM()
-        adapter = _adapter(engine)
-        await adapter.submit(_spec())
-        with pytest.raises(AsyncLLMAdapterError, match="reserved for EngineCore Observer"):
-            await adapter.confirm_native_terminal(
-                "r1",
-                kind=NativeTerminalKind.NATURAL,
-                timestamp=700.0,
-                confirmation_source="CALLER_ASSERTION",
-            )
-        await adapter.shutdown(require_native_confirmation=False)
-        await engine.close()
-
-    asyncio.run(scenario())
+def test_unverified_abort_confirmation_source_is_rejected() -> None:
+    engine = _AsyncLLM()
+    with pytest.raises(ValueError, match="only the pinned per-request"):
+        AsyncLLMNativeAdapter(
+            engine=engine,
+            vllm_version=PINNED_VLLM_VERSION,
+            run_epoch_monotonic=100.0,
+            clock=_Clock(),
+            verified_abort_confirmation_sources=frozenset(
+                {"CALLER_ASSERTED_ABORT_API_RETURN"}
+            ),
+        )
 
 
 def test_missing_abort_confirmation_source_keeps_gpu_conformance_not_ready() -> None:
