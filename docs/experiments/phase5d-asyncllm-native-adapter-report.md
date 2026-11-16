@@ -20,6 +20,10 @@ released the request. A later GPU validation must provide an independently
 verified per-request abort-confirmation hook. Without that hook, stop-string
 conformance remains `NOT_READY`.
 
+The RC1--RC6 revision closes the CPU/runtime-contract findings raised against
+review HEAD `5c13e181a2936846392db2056d67c01e01a8a622`. It does not claim that an
+abort-confirmation source exists in the pinned runtime.
+
 ## 2. Implemented components
 
 `src/kvopt/workload/phase5_asyncllm_adapter.py` adds:
@@ -28,11 +32,16 @@ conformance remains `NOT_READY`.
   `AsyncLLM.add_request` and owns one task for the returned
   `RequestOutputCollector`;
 - a strict vLLM `0.27.1` version and coroutine-surface check;
+- three-way identity binding between the experiment logical ID, vLLM external
+  request ID and randomized vLLM internal request ID returned by the collector;
+- automatic Core-proxy installation before `output_handler` startup, with
+  fail-closed rejection if the handler already exists;
 - separate frontend-terminal and Native-terminal landmarks;
 - incremental completion release only after both terminal landmarks exist;
 - explicit dispatch, Native submission, scheduler, output, abort and terminal
   evidence with non-interchangeable clock domains;
 - cleanup paths for dispatch failure, collector failure and shutdown;
+- tracked in-flight Submit tasks and a shielded, resumable Shutdown task;
 - frontend RequestState leak checks through the pinned OutputProcessor lookup
   seam; and
 - `PinnedEngineCoreLifecycleProxy`, a narrow observer around the same
@@ -80,19 +89,37 @@ The adapter calls the real interface shape:
 
 ```text
 collector = await AsyncLLM.add_request(
-    request_id=<stable native id>,
+    request_id=<stable external id>,
     prompt=<explicit-token prompt>,
     params=<frozen sampling params>,
     arrival_time=<adapter dispatch timestamp>,
 )
+internal_id = collector.request_id
 output = await collector.get()
 ```
 
+Pinned vLLM may append a random suffix when assigning its internal ID. The
+adapter therefore never assumes that the value passed to `add_request` is the
+EngineCore ID:
+
+- the experiment owns `logical_request_id`;
+- `external_request_id` is passed to `AsyncLLM.add_request` and is returned in
+  processed `RequestOutput.request_id`;
+- `collector.request_id` is the randomized internal ID used by EngineCore,
+  internal abort, scheduler evidence and RequestState lookup.
+
+The bidirectional mapping is established only after the collector is returned.
+Natural terminal or internal-abort evidence arriving before that binding is
+buffered by internal ID and applied after the binding. Unbound evidence is
+reported as a GPU-conformance blocker.
+
 The collector task reads only processed `RequestOutput` values. It does not read
-EngineCore output directly. The optional Core proxy wraps the existing
+EngineCore output directly. The mandatory Core proxy wraps the existing
 `engine_core.get_output_async()` call in place, records terminal evidence, and
 returns the identical object to AsyncLLM. There is still exactly one Core-output
-consumer.
+consumer. Adapter construction rejects an already-started `output_handler`, so
+the first `add_request()` starts the background handler with the proxy already
+installed.
 
 The proxy also observes `abort_requests_async()`. That observation establishes
 only `NATIVE_ABORT_DISPATCHED`. The code exposes an explicit
@@ -122,15 +149,32 @@ order and queued/scheduled timing remain separate conformance checks.
 ## 6. Failure and cleanup semantics
 
 - **OutputProcessor registration/Core submission failure:** record dispatch
-  failure, invoke internal abort rollback and require no remaining frontend
-  RequestState.
+  failure, invoke external-ID abort rollback when no internal ID was returned,
+  and require no remaining frontend RequestState.
+- **Submit cancellation:** shield rollback from caller cancellation and remove
+  the Submit task from the active set only after rollback completes.
+- **Concurrent Submit/Shutdown:** stop admission first, wait for active Submit
+  tasks, and prevent a collector task from being created after shutdown begins.
 - **Collector failure:** mark the adapter fatal, dispatch internal abort and
   reject completion polling. It is not converted into successful completion.
 - **Stop string:** observe frontend terminal and internal abort dispatch, then
   wait for explicit Native confirmation.
 - **Explicit abort:** await abort dispatch but do not infer confirmation.
-- **Shutdown:** abort every unresolved request, close collectors, cancel and join
-  collector tasks, check frontend state and report missing Native confirmation.
+- **Shutdown:** run cleanup in one shielded internal task, so cancellation of a
+  caller cannot permanently skip cleanup; a later call joins the same task.
+  Shutdown aborts unresolved requests by internal ID where available, closes
+  collectors when that optional surface exists, cancels and joins collector
+  tasks, checks frontend state and reports missing Native confirmation. Pinned
+  collectors without `close()` are released through task cancellation and
+  OutputProcessor abort cleanup.
+- **RequestState observability:** absence of an internal-ID state query is
+  reported `NOT_OBSERVABLE` and blocks GPU conformance instead of silently
+  passing cleanup.
+- **Fatal collector error:** wakes blocked completion waiters immediately rather
+  than waiting for their timeout.
+- **Abort evidence:** explicit, stop-string, dispatch rollback, collector
+  failure and shutdown paths all emit the same `NATIVE_ABORT_DISPATCHED` event
+  with source and identity-kind fields.
 - **Duplicate/unknown evidence:** fail closed.
 
 The adapter report exposes task completion, outstanding terminal facts, failure
@@ -141,23 +185,47 @@ first invocation.
 
 `tests/test_phase5_asyncllm_adapter.py` covers:
 
-1. partial and frontend-terminal outputs do not release capacity;
-2. Native terminal before or after frontend terminal;
-3. stop-string abort dispatch without acknowledgement;
-4. abort confirmation without prior abort dispatch;
-5. registration/Core submission rollback;
-6. collector/pump failure and abort cleanup;
-7. shutdown task cancellation and missing-confirmation failure;
-8. two overlapping requests with out-of-order terminal completion;
-9. separate adapter and EngineCore timing domains;
-10. pinned version and rejection of batch drain;
-11. same-stream Core proxy natural-terminal observation; and
-12. abort proxy observation without false confirmation.
+1. randomized internal ID binding to external and logical identities;
+2. processed `RequestOutput` external identity and EngineCore internal identity;
+3. an API-shaped AsyncLLM background handler capturing the preinstalled proxy;
+4. rejection when `output_handler` is already started;
+5. Core terminal evidence arriving before collector return;
+6. stop-string abort dispatch without acknowledgement;
+7. independently allowlisted abort-confirmation evidence;
+8. registration/Core submission rollback with external identity;
+9. Submit cancellation rollback;
+10. concurrent Submit and Shutdown;
+11. cancellation and subsequent rejoin of Shutdown;
+12. immediate fatal-error wakeup for a blocked completion waiter;
+13. explicit, rollback, collector-failure and shutdown Abort evidence;
+14. internal-ID RequestState checking and `NOT_OBSERVABLE` handling;
+15. separate adapter and EngineCore timing domains; and
+16. pinned version and rejection of batch drain.
 
 The Phase 5A/5B/5C contracts remain unchanged. No production eviction algorithm,
 Protocol v4, historical Cohort or sealed experiment result is modified.
 
-## 8. Multi-Program GPU Conformance fixture contract
+`scripts/spikes/audit_phase5d_vllm_identity.py` is a no-GPU pinned-runtime
+interface audit. It requires exactly vLLM 0.27.1 with request-ID randomization
+enabled, invokes the real `InputProcessor.assign_request_id()` on a probe request,
+constructs a real `RequestOutputCollector`, and verifies external/internal identity
+separation. It also hashes and checks the installed `AsyncLLM.add_request()`,
+`_run_output_handler()`, `OutputProcessor.has_request()` and abort-routing source.
+The corresponding pytest is skipped when vLLM is absent; a server-side PASS report
+is required before Phase 5E can accept a GPU Conformance plan.
+
+## 8. RC1--RC6 closure matrix
+
+| RC | Closure evidence |
+|---|---|
+| RC1 | External ID is passed to AsyncLLM; randomized internal ID is read from `collector.request_id`; Core, internal abort and RequestState paths use the internal ID; processed output uses the external ID. |
+| RC2 | Proxy installation is automatic during adapter construction and rejects non-`None` `output_handler`; the API-shaped integration test proves the background handler captures the proxy. |
+| RC3 | Active Submit tasks are tracked; cancellation uses shielded rollback; Shutdown blocks admission, joins Submit, and runs in a shielded reusable task. |
+| RC4 | Real `OutputProcessor.has_request(internal_id)` is auto-bound when present; absence is `NOT_OBSERVABLE` and blocks conformance. |
+| RC5 | Every abort path uses the unified dispatch event; collector fatal state wakes blocked completion polling immediately. |
+| RC6 | Abort confirmation is accepted only from an explicitly allowlisted independent source; the default list is empty and Abort Conformance remains `NOT_READY`. |
+
+## 9. Multi-Program GPU Conformance fixture contract
 
 A later, separately authorized fixture must reuse the Phase 5A workload seal and
 Phase 5B event-driven controller with:
@@ -176,7 +244,7 @@ The fixture remains a preparation contract, not an authorized GPU input. It must
 be sealed only after M1 approves GPU Conformance; Phase 5D does not create a
 synthetic authorization or claim a GPU result.
 
-## 9. GPU Conformance entry conditions
+## 10. GPU Conformance entry conditions
 
 GPU Conformance should be requested only after all of the following hold:
 
@@ -195,12 +263,15 @@ If condition 4 cannot be met on pinned vLLM 0.27.1, natural-completion validatio
 may still be technically testable, but stop-string/abort lifecycle conformance
 must remain `NOT_READY`; it cannot be inferred from an abort send.
 
-## 10. Remaining risks and estimate
+## 11. Remaining risks and estimate
 
 - The Core lifecycle proxy is an instance-level private integration and must be
   signature-checked against the installed 0.27.1 source before GPU use.
 - Natural Core terminal is observable from terminal Core output. Abort processing
   acknowledgement is not proven by the current public client API.
+- The adapter accepts `ABORT_CONFIRMED` only from an explicitly registered,
+  independently verified source. The default source set is empty, so stop-string
+  and explicit-abort conformance remain `NOT_READY`.
 - Actual OutputProcessor cleanup behavior after partial registration failure must
   be checked on the pinned runtime.
 - Batch timestamps are not exact per-request GPU hardware completion timestamps.
