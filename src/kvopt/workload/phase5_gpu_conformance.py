@@ -228,7 +228,7 @@ def classify_part_a_finish(
     return NaturalFinishClass.ERROR
 
 
-def _fixture_prompt_token_ids(
+def materialize_phase5e_prompt_token_ids(
     program_ordinal: int, request_ordinal: int
 ) -> tuple[int, ...]:
     """Materialize 1,984 valid-range IDs with a 1,024-token Program prefix."""
@@ -483,8 +483,8 @@ def build_phase5e_review_candidate(git_sha: str) -> Phase5GPUConformancePlan:
             request_ordinals=(1, 2),
             arrival_offsets_seconds=(0.05 * (index - 1), 2.0),
             prompt_token_ids_sha256=(
-                canonical_sha256(list(_fixture_prompt_token_ids(index, 1))),
-                canonical_sha256(list(_fixture_prompt_token_ids(index, 2))),
+                canonical_sha256(list(materialize_phase5e_prompt_token_ids(index, 1))),
+                canonical_sha256(list(materialize_phase5e_prompt_token_ids(index, 2))),
             ),
             maximum_prompt_tokens=1984,
             maximum_generation_tokens=64,
