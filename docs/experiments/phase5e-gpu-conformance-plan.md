@@ -61,11 +61,37 @@ p1:r1, p2:r1, p3:r1, p4:r1,
 p1:r2, p2:r2, p3:r2, p4:r2
 ```
 
-The Workload Seal must bind the exact prompt token IDs, Program and request
-identities, per-Program request order, arrival offsets, tie rule, expected
-enqueue order, model/tokenizer revisions, sampling parameters, pressure input,
-capacity and all referenced file SHA-256 values. Materialization must fail if a
-prompt is retokenized or any identity is absent.
+The fixture reuses Phase 5A `create_phase5_workload_seal()` and
+`validate_phase5_workload_seal()`; it does not introduce a second Seal format.
+The Seal binds the prompt-token-ID hashes, Program and request identities,
+per-Program request order, arrival offsets, tie rule and expected enqueue order.
+The Phase 5E plan then hash-binds that Seal together with the pinned
+model/tokenizer revision, sampling parameters, Engine/KV configuration and
+Pressure input. Materialization must fail if a prompt is retokenized, a binding
+is absent, or either layer's SHA-256 changes.
+
+The controlled input generator materializes all 2,048 IDs per request. The
+first 512 IDs are common to all Programs, the next 512 are Program-specific,
+and the remaining 1,024 are request-specific. Thus each Program has a frozen
+1,024-token reusable prefix while request identity remains distinct. The Seal
+stores the SHA-256 of each complete ID array. The Pressure hash is likewise
+computed from its complete deterministic 24,576-ID array rather than a label.
+
+The expected order is independently derived from
+`(arrival_offset, program_ordinal, request_ordinal)` and then compared with the
+sequence stored in the Seal. It is not accepted merely because a supplied list
+contains all eight identities.
+
+For tied arrivals, the controller performs serial dispatch initiation in the
+frozen order without awaiting request completion. A dispatch call must bind its
+external/internal identity before the controller initiates the next tied
+request. This guarantees deterministic dispatch order while still allowing the
+requests to coexist in Native inflight state. The actual EngineCore submission
+sequence remains independently gated after execution.
+
+This is a controlled Native Adapter Conformance fixture, not an acquired Agent
+Trace. Its observations cannot be generalized to Agent workload quality or
+Cost-Aware algorithm effectiveness.
 
 The fixture is non-executable until M1 approves its final sealed manifest. The
 CPU candidate in `phase5_gpu_conformance.py` intentionally sets
@@ -153,22 +179,37 @@ If any state surface is unavailable, the corresponding check is
 ## 7. Pressure and candidate-exposure acceptance
 
 The fixture uses one frozen `LIVE_STATE` boundary named
-`phase5e-pressure-01`. Its exact expected inflight identity set and logical
-position are sealed before execution. The pressure input requests 128 blocks
-against a 2,048-block pool; token IDs and required-block count are immutable.
+`phase5e-pressure-01`. It fires after `p4:r1` has a verified Native submission
+and before dispatch initiation for `p1:r2`. Its complete expected inflight set
+is exactly:
+
+```text
+p1:r1, p2:r1, p3:r1, p4:r1
+```
+
+The controller set and a snapshot from the same Native EngineCore instance must
+both equal this set. Merely having four outstanding client coroutines is not
+sufficient.
+
+The controlled Pressure input contains 24,576 explicit token IDs, has a frozen
+token-ID SHA-256 and requests 1,536 16-token blocks against the 2,048-block
+pool. Boundary position, token hash, token count and required-block count are
+immutable.
 
 The boundary passes only if:
 
-1. controller and Native snapshots equal the sealed inflight set;
-2. the pressure-completed event is present exactly once;
-3. at least one forced Entry Release decision is emitted;
-4. every Decision has exactly one Binding, at most one Selection Plan and at
+1. trigger-after and trigger-before landmarks match the sealed first/second
+   request-wave boundary;
+2. controller and Native snapshots equal the sealed inflight set;
+3. the pressure-completed event is present exactly once;
+4. at least one forced Entry Release decision is emitted;
+5. every Decision has exactly one Binding, at most one Selection Plan and at
    most one Physical Outcome;
-5. candidate scores are finite and invalid scores are not counted as scored;
-6. legal, multi-candidate and successfully scored candidate counts are
+6. candidate scores are finite and invalid scores are not counted as scored;
+7. legal, multi-candidate and successfully scored candidate counts are
    reported independently;
-7. Selection Plan block identities are unique; and
-8. every attributed physical victim belongs to the plan and has unambiguous
+8. Selection Plan block identities are unique; and
+9. every attributed physical victim belongs to the plan and has unambiguous
    block/content identity.
 
 The primary exposure outputs are descriptive counts:
@@ -199,9 +240,15 @@ Target environment:
 | KV pool | 2,048 blocks |
 | Block size | 16 tokens |
 | Max model context | 32,768 tokens |
-| Max Native inflight | 4 |
+| Request prompt limit | 2,048 tokens each |
+| Request generation limit | 64 tokens each |
+| Engine `max_num_seqs` | 4 |
+| Adapter Native-inflight capacity | 4 |
+| Pressure prompt | 24,576 explicit tokens / 1,536 blocks |
+| Bounded pressure reserve | 128 blocks |
 | Run timeout | 600 seconds |
-| Termination grace | 60 seconds |
+| Shutdown grace | 60 seconds |
+| Resource reservation | 1,800 seconds |
 | Authorized GPU runs | 0 at Phase 5E plan-review time |
 
 For the Qwen2.5-Coder 1.5B configuration (28 layers, two KV heads, 128 head
@@ -212,10 +259,21 @@ fragmentation are expected to dominate the remaining allocation. A preflight
 must demonstrate at least 2 GiB free after engine initialization and before
 fixture submission; this estimate is not a substitute for observed allocation.
 
+The static worst-case first-wave request footprint is
+`4 × (ceil(2048/16) + ceil(64/16)) = 528` blocks. Adding the 1,536-block
+Pressure request produces 2,064 blocks of demand: 16 blocks above the frozen
+2,048-block pool, but within the 128-block bounded pressure reserve. Thus the
+configuration has a static eviction opportunity without permitting unbounded
+oversubscription. GPU preflight must still verify the actual BlockPool capacity,
+free-block count before the boundary, required allocation, and that the
+pressure action reaches Native allocation. If runtime geometry does not match,
+the run fails closed; parameters are not adjusted in place.
+
 Expected wall time is under five minutes after model initialization, with a
-ten-minute hard timeout. The complete resource reservation request should be
-one RTX 4090 D for at most 30 minutes, including environment validation,
-initialization, the single bounded run and archival. No extra smoke is included.
+ten-minute run timeout and a separate 60-second shutdown grace. These execution
+bounds are distinct from the 30-minute GPU reservation window, which also
+covers environment validation, initialization, evaluation and archival. No
+extra smoke is included.
 
 ## 9. Preflight and execution flow
 
@@ -224,10 +282,13 @@ If separately authorized, the runner must execute this sequence:
 1. verify clean Git HEAD and approved authorization binding;
 2. verify GPU UUID/model, no active compute process, driver, vLLM, PyTorch,
    CUDA and cached model revision;
-3. verify Workload Seal, plan, config and input hashes;
+3. verify the reused Phase 5A Workload Seal, plan, model/tokenizer revision,
+   sampling, Engine/KV configuration, Pressure input and all hashes;
 4. verify output root does not exist and create it with exclusive semantics;
-5. initialize one AsyncLLM instance and install the lifecycle proxy before the
-   output handler starts;
+5. initialize one AsyncLLM instance with `max_num_seqs=4`, install the lifecycle
+   proxy before the output handler starts, and prove the Adapter observer,
+   Scheduler instrumentation and KV/BlockPool instrumentation reference the
+   same EngineCore instance;
 6. execute exactly `P5E-A-01` under the bounded parent;
 7. run enqueue, lifecycle, concurrency, pressure, exposure and cleanup gates;
 8. write the execution envelope and immutable evidence archive; and
@@ -241,12 +302,12 @@ fixture change requires a new authorization and a new run identity.
 
 | Gate | PASS condition |
 |---|---|
-| P5E-G0 Freeze | approved HEAD, seal, plan, config, inputs, environment and run ID all hash-bound |
-| P5E-G1 Arrival | every dispatch respects frozen arrival; tie rule and per-Program order preserved |
+| P5E-G0 Freeze | approved HEAD, reused Phase 5A Seal, model/tokenizer, sampling, Engine/KV, Pressure, environment and run ID all hash-bound |
+| P5E-G1 Arrival | order independently derived; every dispatch respects frozen arrival; serial tied-dispatch rule and per-Program order preserved |
 | P5E-G2 Enqueue | complete actual Native enqueue sequence exactly equals the seal |
 | P5E-G3 Concurrency | peak Native inflight >=2 and later Native submission precedes earlier natural terminal |
 | P5E-G4 Lifecycle | all eight requests have independent frontend and natural Native terminal evidence |
-| P5E-G5 Pressure | exact live-state boundary and one completed pressure action |
+| P5E-G5 Pressure | exact first-wave live-state set, same-Engine snapshot, 1,536-block action and observable Native allocation pressure |
 | P5E-G6 Exposure | unique, finite and identity-consistent candidate/plan/outcome evidence |
 | P5E-G7 Cleanup | zero observable RequestState, collector, adapter and Engine leftovers |
 | P5E-G8 Archive | envelope, events, reports and manifest verify against archive SHA-256 |
@@ -288,24 +349,50 @@ and never modify the run directory.
 | Cleanup surface unavailable | `NOT_OBSERVABLE`, fail P5E-G7 |
 | OOM/runtime failure | bounded stop, immutable archive, no automatic retry |
 
+Part A finish reasons are frozen as follows:
+
+- EOS or stop-token natural EngineCore completion: PASS category
+  `EOS_OR_STOP_TOKEN`;
+- generation-limit completion: PASS category `LENGTH`, reported separately;
+- frontend Stop String path: `ABORT`, excluded from Part A success;
+- explicit abort: `ABORT`, excluded from Part A success;
+- dispatch, model, collector or Engine error: `ERROR`, fail closed.
+
+Sampling is frozen at temperature 0, `max_tokens=64`, no frontend stop strings,
+and `include_stop_str_in_output=false`. Part A reports EOS/STOP-token and LENGTH
+counts separately even though both are accepted natural EngineCore terminals.
+
 ## 13. CPU-only preparation result
 
 `src/kvopt/workload/phase5_gpu_conformance.py` provides a non-executable plan
 contract. It enforces:
 
-- exactly four Programs and globally unique requests;
-- complete frozen enqueue coverage;
-- at least one Frozen Arrival tie and the approved deterministic tie rule;
-- Native capacity of at least two;
-- pinned RTX 4090 D / vLLM 0.27.1 resource identity;
-- Natural Completion readiness separated from Abort readiness;
-- an independent confirmation source before Abort can become ready; and
+- exactly four Programs, two requests each and globally unique identities;
+- enqueue order independently derived from arrival and ordinal fields;
+- complete frozen enqueue coverage and serial tied-dispatch semantics;
+- reuse and validation of the Phase 5A Workload Seal;
+- Prompt, sampling, Engine/KV and Pressure SHA-256 bindings;
+- exact Pressure trigger position and first-wave Native inflight set;
+- bounded static KV oversubscription with Engine/Adapter capacity equality;
+- explicit Natural finish-reason classification; and
+- Abort Conformance fixed to `NOT_READY`; and
 - `execution_authorized=false` at this stage.
 
-CPU tests cover the valid candidate and negative cases for Program count,
-arrival ties, enqueue coverage, abort evidence and self-authorization.
+CPU tests cover the valid candidate and negative cases for request count,
+derived enqueue order, Seal/hash drift, Pressure boundary/inflight mismatch,
+non-pressure and unsafe KV budgets, Engine/Adapter capacity mismatch, Abort
+readiness, finish-reason classification and self-authorization.
 
-## 14. Stage conclusion
+## 14. M1/M4 closure matrix
+
+| Review group | Closure |
+|---|---|
+| F1/F2/F8 -- frozen inputs and order | Exactly 4x2 requests; order derived from arrival/program/request ordinals; serial tied dispatch; reused Phase 5A Seal plus model/tokenizer/sampling/Engine/Pressure hashes. |
+| F3/F4/F5 -- Pressure and resources | Boundary fixed between first and second waves; complete first-wave inflight set; 24,576 pressure tokens / 1,536 blocks; 2,048-block pool; `max_num_seqs=4`; Adapter capacity 4; static 16-block oversubscription within 128-block reserve; dynamic GPU gates retained. |
+| F6/F7 -- terminal and Abort boundary | EOS/STOP-token and LENGTH accepted but separately reported; Stop String, explicit abort and error excluded; sampling frozen; Part B structurally fixed to `NOT_READY`. |
+| N1--N5 related items | same-EngineCore observer/scheduler/KV preflight; run timeout, shutdown grace and reservation separated; controlled fixture explicitly not an Agent Trace or effect result; negative tests added. |
+
+## 15. Stage conclusion
 
 ```text
 PHASE5E_GPU_CONFORMANCE_PLAN = READY_FOR_M1_M4_REVIEW
