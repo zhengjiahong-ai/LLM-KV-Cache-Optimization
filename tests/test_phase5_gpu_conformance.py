@@ -28,14 +28,20 @@ def test_phase5e_candidate_freezes_fixture_seal_pressure_and_budget() -> None:
         "p4:r1",
     )
     assert plan.pressure.expected_inflight_request_ids == (
-        "p1:r1",
-        "p2:r1",
-        "p3:r1",
-        "p4:r1",
+        "p1:r2",
+        "p2:r2",
+        "p3:r2",
+        "p4:r2",
     )
     assert plan.resource_budget.engine_max_num_seqs == 4
     assert plan.resource_budget.adapter_maximum_native_inflight == 4
     assert plan.pressure.required_blocks == 1536
+    boundary = plan.pressure.to_native_boundary(
+        plan.resource_budget.block_size_tokens
+    )
+    assert boundary.allocation_request.required_blocks == 1536
+    assert len(boundary.allocation_request.pressure_token_ids) == 24576
+    assert boundary.expected_inflight_request_ids == plan.pressure.expected_inflight_request_ids
     assert plan.execution_authorized is False
     assert plan.abort_readiness is Readiness.NOT_READY
     assert len(plan.sha256) == 64
@@ -72,12 +78,12 @@ def test_phase5e_rejects_missing_or_inconsistent_workload_seal() -> None:
 def test_phase5e_rejects_pressure_boundary_position_and_inflight_set() -> None:
     plan = _plan()
 
-    with pytest.raises(ValueError, match="first four submissions"):
+    with pytest.raises(ValueError, match="all eight submissions"):
         replace(
             plan,
             pressure=replace(
                 plan.pressure,
-                trigger_after_native_submission_request_id="p3:r1",
+                trigger_after_native_submission_request_id="p3:r2",
             ),
         )
     with pytest.raises(ValueError, match="inflight set"):
@@ -85,7 +91,7 @@ def test_phase5e_rejects_pressure_boundary_position_and_inflight_set() -> None:
             plan,
             pressure=replace(
                 plan.pressure,
-                expected_inflight_request_ids=("p1:r1", "p2:r1"),
+                expected_inflight_request_ids=("p1:r2", "p2:r2"),
             ),
         )
 
@@ -96,8 +102,11 @@ def test_phase5e_rejects_pressure_hash_and_non_pressure_budget() -> None:
     with pytest.raises(ValueError, match="pressure input hash mismatch"):
         replace(plan, pressure_input_sha256="0" * 64)
 
+    tiny_ids = tuple(range(16))
     pressure = replace(
         plan.pressure,
+        pressure_prompt_token_ids=tiny_ids,
+        pressure_prompt_token_ids_sha256=canonical_sha256(list(tiny_ids)),
         pressure_prompt_tokens=16,
         required_blocks=1,
     )
@@ -108,8 +117,11 @@ def test_phase5e_rejects_pressure_hash_and_non_pressure_budget() -> None:
             pressure_input_sha256=canonical_sha256(asdict(pressure)),
         )
 
+    unsafe_ids = tuple(20000 + index % 8192 for index in range(28800))
     unsafe = replace(
         plan.pressure,
+        pressure_prompt_token_ids=unsafe_ids,
+        pressure_prompt_token_ids_sha256=canonical_sha256(list(unsafe_ids)),
         pressure_prompt_tokens=28800,
         required_blocks=1800,
     )

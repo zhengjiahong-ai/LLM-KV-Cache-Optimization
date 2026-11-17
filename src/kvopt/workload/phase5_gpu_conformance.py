@@ -12,6 +12,11 @@ from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from enum import StrEnum
 
+from .phase5_native_async import (
+    NativePressureAllocationRequest,
+    PressureBoundary,
+    PressureContract,
+)
 from .phase5_replay import (
     EventKind,
     NSessionReplayPlan,
@@ -80,16 +85,24 @@ class ProgramFixture:
 @dataclass(frozen=True, slots=True)
 class PressureFixture:
     boundary_id: str
+    logical_trigger_offset_seconds: float
     trigger_after_native_submission_request_id: str
     trigger_before_request_id: str
     expected_inflight_request_ids: tuple[str, ...]
+    pressure_prompt_token_ids: tuple[int, ...]
     pressure_prompt_token_ids_sha256: str
     pressure_prompt_tokens: int
     required_blocks: int
+    expected_free_blocks_before: int
 
     def __post_init__(self) -> None:
         if not self.boundary_id:
             raise ValueError("pressure boundary identity is required")
+        if (
+            not math.isfinite(self.logical_trigger_offset_seconds)
+            or self.logical_trigger_offset_seconds < 0
+        ):
+            raise ValueError("pressure logical trigger must be finite and non-negative")
         if not self.trigger_after_native_submission_request_id:
             raise ValueError("pressure trigger-after identity is required")
         if not self.trigger_before_request_id:
@@ -99,8 +112,37 @@ class PressureFixture:
         ) != len(self.expected_inflight_request_ids):
             raise ValueError("pressure inflight identities must be non-empty and unique")
         _sha(self.pressure_prompt_token_ids_sha256, "pressure token identity")
-        if self.pressure_prompt_tokens <= 0 or self.required_blocks <= 0:
+        if canonical_sha256(list(self.pressure_prompt_token_ids)) != (
+            self.pressure_prompt_token_ids_sha256
+        ):
+            raise ValueError("pressure token identity does not bind the full input")
+        if (
+            self.pressure_prompt_tokens <= 0
+            or self.required_blocks <= 0
+            or self.expected_free_blocks_before <= 0
+        ):
             raise ValueError("pressure token and block counts must be positive")
+        if len(self.pressure_prompt_token_ids) != self.pressure_prompt_tokens:
+            raise ValueError("pressure token input length changed")
+
+    def to_native_allocation_request(self, block_size_tokens: int) -> NativePressureAllocationRequest:
+        return NativePressureAllocationRequest(
+            boundary_id=self.boundary_id,
+            pressure_token_ids=self.pressure_prompt_token_ids,
+            pressure_token_ids_sha256=self.pressure_prompt_token_ids_sha256,
+            block_size_tokens=block_size_tokens,
+            required_blocks=self.required_blocks,
+            expected_free_blocks_before=self.expected_free_blocks_before,
+        )
+
+    def to_native_boundary(self, block_size_tokens: int) -> PressureBoundary:
+        return PressureBoundary(
+            boundary_id=self.boundary_id,
+            logical_timestamp=self.logical_trigger_offset_seconds,
+            contract=PressureContract.LIVE_STATE,
+            allocation_request=self.to_native_allocation_request(block_size_tokens),
+            expected_inflight_request_ids=self.expected_inflight_request_ids,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -189,7 +231,7 @@ def classify_part_a_finish(
 def _fixture_prompt_token_ids(
     program_ordinal: int, request_ordinal: int
 ) -> tuple[int, ...]:
-    """Materialize 2,048 valid-range IDs with a 1,024-token Program prefix."""
+    """Materialize 1,984 valid-range IDs with a 1,024-token Program prefix."""
 
     common = tuple(1000 + index % 97 for index in range(512))
     program = tuple(
@@ -200,7 +242,7 @@ def _fixture_prompt_token_ids(
         + program_ordinal * 2048
         + request_ordinal * 1024
         + index % 509
-        for index in range(1024)
+        for index in range(960)
     )
     return common + program + request
 
@@ -288,12 +330,16 @@ class Phase5GPUConformancePlan:
             raise ValueError("GPU conformance is pinned to vLLM 0.27.1")
 
         pressure = self.pressure
-        if pressure.trigger_after_native_submission_request_id != derived[3]:
-            raise ValueError("pressure must trigger after the first four submissions")
-        if pressure.trigger_before_request_id != derived[4]:
-            raise ValueError("pressure must trigger before the second request wave")
-        if pressure.expected_inflight_request_ids != derived[:4]:
-            raise ValueError("pressure expected inflight set must equal the first wave")
+        if pressure.trigger_after_native_submission_request_id != derived[7]:
+            raise ValueError("pressure must trigger after all eight submissions")
+        if pressure.trigger_before_request_id != "NO_FURTHER_BUSINESS_REQUEST":
+            raise ValueError("pressure cannot introduce a ninth business request")
+        if pressure.expected_inflight_request_ids != derived[4:]:
+            raise ValueError("pressure expected inflight set must equal the second wave")
+        if pressure.logical_trigger_offset_seconds <= max(
+            program.arrival_offsets_seconds[1] for program in self.programs
+        ):
+            raise ValueError("pressure must occur after second-wave dispatch")
         if pressure.pressure_prompt_tokens != (
             pressure.required_blocks * self.resource_budget.block_size_tokens
         ):
@@ -313,12 +359,14 @@ class Phase5GPUConformancePlan:
             max_generation / self.resource_budget.block_size_tokens
         )
         active_upper = self.resource_budget.engine_max_num_seqs * blocks_per_request
-        oversubscription = active_upper + pressure.required_blocks - (
-            self.resource_budget.kv_pool_blocks
-        )
+        expected_free = self.resource_budget.kv_pool_blocks - active_upper
+        if pressure.expected_free_blocks_before != expected_free:
+            raise ValueError("frozen free-block geometry differs from request budget")
+        allocation_demand = active_upper + pressure.required_blocks
+        oversubscription = allocation_demand - self.resource_budget.kv_pool_blocks
         if active_upper >= self.resource_budget.kv_pool_blocks:
             raise ValueError("active request upper bound leaves no safe KV capacity")
-        if oversubscription <= 0:
+        if allocation_demand < self.resource_budget.kv_pool_blocks:
             raise ValueError("static KV budget cannot create observable pressure")
         if oversubscription > self.resource_budget.pressure_reserve_blocks:
             raise ValueError("static KV pressure exceeds the bounded reserve")
@@ -433,12 +481,12 @@ def build_phase5e_review_candidate(git_sha: str) -> Phase5GPUConformancePlan:
             program_ordinal=index,
             request_ids=(f"p{index}:r1", f"p{index}:r2"),
             request_ordinals=(1, 2),
-            arrival_offsets_seconds=(0.0 if index <= 2 else 0.05 * (index - 2), 0.4),
+            arrival_offsets_seconds=(0.05 * (index - 1), 2.0),
             prompt_token_ids_sha256=(
                 canonical_sha256(list(_fixture_prompt_token_ids(index, 1))),
                 canonical_sha256(list(_fixture_prompt_token_ids(index, 2))),
             ),
-            maximum_prompt_tokens=2048,
+            maximum_prompt_tokens=1984,
             maximum_generation_tokens=64,
         )
         for index in range(1, 5)
@@ -451,16 +499,20 @@ def build_phase5e_review_candidate(git_sha: str) -> Phase5GPUConformancePlan:
         "stop": [],
         "include_stop_str_in_output": False,
     }
+    pressure_ids = _pressure_token_ids()
     pressure = PressureFixture(
         boundary_id="phase5e-pressure-01",
-        trigger_after_native_submission_request_id="p4:r1",
-        trigger_before_request_id="p1:r2",
-        expected_inflight_request_ids=order[:4],
+        logical_trigger_offset_seconds=2.001,
+        trigger_after_native_submission_request_id="p4:r2",
+        trigger_before_request_id="NO_FURTHER_BUSINESS_REQUEST",
+        expected_inflight_request_ids=order[4:],
+        pressure_prompt_token_ids=pressure_ids,
         pressure_prompt_token_ids_sha256=canonical_sha256(
-            list(_pressure_token_ids())
+            list(pressure_ids)
         ),
         pressure_prompt_tokens=24576,
         required_blocks=1536,
+        expected_free_blocks_before=1536,
     )
     return Phase5GPUConformancePlan(
         git_sha=git_sha,

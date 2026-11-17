@@ -7,6 +7,7 @@ import pytest
 from kvopt.workload.phase2 import PlannedRequest
 from kvopt.workload.phase2b_fidelity_runner import RequestCompletion, RequestHandle
 from kvopt.workload.phase5_native_async import (
+    NativePressureAllocationRequest,
     Phase5NativeExecutionError,
     PressureBoundary,
     PressureContract,
@@ -14,10 +15,45 @@ from kvopt.workload.phase5_native_async import (
     execute_phase5_native_plan,
 )
 from kvopt.workload.phase5_replay import (
+    canonical_sha256,
     create_phase5_workload_seal,
     fixed_arrival_plan,
     materialize_n_session_plan,
 )
+
+
+def _pressure_input(boundary_id: str) -> NativePressureAllocationRequest:
+    token_ids = tuple(range(16))
+    return NativePressureAllocationRequest(
+        boundary_id=boundary_id,
+        pressure_token_ids=token_ids,
+        pressure_token_ids_sha256=canonical_sha256(list(token_ids)),
+        block_size_tokens=16,
+        required_blocks=1,
+        expected_free_blocks_before=10,
+    )
+
+
+def test_native_pressure_input_rejects_hash_or_geometry_drift() -> None:
+    token_ids = tuple(range(16))
+    with pytest.raises(ValueError, match="hash mismatch"):
+        NativePressureAllocationRequest(
+            boundary_id="pressure:bad-hash",
+            pressure_token_ids=token_ids,
+            pressure_token_ids_sha256="0" * 64,
+            block_size_tokens=16,
+            required_blocks=1,
+            expected_free_blocks_before=10,
+        )
+    with pytest.raises(ValueError, match="do not match required blocks"):
+        NativePressureAllocationRequest(
+            boundary_id="pressure:bad-geometry",
+            pressure_token_ids=token_ids,
+            pressure_token_ids_sha256=canonical_sha256(list(token_ids)),
+            block_size_tokens=16,
+            required_blocks=2,
+            expected_free_blocks_before=10,
+        )
 
 
 def _fixture(program_count: int = 4):
@@ -118,12 +154,24 @@ class _MockBackend:
         assert request_id in self.completed
         self.finished.append(request_id)
 
-    def execute_pressure(self, boundary_id: str) -> PressureExecutionEvidence:
-        self.pressure.append(boundary_id)
+    def execute_pressure(
+        self, request: NativePressureAllocationRequest
+    ) -> PressureExecutionEvidence:
+        self.pressure.append(request.boundary_id)
         return PressureExecutionEvidence(
-            boundary_id,
+            request.boundary_id,
             1.5,
             tuple(sorted(self.pending)),
+            request.pressure_token_ids_sha256,
+            request.required_blocks,
+            (99,),
+            10,
+            9,
+            10,
+            "PINNED_BLOCK_POOL_GET_NEW_BLOCKS",
+            True,
+            ("decision-1",),
+            (42,),
         )
 
     def native_events(self):
@@ -170,6 +218,7 @@ def test_live_pressure_binds_exact_inflight_set_without_drain() -> None:
                 "pressure:live-1",
                 1.0,
                 PressureContract.LIVE_STATE,
+                _pressure_input("pressure:live-1"),
                 tuple(order),
             ),
         ),
@@ -195,6 +244,7 @@ def test_live_pressure_rejects_wrong_inflight_contract() -> None:
                     "pressure:wrong",
                     1.0,
                     PressureContract.LIVE_STATE,
+                    _pressure_input("pressure:wrong"),
                     (replay.expected_native_enqueue_order[0],),
                 ),
             ),

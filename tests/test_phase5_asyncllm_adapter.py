@@ -12,8 +12,11 @@ from kvopt.workload.phase5_asyncllm_adapter import (
     AsyncLLMRequestSpec,
     NativeTerminalKind,
     PinnedEngineCoreLifecycleProxy,
+    PinnedNativeBlockPoolPressureExecutor,
     validate_pinned_asyncllm,
 )
+from kvopt.workload.phase5_native_async import NativePressureAllocationRequest
+from kvopt.workload.phase5_replay import canonical_sha256
 
 
 @dataclass(frozen=True)
@@ -66,6 +69,47 @@ class _CoreClient:
             (request_ids,) if isinstance(request_ids, str) else tuple(request_ids)
         )
         self.aborts.append(identities)
+
+
+@dataclass
+class _Block:
+    block_id: int
+
+
+class _BlockPool:
+    def __init__(self, count: int = 8) -> None:
+        self.free = [_Block(index) for index in range(count)]
+        self.allocations: list[int] = []
+
+    def get_num_free_blocks(self) -> int:
+        return len(self.free)
+
+    def get_new_blocks(self, num_blocks: int) -> list[object]:
+        self.allocations.append(num_blocks)
+        rows = self.free[:num_blocks]
+        self.free = self.free[num_blocks:]
+        return list(rows)
+
+    def free_blocks(self, ordered_blocks: list[object]) -> None:
+        self.free.extend(ordered_blocks)  # type: ignore[arg-type]
+
+
+class _NativeCore:
+    def __init__(self, block_pool: _BlockPool) -> None:
+        manager = type("KVCacheManagerView", (), {"block_pool": block_pool})()
+        self.scheduler = type("SchedulerView", (), {"kv_cache_manager": manager})()
+
+
+def _native_pressure(boundary_id: str = "pressure-1") -> NativePressureAllocationRequest:
+    token_ids = tuple(range(32))
+    return NativePressureAllocationRequest(
+        boundary_id=boundary_id,
+        pressure_token_ids=token_ids,
+        pressure_token_ids_sha256=canonical_sha256(list(token_ids)),
+        block_size_tokens=16,
+        required_blocks=2,
+        expected_free_blocks_before=8,
+    )
 
 
 class _AsyncLLM:
@@ -624,3 +668,123 @@ def test_version_surface_and_batch_drain_are_pinned() -> None:
     engine.wait_for_completion = object()  # type: ignore[attr-defined]
     with pytest.raises(AsyncLLMAdapterError, match="prohibited"):
         validate_pinned_asyncllm(engine, vllm_version=PINNED_VLLM_VERSION)
+
+
+def test_native_pressure_uses_real_block_pool_allocation_and_releases() -> None:
+    pool = _BlockPool()
+    core = _NativeCore(pool)
+    executor = PinnedNativeBlockPoolPressureExecutor(
+        block_pool=pool,
+        adapter_engine_core=core,
+        scheduler_engine_core=core,
+        kv_instrumentation_engine_core=core,
+        evidence_reader=lambda boundary_id, block_ids: {
+            "forced_release_decision_ids": [f"decision:{boundary_id}"],
+            "native_evicted_block_ids": list(block_ids),
+        },
+        clock=lambda: 12.0,
+    )
+
+    result = executor.execute(
+        _native_pressure(),
+        expected_inflight_request_ids=("r1", "r2"),
+        actual_inflight_request_ids=("r1", "r2"),
+    )
+
+    assert pool.allocations == [2]
+    assert result.allocated_block_ids == (0, 1)
+    assert result.free_blocks_before == result.free_blocks_after_release == 8
+    assert result.allocation_source == "PINNED_BLOCK_POOL_GET_NEW_BLOCKS"
+
+
+def test_native_pressure_rejects_engine_identity_or_missing_evidence() -> None:
+    pool = _BlockPool()
+    core = _NativeCore(pool)
+    with pytest.raises(AsyncLLMAdapterError, match="EngineCore differ"):
+        PinnedNativeBlockPoolPressureExecutor(
+            block_pool=pool,
+            adapter_engine_core=core,
+            scheduler_engine_core=object(),
+            kv_instrumentation_engine_core=core,
+            evidence_reader=lambda _boundary, _blocks: {},
+        ).execute(
+            _native_pressure(),
+            expected_inflight_request_ids=("r1",),
+            actual_inflight_request_ids=("r1",),
+        )
+
+    with pytest.raises(AsyncLLMAdapterError, match="not owned"):
+        PinnedNativeBlockPoolPressureExecutor(
+            block_pool=_BlockPool(),
+            adapter_engine_core=core,
+            scheduler_engine_core=core,
+            kv_instrumentation_engine_core=core,
+            evidence_reader=lambda _boundary, _blocks: {},
+        ).execute(
+            _native_pressure(),
+            expected_inflight_request_ids=("r1",),
+            actual_inflight_request_ids=("r1",),
+        )
+
+    executor = PinnedNativeBlockPoolPressureExecutor(
+        block_pool=pool,
+        adapter_engine_core=core,
+        scheduler_engine_core=core,
+        kv_instrumentation_engine_core=core,
+        evidence_reader=lambda _boundary, _blocks: {
+            "forced_release_decision_ids": [],
+            "native_evicted_block_ids": [],
+        },
+    )
+    with pytest.raises(ValueError, match="Forced Entry Release"):
+        executor.execute(
+            _native_pressure(),
+            expected_inflight_request_ids=("r1",),
+            actual_inflight_request_ids=("r1",),
+        )
+
+
+def test_asyncllm_adapter_routes_pressure_to_bound_native_executor() -> None:
+    async def scenario() -> None:
+        engine = _AsyncLLM()
+        pool = _BlockPool()
+        core = engine.engine_core
+        manager = type("KVCacheManagerView", (), {"block_pool": pool})()
+        core.scheduler = type(  # type: ignore[attr-defined]
+            "SchedulerView", (), {"kv_cache_manager": manager}
+        )()
+        executor = PinnedNativeBlockPoolPressureExecutor(
+            block_pool=pool,
+            adapter_engine_core=core,
+            scheduler_engine_core=core,
+            kv_instrumentation_engine_core=core,
+            evidence_reader=lambda boundary_id, block_ids: {
+                "forced_release_decision_ids": [f"decision:{boundary_id}"],
+                "native_evicted_block_ids": list(block_ids),
+            },
+            clock=lambda: 15.0,
+        )
+        adapter = AsyncLLMNativeAdapter(
+            engine=engine,
+            vllm_version=PINNED_VLLM_VERSION,
+            run_epoch_monotonic=100.0,
+            clock=_Clock(),
+            frontend_has_internal_request=lambda request_id: (
+                request_id in engine.frontend_internal_ids
+            ),
+            native_pressure_executor=executor,
+        )
+        await adapter.submit(_spec())
+        result = await adapter.execute_native_pressure(
+            _native_pressure(),
+            expected_inflight_request_ids=("r1",),
+        )
+        assert result.required_blocks == 2
+        assert any(
+            event["kind"] == "NATIVE_PRESSURE_ALLOCATED"
+            for event in adapter.report()["events"]
+        )
+        await adapter.shutdown(require_native_confirmation=False)
+        await engine.close()
+
+    asyncio.run(scenario())
