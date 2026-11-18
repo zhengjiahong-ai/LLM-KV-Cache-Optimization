@@ -1,0 +1,223 @@
+{
+  "schema_version": "phase5.calibration_sample_size.v1",
+  "protocol_id": "phase5-formal-six-system-trace-replay-v1",
+  "status": "DESIGN_ONLY_CALIBRATION_NOT_EXECUTED",
+  "calibration": {
+    "purpose": "estimate Group-level paired-difference variance and within-Group repeat noise; never estimate the formal treatment effect",
+    "groups_per_stratum": 4,
+    "strata": 2,
+    "systems": 6,
+    "repeats": 3,
+    "runs_total": 144,
+    "disjoint_from_formal": true,
+    "reuse_as_formal_evidence": false,
+    "selection": "PRE_REGISTERED_BEFORE_OUTCOMES"
+  },
+  "variance_model": {
+    "group_level_random_effect": "b_g",
+    "repeat_noise": "epsilon_g_r",
+    "model": "d_{g,r,s} = mu + tau_s + b_{g(s)} + epsilon_{g,r,s}",
+    "between_group_variance": "sigma_between^2",
+    "within_group_repeat_variance": "sigma_repeat^2",
+    "calibration_group_level_estimate": "mean over repeats of d_g_r",
+    "formal_group_mean_variance": "sigma_between^2 + sigma_repeat^2 / formal_repeats",
+    "estimator": "method_of_moments_mixed_model",
+    "pooling_rule": "FIXED_COMMON_MIXED_MODEL_WITH_STRATUM_FIXED_EFFECT_NO_HOMOGENEITY_TEST",
+    "pooled_calibration_groups": 8,
+    "pooled_df": 7,
+    "per_stratum_df": 3,
+    "low_df_warning": "Per-stratum variance with 4 Groups has df=3; the common model has df=7. Report uncertainty and use the fixed pre-registered upper-bound sizing rule; never choose pooling by a pre-test.",
+    "contrast_covariance": "8x8 covariance of the eight pre-registered contrasts; PSD projection; candidate sizing uses the maximum upper-bound variance among the six candidate contrasts",
+    "no_repeat_as_independent_group": true,
+    "homogeneity_test": false,
+    "stratum_variance_handling": "STRATUM_FIXED_EFFECT_COMMON_VARIANCE_PLUS_STRATUM_UPPER_BOUND_FOR_SIZING",
+    "sizing_variance_rule": "MAX_OF_COMMON_AND_STRATUM_ONE_SIDED_80PCT_UPPER_BOUND",
+    "negative_variance": "TRUNCATE_POINT_AT_ZERO_AND_USE_BOOTSTRAP_UPPER_BOUND",
+    "small_sample_rule": "DF3_PER_STRATUM_DF7_POOLED_NONCENTRAL_T",
+    "contrast_covariance_size": 8
+  },
+  "mde": {
+    "absolute_min_tokens": 512,
+    "relative_fraction_of_native_group_mean": 0.05,
+    "rule": "max(512, 0.05 * calibration_native_group_mean_recomputed_tokens)",
+    "pre_registration_order": [
+      "FREEZE_FORMULA_AND_FLOOR_BEFORE_CALIBRATION",
+      "COMPUTE_MDE_VALUE_FROM_CALIBRATION_NATIVE_GROUP_MEAN",
+      "FREEZE_MDE_VALUE_BEFORE_FORMAL"
+    ],
+    "mde_value_status": "NOT_COMPUTED_UNTIL_CALIBRATION"
+  },
+  "power": {
+    "alpha_family": 0.05,
+    "two_sided": true,
+    "power": 0.8,
+    "primary_contrasts": 6,
+    "strata": 2,
+    "multiplicity_family": "SIX_CANDIDATE_CONTRASTS_PER_STRATUM",
+    "family_size": 6,
+    "multiplicity": "HOLM_WITHIN_EACH_FAMILY_PER_STRATUM",
+    "initial_conservative_alpha_per_test": 0.008333333333333333,
+    "system_context_family": "NATIVE_vs_A0_AND_OFFICIAL_vs_A0_PER_STRATUM"
+  },
+  "sample_size_formula": {
+    "distribution": "NONCENTRAL_T_ITERATIVE",
+    "not_z_approximation": true,
+    "formula": "solve n such that power(n, alpha_per_test, sigma_d, MDE) >= 0.80 using noncentral t with df=n-1",
+    "sigma_estimator": "FORMAL_GROUP_MEAN_VARIANCE_FROM_CALIBRATION_MIXED_MODEL",
+    "alpha_per_test": 0.008333333333333333,
+    "minimum_per_stratum": 8,
+    "maximum_per_stratum": 16,
+    "formula_result_below_min": "USE_MINIMUM_8_AND_REPORT_VARIANCE_UNCERTAINTY",
+    "if_budget_cannot_support_minimum": "NOT_FEASIBLE",
+    "if_required_above_max": "STOP_OR_M1_ACCEPTS_UNDERPOWERED",
+    "final_rule": "N = clamp(ceil(n_required), 8, 16) per stratum; no value below 8",
+    "no_optional_stopping": true,
+    "no_mid_campaign_extension": true,
+    "no_mid_campaign_reduction": true,
+    "contrast_family": "A1_vs_A0,A3_vs_A0,DVA_vs_A0,A3_vs_A1,DVA_vs_A1,DVA_vs_A3",
+    "system_context_separate": true
+  },
+  "formal_runs": {
+    "strata": 2,
+    "systems": 6,
+    "repeats": 2,
+    "groups_formula": "2 * N",
+    "runs_formula": "2 * N * 6 * 2",
+    "runs_at_min": 192,
+    "runs_at_target": 288,
+    "runs_at_max": 384,
+    "total_campaign_runs_at_min": 336,
+    "total_campaign_runs_at_target": 432,
+    "total_campaign_runs_at_max": 528
+  },
+  "resource_budget": {
+    "gpu_class": "NVIDIA GeForce RTX 4090 D",
+    "gpu_memory_gib": 24,
+    "minimum_gpu_hours": 72,
+    "maximum_gpu_hours": 112,
+    "projection_formula": "(1 + failure_reserve_fraction) * sum_s((24*Tcal_s + 4N*Tformal_s + (24+4N)*(startup_s + restart_s + archive_s + evaluator_s))/3600)",
+    "overhead_includes": [
+      "ENGINE_STARTUP",
+      "PROCESS_RESTART",
+      "ARCHIVE_IO",
+      "EVALUATION",
+      "ONE_FAILURE_RESERVE"
+    ],
+    "per_run_timeout_seconds": 600,
+    "shutdown_grace_seconds": 60,
+    "reservation_window_seconds": 1800,
+    "if_projected_above_maximum": "STOP_AND_RETURN_TO_M1; DO_NOT_AUTO_REDUCE_N",
+    "if_projected_below_minimum_sample": "NOT_FEASIBLE",
+    "no_gpu_run_below_minimum_n": true,
+    "minimum_runs": 336,
+    "maximum_runs": 528,
+    "if_power_requires_more_than_budget": "M1_DECISION_REQUIRED; NO_AUTO_REDUCTION",
+    "per_system_calibration_runs": 24,
+    "per_system_formal_runs_formula": "4 * N_per_stratum",
+    "per_system_p95_fields": [
+      "NATIVE",
+      "CONTINUUM_OFFICIAL",
+      "CONTINUUM_ADAPTED",
+      "A1_ORIGINAL",
+      "A3_SUFFIX",
+      "DVA_ER_V1"
+    ],
+    "per_system_startup_seconds": "MEASURED_PER_SYSTEM",
+    "per_system_restart_seconds": "MEASURED_PER_SYSTEM",
+    "per_system_archive_seconds": "MEASURED_PER_SYSTEM",
+    "failure_reserve_fraction": 0.1,
+    "time_boundary": {
+      "Tcal_Tformal": "FIRST_DISPATCH_TO_LAST_TERMINAL_EXCLUDING_PROCESS_START_ENGINE_INIT_AND_ARCHIVE",
+      "startup": "PROCESS_START_ENGINE_INIT_MODEL_LOAD_AND_WARMUP_NONE_PER_RUN",
+      "restart": "PROCESS_TEARDOWN_AND_RELAUNCH_PER_RUN_IF_APPLICABLE",
+      "archive": "EVIDENCE_WRITE_AND_HASH_CLOSE_PER_RUN",
+      "evaluator": "METRIC_AND_GATE_EVALUATION_PER_RUN"
+    },
+    "per_run_components_seconds": {
+      "startup": "MEASURED_PER_SYSTEM",
+      "restart": "MEASURED_PER_SYSTEM",
+      "archive": "MEASURED_PER_SYSTEM",
+      "evaluator": "MEASURED_PER_SYSTEM"
+    },
+    "minutes_of_600s_ceiling": {
+      "min_runs": 336,
+      "max_runs": 528
+    },
+    "formula_at_600s_ceiling_hours": {
+      "min": 61.6,
+      "max": 96.8
+    },
+    "budget_envelope_type": "M1_AUTHORIZATION_CEILING_NOT_FORMULA_OUTPUT",
+    "budget_envelope_minimum_hours": 72,
+    "budget_envelope_maximum_hours": 112,
+    "budget_envelope_note": "72-112 GPU-hours is the M1 reservation/ceiling, not the direct formula output. The formula at the 600s ceiling is 61.6-96.8h including 10% failure reserve; the extra envelope covers measured startup/restart/archive/evaluator uncertainty. If the measured projection exceeds 112h, stop and return to M1.",
+    "per_system_p95_seconds": {
+      "NATIVE": {
+        "calibration": "MEASURED_PER_SYSTEM",
+        "formal": "MEASURED_PER_SYSTEM"
+      },
+      "CONTINUUM_OFFICIAL": {
+        "calibration": "MEASURED_PER_SYSTEM",
+        "formal": "MEASURED_PER_SYSTEM"
+      },
+      "CONTINUUM_ADAPTED": {
+        "calibration": "MEASURED_PER_SYSTEM",
+        "formal": "MEASURED_PER_SYSTEM"
+      },
+      "A1_ORIGINAL": {
+        "calibration": "MEASURED_PER_SYSTEM",
+        "formal": "MEASURED_PER_SYSTEM"
+      },
+      "A3_SUFFIX": {
+        "calibration": "MEASURED_PER_SYSTEM",
+        "formal": "MEASURED_PER_SYSTEM"
+      },
+      "DVA_ER_V1": {
+        "calibration": "MEASURED_PER_SYSTEM",
+        "formal": "MEASURED_PER_SYSTEM"
+      }
+    }
+  },
+  "analysis_contract": {
+    "independent_unit": "WORKLOAD_GROUP",
+    "paired_by_group": true,
+    "strata": "REPORT_SEPARATELY_AND_COMBINE_BY_FIXED_WEIGHT",
+    "primary_family": [
+      "A1_vs_A0",
+      "A3_vs_A0",
+      "DVA_vs_A0",
+      "A3_vs_A1",
+      "DVA_vs_A1",
+      "DVA_vs_A3"
+    ],
+    "primary_test": "PAIRED_GROUP_PERMUTATION_AND_T_WITH_BOOTSTRAP_CI",
+    "confidence_interval": "GROUP_BOOTSTRAP_95_PERCENT",
+    "bootstrap_resamples": 10000,
+    "bootstrap_seed": 20261201,
+    "secondary_family": "BH_FDR_0_05_EXPLORATORY",
+    "missing_policy": "COMPLETE_CASE_GROUP_NO_IMPUTATION",
+    "sensitivity": [
+      "STRATUM_SEPARATE",
+      "CENSORED_VS_NONCENSORED",
+      "ARRIVAL_REALIZATION",
+      "OFFICIAL_ENVIRONMENT_COMPATIBLE",
+      "REPEAT_AGGREGATION"
+    ],
+    "primary_system_context_family": [
+      "NATIVE_vs_A0",
+      "OFFICIAL_vs_A0"
+    ],
+    "families_per_stratum": 2,
+    "family_multiplicity": "HOLM_WITHIN_EACH_FAMILY",
+    "merged_strata_primary": false
+  },
+  "stop_rules": [
+    "CALIBRATION_INCOMPLETE",
+    "SIX_ARM_SAMPLE_REQUIRES_MORE_THAN_16_GROUPS_PER_STRATUM",
+    "GPU_BUDGET_BELOW_MINIMUM_SAMPLE",
+    "GPU_FORECAST_ABOVE_MAXIMUM_WITHOUT_M1_BUDGET",
+    "FORMAL_DATA_PEEKING",
+    "MID_CAMPAIGN_ALGORITHM_SUBSTITUTION",
+    "DVA_ER_CPU_SELECTION_GATE_NOT_PASSED"
+  ]
+}
