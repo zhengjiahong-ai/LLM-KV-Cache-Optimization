@@ -362,6 +362,18 @@ current CPU implementation now includes the following protocol-bound pieces:
   tests and reproducible Group bootstrap intervals; and
 - `phase5e_mock_runner.py` exercises the bounded Part A controller through
   gate evaluation and independently validated evidence archive creation.
+- `phase5_system_adapters.py` requires exactly the six frozen systems and
+  blocks execution when any implementation revision, CPU correctness gate,
+  Native compatibility gate or algorithm freeze is unresolved. In particular,
+  Continuum Official compatibility and the DVA-ER v1 CPU gate cannot be
+  replaced by a generic Mock PASS;
+- `phase5_formal_orchestrator.py` maps a hash-bound Campaign Plan into paired
+  six-system cells, routes each Run only to its declared adapter and stops at
+  the first failed Run without retrying or silently dropping later cells; and
+- `phase5_formal_freeze.py` binds the immutable Calibration plan, exact
+  noncentral-t analysis, Calibration evidence archive and size-matched Formal
+  plan. Its output is only a candidate for M1 authorization and always retains
+  `execution_authorized=false` and `authorization_effect=NONE`.
 
 These are CPU/Mock engineering contracts. They do not close U1--U7, implement
 DVA-ER v1, qualify BFCL, authorize execution or establish Native/GPU PASS.
