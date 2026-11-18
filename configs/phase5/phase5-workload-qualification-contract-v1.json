@@ -27,7 +27,25 @@
     "session": "one replay execution of one Program",
     "turn": "one model request within a Session",
     "workload_group": "4 independent Programs and their Sessions",
-    "independent_unit": "WORKLOAD_GROUP"
+    "independent_unit": "WORKLOAD_GROUP",
+    "min_turns_per_session": 4,
+    "max_turns_per_session": 16
+  },
+  "generation_config": {
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "top_k": 0,
+    "seed": 20261201,
+    "max_new_tokens": 128,
+    "stop": [],
+    "ignore_eos": false,
+    "frozen_across_systems": true
+  },
+  "context_contract": {
+    "max_model_len": 32768,
+    "max_prompt_tokens": 32640,
+    "max_generation_tokens": 128,
+    "prompt_plus_generation_must_not_exceed_max_model_len": true
   },
   "required_provenance": [
     "SOURCE_DATASET_AND_REVISION",
@@ -71,8 +89,8 @@
       "fail_action": "EXCLUDE_OR_CENSOR_ONLY"
     },
     {
-      "id": "Q6_CONTEXT_AND_TURNS",
-      "rule": "each request <= 32768 tokens and Session <= 16 turns",
+      "id": "Q6_TURNS_AND_CONTEXT",
+      "rule": "Session must contain at least 4 and at most 16 Turns; each request prompt+generation must be <= max_model_len (32,768)",
       "fail_action": "EXCLUDE_SESSION"
     },
     {
@@ -108,10 +126,13 @@
   },
   "right_censoring": {
     "status_enum": ["NATURAL_TERMINAL", "RIGHT_CENSORED", "EXCLUDED"],
+    "primary_analysis": "INCLUDE_RIGHT_CENSORED_SESSION_IF_ALL_OBSERVED_TURNS_VALID",
+    "missing_future_turns": "NOT_IMPUTED",
     "censor_reason_required": true,
     "censor_not_zero": true,
     "censor_not_system_failure": true,
-    "censor_sensitivity_analysis_required": true
+    "censor_sensitivity_analysis_required": true,
+    "system_failure": "NEVER_TREATED_AS_SOURCE_CENSORING"
   },
   "data_evidence_levels": [
     "L0_TASK_INPUT",

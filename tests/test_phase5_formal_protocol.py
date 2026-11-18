@@ -107,6 +107,54 @@ def test_rejects_missing_primary_contrast() -> None:
         raise AssertionError("two-contrast protocol was accepted")
 
 
+def test_rejects_session_below_four_turns() -> None:
+    module = _load_module()
+    protocol = _protocol()
+    protocol["workload"]["min_turns_per_session"] = 3
+    try:
+        module.validate_protocol(protocol, _schema())
+    except ValueError as error:
+        assert "four turns" in str(error)
+    else:
+        raise AssertionError("three-turn qualification was accepted")
+
+
+def test_rejects_prompt_plus_generation_over_context() -> None:
+    module = _load_module()
+    protocol = _protocol()
+    protocol["workload"]["max_prompt_tokens"] = 32768
+    try:
+        module.validate_protocol(protocol, _schema())
+    except ValueError as error:
+        assert "prompt plus generation" in str(error)
+    else:
+        raise AssertionError("over-context prompt was accepted")
+
+
+def test_rejects_non_provisional_cost_aware_candidate() -> None:
+    module = _load_module()
+    protocol = _protocol()
+    protocol["cost_aware_candidate"]["status"] = "FROZEN"
+    try:
+        module.validate_protocol(protocol, _schema())
+    except ValueError as error:
+        assert "DVA_ER_V1" in str(error) or "PROVISIONAL" in str(error)
+    else:
+        raise AssertionError("prematurely frozen candidate was accepted")
+
+
+def test_rejects_insufficient_gpu_budget() -> None:
+    module = _load_module()
+    protocol = _protocol()
+    protocol["calibration"]["gpu_hours_minimum"] = 36
+    try:
+        module.validate_protocol(protocol, _schema())
+    except ValueError as error:
+        assert "48 hours" in str(error)
+    else:
+        raise AssertionError("36-hour budget was accepted for the minimum sample")
+
+
 def test_contracts_and_manifest_schema_are_valid() -> None:
     module = _load_module()
     contracts_schema = json.loads(
@@ -117,5 +165,6 @@ def test_contracts_and_manifest_schema_are_valid() -> None:
         "metrics",
         "workload_qualification",
         "calibration_sample_size",
+        "cost_aware_candidate",
     }
     module.validate_manifest_schema(ROOT)

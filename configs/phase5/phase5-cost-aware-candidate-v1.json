@@ -1,0 +1,66 @@
+{
+  "schema_version": "phase5.cost_aware_candidate.v1",
+  "protocol_id": "phase5-formal-four-system-trace-replay-v1",
+  "candidate": {
+    "id": "DVA_ER_V1",
+    "name": "Downstream-Victim-Aware Entry Release v1",
+    "status": "PROVISIONAL_NOT_FROZEN",
+    "foundation": "CONTINUUM_ADAPTED",
+    "scope": "ENTRY_RELEASE_ONLY",
+    "not_a1_a3_a2_selection": true,
+    "mechanism": "At each forced Entry Release, simulate the actual Native LRU victim set V(X) for each legal candidate X on the same eligible state; score X by the future-reuse risk of V(X), using only pre-decision active follow-up chains and tool-gap state; release the lowest-risk candidate; tie-break to A0.",
+    "inputs": [
+      "A0 eligible Entry candidates",
+      "actual Native BlockPool/LRU victim simulation",
+      "active follow-up chains and pending tool gaps",
+      "frozen TTL/deadline state"
+    ],
+    "score_contract": {
+      "victim_set": "simulated_counterfactual_victim_set(X)",
+      "block_weight": "1_if_block_on_active_followup_chain_with_pending_tool_gap_inside_H_else_0",
+      "candidate_loss": "sum(block_weight(b) for b in victim_set(X))",
+      "selection": "min(candidate_loss); tie-break to A0",
+      "future_information_used": false,
+      "native_lru_semantics_preserved": true,
+      "no_oracle_or_future_label": true
+    },
+    "evidence_basis": [
+      "Phase 2D local shared-protected headroom",
+      "Phase 3 A1/A3 target/eviction-set misalignment",
+      "Phase 3 A2 no victim-sequence divergence",
+      "P2 no positive decision value",
+      "P1/E1-A exposure/data-gap findings",
+      "Phase 4 requirement to target the actual downstream victim set"
+    ],
+    "not_claimed": [
+      "VALIDATED_EFFECT",
+      "PAPER_EXACT_CONTINUUM",
+      "NATIVE_CACHE_HIT",
+      "PHYSICAL_CAUSALITY"
+    ]
+  },
+  "selection_gate": {
+    "id": "phase5.cost_aware_candidate_selection.cpu",
+    "status": "NOT_EXECUTED",
+    "cpu_only": true,
+    "existing_archive_only": true,
+    "no_gpu": true,
+    "no_new_trace_acquisition": true,
+    "tasks": [
+      "Implement deterministic Native-LRU victim-set simulation on the existing decision state.",
+      "Replay DVA_ER_V1 offline against A0 on the pre-registered existing 7 real decisions.",
+      "Reject future-feature leakage; use only pre-decision state.",
+      "Compare full-trajectory loss, not local score sums.",
+      "Record decision divergence, victim-set divergence and complete-chain evidence.",
+      "If no positive/divergent case, do not freeze the candidate and do not run formal."
+    ],
+    "must_show": [
+      "AT_LEAST_ONE_DECISION_DIVERGENCE_FROM_A0",
+      "FULL_TRAJECTORY_GAIN_NOT_LOCAL_SUM",
+      "NO_FUTURE_FEATURE_LEAKAGE",
+      "VICTIM_SET_SIMULATION_REPRODUCES_A0_FOR_SELECTED_CANDIDATE"
+    ],
+    "failure": "DO_NOT_FREEZE_DVA_ER_V1; FORMAL_CAMPAIGN_NOT_EXECUTABLE",
+    "success": "M1_FREEZES_CANDIDATE_REVISION_AND_HASH"
+  }
+}

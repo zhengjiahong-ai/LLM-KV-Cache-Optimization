@@ -15,7 +15,7 @@ This protocol defines one formal, trace-driven replay campaign comparing four sy
 1. **Native** — unmodified Native vLLM;
 2. **Continuum Official** — the authors' pinned public implementation;
 3. **Continuum Adapted** — the project-side A0-derived full-system adaptation;
-4. **Cost-Aware** — the M1-frozen Cost-Aware candidate built on the same project foundation.
+4. **Cost-Aware** — the provisional DVA-ER v1 candidate built on the same project foundation; it must pass the CPU candidate-selection gate and be M1-frozen before formal execution.
 
 The research question is:
 
@@ -54,11 +54,11 @@ A request row, turn, tool call, runtime repeat or pressure event is **never** an
 | `NATIVE` | Native vLLM | Unmodified vLLM `0.27.1`; Native APC/LRU, scheduler, BlockPool, no project hooks; same model/tokenizer/pool/block size/`max_num_seqs` as Adapted/Cost-Aware. | Only passive evidence instrumentation; no behavior-changing patch. |
 | `CONTINUUM_OFFICIAL` | Continuum Official Public Implementation | Pinned authors' public repository at `316a58794a6ff86b216e579b74fd56ed0c5a911f` (M1 must re-freeze if a newer reviewed snapshot is chosen); run as released, with its own documented environment. | Its own upstream vLLM base and scheduler; **not** the full paper estimator. If the base differs, it is a separate environment stratum and a documented confound. |
 | `CONTINUUM_ADAPTED` | Continuum Adapted | A0-derived **full-system** adaptation on the project side: project Dynamic TTL, retention/Entry Release, native physical victim path, and project program-aware scheduler enabled only after scheduler conformance. Same model/tokenizer/pool/block/max_num_seqs as Cost-Aware. | Project-side scheduler/TTL implementation; no Cost-Aware policy. If scheduler conformance is not accepted, the system must be renamed `CONTINUUM_ADAPTED_CACHE_ONLY`; it cannot be presented as full-system Continuum. |
-| `COST_AWARE` | Cost-Aware | **M1-frozen Phase 4 candidate**, built on the exact `CONTINUUM_ADAPTED` foundation. One candidate only; no fallback arm, no mid-campaign substitution. | Only the frozen cost-aware policy; all other configuration identical to Adapted. |
+| `COST_AWARE` | Cost-Aware | **Provisional DVA-ER v1**, built on the exact `CONTINUUM_ADAPTED` foundation; it must pass the CPU candidate-selection gate and be M1-frozen before formal execution. One candidate only; no fallback arm, no mid-campaign substitution. | Only the frozen cost-aware policy; all other configuration identical to Adapted. |
 
 **Official boundary:** the public repository is a released Continuum-style implementation without the full paper estimator/experiment bundle. Results must be reported as a system-level comparison, not as an exact paper reproduction or an isolated mechanism comparison.
 
-**Cost-Aware freeze:** no Phase 4 candidate has been promoted. `COST_AWARE_CANDIDATE` is an explicit unresolved freeze item. Until M1 selects and hashes one candidate, the formal campaign is `NOT_EXECUTABLE`.
+**Cost-Aware freeze:** no Phase 4 candidate has been promoted. The protocol proposes **DVA-ER v1** as a provisional candidate, not a validated winner. `COST_AWARE_CANDIDATE` remains `PROVISIONAL_NOT_FROZEN` until the CPU candidate-selection gate in §2.5 succeeds and M1 hashes the exact revision. Until then the formal campaign is `NOT_EXECUTABLE`.
 
 ### 1.3 Control variables
 
@@ -127,6 +127,10 @@ Qualification is outcome-blind. The full field contract is in `phase5-workload-q
 - Calibration Groups per stratum: **4**, disjoint from the formal Groups and never reused.
 - Formal repeats per Group/System: **2**; calibration repeats: **3**.
 - A Group is `COMPLETE` only if all 4 Sessions and all required requests produce valid evidence in every system/repeat.
+- Every qualified Session has **at least 4 Turns and at most 16 Turns**. This preserves the Phase 5A minimum multi-turn qualification and avoids single-turn task rows.
+- The frozen generation configuration is: `temperature=0.0`, `top_p=1.0`, `top_k=0`, `seed=20261201`, `max_new_tokens=128`, `stop=[]`, `ignore_eos=false`. It is identical across systems and repeats.
+- Every request must satisfy `prompt_tokens + max_new_tokens <= max_model_len (32,768)`. A request that cannot satisfy this is excluded at qualification; it is never truncated into a valid request.
+- A right-censored source Session is included in the primary analysis if every observed Turn is valid; its unobserved future Turns are not imputed and do not create synthetic requests. A system failure is never relabeled as source right-censoring.
 
 The target sample size is not fixed at design time; it is selected by the pre-registered calibration algorithm in §5. The max cap prevents an unbounded campaign. If the required N exceeds the cap, the campaign is explicitly underpowered; no mid-campaign extension.
 
@@ -141,6 +145,44 @@ The target sample size is not fixed at design time; it is selected by the pre-re
 - Primary design: `FROZEN_POISSON` program starts with within-Session empirical tool gaps.
 - Sensitivity: `EMPIRICAL_ALIGNED` starts when a qualified multi-session source exists; `FIXED_STAGGER` as a controlled negative-style comparison.
 - The default λ is a design parameter, not an observed production rate. It must be frozen by M1; a provisional value is recorded in JSON and must not be presented as natural concurrency.
+
+### 2.5 Cost-Aware candidate selection
+
+The final Cost-Aware arm is **not** A1, A3, or A2 selected by availability or prior label. The proposed candidate is:
+
+**DVA-ER v1 — Downstream-Victim-Aware Entry Release v1**
+(`PROVISIONAL_NOT_FROZEN`; detailed contract: `phase5.cost_aware_candidate.v1`).
+
+Mechanism: at each forced Entry Release decision, simulate the actual Native LRU victim set `V(X)` for each legal candidate `X` on the same eligible state. Score the candidate by the future-reuse risk of the **victim set**, not by the candidate's own local cost:
+
+```text
+loss(X) = Σ_{b ∈ V(X)} w_b
+w_b = 1 if b is on an active follow-up chain with a pending tool gap inside H, else 0
+select argmin_X loss(X); tie-break to A0
+```
+
+The score uses only pre-decision state; it does not use future labels, oracles, or the original Phase 3 posterior. It preserves Native LRU semantics and changes only the Entry Release choice.
+
+**Why this candidate, based on existing evidence:**
+
+- Phase 2D showed local shared-protected headroom, but only under a local objective;
+- Phase 3 A1/A3 reduced local cost without targeting the actual Native victim set, and A2 changed physical selection without producing the required victim-sequence divergence;
+- P2 showed no positive decision value under the then-available predictor;
+- P1/E1-A left candidate exposure and full-trajectory effect unestablished;
+- Phase 4 concluded that the next candidate must be judged by the actual downstream victim set, not a local score sum.
+
+This is a **new hypothesis**, not a validated algorithm. It is explicitly not presented as a Phase 3 winner.
+
+**Mandatory CPU selection gate before freeze:**
+
+1. implement deterministic Native-LRU victim-set simulation on the existing decision state;
+2. replay DVA-ER v1 offline against A0 on the pre-registered existing 7 real decisions;
+3. reject any future-feature leakage;
+4. require at least one decision divergence and a positive full-trajectory gain (not a local sum);
+5. require the simulation to reproduce A0 when the candidate is selected;
+6. if any requirement fails, **do not freeze DVA-ER v1 and do not run the formal campaign**. M1 may then stop or authorize a separate candidate round; this protocol is not silently changed.
+
+The candidate revision/hash must be frozen before calibration. It cannot be replaced mid-campaign.
 
 ---
 
@@ -179,6 +221,14 @@ Dispatch must be serialized in frozen order (or an equivalent barrier must prove
 - No automatic retry. A replacement run requires a new M1 decision.
 - Missing data is not imputed from another system, repeat, or request.
 
+### 3.4 Execution order, isolation and timing
+
+- **Arm order:** four systems within each Group are executed in a pre-registered balanced Latin-square/permuted-block order. The order is seeded before outcomes, balanced by Group/System/position, and recorded in the manifest. Calibration uses a fixed random permutation; no outcome-based reordering is allowed.
+- **Per-run isolation:** every run uses a new process and a new EngineCore instance. `VLLM_ENABLE_V1_MULTIPROCESSING=0` is required for the in-process BlockPool evidence. Cross-run KV/APC reuse is forbidden; GPU memory is reset and an empty-cache preflight is recorded before dispatch. A failure to isolate the run is `FAIL_CLOSED`.
+- **Preheat consistency:** either all systems receive the same fixed warmup and the warmup state is flushed, or no system receives a warmup. No arm-specific preheat is allowed. The chosen mode is recorded and identical across arms/repeats.
+- **Unique TTFT origin:** TTFT is measured from `CLIENT_DISPATCH_ACCEPTED` to `FIRST_OUTPUT_TOKEN`. Arrival-to-first-token and queue delay are separate metrics; they are not substituted for TTFT.
+- **Right-censored throughput/completion:** throughput uses completed observed requests over the observed window (`first arrival` to `last observed terminal`). Completion time is reported only if every scheduled request has a terminal; otherwise it is `CENSORED_INCOMPLETE`, not imputed. Right-censored Sessions do not add future requests to the run.
+
 ---
 
 ## 4. Metrics
@@ -196,7 +246,7 @@ Dispatch must be serialized in frozen order (or an equivalent barrier must prove
 
 ### 4.2 Secondary metrics
 
-- TTFT: first-token time minus request dispatch/arrival, with clock domain recorded; P50/P95 per Group.
+- TTFT: `FIRST_OUTPUT_TOKEN - CLIENT_DISPATCH_ACCEPTED`; arrival-to-first-token and queue delay are separate; P50/P95 per Group.
 - End-to-end request latency: terminal minus dispatch/arrival; P50/P95.
 - Throughput: requests/second and generated tokens/second over the run window.
 - Completion time: first arrival to last terminal.
@@ -227,32 +277,48 @@ The full contract is in `phase5-metrics-contract-v1.json`.
 
 ## 5. Calibration and sample size
 
-### 5.1 Calibration
+### 5.1 Calibration and variance components
 
 - 4 Groups per stratum (8 total), disjoint from formal Groups.
 - 4 Systems × 4 Groups × 3 repeats = **96 calibration runs** (plus startup).
-- Calibration estimates run-to-run variance of paired Group/System differences; it does not estimate the treatment effect for the formal verdict.
-- Calibration data may not be reused as formal evidence.
+- Calibration estimates **two distinct variance components**:
+  - `σ_between²`: Group-level variability of the paired difference;
+  - `σ_repeat²`: within-Group run-to-run noise.
+- The calibration model is `d_{g,r} = μ + b_g + ε_{g,r}`, with Group random effect `b_g` and repeat residual `ε_{g,r}`. Repeats are never treated as independent Groups.
+- With only 4 Groups per stratum, the per-stratum Group-level variance has df=3. The primary estimator pools both strata (8 Groups, df=7) when Brown–Forsythe does not reject homogeneity; otherwise it uses stratum-specific estimates and reports the low precision. No hidden borrowing across formal Groups.
+- For a future formal Group mean with 2 repeats, the variance used for sizing is `σ_d² = σ_between² + σ_repeat² / 2`. The calibration repeat count (3) is not substituted for the formal repeat count (2).
+- The three Cost-Aware contrasts share the Cost-Aware arm and are correlated. Calibration estimates the full 3×3 covariance of the Group-level paired differences. Sample-size uses the **maximum per-contrast variance** as a conservative scalar; the covariance is used for simulation sensitivity. Each contrast still gets its own variance estimate.
 
-### 5.2 MDE and power
+### 5.2 MDE, power and primary multiplicity family
 
-- Primary family: 3 paired contrasts (`COST_AWARE` vs `NATIVE`, `CONTINUUM_ADAPTED`, `CONTINUUM_OFFICIAL`).
-- Family-wise α = 0.05, two-sided; Holm correction.
+- Primary family: **3 contrasts × 2 strata = 6 tests** (`COST_AWARE` vs `NATIVE`, `CONTINUUM_ADAPTED`, `CONTINUUM_OFFICIAL`, separately in SWE-Bench and BFCL).
+- Family-wise α = 0.05, two-sided; Holm correction over the 6-test family. The initial conservative per-test α is `0.05/6`.
 - Power = 0.80.
-- MDE = `max(512 tokens, 5% of Native Group mean recomputed tokens)`, frozen before calibration analysis.
-- Per-stratum paired difference SD `σ_d` estimated from calibration with Group-level aggregation.
-- `n_stratum = ceil((z_{1-α/2} + z_power)^2 * σ_d^2 / MDE^2)`, using the Holm-adjusted per-contrast α for the initial conservative calculation.
-- Final N = `min(16, max(8, n_stratum))` per stratum.
-- If `n_stratum > 16`, the campaign proceeds at 16 only if M1 accepts `UNDERPOWERED`; otherwise it stops.
+- **MDE order:**
+  1. freeze the MDE formula and 512-token floor before calibration;
+  2. compute the MDE value from the calibration Native Group mean;
+  3. freeze that numeric MDE before formal execution.
+  The MDE is not chosen or changed after seeing formal outcomes.
+- `MDE = max(512 tokens, 5% × calibration Native Group mean recomputed tokens)`.
+- Sample size uses the **noncentral t distribution**, not a z approximation:
+  `n_required = min n such that power(n, α_per_test, σ_d, MDE) ≥ 0.80`, df = n−1.
+- `N_stratum = clamp(ceil(n_required), 8, 16)`.
+- If `n_required > 16`, the campaign is `UNDERPOWERED`; M1 must either accept that status or stop. It is not silently extended.
+- If `n_required < 8`, N remains 8 and the variance-estimate uncertainty is reported; the 8-Group minimum is a design floor, not a claim that 8 is sufficient.
 - If calibration is unavailable/incomplete, formal execution is not authorized.
 - No optional stopping, no peeking, no sample-size change after formal data collection begins.
 
 ### 5.3 Resource budget
 
-- Planned runs: calibration 96 + formal 8N per stratum (N=8..16) → 224–352 runs for two strata.
+- Planned runs: calibration 96 + formal `8N` (N=8..16, two strata) = **224–352 runs**.
 - Per-run hard timeout 600s, shutdown grace 60s; reservation window 1800s.
-- Max campaign GPU budget: **36 GPU-hours** including startup/archive; if projected >36h, reduce N within [8,16] and record the power consequence; do not silently reduce below 8.
-- If the budget cannot support 8 Groups/stratum, the campaign is `NOT_FEASIBLE` rather than underpowered.
+- `224 × 600s = 37.3 GPU-hours` before any startup, restart, archive or evaluation overhead. A 36-hour budget is therefore **not sufficient** for the minimum sample.
+- Resource forecast must use **measured calibration runtime**, not the 600s ceiling:
+  `projected_hours = 1.2 × (96 × calibration_run_p95_seconds + formal_runs × formal_run_p95_seconds) / 3600`.
+  The 1.2 factor covers engine startup, process restart, archive I/O, evaluation and one failure reserve. `formal_run_p95_seconds` starts from calibration p95 plus declared system overhead.
+- Minimum budget: **48 GPU-hours**; maximum budget: **72 GPU-hours**. The minimum is the 37.3h ceiling plus 20% overhead (≈44.8h) rounded to a workable envelope; the maximum covers the 16-Group case with the same overhead.
+- If the forecast cannot support N=8 per stratum within the available budget, the campaign is `NOT_FEASIBLE`; **do not run below minimum N**. If it supports N≥8 but not the formula, reduce N within [8,16] and report the power consequence; no reduction below 8.
+- If projected >72h, stop or obtain a new M1 budget authorization; do not silently exceed it.
 
 The full contract is in `phase5-calibration-sample-size-contract-v1.json`.
 
@@ -268,19 +334,21 @@ For each stratum and contrast:
 2. average repeats within Group/System;
 3. compute paired Group difference `d_g = metric(Cost-Aware, g) - metric(baseline, g)`;
 4. report mean difference, median, 95% CI, and relative effect vs baseline;
-5. use Group-level paired bootstrap (10,000 resamples, fixed seed) and a paired permutation/sign test as robustness;
-6. combine strata only by a pre-registered equal-stratum weight (or report separately); never pool requests.
+5. use Group-level paired bootstrap (10,000 resamples, fixed seed), paired permutation and paired t as pre-registered analyses; report all three consistently and do not select the test by result;
+6. use the calibration-derived contrast covariance as a sensitivity/simulation input, not as a substitute for the Group-level paired analysis;
+7. combine strata only by a pre-registered equal-stratum weight (or report separately); never pool requests.
 
 ### 6.2 Multiplicity
 
-- Three primary contrasts: Holm family-wise error 0.05.
+- Primary family: **6 tests** = 3 contrasts × 2 strata; Holm family-wise error 0.05.
 - Secondary metrics: BH-FDR 0.05, explicitly exploratory; confidence intervals are descriptive.
 - Mechanism diagnostics: descriptive, no multiplicity-adjusted causal claim.
+- The combined-stratum estimate is a secondary summary; it does not add a seventh primary test or rescue a failed stratum.
 
 ### 6.3 Failure/missing/censoring
 
 - Complete-case Groups only for the primary; report incomplete Groups and reasons.
-- Source right-censored Sessions remain in the Group if all observed requests are valid; censoring is a Session-level covariate/sensitivity stratum.
+- Source right-censored Sessions remain in the Group if all observed requests are valid; censoring is a Session-level covariate/sensitivity stratum. The primary includes them; the sensitivity analysis repeats the estimate without censored Sessions. Unobserved future Turns are never imputed or counted as missing system requests.
 - Failed/truncated runs are archived and do not trigger retries.
 - No imputation across systems or repeats.
 
@@ -336,6 +404,7 @@ Every formal run must produce a manifest binding:
 - workload seal hash;
 - arrival realization hash;
 - model/tokenizer/generation/engine configuration hashes;
+- execution-order index, engine instance identity, isolation preflight and preheat mode;
 - run ID, Group/Session/Trace IDs, repeat index;
 - actual enqueue sequence hash;
 - lifecycle/terminal/pressure/exposure evidence hashes;
@@ -389,9 +458,9 @@ No formal run may start while any gate is unresolved.
 ### 10.3 Current blockers against Phase 5A–5E
 
 - N-Session Native runner and incremental polling are not yet GPU-proven.
-- Phase 5E Part A conformance is not authorized/passed; Part B remains `NOT_READY`.
+- Phase 5E Part A is `READY_FOR_M6_IMPLEMENTATION`; GPU conformance is not authorized/passed. Part B remains `NOT_READY`.
 - BFCL trace acquisition/frozen search fixture is not authorized/complete.
-- Cost-Aware candidate is not frozen; no Phase 4 promotion.
+- DVA-ER v1 is provisional and has not passed the CPU candidate-selection gate; no candidate is frozen.
 - Official compatibility/environment audit is not complete.
 - Calibration/formal GPU budget is not authorized.
 
@@ -403,13 +472,13 @@ These are explicit entry gates, not assumptions.
 
 | ID | Decision | Options / cost | Effect if unresolved |
 |---|---|---|---|
-| U1 | Cost-Aware candidate | freeze A1/A2/A3/downstream candidate; each has different implementation cost and prior evidence | formal campaign not executable |
+| U1 | Cost-Aware candidate | DVA-ER v1 provisional; CPU selection gate must show divergence + full-trajectory gain, or do not freeze | formal campaign not executable |
 | U2 | Continuum Adapted scheduler scope | full scheduler vs cache-only; full needs scheduler conformance, cache-only needs rename | cannot define four-system comparison |
 | U3 | Official environment | same vLLM base vs separate base; same base may require patches, separate base is a confound | official arm may be descriptive only |
 | U4 | BFCL search fixture | freeze results vs exclude BFCL; exclusion reduces workload diversity | stratum incomplete |
 | U5 | Arrival rate/seed | provisional λ and seed must be frozen before acquisition | arrival realization cannot be sealed |
-| U6 | Calibration/formal budget | 36 GPU-hour cap; lower cap → N<8 or underpowered | campaign may be infeasible |
-| U7 | Censored-session policy | include with covariate vs exclude; include preserves workload but complicates primary | population ambiguity |
+| U6 | Calibration/formal budget | minimum 48 GPU-hours, maximum 72; lower than projected minimum → NOT_FEASIBLE, never N<8 | campaign may be infeasible |
+| U7 | Censored-session policy | include right-censored Sessions with observed valid Turns; sensitivity excludes | population ambiguity |
 
 ---
 
@@ -418,11 +487,13 @@ These are explicit entry gates, not assumptions.
 ```text
 PHASE5_FORMAL_PROTOCOL = DESIGN_FROZEN_CANDIDATE
 M1_PROTOCOL_FREEZE = REQUIRED
-COST_AWARE_CANDIDATE = NOT_FROZEN
+COST_AWARE_CANDIDATE = DVA_ER_V1_PROVISIONAL_NOT_FROZEN
+COST_AWARE_SELECTION_GATE = NOT_EXECUTED
 CONTINUUM_OFFICIAL_COMPATIBILITY = AUDIT_REQUIRED
 BFCL_TRACE_ACQUISITION = NOT_AUTHORIZED
 N_SESSION_NATIVE_RUNNER = NOT_GPU_PROVEN
-PHASE5E_PART_A_CONFORMANCE = NOT_AUTHORIZED / NOT_PASSED
+PHASE5E_PART_A = READY_FOR_M6_IMPLEMENTATION
+PHASE5E_PART_B = NOT_READY
 GPU_FORMAL_CAMPAIGN = NOT_AUTHORIZED
 ```
 

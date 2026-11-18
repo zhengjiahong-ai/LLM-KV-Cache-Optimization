@@ -10,9 +10,10 @@
 
 ## 0. Verdict
 
-**Part A: `NOT_READY_FOR_AUTHORIZATION` as written.**  
-**Part B: `NOT_READY` — correct.**  
-**Plan direction:** accepted; the prior order/identity/budget/seal/abort findings are substantially fixed. Two execution-critical issues remain, plus one end-to-end readiness gap.
+**Part A: `READY_FOR_M6_IMPLEMENTATION`.**
+**Part B: `NOT_READY` — correct.**
+**GPU conformance execution: `NOT_AUTHORIZED`.**
+**Plan direction:** accepted; the prior order/identity/budget/seal/abort findings are substantially fixed. Three M6 implementation issues remain before any GPU authorization.
 
 The PR advanced from the user-cited `21de40c` to `7b03b57` with a final freeze package. I reviewed both; the remaining findings apply to the current head. The final commit changes packaging/code bindings, not the pressure geometry issue.
 
@@ -37,7 +38,7 @@ This is a meaningful improvement. The plan is close.
 
 ---
 
-## 2. Remaining blocking findings
+## 2. M6 implementation prerequisites (R1–R3)
 
 ### P5E-R1 — Pressure free-block geometry is not achievable at the declared trigger
 
@@ -81,7 +82,7 @@ The controller schedules r2 by logical offset; it does not wait for an explicit 
 
 **Required fix:** add a frozen `r1_natural_completion_barrier` event/predicate before r2 dispatch, or define r2’s logical arrival relative to the barrier and record lateness. The pressure gate must require the barrier was observed, not just that r2 was submitted.
 
-### P5E-R3 — No end-to-end GPU runner exists in this PR
+### P5E-R3 — M6 must provide the end-to-end Mock execute → gate → archive path
 
 **Location:** `scripts/spikes/prepare_phase5e_part_a.py` only materializes the freeze; `phase5e_freeze.py` writes manifests. There is no script that:
 
@@ -91,9 +92,9 @@ The controller schedules r2 by logical offset; it does not wait for an explicit 
 - executes the four-Program plan through the controller;
 - evaluates G0–G8 and writes the execution archive.
 
-`PinnedNativeBlockPoolPressureExecutor` is a concrete pressure executor, and Phase5D adapter provides the lifecycle; but the **runner wiring** is not present. “Ready for authorization review” should not be confused with “executable without M6 implementation.”
+`PinnedNativeBlockPoolPressureExecutor` is a concrete pressure executor, and Phase5D adapter provides the lifecycle; but the **runner wiring** is not present. This is why Part A is `READY_FOR_M6_IMPLEMENTATION`, not authorization-ready.
 
-**Required fix:** either provide a CPU/Mock end-to-end runner test that exercises the full execute→gate→archive path, or explicitly label Part A as `READY_FOR_M6_IMPLEMENTATION` rather than `READY_FOR_AUTHORIZATION_REVIEW`. M1 should not authorize a GPU run until the runner path is exercised at least in Mock.
+**Required M6 task:** implement a CPU/Mock end-to-end runner that exercises execute → enqueue/lifecycle/pressure/exposure gates → archive, and prove the exact pressure free-block state and r1 barrier before requesting GPU authorization.
 
 ---
 
@@ -111,8 +112,8 @@ The controller schedules r2 by logical offset; it does not wait for an explicit 
 
 ## 4. Final P5E recommendation
 
-**Do not authorize Part A GPU execution at current HEAD.** Fix P5E-R1 and P5E-R2, and either provide the end-to-end Mock runner (P5E-R3) or re-label the plan as M6-implementation-ready rather than authorization-ready.
+**Part A is `READY_FOR_M6_IMPLEMENTATION`, not authorization-ready.** M6 must close R1 (Native allocation watermark), R2 (real r1 natural-completion barrier) and R3 (Mock execute→gate→archive path) and complete GPU conformance before any GPU execution is authorized.
 
 After those fixes, the remaining conformance plan is credible: exact order derivation, 4×2 fixture, pressure identity set, same-EngineCore check, seal binding, natural/abort separation, and freeze packaging are all materially better.
 
-No GPU, Native smoke, trace acquisition, algorithm execution, or merge was performed in this review. I did not independently rerun the claimed 2,038 tests; this is a static review of the plan/code/tests at the cited and current heads.
+No GPU, Native smoke, trace acquisition, algorithm execution, GPU conformance, or merge was performed in this review. I did not independently rerun the claimed 2,038 tests; this is a static review of the plan/code/tests at the cited and current heads.

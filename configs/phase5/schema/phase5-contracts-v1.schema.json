@@ -5,7 +5,8 @@
   "oneOf": [
     {"$ref": "#/$defs/metrics"},
     {"$ref": "#/$defs/workload"},
-    {"$ref": "#/$defs/calibration"}
+    {"$ref": "#/$defs/calibration"},
+    {"$ref": "#/$defs/candidate"}
   ],
   "$defs": {
     "metrics": {
@@ -109,7 +110,7 @@
           "additionalProperties": true
         },
         "formal_runs": {"type": "object", "required": ["strata", "systems", "repeats"]},
-        "resource_budget": {"type": "object", "required": ["gpu_class", "max_gpu_hours", "per_run_timeout_seconds"]},
+        "resource_budget": {"type": "object", "required": ["gpu_class", "minimum_gpu_hours", "maximum_gpu_hours", "per_run_timeout_seconds"]},
         "analysis_contract": {
           "type": "object",
           "required": ["independent_unit", "paired_by_group", "primary_family"],
@@ -117,6 +118,39 @@
             "independent_unit": {"const": "WORKLOAD_GROUP"},
             "paired_by_group": {"const": true},
             "primary_family": {"type": "array", "minItems": 3}
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "candidate": {
+      "type": "object",
+      "required": ["schema_version", "protocol_id", "candidate", "selection_gate"],
+      "properties": {
+        "schema_version": {"const": "phase5.cost_aware_candidate.v1"},
+        "protocol_id": {"type": "string"},
+        "candidate": {
+          "type": "object",
+          "required": ["id", "status", "foundation", "score_contract", "not_a1_a3_a2_selection"],
+          "properties": {
+            "id": {"const": "DVA_ER_V1"},
+            "status": {"const": "PROVISIONAL_NOT_FROZEN"},
+            "foundation": {"const": "CONTINUUM_ADAPTED"},
+            "not_a1_a3_a2_selection": {"const": true},
+            "score_contract": {"type": "object"}
+          },
+          "additionalProperties": true
+        },
+        "selection_gate": {
+          "type": "object",
+          "required": ["id", "status", "cpu_only", "must_show", "failure"],
+          "properties": {
+            "id": {"const": "phase5.cost_aware_candidate_selection.cpu"},
+            "status": {"const": "NOT_EXECUTED"},
+            "cpu_only": {"const": true},
+            "must_show": {"type": "array", "minItems": 3},
+            "failure": {"type": "string"}
           },
           "additionalProperties": true
         }

@@ -45,8 +45,20 @@
     },
     "programs_per_group": 4,
     "sessions_per_program": 1,
+    "min_turns_per_session": 4,
     "max_turns_per_session": 16,
-    "max_prompt_tokens": 32768,
+    "max_prompt_tokens": 32640,
+    "max_generation_tokens": 128,
+    "max_prompt_plus_generation_tokens": 32768,
+    "generation_config": {
+      "temperature": 0.0,
+      "top_p": 1.0,
+      "top_k": 0,
+      "seed": 20261201,
+      "max_new_tokens": 128,
+      "stop": [],
+      "ignore_eos": false
+    },
     "group_construction": {
       "matched_bundle": true,
       "outcome_blind": true,
@@ -71,10 +83,19 @@
       "WITHIN_SESSION_ORDER_AND_TOOL_GAPS_PRESERVED",
       "NATURAL_TERMINAL_OR_EXPLICIT_RIGHT_CENSOR",
       "NO_CONTEXT_LIMIT_FAILURE_AS_SUCCESS",
+      "AT_LEAST_FOUR_TURNS",
+      "PROMPT_PLUS_GENERATION_WITHIN_MAX_MODEL_LEN",
       "TOOL_FIXTURES_HASH_BOUND",
       "LICENSE_AND_PROVENANCE_ACCEPTED",
       "OUTCOME_BLIND_SELECTION"
-    ]
+    ],
+    "right_censoring": {
+      "primary_analysis": "INCLUDE_RIGHT_CENSORED_SESSION_IF_ALL_OBSERVED_TURNS_VALID",
+      "missing_future_turns": "NOT_IMPUTED",
+      "session_status_field": "RIGHT_CENSORED",
+      "sensitivity_analysis": "REPEAT_WITHOUT_CENSORED_SESSIONS",
+      "system_failure": "NEVER_TREATED_AS_SOURCE_CENSORING"
+    }
   },
   "replay": {
     "arrival_mode": "FROZEN_POISSON",
@@ -90,6 +111,27 @@
     "right_censoring": "PRESERVE_AS_SESSION_FLAG",
     "failed_run_retry": "FORBIDDEN_WITHOUT_NEW_M1_DECISION",
     "truncation": "FAIL_CLOSED",
+    "execution_order": {
+      "design": "BALANCED_LATIN_SQUARE_OR_PERMUTED_BLOCK",
+      "seed": 20261201,
+      "balance_by": ["GROUP", "SYSTEM", "POSITION"],
+      "calibration_order": "FIXED_RANDOM_PERMUTATION_BEFORE_OUTCOMES",
+      "outcome_based_reordering": false
+    },
+    "isolation": {
+      "new_engine_per_run": true,
+      "new_process_per_run": true,
+      "vllm_multiprocessing": 0,
+      "cross_run_kv_reuse": false,
+      "cross_run_apc_reuse": false,
+      "gpu_memory_reset_required": true,
+      "pre_run_empty_cache_assertion": true
+    },
+    "preheat": {
+      "mode": "SAME_FIXED_WARMUP_FOR_ALL_SYSTEMS_OR_NONE",
+      "cross_run_state_reuse": false,
+      "warmup_evidence_required": true
+    },
     "clock_domains": [
       "LOGICAL_REPLAY",
       "CLIENT_DISPATCH",
@@ -141,9 +183,11 @@
     {
       "id": "COST_AWARE",
       "implementation": "PROJECT_COST_AWARE_ON_ADAPTED_FOUNDATION",
-      "candidate_id": "M1_FROZEN_COST_AWARE_CANDIDATE",
-      "candidate_status": "NOT_FROZEN",
-      "candidate_revision": "M1_FREEZE_REQUIRED",
+      "candidate_id": "DVA_ER_V1",
+      "candidate_status": "PROVISIONAL_NOT_FROZEN",
+      "candidate_revision": "M1_FREEZE_AFTER_CPU_CANDIDATE_SELECTION_GATE",
+      "candidate_family": "DOWNSTREAM_VICTIM_AWARE_ENTRY_RELEASE",
+      "candidate_contract": "phase5.cost_aware_candidate.v1",
       "foundation": "CONTINUUM_ADAPTED",
       "scheduler": "PROJECT_PROGRAM_AWARE",
       "ttl": "PROJECT_DYNAMIC",
@@ -151,6 +195,51 @@
       "mid_campaign_substitution": false
     }
   ],
+  "cost_aware_candidate": {
+    "id": "DVA_ER_V1",
+    "name": "Downstream-Victim-Aware Entry Release v1",
+    "status": "PROVISIONAL_NOT_FROZEN",
+    "family": "DOWNSTREAM_VICTIM_AWARE_ENTRY_RELEASE",
+    "foundation": "CONTINUUM_ADAPTED",
+    "not_a1_a3_a2_selection": true,
+    "mechanism": "At each forced Entry Release decision, simulate the actual Native LRU victim blocks V(X) for each legal candidate X on the same eligible state; score X by the future-reuse risk of V(X), using only pre-decision active follow-up chains and tool-gap state; release the lowest-risk candidate; tie-break to A0.",
+    "score_contract": {
+      "victim_set": "simulated_counterfactual_victim_set(X)",
+      "weight": "1 for blocks on an active follow-up chain with a pending tool gap inside H; 0 otherwise",
+      "loss": "sum(weight(block) for block in victim_set(X))",
+      "selection": "min(loss, A0_tie_break)",
+      "future_information_used": false,
+      "native_lru_semantics_preserved": true
+    },
+    "evidence_basis": [
+      "Phase 2D local shared-protected headroom",
+      "Phase 3 A1/A3 target/eviction-set misalignment",
+      "Phase 3 A2 no victim-sequence divergence",
+      "P2 no positive decision value",
+      "P1/E1-A exposure/data-gap findings",
+      "Phase 4 requirement to target actual downstream victim set"
+    ],
+    "selection_gate": {
+      "id": "phase5.cost_aware_candidate_selection.cpu",
+      "status": "NOT_EXECUTED",
+      "cpu_only": true,
+      "existing_archive_only": true,
+      "no_gpu": true,
+      "must_show": [
+        "AT_LEAST_ONE_DECISION_DIVERGENCE_FROM_A0",
+        "FULL_TRAJECTORY_GAIN_NOT_LOCAL_SUM",
+        "NO_FUTURE_FEATURE_LEAKAGE",
+        "VICTIM_SET_SIMULATION_REPRODUCES_A0_FOR_SELECTED_CANDIDATE"
+      ],
+      "failure": "DO_NOT_FREEZE_DVA_ER_V1; FORMAL_CAMPAIGN_NOT_EXECUTABLE",
+      "success": "M1_FREEZES_CANDIDATE_REVISION_AND_HASH"
+    },
+    "not_claimed": [
+      "VALIDATED_EFFECT",
+      "PAPER_EXACT_CONTINUUM",
+      "NATIVE_CACHE_HIT"
+    ]
+  },
   "controlled_variables": {
     "same_model_tokenizer": true,
     "same_prompt_token_ids": true,
@@ -197,6 +286,15 @@
       "unmatched_physical_victim_blocks",
       "downstream_reuse_opportunity_count"
     ],
+    "timing_contract": {
+      "ttft_origin": "CLIENT_DISPATCH_ACCEPTED",
+      "ttft_end": "FIRST_OUTPUT_TOKEN",
+      "arrival_to_first_token_reported_separately": true,
+      "queue_delay_reported_separately": true,
+      "throughput_denominator": "OBSERVED_WINDOW_FIRST_ARRIVAL_TO_LAST_OBSERVED_TERMINAL",
+      "completion_time": "ONLY_IF_ALL_SCHEDULED_REQUESTS_TERMINAL_ELSE_CENSORED_INCOMPLETE",
+      "right_censored_sessions_do_not_add_future_requests": true
+    },
     "contract": "phase5.metrics.v1"
   },
   "statistics": {
@@ -208,12 +306,33 @@
       "COST_AWARE_vs_CONTINUUM_ADAPTED",
       "COST_AWARE_vs_CONTINUUM_OFFICIAL"
     ],
+    "primary_multiplicity_family": "THREE_CONTRASTS_X_TWO_STRATA_SIX_TESTS",
+    "primary_family_size": 6,
     "alpha": 0.05,
     "power": 0.8,
     "mde_min_tokens": 512,
     "mde_relative_fraction_of_native_mean": 0.05,
+    "mde_pre_registration_order": [
+      "FREEZE_FORMULA_AND_FLOOR_BEFORE_CALIBRATION",
+      "COMPUTE_VALUE_FROM_CALIBRATION_NATIVE_GROUP_MEAN",
+      "FREEZE_VALUE_BEFORE_FORMAL"
+    ],
     "multiplicity": "HOLM",
     "secondary_multiplicity": "BH_FDR_0_05_EXPLORATORY",
+    "variance_model": {
+      "group_level": "b_g",
+      "repeat_noise": "epsilon_g_r",
+      "calibration_groups_per_stratum": 4,
+      "pooling_rule": "POOL_BOTH_STRATA_IF_BROWN_FORSYTHE_HOMOGENEOUS_ELSE_STRATUM_SPECIFIC",
+      "pooled_groups": 8,
+      "pooled_df": 7,
+      "per_stratum_df": 3,
+      "formal_group_mean_variance": "sigma_between^2 + sigma_repeat^2 / formal_repeats",
+      "contrast_covariance_required": true,
+      "sample_size_uses_max_contrast_variance": true
+    },
+    "primary_test": "PAIRED_GROUP_PERMUTATION_AND_T_WITH_GROUP_BOOTSTRAP_CI",
+    "sample_size_uses_noncentral_t_not_z": true,
     "bootstrap_resamples": 10000,
     "bootstrap_seed": 20261201,
     "confidence_level": 0.95,
@@ -233,13 +352,19 @@
     "repeats": 3,
     "runs_total": 96,
     "selection": "PRE_REGISTERED_DISJOINT_FROM_FORMAL",
-    "mde_rule": "max(512_tokens, 0.05 * native_group_mean_tokens)",
-    "sample_size_formula": "ceil((z_(1-alpha/2)+z_power)^2 * sigma_d^2 / MDE^2)",
+    "variance_estimator": "MIXED_MODEL_GROUP_AND_REPEAT",
+    "mde_rule": "max(512_tokens, 0.05 * calibration_native_group_mean_tokens)",
+    "mde_value_status": "FROZEN_AFTER_CALIBRATION_BEFORE_FORMAL",
+    "sample_size_formula": "NONCENTRAL_T_ITERATIVE_SOLVE_PER_STRATUM",
     "sample_size_min_per_stratum": 8,
     "sample_size_max_per_stratum": 16,
-    "if_formula_exceeds_cap": "STOP_OR_M1_ACCEPTS_UNDERPOWERED",
-    "if_below_min": "NOT_FEASIBLE",
-    "gpu_hours_cap": 36,
+    "formula_result_below_min": "USE_8_AND_REPORT_VARIANCE_UNCERTAINTY",
+    "if_budget_cannot_support_minimum": "NOT_FEASIBLE",
+    "if_required_above_max": "STOP_OR_M1_ACCEPTS_UNDERPOWERED",
+    "gpu_hours_minimum": 48,
+    "gpu_hours_maximum": 72,
+    "gpu_hours_projection": "1.2*(96*calibration_p95_seconds + formal_runs*formal_p95_seconds)/3600",
+    "overhead_includes": ["STARTUP", "RESTART", "ARCHIVE", "EVALUATOR", "ONE_FAILURE_RESERVE"],
     "run_timeout_seconds": 600,
     "shutdown_grace_seconds": 60,
     "reservation_window_seconds": 1800
@@ -277,9 +402,9 @@
   "unresolved": [
     {
       "id": "U1_COST_AWARE_CANDIDATE",
-      "status": "NOT_FROZEN",
-      "impact": "FORMAL_NOT_EXECUTABLE",
-      "owner": "M1"
+      "status": "PROVISIONAL_DVA_ER_V1_AWAITING_CPU_SELECTION_GATE",
+      "impact": "FORMAL_NOT_EXECUTABLE_UNTIL_SELECTED_AND_HASHED",
+      "owner": "M1/M4"
     },
     {
       "id": "U2_CONTINUUM_ADAPTED_SCHEDULER_SCOPE",
@@ -322,6 +447,7 @@
     "metrics": "phase5.metrics.v1",
     "workload_qualification": "phase5.workload_qualification.v1",
     "calibration_sample_size": "phase5.calibration_sample_size.v1",
+    "cost_aware_candidate": "phase5.cost_aware_candidate.v1",
     "campaign_manifest": "phase5.campaign_manifest.v1"
   }
 }

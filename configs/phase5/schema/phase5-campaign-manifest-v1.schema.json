@@ -20,6 +20,11 @@
     "tokenizer_revision",
     "sampling_parameters_sha256",
     "engine_configuration_sha256",
+    "generation_config_sha256",
+    "execution_order_index",
+    "engine_instance_id",
+    "isolation_preflight",
+    "preheat_mode",
     "actual_enqueue_sequence_sha256",
     "evidence",
     "metrics",
@@ -45,6 +50,21 @@
     "tokenizer_revision": {"type": "string", "minLength": 1},
     "sampling_parameters_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "engine_configuration_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "generation_config_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "execution_order_index": {"type": "integer", "minimum": 0},
+    "engine_instance_id": {"type": "string", "minLength": 1},
+    "isolation_preflight": {
+      "type": "object",
+      "required": ["new_process", "new_engine", "cross_run_apc_reuse", "empty_cache_verified"],
+      "properties": {
+        "new_process": {"const": true},
+        "new_engine": {"const": true},
+        "cross_run_apc_reuse": {"const": false},
+        "empty_cache_verified": {"const": true}
+      },
+      "additionalProperties": false
+    },
+    "preheat_mode": {"enum": ["NONE", "SAME_FIXED_WARMUP_ALL_SYSTEMS"]},
     "actual_enqueue_sequence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "evidence": {
       "type": "object",

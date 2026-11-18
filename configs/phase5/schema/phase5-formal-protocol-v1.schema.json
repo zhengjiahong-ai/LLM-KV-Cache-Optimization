@@ -15,6 +15,7 @@
     "workload",
     "replay",
     "systems",
+    "cost_aware_candidate",
     "controlled_variables",
     "metrics",
     "statistics",
@@ -39,6 +40,28 @@
       "minItems": 4,
       "maxItems": 4,
       "items": {"$ref": "#/$defs/system"}
+    },
+    "cost_aware_candidate": {
+      "type": "object",
+      "required": ["id", "name", "status", "selection_gate"],
+      "properties": {
+        "id": {"const": "DVA_ER_V1"},
+        "name": {"type": "string", "minLength": 1},
+        "status": {"const": "PROVISIONAL_NOT_FROZEN"},
+        "selection_gate": {
+          "type": "object",
+          "required": ["id", "status", "cpu_only", "must_show", "failure"],
+          "properties": {
+            "id": {"type": "string", "minLength": 1},
+            "status": {"const": "NOT_EXECUTED"},
+            "cpu_only": {"const": true},
+            "must_show": {"type": "array", "minItems": 3},
+            "failure": {"type": "string", "minLength": 1}
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
     },
     "controlled_variables": {"type": "object"},
     "metrics": {"$ref": "#/$defs/metrics"},
@@ -146,7 +169,7 @@
         "id": {"enum": ["NATIVE", "CONTINUUM_OFFICIAL", "CONTINUUM_ADAPTED", "COST_AWARE"]},
         "implementation": {"type": "string", "minLength": 1},
         "paper_exact": {"type": "boolean"},
-        "candidate_status": {"enum": ["NOT_FROZEN", "FROZEN"]},
+        "candidate_status": {"enum": ["NOT_FROZEN", "PROVISIONAL_NOT_FROZEN", "FROZEN"]},
         "compatibility_status": {"type": "string"}
       },
       "additionalProperties": true
@@ -191,7 +214,7 @@
     },
     "calibration": {
       "type": "object",
-      "required": ["contract", "groups_per_stratum", "repeats", "runs_total", "mde_rule", "sample_size_formula", "sample_size_min_per_stratum", "sample_size_max_per_stratum", "gpu_hours_cap"],
+      "required": ["contract", "groups_per_stratum", "repeats", "runs_total", "mde_rule", "sample_size_formula", "sample_size_min_per_stratum", "sample_size_max_per_stratum", "gpu_hours_minimum", "gpu_hours_maximum"],
       "properties": {
         "contract": {"type": "string"},
         "groups_per_stratum": {"const": 4},
@@ -201,7 +224,8 @@
         "sample_size_formula": {"type": "string", "minLength": 1},
         "sample_size_min_per_stratum": {"type": "integer", "minimum": 1},
         "sample_size_max_per_stratum": {"type": "integer", "minimum": 1},
-        "gpu_hours_cap": {"type": "number", "exclusiveMinimum": 0}
+        "gpu_hours_minimum": {"type": "number", "exclusiveMinimum": 0},
+        "gpu_hours_maximum": {"type": "number", "exclusiveMinimum": 0}
       },
       "additionalProperties": true
     },

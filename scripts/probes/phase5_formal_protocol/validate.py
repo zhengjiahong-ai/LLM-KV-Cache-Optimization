@@ -23,6 +23,7 @@ CONTRACT_PATHS = {
     "calibration_sample_size": Path(
         "configs/phase5/phase5-calibration-sample-size-contract-v1.json"
     ),
+    "cost_aware_candidate": Path("configs/phase5/phase5-cost-aware-candidate-v1.json"),
 }
 SYSTEM_IDS = {"NATIVE", "CONTINUUM_OFFICIAL", "CONTINUUM_ADAPTED", "COST_AWARE"}
 
@@ -59,16 +60,41 @@ def validate_protocol(protocol: dict[str, Any], schema: dict[str, Any]) -> None:
         raise ValueError("calibration Groups must be disjoint from the formal Group minimum")
     if sample["formal_repeats"] != 2 or sample["calibration_repeats"] != 3:
         raise ValueError("frozen repeat counts must be formal=2 and calibration=3")
+    if protocol["workload"]["min_turns_per_session"] < 4:
+        raise ValueError("formal Sessions must have at least four turns")
+    if (
+        protocol["workload"]["max_prompt_tokens"] + protocol["workload"]["max_generation_tokens"]
+        > protocol["workload"]["max_prompt_plus_generation_tokens"]
+    ):
+        raise ValueError("prompt plus generation exceeds the frozen max_model_len")
+    if not protocol["workload"]["generation_config"]:
+        raise ValueError("generation configuration must be frozen")
+    if protocol["workload"]["right_censoring"]["missing_future_turns"] != "NOT_IMPUTED":
+        raise ValueError("right-censored future turns must not be imputed")
+    candidate = protocol["cost_aware_candidate"]
+    if candidate["id"] != "DVA_ER_V1" or candidate["status"] != "PROVISIONAL_NOT_FROZEN":
+        raise ValueError("Cost-Aware candidate must be the provisional DVA_ER_V1 design")
+    if candidate["selection_gate"]["status"] != "NOT_EXECUTED":
+        raise ValueError("candidate selection gate must not be pre-completed")
 
     if protocol["metrics"]["primary"]["id"] != "recomputed_tokens_E_minus_C":
         raise ValueError("primary metric must be recomputed_tokens_E_minus_C")
     contrasts = protocol["statistics"]["primary_contrasts"]
     if len(contrasts) != 3 or len(set(contrasts)) != 3:
         raise ValueError("three unique primary contrasts are required")
+    if protocol["statistics"]["primary_family_size"] != 6:
+        raise ValueError("primary multiplicity family must cover 3 contrasts x 2 strata")
     if protocol["statistics"]["multiplicity"] != "HOLM":
         raise ValueError("primary multiplicity must be Holm")
     if protocol["statistics"]["no_optional_stopping"] is not True:
         raise ValueError("optional stopping is prohibited")
+    if protocol["statistics"]["sample_size_uses_noncentral_t_not_z"] is not True:
+        raise ValueError("sample size must use noncentral t, not z")
+    covariance = protocol["statistics"]["variance_model"]
+    if covariance["contrast_covariance_required"] is not True:
+        raise ValueError("contrast covariance must be estimated")
+    if protocol["statistics"]["mde_pre_registration_order"][-1] != "FREEZE_VALUE_BEFORE_FORMAL":
+        raise ValueError("MDE value must be frozen before formal execution")
 
     unresolved_ids = {row["id"] for row in protocol["unresolved"]}
     required_unresolved = {
@@ -90,6 +116,20 @@ def validate_protocol(protocol: dict[str, Any], schema: dict[str, Any]) -> None:
         raise ValueError("minimum formal Groups/stratum is 8")
     if calibration["sample_size_max_per_stratum"] != 16:
         raise ValueError("maximum formal Groups/stratum is 16")
+    if calibration["gpu_hours_minimum"] < 48:
+        raise ValueError("GPU budget cannot support the minimum sample within 48 hours")
+    if calibration["gpu_hours_maximum"] < calibration["gpu_hours_minimum"]:
+        raise ValueError("GPU budget range is inverted")
+    if calibration["formula_result_below_min"] != "USE_8_AND_REPORT_VARIANCE_UNCERTAINTY":
+        raise ValueError("formula-below-minimum rule must use 8, not stop")
+    if calibration["if_budget_cannot_support_minimum"] != "NOT_FEASIBLE":
+        raise ValueError("budget below the minimum sample must stop")
+    if not protocol["replay"]["execution_order"]["design"]:
+        raise ValueError("execution order must be pre-registered")
+    if protocol["replay"]["isolation"]["cross_run_apc_reuse"] is not False:
+        raise ValueError("cross-run APC reuse is prohibited")
+    if protocol["replay"]["execution_order"]["outcome_based_reordering"] is not False:
+        raise ValueError("outcome-based arm reordering is prohibited")
 
 
 def validate_contracts(repository: Path, schema: dict[str, Any]) -> dict[str, Any]:
@@ -129,6 +169,16 @@ def validate_manifest_schema(repository: Path) -> None:
         "tokenizer_revision": "PINNED",
         "sampling_parameters_sha256": "0" * 64,
         "engine_configuration_sha256": "0" * 64,
+        "generation_config_sha256": "0" * 64,
+        "execution_order_index": 0,
+        "engine_instance_id": "ENGINE-EXAMPLE-0",
+        "isolation_preflight": {
+            "new_process": True,
+            "new_engine": True,
+            "cross_run_apc_reuse": False,
+            "empty_cache_verified": True,
+        },
+        "preheat_mode": "NONE",
         "actual_enqueue_sequence_sha256": "0" * 64,
         "evidence": {
             "planned_events_sha256": "0" * 64,
