@@ -1,6 +1,6 @@
 {
   "schema_version": "phase5.workload_qualification.v1",
-  "protocol_id": "phase5-formal-four-system-trace-replay-v1",
+  "protocol_id": "phase5-formal-six-system-trace-replay-v1",
   "source_classes": [
     {
       "id": "SWE_BENCH_VERIFIED",
@@ -125,7 +125,11 @@
     "paper_aggregate_is_not_a_trace": true
   },
   "right_censoring": {
-    "status_enum": ["NATURAL_TERMINAL", "RIGHT_CENSORED", "EXCLUDED"],
+    "status_enum": [
+      "NATURAL_TERMINAL",
+      "RIGHT_CENSORED",
+      "EXCLUDED"
+    ],
     "primary_analysis": "INCLUDE_RIGHT_CENSORED_SESSION_IF_ALL_OBSERVED_TURNS_VALID",
     "missing_future_turns": "NOT_IMPUTED",
     "censor_reason_required": true,

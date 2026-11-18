@@ -17,15 +17,27 @@ PROTOCOL_PATH = Path("configs/phase5/phase5-formal-protocol-v1.json")
 PROTOCOL_SCHEMA_PATH = Path("configs/phase5/schema/phase5-formal-protocol-v1.schema.json")
 CONTRACTS_SCHEMA_PATH = Path("configs/phase5/schema/phase5-contracts-v1.schema.json")
 MANIFEST_SCHEMA_PATH = Path("configs/phase5/schema/phase5-campaign-manifest-v1.schema.json")
+FIXTURE_PATH = Path("configs/phase5/fixtures/phase5-candidate-evaluation-cases.json")
+FIXTURE_SCHEMA_PATH = Path(
+    "configs/phase5/schema/phase5-candidate-evaluation-fixtures-v1.schema.json"
+)
 CONTRACT_PATHS = {
     "metrics": Path("configs/phase5/phase5-metrics-contract-v1.json"),
     "workload_qualification": Path("configs/phase5/phase5-workload-qualification-contract-v1.json"),
     "calibration_sample_size": Path(
         "configs/phase5/phase5-calibration-sample-size-contract-v1.json"
     ),
-    "cost_aware_candidate": Path("configs/phase5/phase5-cost-aware-candidate-v1.json"),
+    "cost_aware_candidate_family": Path("configs/phase5/phase5-cost-aware-candidate-v1.json"),
+    "candidate_evaluation": Path("configs/phase5/phase5-candidate-evaluation-contract-v1.json"),
 }
-SYSTEM_IDS = {"NATIVE", "CONTINUUM_OFFICIAL", "CONTINUUM_ADAPTED", "COST_AWARE"}
+SYSTEM_IDS = {
+    "NATIVE",
+    "CONTINUUM_OFFICIAL",
+    "CONTINUUM_ADAPTED",
+    "A1_ORIGINAL",
+    "A3_SUFFIX",
+    "DVA_ER_V1",
+}
 
 
 def _load(path: Path) -> Any:
@@ -46,8 +58,8 @@ def validate_protocol(protocol: dict[str, Any], schema: dict[str, Any]) -> None:
     if protocol["execution_authorized"] is not False:
         raise ValueError("formal protocol must remain non-executable before M1 freeze")
     system_ids = {system["id"] for system in protocol["systems"]}
-    if system_ids != SYSTEM_IDS or len(protocol["systems"]) != 4:
-        raise ValueError("protocol must define exactly the four registered systems")
+    if system_ids != SYSTEM_IDS or len(protocol["systems"]) != 6:
+        raise ValueError("protocol must define exactly the six registered systems")
 
     sample = protocol["workload"]["sample_plan"]
     if not (
@@ -71,21 +83,48 @@ def validate_protocol(protocol: dict[str, Any], schema: dict[str, Any]) -> None:
         raise ValueError("generation configuration must be frozen")
     if protocol["workload"]["right_censoring"]["missing_future_turns"] != "NOT_IMPUTED":
         raise ValueError("right-censored future turns must not be imputed")
-    candidate = protocol["cost_aware_candidate"]
-    if candidate["id"] != "DVA_ER_V1" or candidate["status"] != "PROVISIONAL_NOT_FROZEN":
-        raise ValueError("Cost-Aware candidate must be the provisional DVA_ER_V1 design")
-    if candidate["selection_gate"]["status"] != "NOT_EXECUTED":
-        raise ValueError("candidate selection gate must not be pre-completed")
+    candidate_family = protocol["candidate_family"]
+    family_candidates = candidate_family["candidates"]
+    if family_candidates != ["A1_ORIGINAL", "A3_SUFFIX", "DVA_ER_V1"]:
+        raise ValueError("Cost-Aware family must contain A1, A3 and DVA-ER")
+    if candidate_family["reference_system"] != "CONTINUUM_ADAPTED":
+        raise ValueError("A0 must be the common Cost-Aware reference")
+    if len(candidate_family["comparison_matrix"]) < 7:
+        raise ValueError("candidate comparison matrix is incomplete")
+    if len(candidate_family["stages"]) != 3:
+        raise ValueError("all three candidate evaluation stages are required")
+    if candidate_family["data_partitions"]["historical_archive"] != (
+        "EXPLORATORY_AND_REPRODUCTION_ONLY"
+    ):
+        raise ValueError("historical archive cannot be confirmatory")
+    if candidate_family["data_partitions"]["formal_cohort"] != "CONFIRMATORY_ONLY":
+        raise ValueError("formal cohort must be confirmatory only")
+    if candidate_family["dva_er"]["future_information_used"] is not False:
+        raise ValueError("DVA-ER cannot use future information")
+    if candidate_family["dva_er"]["missing_evidence"] != "FAIL_CLOSED":
+        raise ValueError("DVA-ER must fail closed on missing evidence")
+    candidates = {row["id"]: row for row in protocol["systems"]}
+    if candidates["A1_ORIGINAL"]["status"] != "FROZEN_LEGACY":
+        raise ValueError("A1 original must remain a frozen legacy implementation")
+    if candidates["A3_SUFFIX"]["status"] != "FROZEN_LEGACY":
+        raise ValueError("A3 suffix must remain a frozen legacy implementation")
+    if candidates["DVA_ER_V1"]["status"] != "PROVISIONAL_NOT_FROZEN":
+        raise ValueError("DVA-ER must remain provisional until the CPU gate")
 
     if protocol["metrics"]["primary"]["id"] != "recomputed_tokens_E_minus_C":
         raise ValueError("primary metric must be recomputed_tokens_E_minus_C")
     contrasts = protocol["statistics"]["primary_contrasts"]
-    if len(contrasts) != 3 or len(set(contrasts)) != 3:
-        raise ValueError("three unique primary contrasts are required")
-    if protocol["statistics"]["primary_family_size"] != 6:
-        raise ValueError("primary multiplicity family must cover 3 contrasts x 2 strata")
-    if protocol["statistics"]["multiplicity"] != "HOLM":
-        raise ValueError("primary multiplicity must be Holm")
+    if len(contrasts) != 7 or len(set(contrasts)) != 7:
+        raise ValueError("seven unique primary contrasts are required")
+    families = protocol["statistics"]["primary_families"]
+    if len(families["CANDIDATE_MECHANISM"]) != 5:
+        raise ValueError("candidate mechanism family must contain five contrasts")
+    if len(families["SYSTEM_CONTEXT"]) != 2:
+        raise ValueError("system context family must contain two contrasts")
+    if set(families["CANDIDATE_MECHANISM"] + families["SYSTEM_CONTEXT"]) != set(contrasts):
+        raise ValueError("primary contrast families do not cover the registered tests")
+    if protocol["statistics"]["multiplicity"] != "HOLM_WITHIN_EACH_FAMILY_PER_STRATUM":
+        raise ValueError("multiplicity must be Holm within family and stratum")
     if protocol["statistics"]["no_optional_stopping"] is not True:
         raise ValueError("optional stopping is prohibited")
     if protocol["statistics"]["sample_size_uses_noncentral_t_not_z"] is not True:
@@ -93,12 +132,14 @@ def validate_protocol(protocol: dict[str, Any], schema: dict[str, Any]) -> None:
     covariance = protocol["statistics"]["variance_model"]
     if covariance["contrast_covariance_required"] is not True:
         raise ValueError("contrast covariance must be estimated")
+    if covariance["contrast_covariance_size"] != 7:
+        raise ValueError("contrast covariance must cover all seven tests")
     if protocol["statistics"]["mde_pre_registration_order"][-1] != "FREEZE_VALUE_BEFORE_FORMAL":
         raise ValueError("MDE value must be frozen before formal execution")
 
     unresolved_ids = {row["id"] for row in protocol["unresolved"]}
     required_unresolved = {
-        "U1_COST_AWARE_CANDIDATE",
+        "U1_COST_AWARE_CANDIDATE_FAMILY",
         "U2_CONTINUUM_ADAPTED_SCHEDULER_SCOPE",
         "U3_OFFICIAL_ENVIRONMENT_COMPATIBILITY",
         "U4_BFCL_TRACE_ACQUISITION",
@@ -110,14 +151,20 @@ def validate_protocol(protocol: dict[str, Any], schema: dict[str, Any]) -> None:
         raise ValueError("unresolved M1 decision set is incomplete")
 
     calibration = protocol["calibration"]
-    if calibration["groups_per_stratum"] != 4 or calibration["runs_total"] != 96:
-        raise ValueError("calibration must be 4 Groups/stratum and 96 runs")
+    if calibration["groups_per_stratum"] != 4 or calibration["runs_total"] != 144:
+        raise ValueError("calibration must be 4 Groups/stratum and 144 six-arm runs")
+    if calibration["systems"] != 6:
+        raise ValueError("calibration must include all six systems")
     if calibration["sample_size_min_per_stratum"] != 8:
         raise ValueError("minimum formal Groups/stratum is 8")
     if calibration["sample_size_max_per_stratum"] != 16:
         raise ValueError("maximum formal Groups/stratum is 16")
-    if calibration["gpu_hours_minimum"] < 48:
-        raise ValueError("GPU budget cannot support the minimum sample within 48 hours")
+    if calibration["formal_runs_at_min"] != 192:
+        raise ValueError("six-arm formal minimum must be 192 runs")
+    if calibration["formal_runs_at_max"] != 384:
+        raise ValueError("six-arm formal maximum must be 384 runs")
+    if calibration["gpu_hours_minimum"] < 72:
+        raise ValueError("six-arm GPU budget cannot support the minimum sample within 72 hours")
     if calibration["gpu_hours_maximum"] < calibration["gpu_hours_minimum"]:
         raise ValueError("GPU budget range is inverted")
     if calibration["formula_result_below_min"] != "USE_8_AND_REPORT_VARIANCE_UNCERTAINTY":
@@ -155,7 +202,7 @@ def validate_manifest_schema(repository: Path) -> None:
     jsonschema.Draft202012Validator.check_schema(manifest_schema)
     example = {
         "schema_version": "phase5.campaign_manifest.v1",
-        "protocol_id": "phase5-formal-four-system-trace-replay-v1",
+        "protocol_id": "phase5-formal-six-system-trace-replay-v1",
         "protocol_sha256": "0" * 64,
         "run_id": "P5F-EXAMPLE",
         "group_id": "G000",
@@ -213,6 +260,36 @@ def validate_manifest_schema(repository: Path) -> None:
         )
 
 
+def validate_candidate_fixtures(repository: Path) -> dict[str, Any]:
+    schema = _load(repository / FIXTURE_SCHEMA_PATH)
+    document = _load(repository / FIXTURE_PATH)
+    errors = sorted(
+        jsonschema.Draft202012Validator(schema).iter_errors(document),
+        key=lambda error: list(error.absolute_path),
+    )
+    if errors:
+        raise ValueError(
+            "candidate fixture validation failed: "
+            + "; ".join(error.message for error in errors[:5])
+        )
+    cases = {row["id"]: row for row in document["cases"]}
+    if set(cases) != {
+        "MULTIPLE_LEGAL_CANDIDATES",
+        "SCORE_RANK_INVERSION",
+        "DIFFERENT_VICTIM_SET",
+        "SAME_ENTRY_RANK_DIFFERENT_VICTIM_RISK",
+        "MISSING_EVIDENCE",
+        "FUTURE_INFORMATION_UNAVAILABLE",
+        "NATIVE_LRU_TIE_BREAK",
+    }:
+        raise ValueError("candidate fixture case set is incomplete")
+    if cases["FUTURE_INFORMATION_UNAVAILABLE"]["expected"]["future_fields_rejected"] is not True:
+        raise ValueError("future-information fixture must reject future fields")
+    if cases["MISSING_EVIDENCE"]["expected"]["fail_closed"] is not True:
+        raise ValueError("missing-evidence fixture must fail closed")
+    return {"cases": len(cases), "status": document["status"]}
+
+
 def validate_repository(repository: Path) -> dict[str, Any]:
     repository = repository.resolve()
     protocol = _load(repository / PROTOCOL_PATH)
@@ -221,6 +298,7 @@ def validate_repository(repository: Path) -> dict[str, Any]:
     contracts_schema = _load(repository / CONTRACTS_SCHEMA_PATH)
     contracts = validate_contracts(repository, contracts_schema)
     validate_manifest_schema(repository)
+    fixtures = validate_candidate_fixtures(repository)
     for reference in protocol["contracts"].values():
         if not isinstance(reference, str) or not reference:
             raise ValueError("contract reference must be a non-empty string")
@@ -228,6 +306,7 @@ def validate_repository(repository: Path) -> dict[str, Any]:
         "status": protocol["status"],
         "systems": sorted(system["id"] for system in protocol["systems"]),
         "contracts": contracts,
+        "fixtures": fixtures,
         "manifest_schema": "valid",
         "execution_authorized": protocol["execution_authorized"],
     }

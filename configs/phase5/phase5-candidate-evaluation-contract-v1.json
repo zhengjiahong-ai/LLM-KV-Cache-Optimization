@@ -1,0 +1,163 @@
+{
+  "schema_version": "phase5.candidate_evaluation.v1",
+  "protocol_id": "phase5-formal-six-system-trace-replay-v1",
+  "independent_unit": "WORKLOAD_GROUP",
+  "common_inputs": {
+    "decision_snapshot": "ONE_IMMUTABLE_SNAPSHOT_PER_DECISION",
+    "legal_candidate_set": "SAME_FOR_ALL_CANDIDATES",
+    "native_lru_state": "SAME_BLOCKPOOL_FREE_QUEUE_REFCOUNT_ELIGIBILITY_PROTECTION",
+    "workload_trace": "SAME_SEALED_TRACE_AND_ARRIVAL_REALIZATION",
+    "candidate_specific_data_selection": "FORBIDDEN"
+  },
+  "snapshot_contract": {
+    "required_fields": [
+      "decision_id",
+      "group_id",
+      "stratum",
+      "program_id",
+      "session_id",
+      "turn_id",
+      "trace_sha256",
+      "logical_time",
+      "legal_candidate_ids",
+      "candidate_features_by_algorithm",
+      "a0_baseline_selection",
+      "native_block_pool_snapshot_sha256",
+      "free_queue_order_sha256",
+      "refcount_snapshot_sha256",
+      "eligibility_protection_sha256",
+      "evidence_coverage"
+    ],
+    "future_fields_forbidden": [
+      "future_turn_content",
+      "future_reuse_outcome",
+      "future_victim_set_label",
+      "oracle_future_use"
+    ],
+    "missing_evidence": "FAIL_CLOSED_FOR_THE_DECISION"
+  },
+  "stages": [
+    {
+      "id": "STAGE_1_DECISION_SPACE",
+      "unit": "DECISION_THEN_WORKLOAD_GROUP",
+      "metrics": [
+        {
+          "id": "legal_candidate_count_distribution",
+          "definition": "distribution of |legal candidates| per decision",
+          "unit": "decisions"
+        },
+        {
+          "id": "multi_candidate_decision_rate",
+          "definition": "decisions with >=2 fully scored legal candidates / valid decisions",
+          "unit": "ratio"
+        },
+        {
+          "id": "candidate_score_distribution",
+          "definition": "per-candidate score distribution by algorithm and snapshot",
+          "unit": "score"
+        },
+        {
+          "id": "pairwise_rank_inversion",
+          "definition": "pairs whose candidate order differs between algorithms",
+          "unit": "pairs"
+        },
+        {
+          "id": "selection_divergence",
+          "definition": "same snapshot, different selected candidate identity",
+          "unit": "decisions"
+        },
+        {
+          "id": "victim_set_divergence",
+          "definition": "same snapshot, different Native LRU victim set or sequence",
+          "unit": "decisions"
+        },
+        {
+          "id": "decision_branch_coverage",
+          "definition": "observed A1 branch/step coverage by algorithm",
+          "unit": "branches"
+        },
+        {
+          "id": "evidence_coverage",
+          "definition": "decisions with all required evidence / valid decisions",
+          "unit": "ratio"
+        },
+        {
+          "id": "fallback_rate",
+          "definition": "decisions using a declared fallback / valid decisions",
+          "unit": "ratio"
+        }
+      ],
+      "must_not_stop_at_entry_selection": true,
+      "must_track_victim_set": true
+    },
+    {
+      "id": "STAGE_2_FULL_TRAJECTORY_COUNTERFACTUAL",
+      "unit": "WORKLOAD_GROUP",
+      "metrics": [
+        "recomputed_tokens_E_minus_C",
+        "eligible_prefix_tokens",
+        "native_cached_prefix_tokens",
+        "physical_victim_sequence",
+        "downstream_reuse",
+        "policy_overhead"
+      ],
+      "full_replay_required": true,
+      "local_decision_gain_sum": false,
+      "state_dependence_preserved": true
+    },
+    {
+      "id": "STAGE_3_MECHANISM_CORRECTNESS",
+      "unit": "FIXTURE",
+      "checks": [
+        "A1 full ladder and historical reproduction",
+        "A3 suffix formula and A1 non-Step-2 branch identity",
+        "DVA-ER victim simulation and online input legality",
+        "A0 comparability",
+        "determinism/tie-break/fail-closed"
+      ],
+      "fixture_cases": [
+        "MULTIPLE_LEGAL_CANDIDATES",
+        "SCORE_RANK_INVERSION",
+        "DIFFERENT_VICTIM_SET",
+        "SAME_ENTRY_RANK_DIFFERENT_VICTIM_RISK",
+        "MISSING_EVIDENCE",
+        "FUTURE_INFORMATION_UNAVAILABLE",
+        "NATIVE_LRU_TIE_BREAK"
+      ]
+    }
+  ],
+  "data_partitions": {
+    "historical_archive": {
+      "use": "EXPLORATORY_AND_REPRODUCTION_ONLY",
+      "confirmatory": false,
+      "seven_decisions_standalone_effect_claim": false
+    },
+    "cpu_fixtures": {
+      "use": "CORRECTNESS_AND_MECHANISM_ONLY",
+      "workload_benefit_claim": false
+    },
+    "formal_cohort": {
+      "use": "CONFIRMATORY_ONLY",
+      "independent_of_historical_and_fixture_data": true,
+      "sealed_before_unblinding": true
+    }
+  },
+  "freeze": {
+    "freeze_before_formal_unblinding": [
+      "A1 source/parameters hash",
+      "A3 source/parameters hash",
+      "DVA-ER source/parameters/H/tie-break hash",
+      "snapshot schema hash",
+      "evaluator/metric version hash"
+    ],
+    "post_unblinding_change": "FORBIDDEN",
+    "winner_selection_then_same_data_confirmation": "FORBIDDEN"
+  },
+  "stage_questions": [
+    "Do A1, A3 and DVA-ER have distinguishable decision spaces?",
+    "Which score factors explain A1-vs-A3 selection differences?",
+    "Does DVA-ER select differently from A1/A3?",
+    "Does entry selection divergence change Native LRU victim set?",
+    "When does missing evidence prevent a valid decision?"
+  ]
+}

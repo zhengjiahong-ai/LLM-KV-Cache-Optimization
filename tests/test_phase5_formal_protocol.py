@@ -39,9 +39,11 @@ def test_valid_protocol_and_contracts() -> None:
     result = module.validate_repository(ROOT)
     assert result["execution_authorized"] is False
     assert result["systems"] == [
+        "A1_ORIGINAL",
+        "A3_SUFFIX",
         "CONTINUUM_ADAPTED",
         "CONTINUUM_OFFICIAL",
-        "COST_AWARE",
+        "DVA_ER_V1",
         "NATIVE",
     ]
     assert result["manifest_schema"] == "valid"
@@ -131,28 +133,53 @@ def test_rejects_prompt_plus_generation_over_context() -> None:
         raise AssertionError("over-context prompt was accepted")
 
 
-def test_rejects_non_provisional_cost_aware_candidate() -> None:
+def test_rejects_prematurely_frozen_dva_candidate() -> None:
     module = _load_module()
     protocol = _protocol()
-    protocol["cost_aware_candidate"]["status"] = "FROZEN"
+    for system in protocol["systems"]:
+        if system["id"] == "DVA_ER_V1":
+            system["status"] = "FROZEN"
+            break
     try:
         module.validate_protocol(protocol, _schema())
     except ValueError as error:
-        assert "DVA_ER_V1" in str(error) or "PROVISIONAL" in str(error)
+        assert "DVA-ER" in str(error) or "schema" in str(error)
     else:
         raise AssertionError("prematurely frozen candidate was accepted")
 
 
-def test_rejects_insufficient_gpu_budget() -> None:
+def test_rejects_insufficient_six_arm_gpu_budget() -> None:
     module = _load_module()
     protocol = _protocol()
     protocol["calibration"]["gpu_hours_minimum"] = 36
     try:
         module.validate_protocol(protocol, _schema())
     except ValueError as error:
-        assert "48 hours" in str(error)
+        assert "72 hours" in str(error)
     else:
-        raise AssertionError("36-hour budget was accepted for the minimum sample")
+        raise AssertionError("36-hour budget was accepted for the minimum six-arm sample")
+
+
+def test_candidate_evaluation_fixtures_are_complete() -> None:
+    module = _load_module()
+    result = module.validate_candidate_fixtures(ROOT)
+    assert result["cases"] == 7
+    assert result["status"] == "CONTRACT_FIXTURES_ONLY_NOT_ALGORITHM_RESULTS"
+    cases = {
+        row["id"]: row
+        for row in json.loads(
+            (ROOT / "configs/phase5/fixtures/phase5-candidate-evaluation-cases.json").read_text(
+                encoding="utf-8"
+            )
+        )["cases"]
+    }
+    assert cases["SCORE_RANK_INVERSION"]["expected"]["pairwise_rank_inversion"] is True
+    assert cases["DIFFERENT_VICTIM_SET"]["expected"]["victim_set_divergence"] is True
+    assert (
+        cases["SAME_ENTRY_RANK_DIFFERENT_VICTIM_RISK"]["expected"]["dva_selection_can_diverge"]
+        is True
+    )
+    assert cases["NATIVE_LRU_TIE_BREAK"]["expected"]["a0_tie_break_reproduced"] is True
 
 
 def test_contracts_and_manifest_schema_are_valid() -> None:
@@ -165,6 +192,7 @@ def test_contracts_and_manifest_schema_are_valid() -> None:
         "metrics",
         "workload_qualification",
         "calibration_sample_size",
-        "cost_aware_candidate",
+        "cost_aware_candidate_family",
+        "candidate_evaluation",
     }
     module.validate_manifest_schema(ROOT)

@@ -1,4 +1,4 @@
-# Phase 5 Formal Experiment Protocol — Four-System Trace-Driven Replay
+# Phase 5 Formal Experiment Protocol — Six-System Trace-Driven Replay
 
 **Protocol ID:** `phase5.formal_protocol.v1`  
 **Status:** `DESIGN_FROZEN_CANDIDATE` — M1 freeze required; no execution authorized.  
@@ -10,16 +10,18 @@
 
 ## 0. Purpose and non-goals
 
-This protocol defines one formal, trace-driven replay campaign comparing four systems on representative multi-turn Agent workloads:
+This protocol defines one formal, trace-driven replay campaign comparing **six systems** on representative multi-turn Agent workloads:
 
-1. **Native** — unmodified Native vLLM;
+1. **Native vLLM**;
 2. **Continuum Official** — the authors' pinned public implementation;
-3. **Continuum Adapted** — the project-side A0-derived full-system adaptation;
-4. **Cost-Aware** — the provisional DVA-ER v1 candidate built on the same project foundation; it must pass the CPU candidate-selection gate and be M1-frozen before formal execution.
+3. **Continuum Adapted (A0)** — the project-side full-system adaptation;
+4. **A1 Original Cost-Aware** — the complete original A1 decision ladder;
+5. **A3 Suffix-Cost-Aware** — A3's suffix-cost replacement of A1 Step 2, with all other A1 branches retained;
+6. **DVA-ER v1** — Downstream-Victim-Aware Entry Release, provisional.
 
 The research question is:
 
-> Under a representative multi-turn Agent workload, can Cost-Aware KV-cache management reduce recomputation caused by cache eviction relative to Native and Continuum-style systems, and does that mechanism benefit transfer to measured serving metrics?
+> Under representative multi-turn Agent workloads, which Cost-Aware candidate (A1, A3 or DVA-ER), evaluated against the same A0 reference, produces a distinguishable decision space, changes the Native LRU victim set, reduces eviction-induced recomputation, and improves measured serving metrics?
 
 This protocol does **not**:
 
@@ -27,6 +29,7 @@ This protocol does **not**:
 - treat the official public preview as the complete paper implementation;
 - pool Phase 3 fixed-pressure results with Phase 5 trace-driven results;
 - claim isolated mechanism causality from a whole-system comparison;
+- use the same formal data to select a winner and then confirm it;
 - authorize GPU, Native, or Trace Acquisition execution.
 
 The first formal campaign is **trace-driven replay only**. Closed-loop Agent execution is excluded and requires a separate protocol.
@@ -47,18 +50,20 @@ The first formal campaign is **trace-driven replay only**. Closed-loop Agent exe
 
 A request row, turn, tool call, runtime repeat or pressure event is **never** an independent sample.
 
-### 1.2 Four systems
+### 1.2 Six systems
 
 | ID | System | Exact definition | Allowed differences |
 |---|---|---|---|
-| `NATIVE` | Native vLLM | Unmodified vLLM `0.27.1`; Native APC/LRU, scheduler, BlockPool, no project hooks; same model/tokenizer/pool/block size/`max_num_seqs` as Adapted/Cost-Aware. | Only passive evidence instrumentation; no behavior-changing patch. |
+| `NATIVE` | Native vLLM | Unmodified vLLM `0.27.1`; Native APC/LRU, scheduler, BlockPool, no project hooks; same model/tokenizer/pool/block size/`max_num_seqs` as A0/A1/A3/DVA-ER. | Only passive evidence instrumentation; no behavior-changing patch. |
 | `CONTINUUM_OFFICIAL` | Continuum Official Public Implementation | Pinned authors' public repository at `316a58794a6ff86b216e579b74fd56ed0c5a911f` (M1 must re-freeze if a newer reviewed snapshot is chosen); run as released, with its own documented environment. | Its own upstream vLLM base and scheduler; **not** the full paper estimator. If the base differs, it is a separate environment stratum and a documented confound. |
-| `CONTINUUM_ADAPTED` | Continuum Adapted | A0-derived **full-system** adaptation on the project side: project Dynamic TTL, retention/Entry Release, native physical victim path, and project program-aware scheduler enabled only after scheduler conformance. Same model/tokenizer/pool/block/max_num_seqs as Cost-Aware. | Project-side scheduler/TTL implementation; no Cost-Aware policy. If scheduler conformance is not accepted, the system must be renamed `CONTINUUM_ADAPTED_CACHE_ONLY`; it cannot be presented as full-system Continuum. |
-| `COST_AWARE` | Cost-Aware | **Provisional DVA-ER v1**, built on the exact `CONTINUUM_ADAPTED` foundation; it must pass the CPU candidate-selection gate and be M1-frozen before formal execution. One candidate only; no fallback arm, no mid-campaign substitution. | Only the frozen cost-aware policy; all other configuration identical to Adapted. |
+| `CONTINUUM_ADAPTED` | Continuum Adapted (A0) | A0-derived **full-system** adaptation: project Dynamic TTL, retention/Entry Release, native physical victim path, and project program-aware scheduler enabled only after scheduler conformance. Common reference for A1/A3/DVA-ER. | Project-side scheduler/TTL implementation; no Cost-Aware policy. If scheduler conformance is not accepted, rename `CONTINUUM_ADAPTED_CACHE_ONLY`. |
+| `A1_ORIGINAL` | A1 Original Cost-Aware | Exact frozen Phase 3 A1: complete original decision ladder, original cost and reuse-probability proxies; no simplification; only Entry Release policy differs from A0. | A1 policy only. Physical victim path remains Native LRU. |
+| `A3_SUFFIX` | A3 Suffix-Cost-Aware | Exact frozen Phase 3 A3: replaces only A1 Step 2 with `L(X)=q_X*prefill_X*S_X/m_X`; all other A1 branches retained. Not an independent decision system. | A3 Step 2 only; other branches identical to A1. Physical victim path remains Native LRU. |
+| `DVA_ER_V1` | DVA-ER v1 | Downstream-Victim-Aware Entry Release: simulate the actual Native LRU victim set for each legal Entry candidate, score victim-set risk, select lowest risk, tie-break to A0. | New Entry policy only; requires CPU candidate-selection gate and M1 freeze before formal. |
 
-**Official boundary:** the public repository is a released Continuum-style implementation without the full paper estimator/experiment bundle. Results must be reported as a system-level comparison, not as an exact paper reproduction or an isolated mechanism comparison.
+**Official boundary:** the public repository is a released Continuum-style implementation without the full paper estimator/experiment bundle. Results are a system-level comparison, not exact paper reproduction or isolated mechanism comparison.
 
-**Cost-Aware freeze:** no Phase 4 candidate has been promoted. The protocol proposes **DVA-ER v1** as a provisional candidate, not a validated winner. `COST_AWARE_CANDIDATE` remains `PROVISIONAL_NOT_FROZEN` until the CPU candidate-selection gate in §2.5 succeeds and M1 hashes the exact revision. Until then the formal campaign is `NOT_EXECUTABLE`.
+**Candidate family boundary:** A1/A3 are frozen legacy implementations; DVA-ER is a provisional new hypothesis. The three are not a winner-selection pool. They are pre-registered independent comparison objects under one decision snapshot, one legal candidate set, one Native LRU state and one Workload Trace. The DVA-ER CPU gate must pass before it is frozen; if it fails, the six-system campaign does not silently drop to five arms — M1 decides.
 
 ### 1.3 Control variables
 
@@ -86,7 +91,7 @@ Primary source families:
 - **SWE-Bench Verified** — coding Agent Sessions acquired with the pinned mini-swe-agent path; source task revision `c104f840cc67f8b6eec6f759ebc8b2693d585d4a` (or a frozen newer revision).
 - **BFCL v4 Web Search** — tool-use Agent Sessions whose search results are frozen as deterministic fixtures; live web search is not admissible because content and latency drift.
 
-Optional secondary source (not part of the primary four-system estimand unless separately frozen): Multi-SWE-Bench/OpenHands public trajectories after schema/license audit.
+Optional secondary source (not part of the primary six-system estimand unless separately frozen): Multi-SWE-Bench/OpenHands public trajectories after schema/license audit.
 
 Each source must be sealed with:
 
@@ -126,6 +131,7 @@ Qualification is outcome-blind. The full field contract is in `phase5-workload-q
 - Planned independent Groups per stratum: **min 8, target 12, max 16**.
 - Calibration Groups per stratum: **4**, disjoint from the formal Groups and never reused.
 - Formal repeats per Group/System: **2**; calibration repeats: **3**.
+- Six systems per Group; formal runs = **6 × N × 2 × 2 = 24N** (192 at min, 288 at target, 384 at max). Calibration runs = **6 × 4 × 3 × 2 = 144**.
 - A Group is `COMPLETE` only if all 4 Sessions and all required requests produce valid evidence in every system/repeat.
 - Every qualified Session has **at least 4 Turns and at most 16 Turns**. This preserves the Phase 5A minimum multi-turn qualification and avoids single-turn task rows.
 - The frozen generation configuration is: `temperature=0.0`, `top_p=1.0`, `top_k=0`, `seed=20261201`, `max_new_tokens=128`, `stop=[]`, `ignore_eos=false`. It is identical across systems and repeats.
@@ -146,43 +152,62 @@ The target sample size is not fixed at design time; it is selected by the pre-re
 - Sensitivity: `EMPIRICAL_ALIGNED` starts when a qualified multi-session source exists; `FIXED_STAGGER` as a controlled negative-style comparison.
 - The default λ is a design parameter, not an observed production rate. It must be frozen by M1; a provisional value is recorded in JSON and must not be presented as natural concurrency.
 
-### 2.5 Cost-Aware candidate selection
+### 2.5 Cost-Aware candidate family and unified evaluation
 
-The final Cost-Aware arm is **not** A1, A3, or A2 selected by availability or prior label. The proposed candidate is:
+Phase 5 evaluates **three pre-registered Cost-Aware candidates**, not one winner-selected arm:
 
-**DVA-ER v1 — Downstream-Victim-Aware Entry Release v1**
-(`PROVISIONAL_NOT_FROZEN`; detailed contract: `phase5.cost_aware_candidate.v1`).
+- **A1 — Original Cost-Aware Entry Release:** preserves the complete original A1 decision ladder, original cost estimates and reuse-probability proxies. No simplification.
+- **A3 — Suffix-Cost-Aware Entry Release:** preserves the implemented `L(X)=q_X×prefill_X×S_X/m_X`; it replaces only A1 Step 2, and all other A1 branches remain identical. It is not an independent decision system.
+- **DVA-ER v1 — Downstream-Victim-Aware Entry Release:** a new hypothesis that simulates the actual Native LRU victim set and scores the victim set's downstream reuse risk.
 
-Mechanism: at each forced Entry Release decision, simulate the actual Native LRU victim set `V(X)` for each legal candidate `X` on the same eligible state. Score the candidate by the future-reuse risk of the **victim set**, not by the candidate's own local cost:
+A0 is the common reference. All three candidates use the **same Decision Snapshot, legal candidate set, Native LRU state and Workload Trace**. No candidate-specific data selection, no separately favorable trace subset.
 
-```text
-loss(X) = Σ_{b ∈ V(X)} w_b
-w_b = 1 if b is on an active follow-up chain with a pending tool gap inside H, else 0
-select argmin_X loss(X); tie-break to A0
-```
+#### Candidate comparison matrix
 
-The score uses only pre-decision state; it does not use future labels, oracles, or the original Phase 3 posterior. It preserves Native LRU semantics and changes only the Entry Release choice.
+| Dimension | A1 | A3 | DVA-ER |
+|---|---|---|---|
+| Input signals | original A1 cost, reuse-probability proxy, full A1 branch state | `q_X`, `prefill_X`, `S_X`, `m_X`, plus A1 state for non-Step-2 branches | A0 candidates, complete BlockPool/FreeKVCacheBlockQueue, refcount/eligibility/protection, active follow-up chains, pending tool gap |
+| Scoring objective | original frozen A1 cost | suffix cost `L(X)` | downstream Native LRU victim-set risk |
+| Source of decision difference | original model and full A1 ladder | A1 Step 2 replacement by suffix depth | actual victim sequence, not Entry-local cost |
+| Victim Set modeling | none; Native LRU follows Entry release | none; Native LRU follows Entry release | full Native LRU victim sequence simulation |
+| Evidence requirements | A1 branch inputs, scores, legal set, Native outcome | suffix components, A1 branch state, Native outcome | complete pool/free-queue/refcount/protection, active chains, full victim sequence, A0 tie-break |
+| Main applicability | original cost/reuse proxies discriminate among legal candidates | suffix depth varies and is measurable | victim set and active follow-ups are observable and diverge |
+| Failure/fallback | original A1 fallback branch; fail closed on missing evidence | A1 branch fallback; fail closed on missing depth | A0 tie-break only on equal loss/no legal candidate; fail closed on missing state |
 
-**Why this candidate, based on existing evidence:**
+#### Unified evaluation stages
 
-- Phase 2D showed local shared-protected headroom, but only under a local objective;
-- Phase 3 A1/A3 reduced local cost without targeting the actual Native victim set, and A2 changed physical selection without producing the required victim-sequence divergence;
-- P2 showed no positive decision value under the then-available predictor;
-- P1/E1-A left candidate exposure and full-trajectory effect unestablished;
-- Phase 4 concluded that the next candidate must be judged by the actual downstream victim set, not a local score sum.
+**Stage 1 — Decision Space Evaluation.** On the same snapshot, record:
+`Legal Candidate Count Distribution`, `Multi-candidate Decision Rate`, `Candidate Score Distribution`, `Pairwise Rank Inversion`, `Selection Divergence`, `Victim Set Divergence`, `Decision Branch Coverage`, `Evidence Coverage`, `Fallback Rate`.
+It must answer: whether all three have a distinguishable decision space; which score factors explain A1-vs-A3; whether DVA-ER selects differently; whether Entry selection divergence changes the Native victim set; and when missing evidence prevents a valid decision. **Entry Selection Divergence alone is insufficient**; the Native Physical Victim Set Divergence is mandatory.
 
-This is a **new hypothesis**, not a validated algorithm. It is explicitly not presented as a Phase 3 winner.
+**Stage 2 — Full-Trajectory Counterfactual Replay.** Each candidate is replayed over the full trajectory, recording `Recomputed Tokens`, `Eligible Prefix Tokens`, `Native Cached Prefix Tokens`, `Physical Victim Sequence`, `Downstream Reuse` and `Policy Overhead`. Every counterfactual is a complete replay. Local decision gains are never summed into a trajectory result, because a decision changes later state, candidates and victim outcomes.
 
-**Mandatory CPU selection gate before freeze:**
+**Stage 3 — Mechanism and Correctness Validation.** Separate validation of:
+A1 full implementation/historical reproduction; A3 suffix calculation and non-Step-2 A1 branch consistency; DVA-ER victim simulation and online-input legality; A0 comparability; determinism, tie-break and fail-closed behavior.
 
-1. implement deterministic Native-LRU victim-set simulation on the existing decision state;
-2. replay DVA-ER v1 offline against A0 on the pre-registered existing 7 real decisions;
-3. reject any future-feature leakage;
-4. require at least one decision divergence and a positive full-trajectory gain (not a local sum);
-5. require the simulation to reproduce A0 when the candidate is selected;
-6. if any requirement fails, **do not freeze DVA-ER v1 and do not run the formal campaign**. M1 may then stop or authorize a separate candidate round; this protocol is not silently changed.
+**CPU fixtures** cover: multiple legal candidates; score rank inversion; different victim set under different releases; same Entry ranking but different victim risk; missing evidence; unavailable future information; Native LRU tie-break. These are contract fixtures for correctness, not workload-benefit evidence. The executable fixture set is `configs/phase5/fixtures/phase5-candidate-evaluation-cases.json`; it must be expanded into M6 unit tests before formal execution.
 
-The candidate revision/hash must be frozen before calibration. It cannot be replaced mid-campaign.
+#### Data partitions and confirmation boundary
+
+| Partition | Permitted use | Prohibited use |
+|---|---|---|
+| Phase 3/4 historical archive | historical reproduction, mechanism diagnosis, exploratory analysis | independent confirmatory proof; the seven old competitive decisions cannot establish effect |
+| CPU fixtures | correctness, ranking ability, mechanism boundaries | workload-benefit claim |
+| New formal cohort | independent confirmatory evaluation; sealed before unblinding | algorithm modification after results; selecting a winner then reusing the same data to confirm it |
+
+The three algorithms' implementations, parameters/H, input field set and hash must be frozen before the formal cohort is unblinded. No post-unblinding algorithm change. If all three enter the GPU campaign, they are pre-registered independent comparison objects; multiplicity, sample size and budget are recalculated below.
+
+#### DVA-ER mandatory requirements
+
+- `H = 60 s` lookahead for a pending tool gap; sensitivity `30/120 s`. `H` weights only blocks on an active follow-up chain whose pending gap is observable in the already-armed controller state.
+- Active follow-up chain identity is known before the decision; no future Turn content or future reuse outcome.
+- Pending tool gap is the armed timer/next-arrival state at decision time, not a future label.
+- Complete Native BlockPool / FreeKVCacheBlockQueue state, refcount, eligibility and protection changes.
+- Full Native LRU victim sequence, not only a selected victim set.
+- A0 tie-break and Native LRU simulation must be reproduced.
+- Missing evidence → fail closed; no silent zero fallback.
+
+DVA-ER remains `PROVISIONAL_NOT_FROZEN` until the CPU candidate-selection gate passes: deterministic victim simulation on the existing decision state; offline A1/A3/DVA-ER comparison; no future-feature leakage; at least one decision divergence and positive full-trajectory gain; A0 reproduction. If it fails, do not freeze it; M1 decides whether to run a five-arm campaign or stop. The protocol does not silently drop an arm.
 
 ---
 
@@ -223,7 +248,7 @@ Dispatch must be serialized in frozen order (or an equivalent barrier must prove
 
 ### 3.4 Execution order, isolation and timing
 
-- **Arm order:** four systems within each Group are executed in a pre-registered balanced Latin-square/permuted-block order. The order is seeded before outcomes, balanced by Group/System/position, and recorded in the manifest. Calibration uses a fixed random permutation; no outcome-based reordering is allowed.
+- **Arm order:** six systems within each Group are executed in a pre-registered balanced Latin-square/permuted-block order. The order is seeded before outcomes, balanced by Group/System/position, and recorded in the manifest. Calibration uses a fixed random permutation; no outcome-based reordering is allowed.
 - **Per-run isolation:** every run uses a new process and a new EngineCore instance. `VLLM_ENABLE_V1_MULTIPROCESSING=0` is required for the in-process BlockPool evidence. Cross-run KV/APC reuse is forbidden; GPU memory is reset and an empty-cache preflight is recorded before dispatch. A failure to isolate the run is `FAIL_CLOSED`.
 - **Preheat consistency:** either all systems receive the same fixed warmup and the warmup state is flushed, or no system receives a warmup. No arm-specific preheat is allowed. The chosen mode is recorded and identical across arms/repeats.
 - **Unique TTFT origin:** TTFT is measured from `CLIENT_DISPATCH_ACCEPTED` to `FIRST_OUTPUT_TOKEN`. Arrival-to-first-token and queue delay are separate metrics; they are not substituted for TTFT.
@@ -264,6 +289,12 @@ Dispatch must be serialized in frozen order (or an equivalent barrier must prove
 - Downstream Reuse Opportunity: later requests that touch a candidate chain; **descriptive only**; not causal.
 - `physical_causal_attribution` and `downstream_recompute_attribution` remain `NOT_ESTABLISHED` unless the complete per-decision chain is observed.
 
+**Candidate evaluation layers (details in `phase5.candidate_evaluation.v1`):**
+
+- **Stage 1:** legal-candidate count distribution, multi-candidate decision rate, candidate score distribution, pairwise rank inversion, selection divergence, victim-set divergence, decision-branch coverage, evidence coverage, fallback rate. Entry selection divergence alone is not sufficient; the Native Physical Victim Set must also be compared.
+- **Stage 2:** full-trajectory recomputed tokens, eligible prefix tokens, Native cached prefix tokens, physical victim sequence, downstream reuse, policy overhead. No summation of local decision gains.
+- **Stage 3:** A1 historical reproduction, A3 suffix/A1 branch consistency, DVA-ER victim simulation/input legality, A0 comparability, determinism/tie-break/fail-closed. CPU fixtures are correctness evidence only, not workload benefit.
+
 ### 4.4 Units and missingness
 
 - Statistical unit: Workload Group (not request, turn, repeat, or pressure event).
@@ -280,19 +311,23 @@ The full contract is in `phase5-metrics-contract-v1.json`.
 ### 5.1 Calibration and variance components
 
 - 4 Groups per stratum (8 total), disjoint from formal Groups.
-- 4 Systems × 4 Groups × 3 repeats = **96 calibration runs** (plus startup).
+- 6 Systems × 4 Groups × 3 repeats × 2 strata = **144 calibration runs** (plus startup).
 - Calibration estimates **two distinct variance components**:
   - `σ_between²`: Group-level variability of the paired difference;
   - `σ_repeat²`: within-Group run-to-run noise.
 - The calibration model is `d_{g,r} = μ + b_g + ε_{g,r}`, with Group random effect `b_g` and repeat residual `ε_{g,r}`. Repeats are never treated as independent Groups.
 - With only 4 Groups per stratum, the per-stratum Group-level variance has df=3. The primary estimator pools both strata (8 Groups, df=7) when Brown–Forsythe does not reject homogeneity; otherwise it uses stratum-specific estimates and reports the low precision. No hidden borrowing across formal Groups.
 - For a future formal Group mean with 2 repeats, the variance used for sizing is `σ_d² = σ_between² + σ_repeat² / 2`. The calibration repeat count (3) is not substituted for the formal repeat count (2).
-- The three Cost-Aware contrasts share the Cost-Aware arm and are correlated. Calibration estimates the full 3×3 covariance of the Group-level paired differences. Sample-size uses the **maximum per-contrast variance** as a conservative scalar; the covariance is used for simulation sensitivity. Each contrast still gets its own variance estimate.
+- Seven contrasts share arms and are correlated: A1−A0, A3−A0, DVA−A0, A3−A1, DVA−A3, Native−A0, Official−A0. Calibration estimates the full **7×7 covariance** of Group-level paired differences. Candidate-family sizing uses the maximum candidate-contrast variance; the covariance is used for simulation sensitivity and interval diagnostics.
 
-### 5.2 MDE, power and primary multiplicity family
+### 5.2 MDE, power and primary multiplicity families
 
-- Primary family: **3 contrasts × 2 strata = 6 tests** (`COST_AWARE` vs `NATIVE`, `CONTINUUM_ADAPTED`, `CONTINUUM_OFFICIAL`, separately in SWE-Bench and BFCL).
-- Family-wise α = 0.05, two-sided; Holm correction over the 6-test family. The initial conservative per-test α is `0.05/6`.
+- **Candidate mechanism family (5 per stratum):**
+  `A1−A0`, `A3−A0`, `DVA−A0`, `A3−A1`, `DVA−A3`.
+- **System context family (2 per stratum):**
+  `Native−A0`, `Official−A0`.
+- The two families are pre-registered separately. Holm is applied **within each family and within each stratum** at family-wise α=0.05. Candidate claims and system-context claims are not pooled into one significance claim.
+- For sample size, the conservative candidate-family per-test α is `0.05/5 = 0.01`; the system family has only two tests and does not drive N. N is the maximum required across the five candidate contrasts.
 - Power = 0.80.
 - **MDE order:**
   1. freeze the MDE formula and 512-token floor before calibration;
@@ -302,23 +337,24 @@ The full contract is in `phase5-metrics-contract-v1.json`.
 - `MDE = max(512 tokens, 5% × calibration Native Group mean recomputed tokens)`.
 - Sample size uses the **noncentral t distribution**, not a z approximation:
   `n_required = min n such that power(n, α_per_test, σ_d, MDE) ≥ 0.80`, df = n−1.
-- `N_stratum = clamp(ceil(n_required), 8, 16)`.
-- If `n_required > 16`, the campaign is `UNDERPOWERED`; M1 must either accept that status or stop. It is not silently extended.
+- `N_stratum = clamp(ceil(max_contrast_n_required), 8, 16)`.
+- If `max_contrast_n_required > 16`, the campaign is `UNDERPOWERED`; M1 must either accept that status, authorize a larger budget, or stop. It is not silently extended.
 - If `n_required < 8`, N remains 8 and the variance-estimate uncertainty is reported; the 8-Group minimum is a design floor, not a claim that 8 is sufficient.
 - If calibration is unavailable/incomplete, formal execution is not authorized.
 - No optional stopping, no peeking, no sample-size change after formal data collection begins.
 
 ### 5.3 Resource budget
 
-- Planned runs: calibration 96 + formal `8N` (N=8..16, two strata) = **224–352 runs**.
+- Planned runs: calibration **144** + formal **192–384** (6 systems × N × 2 repeats × 2 strata, N=8..16; total **336–528** runs).
 - Per-run hard timeout 600s, shutdown grace 60s; reservation window 1800s.
-- `224 × 600s = 37.3 GPU-hours` before any startup, restart, archive or evaluation overhead. A 36-hour budget is therefore **not sufficient** for the minimum sample.
-- Resource forecast must use **measured calibration runtime**, not the 600s ceiling:
-  `projected_hours = 1.2 × (96 × calibration_run_p95_seconds + formal_runs × formal_run_p95_seconds) / 3600`.
+- `336 × 600s = 56.0 GPU-hours` before startup/restart/archive/evaluation; `528 × 600s = 88.0 GPU-hours`.
+- Resource forecast uses **measured calibration runtime**, not the 600s ceiling:
+  `projected_hours = 1.2 × (144 × calibration_run_p95_seconds + formal_runs × formal_run_p95_seconds) / 3600`.
   The 1.2 factor covers engine startup, process restart, archive I/O, evaluation and one failure reserve. `formal_run_p95_seconds` starts from calibration p95 plus declared system overhead.
-- Minimum budget: **48 GPU-hours**; maximum budget: **72 GPU-hours**. The minimum is the 37.3h ceiling plus 20% overhead (≈44.8h) rounded to a workable envelope; the maximum covers the 16-Group case with the same overhead.
-- If the forecast cannot support N=8 per stratum within the available budget, the campaign is `NOT_FEASIBLE`; **do not run below minimum N**. If it supports N≥8 but not the formula, reduce N within [8,16] and report the power consequence; no reduction below 8.
-- If projected >72h, stop or obtain a new M1 budget authorization; do not silently exceed it.
+- Requested envelope: **minimum 72 GPU-hours, maximum 112 GPU-hours**. These are calculated from the six-arm run count and the 1.2 overhead:
+  minimum `56.0 × 1.2 = 67.2` → 72; maximum `88.0 × 1.2 = 105.6` → 112.
+- If the forecast cannot support N=8 per stratum within the available budget, the campaign is `NOT_FEASIBLE`; **do not run below minimum N**. If the formula requires more than the available budget, stop and return to M1; do not automatically reduce N to fit the budget.
+- If projected >112h, stop and return to M1 for a new budget authorization; do not silently exceed or compress the sample.
 
 The full contract is in `phase5-calibration-sample-size-contract-v1.json`.
 
@@ -332,18 +368,20 @@ For each stratum and contrast:
 
 1. aggregate requests to run totals;
 2. average repeats within Group/System;
-3. compute paired Group difference `d_g = metric(Cost-Aware, g) - metric(baseline, g)`;
-4. report mean difference, median, 95% CI, and relative effect vs baseline;
+3. compute paired Group difference for the contrast, e.g. `d_g = metric(A1,g) - metric(A0,g)`;
+4. report mean difference, median, 95% CI, and relative effect vs the contrast reference;
 5. use Group-level paired bootstrap (10,000 resamples, fixed seed), paired permutation and paired t as pre-registered analyses; report all three consistently and do not select the test by result;
-6. use the calibration-derived contrast covariance as a sensitivity/simulation input, not as a substitute for the Group-level paired analysis;
-7. combine strata only by a pre-registered equal-stratum weight (or report separately); never pool requests.
+6. use the calibration-derived 7×7 contrast covariance as a simulation/interval input, not as a substitute for the Group-level paired analysis;
+7. report stratum-specific results; no combined-stratum primary estimate and never pool requests.
 
 ### 6.2 Multiplicity
 
-- Primary family: **6 tests** = 3 contrasts × 2 strata; Holm family-wise error 0.05.
+- Candidate mechanism family: **5 contrasts × 2 strata**; Holm within each stratum at family-wise 0.05.
+- System context family: **2 contrasts × 2 strata**; Holm within each stratum at family-wise 0.05.
+- The two families are separate pre-registered claim families. No combined 7-test significance claim and no winner-selection-then-confirmation.
 - Secondary metrics: BH-FDR 0.05, explicitly exploratory; confidence intervals are descriptive.
 - Mechanism diagnostics: descriptive, no multiplicity-adjusted causal claim.
-- The combined-stratum estimate is a secondary summary; it does not add a seventh primary test or rescue a failed stratum.
+- The combined-stratum estimate is a secondary summary; it does not add a primary test or rescue a failed stratum.
 
 ### 6.3 Failure/missing/censoring
 
@@ -378,7 +416,7 @@ The current Phase 3/Phase 5 evidence does **not** establish the per-decision phy
 
 ### 7.2 System claims
 
-The four-system comparison supports **whole-system differences** under the frozen workload and environments. It does not isolate which mechanism caused a difference. Official vs Adapted differences are confounded by implementation, software base, estimator scope and scheduler.
+The six-system comparison supports **whole-system differences** under the frozen workload and environments. It does not isolate which mechanism caused a difference. A1/A3/DVA-ER are compared on the A0 foundation, but official-vs-adapted and Native-vs-adapted comparisons remain confounded by implementation, software base, estimator scope and scheduler.
 
 ### 7.3 Token vs serving claims
 
@@ -422,9 +460,9 @@ Formal execution is blocked until all are accepted:
 
 1. **G0 — Protocol freeze:** M1 accepts this protocol and its JSON/contracts.
 2. **G1 — Workload acquisition:** qualified traces/Seals exist; BFCL search fixture frozen; licenses/provenance accepted.
-3. **G2 — System freeze:** four exact system revisions/configs, including Cost-Aware candidate and official compatibility audit.
+3. **G2 — System freeze:** six exact system revisions/configs (A1/A3/DVA-ER included), official compatibility audit, and DVA-ER CPU candidate-selection gate.
 4. **G3 — Replay conformance:** N-Session event-driven replay, actual enqueue gate, serialized dispatch, pressure and terminal evidence validated; Phase 5E Part A must pass or be explicitly superseded.
-5. **G4 — Calibration:** 96 calibration runs complete and analyzed with the pre-registered algorithm.
+5. **G4 — Calibration:** 144 six-arm calibration runs complete and analyzed with the pre-registered algorithm.
 6. **G5 — Resource authorization:** GPU budget, run count, timeout, archive and no-retry rules accepted.
 7. **G6 — Manifest/evaluator dry run:** CPU validation of manifest, metrics and evidence joins.
 
@@ -447,20 +485,22 @@ No formal run may start while any gate is unresolved.
 
 1. `Phase5FormalProtocolLoader` — load JSON, validate schema/contract hashes, reject non-frozen/unauthorized.
 2. `WorkloadAcquisition/Seal` — produce qualified traces and `phase5.workload_seal.v1`.
-3. `FourSystemRunner` — instantiate Native/Official/Adapted/Cost-Aware under the manifest; no self-authorization.
-4. `SystemAdapter` — `prepare`, `submit`, `poll`, `execute_pressure`, `native_events`; no full drain.
-5. `EvidenceRecorder` — planned/dispatch/Native/scheduler/output/terminal/pressure/exposure events with clock domains.
-6. `MetricEvaluator` — N/E/C, recomputation, TTFT/latency/throughput/memory/overhead; fail closed.
-7. `CalibrationAnalyzer` — variance, MDE, N; immutable output.
-8. `CampaignManifestWriter` — schema-conformant manifest and archive hashes.
-9. `AnalysisPipeline` — Group-level paired statistics, Holm, bootstrap, sensitivity; no request-level inference.
+3. `SixSystemRunner` — instantiate Native/Official/A0/A1/A3/DVA-ER under the manifest; no self-authorization.
+4. `CandidateEvaluation` — unified Decision Snapshot, Stage 1/2/3 metrics, divergence and victim-sequence joins.
+5. `SystemAdapter` — `prepare`, `submit`, `poll`, `execute_pressure`, `native_events`; no full drain.
+6. `EvidenceRecorder` — planned/dispatch/Native/scheduler/output/terminal/pressure/exposure events with clock domains.
+7. `MetricEvaluator` — N/E/C, recomputation, TTFT/latency/throughput/memory/overhead; fail closed.
+8. `CalibrationAnalyzer` — 6-arm variance, 7-contrast covariance, MDE, N; immutable output.
+9. `CampaignManifestWriter` — schema-conformant manifest and archive hashes.
+10. `AnalysisPipeline` — Group-level paired statistics, two Holm families, bootstrap and sensitivity; no request-level inference.
 
 ### 10.3 Current blockers against Phase 5A–5E
 
 - N-Session Native runner and incremental polling are not yet GPU-proven.
 - Phase 5E Part A is `READY_FOR_M6_IMPLEMENTATION`; GPU conformance is not authorized/passed. Part B remains `NOT_READY`.
 - BFCL trace acquisition/frozen search fixture is not authorized/complete.
-- DVA-ER v1 is provisional and has not passed the CPU candidate-selection gate; no candidate is frozen.
+- DVA-ER v1 is provisional and has not passed the CPU candidate-selection gate; A1/A3 are frozen legacy implementations; no three-candidate formal arm set is fully frozen.
+- Candidate family/evaluation contracts and CPU fixtures are contract-level; M6 must implement A1/A3/DVA-ER Stage 1/2/3 tests and the full replay.
 - Official compatibility/environment audit is not complete.
 - Calibration/formal GPU budget is not authorized.
 
@@ -472,12 +512,12 @@ These are explicit entry gates, not assumptions.
 
 | ID | Decision | Options / cost | Effect if unresolved |
 |---|---|---|---|
-| U1 | Cost-Aware candidate | DVA-ER v1 provisional; CPU selection gate must show divergence + full-trajectory gain, or do not freeze | formal campaign not executable |
-| U2 | Continuum Adapted scheduler scope | full scheduler vs cache-only; full needs scheduler conformance, cache-only needs rename | cannot define four-system comparison |
+| U1 | Three-candidate family | A1/A3 frozen legacy; DVA-ER CPU selection gate; if DVA fails, M1 decides five-arm or stop | six-arm formal not executable |
+| U2 | Continuum Adapted scheduler scope | full scheduler vs cache-only; full needs scheduler conformance, cache-only needs rename | cannot define six-system comparison |
 | U3 | Official environment | same vLLM base vs separate base; same base may require patches, separate base is a confound | official arm may be descriptive only |
 | U4 | BFCL search fixture | freeze results vs exclude BFCL; exclusion reduces workload diversity | stratum incomplete |
 | U5 | Arrival rate/seed | provisional λ and seed must be frozen before acquisition | arrival realization cannot be sealed |
-| U6 | Calibration/formal budget | minimum 48 GPU-hours, maximum 72; lower than projected minimum → NOT_FEASIBLE, never N<8 | campaign may be infeasible |
+| U6 | Six-arm calibration/GPU budget | requested 72–112 GPU-hours; lower than projected minimum → NOT_FEASIBLE, never N<8 | campaign may be infeasible |
 | U7 | Censored-session policy | include right-censored Sessions with observed valid Turns; sensitivity excludes | population ambiguity |
 
 ---
@@ -487,14 +527,15 @@ These are explicit entry gates, not assumptions.
 ```text
 PHASE5_FORMAL_PROTOCOL = DESIGN_FROZEN_CANDIDATE
 M1_PROTOCOL_FREEZE = REQUIRED
-COST_AWARE_CANDIDATE = DVA_ER_V1_PROVISIONAL_NOT_FROZEN
-COST_AWARE_SELECTION_GATE = NOT_EXECUTED
+COST_AWARE_FAMILY = A1_ORIGINAL_FROZEN_LEGACY / A3_SUFFIX_FROZEN_LEGACY / DVA_ER_V1_PROVISIONAL
+DVA_ER_SELECTION_GATE = NOT_EXECUTED
 CONTINUUM_OFFICIAL_COMPATIBILITY = AUDIT_REQUIRED
 BFCL_TRACE_ACQUISITION = NOT_AUTHORIZED
 N_SESSION_NATIVE_RUNNER = NOT_GPU_PROVEN
 PHASE5E_PART_A = READY_FOR_M6_IMPLEMENTATION
 PHASE5E_PART_B = NOT_READY
-GPU_FORMAL_CAMPAIGN = NOT_AUTHORIZED
+GPU_SIX_ARM_CAMPAIGN = NOT_AUTHORIZED
+REQUESTED_GPU_BUDGET = 72_TO_112_GPU_HOURS
 ```
 
 This protocol is complete as a design, but it is not an execution authorization. M6 must not change the research design; implementation conflicts return to M4/M1.
