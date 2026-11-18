@@ -1,6 +1,6 @@
 # Phase 5 Formal Campaign Engineering Preparation
 
-**Status:** protocol-independent engineering implemented; M4 Formal Protocol pending
+**Status:** M4 Protocol candidate integrated; protocol-driven CPU engineering in progress
 
 **GPU execution:** not started and not authorized by this document
 
@@ -20,9 +20,12 @@ The implementation currently covers:
 - deterministic evidence archive creation and verification; and
 - CPU fail-closed tests.
 
-Protocol Validator, formal materialization rules, Calibration, four-arm
-execution and the independent Metrics Contract evaluator remain blocked on the
-M4 Formal Protocol.
+M4's Formal Protocol candidate from PR #122 is now integrated. The Protocol
+Validator, mechanical workload-qualification checks and Calibration analysis
+contract are implemented. The
+protocol remains `DESIGN_FROZEN_CANDIDATE`, has
+`execution_authorized=false`, and retains U1--U7; therefore Calibration,
+four-system execution and formal cohort freezing remain fail-closed.
 
 ### 1.1 Pinned-runtime no-GPU validation
 
@@ -266,27 +269,61 @@ an immutable run directory. It:
 An existing archive is never overwritten. A failed temporary archive is
 removed, while the source evidence remains untouched.
 
-## 7. Deferred Protocol mapping
+## 7. Formal Protocol integration and mapping
 
-When M4 freezes the Formal Protocol, every field will be mapped using:
+Every protocol field is mapped using:
 
 `Protocol Field → Implementation → Evidence → Evaluator → Test`
 
-`phase5_protocol_mapping.py` implements the neutral mapping validator now. It
+`phase5_protocol_mapping.py` implements the neutral mapping validator. It
 requires exact coverage of the field list supplied by the future protocol. An
 implemented field must name all four engineering references; an unresolved
 field is reported as `BLOCKED_REQUIRES_M4` with a concrete blocker and cannot
 produce a passing mapping. The module does not invent the field list.
 
-The following are deliberately deferred:
+`phase5_formal_protocol_validator.py` now validates the M4-owned protocol and
+three referenced contracts against their JSON Schemas, computes byte-exact
+SHA-256 identities, verifies the ordered four-system definition and checks
+protocol/contract references. Execution code must supply the frozen hashes.
+The validator separately verifies one paired four-system Campaign Manifest
+set, including protocol, workload, arrival, runtime, system revision and
+Group/stratum/repeat identity.
 
-- the four formal arm definitions and configurations;
-- workload qualification thresholds and cohort membership;
-- context-admission and deterministic exclusion rules;
-- Calibration estimator and sample-size formula;
-- formal metrics, missingness rules and statistical unit;
-- retry/failure policy beyond existing fail-closed primitives; and
-- final campaign ordering and automatic transition conditions.
+A structurally valid protocol candidate is deliberately not executable. The
+validator rejects execution unless the protocol has the M1-frozen status,
+explicit authorization, no unresolved decisions and fully frozen four-system
+identities. The current PR #122 candidate therefore remains blocked rather
+than acquiring implicit defaults from M6 code.
+
+`phase5_workload_qualification.py` implements the mechanical Q1--Q9 checks
+against normalized traces and Token Materializations. License acceptance,
+outcome blindness, right-censor reasons and tool-fixture hashes remain
+explicit acquisition inputs; they are never inferred. Qualification never
+selects a cohort or authorizes execution. Formal Groups require exactly four
+distinct qualified Programs and one distinct Session per Program.
+
+`phase5_calibration.py` validates the exact 96-cell Calibration matrix (two
+strata × four Groups × four Systems × three repeats), rejects failed,
+duplicated, missing or Formal-reused cells, and applies the frozen Group-level
+paired-difference SD, MDE and conservative sample-size formula. An estimate
+above 16 Groups is reported as requiring an M1 underpowered decision; it is
+not silently clamped into an executable PASS. Calibration output never
+self-authorizes Formal execution.
+
+The following protocol-owned decisions remain deliberately unresolved:
+
+- U1 Cost-Aware candidate;
+- U2 Continuum Adapted scheduler scope;
+- U3 Continuum Official environment compatibility;
+- U4 BFCL acquisition authorization and frozen fixture;
+- U5 final Arrival rate and seed;
+- U6 Calibration/Formal GPU budget authorization; and
+- U7 censored-session population policy.
+
+The Protocol defines the metrics, statistical unit and failure policy. The
+full independent Metrics evaluator, four-system runner, Formal statistics and
+two-layer run/result manifests remain pending; M6 must implement them exactly
+and must not revise those definitions.
 
 Any protocol field that lacks an observable Native fact will be returned to M4
 for research-design adjudication. Engineering code will not replace missing
@@ -311,6 +348,13 @@ Current GPU-only risks are live Core/BlockPool layout confirmation, real
 Pressure exposure, Candidate/Physical evidence availability, actual Native
 concurrency, model memory headroom and complete cleanup. None is reported as
 PASS by this CPU work.
+
+The latest M4 P5E review additionally keeps Part A
+`NOT_READY_FOR_AUTHORIZATION`: the Pressure trigger lacks a verified Native
+allocation watermark, the r1 natural-completion barrier is not enforced by
+the Arrival contract, and no end-to-end Mock/GPU runner currently wires
+execute → gates → archive. These are engineering blockers, not grounds to
+change Protocol v1 or its research design.
 
 The earlier `P5E-A-01` freeze generated at `7b03b57` is not an execution freeze
 for this changed code. Before GPU execution, the final bundle must regenerate
