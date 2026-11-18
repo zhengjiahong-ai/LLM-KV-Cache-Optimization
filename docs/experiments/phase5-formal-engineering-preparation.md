@@ -346,9 +346,25 @@ The following protocol-owned decisions remain deliberately unresolved:
 - U7 censored-session population policy.
 
 The Protocol defines the metrics, statistical unit and failure policy. The
-full independent Metrics evaluator, six-system runner, Formal statistics and
-two-layer run/result manifests remain pending; M6 must implement them exactly
-and must not revise those definitions.
+current CPU implementation now includes the following protocol-bound pieces:
+
+- `phase5_six_system_runner.py` enforces an exact six-system cell, one shared
+  Workload/Arrival/enqueue identity, a fresh process and EngineCore for every
+  run, empty-cache preflight, no preheat, no automatic retry and exact actual
+  Native enqueue order;
+- `phase5_formal_metrics.py` records a unique raw event stream and independently
+  derives N/E/C, recomputation, TTFT, latency, throughput and missingness. E is
+  derived from frozen predecessors and Native content identity without a C
+  fallback, and incompatible clock domains are never subtracted;
+- `phase5_formal_analysis.py` averages the two repeats within each
+  Group/System before forming paired Group contrasts, applies complete-case
+  Group handling, separate Holm families per stratum, exact paired sign-flip
+  tests and reproducible Group bootstrap intervals; and
+- `phase5e_mock_runner.py` exercises the bounded Part A controller through
+  gate evaluation and independently validated evidence archive creation.
+
+These are CPU/Mock engineering contracts. They do not close U1--U7, implement
+DVA-ER v1, qualify BFCL, authorize execution or establish Native/GPU PASS.
 
 Any protocol field that lacks an observable Native fact will be returned to M4
 for research-design adjudication. Engineering code will not replace missing
@@ -377,9 +393,11 @@ PASS by this CPU work.
 The P5E contract now requires a per-request Native allocation watermark before
 Pressure and independently verifies that all four r1 Native natural terminals
 precede the first r2 Native submission. A free-block count or submission event
-alone is insufficient. The remaining P5E blocker is the end-to-end Mock/GPU
-runner that wires execute → gates → archive with the production evidence
-reader; CPU components do not claim this path has passed.
+alone is insufficient. The end-to-end CPU/Mock runner now wires execute → gates
+→ archive and explicitly reports `gpu_conformance_claim=NOT_ESTABLISHED`. The
+remaining P5E blocker is the production GPU runner and evidence reader that
+must obtain these facts from the live pinned EngineCore; the Mock path cannot
+be promoted to a Native Conformance result.
 
 The earlier `P5E-A-01` freeze generated at `7b03b57` is not an execution freeze
 for this changed code. Before GPU execution, the final bundle must regenerate
