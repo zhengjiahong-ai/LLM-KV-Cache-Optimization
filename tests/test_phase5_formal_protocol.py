@@ -232,6 +232,85 @@ def test_rejects_homogeneity_test_pooling_switch() -> None:
         raise AssertionError("homogeneity-test pooling switch was accepted")
 
 
+def _contract_docs():
+    return {
+        "protocol": _protocol(),
+        "calibration": json.loads(
+            (ROOT / "configs/phase5/phase5-calibration-sample-size-contract-v1.json").read_text(
+                encoding="utf-8"
+            )
+        ),
+        "family": json.loads(
+            (ROOT / "configs/phase5/phase5-cost-aware-candidate-v1.json").read_text(
+                encoding="utf-8"
+            )
+        ),
+        "evaluation": json.loads(
+            (ROOT / "configs/phase5/phase5-candidate-evaluation-contract-v1.json").read_text(
+                encoding="utf-8"
+            )
+        ),
+        "metrics": json.loads(
+            (ROOT / "configs/phase5/phase5-metrics-contract-v1.json").read_text(encoding="utf-8")
+        ),
+    }
+
+
+def _cross_validate(docs) -> None:
+    module = _load_module()
+    module.validate_cross_documents(
+        docs["protocol"],
+        docs["calibration"],
+        docs["family"],
+        docs["evaluation"],
+        docs["metrics"],
+    )
+
+
+def test_cross_contract_rejects_wrong_alpha() -> None:
+    docs = _contract_docs()
+    docs["calibration"]["sample_size_formula"]["alpha_per_test"] = 0.01
+    try:
+        _cross_validate(docs)
+    except ValueError as error:
+        assert "alpha" in str(error)
+    else:
+        raise AssertionError("inconsistent alpha was accepted")
+
+
+def test_cross_contract_rejects_old_variance_model() -> None:
+    docs = _contract_docs()
+    docs["calibration"]["variance_model"]["model"] = "d_g_r = mu + b_g + epsilon_g_r"
+    try:
+        _cross_validate(docs)
+    except ValueError as error:
+        assert "model" in str(error)
+    else:
+        raise AssertionError("old variance model was accepted")
+
+
+def test_cross_contract_rejects_second_overhead_factor() -> None:
+    docs = _contract_docs()
+    docs["calibration"]["resource_budget"]["overhead_factor"] = 1.2
+    try:
+        _cross_validate(docs)
+    except ValueError as error:
+        assert "overhead" in str(error)
+    else:
+        raise AssertionError("second overhead factor was accepted")
+
+
+def test_cross_contract_rejects_preheat_mismatch() -> None:
+    docs = _contract_docs()
+    docs["protocol"]["replay"]["preheat"]["warmup_evidence_required"] = True
+    try:
+        _cross_validate(docs)
+    except ValueError as error:
+        assert "preheat" in str(error)
+    else:
+        raise AssertionError("preheat mismatch was accepted")
+
+
 def test_contracts_and_manifest_schema_are_valid() -> None:
     module = _load_module()
     contracts_schema = json.loads(

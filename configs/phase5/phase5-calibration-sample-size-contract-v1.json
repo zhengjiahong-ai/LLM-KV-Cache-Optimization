@@ -16,7 +16,7 @@
   "variance_model": {
     "group_level_random_effect": "b_g",
     "repeat_noise": "epsilon_g_r",
-    "model": "d_g_r = mu + b_g + epsilon_g_r",
+    "model": "d_{g,r,s} = mu + tau_s + b_{g(s)} + epsilon_{g,r,s}",
     "between_group_variance": "sigma_between^2",
     "within_group_repeat_variance": "sigma_repeat^2",
     "calibration_group_level_estimate": "mean over repeats of d_g_r",
@@ -26,14 +26,15 @@
     "pooled_calibration_groups": 8,
     "pooled_df": 7,
     "per_stratum_df": 3,
-    "low_df_warning": "Per-stratum variance with 4 Groups has df=3; report its uncertainty and prefer pooled variance when homogeneity is not rejected.",
+    "low_df_warning": "Per-stratum variance with 4 Groups has df=3; the common model has df=7. Report uncertainty and use the fixed pre-registered upper-bound sizing rule; never choose pooling by a pre-test.",
     "contrast_covariance": "8x8 covariance of the eight pre-registered contrasts; PSD projection; candidate sizing uses the maximum upper-bound variance among the six candidate contrasts",
     "no_repeat_as_independent_group": true,
     "homogeneity_test": false,
     "stratum_variance_handling": "STRATUM_FIXED_EFFECT_COMMON_VARIANCE_PLUS_STRATUM_UPPER_BOUND_FOR_SIZING",
     "sizing_variance_rule": "MAX_OF_COMMON_AND_STRATUM_ONE_SIDED_80PCT_UPPER_BOUND",
     "negative_variance": "TRUNCATE_POINT_AT_ZERO_AND_USE_BOOTSTRAP_UPPER_BOUND",
-    "small_sample_rule": "DF3_PER_STRATUM_DF7_POOLED_NONCENTRAL_T"
+    "small_sample_rule": "DF3_PER_STRATUM_DF7_POOLED_NONCENTRAL_T",
+    "contrast_covariance_size": 8
   },
   "mde": {
     "absolute_min_tokens": 512,
@@ -94,10 +95,7 @@
     "gpu_memory_gib": 24,
     "minimum_gpu_hours": 72,
     "maximum_gpu_hours": 112,
-    "projection_formula": "sum_s((24*Tcal_s + 4N*Tformal_s + (24+4N)*(startup_s+restart_s+archive_s))/3600) * (1+failure_reserve_fraction)",
-    "calibration_run_p95_seconds": "MEASURED_DURING_CALIBRATION",
-    "formal_run_p95_seconds": "CALIBRATION_P95_PLUS_DECLARED_SYSTEM_OVERHEAD",
-    "overhead_factor": 1.2,
+    "projection_formula": "(1 + failure_reserve_fraction) * sum_s((24*Tcal_s + 4N*Tformal_s + (24+4N)*(startup_s + restart_s + archive_s + evaluator_s))/3600)",
     "overhead_includes": [
       "ENGINE_STARTUP",
       "PROCESS_RESTART",
@@ -127,7 +125,58 @@
     "per_system_startup_seconds": "MEASURED_PER_SYSTEM",
     "per_system_restart_seconds": "MEASURED_PER_SYSTEM",
     "per_system_archive_seconds": "MEASURED_PER_SYSTEM",
-    "failure_reserve_fraction": 0.1
+    "failure_reserve_fraction": 0.1,
+    "time_boundary": {
+      "Tcal_Tformal": "FIRST_DISPATCH_TO_LAST_TERMINAL_EXCLUDING_PROCESS_START_ENGINE_INIT_AND_ARCHIVE",
+      "startup": "PROCESS_START_ENGINE_INIT_MODEL_LOAD_AND_WARMUP_NONE_PER_RUN",
+      "restart": "PROCESS_TEARDOWN_AND_RELAUNCH_PER_RUN_IF_APPLICABLE",
+      "archive": "EVIDENCE_WRITE_AND_HASH_CLOSE_PER_RUN",
+      "evaluator": "METRIC_AND_GATE_EVALUATION_PER_RUN"
+    },
+    "per_run_components_seconds": {
+      "startup": "MEASURED_PER_SYSTEM",
+      "restart": "MEASURED_PER_SYSTEM",
+      "archive": "MEASURED_PER_SYSTEM",
+      "evaluator": "MEASURED_PER_SYSTEM"
+    },
+    "minutes_of_600s_ceiling": {
+      "min_runs": 336,
+      "max_runs": 528
+    },
+    "formula_at_600s_ceiling_hours": {
+      "min": 61.6,
+      "max": 96.8
+    },
+    "budget_envelope_type": "M1_AUTHORIZATION_CEILING_NOT_FORMULA_OUTPUT",
+    "budget_envelope_minimum_hours": 72,
+    "budget_envelope_maximum_hours": 112,
+    "budget_envelope_note": "72-112 GPU-hours is the M1 reservation/ceiling, not the direct formula output. The formula at the 600s ceiling is 61.6-96.8h including 10% failure reserve; the extra envelope covers measured startup/restart/archive/evaluator uncertainty. If the measured projection exceeds 112h, stop and return to M1.",
+    "per_system_p95_seconds": {
+      "NATIVE": {
+        "calibration": "MEASURED_PER_SYSTEM",
+        "formal": "MEASURED_PER_SYSTEM"
+      },
+      "CONTINUUM_OFFICIAL": {
+        "calibration": "MEASURED_PER_SYSTEM",
+        "formal": "MEASURED_PER_SYSTEM"
+      },
+      "CONTINUUM_ADAPTED": {
+        "calibration": "MEASURED_PER_SYSTEM",
+        "formal": "MEASURED_PER_SYSTEM"
+      },
+      "A1_ORIGINAL": {
+        "calibration": "MEASURED_PER_SYSTEM",
+        "formal": "MEASURED_PER_SYSTEM"
+      },
+      "A3_SUFFIX": {
+        "calibration": "MEASURED_PER_SYSTEM",
+        "formal": "MEASURED_PER_SYSTEM"
+      },
+      "DVA_ER_V1": {
+        "calibration": "MEASURED_PER_SYSTEM",
+        "formal": "MEASURED_PER_SYSTEM"
+      }
+    }
   },
   "analysis_contract": {
     "independent_unit": "WORKLOAD_GROUP",

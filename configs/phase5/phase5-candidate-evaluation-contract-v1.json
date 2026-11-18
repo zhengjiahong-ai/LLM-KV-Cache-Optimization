@@ -159,5 +159,13 @@
     "Does DVA-ER select differently from A1/A3?",
     "Does entry selection divergence change Native LRU victim set?",
     "When does missing evidence prevent a valid decision?"
+  ],
+  "candidate_contrasts": [
+    "A1_vs_A0",
+    "A3_vs_A0",
+    "DVA_vs_A0",
+    "A3_vs_A1",
+    "DVA_vs_A1",
+    "DVA_vs_A3"
   ]
 }

@@ -259,7 +259,7 @@ Dispatch must be serialized in frozen order (or an equivalent barrier must prove
 
 - **Arm order:** six systems within each Group are executed in a pre-registered **balanced Latin-square** order. The order is seeded before outcomes, balanced by Group/System/position, and recorded in the manifest. Calibration uses a fixed random permutation; no outcome-based reordering is allowed.
 - **Per-run isolation:** every run uses the same unified initialization/cleanup procedure: new process, new EngineCore, `VLLM_ENABLE_V1_MULTIPROCESSING=0`, GPU memory reset, empty-cache preflight, no cross-run KV/APC reuse. A failure to isolate the run is `FAIL_CLOSED`.
-- **Preheat:** **NONE**. No system receives a warmup and no warmup state may be reused. The empty-cache preflight is the only pre-run state.
+- **Preheat:** **NONE**. No system receives a warmup and no warmup state may be reused. `warmup_evidence_required=false`; the recorded evidence is the empty-cache preflight and the absence of warmup, not a warmup log.
 - **Unified environment:** all six systems use the same GPU, driver, CUDA, model/tokenizer cache, engine initialization sequence and archive path; official-specific environment differences are allowed only as declared `ENVIRONMENT_CONFOUND` and never as an implicit preheat advantage.
 - **Unique TTFT origin:** TTFT is measured from `CLIENT_DISPATCH_ACCEPTED` to `FIRST_OUTPUT_TOKEN`. Arrival-to-first-token and queue delay are separate metrics; they are not substituted for TTFT.
 - **Right-censored throughput/completion:** throughput uses completed observed requests over the observed window (`first arrival` to `last observed terminal`). Completion time is reported only if every scheduled request has a terminal; otherwise it is `CENSORED_INCOMPLETE`, not imputed. Right-censored Sessions do not add future requests to the run.
@@ -358,13 +358,27 @@ The full contract is in `phase5-metrics-contract-v1.json`.
 
 ### 5.3 Resource budget
 
-- Planned runs: calibration **144** + formal **192–384** (6 systems × N × 2 repeats × 2 strata, N=8..16; total **336–528** runs).
+- Planned runs: calibration **144** + formal **192–384** (6 systems × N × 2 repeats × 2 strata, N=8..16; total **336–528** runs). The run count is unchanged.
 - Per-run hard timeout 600s, shutdown grace 60s; reservation window 1800s.
-- `336 × 600s = 56.0 GPU-hours` before startup/restart/archive/evaluation; `528 × 600s = 88.0 GPU-hours`.
-- Resource forecast is **per system**, not a single global p95:
-  `projected_hours = [Σ_s (24×Tcal_s + 4N×Tformal_s + (24+4N)×(startup_s+restart_s+archive_s)) / 3600] × 1.10`
-  where `s` runs over all six systems, 24 is calibration runs/system, `4N` is formal runs/system, and 1.10 is the one-run failure reserve. Startup/restart/archive are measured per system and archived with the calibration report.
-- Requested envelope: **minimum 72 GPU-hours, maximum 112 GPU-hours**. These bounds cover the six-arm run count and the per-run timeout ceiling; the measured per-system forecast must fit the envelope before authorization.
+- `336 × 600s = 56.0 GPU-hours` before startup/restart/archive/evaluator; `528 × 600s = 88.0 GPU-hours`.
+- Resource forecast is **per system**, with explicit timing boundaries:
+  - `Tcal_s`, `Tformal_s`: first dispatch to last terminal; excludes process start, engine init and archive;
+  - `startup_s`: process start + engine init + model load (preheat NONE);
+  - `restart_s`: teardown + relaunch per run when applicable;
+  - `archive_s`: evidence write/hash close;
+  - `evaluator_s`: metric/gate evaluation.
+  Each is measured per system and archived with the calibration report.
+- Formula:
+  ```text
+  projected_hours =
+    (1 + 0.10) × Σ_s [
+      (24×Tcal_s + 4N×Tformal_s
+       + (24+4N)×(startup_s + restart_s + archive_s + evaluator_s)) / 3600
+    ]
+  ```
+  where `s` is the six systems, 24 is calibration runs/system, `4N` is formal runs/system, and 0.10 is the **only** failure reserve. There is no second 1.20 overhead factor.
+- At the 600s ceiling, the formula gives **61.6–96.8 GPU-hours** including the 10% reserve.
+- The **72–112 GPU-hour figure is an M1 authorization/ reservation ceiling, not the direct formula output**. It adds contingency for measured startup/restart/archive/evaluator uncertainty; the measured projection must fit ≤112h before authorization.
 - If the forecast cannot support N=8 per stratum within the available budget, the campaign is `NOT_FEASIBLE`; **do not run below minimum N**. If the formula requires more than the available budget, stop and return to M1; do not automatically reduce N.
 - If projected >112h, stop and return to M1 for a new budget authorization; do not silently exceed or compress the sample.
 
@@ -390,7 +404,7 @@ For each stratum and contrast:
 
 - Candidate mechanism family: **6 contrasts × 2 strata**; Holm within each stratum at family-wise 0.05.
 - System context family: **2 contrasts × 2 strata**; Holm within each stratum at family-wise 0.05.
-- The two families are separate pre-registered claim families. No combined 7-test significance claim and no winner-selection-then-confirmation.
+- The two families are separate pre-registered claim families. No combined 8-test significance claim and no winner-selection-then-confirmation.
 - Secondary metrics: BH-FDR 0.05, explicitly exploratory; confidence intervals are descriptive.
 - Mechanism diagnostics: descriptive, no multiplicity-adjusted causal claim.
 - The combined-stratum estimate is a secondary summary; it does not add a primary test or rescue a failed stratum.
@@ -502,7 +516,7 @@ No formal run may start while any gate is unresolved.
 5. `SystemAdapter` — `prepare`, `submit`, `poll`, `execute_pressure`, `native_events`; no full drain.
 6. `EvidenceRecorder` — planned/dispatch/Native/scheduler/output/terminal/pressure/exposure events with clock domains.
 7. `MetricEvaluator` — N/E/C, recomputation, TTFT/latency/throughput/memory/overhead; fail closed.
-8. `CalibrationAnalyzer` — 6-arm variance, 7-contrast covariance, MDE, N; immutable output.
+8. `CalibrationAnalyzer` — 6-arm variance, 8×8 contrast covariance, MDE, N; immutable output.
 9. `CampaignManifestWriter` — schema-conformant manifest and archive hashes.
 10. `AnalysisPipeline` — Group-level paired statistics, two Holm families, bootstrap and sensitivity; no request-level inference.
 

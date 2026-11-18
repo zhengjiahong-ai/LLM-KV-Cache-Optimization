@@ -141,7 +141,8 @@
     "preheat": {
       "mode": "NONE",
       "cross_run_state_reuse": false,
-      "warmup_evidence_required": true
+      "warmup_evidence_required": false,
+      "no_preheat_evidence_required": true
     },
     "clock_domains": [
       "LOGICAL_REPLAY",
@@ -423,7 +424,7 @@
     "if_required_above_max": "STOP_OR_M1_ACCEPTS_UNDERPOWERED",
     "gpu_hours_minimum": 72,
     "gpu_hours_maximum": 112,
-    "gpu_hours_projection": "sum_s((24*Tcal_s + 4N*Tformal_s + (24+4N)*overhead_s)/3600)*(1.1)",
+    "gpu_hours_projection": "(1+failure_reserve_fraction)*sum_s((24*Tcal_s+4N*Tformal_s+(24+4N)*(startup_s+restart_s+archive_s+evaluator_s))/3600)",
     "overhead_includes": [
       "STARTUP",
       "RESTART",
@@ -450,7 +451,38 @@
       "A3_SUFFIX",
       "DVA_ER_V1"
     ],
-    "failure_reserve_fraction": 0.1
+    "failure_reserve_fraction": 0.1,
+    "gpu_hours_envelope_type": "M1_AUTHORIZATION_CEILING_NOT_FORMULA_OUTPUT",
+    "gpu_hours_formula_at_600s_ceiling": {
+      "min": 61.6,
+      "max": 96.8
+    },
+    "per_system_p95_seconds": {
+      "NATIVE": {
+        "calibration": "MEASURED_PER_SYSTEM",
+        "formal": "MEASURED_PER_SYSTEM"
+      },
+      "CONTINUUM_OFFICIAL": {
+        "calibration": "MEASURED_PER_SYSTEM",
+        "formal": "MEASURED_PER_SYSTEM"
+      },
+      "CONTINUUM_ADAPTED": {
+        "calibration": "MEASURED_PER_SYSTEM",
+        "formal": "MEASURED_PER_SYSTEM"
+      },
+      "A1_ORIGINAL": {
+        "calibration": "MEASURED_PER_SYSTEM",
+        "formal": "MEASURED_PER_SYSTEM"
+      },
+      "A3_SUFFIX": {
+        "calibration": "MEASURED_PER_SYSTEM",
+        "formal": "MEASURED_PER_SYSTEM"
+      },
+      "DVA_ER_V1": {
+        "calibration": "MEASURED_PER_SYSTEM",
+        "formal": "MEASURED_PER_SYSTEM"
+      }
+    }
   },
   "claim_boundaries": {
     "mechanism_causal_claim_requires": [

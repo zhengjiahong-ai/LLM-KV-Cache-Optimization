@@ -315,6 +315,131 @@ def validate_candidate_fixtures(repository: Path) -> dict[str, Any]:
     return {"cases": len(cases), "status": document["status"]}
 
 
+CANDIDATE_CONTRASTS = [
+    "A1_vs_A0",
+    "A3_vs_A0",
+    "DVA_vs_A0",
+    "A3_vs_A1",
+    "DVA_vs_A1",
+    "DVA_vs_A3",
+]
+SYSTEM_CONTRASTS = ["NATIVE_vs_A0", "OFFICIAL_vs_A0"]
+
+
+def validate_cross_documents(
+    protocol: dict[str, Any],
+    calibration: dict[str, Any],
+    family: dict[str, Any],
+    evaluation: dict[str, Any],
+    metrics: dict[str, Any],
+) -> None:
+    """Check the statistical and budget definitions agree across files."""
+
+    expected_all = CANDIDATE_CONTRASTS + SYSTEM_CONTRASTS
+    stats = protocol["statistics"]
+    if stats["primary_contrasts"] != expected_all:
+        raise ValueError("protocol contrasts do not match the registered six-plus-two family")
+    if stats["primary_families"]["CANDIDATE_MECHANISM"] != CANDIDATE_CONTRASTS:
+        raise ValueError("protocol candidate family is not the six registered contrasts")
+    if stats["primary_families"]["SYSTEM_CONTEXT"] != SYSTEM_CONTRASTS:
+        raise ValueError("protocol system context family is not the two registered contrasts")
+    if stats["primary_family_size"] != 8:
+        raise ValueError("protocol primary family size must be eight")
+    if abs(stats["sample_size_alpha_per_test"] - 0.05 / 6) > 1e-12:
+        raise ValueError("protocol candidate alpha must be 0.05/6")
+    if stats["variance_model"]["contrast_covariance_size"] != 8:
+        raise ValueError("protocol covariance must be 8x8")
+    if stats["variance_model"]["homogeneity_test"] is not False:
+        raise ValueError("protocol variance model must not use a homogeneity test")
+
+    if calibration["power"]["primary_contrasts"] != 6:
+        raise ValueError("calibration must size six candidate contrasts")
+    if calibration["power"]["family_size"] != 6:
+        raise ValueError("calibration candidate family must have six tests")
+    if abs(calibration["sample_size_formula"]["alpha_per_test"] - 0.05 / 6) > 1e-12:
+        raise ValueError("calibration alpha must be 0.05/6")
+    if calibration["variance_model"]["contrast_covariance_size"] != 8:
+        raise ValueError("calibration covariance must be 8x8")
+    if calibration["variance_model"]["homogeneity_test"] is not False:
+        raise ValueError("calibration variance model must not use a homogeneity test")
+    model = calibration["variance_model"]["model"]
+    if "tau_s" not in model or "b_{g(s)}" not in model:
+        raise ValueError(
+            "calibration model must include stratum fixed effect and Group random effect"
+        )
+    if "homogeneity" in calibration["variance_model"]["low_df_warning"].lower():
+        raise ValueError("calibration low-df rule still references homogeneity testing")
+    if calibration["analysis_contract"]["primary_family"] != CANDIDATE_CONTRASTS:
+        raise ValueError("calibration primary family does not match protocol")
+    if calibration["analysis_contract"]["primary_system_context_family"] != SYSTEM_CONTRASTS:
+        raise ValueError("calibration system context family does not match protocol")
+    if calibration["formal_runs"]["systems"] != 6:
+        raise ValueError("calibration formal_runs must cover six systems")
+    if (
+        calibration["formal_runs"]["runs_at_min"] != 192
+        or calibration["formal_runs"]["runs_at_max"] != 384
+    ):
+        raise ValueError("calibration formal run counts do not match six arms")
+    if len(calibration["resource_budget"]["per_system_p95_fields"]) != 6:
+        raise ValueError("calibration must define six per-system p95 fields")
+    p95 = calibration["resource_budget"]["per_system_p95_seconds"]
+    if set(p95) != set(calibration["resource_budget"]["per_system_p95_fields"]):
+        raise ValueError("per-system p95 values do not match the six systems")
+    if (
+        "calibration_run_p95_seconds" in calibration["resource_budget"]
+        or "formal_run_p95_seconds" in calibration["resource_budget"]
+    ):
+        raise ValueError("legacy global p95 string remains")
+    if "overhead_factor" in calibration["resource_budget"]:
+        raise ValueError("calibration must not use a second overhead factor")
+    if calibration["resource_budget"]["failure_reserve_fraction"] != 0.10:
+        raise ValueError("calibration failure reserve must be exactly 10%")
+    if (
+        calibration["resource_budget"]["budget_envelope_minimum_hours"]
+        != protocol["calibration"]["gpu_hours_minimum"]
+    ):
+        raise ValueError("protocol/calibration minimum budget disagree")
+    if (
+        calibration["resource_budget"]["budget_envelope_maximum_hours"]
+        != protocol["calibration"]["gpu_hours_maximum"]
+    ):
+        raise ValueError("protocol/calibration maximum budget disagree")
+
+    if family["candidates"] and [row["id"] for row in family["candidates"]] != [
+        "A1_ORIGINAL",
+        "A3_SUFFIX",
+        "DVA_ER_V1",
+    ]:
+        raise ValueError("candidate family does not contain the three candidates")
+    if family["dva_er_selection_gate"]["full_trajectory_positive_gain_required"] is not False:
+        raise ValueError("candidate family still requires a positive historical gain")
+    if evaluation.get("candidate_contrasts", []) != CANDIDATE_CONTRASTS:
+        raise ValueError("candidate evaluation contrasts do not match protocol")
+    if evaluation["common_inputs"]["candidate_specific_data_selection"] != "FORBIDDEN":
+        raise ValueError("candidate evaluation allows candidate-specific data")
+    if metrics["candidate_evaluation_contract"] != "phase5.candidate_evaluation.v1":
+        raise ValueError("metrics contract does not bind candidate evaluation")
+
+    if protocol["entry_gates"].count("G2_SIX_SYSTEM_FREEZE") != 1:
+        raise ValueError("entry gates must contain exactly one G2 six-system freeze")
+    if "G2_FOUR_SYSTEM_FREEZE" in protocol["entry_gates"]:
+        raise ValueError("legacy four-system entry gate remains")
+    preheat = protocol["replay"]["preheat"]
+    if preheat["mode"] != "NONE" or preheat["warmup_evidence_required"] is not False:
+        raise ValueError("preheat must be NONE with no warmup evidence requirement")
+
+
+def validate_cross_contracts(protocol: dict[str, Any], repository: Path) -> None:
+    documents = {name: _load(repository / relative) for name, relative in CONTRACT_PATHS.items()}
+    validate_cross_documents(
+        protocol,
+        documents["calibration_sample_size"],
+        documents["cost_aware_candidate_family"],
+        documents["candidate_evaluation"],
+        documents["metrics"],
+    )
+
+
 def validate_repository(repository: Path) -> dict[str, Any]:
     repository = repository.resolve()
     protocol = _load(repository / PROTOCOL_PATH)
@@ -322,6 +447,7 @@ def validate_repository(repository: Path) -> dict[str, Any]:
     validate_protocol(protocol, schema)
     contracts_schema = _load(repository / CONTRACTS_SCHEMA_PATH)
     contracts = validate_contracts(repository, contracts_schema)
+    validate_cross_contracts(protocol, repository)
     validate_manifest_schema(repository)
     fixtures = validate_candidate_fixtures(repository)
     for reference in protocol["contracts"].values():
