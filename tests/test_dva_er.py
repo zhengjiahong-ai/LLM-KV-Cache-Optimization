@@ -8,17 +8,29 @@ from types import SimpleNamespace
 
 import pytest
 
+from kvopt.continuum.selection import (
+    BlockEligibilitySnapshot,
+    EligibilityPreparation,
+    EligibilityTier,
+    PressureReleaseEffect,
+    RetentionEntryKey,
+)
+from kvopt.continuum.types import BlockIdentity, PrefixIdentity, ProgramIdentity
 from kvopt.costaware.dva_er import (
     DEFAULT_H_SECONDS,
     DVAERDecisionInput,
     DVAEREvidenceError,
     DVAERReplayStrategy,
     DVAERStrategy,
+    FollowupGapSource,
     FollowupObservation,
     NativeBlock,
     NativePoolSnapshot,
     build_decision_input,
 )
+from kvopt.costaware.replay import ExecutedP1BStrategy
+from kvopt.runtime.vllm.adapter import RetentionAwareLRUAdapter
+from kvopt.runtime.vllm.types import EvictionCandidate, EvictionContext
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -33,7 +45,7 @@ def _block(
     *,
     owners: frozenset[tuple[str, str]] = frozenset(),
     protected: frozenset[tuple[str, str]] | None = None,
-    refcount: int = 1,
+    refcount: int = 0,
     has_hash: bool = True,
 ) -> NativeBlock:
     return NativeBlock(
@@ -58,6 +70,9 @@ def _followup(
         chain_id=chain or f"chain:{key[0]}:{key[1]}",
         active=active,
         pending_tool_gap_seconds=gap,
+        observed_at_timestamp=9.0,
+        chain_established_at_timestamp=5.0,
+        pending_tool_gap_source=(FollowupGapSource.CONTROLLER_ARMED_TIMER if active else None),
     )
 
 
@@ -69,10 +84,16 @@ def _input(
     a0_order: tuple[tuple[str, str], ...] | None = None,
     required: int = 1,
     h: float = DEFAULT_H_SECONDS,
-    free_queue: tuple[int, ...] = (),
+    free_queue: tuple[int, ...] | None = None,
 ) -> DVAERDecisionInput:
     keys = tuple(candidates)
     observations = followups or {key: _followup(key) for key in keys}
+    if free_queue is None:
+        free_queue = tuple(
+            block.block_id
+            for block in sorted(blocks, key=lambda row: row.native_lru_rank)
+            if block.refcount == 0
+        )
     return DVAERDecisionInput(
         decision_id="dva-test",
         timestamp=10.0,
@@ -106,11 +127,9 @@ def test_multiple_legal_candidates_can_change_selection() -> None:
     result = DVAERStrategy().choose(decision)
     assert result.selected == B
     assert result.a0_tiebreak_used is True
-    assert {row.candidate_key: row.loss for row in result.candidate_losses} == {
-        A: 1,
-        B: 0,
-        C: 0,
-    }
+    losses = {row.candidate_key: row for row in result.candidate_losses}
+    assert {key: row.loss for key, row in losses.items()} == {A: 1, B: 0, C: 0}
+    assert losses[A].risk_chain_ids == ("chain:p2:b",)
 
 
 def test_same_entry_order_can_have_different_victim_risk() -> None:
@@ -144,9 +163,9 @@ def test_different_candidates_have_different_victim_sets() -> None:
 
 def test_native_lru_sequence_is_ordered_and_full() -> None:
     blocks = (
-        _block(1, 5, owners=frozenset({A})),
+        _block(1, 0, owners=frozenset({A})),
         _block(2, 1, owners=frozenset({A})),
-        _block(3, 3, owners=frozenset({A})),
+        _block(3, 2, owners=frozenset({A})),
     )
     decision = _input(
         blocks=blocks,
@@ -155,8 +174,8 @@ def test_native_lru_sequence_is_ordered_and_full() -> None:
         required=2,
     )
     sequence = decision.pool.victim_sequence_after(A, 2)
-    assert sequence.full_eligible_sequence == (2, 3, 1)
-    assert sequence.victim_block_ids == (2, 3)
+    assert sequence.full_eligible_sequence == (1, 2, 3)
+    assert sequence.victim_block_ids == (1, 2)
     assert sequence.shortfall == 0
 
 
@@ -222,23 +241,29 @@ def test_released_candidate_does_not_count_as_its_own_downstream_risk() -> None:
     assert result.selected == A
 
 
-def test_refcount_and_protection_control_victim_eligibility() -> None:
+def test_refcount_zero_with_protected_owner_is_eligible_only_after_release() -> None:
     blocks = (
         _block(
             1,
             0,
-            owners=frozenset({A}),
+            owners=frozenset({A, B}),
             protected=frozenset({A}),
-            refcount=2,
+            refcount=0,
         ),
-        _block(2, 1, owners=frozenset({B}), protected=frozenset({B}), refcount=1),
+        _block(2, 1, owners=frozenset({B}), protected=frozenset({B}), refcount=0),
     )
-    decision = _input(blocks=blocks, candidates=(A, B), required=1)
+    decision = _input(
+        blocks=blocks,
+        candidates=(A, B),
+        required=1,
+        free_queue=(1, 2),
+    )
     a = decision.pool.victim_sequence_after(A, 1)
     b = decision.pool.victim_sequence_after(B, 1)
-    assert a.victim_block_ids == ()
-    assert a.shortfall == 1
-    assert b.victim_block_ids == (2,)
+    assert a.physical_victim_block_ids == (1,)
+    assert b.physical_victim_block_ids == (2,)
+    assert decision.pool.blocks[0].refcount == 0
+    assert decision.pool.blocks[0].protected_owners == frozenset({A})
 
 
 def test_hashed_and_unprotected_block_is_eligible_without_release() -> None:
@@ -260,9 +285,9 @@ def test_hashed_and_unprotected_block_is_eligible_without_release() -> None:
         required=1,
     )
     sequence = decision.pool.victim_sequence_after(A, 1)
-    assert sequence.deficit == 0
-    assert sequence.victim_block_ids == ()
-    assert 1 in sequence.full_eligible_sequence
+    assert sequence.shortfall == 0
+    assert sequence.physical_victim_block_ids == (1,)
+    assert 1 in sequence.virtual_eligible_order
 
 
 def test_missing_followup_fails_closed() -> None:
@@ -290,7 +315,7 @@ def test_incomplete_free_queue_fails_closed() -> None:
         ),
     )
     with pytest.raises(DVAEREvidenceError, match="free queue"):
-        _input(blocks=blocks, candidates=(A,), followups={A: _followup(A)})
+        _input(blocks=blocks, candidates=(A,), followups={A: _followup(A)}, free_queue=())
 
 
 def test_missing_a0_order_fails_closed() -> None:
@@ -307,7 +332,7 @@ def test_missing_a0_order_fails_closed() -> None:
 def test_unknown_owner_fails_closed() -> None:
     blocks = (_block(1, 0, owners=frozenset({A, B}), refcount=2),)
     with pytest.raises(DVAEREvidenceError, match="owner"):
-        _input(blocks=blocks, candidates=(A,), followups={A: _followup(A)})
+        _input(blocks=blocks, candidates=(A,), followups={A: _followup(A)}, free_queue=())
 
 
 def test_deterministic_selection() -> None:
@@ -332,7 +357,7 @@ def test_decision_input_adapter() -> None:
         decision_event_index=4,
         timestamp=10.0,
         required_blocks=1,
-        queue=(),
+        queue=(SimpleNamespace(block_id=1), SimpleNamespace(block_id=2)),
         candidate_keys=(A, B),
     )
     decision = build_decision_input(
@@ -389,6 +414,158 @@ def test_replay_strategy_adapter_uses_evidence_provider() -> None:
     adapter = DVAERReplayStrategy(Provider())
     assert adapter.strategy_id == "DVA_ER_v1"
     assert adapter.pick_next((), object()) == B
+
+
+def test_free_queue_position_must_equal_native_lru_rank() -> None:
+    blocks = (_block(1, 1, owners=frozenset({A}), refcount=0),)
+    with pytest.raises(DVAEREvidenceError, match="position"):
+        NativePoolSnapshot(
+            blocks=blocks,
+            free_queue_order=(1,),
+            candidate_keys=(A,),
+        )
+
+
+def test_a0_tie_break_uses_frozen_a0_strategy() -> None:
+    blocks = (
+        _block(1, 0, owners=frozenset({A})),
+        _block(2, 1, owners=frozenset({B})),
+    )
+    rows = [
+        SimpleNamespace(
+            program_id=A[0],
+            prefix_id=A[1],
+            retention_deadline_timestamp=20.0,
+        ),
+        SimpleNamespace(
+            program_id=B[0],
+            prefix_id=B[1],
+            retention_deadline_timestamp=10.0,
+        ),
+    ]
+
+    class _State:
+        snapshot = SimpleNamespace(ranking_by_block={})
+
+        @staticmethod
+        def newly_eligible_after(key: tuple[str, str]) -> tuple[int, ...]:
+            del key
+            return ()
+
+    strategy = ExecutedP1BStrategy()
+    remaining = list(rows)
+    order: list[tuple[str, str]] = []
+    while remaining:
+        selected = strategy.pick_next(remaining, _State())
+        order.append(selected)
+        remaining = [row for row in remaining if (row.program_id, row.prefix_id) != selected]
+    assert order == [B, A]
+    decision = _input(
+        blocks=blocks,
+        candidates=(A, B),
+        a0_order=tuple(order),
+    )
+    result = DVAERStrategy().choose(decision)
+    assert result.selected == B
+    assert result.a0_tiebreak_used is True
+
+
+def test_prediction_matches_real_a0_eligibility_and_adapter() -> None:
+    entry = RetentionEntryKey(ProgramIdentity("p1"), PrefixIdentity("a"))
+    queue = (
+        BlockEligibilitySnapshot(BlockIdentity(1), 0, True, EligibilityTier.TIER_1),
+        BlockEligibilitySnapshot(BlockIdentity(2), 1, True, EligibilityTier.TIER_2),
+        BlockEligibilitySnapshot(BlockIdentity(3), 2, True, None),
+    )
+    effect = PressureReleaseEffect(entry, (BlockIdentity(2),))
+    preparation = EligibilityPreparation(
+        required_blocks=2,
+        original_free_queue=queue,
+        ordinary_expired_entries=(),
+        pressure_releases=(effect,),
+        preparation_timestamp=10.0,
+    )
+    candidates = tuple(
+        EvictionCandidate(
+            block_id=block_id,
+            ref_cnt=0,
+            has_block_hash=True,
+            lru_rank=block_id - 1,
+        )
+        for block_id in (1, 2, 3)
+    )
+    context = EvictionContext(
+        required_blocks=2,
+        free_blocks=3,
+        total_blocks=3,
+        timestamp=10.0,
+    )
+    actual = tuple(RetentionAwareLRUAdapter(preparation).select_victims(candidates, context))
+
+    blocks = (
+        _block(1, 0, refcount=0),
+        _block(2, 1, owners=frozenset({A}), protected=frozenset({A}), refcount=0),
+        _block(3, 2, owners=frozenset({B}), protected=frozenset({B}), refcount=0),
+    )
+    decision = _input(
+        blocks=blocks,
+        candidates=(A, B),
+        required=2,
+        free_queue=(1, 2, 3),
+        followups={A: _followup(A), B: _followup(B)},
+    )
+    predicted = decision.pool.victim_sequence_after(A, 2)
+    assert predicted.original_eligible_block_ids == (1,)
+    assert predicted.newly_eligible_block_ids == (2,)
+    assert predicted.virtual_eligible_order == (1, 2)
+    assert predicted.physical_victim_block_ids == actual == (1, 2)
+
+
+def test_observation_after_decision_fails_closed() -> None:
+    blocks = (_block(1, 0, owners=frozenset({A})),)
+    observation = FollowupObservation(
+        candidate_key=A,
+        chain_id="chain:a",
+        active=False,
+        observed_at_timestamp=11.0,
+        chain_established_at_timestamp=5.0,
+    )
+    with pytest.raises(DVAEREvidenceError, match="observation is after"):
+        _input(
+            blocks=blocks,
+            candidates=(A,),
+            followups={A: observation},
+        )
+
+
+def test_chain_established_after_decision_fails_closed() -> None:
+    blocks = (_block(1, 0, owners=frozenset({A})),)
+    observation = FollowupObservation(
+        candidate_key=A,
+        chain_id="chain:a",
+        active=False,
+        observed_at_timestamp=11.0,
+        chain_established_at_timestamp=11.0,
+    )
+    with pytest.raises(DVAEREvidenceError, match="established after"):
+        _input(
+            blocks=blocks,
+            candidates=(A,),
+            followups={A: observation},
+        )
+
+
+def test_future_arrival_source_is_rejected() -> None:
+    with pytest.raises(DVAEREvidenceError, match="controller-armed"):
+        FollowupObservation(
+            candidate_key=A,
+            chain_id="chain:a",
+            active=True,
+            pending_tool_gap_seconds=5.0,
+            observed_at_timestamp=9.0,
+            chain_established_at_timestamp=5.0,
+            pending_tool_gap_source="FUTURE_TRACE_ARRIVAL",  # type: ignore[arg-type]
+        )
 
 
 def test_a1_a3_are_not_imported_by_dva_er() -> None:

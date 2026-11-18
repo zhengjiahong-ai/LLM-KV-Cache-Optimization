@@ -28,17 +28,18 @@ decision boundary
   │    block_id, has_hash, refcount, native_lru_rank, owners, protected_owners
   ├─ complete FreeKVCacheBlockQueue order
   ├─ one FollowupObservation per candidate
-  │    chain_id, active, pending_tool_gap_seconds (only if active)
+  │    chain_id, active, pending_tool_gap_seconds
+  │    observation_timestamp, chain_established_timestamp, gap source
   └─ explicit A0 candidate order (tie-break only)
             ↓
      DVAERDecisionInput
             ↓
   NativePoolSnapshot.victim_sequence_after(candidate, required_blocks)
             ↓
-  full Native LRU eligible sequence + victim prefix + shortfall
+  Tier 1 eligible + Tier 2 newly eligible + physical victim prefix + shortfall
             ↓
   DVAERStrategy.choose()
-       loss = count(victim blocks belonging to an active follow-up chain with gap <= H)
+       loss = count(physical victims belonging to an active follow-up chain with gap <= H)
        select min(loss); on loss tie, select by A0 order
             ↓
      DVAERDecision (selection, per-candidate losses, victim sequences)
@@ -46,30 +47,46 @@ decision boundary
 
 `build_decision_input()` adapts a `DecisionSnapshot`-shaped object (the existing replay boundary) together with the explicitly supplied complete block records, follow-ups and A0 order. Missing records fail closed.
 
-## 3. Native LRU victim simulation
+## 3. Native refcount, protection and victim simulation
+
+`refcount` is the observed Native refcount. Retention Protection is an
+independent owner set. A cache block may have `refcount=0` and still be
+protected; releasing a candidate removes only its protection, and **never**
+changes Native refcount, block hash or free-queue membership.
 
 For each legal candidate `X`:
 
-1. start from the observed full block table;
-2. if `X` is a protected owner of a block, decrement that block's refcount once and remove `X` from `protected_owners`;
-3. a block is Native-eligible iff `refcount == 0` and either it is unhashed or no protected owner remains;
-4. sort all eligible blocks by `native_lru_rank`;
-5. retain the **full eligible sequence** for audit;
-6. compute `deficit = max(0, required_blocks - current_eligible_count)`;
-7. the first `deficit` blocks are the victim prefix; a shortfall is explicit, never filled with a zero or an invented block.
+1. start from the observed full block table and the complete free queue;
+2. remove only `X` from `protected_owners`; refcount is unchanged;
+3. Tier 1 = blocks already eligible before release: `refcount == 0` and either
+   unhashed or no protected owner;
+4. Tier 2 = blocks that become eligible after the protection release;
+5. order Tier 1 by Native LRU rank, then Tier 2 by Native LRU rank;
+6. actual physical victims = the first `min(required_blocks, eligible_count)` of
+   that `(Tier 1, Tier 2)` order, matching `EligibilityPreparation` and
+   `RetentionAwareLRUAdapter`;
+7. retain separately:
+   - `original_eligible_block_ids` (Tier 1);
+   - `newly_eligible_block_ids` (Tier 2);
+   - `virtual_eligible_order` (Tier 1 then Tier 2);
+   - `physical_victim_block_ids` (actual prefix);
+   - `full_free_queue_order` (observed Native queue order);
+   - explicit `shortfall` (never zero-filled).
 
-The full sequence is retained in `VictimSequence.full_eligible_sequence`; `victim_block_ids` is only the prefix the pressure target would consume.
+The free queue must satisfy `free_queue_order[i].native_lru_rank == i`; any
+mismatch fails closed. `VictimSequence.victim_block_ids` remains a compatibility
+alias for the physical victim prefix.
 
 ## 4. Score and tie-break
 
-For each candidate, for each victim block, the policy checks the block's logical owners excluding the released candidate. A victim block contributes 1 iff at least one remaining owner has a `FollowupObservation` that is:
+For each candidate, for each **actual physical victim block**, the policy checks the block's logical owners excluding the released candidate. A victim block contributes 1 iff at least one remaining owner has a `FollowupObservation` that is:
 
 - active; and
 - has an observable `pending_tool_gap_seconds <= H`.
 
 `loss(X) = number of such victim blocks`.
 
-`H = 60s`; sensitivity parameters are 30s and 120s. The policy never reads future Turn content or future reuse outcomes; the pending gap is the already-armed controller timer/next-arrival state.
+`H = 60s`; sensitivity parameters are 30s and 120s. The policy never reads future Turn content or future reuse outcomes. The pending gap must come from `FollowupGapSource.CONTROLLER_ARMED_TIMER`; its observation timestamp and chain-establishment timestamp must both be no later than the decision timestamp. Block owner → candidate → follow-up chain identity is therefore bound through the explicit observation map; no trace arrival is used. Chain identity must already be known from the controller/Program/Turn context; DVA-ER does not infer Session identity from future trace events or unsupported fields. If the Session/chain identity is not identifiable, the observation is incomplete and fails closed.
 
 Tie-break order:
 
@@ -77,7 +94,7 @@ Tie-break order:
 (loss, a0_rank, candidate_key)
 ```
 
-`a0_order` is explicitly supplied and must contain exactly the legal candidate set. Tie-break reproduction is tested separately.
+`a0_order` is explicitly supplied and must contain exactly the legal candidate set. The CPU gate also derives this order from the existing frozen `ExecutedP1BStrategy` and compares DVA-ER's tie result. A separate end-to-end fixture builds a real `EligibilityPreparation` and `RetentionAwareLRUAdapter` and asserts that DVA-ER's predicted physical victim prefix equals the adapter's actual selection.
 
 ## 5. Fail-closed evidence
 
@@ -88,13 +105,13 @@ Tie-break order:
 - unknown block owner;
 - incomplete/duplicate free queue;
 - free-queue blocks that do not exactly match refcount-zero blocks;
-- refcount below the protected-owner count;
+- free-queue position not equal to `native_lru_rank`;
 - missing follow-up observation for a candidate;
-- active follow-up without an observable pending gap;
-- inactive follow-up carrying a gap;
+- active follow-up without an observable pending gap or without the controller-armed source;
+- inactive follow-up carrying a gap/source;
+- observation or chain establishment after the decision;
 - A0 order missing a candidate or containing duplicates;
-- H mismatch between strategy and decision input;
-- a release that would make refcount negative.
+- H mismatch between strategy and decision input.
 
 No zero-value substitution or silent A0 fallback is performed. A tie is resolved by the explicit A0 order; a tie is not an evidence failure.
 
@@ -122,10 +139,16 @@ The gate is correctness-only. Historical Phase 3/4 full-trajectory gain is not a
 | full Native LRU order | `test_native_lru_sequence_is_ordered_and_full` |
 | shortfall explicit, not imputed | `test_shortfall_is_explicit_not_imputed` |
 | A0 tie-break reproduced | `test_a0_tie_break_is_reproduced` |
+| A0 ordering from frozen strategy | `test_a0_tie_break_uses_frozen_a0_strategy` |
+| end-to-end A0 eligibility/adapter equality | `test_prediction_matches_real_a0_eligibility_and_adapter` |
 | H sensitivity | `test_h_sensitivity_changes_weight` |
 | missing follow-up fails closed | `test_missing_followup_fails_closed` |
 | active gap missing fails closed | `test_missing_active_gap_fails_closed` |
+| observation after decision fails closed | `test_observation_after_decision_fails_closed` |
+| chain established after decision fails closed | `test_chain_established_after_decision_fails_closed` |
+| future trace-arrival source rejected | `test_future_arrival_source_is_rejected` |
 | incomplete free queue fails closed | `test_incomplete_free_queue_fails_closed` |
+| free-queue rank mismatch fails closed | `test_free_queue_position_must_equal_native_lru_rank` |
 | missing A0 order fails closed | `test_missing_a0_order_fails_closed` |
 | unknown owner fails closed | `test_unknown_owner_fails_closed` |
 | deterministic selection | `test_deterministic_selection` |
@@ -133,7 +156,7 @@ The gate is correctness-only. Historical Phase 3/4 full-trajectory gain is not a
 | replay strategy adapter | `test_replay_strategy_adapter_uses_evidence_provider` |
 | A1/A3 import boundary | `test_a1_a3_are_not_imported_by_dva_er` |
 | released candidate not counted as own risk | `test_released_candidate_does_not_count_as_its_own_downstream_risk` |
-| refcount/protection eligibility | `test_refcount_and_protection_control_victim_eligibility` |
+| refcount=0 + protected owner separate | `test_refcount_zero_with_protected_owner_is_eligible_only_after_release` |
 | hashed/unprotected eligibility | `test_hashed_and_unprotected_block_is_eligible_without_release` |
 
 Run:
@@ -142,7 +165,7 @@ Run:
 python -m pytest tests/test_dva_er.py -q -p no:cacheprovider
 ```
 
-Result at this implementation commit: **21 passed**.
+Result at this implementation commit: **27 passed**.
 
 ## 8. What is not claimed
 
