@@ -423,7 +423,7 @@ class DVAERStrategy:
             risk_chains: set[str] = set()
             for block_id in sequence.victim_block_ids:
                 block = next(item for item in decision.pool.blocks if item.block_id == block_id)
-                for owner in block.owners - {key}:
+                for owner in block.owners:
                     observation = decision.followups[owner]
                     if observation.risk_weight(self.h_seconds):
                         loss += 1

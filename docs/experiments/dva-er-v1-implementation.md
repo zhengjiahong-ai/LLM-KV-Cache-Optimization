@@ -57,7 +57,8 @@ changes Native refcount, block hash or free-queue membership.
 For each legal candidate `X`:
 
 1. start from the observed full block table and the complete free queue;
-2. remove only `X` from `protected_owners`; refcount is unchanged;
+2. remove only `X` from `protected_owners`; refcount is unchanged. Logical
+   ownership in `owners` remains intact and is still used by the DVA-ER score;
 3. Tier 1 = blocks already eligible before release: `refcount == 0` and either
    unhashed or no protected owner;
 4. Tier 2 = blocks that become eligible after the protection release;
@@ -79,7 +80,7 @@ alias for the physical victim prefix.
 
 ## 4. Score and tie-break
 
-For each candidate, for each **actual physical victim block**, the policy checks the block's logical owners excluding the released candidate. A victim block contributes 1 iff at least one remaining owner has a `FollowupObservation` that is:
+For each candidate, for each **actual physical victim block**, the policy checks **all** of the block's logical owners, including the candidate currently being released. A victim block contributes 1 iff at least one owner has a `FollowupObservation` that is:
 
 - active; and
 - has an observable `pending_tool_gap_seconds <= H`.
@@ -155,7 +156,8 @@ The gate is correctness-only. Historical Phase 3/4 full-trajectory gain is not a
 | replay snapshot adapter | `test_decision_input_adapter` |
 | replay strategy adapter | `test_replay_strategy_adapter_uses_evidence_provider` |
 | A1/A3 import boundary | `test_a1_a3_are_not_imported_by_dva_er` |
-| released candidate not counted as own risk | `test_released_candidate_does_not_count_as_its_own_downstream_risk` |
+| released candidate logical risk counted | `test_released_candidate_logical_risk_is_still_counted` |
+| current candidate active follow-up affects Loss/selection | `test_current_candidate_active_followup_affects_loss_and_selection` |
 | refcount=0 + protected owner separate | `test_refcount_zero_with_protected_owner_is_eligible_only_after_release` |
 | hashed/unprotected eligibility | `test_hashed_and_unprotected_block_is_eligible_without_release` |
 
@@ -165,7 +167,7 @@ Run:
 python -m pytest tests/test_dva_er.py -q -p no:cacheprovider
 ```
 
-Result at this implementation commit: **27 passed**.
+Result at this implementation commit: **28 passed**.
 
 ## 8. What is not claimed
 

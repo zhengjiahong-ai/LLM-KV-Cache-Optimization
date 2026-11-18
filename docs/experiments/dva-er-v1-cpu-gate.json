@@ -6,7 +6,7 @@
   "implementation": "src/kvopt/costaware/dva_er.py",
   "test_module": "tests/test_dva_er.py",
   "test_command": "python -m pytest tests/test_dva_er.py -q -p no:cacheprovider",
-  "tests_passed": 27,
+  "tests_passed": 28,
   "gpu_executed": false,
   "historical_gain_used_as_gate": false,
   "checks": [
@@ -26,7 +26,7 @@
     "SNAPSHOT_ADAPTER",
     "REPLAY_STRATEGY_ADAPTER",
     "A1_A3_IMPORT_BOUNDARY",
-    "RELEASED_CANDIDATE_NOT_SELF_RISK",
+    "RELEASED_CANDIDATE_LOGICAL_RISK_COUNTED",
     "HASHED_UNPROTECTED_ELIGIBILITY",
     "DVA_VS_A0_CHANGES_PHYSICAL_VICTIM_SET",
     "NO_FUTURE_FIELDS_IN_INPUT_CONTRACT",
@@ -36,7 +36,8 @@
     "OBSERVATION_NOT_AFTER_DECISION",
     "CHAIN_ESTABLISHED_NOT_AFTER_DECISION",
     "FUTURE_TRACE_ARRIVAL_SOURCE_REJECTED",
-    "REFCOUNT_ZERO_WITH_PROTECTED_OWNER_SEPARATE"
+    "REFCOUNT_ZERO_WITH_PROTECTED_OWNER_SEPARATE",
+    "CURRENT_CANDIDATE_ACTIVE_FOLLOWUP_AFFECTS_LOSS"
   ],
   "not_claimed": [
     "GPU_NATIVE_CONFORMANCE",

@@ -111,37 +111,43 @@ def _input(
 
 def test_multiple_legal_candidates_can_change_selection() -> None:
     blocks = (
-        _block(1, 0, owners=frozenset({A, B}), protected=frozenset({A})),
-        _block(2, 1, owners=frozenset({B, C}), protected=frozenset({B})),
-        _block(3, 2, owners=frozenset({C, A}), protected=frozenset({C})),
+        _block(1, 0, owners=frozenset({A, C}), protected=frozenset({A})),
+        _block(2, 1, owners=frozenset({B}), protected=frozenset({B})),
+        _block(3, 2, owners=frozenset({C}), protected=frozenset({C})),
     )
     decision = _input(
         blocks=blocks,
         followups={
             A: _followup(A),
-            B: _followup(B, active=True, gap=10.0),
-            C: _followup(C),
+            B: _followup(B),
+            C: _followup(C, active=True, gap=10.0),
         },
         a0_order=(A, B, C),
     )
     result = DVAERStrategy().choose(decision)
     assert result.selected == B
-    assert result.a0_tiebreak_used is True
+    assert result.a0_tiebreak_used is False
     losses = {row.candidate_key: row for row in result.candidate_losses}
-    assert {key: row.loss for key, row in losses.items()} == {A: 1, B: 0, C: 0}
-    assert losses[A].risk_chain_ids == ("chain:p2:b",)
+    assert {key: row.loss for key, row in losses.items()} == {A: 1, B: 0, C: 1}
+    assert losses[A].risk_chain_ids == ("chain:p3:c",)
+    assert losses[C].risk_chain_ids == ("chain:p3:c",)
 
 
 def test_same_entry_order_can_have_different_victim_risk() -> None:
     blocks = (
-        _block(1, 0, owners=frozenset({A, B}), protected=frozenset({A})),
+        _block(1, 0, owners=frozenset({A, C}), protected=frozenset({A})),
         _block(2, 1, owners=frozenset({B}), protected=frozenset({B})),
+        _block(3, 2, owners=frozenset({C}), protected=frozenset({C})),
     )
     decision = _input(
         blocks=blocks,
-        candidates=(A, B),
-        followups={A: _followup(A), B: _followup(B, active=True, gap=5.0)},
-        a0_order=(A, B),
+        candidates=(A, B, C),
+        followups={
+            A: _followup(A),
+            B: _followup(B),
+            C: _followup(C, active=True, gap=5.0),
+        },
+        a0_order=(A, B, C),
     )
     result = DVAERStrategy().choose(decision)
     assert result.selected == B
@@ -205,15 +211,20 @@ def test_a0_tie_break_is_reproduced() -> None:
 
 def test_h_sensitivity_changes_weight() -> None:
     blocks = (
-        _block(1, 0, owners=frozenset({A, B}), protected=frozenset({A})),
+        _block(1, 0, owners=frozenset({A, C}), protected=frozenset({A})),
         _block(2, 1, owners=frozenset({B}), protected=frozenset({B})),
+        _block(3, 2, owners=frozenset({C}), protected=frozenset({C})),
     )
-    followups = {A: _followup(A), B: _followup(B, active=True, gap=90.0)}
+    followups = {
+        A: _followup(A),
+        B: _followup(B),
+        C: _followup(C, active=True, gap=90.0),
+    }
     decision60 = _input(
         blocks=blocks,
-        candidates=(A, B),
+        candidates=(A, B, C),
         followups=followups,
-        a0_order=(A, B),
+        a0_order=(A, B, C),
         h=60.0,
     )
     decision120 = replace(decision60, h_seconds=120.0)
@@ -221,7 +232,7 @@ def test_h_sensitivity_changes_weight() -> None:
     assert DVAERStrategy(120.0).choose(decision120).selected == B
 
 
-def test_released_candidate_does_not_count_as_its_own_downstream_risk() -> None:
+def test_released_candidate_logical_risk_is_still_counted() -> None:
     blocks = (
         _block(1, 0, owners=frozenset({A}), protected=frozenset({A})),
         _block(2, 1, owners=frozenset({B}), protected=frozenset({B})),
@@ -237,8 +248,28 @@ def test_released_candidate_does_not_count_as_its_own_downstream_risk() -> None:
     )
     result = DVAERStrategy().choose(decision)
     losses = {row.candidate_key: row.loss for row in result.candidate_losses}
-    assert losses == {A: 0, B: 0}
+    assert losses == {A: 1, B: 1}
     assert result.selected == A
+
+
+def test_current_candidate_active_followup_affects_loss_and_selection() -> None:
+    blocks = (
+        _block(1, 0, owners=frozenset({A}), protected=frozenset({A})),
+        _block(2, 1, owners=frozenset({B}), protected=frozenset({B})),
+    )
+    decision = _input(
+        blocks=blocks,
+        candidates=(A, B),
+        followups={
+            A: _followup(A, active=True, gap=5.0),
+            B: _followup(B),
+        },
+        a0_order=(A, B),
+    )
+    result = DVAERStrategy().choose(decision)
+    losses = {row.candidate_key: row.loss for row in result.candidate_losses}
+    assert losses == {A: 1, B: 0}
+    assert result.selected == B
 
 
 def test_refcount_zero_with_protected_owner_is_eligible_only_after_release() -> None:
@@ -372,16 +403,16 @@ def test_decision_input_adapter() -> None:
 
 def test_dva_selection_changes_physical_victim_set_vs_a0() -> None:
     blocks = (
-        _block(1, 0, owners=frozenset({A, B}), protected=frozenset({A})),
-        _block(2, 1, owners=frozenset({B, C}), protected=frozenset({B})),
-        _block(3, 2, owners=frozenset({C, A}), protected=frozenset({C})),
+        _block(1, 0, owners=frozenset({A, C}), protected=frozenset({A})),
+        _block(2, 1, owners=frozenset({B}), protected=frozenset({B})),
+        _block(3, 2, owners=frozenset({C}), protected=frozenset({C})),
     )
     decision = _input(
         blocks=blocks,
         followups={
             A: _followup(A),
-            B: _followup(B, active=True, gap=10.0),
-            C: _followup(C),
+            B: _followup(B),
+            C: _followup(C, active=True, gap=10.0),
         },
         a0_order=(A, B, C),
     )
