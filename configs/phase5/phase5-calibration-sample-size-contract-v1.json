@@ -1,0 +1,92 @@
+{
+  "schema_version": "phase5.calibration_sample_size.v1",
+  "protocol_id": "phase5-formal-four-system-trace-replay-v1",
+  "status": "DESIGN_ONLY_CALIBRATION_NOT_EXECUTED",
+  "calibration": {
+    "purpose": "estimate paired Group/System run-to-run variance; never estimate the formal treatment effect",
+    "groups_per_stratum": 4,
+    "strata": 2,
+    "systems": 4,
+    "repeats": 3,
+    "runs_total": 96,
+    "disjoint_from_formal": true,
+    "reuse_as_formal_evidence": false,
+    "selection": "PRE_REGISTERED_BEFORE_OUTCOMES"
+  },
+  "mde": {
+    "absolute_min_tokens": 512,
+    "relative_fraction_of_native_group_mean": 0.05,
+    "rule": "max(512, 0.05 * native_group_mean_recomputed_tokens)",
+    "freeze_before_calibration_analysis": true
+  },
+  "power": {
+    "alpha_family": 0.05,
+    "two_sided": true,
+    "power": 0.8,
+    "primary_contrasts": 3,
+    "multiplicity": "HOLM",
+    "initial_conservative_alpha_per_contrast": 0.016666666666666666
+  },
+  "sample_size_formula": {
+    "sigma_estimator": "GROUP_LEVEL_PAIRED_DIFFERENCE_SD_FROM_CALIBRATION",
+    "formula": "n_stratum = ceil((z_(1-alpha_per_contrast/2) + z_power)^2 * sigma_d^2 / MDE^2)",
+    "minimum_per_stratum": 8,
+    "maximum_per_stratum": 16,
+    "final_rule": "min(max(n_stratum, 8), 16)",
+    "if_above_max": "STOP_OR_M1_ACCEPTS_UNDERPOWERED",
+    "if_below_min": "NOT_FEASIBLE",
+    "no_optional_stopping": true,
+    "no_mid_campaign_extension": true,
+    "no_mid_campaign_reduction": true
+  },
+  "formal_runs": {
+    "strata": 2,
+    "systems": 4,
+    "repeats": 2,
+    "groups_formula": "2 * N",
+    "runs_formula": "2 * N * 4 * 2",
+    "runs_at_min": 128,
+    "runs_at_target": 192,
+    "runs_at_max": 256
+  },
+  "resource_budget": {
+    "gpu_class": "NVIDIA GeForce RTX 4090 D",
+    "gpu_memory_gib": 24,
+    "max_gpu_hours": 36,
+    "per_run_timeout_seconds": 600,
+    "shutdown_grace_seconds": 60,
+    "reservation_window_seconds": 1800,
+    "startup_and_archive_overhead_included": true,
+    "if_budget_insufficient": "REDUCE_N_WITHIN_BOUNDS_AND_REPORT_POWER_OR_STOP"
+  },
+  "analysis_contract": {
+    "independent_unit": "WORKLOAD_GROUP",
+    "paired_by_group": true,
+    "strata": "REPORT_SEPARATELY_AND_COMBINE_BY_FIXED_WEIGHT",
+    "primary_family": [
+      "COST_AWARE_vs_NATIVE",
+      "COST_AWARE_vs_CONTINUUM_ADAPTED",
+      "COST_AWARE_vs_CONTINUUM_OFFICIAL"
+    ],
+    "primary_test": "PAIRED_GROUP_PERMUTATION_OR_T",
+    "confidence_interval": "GROUP_BOOTSTRAP_95_PERCENT",
+    "bootstrap_resamples": 10000,
+    "bootstrap_seed": 20261201,
+    "secondary_family": "BH_FDR_0_05_EXPLORATORY",
+    "missing_policy": "COMPLETE_CASE_GROUP_NO_IMPUTATION",
+    "sensitivity": [
+      "STRATUM_SEPARATE",
+      "CENSORED_VS_NONCENSORED",
+      "ARRIVAL_REALIZATION",
+      "OFFICIAL_ENVIRONMENT_COMPATIBLE",
+      "REPEAT_AGGREGATION"
+    ]
+  },
+  "stop_rules": [
+    "CALIBRATION_INCOMPLETE",
+    "REQUIRED_N_ABOVE_CAP_WITHOUT_M1_UNDERPOWERED_APPROVAL",
+    "GPU_BUDGET_BELOW_MINIMUM",
+    "FORMAL_DATA_PEEKING",
+    "MID_CAMPAIGN_SYSTEM_SUBSTITUTION"
+  ]
+}

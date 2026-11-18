@@ -1,0 +1,327 @@
+{
+  "schema_version": "phase5.formal_protocol.v1",
+  "protocol_id": "phase5-formal-four-system-trace-replay-v1",
+  "status": "DESIGN_FROZEN_CANDIDATE",
+  "execution_authorized": false,
+  "m1_freeze_required": true,
+  "base_main": "af33bc380e360582c7de9b8a5062ce7ec434d02e",
+  "scope": {
+    "campaign_mode": "TRACE_DRIVEN_REPLAY",
+    "closed_loop_agent": "EXCLUDED",
+    "systems": [
+      "NATIVE",
+      "CONTINUUM_OFFICIAL",
+      "CONTINUUM_ADAPTED",
+      "COST_AWARE"
+    ],
+    "primary_question": "Does Cost-Aware KV management reduce eviction-induced recomputation and improve measured serving metrics versus Native and Continuum-style systems under representative multi-turn Agent workloads?",
+    "paper_exact_reproduction": false,
+    "full_system_claim_only": true
+  },
+  "workload": {
+    "strata": [
+      {
+        "id": "SWE_BENCH",
+        "source": "SWE_BENCH_VERIFIED",
+        "revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+        "license_status": "AUDIT_REQUIRED",
+        "primary": true
+      },
+      {
+        "id": "BFCL_WEB_SEARCH",
+        "source": "BFCL_V4_WEB_SEARCH",
+        "revision": "PINNED_BY_M1",
+        "license_status": "AUDIT_REQUIRED",
+        "primary": true,
+        "search_backend": "FROZEN_FIXTURE_ONLY"
+      }
+    ],
+    "unit_definitions": {
+      "program": "logical Agent task/workflow identity",
+      "session": "one replay execution of one Program",
+      "turn": "one model request within a Session",
+      "workload_group": "4 independent Programs with Sessions and one arrival realization",
+      "independent_unit": "WORKLOAD_GROUP"
+    },
+    "programs_per_group": 4,
+    "sessions_per_program": 1,
+    "max_turns_per_session": 16,
+    "max_prompt_tokens": 32768,
+    "group_construction": {
+      "matched_bundle": true,
+      "outcome_blind": true,
+      "repository_diversity_required": true,
+      "replace_after_outcome": false
+    },
+    "sample_plan": {
+      "groups_per_stratum_min": 8,
+      "groups_per_stratum_target": 12,
+      "groups_per_stratum_max": 16,
+      "calibration_groups_per_stratum": 4,
+      "formal_repeats": 2,
+      "calibration_repeats": 3,
+      "calibration_disjoint_from_formal": true,
+      "sample_size_selected_by": "phase5.calibration_sample_size.v1"
+    },
+    "qualification_contract": "phase5.workload_qualification.v1",
+    "qualification_rules": [
+      "COMPLETE_SOURCE_PAYLOAD",
+      "EXACT_TOKEN_IDS_REPRODUCIBLE",
+      "PROGRAM_SESSION_TURN_IDENTITY_UNIQUE",
+      "WITHIN_SESSION_ORDER_AND_TOOL_GAPS_PRESERVED",
+      "NATURAL_TERMINAL_OR_EXPLICIT_RIGHT_CENSOR",
+      "NO_CONTEXT_LIMIT_FAILURE_AS_SUCCESS",
+      "TOOL_FIXTURES_HASH_BOUND",
+      "LICENSE_AND_PROVENANCE_ACCEPTED",
+      "OUTCOME_BLIND_SELECTION"
+    ]
+  },
+  "replay": {
+    "arrival_mode": "FROZEN_POISSON",
+    "program_start_rate_per_second": 0.1,
+    "rate_status": "PROVISIONAL_DESIGN_PARAMETER_M1_FREEZE_REQUIRED",
+    "poisson_seed": 20261201,
+    "arrival_generator": "phase5_replay.frozen_poisson.v1",
+    "same_realization_all_systems": true,
+    "same_realization_all_repeats": true,
+    "within_session_tool_gaps": "PRESERVE_OBSERVED",
+    "serialized_dispatch_required": true,
+    "actual_enqueue_gate": "COMPLETE_VLLM_REQUEST_SUBMITTED_SEQUENCE",
+    "right_censoring": "PRESERVE_AS_SESSION_FLAG",
+    "failed_run_retry": "FORBIDDEN_WITHOUT_NEW_M1_DECISION",
+    "truncation": "FAIL_CLOSED",
+    "clock_domains": [
+      "LOGICAL_REPLAY",
+      "CLIENT_DISPATCH",
+      "ENGINE_CORE",
+      "FRONTEND_OUTPUT",
+      "NATIVE_TERMINAL",
+      "WALL_MONOTONIC"
+    ]
+  },
+  "systems": [
+    {
+      "id": "NATIVE",
+      "implementation": "UNMODIFIED_NATIVE_VLLM",
+      "vllm_version": "0.27.1",
+      "model": "Qwen/Qwen2.5-Coder-1.5B-Instruct",
+      "model_revision": "d18ecad881a290f0c792f1c2b5dbee1820d4a424",
+      "tokenizer_revision": "d18ecad881a290f0c792f1c2b5dbee1820d4a424",
+      "scheduler": "NATIVE",
+      "ttl": "NATIVE",
+      "entry_release": "NONE",
+      "block_victim": "NATIVE_LRU",
+      "project_hooks": false,
+      "environment": "SAME_AS_ADAPTED"
+    },
+    {
+      "id": "CONTINUUM_OFFICIAL",
+      "implementation": "PINNED_PUBLIC_REPOSITORY",
+      "revision": "316a58794a6ff86b216e579b74fd56ed0c5a911f",
+      "paper_exact": false,
+      "compatibility_status": "AUDIT_REQUIRED",
+      "environment": "OFFICIAL_DOCUMENTED_ENVIRONMENT",
+      "environment_confound_allowed": true,
+      "algorithm_only_claim": false
+    },
+    {
+      "id": "CONTINUUM_ADAPTED",
+      "implementation": "PROJECT_A0_DERIVED_FULL_SYSTEM",
+      "vllm_version": "0.27.1",
+      "model": "Qwen/Qwen2.5-Coder-1.5B-Instruct",
+      "model_revision": "d18ecad881a290f0c792f1c2b5dbee1820d4a424",
+      "tokenizer_revision": "d18ecad881a290f0c792f1c2b5dbee1820d4a424",
+      "scheduler": "PROJECT_PROGRAM_AWARE",
+      "scheduler_conformance": "REQUIRED",
+      "ttl": "PROJECT_DYNAMIC",
+      "entry_release": "A0_FROZEN",
+      "block_victim": "NATIVE_LRU",
+      "fallback_name_if_scheduler_fails": "CONTINUUM_ADAPTED_CACHE_ONLY"
+    },
+    {
+      "id": "COST_AWARE",
+      "implementation": "PROJECT_COST_AWARE_ON_ADAPTED_FOUNDATION",
+      "candidate_id": "M1_FROZEN_COST_AWARE_CANDIDATE",
+      "candidate_status": "NOT_FROZEN",
+      "candidate_revision": "M1_FREEZE_REQUIRED",
+      "foundation": "CONTINUUM_ADAPTED",
+      "scheduler": "PROJECT_PROGRAM_AWARE",
+      "ttl": "PROJECT_DYNAMIC",
+      "fallback_arm": false,
+      "mid_campaign_substitution": false
+    }
+  ],
+  "controlled_variables": {
+    "same_model_tokenizer": true,
+    "same_prompt_token_ids": true,
+    "same_arrival_realization": true,
+    "same_kv_pool_blocks": 2048,
+    "same_block_size_tokens": 16,
+    "same_max_model_len": 32768,
+    "same_max_num_seqs": 4,
+    "same_generation_config_hash": true,
+    "same_evaluator_version": true,
+    "gpu_class": "NVIDIA GeForce RTX 4090 D",
+    "gpu_memory_gib": 24,
+    "system_specific_exceptions_must_be_declared": true
+  },
+  "metrics": {
+    "primary": {
+      "id": "recomputed_tokens_E_minus_C",
+      "formula": "sum(E - C)",
+      "unit": "tokens",
+      "aggregation_level": "WORKLOAD_GROUP",
+      "missing_policy": "FAIL_CLOSED_GROUP_INCOMPLETE",
+      "source": "INDEPENDENT_N_E_C_EVALUATOR"
+    },
+    "secondary": [
+      "ttft_ms",
+      "request_latency_p50_ms",
+      "request_latency_p95_ms",
+      "throughput_requests_per_second",
+      "throughput_tokens_per_second",
+      "completion_time_ms",
+      "cache_reuse_ratio_C_over_E",
+      "cache_reuse_ratio_C_over_N",
+      "gpu_memory_peak_mib",
+      "admission_queue_length",
+      "peak_native_inflight",
+      "policy_overhead_ms_per_decision"
+    ],
+    "mechanism_diagnostics": [
+      "candidate_exposure_count",
+      "multi_candidate_decision_count",
+      "fully_scored_candidate_count",
+      "decision_divergence_count",
+      "matched_physical_victim_blocks",
+      "unmatched_physical_victim_blocks",
+      "downstream_reuse_opportunity_count"
+    ],
+    "contract": "phase5.metrics.v1"
+  },
+  "statistics": {
+    "independent_unit": "WORKLOAD_GROUP",
+    "paired_by_group": true,
+    "strata_analyzed_separately": true,
+    "primary_contrasts": [
+      "COST_AWARE_vs_NATIVE",
+      "COST_AWARE_vs_CONTINUUM_ADAPTED",
+      "COST_AWARE_vs_CONTINUUM_OFFICIAL"
+    ],
+    "alpha": 0.05,
+    "power": 0.8,
+    "mde_min_tokens": 512,
+    "mde_relative_fraction_of_native_mean": 0.05,
+    "multiplicity": "HOLM",
+    "secondary_multiplicity": "BH_FDR_0_05_EXPLORATORY",
+    "bootstrap_resamples": 10000,
+    "bootstrap_seed": 20261201,
+    "confidence_level": 0.95,
+    "no_optional_stopping": true,
+    "missing_policy": "COMPLETE_CASE_GROUP_NO_IMPUTATION",
+    "sensitivity_analyses": [
+      "STRATUM_SEPARATE",
+      "CENSORED_VS_NONCENSORED",
+      "ARRIVAL_REALIZATION",
+      "OFFICIAL_ENVIRONMENT_COMPATIBLE",
+      "REPEAT_AGGREGATION"
+    ]
+  },
+  "calibration": {
+    "contract": "phase5.calibration_sample_size.v1",
+    "groups_per_stratum": 4,
+    "repeats": 3,
+    "runs_total": 96,
+    "selection": "PRE_REGISTERED_DISJOINT_FROM_FORMAL",
+    "mde_rule": "max(512_tokens, 0.05 * native_group_mean_tokens)",
+    "sample_size_formula": "ceil((z_(1-alpha/2)+z_power)^2 * sigma_d^2 / MDE^2)",
+    "sample_size_min_per_stratum": 8,
+    "sample_size_max_per_stratum": 16,
+    "if_formula_exceeds_cap": "STOP_OR_M1_ACCEPTS_UNDERPOWERED",
+    "if_below_min": "NOT_FEASIBLE",
+    "gpu_hours_cap": 36,
+    "run_timeout_seconds": 600,
+    "shutdown_grace_seconds": 60,
+    "reservation_window_seconds": 1800
+  },
+  "claim_boundaries": {
+    "mechanism_causal_claim_requires": [
+      "DECISION_DIVERGENCE",
+      "PHYSICAL_VICTIM_CHANGE",
+      "DOWNSTREAM_REUSE_OF_AFFECTED_CHAIN",
+      "COMPLETE_IDENTITY_CHAIN"
+    ],
+    "current_physical_to_downstream_attribution": "NOT_ESTABLISHED",
+    "official_is_paper_exact": false,
+    "system_level_only": true,
+    "token_savings_imply_serving_gain": false,
+    "constructed_workloads_are_production_traces": false,
+    "descriptive_only": [
+      "OFFICIAL_ENVIRONMENT_INCOMPATIBLE",
+      "UNDERPOWERED",
+      "INCOMPLETE_GROUP",
+      "CENSORED_SUBGROUP",
+      "CONTROLLED_ARRIVAL_REALIZATION",
+      "NO_DECISION_DIVERGENCE"
+    ]
+  },
+  "entry_gates": [
+    "G0_M1_PROTOCOL_FREEZE",
+    "G1_WORKLOAD_ACQUISITION_AND_SEAL",
+    "G2_FOUR_SYSTEM_FREEZE",
+    "G3_REPLAY_CONFORMANCE",
+    "G4_CALIBRATION_COMPLETE",
+    "G5_GPU_RESOURCE_AUTHORIZATION",
+    "G6_MANIFEST_AND_EVALUATOR_DRY_RUN"
+  ],
+  "unresolved": [
+    {
+      "id": "U1_COST_AWARE_CANDIDATE",
+      "status": "NOT_FROZEN",
+      "impact": "FORMAL_NOT_EXECUTABLE",
+      "owner": "M1"
+    },
+    {
+      "id": "U2_CONTINUUM_ADAPTED_SCHEDULER_SCOPE",
+      "status": "AUDIT_REQUIRED",
+      "impact": "FULL_SYSTEM_LABEL_OR_CACHE_ONLY",
+      "owner": "M1/M6"
+    },
+    {
+      "id": "U3_OFFICIAL_ENVIRONMENT_COMPATIBILITY",
+      "status": "AUDIT_REQUIRED",
+      "impact": "ENVIRONMENT_CONFOUND_OR_DESCRIPTIVE_ONLY",
+      "owner": "M6/M1"
+    },
+    {
+      "id": "U4_BFCL_TRACE_ACQUISITION",
+      "status": "NOT_AUTHORIZED",
+      "impact": "BFCL_STRATUM_INCOMPLETE",
+      "owner": "M1"
+    },
+    {
+      "id": "U5_ARRIVAL_RATE_AND_SEED",
+      "status": "PROVISIONAL",
+      "impact": "ARRIVAL_SEAL_NOT_FREEZABLE",
+      "owner": "M1/M4"
+    },
+    {
+      "id": "U6_CALIBRATION_AND_GPU_BUDGET",
+      "status": "NOT_AUTHORIZED",
+      "impact": "NO_FORMAL_EXECUTION",
+      "owner": "M1"
+    },
+    {
+      "id": "U7_CENSORED_SESSION_POLICY",
+      "status": "FREEZE_REQUIRED",
+      "impact": "POPULATION_AMBIGUITY",
+      "owner": "M1/M4"
+    }
+  ],
+  "contracts": {
+    "metrics": "phase5.metrics.v1",
+    "workload_qualification": "phase5.workload_qualification.v1",
+    "calibration_sample_size": "phase5.calibration_sample_size.v1",
+    "campaign_manifest": "phase5.campaign_manifest.v1"
+  }
+}
