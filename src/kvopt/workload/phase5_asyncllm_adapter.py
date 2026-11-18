@@ -160,6 +160,61 @@ class NativeBlockPoolProtocol(Protocol):
     ) -> None: ...
 
 
+@dataclass(frozen=True, slots=True)
+class ResolvedInprocessNativeCore:
+    engine_core: object
+    scheduler: object
+    kv_cache_manager: object
+    block_pool: NativeBlockPoolProtocol
+    resolution_path: str
+
+
+def resolve_pinned_inprocess_native_core(engine: object) -> ResolvedInprocessNativeCore:
+    """Resolve one real EngineCore behind the installed in-process proxy.
+
+    Object identity, rather than class names, is returned for the GPU preflight
+    to bind Adapter, Scheduler, KV instrumentation and Pressure allocation.
+    """
+
+    proxy = getattr(engine, "engine_core", None)
+    if not isinstance(proxy, PinnedEngineCoreLifecycleProxy):
+        raise AsyncLLMAdapterError("pinned EngineCore lifecycle proxy is not installed")
+    delegate = proxy._delegate
+    candidates: list[tuple[str, object]] = [("engine_core_proxy.delegate", delegate)]
+    for name in ("engine_core", "_engine_core", "core"):
+        candidate = getattr(delegate, name, None)
+        if candidate is not None:
+            candidates.append((f"engine_core_proxy.delegate.{name}", candidate))
+    resolved = []
+    seen: set[int] = set()
+    for path, candidate in candidates:
+        if id(candidate) in seen:
+            continue
+        seen.add(id(candidate))
+        scheduler = getattr(candidate, "scheduler", None)
+        manager = getattr(scheduler, "kv_cache_manager", None)
+        block_pool = getattr(manager, "block_pool", None)
+        if scheduler is not None and manager is not None and block_pool is not None:
+            for method in ("get_num_free_blocks", "get_new_blocks", "free_blocks"):
+                if not callable(getattr(block_pool, method, None)):
+                    raise AsyncLLMAdapterError(
+                        "resolved Native BlockPool lacks required allocation method"
+                    )
+            resolved.append((path, candidate, scheduler, manager, block_pool))
+    if len(resolved) != 1:
+        raise AsyncLLMAdapterError(
+            "in-process EngineCore resolution must yield exactly one Native core"
+        )
+    path, core, scheduler, manager, block_pool = resolved[0]
+    return ResolvedInprocessNativeCore(
+        engine_core=core,
+        scheduler=scheduler,
+        kv_cache_manager=manager,
+        block_pool=block_pool,
+        resolution_path=path,
+    )
+
+
 @dataclass(slots=True)
 class PinnedNativeBlockPoolPressureExecutor:
     """Execute controlled pressure through pinned BlockPool allocation.
@@ -327,6 +382,7 @@ class AsyncLLMNativeAdapter:
         self._lock = asyncio.Lock()
         self._submit_tasks: set[asyncio.Task[object]] = set()
         self._shutdown_task: asyncio.Task[None] | None = None
+        self._pending_native_submission: dict[str, float] = {}
         self._pending_natural_terminal: dict[str, float] = {}
         self._pending_abort_dispatch: set[str] = set()
         self._core_proxy = install_pinned_engine_core_lifecycle_proxy(engine, self)
@@ -435,7 +491,12 @@ class AsyncLLMNativeAdapter:
                 self._submit_tasks.discard(task)
 
     def observe_native_submission(
-        self, logical_request_id: str, *, timestamp: float, internal_request_id: str
+        self,
+        logical_request_id: str,
+        *,
+        timestamp: float,
+        internal_request_id: str,
+        clock_domain: str = "ENGINE_CORE_MONOTONIC",
     ) -> None:
         record = self._record(logical_request_id)
         if internal_request_id != record.internal_request_id:
@@ -444,9 +505,32 @@ class AsyncLLMNativeAdapter:
             logical_request_id,
             LifecycleEventKind.NATIVE_SUBMISSION_OBSERVED,
             _timestamp(timestamp, "Native submission timestamp"),
-            "ENGINE_CORE_MONOTONIC",
+            _identity(clock_domain, "Native submission clock_domain"),
             {"internal_request_id": internal_request_id},
         )
+
+    async def observe_core_native_submission(
+        self, internal_request_id: str, *, timestamp: float
+    ) -> None:
+        """Bind the exact EngineCoreClient submission call to a logical request."""
+
+        internal_id = _identity(internal_request_id, "internal_request_id")
+        observed = _timestamp(timestamp, "Native submission timestamp")
+        async with self._lock:
+            record = self._by_internal.get(internal_id)
+            if record is None:
+                if internal_id in self._pending_native_submission:
+                    raise AsyncLLMAdapterError(
+                        "duplicate unbound Native submission identity"
+                    )
+                self._pending_native_submission[internal_id] = observed
+                return
+            self.observe_native_submission(
+                record.spec.logical_request_id,
+                timestamp=observed,
+                internal_request_id=internal_id,
+                clock_domain="ADAPTER_NATIVE_MONOTONIC",
+            )
 
     def observe_scheduler_timing(
         self,
@@ -652,13 +736,18 @@ class AsyncLLMNativeAdapter:
             if self._frontend_has_internal_request is not None
             else "NOT_OBSERVABLE"
         )
-        blockers = []
+        part_a_blockers = []
         if observability != "OBSERVABLE":
-            blockers.append("REQUEST_STATE_NOT_OBSERVABLE")
+            part_a_blockers.append("REQUEST_STATE_NOT_OBSERVABLE")
+        if (
+            self._pending_native_submission
+            or self._pending_natural_terminal
+            or self._pending_abort_dispatch
+        ):
+            part_a_blockers.append("UNBOUND_ENGINE_CORE_EVIDENCE")
+        part_b_blockers = list(part_a_blockers)
         if not self._verified_abort_confirmation_sources:
-            blockers.append("ABORT_CONFIRMATION_SOURCE_NOT_ESTABLISHED")
-        if self._pending_natural_terminal or self._pending_abort_dispatch:
-            blockers.append("UNBOUND_ENGINE_CORE_EVIDENCE")
+            part_b_blockers.append("ABORT_CONFIRMATION_SOURCE_NOT_ESTABLISHED")
         return {
             "schema_version": "phase5.asyncllm_native_adapter.v2",
             "pinned_vllm_version": PINNED_VLLM_VERSION,
@@ -668,9 +757,22 @@ class AsyncLLMNativeAdapter:
             "verified_abort_confirmation_sources": sorted(
                 self._verified_abort_confirmation_sources
             ),
-            "gpu_conformance_ready": not blockers,
-            "gpu_conformance_blockers": blockers,
+            # Compatibility aggregate: the complete Part A+Part B surface is
+            # ready only when both independently defined parts are ready.
+            "gpu_conformance_ready": not part_b_blockers,
+            "gpu_conformance_blockers": part_b_blockers,
+            "part_a_natural_completion_readiness": (
+                "READY" if not part_a_blockers else "NOT_READY"
+            ),
+            "part_a_natural_completion_blockers": part_a_blockers,
+            "part_b_abort_readiness": (
+                "READY" if not part_b_blockers else "NOT_READY"
+            ),
+            "part_b_abort_blockers": part_b_blockers,
             "unbound_core_evidence": {
+                "native_submission_internal_ids": sorted(
+                    self._pending_native_submission
+                ),
                 "natural_terminal_internal_ids": sorted(
                     self._pending_natural_terminal
                 ),
@@ -685,8 +787,8 @@ class AsyncLLMNativeAdapter:
             "requests": requests,
             "events": [event.to_dict() for event in self._events],
             "clock_contract": {
-                "planned_dispatch_output": "ADAPTER_NATIVE_MONOTONIC",
-                "native_submission_queue_schedule_terminal": "ENGINE_CORE_MONOTONIC",
+                "planned_dispatch_submission_output": "ADAPTER_NATIVE_MONOTONIC",
+                "native_queue_schedule_terminal": "ENGINE_CORE_MONOTONIC",
                 "cross_domain_subtraction": "PROHIBITED",
             },
         }
@@ -857,6 +959,14 @@ class AsyncLLMNativeAdapter:
     def _apply_pending_core_evidence(self, record: _RequestLifecycle) -> None:
         internal_id = record.internal_request_id
         assert internal_id is not None
+        submission_timestamp = self._pending_native_submission.pop(internal_id, None)
+        if submission_timestamp is not None:
+            self.observe_native_submission(
+                record.spec.logical_request_id,
+                timestamp=submission_timestamp,
+                internal_request_id=internal_id,
+                clock_domain="ADAPTER_NATIVE_MONOTONIC",
+            )
         if internal_id in self._pending_abort_dispatch:
             self._pending_abort_dispatch.remove(internal_id)
             self._record_abort_dispatch(
@@ -1027,6 +1137,12 @@ class PinnedEngineCoreLifecycleProxy:
 
     def __init__(self, delegate: object, adapter: AsyncLLMNativeAdapter) -> None:
         if not inspect.iscoroutinefunction(
+            getattr(delegate, "add_request_async", None)
+        ):
+            raise AsyncLLMAdapterError(
+                "EngineCoreClient.add_request_async is missing"
+            )
+        if not inspect.iscoroutinefunction(
             getattr(delegate, "get_output_async", None)
         ):
             raise AsyncLLMAdapterError("EngineCoreClient.get_output_async is missing")
@@ -1041,6 +1157,23 @@ class PinnedEngineCoreLifecycleProxy:
 
     def __getattr__(self, name: str) -> object:
         return getattr(self._delegate, name)
+
+    async def add_request_async(self, request: object) -> object:
+        method = getattr(self._delegate, "add_request_async", None)
+        if method is None or not inspect.iscoroutinefunction(method):
+            raise AsyncLLMAdapterError(
+                "EngineCoreClient.add_request_async is missing"
+            )
+        internal_id = _identity(
+            getattr(request, "request_id", None),
+            "EngineCore request_id",
+        )
+        result = await method(request)
+        await self._adapter.observe_core_native_submission(
+            internal_id,
+            timestamp=self._adapter._clock(),
+        )
+        return result
 
     async def get_output_async(self) -> object:
         batch = await self._delegate.get_output_async()
