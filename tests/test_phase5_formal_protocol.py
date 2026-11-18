@@ -68,7 +68,7 @@ def test_rejects_wrong_system_set() -> None:
     try:
         module.validate_protocol(protocol, _schema())
     except ValueError as error:
-        assert "four registered" in str(error) or "schema" in str(error)
+        assert "six registered" in str(error) or "schema" in str(error)
     else:
         raise AssertionError("three-system protocol was accepted")
 
@@ -180,6 +180,56 @@ def test_candidate_evaluation_fixtures_are_complete() -> None:
         is True
     )
     assert cases["NATIVE_LRU_TIE_BREAK"]["expected"]["a0_tie_break_reproduced"] is True
+
+
+def test_rejects_historical_gain_as_dva_gate() -> None:
+    module = _load_module()
+    protocol = _protocol()
+    protocol["candidate_family"]["dva_er_selection_gate"][
+        "full_trajectory_positive_gain_required"
+    ] = True
+    try:
+        module.validate_protocol(protocol, _schema())
+    except ValueError as error:
+        assert "historical" in str(error) or "schema" in str(error)
+    else:
+        raise AssertionError("historical positive gain was accepted as a gate")
+
+
+def test_rejects_non_latin_square_arm_order() -> None:
+    module = _load_module()
+    protocol = _protocol()
+    protocol["replay"]["execution_order"]["design"] = "RANDOM"
+    try:
+        module.validate_protocol(protocol, _schema())
+    except ValueError as error:
+        assert "Latin" in str(error) or "schema" in str(error)
+    else:
+        raise AssertionError("non-Latin arm order was accepted")
+
+
+def test_rejects_missing_dva_vs_a1_contrast() -> None:
+    module = _load_module()
+    protocol = _protocol()
+    protocol["statistics"]["primary_families"]["CANDIDATE_MECHANISM"].remove("DVA_vs_A1")
+    try:
+        module.validate_protocol(protocol, _schema())
+    except ValueError as error:
+        assert "DVA-vs-A1" in str(error) or "six contrasts" in str(error)
+    else:
+        raise AssertionError("missing DVA-vs-A1 contrast was accepted")
+
+
+def test_rejects_homogeneity_test_pooling_switch() -> None:
+    module = _load_module()
+    protocol = _protocol()
+    protocol["statistics"]["variance_model"]["homogeneity_test"] = True
+    try:
+        module.validate_protocol(protocol, _schema())
+    except ValueError as error:
+        assert "homogeneity" in str(error)
+    else:
+        raise AssertionError("homogeneity-test pooling switch was accepted")
 
 
 def test_contracts_and_manifest_schema_are_valid() -> None:

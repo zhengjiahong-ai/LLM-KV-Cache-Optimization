@@ -138,10 +138,7 @@
       "additionalProperties": false
     },
     "preheat_mode": {
-      "enum": [
-        "NONE",
-        "SAME_FIXED_WARMUP_ALL_SYSTEMS"
-      ]
+      "const": "NONE"
     },
     "actual_enqueue_sequence_sha256": {
       "type": "string",

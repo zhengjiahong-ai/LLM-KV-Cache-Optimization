@@ -207,7 +207,16 @@ The three algorithms' implementations, parameters/H, input field set and hash mu
 - A0 tie-break and Native LRU simulation must be reproduced.
 - Missing evidence → fail closed; no silent zero fallback.
 
-DVA-ER remains `PROVISIONAL_NOT_FROZEN` until the CPU candidate-selection gate passes: deterministic victim simulation on the existing decision state; offline A1/A3/DVA-ER comparison; no future-feature leakage; at least one decision divergence and positive full-trajectory gain; A0 reproduction. If it fails, do not freeze it; M1 decides whether to run a five-arm campaign or stop. The protocol does not silently drop an arm.
+DVA-ER remains `PROVISIONAL_NOT_FROZEN` until a **correctness-only CPU gate** passes:
+
+- Native LRU victim sequence simulation is correct;
+- A0 tie-break/selection is reproduced;
+- no future Turn or future reuse information is used;
+- every required input is observable and complete;
+- fail-closed behavior is correct;
+- independent fixtures reproduce the expected decision differences and mechanism boundaries.
+
+Historical Phase 3/4 full-trajectory gain **may be reported**, but a positive historical gain is **not** a gate. The seven historical decisions are exploratory/reproduction material, not confirmatory evidence for DVA-ER. If a separate development dataset is used, it must be disjoint from the formal cohort and may inform implementation only. If the correctness gate fails, do not freeze it; M1 decides whether to run a five-arm campaign or stop. The protocol does not silently drop an arm.
 
 ---
 
@@ -248,9 +257,10 @@ Dispatch must be serialized in frozen order (or an equivalent barrier must prove
 
 ### 3.4 Execution order, isolation and timing
 
-- **Arm order:** six systems within each Group are executed in a pre-registered balanced Latin-square/permuted-block order. The order is seeded before outcomes, balanced by Group/System/position, and recorded in the manifest. Calibration uses a fixed random permutation; no outcome-based reordering is allowed.
-- **Per-run isolation:** every run uses a new process and a new EngineCore instance. `VLLM_ENABLE_V1_MULTIPROCESSING=0` is required for the in-process BlockPool evidence. Cross-run KV/APC reuse is forbidden; GPU memory is reset and an empty-cache preflight is recorded before dispatch. A failure to isolate the run is `FAIL_CLOSED`.
-- **Preheat consistency:** either all systems receive the same fixed warmup and the warmup state is flushed, or no system receives a warmup. No arm-specific preheat is allowed. The chosen mode is recorded and identical across arms/repeats.
+- **Arm order:** six systems within each Group are executed in a pre-registered **balanced Latin-square** order. The order is seeded before outcomes, balanced by Group/System/position, and recorded in the manifest. Calibration uses a fixed random permutation; no outcome-based reordering is allowed.
+- **Per-run isolation:** every run uses the same unified initialization/cleanup procedure: new process, new EngineCore, `VLLM_ENABLE_V1_MULTIPROCESSING=0`, GPU memory reset, empty-cache preflight, no cross-run KV/APC reuse. A failure to isolate the run is `FAIL_CLOSED`.
+- **Preheat:** **NONE**. No system receives a warmup and no warmup state may be reused. The empty-cache preflight is the only pre-run state.
+- **Unified environment:** all six systems use the same GPU, driver, CUDA, model/tokenizer cache, engine initialization sequence and archive path; official-specific environment differences are allowed only as declared `ENVIRONMENT_CONFOUND` and never as an implicit preheat advantage.
 - **Unique TTFT origin:** TTFT is measured from `CLIENT_DISPATCH_ACCEPTED` to `FIRST_OUTPUT_TOKEN`. Arrival-to-first-token and queue delay are separate metrics; they are not substituted for TTFT.
 - **Right-censored throughput/completion:** throughput uses completed observed requests over the observed window (`first arrival` to `last observed terminal`). Completion time is reported only if every scheduled request has a terminal; otherwise it is `CENSORED_INCOMPLETE`, not imputed. Right-censored Sessions do not add future requests to the run.
 
@@ -315,19 +325,22 @@ The full contract is in `phase5-metrics-contract-v1.json`.
 - Calibration estimates **two distinct variance components**:
   - `σ_between²`: Group-level variability of the paired difference;
   - `σ_repeat²`: within-Group run-to-run noise.
-- The calibration model is `d_{g,r} = μ + b_g + ε_{g,r}`, with Group random effect `b_g` and repeat residual `ε_{g,r}`. Repeats are never treated as independent Groups.
-- With only 4 Groups per stratum, the per-stratum Group-level variance has df=3. The primary estimator pools both strata (8 Groups, df=7) when Brown–Forsythe does not reject homogeneity; otherwise it uses stratum-specific estimates and reports the low precision. No hidden borrowing across formal Groups.
-- For a future formal Group mean with 2 repeats, the variance used for sizing is `σ_d² = σ_between² + σ_repeat² / 2`. The calibration repeat count (3) is not substituted for the formal repeat count (2).
-- Seven contrasts share arms and are correlated: A1−A0, A3−A0, DVA−A0, A3−A1, DVA−A3, Native−A0, Official−A0. Calibration estimates the full **7×7 covariance** of Group-level paired differences. Candidate-family sizing uses the maximum candidate-contrast variance; the covariance is used for simulation sensitivity and interval diagnostics.
+- **Fixed pre-registered model:** `d_{g,r,s} = μ + τ_s + b_{g(s)} + ε_{g,r,s}`, with stratum fixed effect `τ_s`, Group random effect `b_{g(s)}` and repeat residual `ε_{g,r,s}`. Variance components are common across strata; there is **no homogeneity test and no dynamic pooling switch**. Repeats are never independent Groups.
+- With only 4 Groups per stratum, the per-stratum Group-level variance has df=3; the common model has 8 Groups and df=7. Both are small-sample estimates and are reported with uncertainty.
+- For a future formal Group mean with 2 repeats, `σ_d² = σ_between² + σ_repeat² / 2`. The calibration repeat count (3) is not substituted for the formal repeat count (2).
+- **Two strata:** the common mixed model includes a fixed stratum effect; **no homogeneity test is used to choose a pooling rule**. For sizing, the variance for each stratum/contrast is the larger of (a) the common-model variance upper bound and (b) that stratum's own one-sided 80% bootstrap upper bound. This is fixed before calibration and is conservative.
+- **Negative variance components:** a negative method-of-moments point estimate is truncated at zero for reporting only; the bootstrap upper bound is retained for sizing. A zero point estimate is never treated as proof of no variance.
+- **Small samples:** no normal approximation; use noncentral t with the relevant df and bootstrap uncertainty. If the upper-bound variance makes `n_required > 16`, the campaign is underpowered/stop; do not select a smaller variance to rescue N.
+- **Eight contrasts** share arms: six candidate contrasts (`A1−A0`, `A3−A0`, `DVA−A0`, `A3−A1`, `DVA−A1`, `DVA−A3`) plus two system-context contrasts (`Native−A0`, `Official−A0`). Calibration estimates the full **8×8 covariance** of Group-level paired differences, projected to positive semidefinite if needed. Candidate-family sizing uses the maximum candidate-contrast upper-bound variance; the covariance is used for simulation/interval sensitivity.
 
 ### 5.2 MDE, power and primary multiplicity families
 
-- **Candidate mechanism family (5 per stratum):**
-  `A1−A0`, `A3−A0`, `DVA−A0`, `A3−A1`, `DVA−A3`.
+- **Candidate mechanism family (6 per stratum):**
+  `A1−A0`, `A3−A0`, `DVA−A0`, `A3−A1`, `DVA−A1`, `DVA−A3`.
 - **System context family (2 per stratum):**
   `Native−A0`, `Official−A0`.
 - The two families are pre-registered separately. Holm is applied **within each family and within each stratum** at family-wise α=0.05. Candidate claims and system-context claims are not pooled into one significance claim.
-- For sample size, the conservative candidate-family per-test α is `0.05/5 = 0.01`; the system family has only two tests and does not drive N. N is the maximum required across the five candidate contrasts.
+- For sample size, the conservative candidate-family per-test α is `0.05/6 ≈ 0.008333`; the system family has only two tests and does not drive N. N is the maximum required across the six candidate contrasts.
 - Power = 0.80.
 - **MDE order:**
   1. freeze the MDE formula and 512-token floor before calibration;
@@ -348,12 +361,11 @@ The full contract is in `phase5-metrics-contract-v1.json`.
 - Planned runs: calibration **144** + formal **192–384** (6 systems × N × 2 repeats × 2 strata, N=8..16; total **336–528** runs).
 - Per-run hard timeout 600s, shutdown grace 60s; reservation window 1800s.
 - `336 × 600s = 56.0 GPU-hours` before startup/restart/archive/evaluation; `528 × 600s = 88.0 GPU-hours`.
-- Resource forecast uses **measured calibration runtime**, not the 600s ceiling:
-  `projected_hours = 1.2 × (144 × calibration_run_p95_seconds + formal_runs × formal_run_p95_seconds) / 3600`.
-  The 1.2 factor covers engine startup, process restart, archive I/O, evaluation and one failure reserve. `formal_run_p95_seconds` starts from calibration p95 plus declared system overhead.
-- Requested envelope: **minimum 72 GPU-hours, maximum 112 GPU-hours**. These are calculated from the six-arm run count and the 1.2 overhead:
-  minimum `56.0 × 1.2 = 67.2` → 72; maximum `88.0 × 1.2 = 105.6` → 112.
-- If the forecast cannot support N=8 per stratum within the available budget, the campaign is `NOT_FEASIBLE`; **do not run below minimum N**. If the formula requires more than the available budget, stop and return to M1; do not automatically reduce N to fit the budget.
+- Resource forecast is **per system**, not a single global p95:
+  `projected_hours = [Σ_s (24×Tcal_s + 4N×Tformal_s + (24+4N)×(startup_s+restart_s+archive_s)) / 3600] × 1.10`
+  where `s` runs over all six systems, 24 is calibration runs/system, `4N` is formal runs/system, and 1.10 is the one-run failure reserve. Startup/restart/archive are measured per system and archived with the calibration report.
+- Requested envelope: **minimum 72 GPU-hours, maximum 112 GPU-hours**. These bounds cover the six-arm run count and the per-run timeout ceiling; the measured per-system forecast must fit the envelope before authorization.
+- If the forecast cannot support N=8 per stratum within the available budget, the campaign is `NOT_FEASIBLE`; **do not run below minimum N**. If the formula requires more than the available budget, stop and return to M1; do not automatically reduce N.
 - If projected >112h, stop and return to M1 for a new budget authorization; do not silently exceed or compress the sample.
 
 The full contract is in `phase5-calibration-sample-size-contract-v1.json`.
@@ -371,12 +383,12 @@ For each stratum and contrast:
 3. compute paired Group difference for the contrast, e.g. `d_g = metric(A1,g) - metric(A0,g)`;
 4. report mean difference, median, 95% CI, and relative effect vs the contrast reference;
 5. use Group-level paired bootstrap (10,000 resamples, fixed seed), paired permutation and paired t as pre-registered analyses; report all three consistently and do not select the test by result;
-6. use the calibration-derived 7×7 contrast covariance as a simulation/interval input, not as a substitute for the Group-level paired analysis;
+6. use the calibration-derived 8×8 contrast covariance as a simulation/interval input, not as a substitute for the Group-level paired analysis;
 7. report stratum-specific results; no combined-stratum primary estimate and never pool requests.
 
 ### 6.2 Multiplicity
 
-- Candidate mechanism family: **5 contrasts × 2 strata**; Holm within each stratum at family-wise 0.05.
+- Candidate mechanism family: **6 contrasts × 2 strata**; Holm within each stratum at family-wise 0.05.
 - System context family: **2 contrasts × 2 strata**; Holm within each stratum at family-wise 0.05.
 - The two families are separate pre-registered claim families. No combined 7-test significance claim and no winner-selection-then-confirmation.
 - Secondary metrics: BH-FDR 0.05, explicitly exploratory; confidence intervals are descriptive.

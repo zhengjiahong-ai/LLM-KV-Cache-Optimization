@@ -103,6 +103,15 @@ def validate_protocol(protocol: dict[str, Any], schema: dict[str, Any]) -> None:
         raise ValueError("DVA-ER cannot use future information")
     if candidate_family["dva_er"]["missing_evidence"] != "FAIL_CLOSED":
         raise ValueError("DVA-ER must fail closed on missing evidence")
+    gate = candidate_family["dva_er_selection_gate"]
+    if gate["status"] != "NOT_EXECUTED":
+        raise ValueError("DVA-ER CPU selection gate must not be pre-completed")
+    if gate["full_trajectory_positive_gain_required"] is not False:
+        raise ValueError("historical positive gain cannot be a DVA-ER gate")
+    if gate["historical_archive_gain"] != "REPORT_ONLY_NOT_A_GATE":
+        raise ValueError("historical gain must be report-only")
+    if len(gate["required"]) < 7:
+        raise ValueError("DVA-ER correctness gate is incomplete")
     candidates = {row["id"]: row for row in protocol["systems"]}
     if candidates["A1_ORIGINAL"]["status"] != "FROZEN_LEGACY":
         raise ValueError("A1 original must remain a frozen legacy implementation")
@@ -114,15 +123,17 @@ def validate_protocol(protocol: dict[str, Any], schema: dict[str, Any]) -> None:
     if protocol["metrics"]["primary"]["id"] != "recomputed_tokens_E_minus_C":
         raise ValueError("primary metric must be recomputed_tokens_E_minus_C")
     contrasts = protocol["statistics"]["primary_contrasts"]
-    if len(contrasts) != 7 or len(set(contrasts)) != 7:
-        raise ValueError("seven unique primary contrasts are required")
+    if len(contrasts) != 8 or len(set(contrasts)) != 8:
+        raise ValueError("eight unique primary contrasts are required")
     families = protocol["statistics"]["primary_families"]
-    if len(families["CANDIDATE_MECHANISM"]) != 5:
-        raise ValueError("candidate mechanism family must contain five contrasts")
+    if len(families["CANDIDATE_MECHANISM"]) != 6:
+        raise ValueError("candidate mechanism family must contain six contrasts")
     if len(families["SYSTEM_CONTEXT"]) != 2:
         raise ValueError("system context family must contain two contrasts")
     if set(families["CANDIDATE_MECHANISM"] + families["SYSTEM_CONTEXT"]) != set(contrasts):
         raise ValueError("primary contrast families do not cover the registered tests")
+    if "DVA_vs_A1" not in families["CANDIDATE_MECHANISM"]:
+        raise ValueError("DVA-vs-A1 contrast is missing")
     if protocol["statistics"]["multiplicity"] != "HOLM_WITHIN_EACH_FAMILY_PER_STRATUM":
         raise ValueError("multiplicity must be Holm within family and stratum")
     if protocol["statistics"]["no_optional_stopping"] is not True:
@@ -132,8 +143,12 @@ def validate_protocol(protocol: dict[str, Any], schema: dict[str, Any]) -> None:
     covariance = protocol["statistics"]["variance_model"]
     if covariance["contrast_covariance_required"] is not True:
         raise ValueError("contrast covariance must be estimated")
-    if covariance["contrast_covariance_size"] != 7:
-        raise ValueError("contrast covariance must cover all seven tests")
+    if covariance["contrast_covariance_size"] != 8:
+        raise ValueError("contrast covariance must cover all eight tests")
+    if covariance["homogeneity_test"] is not False:
+        raise ValueError("no homogeneity-test-based pooling switch is allowed")
+    if "FIXED_COMMON_MIXED_MODEL" not in covariance["pooling_rule"]:
+        raise ValueError("variance pooling must be a fixed pre-registered model")
     if protocol["statistics"]["mde_pre_registration_order"][-1] != "FREEZE_VALUE_BEFORE_FORMAL":
         raise ValueError("MDE value must be frozen before formal execution")
 
@@ -163,6 +178,10 @@ def validate_protocol(protocol: dict[str, Any], schema: dict[str, Any]) -> None:
         raise ValueError("six-arm formal minimum must be 192 runs")
     if calibration["formal_runs_at_max"] != 384:
         raise ValueError("six-arm formal maximum must be 384 runs")
+    if calibration["sample_size_contrast_family"] != "SIX_CANDIDATE_CONTRASTS_PER_STRATUM":
+        raise ValueError("sample size must use the six candidate contrasts")
+    if abs(calibration["sample_size_alpha_per_test"] - 0.05 / 6) > 1e-12:
+        raise ValueError("candidate-family alpha must be 0.05/6")
     if calibration["gpu_hours_minimum"] < 72:
         raise ValueError("six-arm GPU budget cannot support the minimum sample within 72 hours")
     if calibration["gpu_hours_maximum"] < calibration["gpu_hours_minimum"]:
@@ -173,6 +192,12 @@ def validate_protocol(protocol: dict[str, Any], schema: dict[str, Any]) -> None:
         raise ValueError("budget below the minimum sample must stop")
     if not protocol["replay"]["execution_order"]["design"]:
         raise ValueError("execution order must be pre-registered")
+    if protocol["replay"]["execution_order"]["design"] != "BALANCED_LATIN_SQUARE":
+        raise ValueError("formal arm order must be a balanced Latin square")
+    if protocol["replay"]["preheat"]["mode"] != "NONE":
+        raise ValueError("formal preheat must be NONE")
+    if protocol["replay"]["isolation"]["cross_run_kv_reuse"] is not False:
+        raise ValueError("cross-run KV reuse is prohibited")
     if protocol["replay"]["isolation"]["cross_run_apc_reuse"] is not False:
         raise ValueError("cross-run APC reuse is prohibited")
     if protocol["replay"]["execution_order"]["outcome_based_reordering"] is not False:

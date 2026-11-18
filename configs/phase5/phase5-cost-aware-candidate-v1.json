@@ -318,6 +318,31 @@
     "complete Native BlockPool / FreeKVCacheBlockQueue state",
     "refcount, eligibility and protection changes",
     "full Native LRU victim sequence",
-    "A0 tie-break and simulation consistency"
-  ]
+    "A0 tie-break and simulation consistency",
+    "independent fixture decision/mechanism boundaries"
+  ],
+  "dva_er_selection_gate": {
+    "id": "phase5.dva_er.selection_gate.v1",
+    "status": "NOT_EXECUTED",
+    "cpu_only": true,
+    "required": [
+      "NATIVE_LRU_VICTIM_SEQUENCE_SIMULATION_CORRECT",
+      "A0_TIE_BREAK_AND_SELECTION_REPRODUCED",
+      "NO_FUTURE_INFORMATION_LEAKAGE",
+      "INPUT_EVIDENCE_COMPLETE",
+      "FAIL_CLOSED_BEHAVIOR_CORRECT",
+      "INDEPENDENT_FIXTURES_VALIDATE_EXPECTED_DECISION_DIFFERENCES",
+      "INDEPENDENT_FIXTURES_VALIDATE_MECHANISM_BOUNDARIES"
+    ],
+    "historical_archive_gain": "REPORT_ONLY_NOT_A_GATE",
+    "historical_archive_role": "EXPLORATORY_AND_REPRODUCTION_ONLY",
+    "full_trajectory_positive_gain_required": false,
+    "dev_validation_data": {
+      "separate_from_formal_cohort": true,
+      "may_inform_implementation_only": true,
+      "may_not_be_used_for_confirmatory_effect": true
+    },
+    "failure": "DO_NOT_FREEZE_DVA_ER_V1; M1_DECIDES_FIVE_ARM_OR_STOP",
+    "success": "M1_FREEZES_IMPLEMENTATION_PARAMETERS_AND_HASH"
+  }
 }

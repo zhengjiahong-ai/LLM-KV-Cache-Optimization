@@ -22,13 +22,18 @@
     "calibration_group_level_estimate": "mean over repeats of d_g_r",
     "formal_group_mean_variance": "sigma_between^2 + sigma_repeat^2 / formal_repeats",
     "estimator": "method_of_moments_mixed_model",
-    "pooling_rule": "POOL_BOTH_STRATA_IF_BROWN_FORSYTHE_HOMOGENEOUS_ELSE_STRATUM_SPECIFIC",
+    "pooling_rule": "FIXED_COMMON_MIXED_MODEL_WITH_STRATUM_FIXED_EFFECT_NO_HOMOGENEITY_TEST",
     "pooled_calibration_groups": 8,
     "pooled_df": 7,
     "per_stratum_df": 3,
     "low_df_warning": "Per-stratum variance with 4 Groups has df=3; report its uncertainty and prefer pooled variance when homogeneity is not rejected.",
-    "contrast_covariance": "3x3 covariance of Cost-Aware-minus-baseline Group differences; used for simulation sensitivity; sample-size uses the maximum per-contrast variance as a conservative scalar",
-    "no_repeat_as_independent_group": true
+    "contrast_covariance": "8x8 covariance of the eight pre-registered contrasts; PSD projection; candidate sizing uses the maximum upper-bound variance among the six candidate contrasts",
+    "no_repeat_as_independent_group": true,
+    "homogeneity_test": false,
+    "stratum_variance_handling": "STRATUM_FIXED_EFFECT_COMMON_VARIANCE_PLUS_STRATUM_UPPER_BOUND_FOR_SIZING",
+    "sizing_variance_rule": "MAX_OF_COMMON_AND_STRATUM_ONE_SIDED_80PCT_UPPER_BOUND",
+    "negative_variance": "TRUNCATE_POINT_AT_ZERO_AND_USE_BOOTSTRAP_UPPER_BOUND",
+    "small_sample_rule": "DF3_PER_STRATUM_DF7_POOLED_NONCENTRAL_T"
   },
   "mde": {
     "absolute_min_tokens": 512,
@@ -45,12 +50,12 @@
     "alpha_family": 0.05,
     "two_sided": true,
     "power": 0.8,
-    "primary_contrasts": 5,
+    "primary_contrasts": 6,
     "strata": 2,
-    "multiplicity_family": "FIVE_CANDIDATE_CONTRASTS_PER_STRATUM",
-    "family_size": 5,
+    "multiplicity_family": "SIX_CANDIDATE_CONTRASTS_PER_STRATUM",
+    "family_size": 6,
     "multiplicity": "HOLM_WITHIN_EACH_FAMILY_PER_STRATUM",
-    "initial_conservative_alpha_per_test": 0.01,
+    "initial_conservative_alpha_per_test": 0.008333333333333333,
     "system_context_family": "NATIVE_vs_A0_AND_OFFICIAL_vs_A0_PER_STRATUM"
   },
   "sample_size_formula": {
@@ -58,7 +63,7 @@
     "not_z_approximation": true,
     "formula": "solve n such that power(n, alpha_per_test, sigma_d, MDE) >= 0.80 using noncentral t with df=n-1",
     "sigma_estimator": "FORMAL_GROUP_MEAN_VARIANCE_FROM_CALIBRATION_MIXED_MODEL",
-    "alpha_per_test": 0.01,
+    "alpha_per_test": 0.008333333333333333,
     "minimum_per_stratum": 8,
     "maximum_per_stratum": 16,
     "formula_result_below_min": "USE_MINIMUM_8_AND_REPORT_VARIANCE_UNCERTAINTY",
@@ -68,7 +73,7 @@
     "no_optional_stopping": true,
     "no_mid_campaign_extension": true,
     "no_mid_campaign_reduction": true,
-    "contrast_family": "A1_vs_A0,A3_vs_A0,DVA_vs_A0,A3_vs_A1,DVA_vs_A3",
+    "contrast_family": "A1_vs_A0,A3_vs_A0,DVA_vs_A0,A3_vs_A1,DVA_vs_A1,DVA_vs_A3",
     "system_context_separate": true
   },
   "formal_runs": {
@@ -89,7 +94,7 @@
     "gpu_memory_gib": 24,
     "minimum_gpu_hours": 72,
     "maximum_gpu_hours": 112,
-    "projection_formula": "1.2 * (144 * calibration_p95_seconds + formal_runs * formal_p95_seconds) / 3600",
+    "projection_formula": "sum_s((24*Tcal_s + 4N*Tformal_s + (24+4N)*(startup_s+restart_s+archive_s))/3600) * (1+failure_reserve_fraction)",
     "calibration_run_p95_seconds": "MEASURED_DURING_CALIBRATION",
     "formal_run_p95_seconds": "CALIBRATION_P95_PLUS_DECLARED_SYSTEM_OVERHEAD",
     "overhead_factor": 1.2,
@@ -108,7 +113,21 @@
     "no_gpu_run_below_minimum_n": true,
     "minimum_runs": 336,
     "maximum_runs": 528,
-    "if_power_requires_more_than_budget": "M1_DECISION_REQUIRED; NO_AUTO_REDUCTION"
+    "if_power_requires_more_than_budget": "M1_DECISION_REQUIRED; NO_AUTO_REDUCTION",
+    "per_system_calibration_runs": 24,
+    "per_system_formal_runs_formula": "4 * N_per_stratum",
+    "per_system_p95_fields": [
+      "NATIVE",
+      "CONTINUUM_OFFICIAL",
+      "CONTINUUM_ADAPTED",
+      "A1_ORIGINAL",
+      "A3_SUFFIX",
+      "DVA_ER_V1"
+    ],
+    "per_system_startup_seconds": "MEASURED_PER_SYSTEM",
+    "per_system_restart_seconds": "MEASURED_PER_SYSTEM",
+    "per_system_archive_seconds": "MEASURED_PER_SYSTEM",
+    "failure_reserve_fraction": 0.1
   },
   "analysis_contract": {
     "independent_unit": "WORKLOAD_GROUP",
@@ -119,6 +138,7 @@
       "A3_vs_A0",
       "DVA_vs_A0",
       "A3_vs_A1",
+      "DVA_vs_A1",
       "DVA_vs_A3"
     ],
     "primary_test": "PAIRED_GROUP_PERMUTATION_AND_T_WITH_BOOTSTRAP_CI",
