@@ -1,0 +1,123 @@
+{
+  "schema_version": "phase5.workload_qualification.v1",
+  "protocol_id": "phase5-formal-four-system-trace-replay-v1",
+  "source_classes": [
+    {
+      "id": "SWE_BENCH_VERIFIED",
+      "dataset": "princeton-nlp/SWE-bench_Verified",
+      "revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+      "license_status": "AUDIT_REQUIRED",
+      "role": "PRIMARY_CODING_STRATUM",
+      "agent": "mini-swe-agent",
+      "agent_version": "1.14.4",
+      "acquisition_status": "EXISTING_W1C_PLUS_NEW_ACQUISITION_REQUIRED"
+    },
+    {
+      "id": "BFCL_V4_WEB_SEARCH",
+      "dataset": "BFCL v4 Web Search",
+      "revision": "PINNED_BY_M1",
+      "license_status": "AUDIT_REQUIRED",
+      "role": "PRIMARY_TOOL_USE_STRATUM",
+      "search_backend": "FROZEN_FIXTURE_ONLY",
+      "acquisition_status": "NEW_ACQUISITION_REQUIRED"
+    }
+  ],
+  "unit_contract": {
+    "program": "logical Agent task/workflow identity",
+    "session": "one replay execution of one Program",
+    "turn": "one model request within a Session",
+    "workload_group": "4 independent Programs and their Sessions",
+    "independent_unit": "WORKLOAD_GROUP"
+  },
+  "required_provenance": [
+    "SOURCE_DATASET_AND_REVISION",
+    "SOURCE_ROW_IDENTITY",
+    "SOURCE_CONTENT_SHA256",
+    "LICENSE_ID_AND_REDISTRIBUTION_TERMS",
+    "AGENT_NAME_AND_VERSION",
+    "TRACE_MODEL_AND_TOKENIZER_REVISIONS",
+    "CHAT_TEMPLATE_SHA256",
+    "TOOL_IMPLEMENTATION_AND_FIXTURE_HASHES",
+    "EXACT_PROMPT_TOKEN_IDS",
+    "PROGRAM_SESSION_TURN_IDENTITIES",
+    "WITHIN_SESSION_ORDER_AND_TOOL_GAPS",
+    "SUBMIT_COMPLETION_TOOL_CLOCKS",
+    "NATURAL_TERMINAL_OR_RIGHT_CENSOR_STATUS"
+  ],
+  "qualification_rules": [
+    {
+      "id": "Q1_COMPLETE_PAYLOAD",
+      "rule": "messages, tool calls and observations must be complete and invertible",
+      "fail_action": "EXCLUDE_SESSION"
+    },
+    {
+      "id": "Q2_EXACT_TOKEN_IDS",
+      "rule": "prompt token IDs must be reproducible from pinned model/tokenizer/chat template",
+      "fail_action": "EXCLUDE_SESSION"
+    },
+    {
+      "id": "Q3_IDENTITY",
+      "rule": "Program, Session, Turn and request IDs unique and monotone",
+      "fail_action": "EXCLUDE_SESSION"
+    },
+    {
+      "id": "Q4_ORDER_AND_GAPS",
+      "rule": "within-Session Turn order and observed tool gaps preserved",
+      "fail_action": "EXCLUDE_SESSION"
+    },
+    {
+      "id": "Q5_TERMINAL_OR_CENSOR",
+      "rule": "natural accepted terminal or explicit right-censor; context-limit failure never becomes success",
+      "fail_action": "EXCLUDE_OR_CENSOR_ONLY"
+    },
+    {
+      "id": "Q6_CONTEXT_AND_TURNS",
+      "rule": "each request <= 32768 tokens and Session <= 16 turns",
+      "fail_action": "EXCLUDE_SESSION"
+    },
+    {
+      "id": "Q7_FROZEN_TOOLS",
+      "rule": "all tool outputs and external search results frozen and hash-bound",
+      "fail_action": "EXCLUDE_SESSION"
+    },
+    {
+      "id": "Q8_LICENSE",
+      "rule": "license and provenance accepted for replay/reference",
+      "fail_action": "EXCLUDE_SOURCE_OR_SESSION"
+    },
+    {
+      "id": "Q9_OUTCOME_BLIND",
+      "rule": "no A0/A1/A2/A3/Cost-Aware outcome used in selection or exclusion",
+      "fail_action": "INVALIDATE_COHORT"
+    }
+  ],
+  "group_construction": {
+    "programs_per_group": 4,
+    "sessions_per_program": 1,
+    "matched_bundle": true,
+    "outcome_blind": true,
+    "repository_diversity_required": true,
+    "no_replacement_after_outcome": true,
+    "calibration_groups_disjoint": true
+  },
+  "license_policy": {
+    "license_must_be_audited_before_seal": true,
+    "unknown_or_unredistributable_source": "EXCLUDE",
+    "public_benchmark_task_is_not_a_trace": true,
+    "paper_aggregate_is_not_a_trace": true
+  },
+  "right_censoring": {
+    "status_enum": ["NATURAL_TERMINAL", "RIGHT_CENSORED", "EXCLUDED"],
+    "censor_reason_required": true,
+    "censor_not_zero": true,
+    "censor_not_system_failure": true,
+    "censor_sensitivity_analysis_required": true
+  },
+  "data_evidence_levels": [
+    "L0_TASK_INPUT",
+    "L1_SEMANTIC_AGENT_TRACE",
+    "L2_REPLAY_READY_TRACE",
+    "L3_NATIVE_EXECUTION_EVIDENCE"
+  ],
+  "minimum_accepted_level_for_formal": "L2_REPLAY_READY_TRACE"
+}

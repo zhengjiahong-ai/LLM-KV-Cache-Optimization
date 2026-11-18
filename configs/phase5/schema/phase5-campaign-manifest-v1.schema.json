@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "phase5.campaign_manifest.v1.schema.json",
+  "title": "Phase 5 Formal Campaign Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "protocol_id",
+    "protocol_sha256",
+    "run_id",
+    "group_id",
+    "system_id",
+    "system_revision",
+    "stratum",
+    "repeat_index",
+    "workload_seal_sha256",
+    "arrival_realization_sha256",
+    "model_revision",
+    "tokenizer_revision",
+    "sampling_parameters_sha256",
+    "engine_configuration_sha256",
+    "actual_enqueue_sequence_sha256",
+    "evidence",
+    "metrics",
+    "status",
+    "runner_version",
+    "evaluator_version",
+    "archive_sha256",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {"const": "phase5.campaign_manifest.v1"},
+    "protocol_id": {"const": "phase5-formal-four-system-trace-replay-v1"},
+    "protocol_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "run_id": {"type": "string", "minLength": 1},
+    "group_id": {"type": "string", "minLength": 1},
+    "system_id": {"enum": ["NATIVE", "CONTINUUM_OFFICIAL", "CONTINUUM_ADAPTED", "COST_AWARE"]},
+    "system_revision": {"type": "string", "minLength": 1},
+    "stratum": {"enum": ["SWE_BENCH", "BFCL_WEB_SEARCH"]},
+    "repeat_index": {"type": "integer", "minimum": 0},
+    "workload_seal_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "arrival_realization_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "model_revision": {"type": "string", "minLength": 1},
+    "tokenizer_revision": {"type": "string", "minLength": 1},
+    "sampling_parameters_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "engine_configuration_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "actual_enqueue_sequence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "evidence": {
+      "type": "object",
+      "required": ["planned_events_sha256", "native_events_sha256", "terminal_events_sha256", "exposure_events_sha256"],
+      "properties": {
+        "planned_events_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "native_events_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "terminal_events_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "exposure_events_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "pressure_events_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"}
+      },
+      "additionalProperties": false
+    },
+    "metrics": {
+      "type": "object",
+      "required": ["recomputed_tokens_E_minus_C", "coverage"],
+      "properties": {
+        "recomputed_tokens_E_minus_C": {"type": "integer", "minimum": 0},
+        "actual_prefill_tokens_N_minus_C": {"type": ["integer", "null"], "minimum": 0},
+        "ttft_ms_p50": {"type": ["number", "null"], "minimum": 0},
+        "ttft_ms_p95": {"type": ["number", "null"], "minimum": 0},
+        "latency_ms_p50": {"type": ["number", "null"], "minimum": 0},
+        "latency_ms_p95": {"type": ["number", "null"], "minimum": 0},
+        "throughput_requests_per_second": {"type": ["number", "null"], "minimum": 0},
+        "throughput_tokens_per_second": {"type": ["number", "null"], "minimum": 0},
+        "completion_time_ms": {"type": ["number", "null"], "minimum": 0},
+        "cache_reuse_ratio_C_over_E": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "gpu_memory_peak_mib": {"type": ["number", "null"], "minimum": 0},
+        "peak_native_inflight": {"type": ["integer", "null"], "minimum": 0},
+        "policy_overhead_ms_per_decision": {"type": ["number", "null"], "minimum": 0},
+        "coverage": {
+          "type": "object",
+          "required": ["requests_expected", "requests_observed", "requests_valid", "requests_missing"],
+          "properties": {
+            "requests_expected": {"type": "integer", "minimum": 0},
+            "requests_observed": {"type": "integer", "minimum": 0},
+            "requests_valid": {"type": "integer", "minimum": 0},
+            "requests_missing": {"type": "integer", "minimum": 0}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": true
+    },
+    "status": {"enum": ["PASS", "FAIL_CLOSED", "INCOMPLETE", "UNDERPOWERED"]},
+    "runner_version": {"type": "string", "minLength": 1},
+    "evaluator_version": {"type": "string", "minLength": 1},
+    "archive_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "created_at": {"type": "string", "minLength": 1}
+  }
+}

@@ -1,0 +1,220 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "phase5.formal_protocol.v1.schema.json",
+  "title": "Phase 5 Formal Four-System Protocol",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "protocol_id",
+    "status",
+    "execution_authorized",
+    "m1_freeze_required",
+    "base_main",
+    "scope",
+    "workload",
+    "replay",
+    "systems",
+    "controlled_variables",
+    "metrics",
+    "statistics",
+    "calibration",
+    "claim_boundaries",
+    "entry_gates",
+    "unresolved",
+    "contracts"
+  ],
+  "properties": {
+    "schema_version": {"const": "phase5.formal_protocol.v1"},
+    "protocol_id": {"type": "string", "minLength": 1},
+    "status": {"enum": ["DESIGN_FROZEN_CANDIDATE", "M1_FROZEN", "SUPERSEDED"]},
+    "execution_authorized": {"const": false},
+    "m1_freeze_required": {"type": "boolean"},
+    "base_main": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "scope": {"$ref": "#/$defs/scope"},
+    "workload": {"$ref": "#/$defs/workload"},
+    "replay": {"$ref": "#/$defs/replay"},
+    "systems": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {"$ref": "#/$defs/system"}
+    },
+    "controlled_variables": {"type": "object"},
+    "metrics": {"$ref": "#/$defs/metrics"},
+    "statistics": {"$ref": "#/$defs/statistics"},
+    "calibration": {"$ref": "#/$defs/calibration"},
+    "claim_boundaries": {"type": "object"},
+    "entry_gates": {
+      "type": "array",
+      "minItems": 7,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "unresolved": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/unresolved"}
+    },
+    "contracts": {
+      "type": "object",
+      "required": ["metrics", "workload_qualification", "calibration_sample_size", "campaign_manifest"],
+      "additionalProperties": {"type": "string", "minLength": 1}
+    }
+  },
+  "$defs": {
+    "scope": {
+      "type": "object",
+      "required": ["campaign_mode", "closed_loop_agent", "systems", "primary_question", "paper_exact_reproduction", "full_system_claim_only"],
+      "properties": {
+        "campaign_mode": {"const": "TRACE_DRIVEN_REPLAY"},
+        "closed_loop_agent": {"const": "EXCLUDED"},
+        "systems": {
+          "type": "array",
+          "prefixItems": [
+            {"const": "NATIVE"},
+            {"const": "CONTINUUM_OFFICIAL"},
+            {"const": "CONTINUUM_ADAPTED"},
+            {"const": "COST_AWARE"}
+          ],
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "primary_question": {"type": "string", "minLength": 1},
+        "paper_exact_reproduction": {"const": false},
+        "full_system_claim_only": {"const": true}
+      },
+      "additionalProperties": true
+    },
+    "workload": {
+      "type": "object",
+      "required": ["strata", "unit_definitions", "programs_per_group", "sessions_per_program", "max_turns_per_session", "sample_plan", "qualification_contract"],
+      "properties": {
+        "strata": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "object",
+            "required": ["id", "source", "revision", "license_status", "primary"],
+            "properties": {
+              "id": {"enum": ["SWE_BENCH", "BFCL_WEB_SEARCH"]},
+              "source": {"type": "string"},
+              "revision": {"type": "string"},
+              "license_status": {"type": "string"},
+              "primary": {"const": true}
+            },
+            "additionalProperties": true
+          }
+        },
+        "unit_definitions": {"type": "object"},
+        "programs_per_group": {"const": 4},
+        "sessions_per_program": {"const": 1},
+        "max_turns_per_session": {"type": "integer", "minimum": 1},
+        "sample_plan": {
+          "type": "object",
+          "required": ["groups_per_stratum_min", "groups_per_stratum_target", "groups_per_stratum_max", "calibration_groups_per_stratum", "formal_repeats", "calibration_repeats"],
+          "properties": {
+            "groups_per_stratum_min": {"type": "integer", "minimum": 1},
+            "groups_per_stratum_target": {"type": "integer", "minimum": 1},
+            "groups_per_stratum_max": {"type": "integer", "minimum": 1},
+            "calibration_groups_per_stratum": {"type": "integer", "minimum": 1},
+            "formal_repeats": {"type": "integer", "minimum": 1},
+            "calibration_repeats": {"type": "integer", "minimum": 1}
+          },
+          "additionalProperties": true
+        },
+        "qualification_contract": {"type": "string"}
+      },
+      "additionalProperties": true
+    },
+    "replay": {
+      "type": "object",
+      "required": ["arrival_mode", "same_realization_all_systems", "serialized_dispatch_required", "actual_enqueue_gate", "failed_run_retry", "truncation"],
+      "properties": {
+        "arrival_mode": {"enum": ["FROZEN_POISSON", "EMPIRICAL_ALIGNED", "FIXED_STAGGER"]},
+        "same_realization_all_systems": {"const": true},
+        "serialized_dispatch_required": {"const": true},
+        "actual_enqueue_gate": {"type": "string", "minLength": 1},
+        "failed_run_retry": {"type": "string", "minLength": 1},
+        "truncation": {"const": "FAIL_CLOSED"}
+      },
+      "additionalProperties": true
+    },
+    "system": {
+      "type": "object",
+      "required": ["id", "implementation"],
+      "properties": {
+        "id": {"enum": ["NATIVE", "CONTINUUM_OFFICIAL", "CONTINUUM_ADAPTED", "COST_AWARE"]},
+        "implementation": {"type": "string", "minLength": 1},
+        "paper_exact": {"type": "boolean"},
+        "candidate_status": {"enum": ["NOT_FROZEN", "FROZEN"]},
+        "compatibility_status": {"type": "string"}
+      },
+      "additionalProperties": true
+    },
+    "metrics": {
+      "type": "object",
+      "required": ["primary", "secondary", "mechanism_diagnostics", "contract"],
+      "properties": {
+        "primary": {
+          "type": "object",
+          "required": ["id", "formula", "unit", "aggregation_level", "missing_policy", "source"],
+          "properties": {
+            "id": {"const": "recomputed_tokens_E_minus_C"},
+            "formula": {"type": "string"},
+            "unit": {"const": "tokens"},
+            "aggregation_level": {"const": "WORKLOAD_GROUP"},
+            "missing_policy": {"const": "FAIL_CLOSED_GROUP_INCOMPLETE"},
+            "source": {"type": "string"}
+          },
+          "additionalProperties": true
+        },
+        "secondary": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "mechanism_diagnostics": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "contract": {"type": "string"}
+      },
+      "additionalProperties": true
+    },
+    "statistics": {
+      "type": "object",
+      "required": ["independent_unit", "paired_by_group", "alpha", "power", "mde_min_tokens", "multiplicity", "bootstrap_resamples", "no_optional_stopping"],
+      "properties": {
+        "independent_unit": {"const": "WORKLOAD_GROUP"},
+        "paired_by_group": {"const": true},
+        "alpha": {"type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1},
+        "power": {"type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1},
+        "mde_min_tokens": {"type": "integer", "minimum": 1},
+        "multiplicity": {"const": "HOLM"},
+        "bootstrap_resamples": {"type": "integer", "minimum": 1000},
+        "no_optional_stopping": {"const": true}
+      },
+      "additionalProperties": true
+    },
+    "calibration": {
+      "type": "object",
+      "required": ["contract", "groups_per_stratum", "repeats", "runs_total", "mde_rule", "sample_size_formula", "sample_size_min_per_stratum", "sample_size_max_per_stratum", "gpu_hours_cap"],
+      "properties": {
+        "contract": {"type": "string"},
+        "groups_per_stratum": {"const": 4},
+        "repeats": {"const": 3},
+        "runs_total": {"const": 96},
+        "mde_rule": {"type": "string", "minLength": 1},
+        "sample_size_formula": {"type": "string", "minLength": 1},
+        "sample_size_min_per_stratum": {"type": "integer", "minimum": 1},
+        "sample_size_max_per_stratum": {"type": "integer", "minimum": 1},
+        "gpu_hours_cap": {"type": "number", "exclusiveMinimum": 0}
+      },
+      "additionalProperties": true
+    },
+    "unresolved": {
+      "type": "object",
+      "required": ["id", "status", "impact", "owner"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "status": {"type": "string", "minLength": 1},
+        "impact": {"type": "string", "minLength": 1},
+        "owner": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": true
+    }
+  }
+}
