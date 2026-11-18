@@ -3,41 +3,100 @@
   "$id": "phase5.contracts.v1.schema.json",
   "title": "Phase 5 Formal Protocol Contracts",
   "oneOf": [
-    {"$ref": "#/$defs/metrics"},
-    {"$ref": "#/$defs/workload"},
-    {"$ref": "#/$defs/calibration"}
+    {
+      "$ref": "#/$defs/metrics"
+    },
+    {
+      "$ref": "#/$defs/workload"
+    },
+    {
+      "$ref": "#/$defs/calibration"
+    },
+    {
+      "$ref": "#/$defs/candidate_family"
+    },
+    {
+      "$ref": "#/$defs/candidate_evaluation"
+    }
   ],
   "$defs": {
     "metrics": {
       "type": "object",
-      "required": ["schema_version", "protocol_id", "independent_unit", "metrics", "causal_boundary"],
+      "required": [
+        "schema_version",
+        "protocol_id",
+        "independent_unit",
+        "metrics",
+        "causal_boundary"
+      ],
       "properties": {
-        "schema_version": {"const": "phase5.metrics.v1"},
-        "protocol_id": {"type": "string"},
-        "independent_unit": {"const": "WORKLOAD_GROUP"},
+        "schema_version": {
+          "const": "phase5.metrics.v1"
+        },
+        "protocol_id": {
+          "type": "string"
+        },
+        "independent_unit": {
+          "const": "WORKLOAD_GROUP"
+        },
         "metrics": {
           "type": "array",
           "minItems": 8,
           "items": {
             "type": "object",
-            "required": ["id", "role", "unit", "level", "missing_policy", "source"],
+            "required": [
+              "id",
+              "role",
+              "unit",
+              "level",
+              "missing_policy",
+              "source"
+            ],
             "properties": {
-              "id": {"type": "string", "minLength": 1},
-              "role": {"enum": ["PRIMARY", "SECONDARY", "DIAGNOSTIC"]},
-              "unit": {"type": "string", "minLength": 1},
-              "level": {"type": "string", "minLength": 1},
-              "missing_policy": {"type": "string", "minLength": 1},
-              "source": {"type": "string", "minLength": 1}
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "role": {
+                "enum": [
+                  "PRIMARY",
+                  "SECONDARY",
+                  "DIAGNOSTIC"
+                ]
+              },
+              "unit": {
+                "type": "string",
+                "minLength": 1
+              },
+              "level": {
+                "type": "string",
+                "minLength": 1
+              },
+              "missing_policy": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source": {
+                "type": "string",
+                "minLength": 1
+              }
             },
             "additionalProperties": true
           }
         },
         "causal_boundary": {
           "type": "object",
-          "required": ["physical_causal_attribution", "downstream_recompute_attribution"],
+          "required": [
+            "physical_causal_attribution",
+            "downstream_recompute_attribution"
+          ],
           "properties": {
-            "physical_causal_attribution": {"const": "NOT_ESTABLISHED"},
-            "downstream_recompute_attribution": {"const": "NOT_ESTABLISHED"}
+            "physical_causal_attribution": {
+              "const": "NOT_ESTABLISHED"
+            },
+            "downstream_recompute_attribution": {
+              "const": "NOT_ESTABLISHED"
+            }
           },
           "additionalProperties": true
         }
@@ -46,31 +105,75 @@
     },
     "workload": {
       "type": "object",
-      "required": ["schema_version", "protocol_id", "source_classes", "unit_contract", "qualification_rules", "group_construction", "right_censoring"],
+      "required": [
+        "schema_version",
+        "protocol_id",
+        "source_classes",
+        "unit_contract",
+        "qualification_rules",
+        "group_construction",
+        "right_censoring"
+      ],
       "properties": {
-        "schema_version": {"const": "phase5.workload_qualification.v1"},
-        "protocol_id": {"type": "string"},
-        "source_classes": {"type": "array", "minItems": 2},
-        "unit_contract": {"type": "object"},
-        "qualification_rules": {"type": "array", "minItems": 5},
+        "schema_version": {
+          "const": "phase5.workload_qualification.v1"
+        },
+        "protocol_id": {
+          "type": "string"
+        },
+        "source_classes": {
+          "type": "array",
+          "minItems": 2
+        },
+        "unit_contract": {
+          "type": "object"
+        },
+        "qualification_rules": {
+          "type": "array",
+          "minItems": 5
+        },
         "group_construction": {
           "type": "object",
-          "required": ["programs_per_group", "sessions_per_program", "matched_bundle", "outcome_blind"],
+          "required": [
+            "programs_per_group",
+            "sessions_per_program",
+            "matched_bundle",
+            "outcome_blind"
+          ],
           "properties": {
-            "programs_per_group": {"const": 4},
-            "sessions_per_program": {"const": 1},
-            "matched_bundle": {"const": true},
-            "outcome_blind": {"const": true}
+            "programs_per_group": {
+              "const": 4
+            },
+            "sessions_per_program": {
+              "const": 1
+            },
+            "matched_bundle": {
+              "const": true
+            },
+            "outcome_blind": {
+              "const": true
+            }
           },
           "additionalProperties": true
         },
         "right_censoring": {
           "type": "object",
-          "required": ["status_enum", "censor_not_zero", "censor_not_system_failure"],
+          "required": [
+            "status_enum",
+            "censor_not_zero",
+            "censor_not_system_failure"
+          ],
           "properties": {
-            "status_enum": {"type": "array", "minItems": 2},
-            "censor_not_zero": {"const": true},
-            "censor_not_system_failure": {"const": true}
+            "status_enum": {
+              "type": "array",
+              "minItems": 2
+            },
+            "censor_not_zero": {
+              "const": true
+            },
+            "censor_not_system_failure": {
+              "const": true
+            }
           },
           "additionalProperties": true
         }
@@ -79,46 +182,276 @@
     },
     "calibration": {
       "type": "object",
-      "required": ["schema_version", "protocol_id", "calibration", "mde", "power", "sample_size_formula", "formal_runs", "resource_budget", "analysis_contract"],
+      "required": [
+        "schema_version",
+        "protocol_id",
+        "calibration",
+        "mde",
+        "power",
+        "sample_size_formula",
+        "formal_runs",
+        "resource_budget",
+        "analysis_contract"
+      ],
       "properties": {
-        "schema_version": {"const": "phase5.calibration_sample_size.v1"},
-        "protocol_id": {"type": "string"},
+        "schema_version": {
+          "const": "phase5.calibration_sample_size.v1"
+        },
+        "protocol_id": {
+          "type": "string"
+        },
         "calibration": {
           "type": "object",
-          "required": ["groups_per_stratum", "strata", "systems", "repeats", "runs_total", "disjoint_from_formal"],
+          "required": [
+            "groups_per_stratum",
+            "strata",
+            "systems",
+            "repeats",
+            "runs_total",
+            "disjoint_from_formal"
+          ],
           "properties": {
-            "groups_per_stratum": {"const": 4},
-            "strata": {"const": 2},
-            "systems": {"const": 4},
-            "repeats": {"const": 3},
-            "runs_total": {"const": 96},
-            "disjoint_from_formal": {"const": true}
+            "groups_per_stratum": {
+              "const": 4
+            },
+            "strata": {
+              "const": 2
+            },
+            "systems": {
+              "const": 6
+            },
+            "repeats": {
+              "const": 3
+            },
+            "runs_total": {
+              "const": 144
+            },
+            "disjoint_from_formal": {
+              "const": true
+            }
           },
           "additionalProperties": true
         },
-        "mde": {"type": "object", "required": ["absolute_min_tokens", "relative_fraction_of_native_group_mean", "rule"]},
-        "power": {"type": "object", "required": ["alpha_family", "power", "multiplicity"]},
+        "mde": {
+          "type": "object",
+          "required": [
+            "absolute_min_tokens",
+            "relative_fraction_of_native_group_mean",
+            "rule"
+          ]
+        },
+        "power": {
+          "type": "object",
+          "required": [
+            "alpha_family",
+            "power",
+            "multiplicity"
+          ]
+        },
         "sample_size_formula": {
           "type": "object",
-          "required": ["formula", "minimum_per_stratum", "maximum_per_stratum", "final_rule", "no_optional_stopping"],
+          "required": [
+            "formula",
+            "minimum_per_stratum",
+            "maximum_per_stratum",
+            "final_rule",
+            "no_optional_stopping"
+          ],
           "properties": {
-            "minimum_per_stratum": {"type": "integer", "minimum": 1},
-            "maximum_per_stratum": {"type": "integer", "minimum": 1},
-            "no_optional_stopping": {"const": true}
+            "minimum_per_stratum": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "maximum_per_stratum": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "no_optional_stopping": {
+              "const": true
+            }
           },
           "additionalProperties": true
         },
-        "formal_runs": {"type": "object", "required": ["strata", "systems", "repeats"]},
-        "resource_budget": {"type": "object", "required": ["gpu_class", "max_gpu_hours", "per_run_timeout_seconds"]},
+        "formal_runs": {
+          "type": "object",
+          "required": [
+            "strata",
+            "systems",
+            "repeats"
+          ]
+        },
+        "resource_budget": {
+          "type": "object",
+          "required": [
+            "gpu_class",
+            "minimum_gpu_hours",
+            "maximum_gpu_hours",
+            "per_run_timeout_seconds"
+          ]
+        },
         "analysis_contract": {
           "type": "object",
-          "required": ["independent_unit", "paired_by_group", "primary_family"],
+          "required": [
+            "independent_unit",
+            "paired_by_group",
+            "primary_family"
+          ],
           "properties": {
-            "independent_unit": {"const": "WORKLOAD_GROUP"},
-            "paired_by_group": {"const": true},
-            "primary_family": {"type": "array", "minItems": 3}
+            "independent_unit": {
+              "const": "WORKLOAD_GROUP"
+            },
+            "paired_by_group": {
+              "const": true
+            },
+            "primary_family": {
+              "type": "array",
+              "minItems": 3
+            }
           },
           "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "candidate_family": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "protocol_id",
+        "family",
+        "candidates",
+        "comparison_matrix",
+        "evaluation_stages",
+        "data_partitions",
+        "freeze_contract"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "phase5.cost_aware_candidate_family.v1"
+        },
+        "protocol_id": {
+          "type": "string"
+        },
+        "family": {
+          "type": "object",
+          "required": [
+            "id",
+            "reference_system",
+            "same_decision_snapshot",
+            "same_legal_candidate_set"
+          ],
+          "properties": {
+            "id": {
+              "const": "PHASE5_COST_AWARE_FAMILY_V1"
+            },
+            "reference_system": {
+              "const": "CONTINUUM_ADAPTED"
+            },
+            "same_decision_snapshot": {
+              "const": true
+            },
+            "same_legal_candidate_set": {
+              "const": true
+            }
+          },
+          "additionalProperties": true
+        },
+        "candidates": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "status",
+              "purpose",
+              "input_signals",
+              "score",
+              "victim_modeling",
+              "evidence_required",
+              "fallback"
+            ],
+            "properties": {
+              "id": {
+                "enum": [
+                  "A1_ORIGINAL",
+                  "A3_SUFFIX",
+                  "DVA_ER_V1"
+                ]
+              },
+              "status": {
+                "enum": [
+                  "FROZEN_LEGACY",
+                  "PROVISIONAL_NOT_FROZEN"
+                ]
+              },
+              "victim_modeling": {
+                "type": "string"
+              },
+              "preserve_full_decision_ladder": {
+                "type": "boolean"
+              },
+              "replaces_a1_step2_only": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "comparison_matrix": {
+          "type": "array",
+          "minItems": 7
+        },
+        "evaluation_stages": {
+          "type": "array",
+          "minItems": 3
+        },
+        "data_partitions": {
+          "type": [
+            "object",
+            "array"
+          ]
+        },
+        "freeze_contract": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": true
+    },
+    "candidate_evaluation": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "protocol_id",
+        "common_inputs",
+        "snapshot_contract",
+        "stages",
+        "data_partitions",
+        "freeze"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "phase5.candidate_evaluation.v1"
+        },
+        "protocol_id": {
+          "type": "string"
+        },
+        "common_inputs": {
+          "type": "object"
+        },
+        "snapshot_contract": {
+          "type": "object"
+        },
+        "stages": {
+          "type": "array",
+          "minItems": 3
+        },
+        "data_partitions": {
+          "type": "object"
+        },
+        "freeze": {
+          "type": "object"
         }
       },
       "additionalProperties": true

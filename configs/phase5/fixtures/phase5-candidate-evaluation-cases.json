@@ -1,0 +1,56 @@
+{
+  "schema_version": "phase5.candidate_evaluation_fixtures.v1",
+  "protocol_id": "phase5-formal-six-system-trace-replay-v1",
+  "status": "CONTRACT_FIXTURES_ONLY_NOT_ALGORITHM_RESULTS",
+  "cases": [
+    {
+      "id": "MULTIPLE_LEGAL_CANDIDATES",
+      "stage": "STAGE_1_DECISION_SPACE",
+      "purpose": "at least three legal candidates with complete scores",
+      "given": {"legal_candidate_count": 3, "all_scores_finite": true},
+      "expected": {"multi_candidate": true, "all_candidates_scored": true}
+    },
+    {
+      "id": "SCORE_RANK_INVERSION",
+      "stage": "STAGE_1_DECISION_SPACE",
+      "purpose": "two algorithms order the same candidates differently",
+      "given": {"candidate_count": 3, "a1_order": ["c1", "c2", "c3"], "a3_order": ["c3", "c1", "c2"]},
+      "expected": {"pairwise_rank_inversion": true, "selection_divergence_possible": true}
+    },
+    {
+      "id": "DIFFERENT_VICTIM_SET",
+      "stage": "STAGE_1_DECISION_SPACE",
+      "purpose": "different Entry selections produce different Native victim sets",
+      "given": {"same_snapshot": true, "selected_entries": ["c1", "c2"], "native_lru_state_complete": true},
+      "expected": {"victim_set_divergence": true, "physical_victim_set_tracked": true}
+    },
+    {
+      "id": "SAME_ENTRY_RANK_DIFFERENT_VICTIM_RISK",
+      "stage": "STAGE_1_DECISION_SPACE",
+      "purpose": "same Entry order but different downstream victim risk",
+      "given": {"same_entry_rank": true, "native_pool_snapshot_complete": true},
+      "expected": {"dva_selection_can_diverge": true, "why": "victim set is the differentiator"}
+    },
+    {
+      "id": "MISSING_EVIDENCE",
+      "stage": "STAGE_3_MECHANISM_CORRECTNESS",
+      "purpose": "missing Native/evidence fields must fail closed",
+      "given": {"missing_field": "free_queue_order", "candidate": "DVA_ER_V1"},
+      "expected": {"decision_valid": false, "fail_closed": true, "fallback_recorded": true}
+    },
+    {
+      "id": "FUTURE_INFORMATION_UNAVAILABLE",
+      "stage": "STAGE_3_MECHANISM_CORRECTNESS",
+      "purpose": "future turn/reuse fields must not be available to DVA-ER",
+      "given": {"forbidden_fields": ["future_turn_content", "future_reuse_outcome"]},
+      "expected": {"future_fields_rejected": true, "decision_valid": false}
+    },
+    {
+      "id": "NATIVE_LRU_TIE_BREAK",
+      "stage": "STAGE_3_MECHANISM_CORRECTNESS",
+      "purpose": "A0 tie-break and Native LRU tie-break must be deterministic",
+      "given": {"equal_loss_candidates": ["c1", "c2"], "a0_tie_break": "frozen_a0"},
+      "expected": {"deterministic_selection": true, "a0_tie_break_reproduced": true}
+    }
+  ]
+}

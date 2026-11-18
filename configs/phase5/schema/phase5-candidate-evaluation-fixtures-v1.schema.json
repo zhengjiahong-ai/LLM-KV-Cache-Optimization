@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "phase5.candidate_evaluation_fixtures.v1.schema.json",
+  "title": "Phase 5 Candidate Evaluation CPU Fixtures",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol_id", "status", "cases"],
+  "properties": {
+    "schema_version": {"const": "phase5.candidate_evaluation_fixtures.v1"},
+    "protocol_id": {"const": "phase5-formal-six-system-trace-replay-v1"},
+    "status": {"const": "CONTRACT_FIXTURES_ONLY_NOT_ALGORITHM_RESULTS"},
+    "cases": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "required": ["id", "stage", "purpose", "given", "expected"],
+        "properties": {
+          "id": {
+            "enum": [
+              "MULTIPLE_LEGAL_CANDIDATES",
+              "SCORE_RANK_INVERSION",
+              "DIFFERENT_VICTIM_SET",
+              "SAME_ENTRY_RANK_DIFFERENT_VICTIM_RISK",
+              "MISSING_EVIDENCE",
+              "FUTURE_INFORMATION_UNAVAILABLE",
+              "NATIVE_LRU_TIE_BREAK"
+            ]
+          },
+          "stage": {
+            "enum": ["STAGE_1_DECISION_SPACE", "STAGE_3_MECHANISM_CORRECTNESS"]
+          },
+          "purpose": {"type": "string", "minLength": 1},
+          "given": {"type": "object"},
+          "expected": {"type": "object"}
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}

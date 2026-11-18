@@ -1,0 +1,348 @@
+{
+  "schema_version": "phase5.cost_aware_candidate_family.v1",
+  "protocol_id": "phase5-formal-six-system-trace-replay-v1",
+  "family": {
+    "id": "PHASE5_COST_AWARE_FAMILY_V1",
+    "reference_system": "CONTINUUM_ADAPTED",
+    "description": "Three pre-registered Cost-Aware Entry Release candidates evaluated on one decision snapshot, one legal candidate set, one Native LRU state and one Workload Trace.",
+    "no_cherry_picking": true,
+    "same_workload_and_arrival": true,
+    "same_a0_tie_break": true,
+    "no_post_formal_algorithm_change": true,
+    "same_decision_snapshot": true,
+    "same_legal_candidate_set": true,
+    "same_native_lru_state": true,
+    "same_workload_trace": true
+  },
+  "candidates": [
+    {
+      "id": "A1_ORIGINAL",
+      "name": "Original Cost-Aware Entry Release",
+      "status": "FROZEN_LEGACY",
+      "implementation_source": "Phase 3 A1 frozen implementation",
+      "preserve_full_decision_ladder": true,
+      "allowed_simplification": "NONE",
+      "priority": "ORIGINAL_MODEL",
+      "purpose": [
+        "test whether the original cost model produces useful decisions in a more competitive candidate set",
+        "separate decision-space limitation from cost-model discrimination failure",
+        "inspect the original cost estimate, reuse-probability proxy and branch behavior"
+      ],
+      "input_signals": [
+        "original A1 cost estimate",
+        "original reuse-probability proxy",
+        "A1 decision-ladder branch state",
+        "eligible candidates and Native-visible state"
+      ],
+      "score": "original frozen A1 score; no re-derivation or simplification",
+      "decision_branches": "complete original A1 ladder including all branches; Step 2 is A1's original cost rule",
+      "victim_modeling": "NONE: Entry Release selection is followed by Native LRU physical victim selection",
+      "evidence_required": [
+        "complete A1 branch inputs",
+        "candidate scores",
+        "legal candidate set",
+        "Native post-release victim outcome"
+      ],
+      "fallback": "ORIGINAL_A1_FALLBACK_BRANCH; record branch identity and reason",
+      "main_conditions": "candidate competition and original cost/reuse proxies are observable",
+      "failure_conditions": [
+        "missing branch input",
+        "non-finite score",
+        "candidate not in legal set",
+        "unbound Native physical outcome"
+      ]
+    },
+    {
+      "id": "A3_SUFFIX",
+      "name": "Suffix-Cost-Aware Entry Release",
+      "status": "FROZEN_LEGACY",
+      "implementation_source": "Phase 3 A3 frozen implementation",
+      "priority": "SUFFIX_DEPTH",
+      "purpose": [
+        "test whether Prefix/Suffix depth information improves candidate ordering",
+        "test whether A3 adds decision discrimination relative to A1",
+        "test dependence on prefix depth and candidate distribution"
+      ],
+      "input_signals": [
+        "q_X",
+        "prefill_X",
+        "S_X",
+        "m_X",
+        "A1 ladder state for non-Step-2 branches"
+      ],
+      "score": "L(X) = q_X * prefill_X * S_X / m_X",
+      "decision_branches": "A3 replaces only A1 Step 2; every other A1 branch is retained unchanged",
+      "not_independent_system": true,
+      "victim_modeling": "NONE: Entry Release selection is followed by Native LRU physical victim selection",
+      "evidence_required": [
+        "prefix and suffix token counts",
+        "q_X",
+        "prefill_X",
+        "m_X",
+        "A1 branch state",
+        "Native post-release victim outcome"
+      ],
+      "fallback": "A1 branch fallback per frozen A3 implementation; record branch identity",
+      "main_conditions": "suffix depth is measurable and varies across legal candidates",
+      "failure_conditions": [
+        "missing suffix depth",
+        "zero/invalid m_X",
+        "non-finite score",
+        "candidate not in legal set"
+      ]
+    },
+    {
+      "id": "DVA_ER_V1",
+      "name": "Downstream-Victim-Aware Entry Release v1",
+      "status": "PROVISIONAL_NOT_FROZEN",
+      "implementation_source": "new v1 candidate; requires CPU candidate-selection gate",
+      "priority": "VICTIM_SET",
+      "purpose": [
+        "link Entry Release to the downstream Native LRU Physical Victim Set",
+        "avoid ranking by Entry-local cost only",
+        "model which Blocks would actually be evicted and their downstream reuse risk",
+        "test whether direct Victim Set modeling is more valuable than A1/A3"
+      ],
+      "input_signals": [
+        "A0 legal Entry candidates",
+        "complete Native BlockPool and FreeKVCacheBlockQueue state",
+        "block refcounts, eligibility and protection state",
+        "active follow-up chain identity",
+        "pending tool gap observable at decision time",
+        "Native LRU full victim sequence simulation"
+      ],
+      "score": "loss(X) = sum(block_weight(b) for b in simulated_native_victim_set(X)); select min loss; tie-break to A0",
+      "score_contract": {
+        "victim_set": "simulated Native LRU victim set after releasing candidate X, including the full victim sequence and refcount/protection effects",
+        "block_weight": "1 if the block belongs to an active follow-up chain whose pending tool gap is observable and 0 <= gap <= H; else 0",
+        "H_seconds": 60,
+        "H_sensitivity_seconds": [
+          30,
+          120
+        ],
+        "active_followup_chain": "a Program/Turn chain already present in the controller with a next request or pending tool result; its chain ID and block ownership are known before the decision",
+        "pending_tool_gap": "timer/next-arrival state already armed in the controller at decision time; not future turn content and not future reuse outcome",
+        "future_information_used": false,
+        "future_turn_content_used": false,
+        "future_reuse_outcome_used": false,
+        "native_lru_semantics_preserved": true,
+        "tie_break": "A0 selection; if A0 is not unique, frozen A0 tie-break"
+      },
+      "victim_modeling": "FULL_NATIVE_LRU_SIMULATION",
+      "evidence_required": [
+        "complete BlockPool state",
+        "FreeKVCacheBlockQueue order",
+        "refcount/eligibility/protection snapshot",
+        "active follow-up chain identity",
+        "pending tool gap",
+        "full simulated victim sequence",
+        "A0 tie-break reproduction"
+      ],
+      "fallback": "FAIL_CLOSED_ON_MISSING_EVIDENCE; A0 tie-break only on equal loss or no legal candidate",
+      "main_conditions": "victim set and active chain state are fully observable",
+      "failure_conditions": [
+        "incomplete BlockPool snapshot",
+        "future feature detected",
+        "missing active chain identity",
+        "victim simulation diverges from Native LRU",
+        "A0 tie-break mismatch"
+      ]
+    }
+  ],
+  "comparison_matrix": [
+    {
+      "dimension": "Input signals",
+      "A1_ORIGINAL": "original A1 cost, reuse proxy, A1 branch state",
+      "A3_SUFFIX": "q_X, prefill_X, S_X, m_X, A1 branch state",
+      "DVA_ER_V1": "A0 candidates, BlockPool/FreeQueue, refcount/eligibility/protection, active chains, pending tool gap"
+    },
+    {
+      "dimension": "Scoring objective",
+      "A1_ORIGINAL": "original frozen A1 cost",
+      "A3_SUFFIX": "suffix-cost L(X)",
+      "DVA_ER_V1": "downstream victim-set risk"
+    },
+    {
+      "dimension": "Source of decision difference",
+      "A1_ORIGINAL": "original cost/reuse proxy and full A1 ladder",
+      "A3_SUFFIX": "suffix depth replacement of A1 Step 2",
+      "DVA_ER_V1": "actual Native LRU victim sequence"
+    },
+    {
+      "dimension": "Victim Set modeling",
+      "A1_ORIGINAL": "NONE",
+      "A3_SUFFIX": "NONE",
+      "DVA_ER_V1": "FULL_NATIVE_LRU_SIMULATION"
+    },
+    {
+      "dimension": "Evidence requirements",
+      "A1_ORIGINAL": "A1 branch inputs and scores",
+      "A3_SUFFIX": "suffix components plus A1 branch state",
+      "DVA_ER_V1": "complete Native pool/free-queue/refcount/protection and full victim sequence"
+    },
+    {
+      "dimension": "Main applicability",
+      "A1_ORIGINAL": "original cost model has discriminating candidates",
+      "A3_SUFFIX": "suffix depth varies; prefix-depth dependent",
+      "DVA_ER_V1": "victim set and active follow-ups are observable and diverge"
+    },
+    {
+      "dimension": "Failure/fallback",
+      "A1_ORIGINAL": "original A1 fallback branch; fail closed on missing evidence",
+      "A3_SUFFIX": "A1 branch fallback; fail closed on missing depth",
+      "DVA_ER_V1": "A0 tie-break only on equal loss/no legal candidate; fail closed on missing state"
+    }
+  ],
+  "unified_framework": {
+    "same_decision_snapshot": true,
+    "same_legal_candidate_set": true,
+    "same_native_lru_state": true,
+    "same_workload_trace": true,
+    "candidate_specific_snapshot_allowed": false,
+    "per_algorithm_favored_data_allowed": false,
+    "decision_snapshot_fields": [
+      "decision_id",
+      "group_id",
+      "stratum",
+      "program_id",
+      "session_id",
+      "turn_id",
+      "trace_sha256",
+      "logical_time",
+      "legal_candidate_ids",
+      "candidate_features_by_algorithm",
+      "a0_baseline_selection",
+      "native_block_pool_snapshot_sha256",
+      "free_queue_order_sha256",
+      "refcount_snapshot_sha256",
+      "eligibility_protection_sha256",
+      "evidence_coverage"
+    ]
+  },
+  "evaluation_stages": [
+    {
+      "id": "STAGE_1_DECISION_SPACE",
+      "purpose": "deterministic, pre-outcome decision-space and divergence evaluation on the unified snapshot",
+      "metrics": [
+        "legal_candidate_count_distribution",
+        "multi_candidate_decision_rate",
+        "candidate_score_distribution",
+        "pairwise_rank_inversion",
+        "selection_divergence",
+        "victim_set_divergence",
+        "decision_branch_coverage",
+        "evidence_coverage",
+        "fallback_rate"
+      ],
+      "questions": [
+        "do all three algorithms have a distinguishable decision space?",
+        "which factors explain A1-vs-A3 differences?",
+        "does DVA-ER produce selections different from A1/A3?",
+        "does selection divergence change the Native LRU victim set?",
+        "when does missing evidence prevent a valid decision?"
+      ],
+      "entry_selection_only": false,
+      "must_track_physical_victim_set": true
+    },
+    {
+      "id": "STAGE_2_FULL_TRAJECTORY_COUNTERFACTUAL",
+      "purpose": "complete trajectory replay for each algorithm; no local sum",
+      "metrics": [
+        "recomputed_tokens_E_minus_C",
+        "eligible_prefix_tokens",
+        "native_cached_prefix_tokens",
+        "physical_victim_sequence",
+        "downstream_reuse",
+        "policy_overhead"
+      ],
+      "full_replay_required": true,
+      "local_decision_gain_sum": false,
+      "state_dependence_preserved": true
+    },
+    {
+      "id": "STAGE_3_MECHANISM_CORRECTNESS",
+      "purpose": "implementation correctness and mechanism-boundary validation",
+      "checks": [
+        "A1 complete implementation and historical-result reproduction",
+        "A3 suffix cost and non-Step-2 A1 branch consistency",
+        "DVA-ER victim simulation and online-input legality",
+        "A0 comparability",
+        "determinism, tie-break and fail-closed behavior"
+      ],
+      "cpu_fixture_cases": [
+        "MULTIPLE_LEGAL_CANDIDATES",
+        "SCORE_RANK_INVERSION",
+        "DIFFERENT_VICTIM_SET",
+        "SAME_ENTRY_RANK_DIFFERENT_VICTIM_RISK",
+        "MISSING_EVIDENCE",
+        "FUTURE_INFORMATION_UNAVAILABLE",
+        "NATIVE_LRU_TIE_BREAK"
+      ]
+    }
+  ],
+  "data_partitions": [
+    {
+      "id": "HISTORICAL_PHASE3_4_ARCHIVE",
+      "use": "historical reproduction, mechanism diagnosis, exploratory analysis",
+      "confirmatory_use": false,
+      "seven_decisions_confirmatory": false
+    },
+    {
+      "id": "CPU_FIXTURES",
+      "use": "correctness, ranking ability and mechanism boundaries",
+      "workload_benefit_claim": false
+    },
+    {
+      "id": "FORMAL_COHORT",
+      "use": "independent confirmatory evaluation",
+      "sealed_before_unblinding": true,
+      "algorithm_changes_after_unblinding": false
+    }
+  ],
+  "freeze_contract": {
+    "before_formal_unblinding": [
+      "A1 implementation and parameters hash",
+      "A3 implementation and parameters hash",
+      "DVA-ER implementation, H, tie-break and input field set hash",
+      "candidate evaluation snapshot schema hash",
+      "metric/evaluator version hash"
+    ],
+    "post_unblinding_algorithm_change": "FORBIDDEN",
+    "same_data_winner_selection_then_confirmation": "FORBIDDEN"
+  },
+  "dva_er_open_requirements": [
+    "H definition and numeric value (60s; sensitivity 30/120)",
+    "active follow-up chain identity",
+    "decision-time observable pending tool gap",
+    "no future Turn or future reuse outcome",
+    "complete Native BlockPool / FreeKVCacheBlockQueue state",
+    "refcount, eligibility and protection changes",
+    "full Native LRU victim sequence",
+    "A0 tie-break and simulation consistency",
+    "independent fixture decision/mechanism boundaries"
+  ],
+  "dva_er_selection_gate": {
+    "id": "phase5.dva_er.selection_gate.v1",
+    "status": "NOT_EXECUTED",
+    "cpu_only": true,
+    "required": [
+      "NATIVE_LRU_VICTIM_SEQUENCE_SIMULATION_CORRECT",
+      "A0_TIE_BREAK_AND_SELECTION_REPRODUCED",
+      "NO_FUTURE_INFORMATION_LEAKAGE",
+      "INPUT_EVIDENCE_COMPLETE",
+      "FAIL_CLOSED_BEHAVIOR_CORRECT",
+      "INDEPENDENT_FIXTURES_VALIDATE_EXPECTED_DECISION_DIFFERENCES",
+      "INDEPENDENT_FIXTURES_VALIDATE_MECHANISM_BOUNDARIES"
+    ],
+    "historical_archive_gain": "REPORT_ONLY_NOT_A_GATE",
+    "historical_archive_role": "EXPLORATORY_AND_REPRODUCTION_ONLY",
+    "full_trajectory_positive_gain_required": false,
+    "dev_validation_data": {
+      "separate_from_formal_cohort": true,
+      "may_inform_implementation_only": true,
+      "may_not_be_used_for_confirmatory_effect": true
+    },
+    "failure": "DO_NOT_FREEZE_DVA_ER_V1; M1_DECIDES_FIVE_ARM_OR_STOP",
+    "success": "M1_FREEZES_IMPLEMENTATION_PARAMETERS_AND_HASH"
+  }
+}

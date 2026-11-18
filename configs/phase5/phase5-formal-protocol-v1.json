@@ -1,6 +1,6 @@
 {
   "schema_version": "phase5.formal_protocol.v1",
-  "protocol_id": "phase5-formal-four-system-trace-replay-v1",
+  "protocol_id": "phase5-formal-six-system-trace-replay-v1",
   "status": "DESIGN_FROZEN_CANDIDATE",
   "execution_authorized": false,
   "m1_freeze_required": true,
@@ -12,9 +12,11 @@
       "NATIVE",
       "CONTINUUM_OFFICIAL",
       "CONTINUUM_ADAPTED",
-      "COST_AWARE"
+      "A1_ORIGINAL",
+      "A3_SUFFIX",
+      "DVA_ER_V1"
     ],
-    "primary_question": "Does Cost-Aware KV management reduce eviction-induced recomputation and improve measured serving metrics versus Native and Continuum-style systems under representative multi-turn Agent workloads?",
+    "primary_question": "Under representative multi-turn Agent workloads, which Cost-Aware candidate (A1, A3 or DVA-ER v1), evaluated against the same A0 reference, produces a distinguishable decision space, changes the Native victim set, reduces eviction-induced recomputation, and improves measured serving metrics?",
     "paper_exact_reproduction": false,
     "full_system_claim_only": true
   },
@@ -45,8 +47,20 @@
     },
     "programs_per_group": 4,
     "sessions_per_program": 1,
+    "min_turns_per_session": 4,
     "max_turns_per_session": 16,
-    "max_prompt_tokens": 32768,
+    "max_prompt_tokens": 32640,
+    "max_generation_tokens": 128,
+    "max_prompt_plus_generation_tokens": 32768,
+    "generation_config": {
+      "temperature": 0.0,
+      "top_p": 1.0,
+      "top_k": 0,
+      "seed": 20261201,
+      "max_new_tokens": 128,
+      "stop": [],
+      "ignore_eos": false
+    },
     "group_construction": {
       "matched_bundle": true,
       "outcome_blind": true,
@@ -61,7 +75,12 @@
       "formal_repeats": 2,
       "calibration_repeats": 3,
       "calibration_disjoint_from_formal": true,
-      "sample_size_selected_by": "phase5.calibration_sample_size.v1"
+      "sample_size_selected_by": "phase5.calibration_sample_size.v1",
+      "systems": 6,
+      "formal_runs_at_min": 192,
+      "formal_runs_at_target": 288,
+      "formal_runs_at_max": 384,
+      "calibration_runs_total": 144
     },
     "qualification_contract": "phase5.workload_qualification.v1",
     "qualification_rules": [
@@ -71,10 +90,19 @@
       "WITHIN_SESSION_ORDER_AND_TOOL_GAPS_PRESERVED",
       "NATURAL_TERMINAL_OR_EXPLICIT_RIGHT_CENSOR",
       "NO_CONTEXT_LIMIT_FAILURE_AS_SUCCESS",
+      "AT_LEAST_FOUR_TURNS",
+      "PROMPT_PLUS_GENERATION_WITHIN_MAX_MODEL_LEN",
       "TOOL_FIXTURES_HASH_BOUND",
       "LICENSE_AND_PROVENANCE_ACCEPTED",
       "OUTCOME_BLIND_SELECTION"
-    ]
+    ],
+    "right_censoring": {
+      "primary_analysis": "INCLUDE_RIGHT_CENSORED_SESSION_IF_ALL_OBSERVED_TURNS_VALID",
+      "missing_future_turns": "NOT_IMPUTED",
+      "session_status_field": "RIGHT_CENSORED",
+      "sensitivity_analysis": "REPEAT_WITHOUT_CENSORED_SESSIONS",
+      "system_failure": "NEVER_TREATED_AS_SOURCE_CENSORING"
+    }
   },
   "replay": {
     "arrival_mode": "FROZEN_POISSON",
@@ -90,6 +118,32 @@
     "right_censoring": "PRESERVE_AS_SESSION_FLAG",
     "failed_run_retry": "FORBIDDEN_WITHOUT_NEW_M1_DECISION",
     "truncation": "FAIL_CLOSED",
+    "execution_order": {
+      "design": "BALANCED_LATIN_SQUARE",
+      "seed": 20261201,
+      "balance_by": [
+        "GROUP",
+        "SYSTEM",
+        "POSITION"
+      ],
+      "calibration_order": "FIXED_RANDOM_PERMUTATION_BEFORE_OUTCOMES",
+      "outcome_based_reordering": false
+    },
+    "isolation": {
+      "new_engine_per_run": true,
+      "new_process_per_run": true,
+      "vllm_multiprocessing": 0,
+      "cross_run_kv_reuse": false,
+      "cross_run_apc_reuse": false,
+      "gpu_memory_reset_required": true,
+      "pre_run_empty_cache_assertion": true
+    },
+    "preheat": {
+      "mode": "NONE",
+      "cross_run_state_reuse": false,
+      "warmup_evidence_required": false,
+      "no_preheat_evidence_required": true
+    },
     "clock_domains": [
       "LOGICAL_REPLAY",
       "CLIENT_DISPATCH",
@@ -139,16 +193,41 @@
       "fallback_name_if_scheduler_fails": "CONTINUUM_ADAPTED_CACHE_ONLY"
     },
     {
-      "id": "COST_AWARE",
-      "implementation": "PROJECT_COST_AWARE_ON_ADAPTED_FOUNDATION",
-      "candidate_id": "M1_FROZEN_COST_AWARE_CANDIDATE",
-      "candidate_status": "NOT_FROZEN",
-      "candidate_revision": "M1_FREEZE_REQUIRED",
+      "id": "A1_ORIGINAL",
+      "implementation": "PROJECT_A1_ORIGINAL_ON_ADAPTED_FOUNDATION",
+      "status": "FROZEN_LEGACY",
       "foundation": "CONTINUUM_ADAPTED",
+      "entry_release": "A1_ORIGINAL",
+      "full_decision_ladder": true,
       "scheduler": "PROJECT_PROGRAM_AWARE",
       "ttl": "PROJECT_DYNAMIC",
-      "fallback_arm": false,
-      "mid_campaign_substitution": false
+      "block_victim": "NATIVE_LRU",
+      "candidate_contract": "phase5.cost_aware_candidate_family.v1"
+    },
+    {
+      "id": "A3_SUFFIX",
+      "implementation": "PROJECT_A3_SUFFIX_ON_ADAPTED_FOUNDATION",
+      "status": "FROZEN_LEGACY",
+      "foundation": "CONTINUUM_ADAPTED",
+      "entry_release": "A3_SUFFIX",
+      "suffix_formula": "L(X)=q_X*prefill_X*S_X/m_X",
+      "replaces_a1_step2_only": true,
+      "scheduler": "PROJECT_PROGRAM_AWARE",
+      "ttl": "PROJECT_DYNAMIC",
+      "block_victim": "NATIVE_LRU",
+      "candidate_contract": "phase5.cost_aware_candidate_family.v1"
+    },
+    {
+      "id": "DVA_ER_V1",
+      "implementation": "PROJECT_DVA_ER_V1_ON_ADAPTED_FOUNDATION",
+      "status": "PROVISIONAL_NOT_FROZEN",
+      "foundation": "CONTINUUM_ADAPTED",
+      "entry_release": "DVA_ER_V1",
+      "candidate_contract": "phase5.cost_aware_candidate_family.v1",
+      "candidate_selection_gate": "NOT_EXECUTED",
+      "scheduler": "PROJECT_PROGRAM_AWARE",
+      "ttl": "PROJECT_DYNAMIC",
+      "block_victim": "NATIVE_LRU"
     }
   ],
   "controlled_variables": {
@@ -190,30 +269,111 @@
     ],
     "mechanism_diagnostics": [
       "candidate_exposure_count",
-      "multi_candidate_decision_count",
-      "fully_scored_candidate_count",
+      "candidate_score_distribution",
+      "decision_branch_coverage",
       "decision_divergence_count",
+      "downstream_reuse",
+      "downstream_reuse_opportunity_count",
+      "evidence_coverage",
+      "fallback_rate",
+      "fully_scored_candidate_count",
+      "legal_candidate_count_distribution",
       "matched_physical_victim_blocks",
+      "multi_candidate_decision_count",
+      "multi_candidate_decision_rate",
+      "pairwise_rank_inversion",
+      "physical_victim_sequence",
+      "selection_divergence",
       "unmatched_physical_victim_blocks",
-      "downstream_reuse_opportunity_count"
+      "victim_set_divergence"
     ],
-    "contract": "phase5.metrics.v1"
+    "timing_contract": {
+      "ttft_origin": "CLIENT_DISPATCH_ACCEPTED",
+      "ttft_end": "FIRST_OUTPUT_TOKEN",
+      "arrival_to_first_token_reported_separately": true,
+      "queue_delay_reported_separately": true,
+      "throughput_denominator": "OBSERVED_WINDOW_FIRST_ARRIVAL_TO_LAST_OBSERVED_TERMINAL",
+      "completion_time": "ONLY_IF_ALL_SCHEDULED_REQUESTS_TERMINAL_ELSE_CENSORED_INCOMPLETE",
+      "right_censored_sessions_do_not_add_future_requests": true
+    },
+    "contract": "phase5.metrics.v1",
+    "candidate_evaluation_contract": "phase5.candidate_evaluation.v1",
+    "stage_metrics": {
+      "stage_1": [
+        "legal_candidate_count_distribution",
+        "multi_candidate_decision_rate",
+        "candidate_score_distribution",
+        "pairwise_rank_inversion",
+        "selection_divergence",
+        "victim_set_divergence",
+        "decision_branch_coverage",
+        "evidence_coverage",
+        "fallback_rate"
+      ],
+      "stage_2": [
+        "recomputed_tokens_E_minus_C",
+        "eligible_prefix_tokens",
+        "native_cached_prefix_tokens",
+        "physical_victim_sequence",
+        "downstream_reuse",
+        "policy_overhead"
+      ],
+      "stage_3": [
+        "A1_historical_reproduction",
+        "A3_suffix_and_branch_consistency",
+        "DVA_victim_simulation",
+        "A0_comparability",
+        "determinism_tie_break_fail_closed"
+      ]
+    }
   },
   "statistics": {
     "independent_unit": "WORKLOAD_GROUP",
     "paired_by_group": true,
     "strata_analyzed_separately": true,
     "primary_contrasts": [
-      "COST_AWARE_vs_NATIVE",
-      "COST_AWARE_vs_CONTINUUM_ADAPTED",
-      "COST_AWARE_vs_CONTINUUM_OFFICIAL"
+      "A1_vs_A0",
+      "A3_vs_A0",
+      "DVA_vs_A0",
+      "A3_vs_A1",
+      "DVA_vs_A1",
+      "DVA_vs_A3",
+      "NATIVE_vs_A0",
+      "OFFICIAL_vs_A0"
     ],
+    "primary_multiplicity_family": "TWO_PRE_REGISTERED_FAMILIES_PER_STRATUM",
+    "primary_family_size": 8,
     "alpha": 0.05,
     "power": 0.8,
     "mde_min_tokens": 512,
     "mde_relative_fraction_of_native_mean": 0.05,
-    "multiplicity": "HOLM",
+    "mde_pre_registration_order": [
+      "FREEZE_FORMULA_AND_FLOOR_BEFORE_CALIBRATION",
+      "COMPUTE_VALUE_FROM_CALIBRATION_NATIVE_GROUP_MEAN",
+      "FREEZE_VALUE_BEFORE_FORMAL"
+    ],
+    "multiplicity": "HOLM_WITHIN_EACH_FAMILY_PER_STRATUM",
     "secondary_multiplicity": "BH_FDR_0_05_EXPLORATORY",
+    "variance_model": {
+      "group_level": "b_g",
+      "repeat_noise": "epsilon_g_r",
+      "calibration_groups_per_stratum": 4,
+      "pooling_rule": "FIXED_COMMON_MIXED_MODEL_WITH_STRATUM_FIXED_EFFECT_NO_HOMOGENEITY_TEST",
+      "pooled_groups": 8,
+      "pooled_df": 7,
+      "per_stratum_df": 3,
+      "formal_group_mean_variance": "sigma_between^2 + sigma_repeat^2 / formal_repeats",
+      "contrast_covariance_required": true,
+      "sample_size_uses_max_contrast_variance": true,
+      "contrast_covariance_size": 8,
+      "homogeneity_test": false,
+      "stratum_variance_handling": "STRATUM_FIXED_EFFECT_COMMON_VARIANCE_PLUS_STRATUM_UPPER_BOUND_FOR_SIZING",
+      "sizing_variance_rule": "MAX_OF_COMMON_AND_STRATUM_ONE_SIDED_80PCT_UPPER_BOUND",
+      "negative_variance": "TRUNCATE_POINT_AT_ZERO_AND_USE_BOOTSTRAP_UPPER_BOUND",
+      "small_sample_rule": "DF3_PER_STRATUM_DF7_POOLED_NONCENTRAL_T"
+    },
+    "primary_test": "PAIRED_GROUP_PERMUTATION_AND_T_WITH_GROUP_BOOTSTRAP_CI",
+    "sample_size_uses_noncentral_t_not_z": true,
     "bootstrap_resamples": 10000,
     "bootstrap_seed": 20261201,
     "confidence_level": 0.95,
@@ -225,24 +385,104 @@
       "ARRIVAL_REALIZATION",
       "OFFICIAL_ENVIRONMENT_COMPATIBLE",
       "REPEAT_AGGREGATION"
-    ]
+    ],
+    "primary_families": {
+      "CANDIDATE_MECHANISM": [
+        "A1_vs_A0",
+        "A3_vs_A0",
+        "DVA_vs_A0",
+        "A3_vs_A1",
+        "DVA_vs_A1",
+        "DVA_vs_A3"
+      ],
+      "SYSTEM_CONTEXT": [
+        "NATIVE_vs_A0",
+        "OFFICIAL_vs_A0"
+      ]
+    },
+    "primary_family_sizes": {
+      "CANDIDATE_MECHANISM": 6,
+      "SYSTEM_CONTEXT": 2
+    },
+    "sample_size_alpha_per_test": 0.008333333333333333,
+    "merged_strata_primary": false
   },
   "calibration": {
     "contract": "phase5.calibration_sample_size.v1",
     "groups_per_stratum": 4,
     "repeats": 3,
-    "runs_total": 96,
+    "runs_total": 144,
     "selection": "PRE_REGISTERED_DISJOINT_FROM_FORMAL",
-    "mde_rule": "max(512_tokens, 0.05 * native_group_mean_tokens)",
-    "sample_size_formula": "ceil((z_(1-alpha/2)+z_power)^2 * sigma_d^2 / MDE^2)",
+    "variance_estimator": "MIXED_MODEL_GROUP_AND_REPEAT",
+    "mde_rule": "max(512_tokens, 0.05 * calibration_native_group_mean_tokens)",
+    "mde_value_status": "FROZEN_AFTER_CALIBRATION_BEFORE_FORMAL",
+    "sample_size_formula": "NONCENTRAL_T_ITERATIVE_SOLVE_PER_STRATUM",
     "sample_size_min_per_stratum": 8,
     "sample_size_max_per_stratum": 16,
-    "if_formula_exceeds_cap": "STOP_OR_M1_ACCEPTS_UNDERPOWERED",
-    "if_below_min": "NOT_FEASIBLE",
-    "gpu_hours_cap": 36,
+    "formula_result_below_min": "USE_8_AND_REPORT_VARIANCE_UNCERTAINTY",
+    "if_budget_cannot_support_minimum": "NOT_FEASIBLE",
+    "if_required_above_max": "STOP_OR_M1_ACCEPTS_UNDERPOWERED",
+    "gpu_hours_minimum": 72,
+    "gpu_hours_maximum": 112,
+    "gpu_hours_projection": "(1+failure_reserve_fraction)*sum_s((24*Tcal_s+4N*Tformal_s+(24+4N)*(startup_s+restart_s+archive_s+evaluator_s))/3600)",
+    "overhead_includes": [
+      "STARTUP",
+      "RESTART",
+      "ARCHIVE",
+      "EVALUATOR",
+      "ONE_FAILURE_RESERVE"
+    ],
     "run_timeout_seconds": 600,
     "shutdown_grace_seconds": 60,
-    "reservation_window_seconds": 1800
+    "reservation_window_seconds": 1800,
+    "systems": 6,
+    "formal_runs_at_min": 192,
+    "formal_runs_at_target": 288,
+    "formal_runs_at_max": 384,
+    "sample_size_contrast_family": "SIX_CANDIDATE_CONTRASTS_PER_STRATUM",
+    "sample_size_alpha_per_test": 0.008333333333333333,
+    "formal_runs_formula": "2 strata * N Groups * 6 systems * 2 repeats",
+    "variance_model": "FIXED_COMMON_MIXED_MODEL_NO_HOMOGENEITY_TEST",
+    "per_system_p95_fields": [
+      "NATIVE",
+      "CONTINUUM_OFFICIAL",
+      "CONTINUUM_ADAPTED",
+      "A1_ORIGINAL",
+      "A3_SUFFIX",
+      "DVA_ER_V1"
+    ],
+    "failure_reserve_fraction": 0.1,
+    "gpu_hours_envelope_type": "M1_AUTHORIZATION_CEILING_NOT_FORMULA_OUTPUT",
+    "gpu_hours_formula_at_600s_ceiling": {
+      "min": 61.6,
+      "max": 96.8
+    },
+    "per_system_p95_seconds": {
+      "NATIVE": {
+        "calibration": "MEASURED_PER_SYSTEM",
+        "formal": "MEASURED_PER_SYSTEM"
+      },
+      "CONTINUUM_OFFICIAL": {
+        "calibration": "MEASURED_PER_SYSTEM",
+        "formal": "MEASURED_PER_SYSTEM"
+      },
+      "CONTINUUM_ADAPTED": {
+        "calibration": "MEASURED_PER_SYSTEM",
+        "formal": "MEASURED_PER_SYSTEM"
+      },
+      "A1_ORIGINAL": {
+        "calibration": "MEASURED_PER_SYSTEM",
+        "formal": "MEASURED_PER_SYSTEM"
+      },
+      "A3_SUFFIX": {
+        "calibration": "MEASURED_PER_SYSTEM",
+        "formal": "MEASURED_PER_SYSTEM"
+      },
+      "DVA_ER_V1": {
+        "calibration": "MEASURED_PER_SYSTEM",
+        "formal": "MEASURED_PER_SYSTEM"
+      }
+    }
   },
   "claim_boundaries": {
     "mechanism_causal_claim_requires": [
@@ -268,7 +508,7 @@
   "entry_gates": [
     "G0_M1_PROTOCOL_FREEZE",
     "G1_WORKLOAD_ACQUISITION_AND_SEAL",
-    "G2_FOUR_SYSTEM_FREEZE",
+    "G2_SIX_SYSTEM_FREEZE",
     "G3_REPLAY_CONFORMANCE",
     "G4_CALIBRATION_COMPLETE",
     "G5_GPU_RESOURCE_AUTHORIZATION",
@@ -276,10 +516,10 @@
   ],
   "unresolved": [
     {
-      "id": "U1_COST_AWARE_CANDIDATE",
-      "status": "NOT_FROZEN",
-      "impact": "FORMAL_NOT_EXECUTABLE",
-      "owner": "M1"
+      "id": "U1_COST_AWARE_CANDIDATE_FAMILY",
+      "status": "A1_A3_FROZEN_LEGACY_DVA_PROVISIONAL",
+      "impact": "DVA_ER_FORMAL_ARM_NOT_EXECUTABLE_UNTIL_CPU_GATE",
+      "owner": "M1/M4"
     },
     {
       "id": "U2_CONTINUUM_ADAPTED_SCHEDULER_SCOPE",
@@ -307,8 +547,8 @@
     },
     {
       "id": "U6_CALIBRATION_AND_GPU_BUDGET",
-      "status": "NOT_AUTHORIZED",
-      "impact": "NO_FORMAL_EXECUTION",
+      "status": "REQUESTED_72_TO_112_GPU_HOURS",
+      "impact": "NO_SIX_ARM_FORMAL_WITHOUT_M1_BUDGET",
       "owner": "M1"
     },
     {
@@ -322,6 +562,106 @@
     "metrics": "phase5.metrics.v1",
     "workload_qualification": "phase5.workload_qualification.v1",
     "calibration_sample_size": "phase5.calibration_sample_size.v1",
+    "cost_aware_candidate_family": "phase5.cost_aware_candidate_family.v1",
+    "candidate_evaluation": "phase5.candidate_evaluation.v1",
     "campaign_manifest": "phase5.campaign_manifest.v1"
+  },
+  "candidate_family": {
+    "id": "PHASE5_COST_AWARE_FAMILY_V1",
+    "contract": "phase5.cost_aware_candidate_family.v1",
+    "evaluation_contract": "phase5.candidate_evaluation.v1",
+    "reference_system": "CONTINUUM_ADAPTED",
+    "candidates": [
+      "A1_ORIGINAL",
+      "A3_SUFFIX",
+      "DVA_ER_V1"
+    ],
+    "same_decision_snapshot": true,
+    "same_legal_candidate_set": true,
+    "same_native_lru_state": true,
+    "same_workload_trace": true,
+    "candidate_specific_data_selection": false,
+    "stages": [
+      "STAGE_1_DECISION_SPACE",
+      "STAGE_2_FULL_TRAJECTORY_COUNTERFACTUAL",
+      "STAGE_3_MECHANISM_CORRECTNESS"
+    ],
+    "data_partitions": {
+      "historical_archive": "EXPLORATORY_AND_REPRODUCTION_ONLY",
+      "cpu_fixtures": "CORRECTNESS_AND_MECHANISM_ONLY",
+      "formal_cohort": "CONFIRMATORY_ONLY"
+    },
+    "comparison_matrix": [
+      {
+        "dimension": "Input signals",
+        "A1": "original A1 cost/reuse proxy/ladder",
+        "A3": "q,prefill,S,m plus A1 branches",
+        "DVA": "BlockPool/FreeQueue/refcount/chain/gap"
+      },
+      {
+        "dimension": "Scoring objective",
+        "A1": "original A1 cost",
+        "A3": "suffix cost L(X)",
+        "DVA": "downstream victim-set risk"
+      },
+      {
+        "dimension": "Decision difference source",
+        "A1": "original model and full ladder",
+        "A3": "A1 Step 2 replacement",
+        "DVA": "Native LRU victim sequence"
+      },
+      {
+        "dimension": "Victim Set modeling",
+        "A1": "NONE",
+        "A3": "NONE",
+        "DVA": "FULL_NATIVE_LRU_SIMULATION"
+      },
+      {
+        "dimension": "Evidence requirements",
+        "A1": "A1 branch inputs/scores",
+        "A3": "suffix components + A1 state",
+        "DVA": "complete pool/free-queue/refcount/protection + victim sequence"
+      },
+      {
+        "dimension": "Main applicability",
+        "A1": "discriminating original candidates",
+        "A3": "suffix depth varies",
+        "DVA": "victim set and active follow-ups observable"
+      },
+      {
+        "dimension": "Failure/fallback",
+        "A1": "original fallback branch; fail closed",
+        "A3": "A1 branch fallback; fail closed",
+        "DVA": "A0 tie only on equal loss/no legal candidate; fail closed"
+      }
+    ],
+    "dva_er": {
+      "H_seconds": 60,
+      "H_sensitivity_seconds": [
+        30,
+        120
+      ],
+      "active_followup_chain": "already-present controller chain with armed next-request/tool-gap state",
+      "pending_tool_gap": "armed timer/next-arrival state at decision time; not future content/outcome",
+      "future_information_used": false,
+      "victim_simulation": "FULL_NATIVE_LRU_VICTIM_SEQUENCE",
+      "a0_tie_break_required": true,
+      "missing_evidence": "FAIL_CLOSED"
+    },
+    "dva_er_selection_gate": {
+      "status": "NOT_EXECUTED",
+      "required": [
+        "NATIVE_LRU_VICTIM_SEQUENCE_SIMULATION_CORRECT",
+        "A0_TIE_BREAK_AND_SELECTION_REPRODUCED",
+        "NO_FUTURE_INFORMATION_LEAKAGE",
+        "INPUT_EVIDENCE_COMPLETE",
+        "FAIL_CLOSED_BEHAVIOR_CORRECT",
+        "INDEPENDENT_FIXTURES_VALIDATE_EXPECTED_DECISION_DIFFERENCES",
+        "INDEPENDENT_FIXTURES_VALIDATE_MECHANISM_BOUNDARIES"
+      ],
+      "historical_archive_gain": "REPORT_ONLY_NOT_A_GATE",
+      "full_trajectory_positive_gain_required": false,
+      "dev_validation_data_separate_from_formal_cohort": true
+    }
   }
 }

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "phase5.formal_protocol.v1.schema.json",
-  "title": "Phase 5 Formal Four-System Protocol",
+  "title": "Phase 5 Formal Six-System Protocol",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -22,71 +22,242 @@
     "claim_boundaries",
     "entry_gates",
     "unresolved",
-    "contracts"
+    "contracts",
+    "candidate_family"
   ],
   "properties": {
-    "schema_version": {"const": "phase5.formal_protocol.v1"},
-    "protocol_id": {"type": "string", "minLength": 1},
-    "status": {"enum": ["DESIGN_FROZEN_CANDIDATE", "M1_FROZEN", "SUPERSEDED"]},
-    "execution_authorized": {"const": false},
-    "m1_freeze_required": {"type": "boolean"},
-    "base_main": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
-    "scope": {"$ref": "#/$defs/scope"},
-    "workload": {"$ref": "#/$defs/workload"},
-    "replay": {"$ref": "#/$defs/replay"},
+    "schema_version": {
+      "const": "phase5.formal_protocol.v1"
+    },
+    "protocol_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "enum": [
+        "DESIGN_FROZEN_CANDIDATE",
+        "M1_FROZEN",
+        "SUPERSEDED"
+      ]
+    },
+    "execution_authorized": {
+      "const": false
+    },
+    "m1_freeze_required": {
+      "type": "boolean"
+    },
+    "base_main": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "scope": {
+      "$ref": "#/$defs/scope"
+    },
+    "workload": {
+      "$ref": "#/$defs/workload"
+    },
+    "replay": {
+      "$ref": "#/$defs/replay"
+    },
     "systems": {
       "type": "array",
-      "minItems": 4,
-      "maxItems": 4,
-      "items": {"$ref": "#/$defs/system"}
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "$ref": "#/$defs/system"
+      }
     },
-    "controlled_variables": {"type": "object"},
-    "metrics": {"$ref": "#/$defs/metrics"},
-    "statistics": {"$ref": "#/$defs/statistics"},
-    "calibration": {"$ref": "#/$defs/calibration"},
-    "claim_boundaries": {"type": "object"},
+    "controlled_variables": {
+      "type": "object"
+    },
+    "metrics": {
+      "$ref": "#/$defs/metrics"
+    },
+    "statistics": {
+      "$ref": "#/$defs/statistics"
+    },
+    "calibration": {
+      "$ref": "#/$defs/calibration"
+    },
+    "claim_boundaries": {
+      "type": "object"
+    },
     "entry_gates": {
       "type": "array",
       "minItems": 7,
-      "items": {"type": "string", "minLength": 1}
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     },
     "unresolved": {
       "type": "array",
-      "items": {"$ref": "#/$defs/unresolved"}
+      "items": {
+        "$ref": "#/$defs/unresolved"
+      }
     },
     "contracts": {
       "type": "object",
-      "required": ["metrics", "workload_qualification", "calibration_sample_size", "campaign_manifest"],
-      "additionalProperties": {"type": "string", "minLength": 1}
+      "required": [
+        "metrics",
+        "workload_qualification",
+        "calibration_sample_size",
+        "campaign_manifest"
+      ],
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "candidate_family": {
+      "type": "object",
+      "required": [
+        "id",
+        "contract",
+        "evaluation_contract",
+        "reference_system",
+        "candidates",
+        "stages",
+        "data_partitions",
+        "comparison_matrix",
+        "dva_er_selection_gate"
+      ],
+      "properties": {
+        "id": {
+          "const": "PHASE5_COST_AWARE_FAMILY_V1"
+        },
+        "contract": {
+          "const": "phase5.cost_aware_candidate_family.v1"
+        },
+        "evaluation_contract": {
+          "const": "phase5.candidate_evaluation.v1"
+        },
+        "reference_system": {
+          "const": "CONTINUUM_ADAPTED"
+        },
+        "candidates": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "const": "A1_ORIGINAL"
+            },
+            {
+              "const": "A3_SUFFIX"
+            },
+            {
+              "const": "DVA_ER_V1"
+            }
+          ],
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "stages": {
+          "type": "array",
+          "minItems": 3
+        },
+        "data_partitions": {
+          "type": "object"
+        },
+        "comparison_matrix": {
+          "type": "array",
+          "minItems": 7
+        },
+        "dva_er_selection_gate": {
+          "type": "object",
+          "required": [
+            "status",
+            "required",
+            "historical_archive_gain",
+            "full_trajectory_positive_gain_required"
+          ],
+          "properties": {
+            "status": {
+              "const": "NOT_EXECUTED"
+            },
+            "required": {
+              "type": "array",
+              "minItems": 7
+            },
+            "historical_archive_gain": {
+              "const": "REPORT_ONLY_NOT_A_GATE"
+            },
+            "full_trajectory_positive_gain_required": {
+              "const": false
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
     }
   },
   "$defs": {
     "scope": {
       "type": "object",
-      "required": ["campaign_mode", "closed_loop_agent", "systems", "primary_question", "paper_exact_reproduction", "full_system_claim_only"],
+      "required": [
+        "campaign_mode",
+        "closed_loop_agent",
+        "systems",
+        "primary_question",
+        "paper_exact_reproduction",
+        "full_system_claim_only"
+      ],
       "properties": {
-        "campaign_mode": {"const": "TRACE_DRIVEN_REPLAY"},
-        "closed_loop_agent": {"const": "EXCLUDED"},
+        "campaign_mode": {
+          "const": "TRACE_DRIVEN_REPLAY"
+        },
+        "closed_loop_agent": {
+          "const": "EXCLUDED"
+        },
         "systems": {
           "type": "array",
           "prefixItems": [
-            {"const": "NATIVE"},
-            {"const": "CONTINUUM_OFFICIAL"},
-            {"const": "CONTINUUM_ADAPTED"},
-            {"const": "COST_AWARE"}
+            {
+              "const": "NATIVE"
+            },
+            {
+              "const": "CONTINUUM_OFFICIAL"
+            },
+            {
+              "const": "CONTINUUM_ADAPTED"
+            },
+            {
+              "const": "A1_ORIGINAL"
+            },
+            {
+              "const": "A3_SUFFIX"
+            },
+            {
+              "const": "DVA_ER_V1"
+            }
           ],
-          "minItems": 4,
-          "maxItems": 4
+          "minItems": 6,
+          "maxItems": 6
         },
-        "primary_question": {"type": "string", "minLength": 1},
-        "paper_exact_reproduction": {"const": false},
-        "full_system_claim_only": {"const": true}
+        "primary_question": {
+          "type": "string",
+          "minLength": 1
+        },
+        "paper_exact_reproduction": {
+          "const": false
+        },
+        "full_system_claim_only": {
+          "const": true
+        }
       },
       "additionalProperties": true
     },
     "workload": {
       "type": "object",
-      "required": ["strata", "unit_definitions", "programs_per_group", "sessions_per_program", "max_turns_per_session", "sample_plan", "qualification_contract"],
+      "required": [
+        "strata",
+        "unit_definitions",
+        "programs_per_group",
+        "sessions_per_program",
+        "max_turns_per_session",
+        "sample_plan",
+        "qualification_contract"
+      ],
       "properties": {
         "strata": {
           "type": "array",
@@ -94,125 +265,366 @@
           "maxItems": 2,
           "items": {
             "type": "object",
-            "required": ["id", "source", "revision", "license_status", "primary"],
+            "required": [
+              "id",
+              "source",
+              "revision",
+              "license_status",
+              "primary"
+            ],
             "properties": {
-              "id": {"enum": ["SWE_BENCH", "BFCL_WEB_SEARCH"]},
-              "source": {"type": "string"},
-              "revision": {"type": "string"},
-              "license_status": {"type": "string"},
-              "primary": {"const": true}
+              "id": {
+                "enum": [
+                  "SWE_BENCH",
+                  "BFCL_WEB_SEARCH"
+                ]
+              },
+              "source": {
+                "type": "string"
+              },
+              "revision": {
+                "type": "string"
+              },
+              "license_status": {
+                "type": "string"
+              },
+              "primary": {
+                "const": true
+              }
             },
             "additionalProperties": true
           }
         },
-        "unit_definitions": {"type": "object"},
-        "programs_per_group": {"const": 4},
-        "sessions_per_program": {"const": 1},
-        "max_turns_per_session": {"type": "integer", "minimum": 1},
+        "unit_definitions": {
+          "type": "object"
+        },
+        "programs_per_group": {
+          "const": 4
+        },
+        "sessions_per_program": {
+          "const": 1
+        },
+        "max_turns_per_session": {
+          "type": "integer",
+          "minimum": 1
+        },
         "sample_plan": {
           "type": "object",
-          "required": ["groups_per_stratum_min", "groups_per_stratum_target", "groups_per_stratum_max", "calibration_groups_per_stratum", "formal_repeats", "calibration_repeats"],
+          "required": [
+            "groups_per_stratum_min",
+            "groups_per_stratum_target",
+            "groups_per_stratum_max",
+            "calibration_groups_per_stratum",
+            "formal_repeats",
+            "calibration_repeats"
+          ],
           "properties": {
-            "groups_per_stratum_min": {"type": "integer", "minimum": 1},
-            "groups_per_stratum_target": {"type": "integer", "minimum": 1},
-            "groups_per_stratum_max": {"type": "integer", "minimum": 1},
-            "calibration_groups_per_stratum": {"type": "integer", "minimum": 1},
-            "formal_repeats": {"type": "integer", "minimum": 1},
-            "calibration_repeats": {"type": "integer", "minimum": 1}
+            "groups_per_stratum_min": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "groups_per_stratum_target": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "groups_per_stratum_max": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "calibration_groups_per_stratum": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "formal_repeats": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "calibration_repeats": {
+              "type": "integer",
+              "minimum": 1
+            }
           },
           "additionalProperties": true
         },
-        "qualification_contract": {"type": "string"}
+        "qualification_contract": {
+          "type": "string"
+        }
       },
       "additionalProperties": true
     },
     "replay": {
       "type": "object",
-      "required": ["arrival_mode", "same_realization_all_systems", "serialized_dispatch_required", "actual_enqueue_gate", "failed_run_retry", "truncation"],
+      "required": [
+        "arrival_mode",
+        "same_realization_all_systems",
+        "serialized_dispatch_required",
+        "actual_enqueue_gate",
+        "failed_run_retry",
+        "truncation"
+      ],
       "properties": {
-        "arrival_mode": {"enum": ["FROZEN_POISSON", "EMPIRICAL_ALIGNED", "FIXED_STAGGER"]},
-        "same_realization_all_systems": {"const": true},
-        "serialized_dispatch_required": {"const": true},
-        "actual_enqueue_gate": {"type": "string", "minLength": 1},
-        "failed_run_retry": {"type": "string", "minLength": 1},
-        "truncation": {"const": "FAIL_CLOSED"}
+        "arrival_mode": {
+          "enum": [
+            "FROZEN_POISSON",
+            "EMPIRICAL_ALIGNED",
+            "FIXED_STAGGER"
+          ]
+        },
+        "same_realization_all_systems": {
+          "const": true
+        },
+        "serialized_dispatch_required": {
+          "const": true
+        },
+        "actual_enqueue_gate": {
+          "type": "string",
+          "minLength": 1
+        },
+        "failed_run_retry": {
+          "type": "string",
+          "minLength": 1
+        },
+        "truncation": {
+          "const": "FAIL_CLOSED"
+        }
       },
       "additionalProperties": true
     },
     "system": {
       "type": "object",
-      "required": ["id", "implementation"],
+      "required": [
+        "id",
+        "implementation"
+      ],
       "properties": {
-        "id": {"enum": ["NATIVE", "CONTINUUM_OFFICIAL", "CONTINUUM_ADAPTED", "COST_AWARE"]},
-        "implementation": {"type": "string", "minLength": 1},
-        "paper_exact": {"type": "boolean"},
-        "candidate_status": {"enum": ["NOT_FROZEN", "FROZEN"]},
-        "compatibility_status": {"type": "string"}
+        "id": {
+          "enum": [
+            "NATIVE",
+            "CONTINUUM_OFFICIAL",
+            "CONTINUUM_ADAPTED",
+            "A1_ORIGINAL",
+            "A3_SUFFIX",
+            "DVA_ER_V1"
+          ]
+        },
+        "implementation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "paper_exact": {
+          "type": "boolean"
+        },
+        "candidate_status": {
+          "enum": [
+            "NOT_FROZEN",
+            "PROVISIONAL_NOT_FROZEN",
+            "FROZEN_LEGACY",
+            "FROZEN"
+          ]
+        },
+        "compatibility_status": {
+          "type": "string"
+        }
       },
       "additionalProperties": true
     },
     "metrics": {
       "type": "object",
-      "required": ["primary", "secondary", "mechanism_diagnostics", "contract"],
+      "required": [
+        "primary",
+        "secondary",
+        "mechanism_diagnostics",
+        "contract"
+      ],
       "properties": {
         "primary": {
           "type": "object",
-          "required": ["id", "formula", "unit", "aggregation_level", "missing_policy", "source"],
+          "required": [
+            "id",
+            "formula",
+            "unit",
+            "aggregation_level",
+            "missing_policy",
+            "source"
+          ],
           "properties": {
-            "id": {"const": "recomputed_tokens_E_minus_C"},
-            "formula": {"type": "string"},
-            "unit": {"const": "tokens"},
-            "aggregation_level": {"const": "WORKLOAD_GROUP"},
-            "missing_policy": {"const": "FAIL_CLOSED_GROUP_INCOMPLETE"},
-            "source": {"type": "string"}
+            "id": {
+              "const": "recomputed_tokens_E_minus_C"
+            },
+            "formula": {
+              "type": "string"
+            },
+            "unit": {
+              "const": "tokens"
+            },
+            "aggregation_level": {
+              "const": "WORKLOAD_GROUP"
+            },
+            "missing_policy": {
+              "const": "FAIL_CLOSED_GROUP_INCOMPLETE"
+            },
+            "source": {
+              "type": "string"
+            }
           },
           "additionalProperties": true
         },
-        "secondary": {"type": "array", "minItems": 1, "items": {"type": "string"}},
-        "mechanism_diagnostics": {"type": "array", "minItems": 1, "items": {"type": "string"}},
-        "contract": {"type": "string"}
+        "secondary": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "mechanism_diagnostics": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "contract": {
+          "type": "string"
+        }
       },
       "additionalProperties": true
     },
     "statistics": {
       "type": "object",
-      "required": ["independent_unit", "paired_by_group", "alpha", "power", "mde_min_tokens", "multiplicity", "bootstrap_resamples", "no_optional_stopping"],
+      "required": [
+        "independent_unit",
+        "paired_by_group",
+        "alpha",
+        "power",
+        "mde_min_tokens",
+        "multiplicity",
+        "bootstrap_resamples",
+        "no_optional_stopping"
+      ],
       "properties": {
-        "independent_unit": {"const": "WORKLOAD_GROUP"},
-        "paired_by_group": {"const": true},
-        "alpha": {"type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1},
-        "power": {"type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1},
-        "mde_min_tokens": {"type": "integer", "minimum": 1},
-        "multiplicity": {"const": "HOLM"},
-        "bootstrap_resamples": {"type": "integer", "minimum": 1000},
-        "no_optional_stopping": {"const": true}
+        "independent_unit": {
+          "const": "WORKLOAD_GROUP"
+        },
+        "paired_by_group": {
+          "const": true
+        },
+        "alpha": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 1
+        },
+        "power": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 1
+        },
+        "mde_min_tokens": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "multiplicity": {
+          "enum": [
+            "HOLM",
+            "HOLM_WITHIN_EACH_FAMILY_PER_STRATUM"
+          ]
+        },
+        "bootstrap_resamples": {
+          "type": "integer",
+          "minimum": 1000
+        },
+        "no_optional_stopping": {
+          "const": true
+        },
+        "primary_family_size": {
+          "type": "integer",
+          "minimum": 8
+        }
       },
       "additionalProperties": true
     },
     "calibration": {
       "type": "object",
-      "required": ["contract", "groups_per_stratum", "repeats", "runs_total", "mde_rule", "sample_size_formula", "sample_size_min_per_stratum", "sample_size_max_per_stratum", "gpu_hours_cap"],
+      "required": [
+        "contract",
+        "groups_per_stratum",
+        "repeats",
+        "runs_total",
+        "mde_rule",
+        "sample_size_formula",
+        "sample_size_min_per_stratum",
+        "sample_size_max_per_stratum",
+        "gpu_hours_minimum",
+        "gpu_hours_maximum",
+        "systems"
+      ],
       "properties": {
-        "contract": {"type": "string"},
-        "groups_per_stratum": {"const": 4},
-        "repeats": {"const": 3},
-        "runs_total": {"const": 96},
-        "mde_rule": {"type": "string", "minLength": 1},
-        "sample_size_formula": {"type": "string", "minLength": 1},
-        "sample_size_min_per_stratum": {"type": "integer", "minimum": 1},
-        "sample_size_max_per_stratum": {"type": "integer", "minimum": 1},
-        "gpu_hours_cap": {"type": "number", "exclusiveMinimum": 0}
+        "contract": {
+          "type": "string"
+        },
+        "groups_per_stratum": {
+          "const": 4
+        },
+        "repeats": {
+          "const": 3
+        },
+        "runs_total": {
+          "const": 144
+        },
+        "mde_rule": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sample_size_formula": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sample_size_min_per_stratum": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sample_size_max_per_stratum": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "gpu_hours_minimum": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "gpu_hours_maximum": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "systems": {
+          "const": 6
+        }
       },
       "additionalProperties": true
     },
     "unresolved": {
       "type": "object",
-      "required": ["id", "status", "impact", "owner"],
+      "required": [
+        "id",
+        "status",
+        "impact",
+        "owner"
+      ],
       "properties": {
-        "id": {"type": "string", "minLength": 1},
-        "status": {"type": "string", "minLength": 1},
-        "impact": {"type": "string", "minLength": 1},
-        "owner": {"type": "string", "minLength": 1}
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "impact": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        }
       },
       "additionalProperties": true
     }
