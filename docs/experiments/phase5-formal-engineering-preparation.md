@@ -24,6 +24,28 @@ Protocol Validator, formal materialization rules, Calibration, four-arm
 execution and the independent Metrics Contract evaluator remain blocked on the
 M4 Formal Protocol.
 
+### 1.1 Pinned-runtime no-GPU validation
+
+The protocol-independent implementation was checked on the intended server
+Python environment in no-GPU mode on 2026-11-18:
+
+- code HEAD: `345a20d4dd31213dd09a5ac94d1a8c9ce98fbbbd`;
+- Python: `/root/bayes-tmp/kvopt/.venv-cuda/bin/python`;
+- vLLM: `0.27.1`;
+- pytest: `9.1.1`;
+- pinned identity/API audit: `PASS`;
+- targeted server tests: `29 passed`;
+- raw audit path:
+  `artifacts/phase5-formal-vllm-identity-audit-v1.json`;
+- raw audit SHA-256:
+  `6a5a7431149aa1aedee95db43a4be0e4649872afcab1308ee3a4f84f0490a81c`.
+
+The Triton/CUDA import warnings were expected because the instance was started
+without a GPU. This validation establishes the pinned Python API and request
+identity contract only. It does not initialize an EngineCore, resolve a live
+BlockPool, execute Pressure, prove Native concurrency or satisfy any GPU
+Conformance gate.
+
 ## 2. Trace data-source investigation
 
 ### 2.1 SWE-bench and mini-SWE-agent
