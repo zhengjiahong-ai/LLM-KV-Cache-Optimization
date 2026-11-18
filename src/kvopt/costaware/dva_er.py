@@ -20,12 +20,19 @@ from __future__ import annotations
 import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from enum import StrEnum
 from typing import Protocol, TypeAlias
 
 CandidateKey: TypeAlias = tuple[str, str]
 
 DEFAULT_H_SECONDS = 60.0
 SENSITIVITY_H_SECONDS = (30.0, 120.0)
+
+
+class FollowupGapSource(StrEnum):
+    """Allowed observation source for an active pending gap."""
+
+    CONTROLLER_ARMED_TIMER = "CONTROLLER_ARMED_TIMER"
 
 
 class DVAERError(RuntimeError):
@@ -66,11 +73,11 @@ def _key(value: object, name: str) -> CandidateKey:
 class NativeBlock:
     """One block at the decision boundary.
 
-    ``refcount`` includes all holders; ``owners`` are logical prefix owners and
-    ``protected_owners`` are the owners that currently protect the block.  A
-    release decrements refcount once for the released owner and removes that
-    owner from protection.  The block is Native-eligible only when refcount is
-    zero and either it is unhashed or no protected owner remains.
+    ``refcount`` is the observed Native refcount. ``owners`` are logical prefix
+    owners and ``protected_owners`` are the independent Retention Protection
+    owners. A release removes protection only; it never changes refcount, block
+    hash or free queue membership. A block is Native-eligible only when
+    refcount is zero and either it is unhashed or no protected owner remains.
     """
 
     block_id: int
@@ -100,8 +107,6 @@ class NativeBlock:
             self.protected_owners <= self.owners
         ):
             raise DVAEREvidenceError("protected_owners must be a subset of owners")
-        if self.refcount < len(self.protected_owners):
-            raise DVAEREvidenceError("refcount cannot be smaller than the protected-owner count")
 
     @property
     def is_free(self) -> bool:
@@ -110,26 +115,53 @@ class NativeBlock:
 
 @dataclass(frozen=True, slots=True)
 class VictimSequence:
-    """The full Native LRU eligible sequence after one candidate release.
+    """A0-compatible eligibility and physical victim selection after release.
 
-    ``victim_block_ids`` are the blocks the pressure target would actually
-    consume; ``full_eligible_sequence`` is retained so an auditor can see the
-    complete Native LRU ordering rather than only a truncated prefix.
+    ``original_eligible_block_ids`` is Tier 1; ``newly_eligible_block_ids`` is
+    the marginal Tier 2 set.  ``virtual_eligible_order`` is Tier 1 followed by
+    Tier 2, each ordered by Native LRU rank.  ``physical_victim_block_ids`` is
+    the actual prefix selected from that order, with the same
+    ``min(required_blocks, eligible_count)`` limit as the frozen A0 adapter.
     """
 
     candidate_key: CandidateKey
-    deficit: int
-    full_eligible_sequence: tuple[int, ...]
-    victim_block_ids: tuple[int, ...]
+    required_blocks: int
+    original_eligible_block_ids: tuple[int, ...]
+    newly_eligible_block_ids: tuple[int, ...]
+    virtual_eligible_order: tuple[int, ...]
+    physical_victim_block_ids: tuple[int, ...]
+    full_free_queue_order: tuple[int, ...]
     shortfall: int
 
     def __post_init__(self) -> None:
-        if self.deficit < 0 or self.shortfall < 0:
-            raise DVAEREvidenceError("deficit and shortfall must be non-negative")
-        if len(self.victim_block_ids) > len(self.full_eligible_sequence):
-            raise DVAEREvidenceError("victim sequence exceeds full eligible sequence")
-        if self.shortfall != self.deficit - len(self.victim_block_ids):
-            raise DVAEREvidenceError("victim shortfall accounting is inconsistent")
+        if isinstance(self.required_blocks, bool) or self.required_blocks < 0:
+            raise DVAEREvidenceError("required_blocks must be non-negative")
+        if self.shortfall < 0:
+            raise DVAEREvidenceError("shortfall must be non-negative")
+        if set(self.original_eligible_block_ids) & set(self.newly_eligible_block_ids):
+            raise DVAEREvidenceError("Tier 1 and Tier 2 blocks must be disjoint")
+        if self.virtual_eligible_order != (
+            self.original_eligible_block_ids + self.newly_eligible_block_ids
+        ):
+            raise DVAEREvidenceError("virtual order must be Tier 1 followed by Tier 2")
+        expected_count = min(self.required_blocks, len(self.virtual_eligible_order))
+        if self.physical_victim_block_ids != self.virtual_eligible_order[:expected_count]:
+            raise DVAEREvidenceError("physical victims must be the virtual-order prefix")
+        expected_shortfall = max(0, self.required_blocks - len(self.virtual_eligible_order))
+        if self.shortfall != expected_shortfall:
+            raise DVAEREvidenceError("shortfall accounting is inconsistent")
+        if len(set(self.full_free_queue_order)) != len(self.full_free_queue_order):
+            raise DVAEREvidenceError("full free queue contains duplicates")
+
+    @property
+    def victim_block_ids(self) -> tuple[int, ...]:
+        """Compatibility alias for the actual physical victim prefix."""
+        return self.physical_victim_block_ids
+
+    @property
+    def full_eligible_sequence(self) -> tuple[int, ...]:
+        """Compatibility alias for the full virtual eligible order."""
+        return self.virtual_eligible_order
 
 
 @dataclass(frozen=True, slots=True)
@@ -168,6 +200,9 @@ class NativePoolSnapshot:
             raise DVAEREvidenceError("free queue contains duplicate block IDs")
         if any(block_id not in by_id for block_id in queue):
             raise DVAEREvidenceError("free queue references an unknown block")
+        for position, block_id in enumerate(queue):
+            if by_id[block_id].native_lru_rank != position:
+                raise DVAEREvidenceError("free queue position must equal native_lru_rank")
         free_blocks = {block.block_id for block in self.blocks if block.is_free}
         if set(queue) != free_blocks:
             raise DVAEREvidenceError("free queue must exactly equal the refcount-zero blocks")
@@ -190,32 +225,27 @@ class NativePoolSnapshot:
     def victim_sequence_after(
         self, candidate_key: CandidateKey, required_blocks: int
     ) -> VictimSequence:
-        """Simulate the full Native LRU sequence after releasing one candidate."""
+        """Reproduce A0 Tier 1/Tier 2 eligibility and physical selection."""
         key = _key(candidate_key, "candidate_key")
         if key not in self.candidate_set:
             raise DVAEREvidenceError("candidate is not in the legal candidate set")
         if isinstance(required_blocks, bool) or required_blocks < 0:
             raise DVAEREvidenceError("required_blocks must be non-negative")
 
-        current_eligible = len(self.eligible_block_ids())
-        deficit = max(0, required_blocks - current_eligible)
+        tier_1 = self.eligible_block_ids()
+        tier_1_set = set(tier_1)
         simulated: list[NativeBlock] = []
         for block in self.blocks:
-            if key in block.protected_owners:
-                new_refcount = block.refcount - 1
-            else:
-                new_refcount = block.refcount
-            new_protected = block.protected_owners - {key}
-            if new_refcount < 0:
-                raise DVAEREvidenceError("release would make refcount negative")
+            # Release changes Retention Protection only.  Native refcount, hash
+            # and free-queue membership remain exactly as observed.
             simulated.append(
                 NativeBlock(
                     block_id=block.block_id,
                     has_hash=block.has_hash,
-                    refcount=new_refcount,
+                    refcount=block.refcount,
                     native_lru_rank=block.native_lru_rank,
                     owners=block.owners,
-                    protected_owners=new_protected,
+                    protected_owners=block.protected_owners - {key},
                 )
             )
         eligible_after = tuple(
@@ -223,13 +253,19 @@ class NativePoolSnapshot:
             for block in sorted(simulated, key=lambda item: item.native_lru_rank)
             if block.is_free and (not block.has_hash or not block.protected_owners)
         )
-        victims = eligible_after[:deficit]
+        tier_2 = tuple(block_id for block_id in eligible_after if block_id not in tier_1_set)
+        virtual_order = tier_1 + tier_2
+        selected_count = min(required_blocks, len(virtual_order))
+        physical = virtual_order[:selected_count]
         return VictimSequence(
             candidate_key=key,
-            deficit=deficit,
-            full_eligible_sequence=eligible_after,
-            victim_block_ids=victims,
-            shortfall=max(0, deficit - len(victims)),
+            required_blocks=required_blocks,
+            original_eligible_block_ids=tier_1,
+            newly_eligible_block_ids=tier_2,
+            virtual_eligible_order=virtual_order,
+            physical_victim_block_ids=physical,
+            full_free_queue_order=self.free_queue_order,
+            shortfall=max(0, required_blocks - len(virtual_order)),
         )
 
 
@@ -237,14 +273,18 @@ class NativePoolSnapshot:
 class FollowupObservation:
     """Decision-time follow-up state for one candidate.
 
-    ``pending_tool_gap_seconds`` is the already-armed controller timer/next
-    arrival gap.  It is not future Turn content or a future reuse outcome.
+    ``pending_tool_gap_seconds`` is an already-armed controller timer/next
+    arrival, not future Turn content or a future reuse outcome. The chain and
+    observation must have been established no later than the decision.
     """
 
     candidate_key: CandidateKey
     chain_id: str
     active: bool
     pending_tool_gap_seconds: float | None = None
+    observed_at_timestamp: float = 0.0
+    chain_established_at_timestamp: float = 0.0
+    pending_tool_gap_source: FollowupGapSource | None = None
 
     def __post_init__(self) -> None:
         _key(self.candidate_key, "follow-up candidate key")
@@ -252,12 +292,29 @@ class FollowupObservation:
             raise DVAEREvidenceError("follow-up chain_id must be non-empty")
         if not isinstance(self.active, bool):
             raise DVAEREvidenceError("follow-up active must be bool")
+        observed = _finite_non_negative(
+            self.observed_at_timestamp, "follow-up observation timestamp"
+        )
+        established = _finite_non_negative(
+            self.chain_established_at_timestamp, "chain establishment timestamp"
+        )
+        if established > observed:
+            raise DVAEREvidenceError(
+                "chain establishment timestamp cannot be after its observation"
+            )
         if self.active:
             if self.pending_tool_gap_seconds is None:
                 raise DVAEREvidenceError("active follow-up requires an observable pending tool gap")
             _finite_non_negative(self.pending_tool_gap_seconds, "pending tool gap")
-        elif self.pending_tool_gap_seconds is not None:
-            raise DVAEREvidenceError("inactive follow-up must not carry a pending tool gap")
+            if self.pending_tool_gap_source is not FollowupGapSource.CONTROLLER_ARMED_TIMER:
+                raise DVAEREvidenceError(
+                    "active follow-up gap must come from the controller-armed timer"
+                )
+        else:
+            if self.pending_tool_gap_seconds is not None:
+                raise DVAEREvidenceError("inactive follow-up must not carry a pending tool gap")
+            if self.pending_tool_gap_source is not None:
+                raise DVAEREvidenceError("inactive follow-up must not carry a gap source")
 
     def risk_weight(self, h_seconds: float) -> int:
         """1 iff the chain is active and its pending gap is within H."""
@@ -270,10 +327,22 @@ class FollowupObservation:
 class CandidateLoss:
     candidate_key: CandidateKey
     loss: int
-    victim_block_ids: tuple[int, ...]
-    full_eligible_sequence: tuple[int, ...]
+    original_eligible_block_ids: tuple[int, ...]
+    newly_eligible_block_ids: tuple[int, ...]
+    virtual_eligible_order: tuple[int, ...]
+    physical_victim_block_ids: tuple[int, ...]
+    full_free_queue_order: tuple[int, ...]
     shortfall: int
     a0_rank: int
+    risk_chain_ids: tuple[str, ...] = ()
+
+    @property
+    def victim_block_ids(self) -> tuple[int, ...]:
+        return self.physical_victim_block_ids
+
+    @property
+    def full_eligible_sequence(self) -> tuple[int, ...]:
+        return self.virtual_eligible_order
 
 
 @dataclass(frozen=True, slots=True)
@@ -319,6 +388,10 @@ class DVAERDecisionInput:
                 raise DVAEREvidenceError("follow-up value is not an observation")
             if observation.candidate_key != key:
                 raise DVAEREvidenceError("follow-up key does not match its mapping key")
+            if observation.chain_established_at_timestamp > self.timestamp:
+                raise DVAEREvidenceError("follow-up chain was established after the decision")
+            if observation.observed_at_timestamp > self.timestamp:
+                raise DVAEREvidenceError("follow-up observation is after the decision")
         if len(set(self.a0_order)) != len(self.a0_order):
             raise DVAEREvidenceError("A0 order contains duplicate candidates")
         if set(self.a0_order) != candidates:
@@ -347,20 +420,27 @@ class DVAERStrategy:
         for key in decision.pool.candidate_keys:
             sequence = decision.pool.victim_sequence_after(key, decision.required_blocks)
             loss = 0
+            risk_chains: set[str] = set()
             for block_id in sequence.victim_block_ids:
                 block = next(item for item in decision.pool.blocks if item.block_id == block_id)
                 for owner in block.owners - {key}:
-                    if decision.followups[owner].risk_weight(self.h_seconds):
+                    observation = decision.followups[owner]
+                    if observation.risk_weight(self.h_seconds):
                         loss += 1
+                        risk_chains.add(observation.chain_id)
                         break
             losses.append(
                 CandidateLoss(
                     candidate_key=key,
                     loss=loss,
-                    victim_block_ids=sequence.victim_block_ids,
-                    full_eligible_sequence=sequence.full_eligible_sequence,
+                    original_eligible_block_ids=sequence.original_eligible_block_ids,
+                    newly_eligible_block_ids=sequence.newly_eligible_block_ids,
+                    virtual_eligible_order=sequence.virtual_eligible_order,
+                    physical_victim_block_ids=sequence.physical_victim_block_ids,
+                    full_free_queue_order=sequence.full_free_queue_order,
                     shortfall=sequence.shortfall,
                     a0_rank=a0_rank[key],
+                    risk_chain_ids=tuple(sorted(risk_chains)),
                 )
             )
         if not losses:
