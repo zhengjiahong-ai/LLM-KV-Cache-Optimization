@@ -117,6 +117,8 @@ The gate is correctness-only. Historical Phase 3/4 full-trajectory gain is not a
 | multiple legal candidates can change selection | `test_multiple_legal_candidates_can_change_selection` |
 | same Entry order, different victim risk | `test_same_entry_order_can_have_different_victim_risk` |
 | different candidates produce different victim sets | `test_different_candidates_have_different_victim_sets` |
+| DVA vs A0 changes physical victim set | `test_dva_selection_changes_physical_victim_set_vs_a0` |
+| no future fields in input contract | `test_future_fields_are_not_in_the_input_contract` |
 | full Native LRU order | `test_native_lru_sequence_is_ordered_and_full` |
 | shortfall explicit, not imputed | `test_shortfall_is_explicit_not_imputed` |
 | A0 tie-break reproduced | `test_a0_tie_break_is_reproduced` |
@@ -140,7 +142,7 @@ Run:
 python -m pytest tests/test_dva_er.py -q -p no:cacheprovider
 ```
 
-Result at this implementation commit: **19 passed**.
+Result at this implementation commit: **21 passed**.
 
 ## 8. What is not claimed
 

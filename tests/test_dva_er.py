@@ -345,6 +345,35 @@ def test_decision_input_adapter() -> None:
     assert DVAERStrategy().choose(decision).selected == B
 
 
+def test_dva_selection_changes_physical_victim_set_vs_a0() -> None:
+    blocks = (
+        _block(1, 0, owners=frozenset({A, B}), protected=frozenset({A})),
+        _block(2, 1, owners=frozenset({B, C}), protected=frozenset({B})),
+        _block(3, 2, owners=frozenset({C, A}), protected=frozenset({C})),
+    )
+    decision = _input(
+        blocks=blocks,
+        followups={
+            A: _followup(A),
+            B: _followup(B, active=True, gap=10.0),
+            C: _followup(C),
+        },
+        a0_order=(A, B, C),
+    )
+    result = DVAERStrategy().choose(decision)
+    a0_victims = decision.pool.victim_sequence_after(A, 1).victim_block_ids
+    dva_victims = decision.pool.victim_sequence_after(result.selected, 1).victim_block_ids
+    assert result.selected == B
+    assert a0_victims == (1,)
+    assert dva_victims == (2,)
+    assert a0_victims != dva_victims
+
+
+def test_future_fields_are_not_in_the_input_contract() -> None:
+    fields = tuple(DVAERDecisionInput.__dataclass_fields__)
+    assert not any("future" in field_name or "oracle" in field_name for field_name in fields)
+
+
 def test_replay_strategy_adapter_uses_evidence_provider() -> None:
     blocks = (
         _block(1, 0, owners=frozenset({A})),
