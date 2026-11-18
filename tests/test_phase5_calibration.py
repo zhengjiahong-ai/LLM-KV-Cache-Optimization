@@ -4,10 +4,14 @@ import copy
 
 import pytest
 
-from kvopt.workload.phase5_calibration import SYSTEM_IDS, analyze_calibration
+from kvopt.workload.phase5_calibration import (
+    SYSTEM_IDS,
+    analyze_calibration,
+    validate_calibration_matrix,
+)
 
 
-def _records(value_step: int = 10):
+def _records():
     rows = []
     for stratum_index, stratum in enumerate(("SWE_BENCH", "BFCL_WEB_SEARCH")):
         for group_index in range(1, 5):
@@ -15,6 +19,10 @@ def _records(value_step: int = 10):
                 for repeat_index in range(1, 4):
                     rows.append(
                         {
+                            "run_id": (
+                                f"cal-{stratum_index}-{group_index}-"
+                                f"{system_id}-{repeat_index}"
+                            ),
                             "status": "PASS",
                             "stratum": stratum,
                             "group_id": f"{stratum_index}-{group_index}",
@@ -22,56 +30,83 @@ def _records(value_step: int = 10):
                             "repeat_index": repeat_index,
                             "formal_group": False,
                             "recomputed_tokens_E_minus_C": (
-                                4000
-                                + group_index * 100
-                                + system_index * value_step
-                                + repeat_index * value_step
+                                4000 + group_index * 100 + system_index * 10
                             ),
                         }
                     )
     return rows
 
 
-def test_exact_96_run_calibration_and_sample_size() -> None:
-    report = analyze_calibration(_records())
-    assert report["record_count"] == 96
+def test_exact_144_run_calibration_matrix() -> None:
+    report = validate_calibration_matrix(_records())
+    assert report["record_count"] == 144
+    assert report["systems"] == list(SYSTEM_IDS)
     assert report["formal_execution_authorized"] is False
-    assert report["calibration_reused_as_formal_evidence"] is False
-    for row in report["strata"].values():
-        assert len(row["calibration_group_ids"]) == 4
-        assert 8 <= row["selected_groups_if_authorized"] <= 16
-        assert len(row["contrasts"]) == 3
 
 
 def test_missing_duplicate_failed_and_formal_reuse_fail_closed() -> None:
     rows = _records()
-    with pytest.raises(ValueError, match="exactly 96"):
-        analyze_calibration(rows[:-1])
-
+    with pytest.raises(ValueError, match="exactly 144"):
+        validate_calibration_matrix(rows[:-1])
     duplicated = copy.deepcopy(rows)
     duplicated[-1] = copy.deepcopy(duplicated[0])
-    with pytest.raises(ValueError, match="duplicate"):
-        analyze_calibration(duplicated)
-
+    with pytest.raises(ValueError, match="run_id"):
+        validate_calibration_matrix(duplicated)
     failed = copy.deepcopy(rows)
     failed[0]["status"] = "FAIL_CLOSED"
     with pytest.raises(ValueError, match="non-PASS"):
-        analyze_calibration(failed)
-
+        validate_calibration_matrix(failed)
     reused = copy.deepcopy(rows)
     reused[0]["formal_group"] = True
     with pytest.raises(ValueError, match="reused"):
-        analyze_calibration(reused)
+        validate_calibration_matrix(reused)
 
 
-def test_above_cap_requires_m1_decision_instead_of_silent_extension() -> None:
-    rows = _records()
-    for row in rows:
-        if row["system_id"] == "COST_AWARE":
-            row["recomputed_tokens_E_minus_C"] += row["repeat_index"] * 50000
-    report = analyze_calibration(rows)
-    assert report["status"] == "BLOCKED_REQUIRES_M1_UNDERPOWERED_DECISION"
-    assert any(
-        row["required_groups_unclamped"] > 16
-        for row in report["strata"].values()
+def test_analyzer_requires_exact_mixed_model_and_noncentral_t() -> None:
+    with pytest.raises(RuntimeError, match="noncentral-t"):
+        analyze_calibration(_records())
+
+    def estimator(_records):
+        return {
+            "estimator": "METHOD_OF_MOMENTS_MIXED_MODEL",
+            "contrast_covariance_size": 8,
+            "negative_variance_rule": (
+                "TRUNCATE_POINT_AT_ZERO_AND_USE_BOOTSTRAP_UPPER_BOUND"
+            ),
+        }
+
+    def solver(_variance):
+        return {
+            "distribution": "NONCENTRAL_T_ITERATIVE",
+            "selected_groups_per_stratum": {"SWE_BENCH": 8, "BFCL_WEB_SEARCH": 16},
+        }
+
+    report = analyze_calibration(
+        _records(), mixed_model_estimator=estimator, noncentral_t_solver=solver
     )
+    assert report["status"] == "CALIBRATION_ANALYZED_EXECUTION_NOT_AUTHORIZED"
+    assert report["sample_size"]["selected_groups_per_stratum"]["SWE_BENCH"] == 8
+
+
+def test_z_approximation_is_rejected() -> None:
+    def estimator(_records):
+        return {
+            "estimator": "METHOD_OF_MOMENTS_MIXED_MODEL",
+            "contrast_covariance_size": 8,
+            "negative_variance_rule": (
+                "TRUNCATE_POINT_AT_ZERO_AND_USE_BOOTSTRAP_UPPER_BOUND"
+            ),
+        }
+
+    with pytest.raises(ValueError, match="z approximation"):
+        analyze_calibration(
+            _records(),
+            mixed_model_estimator=estimator,
+            noncentral_t_solver=lambda _: {
+                "distribution": "NORMAL_Z",
+                "selected_groups_per_stratum": {
+                    "SWE_BENCH": 8,
+                    "BFCL_WEB_SEARCH": 8,
+                },
+            },
+        )

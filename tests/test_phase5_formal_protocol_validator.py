@@ -21,7 +21,17 @@ CONTRACT_PATHS = {
     "workload_qualification": CONFIG / "phase5-workload-qualification-contract-v1.json",
     "calibration_sample_size": CONFIG
     / "phase5-calibration-sample-size-contract-v1.json",
+    "cost_aware_candidate_family": CONFIG / "phase5-cost-aware-candidate-v1.json",
+    "candidate_evaluation": CONFIG / "phase5-candidate-evaluation-contract-v1.json",
 }
+SYSTEM_IDS = (
+    "NATIVE",
+    "CONTINUUM_OFFICIAL",
+    "CONTINUUM_ADAPTED",
+    "A1_ORIGINAL",
+    "A3_SUFFIX",
+    "DVA_ER_V1",
+)
 
 
 def _bundle():
@@ -57,6 +67,16 @@ def _manifest(system_id: str) -> dict[str, object]:
         "tokenizer_revision": "tokenizer-revision",
         "sampling_parameters_sha256": _digest("sampling"),
         "engine_configuration_sha256": _digest("engine"),
+        "generation_config_sha256": _digest("generation"),
+        "execution_order_index": 0,
+        "engine_instance_id": f"engine-{system_id.lower()}",
+        "isolation_preflight": {
+            "new_process": True,
+            "new_engine": True,
+            "cross_run_apc_reuse": False,
+            "empty_cache_verified": True,
+        },
+        "preheat_mode": "NONE",
         "actual_enqueue_sequence_sha256": _digest(system_id),
         "evidence": {
             "planned_events_sha256": _digest("planned"),
@@ -95,16 +115,12 @@ def _validate_manifests(manifests: list[dict[str, object]]) -> None:
             "tokenizer_revision": "tokenizer-revision",
             "sampling_parameters_sha256": _digest("sampling"),
             "engine_configuration_sha256": _digest("engine"),
+            "generation_config_sha256": _digest("generation"),
             "arrival_realization_sha256": _digest("arrival"),
         },
         expected_system_revisions={
             system_id: f"revision-{system_id.lower()}"
-            for system_id in (
-                "NATIVE",
-                "CONTINUUM_OFFICIAL",
-                "CONTINUUM_ADAPTED",
-                "COST_AWARE",
-            )
+            for system_id in SYSTEM_IDS
         },
     )
 
@@ -133,23 +149,15 @@ def test_bundle_rejects_wrong_frozen_contract_hash() -> None:
         )
 
 
-def test_four_arm_manifest_identity_passes() -> None:
-    manifests = [
-        _manifest(system_id)
-        for system_id in (
-            "NATIVE",
-            "CONTINUUM_OFFICIAL",
-            "CONTINUUM_ADAPTED",
-            "COST_AWARE",
-        )
-    ]
+def test_six_system_manifest_identity_passes() -> None:
+    manifests = [_manifest(system_id) for system_id in SYSTEM_IDS]
     _validate_manifests(manifests)
 
 
 @pytest.mark.parametrize(
     ("mutation", "message"),
     [
-        (lambda rows: rows.pop(), "four arms"),
+        (lambda rows: rows.pop(), "six systems"),
         (
             lambda rows: rows[1].__setitem__("system_id", "NATIVE"),
             "duplicate arm",
@@ -169,15 +177,7 @@ def test_four_arm_manifest_identity_passes() -> None:
     ],
 )
 def test_manifest_consistency_fail_closed(mutation, message: str) -> None:
-    manifests = [
-        _manifest(system_id)
-        for system_id in (
-            "NATIVE",
-            "CONTINUUM_OFFICIAL",
-            "CONTINUUM_ADAPTED",
-            "COST_AWARE",
-        )
-    ]
+    manifests = [_manifest(system_id) for system_id in SYSTEM_IDS]
     mutation(manifests)
     with pytest.raises(Phase5ProtocolValidationError, match=message):
         _validate_manifests(copy.deepcopy(manifests))

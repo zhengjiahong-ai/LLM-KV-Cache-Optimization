@@ -1,6 +1,6 @@
 # Phase 5 Formal Campaign Engineering Preparation
 
-**Status:** M4 Protocol candidate integrated; protocol-driven CPU engineering in progress
+**Status:** merged six-system Protocol integrated; CPU engineering in progress
 
 **GPU execution:** not started and not authorized by this document
 
@@ -20,12 +20,12 @@ The implementation currently covers:
 - deterministic evidence archive creation and verification; and
 - CPU fail-closed tests.
 
-M4's Formal Protocol candidate from PR #122 is now integrated. The Protocol
+M4's merged six-system Formal Protocol from PR #122 is now integrated. The Protocol
 Validator, mechanical workload-qualification checks and Calibration analysis
 contract are implemented. The
 protocol remains `DESIGN_FROZEN_CANDIDATE`, has
 `execution_authorized=false`, and retains U1--U7; therefore Calibration,
-four-system execution and formal cohort freezing remain fail-closed.
+six-system execution and formal cohort freezing remain fail-closed.
 
 ### 1.1 Pinned-runtime no-GPU validation
 
@@ -283,15 +283,15 @@ produce a passing mapping. The module does not invent the field list.
 
 `phase5_formal_protocol_validator.py` now validates the M4-owned protocol and
 three referenced contracts against their JSON Schemas, computes byte-exact
-SHA-256 identities, verifies the ordered four-system definition and checks
+SHA-256 identities, verifies the ordered six-system definition and checks
 protocol/contract references. Execution code must supply the frozen hashes.
-The validator separately verifies one paired four-system Campaign Manifest
+The validator separately verifies one paired six-system Campaign Manifest
 set, including protocol, workload, arrival, runtime, system revision and
 Group/stratum/repeat identity.
 
 A structurally valid protocol candidate is deliberately not executable. The
 validator rejects execution unless the protocol has the M1-frozen status,
-explicit authorization, no unresolved decisions and fully frozen four-system
+explicit authorization, no unresolved decisions and fully frozen six-system
 identities. The current PR #122 candidate therefore remains blocked rather
 than acquiring implicit defaults from M6 code.
 
@@ -302,17 +302,42 @@ explicit acquisition inputs; they are never inferred. Qualification never
 selects a cohort or authorizes execution. Formal Groups require exactly four
 distinct qualified Programs and one distinct Session per Program.
 
-`phase5_calibration.py` validates the exact 96-cell Calibration matrix (two
-strata × four Groups × four Systems × three repeats), rejects failed,
-duplicated, missing or Formal-reused cells, and applies the frozen Group-level
-paired-difference SD, MDE and conservative sample-size formula. An estimate
-above 16 Groups is reported as requiring an M1 underpowered decision; it is
-not silently clamped into an executable PASS. Calibration output never
-self-authorizes Formal execution.
+`phase5_calibration.py` validates the exact 144-cell Calibration matrix (two
+strata × four Groups × six Systems × three repeats), rejects failed,
+duplicated, missing or Formal-reused cells. The obsolete z approximation is
+explicitly prohibited. The analyzer boundary accepts only the frozen
+method-of-moments mixed model, 8×8 covariance and iterative noncentral-t
+backend; the exact numerical backend is still an implementation item.
+Calibration output never self-authorizes Formal execution.
+
+`phase5_campaign_plan.py` materializes the exact six-system matrices: 144
+Calibration runs and 192/288/384 Formal runs for N=8/12/16 per stratum. It
+requires the frozen six-system balanced Latin-square rows, exact Workload Seal
+and Arrival identities, unique Run IDs, and disjoint Calibration/Formal Group
+sets. Plans remain `execution_authorized=false`.
+
+`phase5_formal_manifests.py` separates the immutable Run Input identity from
+post-run evidence and from the external Archive Envelope. This avoids an
+archive containing its own hash and prevents execution results from rewriting
+frozen inputs. The input binds all five M4 contracts, six-system identity,
+generation/engine configuration, execution position, engine instance and the
+required no-preheat/new-process/new-engine isolation evidence.
+
+`phase5_formal_gate_ledger.py` evaluates G0--G6 independently. Missing,
+unobservable, unhashed or non-PASS evidence fails closed, and unresolved
+protocol items keep the aggregate closed even if every supplied Gate claims
+PASS. The ledger has no authorization effect.
+
+`phase5_candidate_evaluation.py` provides the Stage 1 adapter boundary for
+A1 Original, A3 Suffix and DVA-ER v1. All candidates receive one immutable
+snapshot, legal set, Native LRU state and workload identity. Future outcome
+fields, non-finite scores, ranking drift and an unpassed DVA CPU correctness
+gate fail closed. Selection/victim divergence remains diagnostic and does not
+create an algorithmic-benefit claim.
 
 The following protocol-owned decisions remain deliberately unresolved:
 
-- U1 Cost-Aware candidate;
+- U1 DVA-ER v1 CPU selection/correctness gate;
 - U2 Continuum Adapted scheduler scope;
 - U3 Continuum Official environment compatibility;
 - U4 BFCL acquisition authorization and frozen fixture;
@@ -321,7 +346,7 @@ The following protocol-owned decisions remain deliberately unresolved:
 - U7 censored-session population policy.
 
 The Protocol defines the metrics, statistical unit and failure policy. The
-full independent Metrics evaluator, four-system runner, Formal statistics and
+full independent Metrics evaluator, six-system runner, Formal statistics and
 two-layer run/result manifests remain pending; M6 must implement them exactly
 and must not revise those definitions.
 
@@ -349,12 +374,12 @@ Pressure exposure, Candidate/Physical evidence availability, actual Native
 concurrency, model memory headroom and complete cleanup. None is reported as
 PASS by this CPU work.
 
-The latest M4 P5E review additionally keeps Part A
-`NOT_READY_FOR_AUTHORIZATION`: the Pressure trigger lacks a verified Native
-allocation watermark, the r1 natural-completion barrier is not enforced by
-the Arrival contract, and no end-to-end Mock/GPU runner currently wires
-execute → gates → archive. These are engineering blockers, not grounds to
-change Protocol v1 or its research design.
+The P5E contract now requires a per-request Native allocation watermark before
+Pressure and independently verifies that all four r1 Native natural terminals
+precede the first r2 Native submission. A free-block count or submission event
+alone is insufficient. The remaining P5E blocker is the end-to-end Mock/GPU
+runner that wires execute → gates → archive with the production evidence
+reader; CPU components do not claim this path has passed.
 
 The earlier `P5E-A-01` freeze generated at `7b03b57` is not an execution freeze
 for this changed code. Before GPU execution, the final bundle must regenerate

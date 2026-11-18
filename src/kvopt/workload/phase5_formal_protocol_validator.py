@@ -21,7 +21,9 @@ SYSTEM_IDS = (
     "NATIVE",
     "CONTINUUM_OFFICIAL",
     "CONTINUUM_ADAPTED",
-    "COST_AWARE",
+    "A1_ORIGINAL",
+    "A3_SUFFIX",
+    "DVA_ER_V1",
 )
 EXECUTABLE_PROTOCOL_STATUS = "M1_FROZEN"
 
@@ -78,12 +80,12 @@ def _validate_schema(
 
 def _systems_frozen(systems: Sequence[Mapping[str, Any]]) -> bool:
     by_id = {system["id"]: system for system in systems}
-    cost_aware = by_id.get("COST_AWARE", {})
+    dva = by_id.get("DVA_ER_V1", {})
     official = by_id.get("CONTINUUM_OFFICIAL", {})
     adapted = by_id.get("CONTINUUM_ADAPTED", {})
     return (
-        cost_aware.get("candidate_status") == "FROZEN"
-        and cost_aware.get("candidate_revision") not in {None, "", "M1_FREEZE_REQUIRED"}
+        dva.get("status") == "FROZEN"
+        and dva.get("candidate_selection_gate") == "PASS"
         and official.get("compatibility_status") not in {None, "", "AUDIT_REQUIRED"}
         and adapted.get("scheduler_conformance") not in {None, "", "REQUIRED"}
     )
@@ -144,6 +146,8 @@ def validate_protocol_bundle(
         "metrics",
         "workload_qualification",
         "calibration_sample_size",
+        "cost_aware_candidate_family",
+        "candidate_evaluation",
     }
     if set(contract_paths) != expected_contracts:
         raise Phase5ProtocolValidationError(
@@ -202,12 +206,13 @@ def validate_campaign_manifest_set(
     """
 
     if len(manifests) != len(SYSTEM_IDS):
-        raise Phase5ProtocolValidationError("paired manifest set must contain four arms")
+        raise Phase5ProtocolValidationError("paired manifest set must contain six systems")
     required_runtime_keys = {
         "model_revision",
         "tokenizer_revision",
         "sampling_parameters_sha256",
         "engine_configuration_sha256",
+        "generation_config_sha256",
         "arrival_realization_sha256",
     }
     if set(expected_runtime_identity) != required_runtime_keys:
@@ -250,7 +255,7 @@ def validate_campaign_manifest_set(
         if paired_identity is None:
             paired_identity = identity
         elif paired_identity != identity:
-            raise Phase5ProtocolValidationError("four arms are not paired to one workload")
+            raise Phase5ProtocolValidationError("six systems are not paired to one workload")
 
     if seen_systems != set(SYSTEM_IDS):
         raise Phase5ProtocolValidationError("paired manifest set is missing a registered arm")

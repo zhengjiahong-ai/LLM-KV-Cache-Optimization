@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import pytest
 
@@ -734,6 +734,32 @@ def test_native_pressure_uses_real_block_pool_allocation_and_releases() -> None:
     assert result.allocated_block_ids == (0, 1)
     assert result.free_blocks_before == result.free_blocks_after_release == 8
     assert result.allocation_source == "PINNED_BLOCK_POOL_GET_NEW_BLOCKS"
+
+
+def test_native_pressure_requires_exact_request_allocation_watermark() -> None:
+    pool = _BlockPool()
+    core = _NativeCore(pool)
+    request = replace(
+        _native_pressure(),
+        expected_allocated_blocks_by_request=(("r1", 4), ("r2", 4)),
+    )
+    executor = PinnedNativeBlockPoolPressureExecutor(
+        block_pool=pool,
+        adapter_engine_core=core,
+        scheduler_engine_core=core,
+        kv_instrumentation_engine_core=core,
+        evidence_reader=lambda boundary_id, block_ids: {
+            "forced_release_decision_ids": [f"decision:{boundary_id}"],
+            "native_evicted_block_ids": list(block_ids),
+        },
+        allocation_watermark_reader=lambda _ids: {"r1": 4, "r2": 3},
+    )
+    with pytest.raises(AsyncLLMAdapterError, match="allocation watermark differs"):
+        executor.execute(
+            request,
+            expected_inflight_request_ids=("r1", "r2"),
+            actual_inflight_request_ids=("r1", "r2"),
+        )
 
 
 def test_native_pressure_rejects_engine_identity_or_missing_evidence() -> None:

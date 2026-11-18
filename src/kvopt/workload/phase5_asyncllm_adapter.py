@@ -230,6 +230,9 @@ class PinnedNativeBlockPoolPressureExecutor:
     evidence_reader: Callable[
         [str, tuple[int, ...]], Mapping[str, object]
     ]
+    allocation_watermark_reader: Callable[
+        [tuple[str, ...]], Mapping[str, int]
+    ] | None = None
     clock: Callable[[], float] = time.monotonic
 
     def execute(
@@ -254,6 +257,22 @@ class PinnedNativeBlockPoolPressureExecutor:
             )
         if set(actual_inflight_request_ids) != set(expected_inflight_request_ids):
             raise AsyncLLMAdapterError("Pressure Native inflight set mismatch")
+        expected_watermark = dict(request.expected_allocated_blocks_by_request)
+        observed_watermark: dict[str, int] = {}
+        watermark_source: str | None = None
+        if expected_watermark:
+            if self.allocation_watermark_reader is None:
+                raise AsyncLLMAdapterError(
+                    "Pressure allocation watermark is not observable"
+                )
+            observed_watermark = dict(
+                self.allocation_watermark_reader(actual_inflight_request_ids)
+            )
+            if observed_watermark != expected_watermark:
+                raise AsyncLLMAdapterError(
+                    "Native request allocation watermark differs from frozen geometry"
+                )
+            watermark_source = "PINNED_KV_CACHE_MANAGER_REQUEST_BLOCK_TABLE"
         before = self.block_pool.get_num_free_blocks()
         if before != request.expected_free_blocks_before:
             raise AsyncLLMAdapterError(
@@ -300,6 +319,8 @@ class PinnedNativeBlockPoolPressureExecutor:
             engine_core_identity_verified=True,
             forced_release_decision_ids=tuple(forced),
             native_evicted_block_ids=tuple(evicted),
+            allocation_watermark_source=watermark_source,
+            observed_allocated_blocks_by_request=tuple(observed_watermark.items()),
         )
 
 

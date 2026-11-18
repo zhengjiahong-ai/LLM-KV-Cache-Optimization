@@ -1,12 +1,16 @@
-"""Protocol v1 calibration-set validation and sample-size calculation."""
+"""Phase 5 six-system Calibration matrix and analyzer contracts.
+
+The final protocol requires a mixed-model method-of-moments estimator and an
+iterative noncentral-t power solve. This module validates the complete 144-run
+input and exposes the exact analyzer boundary; it intentionally rejects the
+obsolete four-system/z-approximation implementation.
+"""
 
 from __future__ import annotations
 
 import math
-import statistics
 from collections import defaultdict
-from collections.abc import Mapping, Sequence
-from statistics import NormalDist
+from collections.abc import Callable, Mapping, Sequence
 
 from .phase5_replay import canonical_sha256
 
@@ -14,9 +18,18 @@ SYSTEM_IDS = (
     "NATIVE",
     "CONTINUUM_OFFICIAL",
     "CONTINUUM_ADAPTED",
-    "COST_AWARE",
+    "A1_ORIGINAL",
+    "A3_SUFFIX",
+    "DVA_ER_V1",
 )
-BASELINES = ("NATIVE", "CONTINUUM_ADAPTED", "CONTINUUM_OFFICIAL")
+CANDIDATE_CONTRASTS = (
+    "A1_vs_A0",
+    "A3_vs_A0",
+    "DVA_vs_A0",
+    "A3_vs_A1",
+    "DVA_vs_A1",
+    "DVA_vs_A3",
+)
 
 
 def _finite_number(value: object, label: str) -> float:
@@ -28,40 +41,32 @@ def _finite_number(value: object, label: str) -> float:
     return result
 
 
-def analyze_calibration(
+def validate_calibration_matrix(
     records: Sequence[Mapping[str, object]],
     *,
     strata: Sequence[str] = ("SWE_BENCH", "BFCL_WEB_SEARCH"),
     groups_per_stratum: int = 4,
     repeats: int = 3,
-    absolute_mde_tokens: float = 512,
-    relative_mde_fraction: float = 0.05,
-    alpha_family: float = 0.05,
-    power: float = 0.8,
-    minimum_groups: int = 8,
-    maximum_groups: int = 16,
 ) -> dict[str, object]:
-    """Validate all 96 cells and apply the frozen conservative formula.
+    """Validate the exact 2×4×6×3 Calibration result matrix."""
 
-    ``records`` are independent-evaluator outputs. Calibration is rejected if
-    any cell is missing, duplicated, failed, or not disjoint from the declared
-    formal cohort. The function never authorizes the formal campaign.
-    """
-
-    if not records:
-        raise ValueError("calibration records cannot be empty")
     expected_count = len(strata) * groups_per_stratum * len(SYSTEM_IDS) * repeats
     if len(records) != expected_count:
         raise ValueError(f"calibration requires exactly {expected_count} records")
     values: dict[tuple[str, str, str, int], float] = {}
     groups_by_stratum: dict[str, set[str]] = defaultdict(set)
+    run_ids: set[str] = set()
     for row in records:
         if row.get("status") != "PASS":
             raise ValueError("calibration contains a non-PASS record")
+        run_id = str(row.get("run_id", ""))
         stratum = str(row.get("stratum", ""))
         group_id = str(row.get("group_id", ""))
         system_id = str(row.get("system_id", ""))
         repeat_index = row.get("repeat_index")
+        if not run_id or run_id in run_ids:
+            raise ValueError("calibration run_id must be non-empty and unique")
+        run_ids.add(run_id)
         if stratum not in strata or system_id not in SYSTEM_IDS:
             raise ValueError("calibration contains an unknown stratum or system")
         if not group_id:
@@ -90,70 +95,68 @@ def analyze_calibration(
     }
     if set(values) != expected_keys:
         raise ValueError("calibration cell matrix is incomplete")
-
-    alpha_per_contrast = alpha_family / len(BASELINES)
-    z_alpha = NormalDist().inv_cdf(1 - alpha_per_contrast / 2)
-    z_power = NormalDist().inv_cdf(power)
-    factor = (z_alpha + z_power) ** 2
-    stratum_reports: dict[str, object] = {}
-    campaign_blocked = False
-    for stratum in strata:
-        group_ids = sorted(groups_by_stratum[stratum])
-        native_group_means = [
-            statistics.fmean(
-                values[(stratum, group_id, "NATIVE", repeat_index)]
-                for repeat_index in range(1, repeats + 1)
-            )
-            for group_id in group_ids
-        ]
-        native_mean = statistics.fmean(native_group_means)
-        mde = max(absolute_mde_tokens, relative_mde_fraction * native_mean)
-        contrasts: dict[str, object] = {}
-        required_unclamped = 0
-        for baseline in BASELINES:
-            differences = [
-                values[(stratum, group_id, "COST_AWARE", repeat_index)]
-                - values[(stratum, group_id, baseline, repeat_index)]
-                for group_id in group_ids
-                for repeat_index in range(1, repeats + 1)
-            ]
-            sigma = statistics.stdev(differences)
-            required = math.ceil(factor * sigma**2 / mde**2)
-            required_unclamped = max(required_unclamped, required)
-            contrasts[f"COST_AWARE_vs_{baseline}"] = {
-                "paired_observation_count": len(differences),
-                "sigma_d": sigma,
-                "required_groups_unclamped": required,
-            }
-        selected = min(max(required_unclamped, minimum_groups), maximum_groups)
-        above_cap = required_unclamped > maximum_groups
-        campaign_blocked |= above_cap
-        stratum_reports[stratum] = {
-            "calibration_group_ids": group_ids,
-            "native_group_mean_recomputed_tokens": native_mean,
-            "mde_tokens": mde,
-            "contrasts": contrasts,
-            "required_groups_unclamped": required_unclamped,
-            "selected_groups_if_authorized": selected,
-            "status": (
-                "UNDERPOWERED_REQUIRES_M1_DECISION" if above_cap else "CALIBRATED"
-            ),
-        }
-    payload: dict[str, object] = {
-        "schema_version": "phase5.calibration_analysis.v1",
-        "status": (
-            "BLOCKED_REQUIRES_M1_UNDERPOWERED_DECISION"
-            if campaign_blocked
-            else "CALIBRATION_COMPLETE_EXECUTION_NOT_AUTHORIZED"
-        ),
+    payload = {
+        "schema_version": "phase5.calibration_matrix_validation.v2",
+        "status": "PASS",
         "record_count": len(records),
-        "alpha_family": alpha_family,
-        "alpha_per_contrast": alpha_per_contrast,
-        "power": power,
-        "z_alpha": z_alpha,
-        "z_power": z_power,
-        "strata": stratum_reports,
+        "systems": list(SYSTEM_IDS),
+        "strata": {
+            name: {"group_ids": sorted(groups_by_stratum[name])} for name in strata
+        },
+        "repeats": repeats,
         "formal_execution_authorized": False,
         "calibration_reused_as_formal_evidence": False,
+    }
+    return {**payload, "matrix_sha256": canonical_sha256(payload)}
+
+
+def analyze_calibration(
+    records: Sequence[Mapping[str, object]],
+    *,
+    mixed_model_estimator: Callable[
+        [Sequence[Mapping[str, object]]], Mapping[str, object]
+    ]
+    | None = None,
+    noncentral_t_solver: Callable[[Mapping[str, object]], Mapping[str, object]]
+    | None = None,
+) -> dict[str, object]:
+    """Run only an explicitly supplied exact Protocol-v1 numerical backend."""
+
+    matrix = validate_calibration_matrix(records)
+    if mixed_model_estimator is None or noncentral_t_solver is None:
+        raise RuntimeError(
+            "exact mixed-model estimator and iterative noncentral-t solver are required"
+        )
+    variance = dict(mixed_model_estimator(records))
+    if variance.get("estimator") != "METHOD_OF_MOMENTS_MIXED_MODEL":
+        raise ValueError("Calibration estimator does not match the frozen contract")
+    if variance.get("contrast_covariance_size") != 8:
+        raise ValueError("Calibration contrast covariance must be 8x8")
+    if variance.get("negative_variance_rule") != (
+        "TRUNCATE_POINT_AT_ZERO_AND_USE_BOOTSTRAP_UPPER_BOUND"
+    ):
+        raise ValueError("Calibration negative-variance rule changed")
+    sizing = dict(noncentral_t_solver(variance))
+    if sizing.get("distribution") != "NONCENTRAL_T_ITERATIVE":
+        raise ValueError("Calibration power solver cannot use a z approximation")
+    selected = sizing.get("selected_groups_per_stratum")
+    if not isinstance(selected, Mapping) or set(selected) != {
+        "SWE_BENCH",
+        "BFCL_WEB_SEARCH",
+    }:
+        raise ValueError("Calibration sizing lacks both frozen strata")
+    if any(
+        isinstance(value, bool) or not isinstance(value, int) or not 8 <= value <= 16
+        for value in selected.values()
+    ):
+        raise ValueError("Calibration selected N is outside the frozen 8..16 range")
+    payload = {
+        "schema_version": "phase5.calibration_analysis.v2",
+        "status": "CALIBRATION_ANALYZED_EXECUTION_NOT_AUTHORIZED",
+        "matrix_sha256": matrix["matrix_sha256"],
+        "variance_model": variance,
+        "sample_size": sizing,
+        "candidate_contrasts": list(CANDIDATE_CONTRASTS),
+        "formal_execution_authorized": False,
     }
     return {**payload, "analysis_sha256": canonical_sha256(payload)}

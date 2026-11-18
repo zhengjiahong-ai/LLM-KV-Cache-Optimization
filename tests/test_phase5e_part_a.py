@@ -27,13 +27,21 @@ def _pressure(plan) -> PressureExecutionEvidence:
         engine_core_identity_verified=True,
         forced_release_decision_ids=("decision-1",),
         native_evicted_block_ids=(1,),
+        allocation_watermark_source=(
+            "PINNED_KV_CACHE_MANAGER_REQUEST_BLOCK_TABLE"
+        ),
+        observed_allocated_blocks_by_request=(
+            plan.pressure.expected_allocated_blocks_by_request
+        ),
     )
 
 
 def _adapter_report(plan, *, closed: bool = True):
     events = []
     index = 1
-    for ordinal, request_id in enumerate(plan.frozen_native_enqueue_order):
+    first_wave = plan.frozen_native_enqueue_order[:4]
+    second_wave = plan.frozen_native_enqueue_order[4:]
+    for ordinal, request_id in enumerate(first_wave):
         events.append(
             {
                 "index": index,
@@ -52,13 +60,42 @@ def _adapter_report(plan, *, closed: bool = True):
             }
         )
         index += 1
-    for ordinal, request_id in enumerate(plan.frozen_native_enqueue_order):
+    for ordinal, request_id in enumerate(first_wave):
         events.append(
             {
                 "index": index,
                 "request_id": request_id,
                 "kind": "NATIVE_TERMINAL_CONFIRMED",
                 "timestamp": 30.0 + ordinal,
+            }
+        )
+        index += 1
+    for ordinal, request_id in enumerate(second_wave):
+        events.append(
+            {
+                "index": index,
+                "request_id": request_id,
+                "kind": "ADAPTER_DISPATCH_STARTED",
+                "timestamp": 40.0 + ordinal,
+            }
+        )
+        index += 1
+        events.append(
+            {
+                "index": index,
+                "request_id": request_id,
+                "kind": "NATIVE_SUBMISSION_OBSERVED",
+                "timestamp": 50.0 + ordinal,
+            }
+        )
+        index += 1
+    for ordinal, request_id in enumerate(second_wave):
+        events.append(
+            {
+                "index": index,
+                "request_id": request_id,
+                "kind": "NATIVE_TERMINAL_CONFIRMED",
+                "timestamp": 60.0 + ordinal,
             }
         )
         index += 1

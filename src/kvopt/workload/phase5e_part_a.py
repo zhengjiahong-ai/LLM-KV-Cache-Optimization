@@ -117,6 +117,14 @@ def evaluate_part_a_prearchive_gates(
     second_submissions = [
         row for row in native_submissions if row.get("request_id") in set(second_wave)
     ]
+    first_wave = expected[:4]
+    first_terminals = [terminals[row] for row in first_wave if row in terminals]
+    r1_natural_completion_barrier = (
+        len(first_terminals) == len(first_wave)
+        and len(second_submissions) == len(second_wave)
+        and max(int(row["index"]) for row in first_terminals)
+        < min(int(row["index"]) for row in second_submissions)
+    )
     second_terminals = [terminals[row] for row in second_wave if row in terminals]
     overlap = (
         len(second_submissions) == len(second_wave)
@@ -134,6 +142,10 @@ def evaluate_part_a_prearchive_gates(
         and pressure.free_blocks_before == pressure.free_blocks_after_release
         and bool(pressure.forced_release_decision_ids)
         and bool(pressure.native_evicted_block_ids)
+        and pressure.allocation_watermark_source
+        == "PINNED_KV_CACHE_MANAGER_REQUEST_BLOCK_TABLE"
+        and pressure.observed_allocated_blocks_by_request
+        == plan.pressure.expected_allocated_blocks_by_request
     )
     exposure_valid = (
         candidate_exposure_report.get("status") == "PASS"
@@ -154,11 +166,14 @@ def evaluate_part_a_prearchive_gates(
         "P5E-G0": {"status": "EXTERNAL_FREEZE_GATE_REQUIRED"},
         "P5E-G1": {
             "status": "PASS"
-            if controller_submission_order == expected and dispatch_order == expected
+            if controller_submission_order == expected
+            and dispatch_order == expected
+            and r1_natural_completion_barrier
             else "FAIL_CLOSED",
             "expected": list(expected),
             "controller": list(controller_submission_order),
             "dispatch": list(dispatch_order),
+            "r1_natural_completion_barrier": r1_natural_completion_barrier,
         },
         "P5E-G2": {
             "status": "PASS" if native_order == expected else "FAIL_CLOSED",
