@@ -10,6 +10,7 @@ CPU tests use the same contract with a deterministic mock.
 from __future__ import annotations
 
 import math
+import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass
 from enum import StrEnum
@@ -20,8 +21,11 @@ from .phase2b_fidelity_runner import RequestCompletion, RequestHandle
 from .phase5_replay import (
     EventKind,
     NSessionReplayPlan,
+    canonical_sha256,
     evaluate_native_enqueue_order,
 )
+
+_SHA256 = re.compile(r"[0-9a-f]{64}")
 
 
 class NativeRequestState(StrEnum):
@@ -39,10 +43,48 @@ class PressureContract(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
+class NativePressureAllocationRequest:
+    """Frozen input to one real Native BlockPool allocation."""
+
+    boundary_id: str
+    pressure_token_ids: tuple[int, ...]
+    pressure_token_ids_sha256: str
+    block_size_tokens: int
+    required_blocks: int
+    expected_free_blocks_before: int
+
+    def __post_init__(self) -> None:
+        if not self.boundary_id:
+            raise ValueError("Native pressure boundary ID must be non-empty")
+        if not self.pressure_token_ids or any(
+            isinstance(token_id, bool) or not isinstance(token_id, int) or token_id < 0
+            for token_id in self.pressure_token_ids
+        ):
+            raise ValueError("Native pressure token IDs must be non-negative integers")
+        if _SHA256.fullmatch(self.pressure_token_ids_sha256) is None:
+            raise ValueError("Native pressure token hash must be SHA-256")
+        if canonical_sha256(list(self.pressure_token_ids)) != (
+            self.pressure_token_ids_sha256
+        ):
+            raise ValueError("Native pressure token hash mismatch")
+        if (
+            self.block_size_tokens <= 0
+            or self.required_blocks <= 0
+            or self.expected_free_blocks_before <= 0
+        ):
+            raise ValueError("Native pressure block geometry must be positive")
+        if len(self.pressure_token_ids) != (
+            self.block_size_tokens * self.required_blocks
+        ):
+            raise ValueError("Native pressure tokens do not match required blocks")
+
+
+@dataclass(frozen=True, slots=True)
 class PressureBoundary:
     boundary_id: str
     logical_timestamp: float
     contract: PressureContract
+    allocation_request: NativePressureAllocationRequest
     expected_inflight_request_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
@@ -61,6 +103,8 @@ class PressureBoundary:
             raise ValueError("pressure expected inflight IDs must be unique")
         if not isinstance(self.contract, PressureContract):
             raise TypeError("pressure contract must be PressureContract")
+        if self.allocation_request.boundary_id != self.boundary_id:
+            raise ValueError("pressure allocation changed boundary identity")
         if any(
             not isinstance(request_id, str) or not request_id
             for request_id in self.expected_inflight_request_ids
@@ -118,6 +162,16 @@ class PressureExecutionEvidence:
     boundary_id: str
     native_snapshot_timestamp: float
     inflight_request_ids: tuple[str, ...]
+    pressure_token_ids_sha256: str
+    required_blocks: int
+    allocated_block_ids: tuple[int, ...]
+    free_blocks_before: int
+    free_blocks_after_allocation: int
+    free_blocks_after_release: int
+    allocation_source: str
+    engine_core_identity_verified: bool
+    forced_release_decision_ids: tuple[str, ...]
+    native_evicted_block_ids: tuple[int, ...]
 
     def __post_init__(self) -> None:
         if not self.boundary_id:
@@ -131,6 +185,28 @@ class PressureExecutionEvidence:
             raise ValueError("pressure Native timestamp must be finite and non-negative")
         if len(self.inflight_request_ids) != len(set(self.inflight_request_ids)):
             raise ValueError("pressure execution inflight IDs must be unique")
+        if _SHA256.fullmatch(self.pressure_token_ids_sha256) is None:
+            raise ValueError("pressure execution token hash must be SHA-256")
+        if self.required_blocks <= 0:
+            raise ValueError("pressure execution required_blocks must be positive")
+        if len(self.allocated_block_ids) != self.required_blocks or len(
+            set(self.allocated_block_ids)
+        ) != len(self.allocated_block_ids):
+            raise ValueError("pressure Native allocation block set is incomplete")
+        if self.free_blocks_before - self.free_blocks_after_allocation != (
+            self.required_blocks
+        ):
+            raise ValueError("pressure Native free-block accounting is inconsistent")
+        if self.free_blocks_after_release != self.free_blocks_before:
+            raise ValueError("pressure Native blocks were not fully released")
+        if self.allocation_source != "PINNED_BLOCK_POOL_GET_NEW_BLOCKS":
+            raise ValueError("pressure did not use the approved Native allocation path")
+        if self.engine_core_identity_verified is not True:
+            raise ValueError("pressure EngineCore identity was not verified")
+        if not self.forced_release_decision_ids:
+            raise ValueError("pressure lacks Forced Entry Release evidence")
+        if not self.native_evicted_block_ids:
+            raise ValueError("pressure lacks Native physical eviction evidence")
 
 
 class Phase5AsyncNativeBackend(Protocol):
@@ -146,7 +222,9 @@ class Phase5AsyncNativeBackend(Protocol):
 
     def finish_logical_completion(self, request_id: str) -> None: ...
 
-    def execute_pressure(self, boundary_id: str) -> PressureExecutionEvidence: ...
+    def execute_pressure(
+        self, request: NativePressureAllocationRequest
+    ) -> PressureExecutionEvidence: ...
 
     def native_events(self) -> Sequence[Mapping[str, object]]: ...
 
@@ -164,7 +242,9 @@ class CallbackPhase5NativeAdapter:
     submit_prepared_callback: Callable[[str], RequestHandle]
     poll_completed_callback: Callable[[float, bool], Sequence[RequestCompletion]]
     finish_logical_completion_callback: Callable[[str], None]
-    execute_pressure_callback: Callable[[str], PressureExecutionEvidence]
+    execute_pressure_callback: Callable[
+        [NativePressureAllocationRequest], PressureExecutionEvidence
+    ]
     native_events_callback: Callable[[], Sequence[Mapping[str, object]]]
 
     def prepare_arrival(self, request: PlannedRequest) -> None:
@@ -181,8 +261,10 @@ class CallbackPhase5NativeAdapter:
     def finish_logical_completion(self, request_id: str) -> None:
         self.finish_logical_completion_callback(request_id)
 
-    def execute_pressure(self, boundary_id: str) -> PressureExecutionEvidence:
-        return self.execute_pressure_callback(boundary_id)
+    def execute_pressure(
+        self, request: NativePressureAllocationRequest
+    ) -> PressureExecutionEvidence:
+        return self.execute_pressure_callback(request)
 
     def native_events(self) -> Sequence[Mapping[str, object]]:
         return self.native_events_callback()
@@ -361,9 +443,17 @@ def execute_phase5_native_plan(
                 raise Phase5NativeExecutionError(
                     f"live pressure inflight set mismatch at {item.boundary_id}"
                 )
-            pressure_evidence = backend.execute_pressure(item.boundary_id)
+            pressure_evidence = backend.execute_pressure(item.allocation_request)
             if pressure_evidence.boundary_id != item.boundary_id:
                 raise Phase5NativeExecutionError("pressure evidence changed boundary ID")
+            if pressure_evidence.pressure_token_ids_sha256 != (
+                item.allocation_request.pressure_token_ids_sha256
+            ) or pressure_evidence.required_blocks != (
+                item.allocation_request.required_blocks
+            ):
+                raise Phase5NativeExecutionError(
+                    "pressure evidence changed frozen allocation input"
+                )
             if set(pressure_evidence.inflight_request_ids) != set(observed_inflight):
                 raise Phase5NativeExecutionError(
                     "pressure Native snapshot inflight set mismatch"

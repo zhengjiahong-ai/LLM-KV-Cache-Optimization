@@ -17,6 +17,10 @@ from enum import StrEnum
 from typing import Protocol
 
 from .phase2b_fidelity_runner import RequestCompletion, RequestHandle
+from .phase5_native_async import (
+    NativePressureAllocationRequest,
+    PressureExecutionEvidence,
+)
 
 PINNED_VLLM_VERSION = "0.27.1"
 
@@ -76,6 +80,7 @@ class LifecycleEventKind(StrEnum):
     INTERNAL_REQUEST_ID_BOUND = "INTERNAL_REQUEST_ID_BOUND"
     NATIVE_SUBMISSION_OBSERVED = "NATIVE_SUBMISSION_OBSERVED"
     NATIVE_SCHEDULER_OBSERVED = "NATIVE_SCHEDULER_OBSERVED"
+    NATIVE_PRESSURE_ALLOCATED = "NATIVE_PRESSURE_ALLOCATED"
     OUTPUT_PROCESSOR_PARTIAL = "OUTPUT_PROCESSOR_PARTIAL"
     OUTPUT_PROCESSOR_TERMINAL = "OUTPUT_PROCESSOR_TERMINAL"
     NATIVE_ABORT_DISPATCHED = "NATIVE_ABORT_DISPATCHED"
@@ -139,6 +144,110 @@ class AsyncLLMAdapterError(RuntimeError):
     """The pinned adapter or Native lifecycle violated its contract."""
 
 
+class NativeKVCacheBlockProtocol(Protocol):
+    block_id: int
+
+
+class NativeBlockPoolProtocol(Protocol):
+    def get_num_free_blocks(self) -> int: ...
+
+    def get_new_blocks(
+        self, num_blocks: int
+    ) -> list[NativeKVCacheBlockProtocol]: ...
+
+    def free_blocks(
+        self, ordered_blocks: list[NativeKVCacheBlockProtocol]
+    ) -> None: ...
+
+
+@dataclass(slots=True)
+class PinnedNativeBlockPoolPressureExecutor:
+    """Execute controlled pressure through pinned BlockPool allocation.
+
+    The token input freezes allocation geometry and identity; this executor does
+    not claim that the tokens were evaluated by the model.
+    """
+
+    block_pool: NativeBlockPoolProtocol
+    adapter_engine_core: object
+    scheduler_engine_core: object
+    kv_instrumentation_engine_core: object
+    evidence_reader: Callable[
+        [str, tuple[int, ...]], Mapping[str, object]
+    ]
+    clock: Callable[[], float] = time.monotonic
+
+    def execute(
+        self,
+        request: NativePressureAllocationRequest,
+        *,
+        expected_inflight_request_ids: tuple[str, ...],
+        actual_inflight_request_ids: tuple[str, ...],
+    ) -> PressureExecutionEvidence:
+        if not (
+            self.adapter_engine_core is self.scheduler_engine_core
+            and self.adapter_engine_core is self.kv_instrumentation_engine_core
+        ):
+            raise AsyncLLMAdapterError(
+                "Pressure Adapter, Scheduler and KV instrumentation EngineCore differ"
+            )
+        scheduler = getattr(self.adapter_engine_core, "scheduler", None)
+        kv_cache_manager = getattr(scheduler, "kv_cache_manager", None)
+        if getattr(kv_cache_manager, "block_pool", None) is not self.block_pool:
+            raise AsyncLLMAdapterError(
+                "Pressure BlockPool is not owned by the verified EngineCore"
+            )
+        if set(actual_inflight_request_ids) != set(expected_inflight_request_ids):
+            raise AsyncLLMAdapterError("Pressure Native inflight set mismatch")
+        before = self.block_pool.get_num_free_blocks()
+        if before != request.expected_free_blocks_before:
+            raise AsyncLLMAdapterError(
+                "Native BlockPool free count differs from frozen Pressure geometry"
+            )
+        if before < request.required_blocks:
+            raise AsyncLLMAdapterError(
+                "Native BlockPool lacks frozen Pressure allocation capacity"
+            )
+        allocated: list[NativeKVCacheBlockProtocol] = []
+        after_allocation = before
+        evidence: Mapping[str, object]
+        try:
+            allocated = self.block_pool.get_new_blocks(request.required_blocks)
+            block_ids = tuple(int(block.block_id) for block in allocated)
+            after_allocation = self.block_pool.get_num_free_blocks()
+            evidence = self.evidence_reader(request.boundary_id, block_ids)
+        finally:
+            if allocated:
+                self.block_pool.free_blocks(allocated)
+        after_release = self.block_pool.get_num_free_blocks()
+        forced = evidence.get("forced_release_decision_ids")
+        evicted = evidence.get("native_evicted_block_ids")
+        if not isinstance(forced, (list, tuple)) or not all(
+            isinstance(row, str) and row for row in forced
+        ):
+            raise AsyncLLMAdapterError("Pressure Forced Release evidence is invalid")
+        if not isinstance(evicted, (list, tuple)) or not all(
+            isinstance(row, int) and not isinstance(row, bool) and row >= 0
+            for row in evicted
+        ):
+            raise AsyncLLMAdapterError("Pressure Native eviction evidence is invalid")
+        return PressureExecutionEvidence(
+            boundary_id=request.boundary_id,
+            native_snapshot_timestamp=_timestamp(self.clock(), "Pressure timestamp"),
+            inflight_request_ids=actual_inflight_request_ids,
+            pressure_token_ids_sha256=request.pressure_token_ids_sha256,
+            required_blocks=request.required_blocks,
+            allocated_block_ids=block_ids,
+            free_blocks_before=before,
+            free_blocks_after_allocation=after_allocation,
+            free_blocks_after_release=after_release,
+            allocation_source="PINNED_BLOCK_POOL_GET_NEW_BLOCKS",
+            engine_core_identity_verified=True,
+            forced_release_decision_ids=tuple(forced),
+            native_evicted_block_ids=tuple(evicted),
+        )
+
+
 def validate_pinned_asyncllm(engine: object, *, vllm_version: str) -> None:
     """Fail closed on version or public coroutine surface drift."""
 
@@ -168,6 +277,7 @@ class AsyncLLMNativeAdapter:
         clock: Callable[[], float] = time.monotonic,
         frontend_has_internal_request: Callable[[str], bool] | None = None,
         verified_abort_confirmation_sources: frozenset[str] = frozenset(),
+        native_pressure_executor: PinnedNativeBlockPoolPressureExecutor | None = None,
     ) -> None:
         validate_pinned_asyncllm(engine, vllm_version=vllm_version)
         self._engine = engine
@@ -205,6 +315,7 @@ class AsyncLLMNativeAdapter:
         self._verified_abort_confirmation_sources = (
             verified_abort_confirmation_sources
         )
+        self._native_pressure_executor = native_pressure_executor
         self._records: dict[str, _RequestLifecycle] = {}
         self._by_external: dict[str, _RequestLifecycle] = {}
         self._by_internal: dict[str, _RequestLifecycle] = {}
@@ -356,6 +467,45 @@ class AsyncLLMNativeAdapter:
             "ENGINE_CORE_MONOTONIC",
             {"queued_timestamp": queued, "scheduled_timestamp": scheduled},
         )
+
+    async def execute_native_pressure(
+        self,
+        request: NativePressureAllocationRequest,
+        *,
+        expected_inflight_request_ids: tuple[str, ...],
+    ) -> PressureExecutionEvidence:
+        """Allocate and release real blocks through the bound Native BlockPool."""
+
+        if self._native_pressure_executor is None:
+            raise AsyncLLMAdapterError("Native Pressure executor is not configured")
+        async with self._lock:
+            actual = tuple(
+                logical_id
+                for logical_id, record in self._records.items()
+                if record.internal_request_id is not None
+                and record.native_terminal_at is None
+                and record.failure_reason is None
+            )
+            if set(actual) != set(expected_inflight_request_ids):
+                raise AsyncLLMAdapterError("Pressure Adapter inflight set mismatch")
+            result = self._native_pressure_executor.execute(
+                request,
+                expected_inflight_request_ids=expected_inflight_request_ids,
+                actual_inflight_request_ids=actual,
+            )
+            self._event(
+                None,
+                LifecycleEventKind.NATIVE_PRESSURE_ALLOCATED,
+                result.native_snapshot_timestamp,
+                "ENGINE_CORE_MONOTONIC",
+                {
+                    "boundary_id": request.boundary_id,
+                    "required_blocks": request.required_blocks,
+                    "allocated_block_ids": list(result.allocated_block_ids),
+                    "pressure_token_ids_sha256": request.pressure_token_ids_sha256,
+                },
+            )
+            return result
 
     async def abort(self, logical_request_id: str) -> None:
         record = self._record(logical_request_id)
