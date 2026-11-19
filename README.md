@@ -15,31 +15,35 @@ The system foundation includes program/session identity, tool-gap and reuse hist
 
 See [Research Motivation and Contributions](docs/research-motivation-and-contributions.md) for the canonical motivation, research questions, contribution boundaries, and terminology.
 
-## Current Status (as of 2026-11-14)
+## Current Status (as of 2026-11-19)
 
 **Repository:** [zhengjiahong-ai/LLM-KV-Cache-Optimization](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization)  
-**Main HEAD after PR #109 merge:** `9ee8f271b9cb55c64c45e1da1eadca8f870444e3`
+**Main HEAD before this documentation update:** `4a8ff8e3f9c3829be4fd542f8a19132f1837d753` (PR #124 merged).
 
-- Phase 0 / 1A / 1B: **CLOSED**. The common vLLM/APC adapter and the project’s Continuum-style baseline have been integrated and real-runtime validated.
-- Phase 2A–2I: historical research and bounded evaluations are closed; their positive, negative, and inconclusive findings remain scoped to their original evidence.
-- Phase 3 Protocol v4 — Option F: **FROZEN**. Protocol v3 remains historical.
-- G0 v3: **ACCEPTED by M1 on 2026-11-07**. The sealed cohort contains 40 qualified tasks, 20 Workload Groups, and 10 repositories. The existing 40-run A0 Load Calibration is reused.
-- One-shot execution: **COMPLETE** — 30/30 Noise + 240/240 Main runs; all 270 run identities reconciled.
-- Phase 3 final M1 decision: **ACCEPTED for bounded paired-effect interpretation**, with frozen replay-order conformance failure, historical authorization gap, and transition-ledger gap retained as recorded deviations. This is not a claim that every frozen execution gate passed.
-- Mainline promotion: PR #104 and PR #109 are merged. Phase 3/4 retrospective evidence and the M4-reviewed R1.3 synthesis are now on `main`.
-- Research boundary: tested Cost-Aware arms did not demonstrate incremental recomputation benefit over A0 in this cohort; this does not establish universal algorithm equivalence or impossibility.
+- Phase 0 / 1A / 1B: **CLOSED**. The project-side Continuum-style baseline is integrated and real-runtime validated.
+- Phase 2: **HISTORICAL / CLOSED**. Findings remain scoped to their original evidence.
+- Phase 3: **M1 ACCEPTED FOR BOUNDED PAIRED-EFFECT INTERPRETATION**. The 270/270 campaign is reconciled; frozen replay-order and historical process deviations remain recorded.
+- Phase 4: **RESEARCH / DIAGNOSIS COMPLETE**. Its analyses inform later work but are not confirmatory evidence for Phase 5.
+- Phase 5: **CURRENT** — M1 accepts the six-system trace-driven design; PR #124 engineering integration is merged; dataset acquisition and qualification are next.
 
-The 270 new runs are exactly:
+### Phase 5 at a glance
 
-| Stage | Runs | Scope |
-| --- | ---: | --- |
-| A0 Noise Calibration | 30 | 5 frozen Groups × C1/C2 × 3 repeats |
-| Main Campaign | 240 | 20 Groups × C1/C2 × 6 arms |
-| **Total new runs** | **270** | One continuous compute window |
+| Area | Current state |
+| --- | --- |
+| Formal design | M1 accepts M4's six-system design; protocol JSON remains `DESIGN_FROZEN_CANDIDATE` |
+| Engineering | PR #124 merged; CPU/Mock campaign path integrated |
+| DVA-ER v1 | 28 focused CPU correctness tests passed; formal candidate selection/freeze gate remains open |
+| SWE-bench traces | New Phase 5 acquisition not completed |
+| BFCL Web Search traces | New acquisition and frozen fixtures not completed |
+| Qualified Cohort | Not selected; no Phase 5 Workload Seal |
+| Native GPU Conformance | Not passed; Phase 5E Part A remains a GPU gate |
+| GPU Calibration / Formal | Not started and not authorized |
 
-The earlier 40-run A0 Load Calibration is existing evidence bound into G0. It is **not** part of the 270 new runs and must not be rerun.
+The approved next work package is [Phase 5 Dataset Acquisition & Construction](docs/experiments/phase5-dataset-acquisition-and-construction.md). It covers SWE-bench Verified coding-agent traces and BFCL v4 Web Search traces with frozen tool fixtures. Acquisition is temporarily paused until this documentation synchronization is reviewed and merged.
 
-The formal backend is vLLM 0.27.1 with GPU Automatic Prefix Caching (APC). The six arms are N0/A0/A1/A2/A3/E0. The statistical unit is the Workload Group, not a cell, request, turn, or runtime repeat. See the [canonical M1 status ledger](docs/research-status.md) and [Phase 3 Protocol v4](docs/phase3-final-evaluation-protocol-v4.md).
+**Important distinction:** PR #124 establishes CPU/Mock contracts and production-shaped runner wiring. It does not establish live EngineCore/BlockPool behavior, Native concurrency, GPU conformance, trace availability, cohort qualification or algorithmic benefit. Dataset-construction approval does not authorize GPU Calibration or Formal execution.
+
+See the [canonical M1 status ledger](docs/research-status.md), [Phase 5 Formal Protocol](docs/experiments/phase5-formal-protocol.md), and [Phase 5 dataset construction decision](docs/experiments/phase5-dataset-acquisition-and-construction.md).
 
 ## Research Structure
 
