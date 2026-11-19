@@ -8,6 +8,16 @@
 
 ---
 
+## M1 status addendum (2026-11-19)
+
+M1 accepts this six-system research design and separately approves the limited Dataset Acquisition & Construction work package for SWE-bench Verified and BFCL v4 Web Search. See [M1 Dataset Acquisition & Construction decision](phase5-dataset-acquisition-and-construction.md).
+
+This M1 decision supersedes the original design-stage statements below that Trace Acquisition itself is not authorized. It does **not** supersede the protocol's execution gates or authorize Native/GPU Conformance, Calibration or Formal Campaign. The machine-readable protocol remains `DESIGN_FROZEN_CANDIDATE` with `execution_authorized=false`; system freeze, qualified Cohort/Seal, Native conformance, Calibration, resource authorization and final manifests remain mandatory.
+
+New acquisition is temporarily paused only until the documentation synchronization PR is merged. The M1 decision does not change the protocol's six systems, metrics, statistical model, Group definition, sample plan or claim boundaries.
+
+---
+
 ## 0. Purpose and non-goals
 
 This protocol defines one formal, trace-driven replay campaign comparing **six systems** on representative multi-turn Agent workloads:
@@ -30,7 +40,7 @@ This protocol does **not**:
 - pool Phase 3 fixed-pressure results with Phase 5 trace-driven results;
 - claim isolated mechanism causality from a whole-system comparison;
 - use the same formal data to select a winner and then confirm it;
-- authorize GPU, Native, or Trace Acquisition execution.
+- authorize GPU, Native, or Formal Campaign execution. Trace Acquisition is separately governed by the dated M1 status addendum above.
 
 The first formal campaign is **trace-driven replay only**. Closed-loop Agent execution is excluded and requires a separate protocol.
 
@@ -541,7 +551,7 @@ These are explicit entry gates, not assumptions.
 | U1 | Three-candidate family | A1/A3 frozen legacy; DVA-ER CPU selection gate; if DVA fails, M1 decides five-arm or stop | six-arm formal not executable |
 | U2 | Continuum Adapted scheduler scope | full scheduler vs cache-only; full needs scheduler conformance, cache-only needs rename | cannot define six-system comparison |
 | U3 | Official environment | same vLLM base vs separate base; same base may require patches, separate base is a confound | official arm may be descriptive only |
-| U4 | BFCL search fixture | freeze results vs exclude BFCL; exclusion reduces workload diversity | stratum incomplete |
+| U4 | BFCL search fixture | M1 has approved acquisition direction; exact immutable revision, third-party terms and fixture evidence must still be reviewed and frozen | stratum remains unqualified until fixture acceptance |
 | U5 | Arrival rate/seed | provisional λ and seed must be frozen before acquisition | arrival realization cannot be sealed |
 | U6 | Six-arm calibration/GPU budget | requested 72–112 GPU-hours; lower than projected minimum → NOT_FEASIBLE, never N<8 | campaign may be infeasible |
 | U7 | Censored-session policy | include right-censored Sessions with observed valid Turns; sensitivity excludes | population ambiguity |
@@ -556,7 +566,7 @@ M1_PROTOCOL_FREEZE = REQUIRED
 COST_AWARE_FAMILY = A1_ORIGINAL_FROZEN_LEGACY / A3_SUFFIX_FROZEN_LEGACY / DVA_ER_V1_PROVISIONAL
 DVA_ER_SELECTION_GATE = NOT_EXECUTED
 CONTINUUM_OFFICIAL_COMPATIBILITY = AUDIT_REQUIRED
-BFCL_TRACE_ACQUISITION = NOT_AUTHORIZED
+BFCL_TRACE_ACQUISITION = M1_APPROVED_LIMITED_WORK_PACKAGE; FIXTURE_NOT_ACQUIRED
 N_SESSION_NATIVE_RUNNER = NOT_GPU_PROVEN
 PHASE5E_PART_A = READY_FOR_M6_IMPLEMENTATION
 PHASE5E_PART_B = NOT_READY
