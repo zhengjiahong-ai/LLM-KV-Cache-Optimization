@@ -216,12 +216,14 @@ def build_formal_protocol_implementation_mapping(
             implementation=(
                 "src/kvopt/workload/phase5e_part_a.py",
                 "src/kvopt/workload/phase5e_mock_runner.py",
+                "src/kvopt/workload/phase5e_native_runner.py",
             ),
             evidence=("phase5e.part_a_mock_pipeline_result.v1",),
             evaluator=("src/kvopt/workload/phase5_gpu_conformance.py",),
             tests=(
                 "tests/test_phase5e_part_a.py",
                 "tests/test_phase5e_mock_runner.py",
+                "tests/test_phase5e_native_runner.py",
             ),
         ),
     )

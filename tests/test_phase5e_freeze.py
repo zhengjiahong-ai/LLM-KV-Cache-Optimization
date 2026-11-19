@@ -26,7 +26,7 @@ def test_phase5e_final_payload_binds_explicit_inputs_and_code() -> None:
     assert len(inputs["prompt_token_ids"]) == 8
     assert all(len(row) == 1984 for row in inputs["prompt_token_ids"].values())
     assert len(inputs["pressure_token_ids"]) == 24576
-    assert len(payloads["code_bindings"]) == 6
+    assert len(payloads["code_bindings"]) == 7
     assert payloads["gates"]["not_observable_is_pass"] is False
 
 

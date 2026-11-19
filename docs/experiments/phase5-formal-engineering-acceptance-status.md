@@ -32,12 +32,22 @@ retry.
 | Group-level analysis | PASS | paired permutation, t, bootstrap and Holm |
 | Campaign manifests and archive | PASS | deterministic archive round trip |
 | P5E Part A Mock pipeline | PASS | explicitly not GPU Conformance |
+| P5E Native runner wiring | PASS | CPU-injected end-to-end path; GPU not run |
 
 ## 3. Real Native gates
 
 No new Phase 5 Formal Native gate has passed in this engineering work. Earlier
 Phase 3 evidence and the pinned vLLM source/API audit are not substitutes for
 the Phase 5 six-system Native Conformance gate.
+
+The production-shaped Part A runner now validates a separate single-execution
+authorization, constructs the pinned in-process AsyncLLM configuration, installs
+the lifecycle proxy before the output handler, binds the Scheduler,
+KVCacheManager and BlockPool to the same EngineCore, reads each randomized
+internal request BlockTable for the frozen allocation watermark, executes the
+single pressure boundary, evaluates G1--G7, shuts down the Engine and archives
+both successful and failed attempts. The runner remains fail-closed because no
+GPU authorization record or live Native evidence has been supplied.
 
 DVA-ER is recorded as:
 

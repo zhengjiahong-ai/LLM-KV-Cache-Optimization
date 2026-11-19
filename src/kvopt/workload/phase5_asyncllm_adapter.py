@@ -408,6 +408,27 @@ class AsyncLLMNativeAdapter:
         self._pending_abort_dispatch: set[str] = set()
         self._core_proxy = install_pinned_engine_core_lifecycle_proxy(engine, self)
 
+    def bind_native_pressure_executor(
+        self, executor: PinnedNativeBlockPoolPressureExecutor
+    ) -> None:
+        """Bind the one verified pressure path before any request is submitted."""
+
+        if self._state is not AdapterState.OPEN or self._records:
+            raise AsyncLLMAdapterError(
+                "Native Pressure executor must be bound before submissions"
+            )
+        if self._native_pressure_executor is not None:
+            raise AsyncLLMAdapterError("Native Pressure executor is already bound")
+        self._native_pressure_executor = executor
+
+    def internal_request_id(self, logical_request_id: str) -> str:
+        """Return the bound Native identity used by KVCacheManager tables."""
+
+        record = self._record(logical_request_id)
+        if record.internal_request_id is None:
+            raise AsyncLLMAdapterError("request lacks a bound internal identity")
+        return record.internal_request_id
+
     async def submit(self, spec: AsyncLLMRequestSpec) -> RequestHandle:
         task = asyncio.current_task()
         if task is None:
