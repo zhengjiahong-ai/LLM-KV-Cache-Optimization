@@ -20,18 +20,20 @@ Supporting system mechanism
 
 The project does not treat Continuum retention and scheduling as unrelated add-ons: they form part of the adapted system baseline. The optimization contribution is evaluated at the specific cache decision layers varied by the frozen protocol.
 
-## Current Phase 3 ownership and execution authority
+## Current Phase 5 ownership and execution authority
 
-This overlay is authoritative for the current Option F campaign and takes precedence over the historical role descriptions below.
+This Phase 5 overlay supersedes the Phase 3 execution assignments below.
 
-- **M1:** research architecture, phase grants, canonical status, Protocol v4 freeze, fairness/claim boundaries, integration, and final evidence adjudication.
-- **M4:** frozen Protocol v4 semantics and post-campaign effect/statistical analysis. No routine protocol redesign is authorized.
-- **M6:** pre-launch readiness, one-shot 270-run execution, automatic Noise-to-Main transition, Native evidence, independent evaluator outputs, execution statistics, and immutable evidence archive.
-- **M5:** shared workload/runner substrate only if a concrete interface gap remains.
-- **M2/M3:** background/source-mechanism review and frozen baseline support.
-- **M7:** final report and presentation preparation after the evidence and claims are accepted.
+- **M1 — Research owner / final authority:** owns scope, phase authorization, canonical status, source/Cohort acceptance, fairness and claim boundaries, integration, and final evidence adjudication. M1 accepts the six-system design and the two primary workload strata. GPU Calibration and Formal execution remain unauthorized.
+- **M4 — Research design / data qualification owner:** owns accepted design semantics, source/task sampling frame, Q1–Q9 semantic interpretation, provenance/license review, outcome-blind qualification, Calibration/Formal Group construction, and Dataset Qualification Report. M4 must not use algorithm outcomes to include, exclude or replace tasks.
+- **M6 — Acquisition / engineering owner:** owns source-specific adapters, real Agent Trace capture, BFCL fixture capture and hashing, raw/normalized Trace production, Token Materialization, mechanical Q1–Q9 execution, provenance manifests, failure retention and reproducible packaging.
+- **M5 — Shared infrastructure support:** supports only concrete acquisition/replay substrate gaps identified by M6; no parallel redesign of merged Phase 5 contracts.
+- **M2 / M3 — Targeted support:** M2 supports source/license/related-work questions when requested; M3 supports frozen baseline and system-identity questions. Neither changes accepted arm definitions.
+- **M7 — Reporting:** prepares the final report and presentation after M1 accepts evidence and claim boundaries.
 
-**Current gate:** G0 v3 was accepted by M1 on 2026-11-07. The one-shot 270-run pipeline is AUTHORIZED / NOT STARTED. M6 must still record the execution host, runner, GPU allocation, full resource reservation, and frozen-hash checks. The 240-run Main stage is conditional on the machine-verified Noise transition gate; no intermediate manual M1 review is required if that gate passes.
+**Current operating state (2026-11-19):** the approved next work package is [Phase 5 Dataset Acquisition & Construction](experiments/phase5-dataset-acquisition-and-construction.md). Acquisition is temporarily paused for documentation synchronization. Once lifted, M6 may proceed continuously through acquisition and mechanical qualification while M4 performs independent source, license, outcome-blind and Cohort review. Routine data processing does not require step-by-step M1 approval.
+
+**GPU boundary:** no Phase 5 Native GPU Conformance, Calibration, or six-system Formal Campaign is authorized by the dataset-construction decision. These require separate gate acceptance and explicit M1 authorization.
 
 ## Historical initial role descriptions
 
