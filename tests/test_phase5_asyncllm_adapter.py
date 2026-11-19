@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import pytest
 
@@ -13,6 +13,7 @@ from kvopt.workload.phase5_asyncllm_adapter import (
     NativeTerminalKind,
     PinnedEngineCoreLifecycleProxy,
     PinnedNativeBlockPoolPressureExecutor,
+    resolve_pinned_inprocess_native_core,
     validate_pinned_asyncllm,
 )
 from kvopt.workload.phase5_native_async import NativePressureAllocationRequest
@@ -54,10 +55,16 @@ class _CoreBatch:
     timestamp: float
 
 
+@dataclass(frozen=True)
+class _CoreRequest:
+    request_id: str
+
+
 class _CoreClient:
     def __init__(self) -> None:
         self.batches: asyncio.Queue[_CoreBatch] = asyncio.Queue()
         self.aborts: list[tuple[str, ...]] = []
+        self.added: list[str] = []
         self.get_output_calls = 0
 
     async def get_output_async(self) -> _CoreBatch:
@@ -69,6 +76,9 @@ class _CoreClient:
             (request_ids,) if isinstance(request_ids, str) else tuple(request_ids)
         )
         self.aborts.append(identities)
+
+    async def add_request_async(self, request: _CoreRequest) -> None:
+        self.added.append(request.request_id)
 
 
 @dataclass
@@ -152,6 +162,7 @@ class _AsyncLLM:
         self.external_to_internal[request_id] = internal_id
         self.internal_to_external[internal_id] = request_id
         self.frontend_internal_ids.add(internal_id)
+        await self.engine_core.add_request_async(_CoreRequest(internal_id))  # type: ignore[attr-defined]
         if self.output_handler is None:
             self.output_handler = asyncio.create_task(self._run_output_handler())
         if self.emit_terminal_before_add_returns:
@@ -580,6 +591,10 @@ def test_missing_request_state_observer_is_explicitly_not_observable() -> None:
         report = adapter.report()
         assert report["request_state_observability"] == "NOT_OBSERVABLE"
         assert report["gpu_conformance_ready"] is False
+        assert report["part_a_natural_completion_readiness"] == "NOT_READY"
+        assert "REQUEST_STATE_NOT_OBSERVABLE" in report[
+            "part_a_natural_completion_blockers"
+        ]
         with pytest.raises(AsyncLLMAdapterError, match="NOT_OBSERVABLE"):
             await adapter.shutdown(
                 require_native_confirmation=False,
@@ -627,6 +642,9 @@ def test_missing_abort_confirmation_source_keeps_gpu_conformance_not_ready() -> 
     )
     report = adapter.report()
     assert report["gpu_conformance_ready"] is False
+    assert report["part_a_natural_completion_readiness"] == "READY"
+    assert report["part_a_natural_completion_blockers"] == []
+    assert report["part_b_abort_readiness"] == "NOT_READY"
     assert "ABORT_CONFIRMATION_SOURCE_NOT_ESTABLISHED" in report[
         "gpu_conformance_blockers"
     ]
@@ -655,6 +673,27 @@ def test_timing_evidence_keeps_external_internal_and_clock_domains_separate() ->
             "external_request_id": "external:r1",
             "internal_request_id": handle.native_request_id,
         }
+        await adapter.shutdown()
+        await engine.close()
+
+    asyncio.run(scenario())
+
+
+def test_background_add_request_path_records_actual_native_submission() -> None:
+    async def scenario() -> None:
+        engine = _AsyncLLM()
+        adapter = _adapter(engine)
+        handle = await adapter.submit(_spec())
+        assert engine.raw_core.added == [handle.native_request_id]
+        events = adapter.report()["events"]
+        submission = next(
+            row for row in events if row["kind"] == "NATIVE_SUBMISSION_OBSERVED"
+        )
+        assert submission["request_id"] == "r1"
+        assert submission["details"]["internal_request_id"] == handle.native_request_id
+        assert submission["clock_domain"] == "ADAPTER_NATIVE_MONOTONIC"
+        await _natural_finish(engine, handle.native_request_id, timestamp=701.0)
+        await adapter.collect_completed(timeout_seconds=1.0, wait_for_one=True)
         await adapter.shutdown()
         await engine.close()
 
@@ -695,6 +734,32 @@ def test_native_pressure_uses_real_block_pool_allocation_and_releases() -> None:
     assert result.allocated_block_ids == (0, 1)
     assert result.free_blocks_before == result.free_blocks_after_release == 8
     assert result.allocation_source == "PINNED_BLOCK_POOL_GET_NEW_BLOCKS"
+
+
+def test_native_pressure_requires_exact_request_allocation_watermark() -> None:
+    pool = _BlockPool()
+    core = _NativeCore(pool)
+    request = replace(
+        _native_pressure(),
+        expected_allocated_blocks_by_request=(("r1", 4), ("r2", 4)),
+    )
+    executor = PinnedNativeBlockPoolPressureExecutor(
+        block_pool=pool,
+        adapter_engine_core=core,
+        scheduler_engine_core=core,
+        kv_instrumentation_engine_core=core,
+        evidence_reader=lambda boundary_id, block_ids: {
+            "forced_release_decision_ids": [f"decision:{boundary_id}"],
+            "native_evicted_block_ids": list(block_ids),
+        },
+        allocation_watermark_reader=lambda _ids: {"r1": 4, "r2": 3},
+    )
+    with pytest.raises(AsyncLLMAdapterError, match="allocation watermark differs"):
+        executor.execute(
+            request,
+            expected_inflight_request_ids=("r1", "r2"),
+            actual_inflight_request_ids=("r1", "r2"),
+        )
 
 
 def test_native_pressure_rejects_engine_identity_or_missing_evidence() -> None:
@@ -788,3 +853,47 @@ def test_asyncllm_adapter_routes_pressure_to_bound_native_executor() -> None:
         await engine.close()
 
     asyncio.run(scenario())
+
+
+def test_inprocess_native_core_resolution_binds_real_scheduler_and_pool() -> None:
+    engine = _AsyncLLM()
+    pool = _BlockPool()
+    raw_core = engine.engine_core
+    manager = type("KVCacheManagerView", (), {"block_pool": pool})()
+    raw_core.scheduler = type(  # type: ignore[attr-defined]
+        "SchedulerView", (), {"kv_cache_manager": manager}
+    )()
+    adapter = _adapter(engine)
+
+    resolved = resolve_pinned_inprocess_native_core(engine)
+
+    assert resolved.engine_core is raw_core
+    assert resolved.scheduler is raw_core.scheduler  # type: ignore[attr-defined]
+    assert resolved.block_pool is pool
+    assert resolved.resolution_path == "engine_core_proxy.delegate"
+    assert adapter.report()["part_a_natural_completion_readiness"] == "READY"
+
+
+def test_inprocess_native_core_resolution_rejects_missing_or_ambiguous_core() -> None:
+    engine = _AsyncLLM()
+    _adapter(engine)
+    with pytest.raises(AsyncLLMAdapterError, match="exactly one"):
+        resolve_pinned_inprocess_native_core(engine)
+
+    pool_a = _BlockPool()
+    pool_b = _BlockPool()
+    delegate = engine.raw_core
+    manager_a = type("ManagerA", (), {"block_pool": pool_a})()
+    manager_b = type("ManagerB", (), {"block_pool": pool_b})()
+    delegate.scheduler = type("SchedulerA", (), {"kv_cache_manager": manager_a})()
+    delegate.engine_core = type(  # type: ignore[attr-defined]
+        "SecondCore",
+        (),
+        {
+            "scheduler": type(
+                "SchedulerB", (), {"kv_cache_manager": manager_b}
+            )()
+        },
+    )()
+    with pytest.raises(AsyncLLMAdapterError, match="exactly one"):
+        resolve_pinned_inprocess_native_core(engine)

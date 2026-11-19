@@ -104,6 +104,7 @@ def build_phase5e_freeze_payloads(
             "src/kvopt/workload/phase5_replay.py",
             "src/kvopt/workload/phase5_native_async.py",
             "src/kvopt/workload/phase5_asyncllm_adapter.py",
+            "src/kvopt/workload/phase5e_native_runner.py",
             "src/kvopt/workload/phase5e_freeze.py",
             "scripts/spikes/prepare_phase5e_part_a.py",
         )

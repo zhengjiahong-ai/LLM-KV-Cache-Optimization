@@ -52,6 +52,7 @@ class NativePressureAllocationRequest:
     block_size_tokens: int
     required_blocks: int
     expected_free_blocks_before: int
+    expected_allocated_blocks_by_request: tuple[tuple[str, int], ...] = ()
 
     def __post_init__(self) -> None:
         if not self.boundary_id:
@@ -77,6 +78,18 @@ class NativePressureAllocationRequest:
             self.block_size_tokens * self.required_blocks
         ):
             raise ValueError("Native pressure tokens do not match required blocks")
+        request_ids = [row[0] for row in self.expected_allocated_blocks_by_request]
+        if len(request_ids) != len(set(request_ids)):
+            raise ValueError("Native pressure allocation watermark IDs must be unique")
+        if any(
+            not isinstance(request_id, str)
+            or not request_id
+            or isinstance(blocks, bool)
+            or not isinstance(blocks, int)
+            or blocks <= 0
+            for request_id, blocks in self.expected_allocated_blocks_by_request
+        ):
+            raise ValueError("Native pressure allocation watermark is invalid")
 
 
 @dataclass(frozen=True, slots=True)
@@ -172,6 +185,8 @@ class PressureExecutionEvidence:
     engine_core_identity_verified: bool
     forced_release_decision_ids: tuple[str, ...]
     native_evicted_block_ids: tuple[int, ...]
+    allocation_watermark_source: str | None = None
+    observed_allocated_blocks_by_request: tuple[tuple[str, int], ...] = ()
 
     def __post_init__(self) -> None:
         if not self.boundary_id:
@@ -207,6 +222,20 @@ class PressureExecutionEvidence:
             raise ValueError("pressure lacks Forced Entry Release evidence")
         if not self.native_evicted_block_ids:
             raise ValueError("pressure lacks Native physical eviction evidence")
+        if self.observed_allocated_blocks_by_request:
+            if not self.allocation_watermark_source:
+                raise ValueError("pressure allocation watermark lacks its source")
+            request_ids = [row[0] for row in self.observed_allocated_blocks_by_request]
+            if len(request_ids) != len(set(request_ids)) or any(
+                not request_id
+                or isinstance(blocks, bool)
+                or not isinstance(blocks, int)
+                or blocks <= 0
+                for request_id, blocks in self.observed_allocated_blocks_by_request
+            ):
+                raise ValueError("pressure allocation watermark evidence is invalid")
+        elif self.allocation_watermark_source is not None:
+            raise ValueError("pressure allocation watermark source lacks observations")
 
 
 class Phase5AsyncNativeBackend(Protocol):

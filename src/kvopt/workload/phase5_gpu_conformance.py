@@ -94,6 +94,7 @@ class PressureFixture:
     pressure_prompt_tokens: int
     required_blocks: int
     expected_free_blocks_before: int
+    expected_allocated_blocks_by_request: tuple[tuple[str, int], ...]
 
     def __post_init__(self) -> None:
         if not self.boundary_id:
@@ -124,6 +125,11 @@ class PressureFixture:
             raise ValueError("pressure token and block counts must be positive")
         if len(self.pressure_prompt_token_ids) != self.pressure_prompt_tokens:
             raise ValueError("pressure token input length changed")
+        expected_ids = [row[0] for row in self.expected_allocated_blocks_by_request]
+        if tuple(expected_ids) != self.expected_inflight_request_ids or any(
+            blocks <= 0 for _, blocks in self.expected_allocated_blocks_by_request
+        ):
+            raise ValueError("pressure allocation watermark differs from inflight set")
 
     def to_native_allocation_request(self, block_size_tokens: int) -> NativePressureAllocationRequest:
         return NativePressureAllocationRequest(
@@ -133,6 +139,9 @@ class PressureFixture:
             block_size_tokens=block_size_tokens,
             required_blocks=self.required_blocks,
             expected_free_blocks_before=self.expected_free_blocks_before,
+            expected_allocated_blocks_by_request=(
+                self.expected_allocated_blocks_by_request
+            ),
         )
 
     def to_native_boundary(self, block_size_tokens: int) -> PressureBoundary:
@@ -513,6 +522,9 @@ def build_phase5e_review_candidate(git_sha: str) -> Phase5GPUConformancePlan:
         pressure_prompt_tokens=24576,
         required_blocks=1536,
         expected_free_blocks_before=1536,
+        expected_allocated_blocks_by_request=tuple(
+            (request_id, 128) for request_id in order[4:]
+        ),
     )
     return Phase5GPUConformancePlan(
         git_sha=git_sha,

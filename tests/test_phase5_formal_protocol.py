@@ -232,6 +232,31 @@ def test_rejects_homogeneity_test_pooling_switch() -> None:
         raise AssertionError("homogeneity-test pooling switch was accepted")
 
 
+def test_rejects_obsolete_common_pooled_df_7() -> None:
+    module = _load_module()
+    protocol = _protocol()
+    variance = protocol["statistics"]["variance_model"]
+    variance["df_between"] = 7
+    variance["pooled_df"] = 7
+    try:
+        module.validate_protocol(protocol, _schema())
+    except ValueError as error:
+        assert "variance contract" in str(error) or "pooled_df" in str(error)
+    else:
+        raise AssertionError("obsolete pooled df=7 was accepted")
+
+
+def test_cross_contract_requires_exact_df6_df16_and_bootstrap_seed() -> None:
+    docs = _contract_docs()
+    docs["calibration"]["variance_model"]["df_within"] = 15
+    try:
+        _cross_validate(docs)
+    except ValueError as error:
+        assert "variance contract" in str(error)
+    else:
+        raise AssertionError("changed within-group df was accepted")
+
+
 def _contract_docs():
     return {
         "protocol": _protocol(),
