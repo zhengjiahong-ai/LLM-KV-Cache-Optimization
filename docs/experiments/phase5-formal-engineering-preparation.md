@@ -269,6 +269,12 @@ an immutable run directory. It:
 An existing archive is never overwritten. A failed temporary archive is
 removed, while the source evidence remains untouched.
 
+`phase5_formal_archive.py` extends this to a complete Calibration or Formal
+Campaign. It requires the exact frozen Run set, validates every Input/Result
+binding, verifies all four raw-evidence hashes and every derived-metric hash,
+and performs an independent archive round trip. Failed Runs remain indexed
+and archived; the external envelope has no authorization effect.
+
 ## 7. Formal Protocol integration and mapping
 
 Every protocol field is mapped using:
@@ -337,7 +343,7 @@ create an algorithmic-benefit claim.
 
 The following protocol-owned decisions remain deliberately unresolved:
 
-- U1 DVA-ER v1 CPU selection/correctness gate;
+- U1 DVA-ER v1 CPU gate has passed, but M1/M4 formal freeze remains unresolved;
 - U2 Continuum Adapted scheduler scope;
 - U3 Continuum Official environment compatibility;
 - U4 BFCL acquisition authorization and frozen fixture;
@@ -359,7 +365,7 @@ current CPU implementation now includes the following protocol-bound pieces:
 - `phase5_formal_analysis.py` averages the two repeats within each
   Group/System before forming paired Group contrasts, applies complete-case
   Group handling, separate Holm families per stratum, exact paired sign-flip
-  tests and reproducible Group bootstrap intervals; and
+  tests, paired Group t tests and reproducible Group bootstrap intervals; and
 - `phase5e_mock_runner.py` exercises the bounded Part A controller through
   gate evaluation and independently validated evidence archive creation.
 - `phase5_system_adapters.py` requires exactly the six frozen systems and
@@ -374,8 +380,26 @@ current CPU implementation now includes the following protocol-bound pieces:
   noncentral-t analysis, Calibration evidence archive and size-matched Formal
   plan. Its output is only a candidate for M1 authorization and always retains
   `execution_authorized=false` and `authorization_effect=NONE`.
+- the merged DVA-ER v1 implementation from PR #123 is now connected through
+  `phase5_dva_candidate_adapter.py`. The adapter reconstructs the complete
+  decision-time Native pool, FreeQueue, refcount/protection, follow-up and A0
+  tie-break evidence, invokes the real `DVAERStrategy`, and returns candidate
+  loss, selected Entry and simulated Native victim sequence through the common
+  Candidate Evaluation contract. Nested future-evidence fields fail closed.
 
-These are CPU/Mock engineering contracts. They do not close U1--U7, implement
+DVA status remains deliberately split: CPU correctness is `PASS`, candidate
+freeze is `PROVISIONAL_NOT_FROZEN`, and Native Conformance is `NOT_RUN`. CPU
+six-system integration accepts this provisional state for interface testing,
+while Formal execution readiness continues to fail closed until both the
+algorithm freeze and Native compatibility gate pass.
+
+`phase5_candidate_physical_evidence.py` joins each candidate loss vector and
+selected Entry to the SelectionPlan and observed physical victim classes.
+Identity drift, planned-victim drift, unobservable outcomes and overlapping
+physical classes fail closed. Downstream attribution and Algorithmic Benefit
+remain `NOT_ESTABLISHED`.
+
+These are CPU/Mock engineering contracts. They do not close U1--U7, freeze
 DVA-ER v1, qualify BFCL, authorize execution or establish Native/GPU PASS.
 
 Any protocol field that lacks an observable Native fact will be returned to M4

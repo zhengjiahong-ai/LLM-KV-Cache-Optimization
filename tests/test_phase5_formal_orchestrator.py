@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from dataclasses import replace
 
 import pytest
 
@@ -96,6 +97,30 @@ def test_full_144_run_cpu_orchestration_contract_passes() -> None:
     assert report["cell_count_evaluated"] == 24
     assert report["gpu_execution_authorized"] is False
     assert report["native_conformance_claim"] == "NOT_ESTABLISHED"
+    assert report["formal_system_readiness"] == "READY"
+
+
+def test_provisional_dva_cpu_integration_does_not_claim_formal_readiness() -> None:
+    plan = _plan()
+    bindings = _bindings()
+    index = next(
+        index
+        for index, binding in enumerate(bindings)
+        if binding.system_id == "DVA_ER_V1"
+    )
+    bindings[index] = replace(
+        bindings[index],
+        algorithm_frozen=False,
+        native_compatibility_status="NOT_RUN",
+    )
+    report = run_campaign_plan_cpu_contract(
+        plan=plan,
+        expected_enqueue_sequence_sha256_by_group=_enqueue_map(plan),
+        bindings=bindings,
+    )
+    assert report["status"] == "CPU_CONTRACT_PASS"
+    assert report["formal_system_readiness"] == "BLOCKED"
+    assert "not frozen" in report["formal_system_readiness_reason"]
 
 
 def test_first_failed_run_stops_remaining_cells_without_retry() -> None:

@@ -160,3 +160,13 @@ def test_no_complete_groups_is_explicitly_not_evaluable() -> None:
 
     assert report["status"] == "NOT_EVALUABLE_NO_COMPLETE_GROUPS"
     assert report["complete_group_count"] == 0
+
+
+def test_paired_group_t_test_is_reported_with_correct_degrees_of_freedom() -> None:
+    report = analyze_phase5_formal_groups(
+        _rows(group_count=4), bootstrap_resamples=20
+    )
+    result = report["strata"]["SWE_BENCH"]["contrasts"]["A1_vs_A0"]
+    assert result["paired_t_test"]["df"] == 3
+    assert result["paired_t_test"]["status"] == "DEGENERATE_ZERO_VARIANCE"
+    assert result["paired_t_test"]["two_sided_pvalue"] == 0.0

@@ -6,6 +6,7 @@ import math
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
+from itertools import pairwise
 from typing import Protocol
 
 from .phase5_replay import canonical_sha256
@@ -140,11 +141,17 @@ def evaluate_candidate_family(
             raise ValueError("candidate decision used a different snapshot")
         if set(decision.scores) != set(snapshot.legal_candidate_ids):
             raise ValueError("candidate decision score set differs from legal candidates")
-        if tuple(decision.ordered_candidate_ids) != tuple(
-            sorted(
-                snapshot.legal_candidate_ids,
-                key=lambda row: (decision.scores[row], row),
-            )
+        if (
+            len(decision.ordered_candidate_ids) != len(snapshot.legal_candidate_ids)
+            or set(decision.ordered_candidate_ids) != set(snapshot.legal_candidate_ids)
+        ):
+            raise ValueError("candidate ranking differs from the legal candidate set")
+        ordered_scores = [
+            float(decision.scores[row]) for row in decision.ordered_candidate_ids
+        ]
+        if any(
+            left_score > right_score
+            for left_score, right_score in pairwise(ordered_scores)
         ):
             raise ValueError("candidate ranking is inconsistent with its scores")
         if decision.selected_candidate_id != decision.ordered_candidate_ids[0]:

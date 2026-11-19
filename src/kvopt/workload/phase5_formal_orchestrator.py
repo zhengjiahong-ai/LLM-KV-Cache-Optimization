@@ -13,6 +13,7 @@ from .phase5_six_system_runner import (
 )
 from .phase5_system_adapters import (
     SystemAdapterBinding,
+    SystemAdapterRegistryError,
     route_system_execution,
     validate_system_adapter_registry,
 )
@@ -63,7 +64,17 @@ def run_campaign_plan_cpu_contract(
     """Exercise all paired cells in CPU/Mock mode; never authorize GPU execution."""
 
     validate_campaign_plan_identity(plan)
-    registry = validate_system_adapter_registry(bindings)
+    registry = validate_system_adapter_registry(
+        bindings, require_formal_readiness=False
+    )
+    try:
+        validate_system_adapter_registry(bindings, require_formal_readiness=True)
+    except SystemAdapterRegistryError as error:
+        formal_readiness = "BLOCKED"
+        formal_readiness_reason = str(error)
+    else:
+        formal_readiness = "READY"
+        formal_readiness_reason = None
     raw_rows = plan["runs"]
     assert isinstance(raw_rows, list)
     cells: dict[tuple[str, str, int], list[Mapping[str, object]]] = defaultdict(list)
@@ -140,5 +151,7 @@ def run_campaign_plan_cpu_contract(
         "execution_mode": "CPU_MOCK",
         "gpu_execution_authorized": False,
         "native_conformance_claim": "NOT_ESTABLISHED",
+        "formal_system_readiness": formal_readiness,
+        "formal_system_readiness_reason": formal_readiness_reason,
     }
     return {**payload, "report_sha256": canonical_sha256(payload)}

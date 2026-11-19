@@ -82,3 +82,24 @@ def test_missing_or_duplicate_system_fails_registry() -> None:
     bindings[-1] = replace(bindings[-1], system_id="NATIVE")
     with pytest.raises(SystemAdapterRegistryError, match="identities"):
         validate_system_adapter_registry(bindings)
+
+
+def test_provisional_dva_is_accepted_only_for_cpu_integration() -> None:
+    bindings = _bindings()
+    index = next(
+        index
+        for index, binding in enumerate(bindings)
+        if binding.system_id == "DVA_ER_V1"
+    )
+    bindings[index] = replace(
+        bindings[index],
+        algorithm_frozen=False,
+        native_compatibility_status="NOT_RUN",
+    )
+    assert set(
+        validate_system_adapter_registry(
+            bindings, require_formal_readiness=False
+        )
+    ) == set(SYSTEM_IDS)
+    with pytest.raises(SystemAdapterRegistryError, match="not frozen"):
+        validate_system_adapter_registry(bindings, require_formal_readiness=True)

@@ -86,6 +86,85 @@ def _paired_permutation_pvalue(values: Sequence[float]) -> float:
     return extreme / total
 
 
+def _beta_continued_fraction(a: float, b: float, x: float) -> float:
+    maximum_iterations = 400
+    epsilon = 3.0e-14
+    floor = 1.0e-300
+    qab = a + b
+    qap = a + 1.0
+    qam = a - 1.0
+    c = 1.0
+    d = 1.0 - qab * x / qap
+    d = 1.0 / max(abs(d), floor) * (1.0 if d >= 0 else -1.0)
+    result = d
+    for iteration in range(1, maximum_iterations + 1):
+        doubled = 2 * iteration
+        coefficient = iteration * (b - iteration) * x / (
+            (qam + doubled) * (a + doubled)
+        )
+        d = 1.0 + coefficient * d
+        d = d if abs(d) >= floor else floor
+        c = 1.0 + coefficient / c
+        c = c if abs(c) >= floor else floor
+        d = 1.0 / d
+        result *= d * c
+        coefficient = -(a + iteration) * (qab + iteration) * x / (
+            (a + doubled) * (qap + doubled)
+        )
+        d = 1.0 + coefficient * d
+        d = d if abs(d) >= floor else floor
+        c = 1.0 + coefficient / c
+        c = c if abs(c) >= floor else floor
+        d = 1.0 / d
+        change = d * c
+        result *= change
+        if abs(change - 1.0) <= epsilon:
+            return result
+    raise ArithmeticError("incomplete beta continued fraction did not converge")
+
+
+def _regularized_incomplete_beta(x: float, a: float, b: float) -> float:
+    if not 0.0 <= x <= 1.0 or a <= 0.0 or b <= 0.0:
+        raise ValueError("regularized incomplete beta arguments are invalid")
+    if x in {0.0, 1.0}:
+        return x
+    front = math.exp(
+        math.lgamma(a + b)
+        - math.lgamma(a)
+        - math.lgamma(b)
+        + a * math.log(x)
+        + b * math.log1p(-x)
+    )
+    if x < (a + 1.0) / (a + b + 2.0):
+        return front * _beta_continued_fraction(a, b, x) / a
+    return 1.0 - front * _beta_continued_fraction(b, a, 1.0 - x) / b
+
+
+def _paired_t_test(values: Sequence[float]) -> dict[str, object]:
+    count = len(values)
+    if count < 2:
+        return {"status": "NOT_EVALUABLE_N_LT_2", "df": max(0, count - 1)}
+    mean = fmean(values)
+    variance = sum((value - mean) ** 2 for value in values) / (count - 1)
+    if variance == 0.0:
+        return {
+            "status": "DEGENERATE_ZERO_VARIANCE",
+            "df": count - 1,
+            "statistic": 0.0 if mean == 0.0 else math.copysign(math.inf, mean),
+            "two_sided_pvalue": 1.0 if mean == 0.0 else 0.0,
+        }
+    statistic = mean / math.sqrt(variance / count)
+    df = count - 1
+    x = df / (df + statistic * statistic)
+    pvalue = _regularized_incomplete_beta(x, df / 2.0, 0.5)
+    return {
+        "status": "PASS",
+        "df": df,
+        "statistic": statistic,
+        "two_sided_pvalue": min(1.0, max(0.0, pvalue)),
+    }
+
+
 def _holm_adjust(raw: Mapping[str, float]) -> dict[str, float]:
     ordered = sorted(raw, key=lambda name: (raw[name], name))
     adjusted: dict[str, float] = {}
@@ -220,6 +299,7 @@ def analyze_phase5_formal_groups(
                 ),
                 "bootstrap_ci": [ci_low, ci_high],
                 "paired_permutation_pvalue": _paired_permutation_pvalue(differences),
+                "paired_t_test": _paired_t_test(differences),
             }
 
         families: dict[str, object] = {}

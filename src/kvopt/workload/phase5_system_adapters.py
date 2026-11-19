@@ -32,6 +32,8 @@ class SystemAdapterBinding:
 
 def validate_system_adapter_registry(
     bindings: Sequence[SystemAdapterBinding],
+    *,
+    require_formal_readiness: bool = True,
 ) -> Mapping[str, SystemAdapterBinding]:
     """Validate the exact protocol-owned six-system implementation boundary."""
 
@@ -52,13 +54,16 @@ def validate_system_adapter_registry(
             raise SystemAdapterRegistryError(
                 f"{system_id} implementation is not READY"
             )
-        if not binding.algorithm_frozen:
-            raise SystemAdapterRegistryError(f"{system_id} algorithm is not frozen")
         if binding.cpu_correctness_status != "PASS":
             raise SystemAdapterRegistryError(
                 f"{system_id} CPU correctness gate did not pass"
             )
-        if binding.native_compatibility_status != "PASS":
+        if require_formal_readiness and not binding.algorithm_frozen:
+            raise SystemAdapterRegistryError(f"{system_id} algorithm is not frozen")
+        if (
+            require_formal_readiness
+            and binding.native_compatibility_status != "PASS"
+        ):
             raise SystemAdapterRegistryError(
                 f"{system_id} Native compatibility gate did not pass"
             )
