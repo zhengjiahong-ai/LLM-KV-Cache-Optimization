@@ -20,7 +20,6 @@ def test_concrete_protocol_mapping_reports_exact_open_gates() -> None:
         "workload_acquisition",
         "six_system_execution",
         "native_evidence",
-        "calibration_and_sample_size",
         "gpu_conformance",
     ]
     assert len(report["mapping_sha256"]) == 64
@@ -35,4 +34,10 @@ def test_dva_mapping_binds_real_implementation_and_cpu_gate() -> None:
     dva = rows["candidate_evaluation"]
     assert "src/kvopt/costaware/dva_er.py" in dva["implementation_references"]
     assert "docs/experiments/dva-er-v1-cpu-gate.json" in dva["evidence_references"]
+    calibration = rows["calibration_and_sample_size"]
+    assert calibration["status"] == "IMPLEMENTED"
+    assert (
+        "src/kvopt/workload/phase5_calibration_backend.py"
+        in calibration["implementation_references"]
+    )
     assert rows["gpu_conformance"]["status"] == "BLOCKED_REQUIRES_M4"

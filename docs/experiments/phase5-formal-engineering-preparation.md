@@ -309,12 +309,14 @@ selects a cohort or authorizes execution. Formal Groups require exactly four
 distinct qualified Programs and one distinct Session per Program.
 
 `phase5_calibration.py` validates the exact 144-cell Calibration matrix (two
-strata × four Groups × six Systems × three repeats), rejects failed,
-duplicated, missing or Formal-reused cells. The obsolete z approximation is
-explicitly prohibited. The analyzer boundary accepts only the frozen
-method-of-moments mixed model, 8×8 covariance and iterative noncentral-t
-backend; the exact numerical backend is still an implementation item.
-Calibration output never self-authorizes Formal execution.
+strata × four Groups × six Systems × three repeats), rejecting failed,
+duplicated, missing or Formal-reused cells. `phase5_calibration_backend.py`
+implements M4's frozen method-of-moments model with Stratum fixed effects:
+common `df=6/16`, total `df=22`, descriptive per-Stratum `df=3/8`, 8×8
+`df=6` covariance with PSD projection, the seeded one-sided 80% parametric
+bootstrap upper bound, and iterative noncentral-t sizing with `df=n-1`.
+`pooled_df=7` and z approximations are prohibited. Calibration output never
+self-authorizes Formal execution.
 
 `phase5_campaign_plan.py` materializes the exact six-system matrices: 144
 Calibration runs and 192/288/384 Formal runs for N=8/12/16 per stratum. It

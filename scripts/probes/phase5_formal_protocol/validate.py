@@ -147,8 +147,7 @@ def validate_protocol(protocol: dict[str, Any], schema: dict[str, Any]) -> None:
         raise ValueError("contrast covariance must cover all eight tests")
     if covariance["homogeneity_test"] is not False:
         raise ValueError("no homogeneity-test-based pooling switch is allowed")
-    if "FIXED_COMMON_MIXED_MODEL" not in covariance["pooling_rule"]:
-        raise ValueError("variance pooling must be a fixed pre-registered model")
+    _validate_frozen_variance_contract(covariance, "protocol")
     if protocol["statistics"]["mde_pre_registration_order"][-1] != "FREEZE_VALUE_BEFORE_FORMAL":
         raise ValueError("MDE value must be frozen before formal execution")
 
@@ -326,6 +325,39 @@ CANDIDATE_CONTRASTS = [
 SYSTEM_CONTRASTS = ["NATIVE_vs_A0", "OFFICIAL_vs_A0"]
 
 
+def _validate_frozen_variance_contract(
+    variance: dict[str, Any], label: str
+) -> None:
+    expected = {
+        "pooling_rule": "FIXED_COMMON_MIXED_MODEL_WITH_STRATUM_FIXED_EFFECT",
+        "df_between": 6,
+        "df_within": 16,
+        "df_total": 22,
+        "fixed_effect_rank": 2,
+        "formal_repeats": 2,
+        "per_stratum_df": 3,
+        "per_stratum_within_df": 8,
+        "df_covariance": 6,
+        "contrast_covariance_size": 8,
+        "variance_upper_method": "PARAMETRIC_BOOTSTRAP",
+        "bootstrap_resamples": 10000,
+        "bootstrap_seed": 20261201,
+    }
+    changed = [key for key, value in expected.items() if variance.get(key) != value]
+    if changed:
+        raise ValueError(
+            f"{label} frozen variance contract changed: {','.join(changed)}"
+        )
+    if variance.get("homogeneity_test") is not False:
+        raise ValueError(f"{label} variance contract must not use homogeneity testing")
+    if "pooled_df" in variance:
+        raise ValueError(f"{label} variance contract must not define pooled_df")
+    if variance.get("deprecated_df", {}).get("pooled_df_7") != (
+        "PROHIBITED_INCOMPATIBLE_WITH_TWO_STRATUM_FIXED_EFFECTS"
+    ):
+        raise ValueError(f"{label} must explicitly prohibit pooled_df=7")
+
+
 def validate_cross_documents(
     protocol: dict[str, Any],
     calibration: dict[str, Any],
@@ -351,6 +383,7 @@ def validate_cross_documents(
         raise ValueError("protocol covariance must be 8x8")
     if stats["variance_model"]["homogeneity_test"] is not False:
         raise ValueError("protocol variance model must not use a homogeneity test")
+    _validate_frozen_variance_contract(stats["variance_model"], "protocol")
 
     if calibration["power"]["primary_contrasts"] != 6:
         raise ValueError("calibration must size six candidate contrasts")
@@ -362,6 +395,9 @@ def validate_cross_documents(
         raise ValueError("calibration covariance must be 8x8")
     if calibration["variance_model"]["homogeneity_test"] is not False:
         raise ValueError("calibration variance model must not use a homogeneity test")
+    _validate_frozen_variance_contract(
+        calibration["variance_model"], "calibration"
+    )
     model = calibration["variance_model"]["model"]
     if "tau_s" not in model or "b_{g(s)}" not in model:
         raise ValueError(

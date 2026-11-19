@@ -65,13 +65,15 @@ the live Native compatibility gate passes.
 
 ## 5. Remaining engineering limitation
 
-The Calibration module validates the exact 144-run matrix and exposes the
-frozen method-of-moments mixed-model/noncentral-t boundary. A final numerical
-backend is not fabricated because the merged contract describes both a
-stratum fixed effect and pooled `df=7`, while an ordinary residual calculation
-after estimating two stratum means would use six degrees of freedom. M4 must
-confirm the intended estimator/degrees-of-freedom mapping before M6 freezes
-the implementation. A z approximation remains prohibited.
+The Calibration module validates the exact 144-run matrix and implements the
+M4-frozen common mixed model after removing the two Stratum fixed effects.
+The method-of-moments backend uses `df_between=6`, `df_within=16`, and
+`df_total=22`; per-Stratum `df=3/8` is retained only for descriptive and
+conservative upper-bound calculations. It produces an 8x8 `df=6` covariance
+with PSD projection, seeded 10,000-resample parametric-bootstrap variance
+upper bounds, and iterative noncentral-t sizing with `df=n-1`. The incompatible
+`pooled_df=7` and z approximations are explicitly prohibited. Calibration
+remains unexecuted and does not authorize Formal execution.
 
 Source-specific SWE-bench/mini-SWE-agent and BFCL acquisition remains blocked
 by data availability and authorization. Generic normalization, qualification

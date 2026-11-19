@@ -164,16 +164,21 @@ def build_formal_protocol_implementation_mapping(
             ("src/kvopt/profiling/phase5_formal_metrics.py",),
             ("tests/test_phase5_formal_metrics.py",),
         ),
-        _blocked(
+        _implemented(
             "calibration_and_sample_size",
-            blocker=(
-                "M4 must resolve the stratum-fixed-effect versus pooled-df=7 "
-                "numerical mapping; z approximation is prohibited"
+            implementation=(
+                "src/kvopt/workload/phase5_calibration.py",
+                "src/kvopt/workload/phase5_calibration_backend.py",
             ),
-            implementation=("src/kvopt/workload/phase5_calibration.py",),
             evidence=("phase5.calibration_analysis.v2",),
-            evaluator=("src/kvopt/workload/phase5_calibration.py",),
-            tests=("tests/test_phase5_calibration.py",),
+            evaluator=(
+                "src/kvopt/workload/phase5_calibration.py",
+                "src/kvopt/workload/phase5_calibration_backend.py",
+            ),
+            tests=(
+                "tests/test_phase5_calibration.py",
+                "tests/test_phase5_calibration_backend.py",
+            ),
         ),
         _implemented(
             "formal_freeze",
