@@ -1,8 +1,19 @@
 # Phase 5 Formal Campaign Engineering Preparation
 
-**Status:** merged six-system Protocol integrated; CPU engineering in progress
+**Status:** six-system Protocol and CPU/Mock engineering integrated; dataset acquisition is the next work package
 
 **GPU execution:** not started and not authorized by this document
+
+## Current M1 status addendum (2026-11-19)
+
+PR #124 is merged to `main` at `4a8ff8e3f9c3829be4fd542f8a19132f1837d753`. The integrated CPU/Mock campaign path is substantially complete; see [Phase 5 Formal Campaign Engineering Acceptance Status](phase5-formal-engineering-acceptance-status.md).
+
+M1 accepts M4's six-system trace-driven design and has approved SWE-bench Verified plus BFCL v4 Web Search as the two primary dataset strata. The next work package is [Phase 5 Dataset Acquisition & Construction](phase5-dataset-acquisition-and-construction.md). Acquisition is temporarily paused while canonical documentation is synchronized.
+
+After the pause is lifted, the limited work package covers source acquisition, real Agent Trace capture, immutable raw-data retention, BFCL fixture construction, normalization, Token Materialization, Q1–Q9 qualification and outcome-blind Cohort preparation. It does not authorize Native GPU Conformance, Calibration or Formal execution.
+
+The protocol JSON remains `DESIGN_FROZEN_CANDIDATE` with `execution_authorized=false`. The unresolved system/environment and GPU gates remain binding. The 2026-11-18 pinned-runtime audit was no-GPU API/identity validation only, not Native GPU Conformance.
+
 
 ## 1. Scope and ownership
 
