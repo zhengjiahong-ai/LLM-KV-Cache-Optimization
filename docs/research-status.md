@@ -1,8 +1,27 @@
 # Research Status (M1 canonical status index)
 
-Status: **PHASE 3 M1-ACCEPTED — bounded paired-effect interpretation; 270/270 runs reconciled; execution deviations retained**
-As-of execution: 2026-11-12, execution code `00a512111f15abddcad329572f6e50ccaaa76775`; [final M6 results](experiments/phase3-option-f-final-results.md); immutable evidence archive SHA-256 `d36a3765296199806e1aef04dcc655fd16d3afb6d7a5bc5a125397bea90ce5c8`.
+Status: **PHASE 5 CURRENT — M1-ACCEPTED DESIGN; DATASET CONSTRUCTION APPROVED; DOCUMENTATION PAUSE ACTIVE**
+Historical Phase 3 execution reference (2026-11-12): execution code `00a512111f15abddcad329572f6e50ccaaa76775`; [final M6 results](experiments/phase3-option-f-final-results.md); immutable evidence archive SHA-256 `d36a3765296199806e1aef04dcc655fd16d3afb6d7a5bc5a125397bea90ce5c8`.
 Owner: M1. This document indexes decisions and evidence; it does **not** amend sealed artifacts or replace their final reports.
+
+## Current Phase 5 status (M1 canonical, 2026-11-19)
+
+**Current phase:** Phase 5 — six-system trace-driven research. M1 accepts M4's design and selects SWE-bench Verified coding-agent traces plus BFCL v4 Web Search traces with frozen fixtures as the two primary workload strata.
+
+**Current work package:** [Phase 5 Dataset Acquisition & Construction](experiments/phase5-dataset-acquisition-and-construction.md). New acquisition and construction are temporarily paused until this documentation synchronization is merged. This is a documentation-control pause, not a change to the accepted design.
+
+**Engineering baseline:** PR #122 (protocol design), PR #123 (DVA-ER CPU implementation) and PR #124 (integrated six-system CPU/Mock engineering) are merged. Current main at the start of this documentation update was `4a8ff8e3f9c3829be4fd542f8a19132f1837d753`. PR #124 reports 285 Phase 5/DVA targeted tests passed (1 skipped), 2,241 repository CPU tests passed (16 skipped), and a separate clean-worktree test passed. These are CPU/Mock results only.
+
+**Ready:** generic trace normalization, Token Materialization contract, Q1–Q9 mechanical evaluator, Workload Seal mechanics, N-session/Frozen-Poisson planning, six-system matrix/routing, candidate adapters, independent metrics, Calibration/statistical backend, manifests and deterministic archive contracts, and production-shaped Phase 5E Native runner wiring.
+
+**Not completed:** new Phase 5 SWE-bench/BFCL Agent Trace acquisition; frozen BFCL fixtures; qualified Phase 5 cohort; Calibration/Formal Group selection; Formal Workload Seal; live Phase 5E Native GPU Conformance; six-system GPU Calibration or Formal execution.
+
+**Authorization boundary:** M1 has approved dataset acquisition, trace capture, normalization, Token Materialization, BFCL fixture construction, Q1–Q9 qualification and outcome-blind Cohort preparation after the documentation pause is lifted. No Native GPU Conformance, GPU Calibration, Formal Campaign, or 72–112 GPU-hour resource reservation is authorized.
+
+**Still open:** BFCL exact revision and third-party content terms; actual trace completeness and token reproducibility; Q1–Q9; Calibration/Formal disjointness; DVA-ER formal candidate selection/freeze; Continuum Official compatibility; Continuum Adapted scheduler conformance; final arrival parameters; Phase 5E Native Part A; GPU resource authorization and final execution manifests.
+
+The machine-readable protocol remains `DESIGN_FROZEN_CANDIDATE` with `execution_authorized=false`. Design acceptance and dataset-construction approval do not make GPU execution executable.
+
 
 ## Research synthesis (R1.3, 2026-11-14; M4 review incorporated)
 
