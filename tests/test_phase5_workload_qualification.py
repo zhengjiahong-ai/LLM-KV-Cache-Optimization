@@ -83,7 +83,10 @@ def _inputs(**changes):
 def test_qualifies_replay_ready_session_without_selecting_cohort() -> None:
     trace, tokens = _trace()
     report = qualify_formal_session(
-        trace=trace, token_materializations=(tokens,), inputs=_inputs()
+        trace=trace,
+        token_materializations=(tokens,),
+        inputs=_inputs(),
+        minimum_turns=1,
     )
     assert report["status"] == "QUALIFIED"
     assert report["formal_cohort_selected"] is False
@@ -101,7 +104,10 @@ def test_qualifies_replay_ready_session_without_selecting_cohort() -> None:
 def test_external_acquisition_facts_fail_closed(changes, failed_rule) -> None:
     trace, tokens = _trace()
     report = qualify_formal_session(
-        trace=trace, token_materializations=(tokens,), inputs=_inputs(**changes)
+        trace=trace,
+        token_materializations=(tokens,),
+        inputs=_inputs(**changes),
+        minimum_turns=1,
     )
     assert report["status"] == "EXCLUDED"
     assert failed_rule in report["failed_rules"]
@@ -110,12 +116,16 @@ def test_external_acquisition_facts_fail_closed(changes, failed_rule) -> None:
 def test_right_censor_requires_reason_and_is_not_zero_filled() -> None:
     trace, tokens = _trace(terminal=TraceTerminalState.RIGHT_CENSORED)
     rejected = qualify_formal_session(
-        trace=trace, token_materializations=(tokens,), inputs=_inputs()
+        trace=trace,
+        token_materializations=(tokens,),
+        inputs=_inputs(),
+        minimum_turns=1,
     )
     accepted = qualify_formal_session(
         trace=trace,
         token_materializations=(tokens,),
         inputs=_inputs(censor_reason="source trace ended"),
+        minimum_turns=1,
     )
     assert rejected["checks"]["Q5_TERMINAL_OR_CENSOR"] is False
     assert accepted["status"] == "QUALIFIED"
@@ -129,6 +139,18 @@ def test_context_limit_excludes_instead_of_truncating() -> None:
         token_materializations=(tokens,),
         inputs=_inputs(),
         maximum_prompt_tokens=2,
+        minimum_turns=1,
+    )
+    assert report["status"] == "EXCLUDED"
+    assert report["checks"]["Q6_CONTEXT_AND_TURNS"] is False
+
+
+def test_less_than_four_turns_is_excluded() -> None:
+    trace, tokens = _trace()
+    report = qualify_formal_session(
+        trace=trace,
+        token_materializations=(tokens,),
+        inputs=_inputs(),
     )
     assert report["status"] == "EXCLUDED"
     assert report["checks"]["Q6_CONTEXT_AND_TURNS"] is False
@@ -140,7 +162,10 @@ def test_group_requires_four_distinct_qualified_programs() -> None:
         trace, tokens = _trace(index)
         reports.append(
             qualify_formal_session(
-                trace=trace, token_materializations=(tokens,), inputs=_inputs()
+                trace=trace,
+                token_materializations=(tokens,),
+                inputs=_inputs(),
+                minimum_turns=1,
             )
         )
     assert validate_qualified_group(reports)["status"] == "PASS"

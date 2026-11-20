@@ -55,11 +55,16 @@ def qualify_formal_session(
     token_materializations: Sequence[TokenMaterialization],
     inputs: QualificationInputs,
     maximum_prompt_tokens: int = 32768,
+    minimum_turns: int = 4,
     maximum_turns: int = 16,
 ) -> dict[str, object]:
     """Evaluate Q1--Q9 without making any research-design decisions."""
 
-    if maximum_prompt_tokens <= 0 or maximum_turns <= 0:
+    if (
+        maximum_prompt_tokens <= 0
+        or minimum_turns <= 0
+        or maximum_turns < minimum_turns
+    ):
         raise ValueError("qualification limits must be positive")
     request_ids = tuple(turn.request_id for turn in trace.turns)
     materialized = {row.request_id: row for row in token_materializations}
@@ -100,7 +105,7 @@ def qualify_formal_session(
         and bool(inputs.censor_reason.strip())
     )
     q6 = (
-        len(trace.turns) <= maximum_turns
+        minimum_turns <= len(trace.turns) <= maximum_turns
         and q2
         and all(
             len(materialized[request_id].token_ids) <= maximum_prompt_tokens
