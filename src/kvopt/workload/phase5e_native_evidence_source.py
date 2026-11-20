@@ -31,6 +31,7 @@ class RuntimeEventEvidenceSource:
         run_id: str,
         event_reader: Callable[[], Sequence[Mapping[str, object]]],
         runtime_installation_report: Mapping[str, object] | None = None,
+        runtime_integration: object | None = None,
     ) -> None:
         if not run_id:
             raise ValueError("run_id must be non-empty")
@@ -44,6 +45,7 @@ class RuntimeEventEvidenceSource:
             if runtime_installation_report is None
             else dict(runtime_installation_report)
         )
+        self._runtime_integration = runtime_integration
 
     def runtime_installation_report(self) -> Mapping[str, object]:
         if self._runtime_installation_report is None:
@@ -51,6 +53,11 @@ class RuntimeEventEvidenceSource:
                 "runtime installation report is not observable"
             )
         return dict(self._runtime_installation_report)
+
+    def runtime_integration(self) -> object:
+        if self._runtime_integration is None:
+            raise Phase5ENativeEvidenceError("live A3 runtime integration is unavailable")
+        return self._runtime_integration
 
     def _snapshot(self) -> tuple[Mapping[str, object], ...]:
         rows = tuple(self._event_reader())
@@ -196,3 +203,9 @@ def resolve_runtime_installation_report(engine: object) -> Mapping[str, object]:
 
     report = _resolve_runtime_event_source(engine).installation_report()
     return dict(report)
+
+
+def resolve_runtime_integration(engine: object) -> object:
+    """Resolve the integration bound to the verified same-core source."""
+
+    return _resolve_runtime_event_source(engine).runtime_integration()

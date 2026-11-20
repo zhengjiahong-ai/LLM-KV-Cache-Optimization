@@ -37,6 +37,7 @@ from .phase5e_native_evidence_source import (
     RuntimeEventEvidenceSource,
     resolve_runtime_event_reader,
     resolve_runtime_installation_report,
+    resolve_runtime_integration,
 )
 from .phase5e_native_runtime import (
     Phase5ERuntimeEventSource,
@@ -62,6 +63,8 @@ class Phase5ENativeEvidenceSource(Protocol):
 
     def runtime_installation_report(self) -> Mapping[str, object]: ...
 
+    def runtime_integration(self) -> object: ...
+
 
 def resolve_production_evidence_source(engine: object) -> RuntimeEventEvidenceSource:
     """Bind the runner only to an explicitly installed same-core event source."""
@@ -70,6 +73,7 @@ def resolve_production_evidence_source(engine: object) -> RuntimeEventEvidenceSo
         run_id="P5E-A-01",
         event_reader=resolve_runtime_event_reader(engine),
         runtime_installation_report=resolve_runtime_installation_report(engine),
+        runtime_integration=resolve_runtime_integration(engine),
     )
 
 
@@ -104,6 +108,7 @@ def install_production_a3_runtime(
         run_id="P5E-A-01",
         event_reader=resolve_runtime_event_reader(engine),
         runtime_installation_report=report,
+        runtime_integration=integration,
     )
     return evidence, report
 
@@ -321,6 +326,7 @@ def wire_pinned_native_adapter(
         vllm_version=plan.vllm_version,
         run_epoch_monotonic=run_epoch_monotonic,
         clock=clock,
+        native_request_identity_observer=evidence_source.runtime_integration(),
     )
     validate_runtime_engine_identity(engine=engine, plan=plan)
     resolved = resolve_pinned_inprocess_native_core(engine)

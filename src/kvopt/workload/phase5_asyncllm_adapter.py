@@ -62,6 +62,12 @@ class AsyncLLMProtocol(Protocol):
     async def abort(self, request_id: str, *, internal: bool = False) -> None: ...
 
 
+class NativeRequestIdentityObserver(Protocol):
+    def bind_request_identity(
+        self, *, logical_request_id: str, external_request_id: str, internal_request_id: str
+    ) -> None: ...
+
+
 class NativeTerminalKind(StrEnum):
     NATURAL = "NATURAL_CORE_TERMINAL"
     ABORT_CONFIRMED = "ABORT_CONFIRMED"
@@ -354,6 +360,7 @@ class AsyncLLMNativeAdapter:
         frontend_has_internal_request: Callable[[str], bool] | None = None,
         verified_abort_confirmation_sources: frozenset[str] = frozenset(),
         native_pressure_executor: PinnedNativeBlockPoolPressureExecutor | None = None,
+        native_request_identity_observer: NativeRequestIdentityObserver | None = None,
     ) -> None:
         validate_pinned_asyncllm(engine, vllm_version=vllm_version)
         self._engine = engine
@@ -392,6 +399,13 @@ class AsyncLLMNativeAdapter:
             verified_abort_confirmation_sources
         )
         self._native_pressure_executor = native_pressure_executor
+        if native_request_identity_observer is not None and not callable(
+            getattr(native_request_identity_observer, "bind_request_identity", None)
+        ):
+            raise TypeError(
+                "native_request_identity_observer must provide bind_request_identity"
+            )
+        self._native_request_identity_observer = native_request_identity_observer
         self._records: dict[str, _RequestLifecycle] = {}
         self._by_external: dict[str, _RequestLifecycle] = {}
         self._by_internal: dict[str, _RequestLifecycle] = {}
@@ -486,6 +500,12 @@ class AsyncLLMNativeAdapter:
                 record.internal_request_id = internal_id
                 record.collector = collector
                 self._by_internal[internal_id] = record
+                if self._native_request_identity_observer is not None:
+                    self._native_request_identity_observer.bind_request_identity(
+                        logical_request_id=spec.logical_request_id,
+                        external_request_id=spec.external_request_id,
+                        internal_request_id=internal_id,
+                    )
                 self._event(
                     spec.logical_request_id,
                     LifecycleEventKind.INTERNAL_REQUEST_ID_BOUND,

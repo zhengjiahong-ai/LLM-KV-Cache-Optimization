@@ -48,6 +48,13 @@ class _Engine:
 
 
 class _Evidence:
+    def runtime_integration(self):
+        return type(
+            "IdentityObserver",
+            (),
+            {"bind_request_identity": lambda self, **_kwargs: None},
+        )()
+
     def runtime_installation_report(self):
         return {
             "status": "PASS",
@@ -236,7 +243,7 @@ def test_production_runtime_uses_one_source_for_integration_and_evaluator(
             "mode": "CONTROLLED_A3",
             "same_engine_core": True,
         }
-        source._mark_installed(report)
+        source._mark_installed(report, kwargs["integration"])
         return report
 
     monkeypatch.setattr(

@@ -11,13 +11,20 @@ from __future__ import annotations
 
 import hashlib
 import importlib
+import os
 import threading
 from collections.abc import Mapping, Sequence
+from functools import wraps
 from pathlib import Path
 
 from kvopt.continuum.clock import Clock
 from kvopt.continuum.config import RetentionMode
+from kvopt.continuum.types import ProgramIdentity, RequestIdentity
 from kvopt.profiling.experiment_events import ExperimentEvent
+from kvopt.runtime.vllm.continuum_observation import (
+    ObservationAvailability,
+    snapshot_request_blocks,
+)
 from kvopt.runtime.vllm.observer import install_retention_hook
 
 PINNED_VLLM_SOURCE_SHA256 = {
@@ -69,6 +76,7 @@ class Phase5ERuntimeEventSource:
         self._rows: list[dict[str, object]] = []
         self._lock = threading.Lock()
         self._installation_report: dict[str, object] | None = None
+        self._runtime_integration: object | None = None
 
     def emit(self, event: ExperimentEvent | Mapping[str, object]) -> None:
         """Append one immutable event and assign its stable stream index."""
@@ -125,11 +133,85 @@ class Phase5ERuntimeEventSource:
                 )
             return dict(self._installation_report)
 
-    def _mark_installed(self, report: Mapping[str, object]) -> None:
+    def runtime_integration(self) -> object:
+        with self._lock:
+            if self._runtime_integration is None:
+                raise Phase5ENativeRuntimeError("runtime integration is not installed")
+            return self._runtime_integration
+
+    def _mark_installed(
+        self, report: Mapping[str, object], integration: object
+    ) -> None:
         with self._lock:
             if self._installation_report is not None:
                 raise Phase5ENativeRuntimeError("runtime event source is already installed")
             self._installation_report = dict(report)
+            self._runtime_integration = integration
+
+
+def _install_terminal_snapshot_hook(
+    *, scheduler: object, integration: object, clock: Clock
+) -> tuple[type[object], object]:
+    """Capture request BlockTable and hashes immediately before Native cleanup."""
+
+    scheduler_class = type(scheduler)
+    if getattr(scheduler_class, "_kvopt_phase5_terminal_snapshot_installed", False):
+        raise Phase5ENativeRuntimeError("terminal snapshot hook is already installed")
+    original = getattr(scheduler_class, "_free_request", None)
+    if not callable(original):
+        raise Phase5ENativeRuntimeError("Scheduler._free_request is unavailable")
+    program_for = getattr(integration, "program_for_internal_request", None)
+    observe = getattr(integration, "observe_terminal_request_snapshot", None)
+    if not callable(program_for) or not callable(observe):
+        raise Phase5ENativeRuntimeError(
+            "live A3 integration lacks terminal snapshot callbacks"
+        )
+
+    @wraps(original)
+    def wrapped(receiver: object, request: object, *args: object, **kwargs: object):
+        if receiver is scheduler:
+            internal_id = getattr(request, "request_id", None)
+            if not isinstance(internal_id, str) or not internal_id:
+                raise Phase5ENativeRuntimeError(
+                    "terminal Native request identity is unavailable"
+                )
+            program_id = program_for(internal_id)
+            if not isinstance(program_id, ProgramIdentity):
+                raise Phase5ENativeRuntimeError(
+                    "terminal Native request lacks Program identity"
+                )
+            manager = getattr(receiver, "kv_cache_manager", None)
+            snapshot = snapshot_request_blocks(
+                manager,
+                request_id=RequestIdentity(internal_id),
+                program_id=program_id,
+            )
+            if snapshot.availability is not ObservationAvailability.AVAILABLE:
+                raise Phase5ENativeRuntimeError(
+                    f"terminal BlockTable is unavailable: {snapshot.reason}"
+                )
+            blocks = tuple(block for group in snapshot.block_groups for block in group)
+            if not blocks or any(
+                block.is_null or block.native_hash_hex is None for block in blocks
+            ):
+                raise Phase5ENativeRuntimeError(
+                    "terminal BlockTable lacks complete Native hash identity"
+                )
+            observe(
+                snapshot,
+                observed_at=clock.now(),
+                native_hash_process_id=str(os.getpid()),
+            )
+        return original(receiver, request, *args, **kwargs)
+
+    scheduler_class._free_request = wrapped
+    scheduler_class._kvopt_phase5_terminal_snapshot_installed = True
+    return scheduler_class, original
+
+
+def _restore_terminal_snapshot_hook(owner: type[object], original: object) -> None:
+    owner._free_request = original
+    owner._kvopt_phase5_terminal_snapshot_installed = False
 
 
 def install_phase5e_a3_runtime(
@@ -169,20 +251,30 @@ def install_phase5e_a3_runtime(
 
     source_hashes = validate_pinned_vllm_source_identity()
     engine_core.kvopt_phase5_event_source = event_source
+    terminal_owner: type[object] | None = None
+    terminal_original: object | None = None
     try:
+        terminal_owner, terminal_original = _install_terminal_snapshot_hook(
+            scheduler=scheduler,
+            integration=integration,
+            clock=clock,
+        )
         install_retention_hook(
             mode=RetentionMode.CONTROLLED,
             integration=integration,
             clock=clock,
         )
     except BaseException:
+        if terminal_owner is not None and terminal_original is not None:
+            _restore_terminal_snapshot_hook(terminal_owner, terminal_original)
         del engine_core.kvopt_phase5_event_source
         raise
     report = {
         "status": "PASS",
         "mode": "CONTROLLED_A3",
         "same_engine_core": True,
+        "terminal_snapshot_boundary": "Scheduler._free_request:BEFORE_NATIVE_CALL",
         "source_sha256": source_hashes,
     }
-    event_source._mark_installed(report)
+    event_source._mark_installed(report, integration)
     return report

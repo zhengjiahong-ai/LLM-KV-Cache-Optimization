@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from kvopt.continuum import FakeClock, RetentionMode
+from kvopt.continuum import FakeClock, ProgramIdentity, RetentionMode
 from kvopt.profiling.experiment_events import ExperimentEvent
 from kvopt.workload import phase5e_native_runtime as runtime
 from kvopt.workload.phase5e_native_runtime import (
@@ -20,6 +20,7 @@ from kvopt.workload.phase5e_native_runtime import (
 class _Integration:
     def __init__(self, source: Phase5ERuntimeEventSource) -> None:
         self.event_source = source
+        self.snapshots = []
 
     def apply_pressure(self, **_kwargs: object) -> None:
         return None
@@ -27,11 +28,24 @@ class _Integration:
     def observe_native_eviction(self, _block_id: object) -> None:
         return None
 
+    def program_for_internal_request(self, _request_id: str) -> ProgramIdentity:
+        return ProgramIdentity("p1")
+
+    def observe_terminal_request_snapshot(self, *_args: object, **_kwargs: object) -> None:
+        self.snapshots.append((_args, _kwargs))
+
 
 def _ownership() -> tuple[object, object, object, object]:
+    class Scheduler:
+        def __init__(self, manager: object) -> None:
+            self.kv_cache_manager = manager
+
+        def _free_request(self, _request: object) -> None:
+            return None
+
     block_pool = object()
     manager = SimpleNamespace(block_pool=block_pool)
-    scheduler = SimpleNamespace(kv_cache_manager=manager)
+    scheduler = Scheduler(manager)
     core = SimpleNamespace(scheduler=scheduler)
     return core, scheduler, manager, block_pool
 
@@ -169,3 +183,39 @@ def test_runtime_install_rolls_back_source_when_hook_fails(
     assert not hasattr(core, "kvopt_phase5_event_source")
     with pytest.raises(Phase5ENativeRuntimeError, match="not attached"):
         source.installation_report()
+
+
+def test_terminal_snapshot_is_captured_before_native_free(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    core, scheduler, manager, block_pool = _ownership()
+    block = SimpleNamespace(
+        block_id=7,
+        ref_cnt=0,
+        block_hash=b"hash-7",
+        block_hash_num_tokens=16,
+        is_null=False,
+    )
+    manager.get_blocks = lambda _request_id: SimpleNamespace(blocks=((block,),))
+    source = Phase5ERuntimeEventSource()
+    integration = _Integration(source)
+    monkeypatch.setattr(runtime, "validate_pinned_vllm_source_identity", dict)
+    monkeypatch.setattr(runtime, "install_retention_hook", lambda **_kwargs: None)
+    install_phase5e_a3_runtime(
+        engine_core=core,
+        scheduler=scheduler,
+        kv_cache_manager=manager,
+        block_pool=block_pool,
+        integration=integration,
+        clock=FakeClock(3.0),
+        event_source=source,
+    )
+
+    scheduler._free_request(SimpleNamespace(request_id="native-r1"))
+
+    assert len(integration.snapshots) == 1
+    snapshot = integration.snapshots[0][0][0]
+    assert snapshot.request_id.value == "native-r1"
+    assert snapshot.block_groups[0][0].block_id == 7
+    assert snapshot.block_groups[0][0].native_hash_hex == b"hash-7".hex()
+    assert integration.snapshots[0][1]["observed_at"] == 3.0
