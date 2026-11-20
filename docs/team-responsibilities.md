@@ -37,7 +37,7 @@ This Phase 5 overlay supersedes the Phase 3 execution assignments below.
 
 ## Historical initial role descriptions
 
-The Member 1–7 descriptions and the original Ours-Evict / Ours-Full implementation roadmap below document the project's earlier division of labor. They are retained for provenance and are **not the active execution assignments** where they conflict with the current Phase 5 overlay above. In particular, the old mandatory Ours-Evict deliverable is not the current Phase 3 arm definition.
+The Member 1–7 descriptions and the original Ours-Evict / Ours-Full implementation roadmap below document the project's earlier division of labor. They are retained for provenance and are **not the active execution assignments** where they conflict with the current Phase 5 overlay above. In particular, the old mandatory Ours-Evict deliverable is not part of the current Phase 5 six-system comparison.
 
 ## Shared rules
 
