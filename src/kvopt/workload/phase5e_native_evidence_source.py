@@ -30,6 +30,7 @@ class RuntimeEventEvidenceSource:
         *,
         run_id: str,
         event_reader: Callable[[], Sequence[Mapping[str, object]]],
+        runtime_installation_report: Mapping[str, object] | None = None,
     ) -> None:
         if not run_id:
             raise ValueError("run_id must be non-empty")
@@ -38,6 +39,18 @@ class RuntimeEventEvidenceSource:
         self._run_id = run_id
         self._event_reader = event_reader
         self._last_size = 0
+        self._runtime_installation_report = (
+            None
+            if runtime_installation_report is None
+            else dict(runtime_installation_report)
+        )
+
+    def runtime_installation_report(self) -> Mapping[str, object]:
+        if self._runtime_installation_report is None:
+            raise Phase5ENativeEvidenceError(
+                "runtime installation report is not observable"
+            )
+        return dict(self._runtime_installation_report)
 
     def _snapshot(self) -> tuple[Mapping[str, object], ...]:
         rows = tuple(self._event_reader())
@@ -141,21 +154,45 @@ class RuntimeEventEvidenceSource:
         return self._snapshot()
 
 
-def resolve_runtime_event_reader(engine: object) -> Callable[[], Sequence[Mapping[str, object]]]:
-    """Resolve an explicitly installed same-EngineCore evidence source."""
-
+def _resolve_runtime_event_source(engine: object) -> object:
     proxy = getattr(engine, "engine_core", None)
     delegate = getattr(proxy, "_delegate", None)
     core = getattr(delegate, "engine_core", None)
     candidates = (proxy, delegate, core)
-    sources = []
+    sources: list[object] = []
     for candidate in candidates:
         source = getattr(candidate, "kvopt_phase5_event_source", None)
         snapshot = getattr(source, "snapshot", None)
-        if callable(snapshot):
-            sources.append(snapshot)
+        installation_report = getattr(source, "installation_report", None)
+        if callable(snapshot) and callable(installation_report):
+            report = installation_report()
+            if not isinstance(report, Mapping) or report.get("status") != "PASS":
+                raise Phase5ENativeEvidenceError(
+                    "same-EngineCore runtime hook installation is not verified"
+                )
+            if report.get("mode") != "CONTROLLED_A3" or (
+                report.get("same_engine_core") is not True
+            ):
+                raise Phase5ENativeEvidenceError(
+                    "same-EngineCore runtime hook is not controlled A3"
+                )
+            sources.append(source)
     if len(sources) != 1:
         raise Phase5ENativeEvidenceError(
             "exactly one same-EngineCore kvopt_phase5_event_source is required"
         )
     return sources[0]
+
+
+def resolve_runtime_event_reader(engine: object) -> Callable[[], Sequence[Mapping[str, object]]]:
+    """Resolve an explicitly installed same-EngineCore evidence reader."""
+
+    snapshot = _resolve_runtime_event_source(engine).snapshot
+    return snapshot
+
+
+def resolve_runtime_installation_report(engine: object) -> Mapping[str, object]:
+    """Copy the verified installation report from the same EngineCore source."""
+
+    report = _resolve_runtime_event_source(engine).installation_report()
+    return dict(report)

@@ -62,3 +62,24 @@ def test_rejects_physical_victim_outside_pressure_allocation() -> None:
 def test_runtime_reader_requires_one_explicit_source() -> None:
     with pytest.raises(Phase5ENativeEvidenceError, match="exactly one"):
         resolve_runtime_event_reader(object())
+
+
+def test_runtime_reader_rejects_unverified_source() -> None:
+    source = type(
+        "Source",
+        (),
+        {
+            "snapshot": lambda self: (),
+            "installation_report": lambda self: {
+                "status": "PASS",
+                "mode": "NATIVE",
+                "same_engine_core": True,
+            },
+        },
+    )()
+    core = type("Core", (), {"kvopt_phase5_event_source": source})()
+    delegate = type("Delegate", (), {"engine_core": core})()
+    proxy = type("Proxy", (), {"_delegate": delegate})()
+    engine = type("Engine", (), {"engine_core": proxy})()
+    with pytest.raises(Phase5ENativeEvidenceError, match="not controlled A3"):
+        resolve_runtime_event_reader(engine)

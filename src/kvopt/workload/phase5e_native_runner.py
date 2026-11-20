@@ -18,6 +18,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
+from kvopt.continuum.clock import Clock
+
 from .phase5_archive import (
     create_phase5_evidence_archive,
     validate_phase5_evidence_archive,
@@ -34,6 +36,11 @@ from .phase5_replay import canonical_sha256
 from .phase5e_native_evidence_source import (
     RuntimeEventEvidenceSource,
     resolve_runtime_event_reader,
+    resolve_runtime_installation_report,
+)
+from .phase5e_native_runtime import (
+    Phase5ERuntimeEventSource,
+    install_phase5e_a3_runtime,
 )
 from .phase5e_part_a import PartARequestInput, execute_phase5e_part_a
 
@@ -53,6 +60,8 @@ class Phase5ENativeEvidenceSource(Protocol):
 
     def raw_evidence(self) -> Sequence[Mapping[str, object]]: ...
 
+    def runtime_installation_report(self) -> Mapping[str, object]: ...
+
 
 def resolve_production_evidence_source(engine: object) -> RuntimeEventEvidenceSource:
     """Bind the runner only to an explicitly installed same-core event source."""
@@ -60,7 +69,43 @@ def resolve_production_evidence_source(engine: object) -> RuntimeEventEvidenceSo
     return RuntimeEventEvidenceSource(
         run_id="P5E-A-01",
         event_reader=resolve_runtime_event_reader(engine),
+        runtime_installation_report=resolve_runtime_installation_report(engine),
     )
+
+
+def install_production_a3_runtime(
+    *,
+    engine: object,
+    integration_factory: Callable[[Phase5ERuntimeEventSource], object],
+    clock: Clock,
+) -> tuple[RuntimeEventEvidenceSource, Mapping[str, object]]:
+    """Install the reviewed A3 integration before resolving live evidence.
+
+    The factory receives the only append-only event source, forcing the A3
+    integration and evaluator to share one evidence stream.  No fallback
+    integration is constructed here.
+    """
+
+    if not callable(integration_factory):
+        raise TypeError("integration_factory must be callable")
+    resolved = resolve_pinned_inprocess_native_core(engine)
+    source = Phase5ERuntimeEventSource()
+    integration = integration_factory(source)
+    report = install_phase5e_a3_runtime(
+        engine_core=resolved.engine_core,
+        scheduler=resolved.scheduler,
+        kv_cache_manager=resolved.kv_cache_manager,
+        block_pool=resolved.block_pool,
+        integration=integration,
+        clock=clock,
+        event_source=source,
+    )
+    evidence = RuntimeEventEvidenceSource(
+        run_id="P5E-A-01",
+        event_reader=resolve_runtime_event_reader(engine),
+        runtime_installation_report=report,
+    )
+    return evidence, report
 
 
 @dataclass(frozen=True, slots=True)
@@ -363,6 +408,9 @@ async def run_phase5e_native_pipeline(
             "execution_manifest_sha256": authorization.execution_manifest_sha256,
             "authorization_sha256": authorization.authorization_sha256,
             "plan_sha256": plan.sha256,
+            "runtime_installation": dict(
+                evidence_source.runtime_installation_report()
+            ),
             "status": "PASS",
         },
     )

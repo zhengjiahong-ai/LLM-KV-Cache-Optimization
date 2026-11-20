@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from kvopt.continuum import FakeClock
 from kvopt.workload.phase2b_fidelity_runner import RequestCompletion, RequestHandle
 from kvopt.workload.phase5_gpu_conformance import (
     build_phase5e_review_candidate,
@@ -17,10 +18,12 @@ from kvopt.workload.phase5e_native_runner import (
     Phase5ENativeRunnerError,
     build_allocation_watermark_reader,
     create_pinned_asyncllm,
+    install_production_a3_runtime,
     resolve_production_evidence_source,
     run_phase5e_native_pipeline,
     validate_runtime_engine_identity,
 )
+from kvopt.workload.phase5e_native_runtime import Phase5ERuntimeEventSource
 
 
 class _IdentityAdapter:
@@ -45,6 +48,14 @@ class _Engine:
 
 
 class _Evidence:
+    def runtime_installation_report(self):
+        return {
+            "status": "PASS",
+            "mode": "CONTROLLED_A3",
+            "same_engine_core": True,
+            "source_sha256": {"test": "a" * 64},
+        }
+
     def pressure_outcome(self, boundary_id, allocated_block_ids):
         return {
             "forced_release_decision_ids": [f"decision:{boundary_id}"],
@@ -191,6 +202,64 @@ def test_engine_creation_requires_inprocess_vllm_before_import(monkeypatch) -> N
 def test_production_evidence_source_is_never_implicitly_mocked() -> None:
     with pytest.raises(Phase5ENativeEvidenceError, match="exactly one"):
         resolve_production_evidence_source(object())
+
+
+def test_production_runtime_uses_one_source_for_integration_and_evaluator(
+    monkeypatch,
+) -> None:
+    source_seen = []
+    core = type("Core", (), {})()
+    manager = type("Manager", (), {})()
+    block_pool = object()
+    manager.block_pool = block_pool
+    scheduler = type("Scheduler", (), {"kv_cache_manager": manager})()
+    core.scheduler = scheduler
+    resolved = type(
+        "Resolved",
+        (),
+        {
+            "engine_core": core,
+            "scheduler": scheduler,
+            "kv_cache_manager": manager,
+            "block_pool": block_pool,
+        },
+    )()
+    delegate = type("Delegate", (), {"engine_core": core})()
+    proxy = type("Proxy", (), {"_delegate": delegate})()
+    engine = type("Engine", (), {"engine_core": proxy})()
+
+    def install(**kwargs):
+        source = kwargs["event_source"]
+        core.kvopt_phase5_event_source = source
+        report = {
+            "status": "PASS",
+            "mode": "CONTROLLED_A3",
+            "same_engine_core": True,
+        }
+        source._mark_installed(report)
+        return report
+
+    monkeypatch.setattr(
+        "kvopt.workload.phase5e_native_runner.resolve_pinned_inprocess_native_core",
+        lambda _engine: resolved,
+    )
+    monkeypatch.setattr(
+        "kvopt.workload.phase5e_native_runner.install_phase5e_a3_runtime",
+        install,
+    )
+
+    def factory(source: Phase5ERuntimeEventSource):
+        source_seen.append(source)
+        return type("Integration", (), {"event_source": source})()
+
+    evidence, report = install_production_a3_runtime(
+        engine=engine,
+        integration_factory=factory,
+        clock=FakeClock(),
+    )
+    assert report["status"] == "PASS"
+    assert len(source_seen) == 1
+    assert evidence.raw_evidence() == ()
 
 
 def test_live_engine_configuration_must_equal_frozen_geometry() -> None:
