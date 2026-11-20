@@ -43,9 +43,7 @@ def _code_binding(repository: Path, relative_path: str) -> dict[str, str]:
     return {"path": relative_path, "sha256": _sha256_path(path)}
 
 
-def build_phase5e_freeze_payloads(
-    *, repository: Path, git_sha: str
-) -> dict[str, Any]:
+def build_phase5e_freeze_payloads(*, repository: Path, git_sha: str) -> dict[str, Any]:
     """Build mutually consistent final-review payloads without writing files."""
 
     if _GIT_SHA.fullmatch(git_sha) is None:
@@ -65,8 +63,7 @@ def build_phase5e_freeze_payloads(
         )
     }
     token_hashes = {
-        request_id: canonical_sha256(token_ids)
-        for request_id, token_ids in prompt_tokens.items()
+        request_id: canonical_sha256(token_ids) for request_id, token_ids in prompt_tokens.items()
     }
     sealed_hashes = dict(plan.workload_seal["request_token_ids_sha256"])
     if token_hashes != sealed_hashes:
@@ -105,6 +102,7 @@ def build_phase5e_freeze_payloads(
             "src/kvopt/workload/phase5_native_async.py",
             "src/kvopt/workload/phase5_asyncllm_adapter.py",
             "src/kvopt/workload/phase5e_native_runner.py",
+            "src/kvopt/workload/phase5e_native_evidence_source.py",
             "src/kvopt/workload/phase5e_freeze.py",
             "scripts/spikes/prepare_phase5e_part_a.py",
         )
@@ -137,9 +135,7 @@ def materialize_phase5e_freeze(
         "explicit-inputs.json": _write_json(
             output_root / "explicit-inputs.json", payloads["explicit_inputs"]
         ),
-        "gate-contract.json": _write_json(
-            output_root / "gate-contract.json", payloads["gates"]
-        ),
+        "gate-contract.json": _write_json(output_root / "gate-contract.json", payloads["gates"]),
     }
     manifest = {
         "schema_version": "phase5e.part_a_execution_manifest.v1",

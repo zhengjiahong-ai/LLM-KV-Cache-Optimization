@@ -11,11 +11,13 @@ from kvopt.workload.phase5_gpu_conformance import (
     materialize_phase5e_prompt_token_ids,
 )
 from kvopt.workload.phase5_native_async import PressureExecutionEvidence
+from kvopt.workload.phase5e_native_evidence_source import Phase5ENativeEvidenceError
 from kvopt.workload.phase5e_native_runner import (
     Phase5ENativeAuthorization,
     Phase5ENativeRunnerError,
     build_allocation_watermark_reader,
     create_pinned_asyncllm,
+    resolve_production_evidence_source,
     run_phase5e_native_pipeline,
     validate_runtime_engine_identity,
 )
@@ -69,9 +71,7 @@ class _Adapter:
 
     def _event(self, request_id, kind):
         self.index += 1
-        self.events.append(
-            {"index": self.index, "request_id": request_id, "kind": kind}
-        )
+        self.events.append({"index": self.index, "request_id": request_id, "kind": kind})
 
     async def submit(self, spec):
         self._event(spec.logical_request_id, "ADAPTER_DISPATCH_STARTED")
@@ -115,9 +115,7 @@ class _Adapter:
             engine_core_identity_verified=True,
             forced_release_decision_ids=("decision-1",),
             native_evicted_block_ids=(1,),
-            allocation_watermark_source=(
-                "PINNED_KV_CACHE_MANAGER_REQUEST_BLOCK_TABLE"
-            ),
+            allocation_watermark_source=("PINNED_KV_CACHE_MANAGER_REQUEST_BLOCK_TABLE"),
             observed_allocated_blocks_by_request=(
                 self.plan.pressure.expected_allocated_blocks_by_request
             ),
@@ -158,16 +156,12 @@ def _explicit_inputs(plan):
     return {
         "prompt_token_ids": {
             request_id: list(
-                materialize_phase5e_prompt_token_ids(
-                    program.program_ordinal, request_index
-                )
+                materialize_phase5e_prompt_token_ids(program.program_ordinal, request_index)
             )
             for program in plan.programs
             for request_index, request_id in enumerate(program.request_ids, start=1)
         },
-        "pressure_token_ids_sha256": (
-            plan.pressure.pressure_prompt_token_ids_sha256
-        ),
+        "pressure_token_ids_sha256": (plan.pressure.pressure_prompt_token_ids_sha256),
     }
 
 
@@ -194,6 +188,11 @@ def test_engine_creation_requires_inprocess_vllm_before_import(monkeypatch) -> N
         create_pinned_asyncllm(build_phase5e_review_candidate("a" * 40))
 
 
+def test_production_evidence_source_is_never_implicitly_mocked() -> None:
+    with pytest.raises(Phase5ENativeEvidenceError, match="exactly one"):
+        resolve_production_evidence_source(object())
+
+
 def test_live_engine_configuration_must_equal_frozen_geometry() -> None:
     plan = build_phase5e_review_candidate("a" * 40)
     engine = type(
@@ -204,12 +203,8 @@ def test_live_engine_configuration_must_equal_frozen_geometry() -> None:
                 "Config",
                 (),
                 {
-                    "scheduler_config": type(
-                        "Scheduler", (), {"max_num_seqs": 4}
-                    )(),
-                    "model_config": type(
-                        "Model", (), {"max_model_len": 32768}
-                    )(),
+                    "scheduler_config": type("Scheduler", (), {"max_num_seqs": 4})(),
+                    "model_config": type("Model", (), {"max_model_len": 32768})(),
                     "cache_config": type(
                         "Cache",
                         (),
@@ -240,9 +235,7 @@ def test_native_runner_executes_gate_cleanup_and_archive(tmp_path: Path) -> None
             run_epoch_monotonic=0.0,
             clock=lambda: 10.0,
             sampling_factory=dict,
-            adapter_factory=lambda _engine, frozen, _source, _epoch: _Adapter(
-                frozen
-            ),
+            adapter_factory=lambda _engine, frozen, _source, _epoch: _Adapter(frozen),
         )
         assert result["status"] == "PASS"
         assert result["g0_freeze"] == result["g8_archive"] == "PASS"
@@ -268,9 +261,7 @@ def test_native_runner_archives_failed_attempt_without_retry(tmp_path: Path) -> 
                 run_epoch_monotonic=0.0,
                 clock=lambda: 10.0,
                 sampling_factory=dict,
-                adapter_factory=lambda _engine, frozen, _source, _epoch: (
-                    _FailingAdapter(frozen)
-                ),
+                adapter_factory=lambda _engine, frozen, _source, _epoch: _FailingAdapter(frozen),
             )
         assert archive.is_file()
 

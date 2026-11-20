@@ -31,6 +31,10 @@ from .phase5_asyncllm_adapter import (
 )
 from .phase5_gpu_conformance import Phase5GPUConformancePlan
 from .phase5_replay import canonical_sha256
+from .phase5e_native_evidence_source import (
+    RuntimeEventEvidenceSource,
+    resolve_runtime_event_reader,
+)
 from .phase5e_part_a import PartARequestInput, execute_phase5e_part_a
 
 
@@ -50,6 +54,15 @@ class Phase5ENativeEvidenceSource(Protocol):
     def raw_evidence(self) -> Sequence[Mapping[str, object]]: ...
 
 
+def resolve_production_evidence_source(engine: object) -> RuntimeEventEvidenceSource:
+    """Bind the runner only to an explicitly installed same-core event source."""
+
+    return RuntimeEventEvidenceSource(
+        run_id="P5E-A-01",
+        event_reader=resolve_runtime_event_reader(engine),
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class Phase5ENativeAuthorization:
     run_id: str
@@ -63,9 +76,7 @@ def _sha256(path: Path) -> str:
 
 
 def _write_json(path: Path, value: object) -> None:
-    path.write_text(
-        json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def validate_native_execution_authorization(
@@ -80,9 +91,7 @@ def validate_native_execution_authorization(
     authorization = json.loads(authorization_path.read_text(encoding="utf-8"))
     if manifest.get("execution_authorized") is not False:
         raise Phase5ENativeRunnerError("review manifest authorization state changed")
-    if authorization.get("schema_version") != (
-        "phase5e.part_a_execution_authorization.v1"
-    ):
+    if authorization.get("schema_version") != ("phase5e.part_a_execution_authorization.v1"):
         raise Phase5ENativeRunnerError("unsupported Part A authorization schema")
     if authorization.get("execution_authorized") is not True:
         raise Phase5ENativeRunnerError("Part A GPU execution is not authorized")
@@ -150,9 +159,7 @@ def create_pinned_asyncllm(plan: Phase5GPUConformancePlan) -> AsyncLLMProtocol:
         "max_model_len": budget.maximum_context_tokens,
     }
     if canonical_sha256(engine_identity) != plan.engine_configuration_sha256:
-        raise Phase5ENativeRunnerError(
-            "runtime Engine configuration differs from frozen identity"
-        )
+        raise Phase5ENativeRunnerError("runtime Engine configuration differs from frozen identity")
     engine_args = AsyncEngineArgs(
         model=budget.model_id,
         tokenizer=budget.model_id,
@@ -185,9 +192,7 @@ async def _shutdown_engine(engine: object, grace_seconds: int) -> dict[str, obje
     output_handler = getattr(engine, "output_handler", None)
     if isinstance(output_handler, asyncio.Task) and not output_handler.done():
         await asyncio.gather(output_handler, return_exceptions=True)
-    done = output_handler is None or (
-        hasattr(output_handler, "done") and output_handler.done()
-    )
+    done = output_handler is None or (hasattr(output_handler, "done") and output_handler.done())
     if not done:
         raise Phase5ENativeRunnerError("AsyncLLM output handler survived shutdown")
     return {
@@ -219,9 +224,7 @@ def build_allocation_watermark_reader(
     get_blocks = getattr(kv_cache_manager, "get_blocks", None)
     method = get_block_ids if callable(get_block_ids) else get_blocks
     if not callable(method):
-        raise Phase5ENativeRunnerError(
-            "KVCacheManager allocation watermark is not observable"
-        )
+        raise Phase5ENativeRunnerError("KVCacheManager allocation watermark is not observable")
 
     def read(logical_request_ids: tuple[str, ...]) -> Mapping[str, int]:
         result = {}
@@ -233,9 +236,7 @@ def build_allocation_watermark_reader(
     return read
 
 
-def validate_runtime_engine_identity(
-    *, engine: object, plan: Phase5GPUConformancePlan
-) -> None:
+def validate_runtime_engine_identity(*, engine: object, plan: Phase5GPUConformancePlan) -> None:
     """Compare the live AsyncLLM configuration with the frozen engine geometry."""
 
     config = getattr(engine, "vllm_config", None)
@@ -254,9 +255,7 @@ def validate_runtime_engine_identity(
         "block_size": plan.resource_budget.block_size_tokens,
         "kv_pool_blocks": plan.resource_budget.kv_pool_blocks,
     }
-    if observed != expected or canonical_sha256(expected) != (
-        plan.engine_configuration_sha256
-    ):
+    if observed != expected or canonical_sha256(expected) != (plan.engine_configuration_sha256):
         raise Phase5ENativeRunnerError(
             f"live AsyncLLM configuration differs from freeze: {observed!r}"
         )
@@ -339,9 +338,7 @@ async def run_phase5e_native_pipeline(
 
             sampling = SamplingParams(**dict(plan.sampling_parameters))
         except (ImportError, TypeError, ValueError) as error:
-            raise Phase5ENativeRunnerError(
-                "frozen SamplingParams cannot be built"
-            ) from error
+            raise Phase5ENativeRunnerError("frozen SamplingParams cannot be built") from error
     else:
         sampling = sampling_factory(plan.sampling_parameters)
     requests = {}
@@ -378,9 +375,7 @@ async def run_phase5e_native_pipeline(
             clock=clock,
         )
     else:
-        adapter = adapter_factory(
-            engine, plan, evidence_source, run_epoch_monotonic
-        )
+        adapter = adapter_factory(engine, plan, evidence_source, run_epoch_monotonic)
     try:
         result = await execute_phase5e_part_a(
             plan=plan,
@@ -401,9 +396,7 @@ async def run_phase5e_native_pipeline(
         except (Exception, asyncio.CancelledError) as cleanup_error:  # noqa: BLE001
             cleanup_errors.append(repr(cleanup_error))
         try:
-            cleanup = await _shutdown_engine(
-                engine, plan.resource_budget.shutdown_grace_seconds
-            )
+            cleanup = await _shutdown_engine(engine, plan.resource_budget.shutdown_grace_seconds)
         except (Exception, asyncio.CancelledError) as cleanup_error:  # noqa: BLE001
             cleanup_errors.append(repr(cleanup_error))
             cleanup = {
@@ -438,9 +431,7 @@ async def run_phase5e_native_pipeline(
             ),
         )
         raise
-    cleanup = await _shutdown_engine(
-        engine, plan.resource_budget.shutdown_grace_seconds
-    )
+    cleanup = await _shutdown_engine(engine, plan.resource_budget.shutdown_grace_seconds)
     _write_json(output_root / "controller-result.json", result.to_dict())
     _write_json(output_root / "native-evidence.json", list(evidence_source.raw_evidence()))
     _write_json(output_root / "engine-cleanup.json", cleanup)
