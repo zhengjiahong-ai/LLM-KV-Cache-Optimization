@@ -1,7 +1,7 @@
 # Research Status (M1 canonical status index)
 
 Status: **PHASE 5 CURRENT — M1-ACCEPTED DESIGN; DATASET CONSTRUCTION APPROVED; DOCUMENTATION PAUSE ACTIVE**
-As-of execution: 2026-11-12, execution code `00a512111f15abddcad329572f6e50ccaaa76775`; [final M6 results](experiments/phase3-option-f-final-results.md); immutable evidence archive SHA-256 `d36a3765296199806e1aef04dcc655fd16d3afb6d7a5bc5a125397bea90ce5c8`.
+Historical Phase 3 execution reference (2026-11-12): execution code `00a512111f15abddcad329572f6e50ccaaa76775`; [final M6 results](experiments/phase3-option-f-final-results.md); immutable evidence archive SHA-256 `d36a3765296199806e1aef04dcc655fd16d3afb6d7a5bc5a125397bea90ce5c8`.
 Owner: M1. This document indexes decisions and evidence; it does **not** amend sealed artifacts or replace their final reports.
 
 ## Current Phase 5 status (M1 canonical, 2026-11-19)
