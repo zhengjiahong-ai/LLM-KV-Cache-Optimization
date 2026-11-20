@@ -49,6 +49,25 @@ false even when Q1--Q7 pass.
 
 ## Mechanical processing
 
+Convert each completed mini-SWE-agent run directory before collection
+processing. `--acquisition-origin` is mandatory so historical W1-C evidence is
+not represented as a new Phase 5 acquisition:
+
+```bash
+python -m kvopt.workload.phase5_swe_acquisition_adapter \
+  --run-directory /absolute/path/to/one-run \
+  --chat-template-sha256 <64-lowercase-hex> \
+  --license-expression '<audited-expression>' \
+  --acquisition-origin PHASE5_NEW_ACQUISITION \
+  --output /absolute/path/to/staging/one-session.json
+```
+
+The adapter verifies the run, trajectory and sidecar hashes, request sequence,
+assistant response hashes, tool-result hashes and original source identity. A
+trailing failed model attempt, such as a context-limit rejection with no
+assistant response, remains a limitation and cannot be synthesized into a
+Turn.
+
 After acquisition records have been written to a staging directory:
 
 ```bash
