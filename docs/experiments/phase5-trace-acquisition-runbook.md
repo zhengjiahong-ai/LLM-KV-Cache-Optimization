@@ -52,12 +52,13 @@ python -m kvopt.workload.phase5_bfcl_acquisition \
   --output artifacts/phase5-bfcl-frame-validation.json
 ```
 
-The validator requires exactly 100 `SNIPPET` and 100 `NO_SNIPPET` cases,
-unique case IDs, and an immutable content SHA-256 for every case. An unresolved
-revision fails closed. Every observed search must preserve the complete response
-bytes, response hash, query arguments, provider identity, timestamps, source
-URLs, HTTP status, and errors; a failed search is not replaced by a synthetic
-result.
+The validator consumes the full M4 sampling-frame object, verifies its own
+`frame_sha256`, and requires exactly 100 `SNIPPET` and 100 `NO_SNIPPET` cases,
+unique case IDs, contiguous indices, and an immutable content SHA-256 for every
+case. An unresolved or mismatched revision fails closed. Every observed search
+must preserve the complete response bytes, response hash, query arguments,
+provider identity, timestamps, source URLs, HTTP status, and errors; a failed
+search is not replaced by a synthetic result.
 
 Search-result redistribution terms are separate from the BFCL repository
 license. Until M4 accepts the source and fixture license record, Q8 remains

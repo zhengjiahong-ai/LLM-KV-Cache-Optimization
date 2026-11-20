@@ -9,6 +9,7 @@ from kvopt.workload.phase5_bfcl_acquisition import (
     build_bfcl_acquisition_record,
     validate_sampling_frame,
 )
+from kvopt.workload.phase5_replay import canonical_sha256
 
 
 def _frame() -> list[dict[str, str]]:
@@ -45,6 +46,42 @@ def test_rejects_duplicate_or_unbalanced_frame() -> None:
 def test_rejects_unresolved_revision() -> None:
     with pytest.raises(ValueError, match="unresolved"):
         validate_sampling_frame(_frame(), source_revision="PINNED_BY_M1")
+
+
+def test_validates_frozen_m4_frame_shape() -> None:
+    cases = [
+        {
+            "phase5_case_index": index,
+            "case_id": row["case_id"],
+            "search_mode": row["case_class"],
+            "show_snippet": row["case_class"] == "SNIPPET",
+            "content_sha256": row["case_sha256"],
+        }
+        for index, row in enumerate(_frame(), start=1)
+    ]
+    frame = {
+        "schema_version": "phase5.bfcl_sampling_frame.v1",
+        "status": "FROZEN_ACQUISITION_FRAME_NOT_FORMAL_COHORT",
+        "source": {"revision": "revision"},
+        "configuration": {"formal_case_count": 200, "live_search_allowed": False},
+        "cases": cases,
+    }
+    frame["frame_sha256"] = canonical_sha256(frame)
+    report = validate_sampling_frame(frame, source_revision="revision")
+    assert report["frozen_frame_sha256"] == frame["frame_sha256"]
+
+
+def test_rejects_tampered_frozen_frame() -> None:
+    frame = {
+        "schema_version": "phase5.bfcl_sampling_frame.v1",
+        "status": "FROZEN_ACQUISITION_FRAME_NOT_FORMAL_COHORT",
+        "source": {"revision": "revision"},
+        "configuration": {"formal_case_count": 200, "live_search_allowed": False},
+        "cases": [],
+        "frame_sha256": "a" * 64,
+    }
+    with pytest.raises(ValueError, match="SHA-256 mismatch"):
+        validate_sampling_frame(frame, source_revision="revision")
 
 
 def test_freezes_complete_search_response_bytes() -> None:

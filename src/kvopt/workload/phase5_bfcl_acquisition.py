@@ -52,23 +52,59 @@ def _time(value: object, label: str) -> float:
 
 
 def validate_sampling_frame(
-    rows: Sequence[object], *, source_revision: str
+    frame: Mapping[str, object] | Sequence[object], *, source_revision: str
 ) -> dict[str, object]:
     """Fail closed unless the frozen BFCL frame is exactly 100+100 cases."""
 
     revision = _text(source_revision, "source_revision")
     if revision == "PINNED_BY_M1":
         raise ValueError("BFCL source revision remains unresolved")
+    frame_sha256: str | None = None
+    if isinstance(frame, Mapping):
+        if frame.get("schema_version") != "phase5.bfcl_sampling_frame.v1":
+            raise ValueError("unsupported BFCL sampling-frame schema")
+        if frame.get("status") != "FROZEN_ACQUISITION_FRAME_NOT_FORMAL_COHORT":
+            raise ValueError("BFCL sampling frame is not frozen for acquisition")
+        source = _mapping(frame.get("source"), "sampling-frame source")
+        if source.get("revision") != revision:
+            raise ValueError("BFCL source revision differs from frozen frame")
+        configuration = _mapping(frame.get("configuration"), "configuration")
+        if configuration.get("formal_case_count") != 200:
+            raise ValueError("BFCL formal case count must be 200")
+        if configuration.get("live_search_allowed") is not False:
+            raise ValueError("formal BFCL replay must prohibit live search")
+        expected_frame_sha = _sha256_text(
+            str(frame.get("frame_sha256", "")), "frame_sha256"
+        )
+        hash_payload = dict(frame)
+        hash_payload.pop("frame_sha256", None)
+        frame_sha256 = canonical_sha256(hash_payload)
+        if frame_sha256 != expected_frame_sha:
+            raise ValueError("BFCL sampling-frame SHA-256 mismatch")
+        rows: Sequence[object] = _array(frame.get("cases"), "cases")
+    else:
+        rows = frame
     identities: list[str] = []
     classes: list[str] = []
     normalized: list[dict[str, str]] = []
     for value in rows:
         row = _mapping(value, "sampling-frame row")
         case_id = _text(row.get("case_id"), "case_id")
-        case_class = _text(row.get("case_class"), "case_class")
+        case_class = _text(
+            row.get("search_mode", row.get("case_class")), "search_mode"
+        )
         if case_class not in EXPECTED_CASE_COUNTS:
             raise ValueError(f"unsupported BFCL case class: {case_class}")
-        case_sha256 = _sha256_text(str(row.get("case_sha256", "")), "case_sha256")
+        case_sha256 = _sha256_text(
+            str(row.get("content_sha256", row.get("case_sha256", ""))),
+            "content_sha256",
+        )
+        if row.get("phase5_case_index") is not None:
+            expected_index = len(identities) + 1
+            if row.get("phase5_case_index") != expected_index:
+                raise ValueError("BFCL phase5_case_index is not contiguous")
+            if row.get("show_snippet") is not (case_class == "SNIPPET"):
+                raise ValueError("BFCL search mode and show_snippet disagree")
         identities.append(case_id)
         classes.append(case_class)
         normalized.append(
@@ -90,6 +126,7 @@ def validate_sampling_frame(
         "case_counts": EXPECTED_CASE_COUNTS,
         "case_ids_unique": True,
         "sampling_frame_sha256": canonical_sha256(normalized),
+        "frozen_frame_sha256": frame_sha256,
         "formal_cohort_selected": False,
     }
 
@@ -199,11 +236,10 @@ def main() -> int:
     parser.add_argument("--source-revision", required=True)
     parser.add_argument("--output", type=Path, required=True)
     arguments = parser.parse_args()
-    rows = _array(
-        json.loads(arguments.sampling_frame.read_text(encoding="utf-8")),
-        "sampling frame",
-    )
-    report = validate_sampling_frame(rows, source_revision=arguments.source_revision)
+    frame = json.loads(arguments.sampling_frame.read_text(encoding="utf-8"))
+    if not isinstance(frame, (dict, list)):
+        raise TypeError("sampling frame must be an object or array")
+    report = validate_sampling_frame(frame, source_revision=arguments.source_revision)
     arguments.output.parent.mkdir(parents=True, exist_ok=True)
     arguments.output.write_text(
         json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8"
