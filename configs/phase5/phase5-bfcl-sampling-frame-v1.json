@@ -1,0 +1,1841 @@
+{
+  "schema_version": "phase5.bfcl_sampling_frame.v1",
+  "status": "FROZEN_ACQUISITION_FRAME_NOT_FORMAL_COHORT",
+  "source": {
+    "dataset": "BFCL v4 Web Search",
+    "repository": "ShishirPatil/gorilla",
+    "revision": "6ea57973c7a6097fd7c5915698c54c17c5b1b6c8",
+    "source_file": "berkeley-function-call-leaderboard/bfcl_eval/data/BFCL_v4_web_search.json",
+    "raw_file_sha256": "6fc41d96d003dc849028966a782923560d2fc127ed2088aa967f06daaafa4268",
+    "raw_file_bytes": 36984,
+    "source_case_count": 100
+  },
+  "configuration": {
+    "snippet_cases": 100,
+    "no_snippet_cases": 100,
+    "formal_case_count": 200,
+    "search_backend": "FROZEN_SEARCH_RESPONSE_FIXTURE",
+    "live_search_allowed": false,
+    "snippet_mode": "show_snippet=true",
+    "no_snippet_mode": "show_snippet=false",
+    "case_order": "SNIPPET_THEN_NO_SNIPPET_SOURCE_ORDER"
+  },
+  "license_provenance": {
+    "repository_license": "Apache-2.0",
+    "license_review_status": "CONDITIONAL_ACCEPTED_FOR_INTERNAL_RESEARCH",
+    "third_party_search_content": "SEPARATE_TERMS_NOT_CLEARED_FOR_REDISTRIBUTION",
+    "fixture_must_bind": [
+      "provider",
+      "collection_time",
+      "query",
+      "source_url",
+      "response_bytes_sha256",
+      "http_or_network_error",
+      "retrieval_metadata"
+    ],
+    "live_search_for_formal_replay": false
+  },
+  "cases": [
+    {
+      "phase5_case_index": 1,
+      "case_id": "bfcl_web_search_0:snippet",
+      "source_case_id": "web_search_0",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "187e37c25e5b8ae8c6ca33bf99c894da4f36c9929236b89e0c9a4c9354ae90ff",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 2,
+      "case_id": "bfcl_web_search_1:snippet",
+      "source_case_id": "web_search_1",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "9f49a385fa91b85a624d1a0091caaaba93db82c2ebbe6d97009a09440b2a88bd",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 3,
+      "case_id": "bfcl_web_search_2:snippet",
+      "source_case_id": "web_search_2",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "45025fb8ca90a752246a3037d704afd925303f3cf8834a69b0baf6ed6903d0e8",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 4,
+      "case_id": "bfcl_web_search_3:snippet",
+      "source_case_id": "web_search_3",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "8eea534e16abc8bb34084b90a5725f2acfa9ca0259a541fa76671bc5f8fdcd5f",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 5,
+      "case_id": "bfcl_web_search_4:snippet",
+      "source_case_id": "web_search_4",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "ff447b4f8a72f5890b0cc8aa32f2df305d671aac83cc25aa58ed4ee9ba9df295",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 6,
+      "case_id": "bfcl_web_search_5:snippet",
+      "source_case_id": "web_search_5",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "83fdb6735c69ca524a4a74a90105d2197cb19a08ae500819ff3a3ac6e72940a7",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 7,
+      "case_id": "bfcl_web_search_6:snippet",
+      "source_case_id": "web_search_6",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "b594017a3b0460901f91cf8b487ca3e8ff61e9bdfb317fc841700a43229e3d31",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 8,
+      "case_id": "bfcl_web_search_7:snippet",
+      "source_case_id": "web_search_7",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "610ae5ca82484f184005d07f15b2b3930a9940a06a8ab8a488d0fcbb0fa30414",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 9,
+      "case_id": "bfcl_web_search_8:snippet",
+      "source_case_id": "web_search_8",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "7eabbc6c9975d71f99eb3eb407f466e6e3dfe5edaa3b22d8311fc3b93cd9d30b",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 10,
+      "case_id": "bfcl_web_search_9:snippet",
+      "source_case_id": "web_search_9",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "36dacfbaa0209bb7c7b1ba0d32a9a53abdafb0fa97c6bcf9f7394cb3632c1cb9",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 11,
+      "case_id": "bfcl_web_search_10:snippet",
+      "source_case_id": "web_search_10",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "2b6c19939107763d8443657174ca7c607bf7c327984195886f84a3f3a40336d9",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 12,
+      "case_id": "bfcl_web_search_11:snippet",
+      "source_case_id": "web_search_11",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "f6c3c5790ce88aa263a0c789954dab2681e0a3beb46e03faf4a390a01acf3faa",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 13,
+      "case_id": "bfcl_web_search_12:snippet",
+      "source_case_id": "web_search_12",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "1412d2619b2b019ceeb59af2703d3090375bcdc122bb5c6c181ec2443d282099",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 14,
+      "case_id": "bfcl_web_search_13:snippet",
+      "source_case_id": "web_search_13",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "b2f471272ee7ce8b409a69cab8c62a2a152fd1072391401e39b0c9bcbf2e788a",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 15,
+      "case_id": "bfcl_web_search_14:snippet",
+      "source_case_id": "web_search_14",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "fe1a5316122adfae0efeef82ba1cc84b09a030e683d023fee6ac6494434a36f6",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 16,
+      "case_id": "bfcl_web_search_15:snippet",
+      "source_case_id": "web_search_15",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "90b656c710abc214c7491ffce4a206059d1b6eddfb72d000165c5bcb84eb8d7c",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 17,
+      "case_id": "bfcl_web_search_16:snippet",
+      "source_case_id": "web_search_16",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "0f2346d8348e361b2b202b04279eeaa5764a0583e9ade53b4812ed1dae95a169",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 18,
+      "case_id": "bfcl_web_search_17:snippet",
+      "source_case_id": "web_search_17",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "4495292b78352fdfd698e10b2209e3bc88c944ca5c5aa0ab91a273094c0f9a27",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 19,
+      "case_id": "bfcl_web_search_18:snippet",
+      "source_case_id": "web_search_18",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "3fdbc037c94243358b33888c63200bf53e3e2476a141a37e3f6b256c06e4bab7",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 20,
+      "case_id": "bfcl_web_search_19:snippet",
+      "source_case_id": "web_search_19",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "e20bc3cef57359379b6418aabbf0177a538234f5aba5098446602a581bcb0ec7",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 21,
+      "case_id": "bfcl_web_search_20:snippet",
+      "source_case_id": "web_search_20",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "d8ffca45af09a1a16d47b898506a46640d6a2287552569fb34789d3dfc90ad92",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 22,
+      "case_id": "bfcl_web_search_21:snippet",
+      "source_case_id": "web_search_21",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "ccd97c5d9fd1067f036ec41321582fc798d6d644ab72582174f3096ce7307eee",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 23,
+      "case_id": "bfcl_web_search_22:snippet",
+      "source_case_id": "web_search_22",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "5a1a56fd34cfbe275f1bccbc4666e389741ab1bf79e6ad190957321d9fc970c9",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 24,
+      "case_id": "bfcl_web_search_23:snippet",
+      "source_case_id": "web_search_23",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "79383c61b16978d9385ef8ca1dfc84234dda86b9c820770f84966cea3cdb0f32",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 25,
+      "case_id": "bfcl_web_search_24:snippet",
+      "source_case_id": "web_search_24",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "b41a95afadb8e84b715b3741fe4f2637bda17c7165d53edc31de2e8128f431e0",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 26,
+      "case_id": "bfcl_web_search_25:snippet",
+      "source_case_id": "web_search_25",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "caf5162f397c6783f8e8e0762ffc1fc77f181c89279b8e6fd004273e31818bdc",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 27,
+      "case_id": "bfcl_web_search_26:snippet",
+      "source_case_id": "web_search_26",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "aef8e69b89d686290bba51b0bb7ee560fb4b8b4bebd4f109a9735a32ec8a6a39",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 28,
+      "case_id": "bfcl_web_search_27:snippet",
+      "source_case_id": "web_search_27",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "7b9f41785eb0b1665baa9985dca3690b98eeb401c04d655bed1d57610828c2a9",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 29,
+      "case_id": "bfcl_web_search_28:snippet",
+      "source_case_id": "web_search_28",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "4e43729b2c882041b4dfc3717f43577ab81172b78f8b41696ad36bdd9be74786",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 30,
+      "case_id": "bfcl_web_search_29:snippet",
+      "source_case_id": "web_search_29",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "45fa8de9375d7b4f627b1b99b5fad3fa6d8454cbc950e4e320b8c11682211207",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 31,
+      "case_id": "bfcl_web_search_30:snippet",
+      "source_case_id": "web_search_30",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "2c9e535d7c8e83bcbbd11f12786a5ab71480d9b70e488752bd239d8c04a1976b",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 32,
+      "case_id": "bfcl_web_search_31:snippet",
+      "source_case_id": "web_search_31",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "515f685b026c7926e7cd808f9069b52f4211a4f5fc18d491827127125f13e6ed",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 33,
+      "case_id": "bfcl_web_search_32:snippet",
+      "source_case_id": "web_search_32",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "8a9db625238cd97aa0378ab6e6027db0d06f533e2c80181fa6bce9778e3274cd",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 34,
+      "case_id": "bfcl_web_search_33:snippet",
+      "source_case_id": "web_search_33",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "01b9234e1a31ab99aa582e2a9feab410ec753644baee81beadcc716878027019",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 35,
+      "case_id": "bfcl_web_search_34:snippet",
+      "source_case_id": "web_search_34",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "498c94c68fc7238db9c055004025119d96d23e14ea7bff97548198a32bc76780",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 36,
+      "case_id": "bfcl_web_search_35:snippet",
+      "source_case_id": "web_search_35",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "067abf98c36716e88fa29088218f3790edd4e38e6ae1b611bb3f80f90d7f30f6",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 37,
+      "case_id": "bfcl_web_search_36:snippet",
+      "source_case_id": "web_search_36",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "143ee00d75c26dfa5c888d5657d4c0d0441d04edb44ef0b683aee4db1456a8d9",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 38,
+      "case_id": "bfcl_web_search_37:snippet",
+      "source_case_id": "web_search_37",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "f72d3906f59c13a33a0127bc1726aa1b82124c5355882b7344056e3ba57fdfd7",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 39,
+      "case_id": "bfcl_web_search_38:snippet",
+      "source_case_id": "web_search_38",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "0d98af73c09bfe1dfd9a12d89e5b487cdd2d55fce5e48fe7ac9c0577541b3608",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 40,
+      "case_id": "bfcl_web_search_39:snippet",
+      "source_case_id": "web_search_39",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "45573a4623499df0af64952f0be505519ac8c79ae32aab30acf39466031b2c20",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 41,
+      "case_id": "bfcl_web_search_40:snippet",
+      "source_case_id": "web_search_40",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "c79b1f3b65cda56f54e8d20e68efc3f357b59fd1863bea3829f79b81bba27029",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 42,
+      "case_id": "bfcl_web_search_41:snippet",
+      "source_case_id": "web_search_41",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "8f73f3b6b8b538e9a0d05f24ca46257da33587e35f33679e74236d2016ca7171",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 43,
+      "case_id": "bfcl_web_search_42:snippet",
+      "source_case_id": "web_search_42",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "fb6af2bf57a83adb2471731455125b6e0e87cef75b70f40b8991ce376d7f59cf",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 44,
+      "case_id": "bfcl_web_search_43:snippet",
+      "source_case_id": "web_search_43",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "8924291c5731fb82368357cd3d109d30870308ea8648d1d238bdf104e3297557",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 45,
+      "case_id": "bfcl_web_search_44:snippet",
+      "source_case_id": "web_search_44",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "89da16ae2c0d6c1d21f4aaf38ee6dd9bbff5d723cc1eb99936aa214b00fb2807",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 46,
+      "case_id": "bfcl_web_search_45:snippet",
+      "source_case_id": "web_search_45",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "ee91e1d9f890fbd3fda12b62ab26429fc12008525c0d6c48d4aabc35b7c99603",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 47,
+      "case_id": "bfcl_web_search_46:snippet",
+      "source_case_id": "web_search_46",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "8912564fc356fe6865900c939ec68270e609d8ed32f1426382d473bcae2c247e",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 48,
+      "case_id": "bfcl_web_search_47:snippet",
+      "source_case_id": "web_search_47",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "e098ffff6689dea5547461089d8016e76070520df3519e5def61e634691a6155",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 49,
+      "case_id": "bfcl_web_search_48:snippet",
+      "source_case_id": "web_search_48",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "9043d3d7c2bee61eecd0595690787820dd690b136473852a213af5d3a3de996d",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 50,
+      "case_id": "bfcl_web_search_49:snippet",
+      "source_case_id": "web_search_49",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "2ee832393e0d67082bb96ac92ee5164d4a798e126f8d28a2b820fb67684a8242",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 51,
+      "case_id": "bfcl_web_search_50:snippet",
+      "source_case_id": "web_search_50",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "b7fce960403b979c508a14b2ad99877d86905edd61f8451c0ee692786c315f46",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 52,
+      "case_id": "bfcl_web_search_51:snippet",
+      "source_case_id": "web_search_51",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "48dbcd869243468d7f58b024ba83c0205108c51af862008996ae4243cadb322e",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 53,
+      "case_id": "bfcl_web_search_52:snippet",
+      "source_case_id": "web_search_52",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "38d060058f586a9809aaf10eb70e584492dfc7b30d01c30eb325df497d8c4b69",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 54,
+      "case_id": "bfcl_web_search_53:snippet",
+      "source_case_id": "web_search_53",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "7abb6cc2901f55df3a83df9f47e81ab257bd90367e2008030173fc2a00916bae",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 55,
+      "case_id": "bfcl_web_search_54:snippet",
+      "source_case_id": "web_search_54",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "2c10110c34fa34eaa64ae0fe9aac1ff831adaa97531ce83f32ef3eb92af1f5f1",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 56,
+      "case_id": "bfcl_web_search_55:snippet",
+      "source_case_id": "web_search_55",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "c93748b9eaf6fae03cab072a162a8b0490a1bcbda80b69aecf942e5c44beaf7f",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 57,
+      "case_id": "bfcl_web_search_56:snippet",
+      "source_case_id": "web_search_56",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "827a7f63cebcb929b60071d638a3da6e304c8913df38d40fb43812d086a50707",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 58,
+      "case_id": "bfcl_web_search_57:snippet",
+      "source_case_id": "web_search_57",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "0ecb59947d618e43a65b707ae0a0480ec4965e305cd0bea2eac4bf8f5833cc0b",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 59,
+      "case_id": "bfcl_web_search_58:snippet",
+      "source_case_id": "web_search_58",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "7d50bee7f07d2867c545a77b75ffb8b26c029c959868a1f7ab2201ba3f39df0a",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 60,
+      "case_id": "bfcl_web_search_59:snippet",
+      "source_case_id": "web_search_59",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "3eb3bc5a99a07cbc4d90c11bcf71fdac3696a804210664fab6a395eb451bee92",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 61,
+      "case_id": "bfcl_web_search_60:snippet",
+      "source_case_id": "web_search_60",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "e6a57c16452a84daa2c24d51de3d47d5ab57ade4002364e13edbe2be19b90755",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 62,
+      "case_id": "bfcl_web_search_61:snippet",
+      "source_case_id": "web_search_61",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "15c1c149dbf32d54b5af9afba39a4da537fad0dc18bb40d2108afa1d9919132b",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 63,
+      "case_id": "bfcl_web_search_62:snippet",
+      "source_case_id": "web_search_62",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "f7c51d47e92408b0e512501e655962c8b5ec338beae1ff4abb013b2cc8e5dfec",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 64,
+      "case_id": "bfcl_web_search_63:snippet",
+      "source_case_id": "web_search_63",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "39a1d545b8c4095366341ae8b20beb563d23ecaa699685c813a2d2987725b4c4",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 65,
+      "case_id": "bfcl_web_search_64:snippet",
+      "source_case_id": "web_search_64",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "7ec0b4a4e9e0be6e876d2563f7aea83be1d3629b79d422c7115baaa1d126b4c1",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 66,
+      "case_id": "bfcl_web_search_65:snippet",
+      "source_case_id": "web_search_65",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "7ddcf0bab34da922b3f0df0eda26d32f20a027dad5140dece9bae9d2b2e7a33a",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 67,
+      "case_id": "bfcl_web_search_66:snippet",
+      "source_case_id": "web_search_66",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "12fef5e5cd10c9afa6655114624223b791920ff526b092bf00a8c607f5f6761e",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 68,
+      "case_id": "bfcl_web_search_67:snippet",
+      "source_case_id": "web_search_67",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "671b90ee3a04c9fdc2cf315339dc35aaa09aa73682d2729ca73924fdf56e6c30",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 69,
+      "case_id": "bfcl_web_search_68:snippet",
+      "source_case_id": "web_search_68",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "8cb220bb220e71728699eb809e77a58d7be3b1158e59a01b2fe17ae335431e4d",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 70,
+      "case_id": "bfcl_web_search_69:snippet",
+      "source_case_id": "web_search_69",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "78daf9d3ffac334b6d8e23c02fcc83c0b5746ab5b5b842ecdec856494ea2ce0a",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 71,
+      "case_id": "bfcl_web_search_70:snippet",
+      "source_case_id": "web_search_70",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "90623dc4f3229f9fcfd4a8ba03b2635b70c6e348932ab644c1b41ce425cb2c03",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 72,
+      "case_id": "bfcl_web_search_71:snippet",
+      "source_case_id": "web_search_71",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "f21d9010f2ee836d2134a4df44ccf7577a7a6705d7c3dfa70c7f08fd1d32bb7d",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 73,
+      "case_id": "bfcl_web_search_72:snippet",
+      "source_case_id": "web_search_72",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "9343d8f28de573d18750a1b7ecb1b4175c8a224f9dcc1c9b29fa5949d450c73d",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 74,
+      "case_id": "bfcl_web_search_73:snippet",
+      "source_case_id": "web_search_73",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "ec460102831ce1c7cd97f52e54276aa912b9c2443dc0f55278d901d057943919",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 75,
+      "case_id": "bfcl_web_search_74:snippet",
+      "source_case_id": "web_search_74",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "3c85523907f42b21eaa14bdd45533fb0321583c9add147309705e512333ff454",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 76,
+      "case_id": "bfcl_web_search_75:snippet",
+      "source_case_id": "web_search_75",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "e3319bde64e1d8fc9cabd95888297fbed9e970e70eb98fe0b46299e6d8c63dec",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 77,
+      "case_id": "bfcl_web_search_76:snippet",
+      "source_case_id": "web_search_76",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "76f5fadde938b65c1d582b1a5f732ec1a19973bb828f2553fb1d4f4d2b4ff848",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 78,
+      "case_id": "bfcl_web_search_77:snippet",
+      "source_case_id": "web_search_77",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "70edb8ce3550ddd7cd5705ec9d6cd1434ce7dc2ff38ec0c15839262e08ecedd0",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 79,
+      "case_id": "bfcl_web_search_78:snippet",
+      "source_case_id": "web_search_78",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "37ce4de7f2b12e4b18043572520cd1f103063fc5bf1d24ae8c57d4ec150b9753",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 80,
+      "case_id": "bfcl_web_search_79:snippet",
+      "source_case_id": "web_search_79",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "78ff52c228d3b0f0048bc3bfdb01403f25cf0b3e3e8e5c39354f2eec2c7b6850",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 81,
+      "case_id": "bfcl_web_search_80:snippet",
+      "source_case_id": "web_search_80",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "c58c9c1d936d26c6d2b6e8a95a88c015e937a153d5a8f5899d5fe61077c7dc73",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 82,
+      "case_id": "bfcl_web_search_81:snippet",
+      "source_case_id": "web_search_81",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "5c2d174b354d305038f4214774b1d39dd46fe54703a06d037199f834326442bc",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 83,
+      "case_id": "bfcl_web_search_82:snippet",
+      "source_case_id": "web_search_82",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "9285334c27137181a2f62081e77012605c9456a379bfc83dc895ff1c33616013",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 84,
+      "case_id": "bfcl_web_search_83:snippet",
+      "source_case_id": "web_search_83",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "63d43f7311457dc891c260be0f0f9f095e7b3b5c141515c5d5f4f6dfacf60eaa",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 85,
+      "case_id": "bfcl_web_search_84:snippet",
+      "source_case_id": "web_search_84",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "1c86c44abca2a5926dd9453a881428c0e10156d12e7b10b3d9b2feef57450c49",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 86,
+      "case_id": "bfcl_web_search_85:snippet",
+      "source_case_id": "web_search_85",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "c2c37a2c0f5f8c35596903aae4c95be8ea768c3eef7519de8a81b7327f98551b",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 87,
+      "case_id": "bfcl_web_search_86:snippet",
+      "source_case_id": "web_search_86",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "78f76d400fbe0fe44d7eb256dec8d1410b3e825db6068d6dbc8fde69a4aabf2b",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 88,
+      "case_id": "bfcl_web_search_87:snippet",
+      "source_case_id": "web_search_87",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "1b64b209967f9779906dbd8f290e4356530d34c91c7f845572c9bac6b2f8c509",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 89,
+      "case_id": "bfcl_web_search_88:snippet",
+      "source_case_id": "web_search_88",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "a80352121c26eda08fa6bd818a55de1335180aef478b3a0f5ca6299163bab322",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 90,
+      "case_id": "bfcl_web_search_89:snippet",
+      "source_case_id": "web_search_89",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "9692d8c5e6dde028de8e2fcc74a0ebdf0d2d74e52dffaebe2be0751cd28a5b5b",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 91,
+      "case_id": "bfcl_web_search_90:snippet",
+      "source_case_id": "web_search_90",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "50ad0ff987b53b1bc683a9f29bfe3ca28010dae6e235198bcaa11e5c648c4d84",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 92,
+      "case_id": "bfcl_web_search_91:snippet",
+      "source_case_id": "web_search_91",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "cef26a625b522ca319154b65411aa14d183ac507be3a6b54da62d19503892826",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 93,
+      "case_id": "bfcl_web_search_92:snippet",
+      "source_case_id": "web_search_92",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "b4993dd16098a8c6359151cb1913deb93248a3be7eac0cf9ec701afb1dc1a4fb",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 94,
+      "case_id": "bfcl_web_search_93:snippet",
+      "source_case_id": "web_search_93",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "4f70af7cf0775715fdda934c33f6b1d7b886177bfaae0edde5fb84de579c4cb2",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 95,
+      "case_id": "bfcl_web_search_94:snippet",
+      "source_case_id": "web_search_94",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "f36928f5ae3435a2ab04cf9325a7723fdb69b6f7a642424a7fa0adeb689fe438",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 96,
+      "case_id": "bfcl_web_search_95:snippet",
+      "source_case_id": "web_search_95",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "ace497d4291dc30cc0890f926cb2150a9ff07a4e705186f17f7bbda9c135f89f",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 97,
+      "case_id": "bfcl_web_search_96:snippet",
+      "source_case_id": "web_search_96",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "e5f5a7edfc98521c58d248c22a1a1ae68ec50c627496dad328e2c0eaeaee1b3a",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 98,
+      "case_id": "bfcl_web_search_97:snippet",
+      "source_case_id": "web_search_97",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "d6d5d42de4bc085447fa21bde2487bbaf053d98ee4030b8ca737eb70b0c42339",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 99,
+      "case_id": "bfcl_web_search_98:snippet",
+      "source_case_id": "web_search_98",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "c0eeffe52c04d2d862b9a457a0450f836247835b7992c132b4ef8b2ca084702c",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 100,
+      "case_id": "bfcl_web_search_99:snippet",
+      "source_case_id": "web_search_99",
+      "search_mode": "SNIPPET",
+      "show_snippet": true,
+      "content_sha256": "b794b9c6548f4f4529cdf8ff124517b84f26b255b42163080ec176125df4cdf0",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 101,
+      "case_id": "bfcl_web_search_0:no_snippet",
+      "source_case_id": "web_search_0",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "1ecdf04d6fab3984cc09102b1af140c170ff48e2bcd4fb113d9211249a20cdea",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 102,
+      "case_id": "bfcl_web_search_1:no_snippet",
+      "source_case_id": "web_search_1",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "a37e76f794a49bcac3e0a6a94cb7ec78aa52af9abace76854f77326a9945e181",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 103,
+      "case_id": "bfcl_web_search_2:no_snippet",
+      "source_case_id": "web_search_2",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "7c49e289937be2f873102b468ac8e57fcb8b3914563a86b63f204e45bdb050d2",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 104,
+      "case_id": "bfcl_web_search_3:no_snippet",
+      "source_case_id": "web_search_3",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "6cc8595ff32d857dc5b059a2034f94f696516efef93e81e8c9bf5cde4343b251",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 105,
+      "case_id": "bfcl_web_search_4:no_snippet",
+      "source_case_id": "web_search_4",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "cbfa8b672dac2e516f7ead1dd11527d13c38d5ddd4d49e98bfa87fe3413f8995",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 106,
+      "case_id": "bfcl_web_search_5:no_snippet",
+      "source_case_id": "web_search_5",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "c99bdc9db4b59c77fd0d79a4f55ce314cb3919e48bbdaefaf630fb1e88abcf16",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 107,
+      "case_id": "bfcl_web_search_6:no_snippet",
+      "source_case_id": "web_search_6",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "7b9b90880a087de1742dd4cc5974566f4b700388b89be46f1febb5f1954b00c7",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 108,
+      "case_id": "bfcl_web_search_7:no_snippet",
+      "source_case_id": "web_search_7",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "55c5775bae212251c70f2f591dac7bba5e6215e859940595373ee167a663f344",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 109,
+      "case_id": "bfcl_web_search_8:no_snippet",
+      "source_case_id": "web_search_8",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "7d00aa08d9743bea8f91506db7af318812969b1a70e628f4d627ae6a1a406f1e",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 110,
+      "case_id": "bfcl_web_search_9:no_snippet",
+      "source_case_id": "web_search_9",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "35b13f4f66fe95ba86c5bfd7054296134b55dbc252f874eb635f0eaebe6b7365",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 111,
+      "case_id": "bfcl_web_search_10:no_snippet",
+      "source_case_id": "web_search_10",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "8d3ecd5f09c07192d4e88f7cef3ab3ec137ddcc72b3a87aecb6b7920a8ef37d3",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 112,
+      "case_id": "bfcl_web_search_11:no_snippet",
+      "source_case_id": "web_search_11",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "a3a958049159a20430352ee042cc032d668a84ed0d9e5c4a6e3301516cfc7a9c",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 113,
+      "case_id": "bfcl_web_search_12:no_snippet",
+      "source_case_id": "web_search_12",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "e9c5e85d24b137dad7f1bb4055fc1ad9b83afded87a79851ce556dd1c7b9967f",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 114,
+      "case_id": "bfcl_web_search_13:no_snippet",
+      "source_case_id": "web_search_13",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "0b8e75fa6e5f49e6fc795fc146a8503de179c60a993b8b2baebc1eea5916f6d9",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 115,
+      "case_id": "bfcl_web_search_14:no_snippet",
+      "source_case_id": "web_search_14",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "51ca8a80b3364428e73123b7117294ab53483313aa2be8aada9199eb84c197f1",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 116,
+      "case_id": "bfcl_web_search_15:no_snippet",
+      "source_case_id": "web_search_15",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "5fd8909fee8602e0f17971e15912f876a589f74875d6edd289ae6aff836f9edd",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 117,
+      "case_id": "bfcl_web_search_16:no_snippet",
+      "source_case_id": "web_search_16",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "49076cdf0a31790880eaf4fe75795b10bedeea48da19af772a5737d2cacecdc7",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 118,
+      "case_id": "bfcl_web_search_17:no_snippet",
+      "source_case_id": "web_search_17",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "f584e85dadcd1fa4adb610b3570b810b69afe9eb8235820c7c036ff17fdc1f3f",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 119,
+      "case_id": "bfcl_web_search_18:no_snippet",
+      "source_case_id": "web_search_18",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "a85b4768d22d8d26873cd0b53188e564e4b73537aa481267388a6e2d91c4e9c3",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 120,
+      "case_id": "bfcl_web_search_19:no_snippet",
+      "source_case_id": "web_search_19",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "d13d67140a18836d37c8336adcfdcee64545e8f566913beb1ae7d5abdc56867b",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 121,
+      "case_id": "bfcl_web_search_20:no_snippet",
+      "source_case_id": "web_search_20",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "cca5373bce7d4568b2bb5c009f1c98ee52abd9110e6bff4dd3800235b0e4e8ac",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 122,
+      "case_id": "bfcl_web_search_21:no_snippet",
+      "source_case_id": "web_search_21",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "92efeb62056c6bd7f0e056a59b26a990e54843ba17c45fc7bc83f29708b84f22",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 123,
+      "case_id": "bfcl_web_search_22:no_snippet",
+      "source_case_id": "web_search_22",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "9bcae8db0eb2cc8a154a142f6d42cef1014010828da52724ecbcde020de34f98",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 124,
+      "case_id": "bfcl_web_search_23:no_snippet",
+      "source_case_id": "web_search_23",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "960540b5f59580dce604855f17e08e36fbbc626c6208238134d69310ccafbb55",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 125,
+      "case_id": "bfcl_web_search_24:no_snippet",
+      "source_case_id": "web_search_24",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "8bbc42025eeb0396e7d4cf9421310ce0611f3bcd5af2c7f20504ae78e0708c99",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 126,
+      "case_id": "bfcl_web_search_25:no_snippet",
+      "source_case_id": "web_search_25",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "fef6ac8f80292eb3b522bb4c66f45272595010e9eca7b870ae4fc800b03a2014",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 127,
+      "case_id": "bfcl_web_search_26:no_snippet",
+      "source_case_id": "web_search_26",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "de46de43df5e272b87baaeafc198287ceb1b6b323846319f77ed0308f8bac025",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 128,
+      "case_id": "bfcl_web_search_27:no_snippet",
+      "source_case_id": "web_search_27",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "69269acebd7f466404ce32aed1c687bde968e27b03b57755838a9b4617cdc0d7",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 129,
+      "case_id": "bfcl_web_search_28:no_snippet",
+      "source_case_id": "web_search_28",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "1d8928dee629ea2042745fbedefbcac3faf08b549c3fb6f7d28f3f9ea855db97",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 130,
+      "case_id": "bfcl_web_search_29:no_snippet",
+      "source_case_id": "web_search_29",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "3b1867da14fad9812e71ae397ad238d5954f7361e6e100b1bb2c7a5a88a2f181",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 131,
+      "case_id": "bfcl_web_search_30:no_snippet",
+      "source_case_id": "web_search_30",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "34086a1d0b14e1d3291885d28610e9db824e5ec63e86aaed1265c68b1811bb7b",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 132,
+      "case_id": "bfcl_web_search_31:no_snippet",
+      "source_case_id": "web_search_31",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "ff557a43da22334d9b899bfd6e0442e15ed4e3f2bf0780ecd6126ff198f7091a",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 133,
+      "case_id": "bfcl_web_search_32:no_snippet",
+      "source_case_id": "web_search_32",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "d8f1fc3df7e11530c04964cca85c86cb84d5425d4991d4d07b96e0fde8712b2d",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 134,
+      "case_id": "bfcl_web_search_33:no_snippet",
+      "source_case_id": "web_search_33",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "bee869992bc033ce3dc90e2f2c302e7de710c8a660d8ec8e67069cb397d4de70",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 135,
+      "case_id": "bfcl_web_search_34:no_snippet",
+      "source_case_id": "web_search_34",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "b82431b9ca2a8e88b8e40bdd8c175f8dd5e84b8d0e9edc87c2908389eef7a63c",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 136,
+      "case_id": "bfcl_web_search_35:no_snippet",
+      "source_case_id": "web_search_35",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "9ab8a98450a4bbafd6e0845d02053410e261d0bd33eaa789d165f24fbac33da2",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 137,
+      "case_id": "bfcl_web_search_36:no_snippet",
+      "source_case_id": "web_search_36",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "b6fbc698ed2faa7cff2e3f82d0ea141b5507f88ec77c4f64e9d9c128085c3855",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 138,
+      "case_id": "bfcl_web_search_37:no_snippet",
+      "source_case_id": "web_search_37",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "d472c8eee94418ba7a7ea71b119903cf610c8c97df6c4d30ec1d8a41ceb901fb",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 139,
+      "case_id": "bfcl_web_search_38:no_snippet",
+      "source_case_id": "web_search_38",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "67b8fc183445e77cabc58b6011eefb329d4531327d7d410977c8351cad0d89bd",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 140,
+      "case_id": "bfcl_web_search_39:no_snippet",
+      "source_case_id": "web_search_39",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "bb33f498e509122082d2cfa173d446d3c5668f2b3fff4a09df8fea4abf976fff",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 141,
+      "case_id": "bfcl_web_search_40:no_snippet",
+      "source_case_id": "web_search_40",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "4f31c691896a1c8aa4497881578de0cb8cae9fe5ba8bce782794ae4f56246fc8",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 142,
+      "case_id": "bfcl_web_search_41:no_snippet",
+      "source_case_id": "web_search_41",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "c17fc3542ec1a525b0386d582eab89a0ee54ef110e224af8a1dbce6633284e24",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 143,
+      "case_id": "bfcl_web_search_42:no_snippet",
+      "source_case_id": "web_search_42",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "2880ff34191f7eb6b41f280c7ded5898bf1cc1983c9cc5dca4c3275b862b31bb",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 144,
+      "case_id": "bfcl_web_search_43:no_snippet",
+      "source_case_id": "web_search_43",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "18f3b25b0c4e7901cfafe7ffaaf37f370dd8ca11a41db3cc1cdec9560d9d65d0",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 145,
+      "case_id": "bfcl_web_search_44:no_snippet",
+      "source_case_id": "web_search_44",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "2a49d7347f6d2832e4f2eb4dfe2dad509ce95f44b838845f2f964389c6be43b8",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 146,
+      "case_id": "bfcl_web_search_45:no_snippet",
+      "source_case_id": "web_search_45",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "c69e5dd0213717f5869f8fca1730c60e79e0118326c5b9129a824dd6f7fc7fc9",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 147,
+      "case_id": "bfcl_web_search_46:no_snippet",
+      "source_case_id": "web_search_46",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "6a7522ddcc06f482b18473f44978edcfa7d8e06a6b77d76d62b9e8104ddfb4a9",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 148,
+      "case_id": "bfcl_web_search_47:no_snippet",
+      "source_case_id": "web_search_47",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "fc67596e4805e4fb2de2864a6df4fcc8dcb979f63695f7d975c30fe2c30f5600",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 149,
+      "case_id": "bfcl_web_search_48:no_snippet",
+      "source_case_id": "web_search_48",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "1ea42191a0e88a2f90374f0f91c2f9b43a2befa8985a39a386ba162cebac6616",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 150,
+      "case_id": "bfcl_web_search_49:no_snippet",
+      "source_case_id": "web_search_49",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "ef7202fb44bfd9c080c7f94a475cf5f30fc4f3a8f7fc969af65c684d78fb6495",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 151,
+      "case_id": "bfcl_web_search_50:no_snippet",
+      "source_case_id": "web_search_50",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "06144802a7e9ab22681f5a240e17e99eddb6f658744667491b842cc451a22f85",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 152,
+      "case_id": "bfcl_web_search_51:no_snippet",
+      "source_case_id": "web_search_51",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "90cabb7a529f098c95c9603d365bcb39d4af0cb140083bbd81fee44276a5c748",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 153,
+      "case_id": "bfcl_web_search_52:no_snippet",
+      "source_case_id": "web_search_52",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "8228c311ff39cf036eb67762a0955a2dc378fe149c490e0e6c66f24821e149e3",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 154,
+      "case_id": "bfcl_web_search_53:no_snippet",
+      "source_case_id": "web_search_53",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "c63d26ac4714dc9f2d174fac66472fdb573565fe156e455b1b64c5cae3647b2a",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 155,
+      "case_id": "bfcl_web_search_54:no_snippet",
+      "source_case_id": "web_search_54",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "c7520abe9c99f99d5162d92f1b1e3425671d6d70ea145b70f62c547e5f7b5c00",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 156,
+      "case_id": "bfcl_web_search_55:no_snippet",
+      "source_case_id": "web_search_55",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "e861417296628f7eb7197ca7d1f50548ae8a7417d8dc57605b69674f32bb43d6",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 157,
+      "case_id": "bfcl_web_search_56:no_snippet",
+      "source_case_id": "web_search_56",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "827cd49069830f7a8183b41c6893ab47670d71ce8e5e4eb55ce981499ee51c64",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 158,
+      "case_id": "bfcl_web_search_57:no_snippet",
+      "source_case_id": "web_search_57",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "d0696449f6f1d633cab37b8a8d4dfee30d1a9a5aa6903cf291ab5672e7bfdb57",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 159,
+      "case_id": "bfcl_web_search_58:no_snippet",
+      "source_case_id": "web_search_58",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "11f02630d93d344d7b9d716628b343ffa5a650ef0ea301417973e838c8d500d5",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 160,
+      "case_id": "bfcl_web_search_59:no_snippet",
+      "source_case_id": "web_search_59",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "b6a9f0383a3870d997739bb6ffda8de8c6608026c6de63823065c33ddc49e8c7",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 161,
+      "case_id": "bfcl_web_search_60:no_snippet",
+      "source_case_id": "web_search_60",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "52a1aba589346b7a59433afcf5954c8fd0d32b02730877420536773762551336",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 162,
+      "case_id": "bfcl_web_search_61:no_snippet",
+      "source_case_id": "web_search_61",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "74136522d0af9ec671558a3cf9eda02f8fa55ab51aa421b47bdc86236d2d6cab",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 163,
+      "case_id": "bfcl_web_search_62:no_snippet",
+      "source_case_id": "web_search_62",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "cd6bb11bb03bf2c9d55524e99766857b960af27429ccd4892ac4647824cc71dd",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 164,
+      "case_id": "bfcl_web_search_63:no_snippet",
+      "source_case_id": "web_search_63",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "44d1214b93d101906d50ac82f3f3c7514de6914eddace136bbae7a67039df12c",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 165,
+      "case_id": "bfcl_web_search_64:no_snippet",
+      "source_case_id": "web_search_64",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "7e6f39740b80055182a02ce85640976cfa2da71cac6f02cfc33013dc1f750201",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 166,
+      "case_id": "bfcl_web_search_65:no_snippet",
+      "source_case_id": "web_search_65",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "87178622df783e0811555c61bb3708d6e670dada25f29302cdf55b4766fb2553",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 167,
+      "case_id": "bfcl_web_search_66:no_snippet",
+      "source_case_id": "web_search_66",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "1544ff75fc9ab52561929128abcff1cf24876f7c09cc7f6fbf2f331080b1bd05",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 168,
+      "case_id": "bfcl_web_search_67:no_snippet",
+      "source_case_id": "web_search_67",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "248bc142e918519b4eb2263b0f1be1d773e0324fb150dd7b76e06c40b3a69a37",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 169,
+      "case_id": "bfcl_web_search_68:no_snippet",
+      "source_case_id": "web_search_68",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "05855da1a01256e4ce01bf92c976227551965c6fdb6d2250637e7733b2daf3ec",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 170,
+      "case_id": "bfcl_web_search_69:no_snippet",
+      "source_case_id": "web_search_69",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "2cac2bcd69d162acb7567f88d4eebe3e462fc37e0752ca03498b232a191ca4aa",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 171,
+      "case_id": "bfcl_web_search_70:no_snippet",
+      "source_case_id": "web_search_70",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "f33d2b8d934e6fb8b65ac2473dd6c7f5ddc7c8f6694427ee4c021ac3954ea031",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 172,
+      "case_id": "bfcl_web_search_71:no_snippet",
+      "source_case_id": "web_search_71",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "3cb72823e3be082224eecd4c6db1d1cd860cdebb51f0af61113469e728a16287",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 173,
+      "case_id": "bfcl_web_search_72:no_snippet",
+      "source_case_id": "web_search_72",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "47004e971d224ec65879a6e8673bb044e3ace9c855f00d70d3627b535b0c9478",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 174,
+      "case_id": "bfcl_web_search_73:no_snippet",
+      "source_case_id": "web_search_73",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "d40de002759186d1ee1101e10c9a47f74153ff714ce2773d3bb1218c4abc76a2",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 175,
+      "case_id": "bfcl_web_search_74:no_snippet",
+      "source_case_id": "web_search_74",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "f1082c92fa55d21a484c464e9a5b711f07295d30d29e034cd7ecf8cffe998f98",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 176,
+      "case_id": "bfcl_web_search_75:no_snippet",
+      "source_case_id": "web_search_75",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "559de428dac5ccd9f8ce05988449e2707f8f0fc2866e85069568d123306cf3f6",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 177,
+      "case_id": "bfcl_web_search_76:no_snippet",
+      "source_case_id": "web_search_76",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "cdcb83d329b81e8f8daf2f379cba1975b1a7b9578308339a84e51ce40db7b64f",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 178,
+      "case_id": "bfcl_web_search_77:no_snippet",
+      "source_case_id": "web_search_77",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "537e822d379397160b31603be5277299131281180ac3c7e79e6c22fc748a13f4",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 179,
+      "case_id": "bfcl_web_search_78:no_snippet",
+      "source_case_id": "web_search_78",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "0d57063723c0db4582c593e864ec5ee66916f83670156cae4131ebdb4c7ec7c1",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 180,
+      "case_id": "bfcl_web_search_79:no_snippet",
+      "source_case_id": "web_search_79",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "c543199fe7c24c98ac5d3804a5b857d22bc446107ddc09f438c391197d60d849",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 181,
+      "case_id": "bfcl_web_search_80:no_snippet",
+      "source_case_id": "web_search_80",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "1b87950cedba04219db0fa0a52589ce8ca9f7af00a8bb603b4983086c2bb7747",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 182,
+      "case_id": "bfcl_web_search_81:no_snippet",
+      "source_case_id": "web_search_81",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "6275c554d396e3fc652c596515f91621d2c5048423d95bbb6914a6cd8d5d9135",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 183,
+      "case_id": "bfcl_web_search_82:no_snippet",
+      "source_case_id": "web_search_82",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "a54ecd78af9ca6f374d68f1af80379a8b21fd8cabd665963b187d96d4a6affef",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 184,
+      "case_id": "bfcl_web_search_83:no_snippet",
+      "source_case_id": "web_search_83",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "1bb291f9c878c7976e49416405b732cf231c695d80f7202c79b979c12e6dbd67",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 185,
+      "case_id": "bfcl_web_search_84:no_snippet",
+      "source_case_id": "web_search_84",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "fe9d191945a1411ffa2060eb8f0a3604fa354e91eb997251dd502dc580818169",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 186,
+      "case_id": "bfcl_web_search_85:no_snippet",
+      "source_case_id": "web_search_85",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "40be295cdac882091566c3668daa02984d3d13c83c9b55a58e48db386d55305b",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 187,
+      "case_id": "bfcl_web_search_86:no_snippet",
+      "source_case_id": "web_search_86",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "765b8b71ab1ae390213f68ea721fbe5d9c76de3195ae009e76805a209b203a01",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 188,
+      "case_id": "bfcl_web_search_87:no_snippet",
+      "source_case_id": "web_search_87",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "d4e2a0610903e998b77b27bca587cb4a907f5e0b018c4efaeeb622cba5d8ebbe",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 189,
+      "case_id": "bfcl_web_search_88:no_snippet",
+      "source_case_id": "web_search_88",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "8549d66813ac0aaaf23f9dbb3bbdf3b484b5e2eaf1693fe24078963fc7906247",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 190,
+      "case_id": "bfcl_web_search_89:no_snippet",
+      "source_case_id": "web_search_89",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "b7603b9a205bf163579fa9ea0149dc33a93baf38f92ee04041c3ac8a6a86c53a",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 191,
+      "case_id": "bfcl_web_search_90:no_snippet",
+      "source_case_id": "web_search_90",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "722ccb1e4530cc8046806da34fd4586fdbe50f37024b980df8d5eb7bcead2662",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 192,
+      "case_id": "bfcl_web_search_91:no_snippet",
+      "source_case_id": "web_search_91",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "88a88ec1975e8e82e516605877b59d336e2141358d374fb7d4217bec01d15850",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 193,
+      "case_id": "bfcl_web_search_92:no_snippet",
+      "source_case_id": "web_search_92",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "a6d4325a34bf177f2e5fce3d59eb4a90f2220ede29fab031f8985f80ef63601f",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 194,
+      "case_id": "bfcl_web_search_93:no_snippet",
+      "source_case_id": "web_search_93",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "f218d3d90f8c436c7547a1e9d42f45d992c3daa4e932f40d75c9addb508beda6",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 195,
+      "case_id": "bfcl_web_search_94:no_snippet",
+      "source_case_id": "web_search_94",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "86ae0d5c8ab07cacd251a29fbc11c3ec8d8e43f3085e1956fb1cb70e0312ff46",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 196,
+      "case_id": "bfcl_web_search_95:no_snippet",
+      "source_case_id": "web_search_95",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "14ff131feb7acdbe4dbbbd2a1656f6de179531debd91bc7f16f2ac009aa36cf8",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 197,
+      "case_id": "bfcl_web_search_96:no_snippet",
+      "source_case_id": "web_search_96",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "9b633bbc78b789fd4ee46bf16ff813d9aaea0fe4c61093406842cc2571730fe0",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 198,
+      "case_id": "bfcl_web_search_97:no_snippet",
+      "source_case_id": "web_search_97",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "23c9890d65431b242444172f71dedb2d1b6cd8b2ebefd2f9f7b4f689bcce8bbc",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 199,
+      "case_id": "bfcl_web_search_98:no_snippet",
+      "source_case_id": "web_search_98",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "7b56e350b3111de8550cec8ec745519cd6dbd22a403b6b8339040928d5c88a93",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    },
+    {
+      "phase5_case_index": 200,
+      "case_id": "bfcl_web_search_99:no_snippet",
+      "source_case_id": "web_search_99",
+      "search_mode": "NO_SNIPPET",
+      "show_snippet": false,
+      "content_sha256": "e23607a72fb60845f4fcf483091a95121f83d6d2e2ed46a4945239f0399b3f6d",
+      "fixture_status": "NOT_YET_ACQUIRED"
+    }
+  ],
+  "frame_sha256": "ce8b2e93cdf40106459338c298dab95a3081c6c34bf8f0666eab97fdd2842c07"
+}
