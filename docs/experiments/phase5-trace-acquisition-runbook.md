@@ -43,6 +43,22 @@ provider identity, and terminal state. The complete returned payload becomes
 the frozen fixture. Formal replay reads that fixture and never performs live
 search.
 
+Before live collection, validate the frozen 200-case frame:
+
+```bash
+python -m kvopt.workload.phase5_bfcl_acquisition \
+  --sampling-frame /absolute/path/to/bfcl-web-search-frame.json \
+  --source-revision <immutable-bfcl-revision> \
+  --output artifacts/phase5-bfcl-frame-validation.json
+```
+
+The validator requires exactly 100 `SNIPPET` and 100 `NO_SNIPPET` cases,
+unique case IDs, and an immutable content SHA-256 for every case. An unresolved
+revision fails closed. Every observed search must preserve the complete response
+bytes, response hash, query arguments, provider identity, timestamps, source
+URLs, HTTP status, and errors; a failed search is not replaced by a synthetic
+result.
+
 Search-result redistribution terms are separate from the BFCL repository
 license. Until M4 accepts the source and fixture license record, Q8 remains
 false even when Q1--Q7 pass.
