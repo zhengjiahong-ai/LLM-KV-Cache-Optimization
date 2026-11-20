@@ -1,6 +1,6 @@
 # Team Responsibilities
 
-> **Current project positioning (2026-11-10):** The project optimizes a project-side Continuum-style program-aware KV cache management adaptation on vLLM. Phase 1B establishes the baseline; the current research evaluates cost-aware Entry Release and physical Block Victim Selection. Exact reproduction of the original Continuum system is not claimed. See [Research Motivation and Contributions](research-motivation-and-contributions.md) and [Research Status](research-status.md).
+> **Current project positioning (2026-11-19):** The project studies cost-aware KV-cache management in a Continuum-style, program-aware vLLM system. Phase 5 is the current six-system trace-driven campaign (Native, Continuum Official, Continuum Adapted/A0, A1 Original, A3 Suffix and DVA-ER v1). Phase 2–4 remain historical evidence; no exact reproduction of the original Continuum paper is claimed. See [Research Motivation and Contributions](research-motivation-and-contributions.md) and [Research Status](research-status.md).
 
 This document defines ownership and phase responsibilities for the seven project members. For the **current** phase and its authorized scope, read [`research-status.md`](research-status.md); the baseline responsibilities below remain historical/general guidance where newer M1 authorizations assign narrower operational ownership.
 
@@ -37,12 +37,12 @@ This Phase 5 overlay supersedes the Phase 3 execution assignments below.
 
 ## Historical initial role descriptions
 
-The Member 1–7 descriptions and the original Ours-Evict / Ours-Full implementation roadmap below document the project's earlier division of labor. They are retained for provenance and are **not the active execution assignments** where they conflict with the current Phase 3 overlay above. In particular, the old mandatory Ours-Evict deliverable is not the current Phase 3 arm definition.
+The Member 1–7 descriptions and the original Ours-Evict / Ours-Full implementation roadmap below document the project's earlier division of labor. They are retained for provenance and are **not the active execution assignments** where they conflict with the current Phase 5 overlay above. In particular, the old mandatory Ours-Evict deliverable is not the current Phase 3 arm definition.
 
 ## Shared rules
 
 1. `main` must remain runnable; all changes go through task branches and PRs.
-2. `docs/research-status.md` is the canonical live status; Protocol v4 and the M1 authorization govern the current campaign; `docs/baseline-freeze.md` governs immutable Phase 1B semantics.
+2. `docs/research-status.md` is the canonical live status; the Phase 5 Formal Protocol and dated M1 decisions govern the current campaign; Phase 3 Protocol v4 is historical; `docs/baseline-freeze.md` governs immutable Phase 1B semantics.
 3. Do not silently simplify a frozen baseline or change the cohort, manifests, arms, estimands, gates, or run plan.
 4. Real performance claims require valid Native vLLM evidence and independent evaluation, not simulator output alone.
 5. Keep logical Entry Release, physical Block Victim Selection, Native physical eviction, later APC status, and recomputed-token outcomes as separate evidence levels.
