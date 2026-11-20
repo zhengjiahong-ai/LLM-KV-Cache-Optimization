@@ -14,7 +14,7 @@ M1 accepts this six-system research design and separately approves the limited D
 
 This M1 decision supersedes the original design-stage statements below that Trace Acquisition itself is not authorized. It does **not** supersede the protocol's execution gates or authorize Native/GPU Conformance, Calibration or Formal Campaign. The machine-readable protocol remains `DESIGN_FROZEN_CANDIDATE` with `execution_authorized=false`; system freeze, qualified Cohort/Seal, Native conformance, Calibration, resource authorization and final manifests remain mandatory.
 
-New acquisition is temporarily paused only until the documentation synchronization PR is merged. The M1 decision does not change the protocol's six systems, metrics, statistical model, Group definition, sample plan or claim boundaries.
+The documentation synchronization PR #125 was merged on 2026-11-19 (merge commit `5e453a6926e3c1092235b2ec2e8b6227a22362f3`); the temporary documentation pause is lifted. The M1 dataset decision permits acquisition and qualification only. It does not change the protocol's six systems, metrics, statistical model, Group definition, sample plan or claim boundaries.
 
 ---
 
