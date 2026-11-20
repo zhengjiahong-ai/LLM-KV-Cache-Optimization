@@ -533,10 +533,10 @@ No formal run may start while any gate is unresolved.
 ### 10.3 Current blockers against Phase 5A–5E
 
 - N-Session Native runner and incremental polling are not yet GPU-proven.
-- Phase 5E Part A is `READY_FOR_M6_IMPLEMENTATION`; GPU conformance is not authorized/passed. Part B remains `NOT_READY`.
-- BFCL trace acquisition/frozen search fixture is not authorized/complete.
+- PR #124 integrates the production-shaped Phase 5E Part A runner and CPU/Mock execute→gate→archive path. Part A Native/GPU conformance remains `NOT_RUN`; Part B remains `NOT_READY`.
+- M1 has approved the limited BFCL acquisition work package; the exact immutable revision, third-party terms, acquired traces and frozen fixture evidence remain outstanding.
 - DVA-ER v1 is provisional and has not passed the CPU candidate-selection gate; A1/A3 are frozen legacy implementations; no three-candidate formal arm set is fully frozen.
-- Candidate family/evaluation contracts and CPU fixtures are contract-level; M6 must implement A1/A3/DVA-ER Stage 1/2/3 tests and the full replay.
+- Candidate-family evaluation contracts and the six-system CPU/Mock campaign path are integrated by PR #124; live Native replay and GPU evidence remain unverified.
 - Official compatibility/environment audit is not complete.
 - Calibration/formal GPU budget is not authorized.
 
@@ -544,17 +544,17 @@ These are explicit entry gates, not assumptions.
 
 ---
 
-## 11. Unresolved M1 decisions
+## 11. Remaining freeze decisions and execution gates
 
 | ID | Decision | Options / cost | Effect if unresolved |
 |---|---|---|---|
-| U1 | Three-candidate family | A1/A3 frozen legacy; DVA-ER CPU selection gate; if DVA fails, M1 decides five-arm or stop | six-arm formal not executable |
-| U2 | Continuum Adapted scheduler scope | full scheduler vs cache-only; full needs scheduler conformance, cache-only needs rename | cannot define six-system comparison |
-| U3 | Official environment | same vLLM base vs separate base; same base may require patches, separate base is a confound | official arm may be descriptive only |
-| U4 | BFCL search fixture | M1 has approved acquisition direction; exact immutable revision, third-party terms and fixture evidence must still be reviewed and frozen | stratum remains unqualified until fixture acceptance |
-| U5 | Arrival rate/seed | provisional λ and seed must be frozen before acquisition | arrival realization cannot be sealed |
-| U6 | Six-arm calibration/GPU budget | requested 72–112 GPU-hours; lower than projected minimum → NOT_FEASIBLE, never N<8 | campaign may be infeasible |
-| U7 | Censored-session policy | include right-censored Sessions with observed valid Turns; sensitivity excludes | population ambiguity |
+| U1 | DVA-ER formal candidate selection | A1/A3 remain frozen legacy; DVA-ER v1 has 28 focused CPU correctness tests, but the separate candidate-selection gate and formal M1 freeze remain outstanding. If it fails, M1 decides whether to stop or revise the arm set. | DVA-ER cannot enter the formal six-system campaign |
+| U2 | Continuum Adapted scheduler conformance | Scope is defined as the full A0 system with program-aware scheduler enabled only after conformance; if it fails, the arm must be relabelled `CONTINUUM_ADAPTED_CACHE_ONLY`. | Final A0 identity/label depends on conformance evidence |
+| U3 | Continuum Official compatibility | Use the pinned public implementation and its documented environment; audit actual compatibility and record any upstream environment difference as a system-level confound. | Official comparison may be descriptive-only if compatibility is not established |
+| U4 | BFCL source and fixture acceptance | Acquisition direction is M1-approved; exact immutable revision, third-party content terms, raw search responses and fixture hashes must be reviewed and sealed. | BFCL stratum remains unqualified until evidence is accepted |
+| U5 | Arrival parameter freeze | The design candidate specifies `FROZEN_POISSON`, λ=0.1 Program/s and seed `20261201`; JSON still marks λ provisional and requires explicit M1 freeze before Workload Seal. | Arrival realization cannot be formally sealed |
+| U6 | GPU resource authorization | The 72–112 GPU-hour envelope is a requested ceiling, not a reservation or authorization; measured projection and available allocation must be reviewed by M1. | Calibration/Formal remain unauthorized |
+| U7 | Right-censored Session handling | RESOLVED IN DESIGN: include Sessions with valid observed Turns in the primary analysis; never impute future Turns; repeat sensitivity analysis excluding censored Sessions. | No open design decision; apply the frozen rule |
 
 ---
 
@@ -567,11 +567,11 @@ COST_AWARE_FAMILY = A1_ORIGINAL_FROZEN_LEGACY / A3_SUFFIX_FROZEN_LEGACY / DVA_ER
 DVA_ER_SELECTION_GATE = NOT_EXECUTED
 CONTINUUM_OFFICIAL_COMPATIBILITY = AUDIT_REQUIRED
 BFCL_TRACE_ACQUISITION = M1_APPROVED_LIMITED_WORK_PACKAGE; FIXTURE_NOT_ACQUIRED
-N_SESSION_NATIVE_RUNNER = NOT_GPU_PROVEN
-PHASE5E_PART_A = READY_FOR_M6_IMPLEMENTATION
+N_SESSION_NATIVE_RUNNER = INTEGRATED; NATIVE_GPU_CONFORMANCE = NOT_PROVEN
+PHASE5E_PART_A_RUNNER = INTEGRATED_CPU_MOCK; NATIVE_GPU_CONFORMANCE = NOT_RUN
 PHASE5E_PART_B = NOT_READY
 GPU_SIX_ARM_CAMPAIGN = NOT_AUTHORIZED
 REQUESTED_GPU_BUDGET = 72_TO_112_GPU_HOURS
 ```
 
-This protocol is complete as a design, but it is not an execution authorization. M6 must not change the research design; implementation conflicts return to M4/M1.
+This protocol records the accepted research design and remaining freeze/compatibility gates, but it is not an execution authorization. M6 must not change the research design; implementation conflicts return to M4/M1.
