@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "phase5.acquisition_frames.v1.schema.json",
+  "title": "Phase 5 Acquisition Sampling Frames",
+  "oneOf": [
+    {"$ref": "#/$defs/swe"},
+    {"$ref": "#/$defs/bfcl"}
+  ],
+  "$defs": {
+    "sha": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "swe": {
+      "type": "object",
+      "required": [
+        "schema_version", "status", "source", "selection", "historical_policy",
+        "reserve_promotion", "candidates", "frame_sha256"
+      ],
+      "properties": {
+        "schema_version": {"const": "phase5.swe_sampling_frame.v1"},
+        "status": {"const": "FROZEN_ACQUISITION_FRAME_NOT_FORMAL_COHORT"},
+        "source": {
+          "type": "object",
+          "required": ["dataset", "revision", "source_plan", "source_plan_candidate_assignment_sha256"],
+          "properties": {
+            "dataset": {"const": "princeton-nlp/SWE-bench_Verified"},
+            "revision": {"const": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a"},
+            "source_plan_candidate_assignment_sha256": {"$ref": "#/$defs/sha"}
+          },
+          "additionalProperties": true
+        },
+        "candidates": {
+          "type": "array",
+          "minItems": 84,
+          "maxItems": 84,
+          "items": {
+            "type": "object",
+            "required": ["phase5_rank", "instance_id", "source_partition", "candidate_role", "must_reacquire_under_phase5"],
+            "properties": {
+              "phase5_rank": {"type": "integer", "minimum": 1},
+              "instance_id": {"type": "string", "minLength": 1},
+              "source_partition": {"enum": ["PHASE3_PREREGISTERED", "HISTORICAL_W1C"]},
+              "candidate_role": {"enum": ["PRIMARY", "RESERVE", "HISTORICAL_REUSE_RESERVE"]},
+              "must_reacquire_under_phase5": {"const": true}
+            },
+            "additionalProperties": true
+          }
+        },
+        "frame_sha256": {"$ref": "#/$defs/sha"}
+      },
+      "additionalProperties": true
+    },
+    "bfcl": {
+      "type": "object",
+      "required": ["schema_version", "status", "source", "configuration", "license_provenance", "cases", "frame_sha256"],
+      "properties": {
+        "schema_version": {"const": "phase5.bfcl_sampling_frame.v1"},
+        "status": {"const": "FROZEN_ACQUISITION_FRAME_NOT_FORMAL_COHORT"},
+        "source": {
+          "type": "object",
+          "required": ["revision", "raw_file_sha256", "source_case_count"],
+          "properties": {
+            "revision": {"const": "6ea57973c7a6097fd7c5915698c54c17c5b1b6c8"},
+            "raw_file_sha256": {"$ref": "#/$defs/sha"},
+            "source_case_count": {"const": 100}
+          },
+          "additionalProperties": true
+        },
+        "configuration": {
+          "type": "object",
+          "required": ["snippet_cases", "no_snippet_cases", "formal_case_count", "live_search_allowed"],
+          "properties": {
+            "snippet_cases": {"const": 100},
+            "no_snippet_cases": {"const": 100},
+            "formal_case_count": {"const": 200},
+            "live_search_allowed": {"const": false}
+          },
+          "additionalProperties": true
+        },
+        "cases": {
+          "type": "array",
+          "minItems": 200,
+          "maxItems": 200,
+          "items": {
+            "type": "object",
+            "required": ["phase5_case_index", "case_id", "source_case_id", "search_mode", "content_sha256"],
+            "properties": {
+              "phase5_case_index": {"type": "integer", "minimum": 1},
+              "case_id": {"type": "string", "minLength": 1},
+              "source_case_id": {"type": "string", "pattern": "^web_search_[0-9]+$"},
+              "search_mode": {"enum": ["SNIPPET", "NO_SNIPPET"]},
+              "content_sha256": {"$ref": "#/$defs/sha"}
+            },
+            "additionalProperties": true
+          }
+        },
+        "frame_sha256": {"$ref": "#/$defs/sha"}
+      },
+      "additionalProperties": true
+    }
+  }
+}
