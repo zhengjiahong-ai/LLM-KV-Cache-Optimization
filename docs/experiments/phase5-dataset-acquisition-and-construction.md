@@ -4,7 +4,8 @@
 **Research design:** M4  
 **Acquisition / engineering:** M6  
 **Decision date:** 2026-11-19  
-**Status:** DESIGN ACCEPTED; DATASET CONSTRUCTION APPROVED; TEMPORARILY PAUSED FOR DOCUMENTATION SYNCHRONIZATION  
+**Status update:** 2026-11-20 — PR #125 merged; documentation pause lifted; acquisition authorized to proceed  
+**Status:** DESIGN ACCEPTED; DATASET CONSTRUCTION AUTHORIZED  
 **GPU execution:** NOT AUTHORIZED
 
 ## 1. M1 decision
@@ -16,7 +17,7 @@ M1 accepts M4's Phase 5 six-system trace-driven design and approves construction
 
 The approved work package includes source acquisition, real Agent Trace capture, immutable raw retention, source-specific normalization, Token Materialization, Q1–Q9 qualification, outcome-blind Group construction, and submission of the dataset evidence package.
 
-**Temporary pause:** new acquisition and dataset-construction execution is paused until canonical status, ownership and experiment-index documents are synchronized. This is a documentation-control pause, not a rejection or redesign. Resume after the documentation PR is reviewed and merged or M1 explicitly lifts the pause.
+**Documentation synchronization:** PR #125 merged on 2026-11-19 at `5e453a6926e3c1092235b2ec2e8b6227a22362f3`. The temporary documentation-control pause is lifted. M6 may proceed with the approved acquisition and construction work package; M4 performs independent source, license, outcome-blind and Cohort review.
 
 This is a limited acquisition decision. It does not alter the hash-bound Formal Protocol JSON, authorize GPU work, or make the Formal Campaign executable.
 
@@ -124,7 +125,7 @@ The machine-readable Formal Protocol remains `DESIGN_FROZEN_CANDIDATE` with `exe
 - [x] M1 accepts M4's six-system research design.
 - [x] SWE-bench Verified and BFCL v4 Web Search selected as primary strata.
 - [x] Dataset construction approved in principle.
-- [ ] Documentation synchronization complete and pause lifted.
+- [x] Documentation synchronization complete (PR #125 merged); pause lifted.
 - [ ] New Phase 5 SWE-bench Agent Traces acquired.
 - [ ] New Phase 5 BFCL Agent Traces and frozen fixtures acquired.
 - [ ] Token Materialization complete.

@@ -5,6 +5,32 @@ authorized.
 
 **Base commit:** `af33bc380e360582c7de9b8a5062ce7ec434d02e`
 
+## Current status addendum (2026-11-20)
+
+PR #121 was merged as the Phase 5E engineering plan and PR #124 subsequently
+integrated the production-shaped Part A Native runner, same-EngineCore identity
+binding, allocation-watermark checks, CPU/Mock execute→gate→archive path and
+Native Freeze Package code-hash binding.
+
+The current distinction is:
+
+- **Part A implementation:** integrated in PR #124; CPU/Mock path validated.
+- **Part A Native/GPU Conformance:** `NOT_RUN`; requires a regenerated Freeze
+  Package bound to the exact merged-main code/Seal/Manifest, available GPU,
+  and a separate explicit M1 execution authorization for the single
+  `P5E-A-01` attempt.
+- **Part B Abort Conformance:** `NOT_READY`; remains excluded and does not
+  block Part A.
+- The controlled four-Program fixture in this plan is a conformance fixture,
+  not part of the SWE-bench/BFCL formal dataset and not evidence of algorithm
+  benefit.
+
+PR #124 does not convert any GPU gate to PASS. The formal six-system campaign
+still requires the independent workload, system, replay, Calibration,
+resource and manifest gates in the Formal Protocol.
+
+---
+
 ## 1. Purpose and decision boundary
 
 This plan defines one bounded GPU conformance validation for the Phase 5D

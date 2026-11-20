@@ -15,7 +15,7 @@ The system foundation includes program/session identity, tool-gap and reuse hist
 
 See [Research Motivation and Contributions](docs/research-motivation-and-contributions.md) for the canonical motivation, research questions, contribution boundaries, and terminology.
 
-## Current Status (as of 2026-11-19)
+## Current Status (as of 2026-11-20)
 
 **Repository:** [zhengjiahong-ai/LLM-KV-Cache-Optimization](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization)  
 **Main HEAD before this documentation update:** `4a8ff8e3f9c3829be4fd542f8a19132f1837d753` (PR #124 merged).
@@ -39,7 +39,7 @@ See [Research Motivation and Contributions](docs/research-motivation-and-contrib
 | Native GPU Conformance | Not passed; Phase 5E Part A remains a GPU gate |
 | GPU Calibration / Formal | Not started and not authorized |
 
-The approved next work package is [Phase 5 Dataset Acquisition & Construction](docs/experiments/phase5-dataset-acquisition-and-construction.md). It covers SWE-bench Verified coding-agent traces and BFCL v4 Web Search traces with frozen tool fixtures. Acquisition is temporarily paused until this documentation synchronization is reviewed and merged.
+The approved next work package is [Phase 5 Dataset Acquisition & Construction](docs/experiments/phase5-dataset-acquisition-and-construction.md). It covers SWE-bench Verified coding-agent traces and BFCL v4 Web Search traces with frozen tool fixtures. PR #125 was merged on 2026-11-19; the documentation pause is lifted and the approved dataset-construction work package may proceed.
 
 **Important distinction:** PR #124 establishes CPU/Mock contracts and production-shaped runner wiring. It does not establish live EngineCore/BlockPool behavior, Native concurrency, GPU conformance, trace availability, cohort qualification or algorithmic benefit. Dataset-construction approval does not authorize GPU Calibration or Formal execution.
 

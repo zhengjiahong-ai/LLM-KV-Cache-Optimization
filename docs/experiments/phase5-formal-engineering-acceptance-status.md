@@ -9,7 +9,7 @@
 
 M1 accepts M4's six-system trace-driven research design and approves construction of SWE-bench Verified and BFCL v4 Web Search Agent Trace datasets. The handoff is recorded in [Phase 5 Dataset Acquisition & Construction](phase5-dataset-acquisition-and-construction.md).
 
-New acquisition and dataset-construction execution are temporarily paused while canonical documentation and ownership records are synchronized. Once this documentation pause is lifted, the limited work authorization covers source acquisition, real Agent Trace capture, immutable raw retention, BFCL fixture construction, normalization, Token Materialization, Q1–Q9 qualification and outcome-blind Cohort preparation. It does not authorize Native GPU Conformance, Calibration or Formal execution.
+PR #125 merged on 2026-11-19 (merge commit `5e453a6926e3c1092235b2ec2e8b6227a22362f3`), so the documentation pause is lifted. The limited work authorization covers source acquisition, real Agent Trace capture, immutable raw retention, BFCL fixture construction, normalization, Token Materialization, Q1–Q9 qualification and outcome-blind Cohort preparation. It does not authorize Native GPU Conformance, Calibration or Formal execution.
 
 The machine-readable protocol remains `DESIGN_FROZEN_CANDIDATE` with `execution_authorized=false`. This status document does not modify protocol JSON or its hashes.
 
@@ -93,7 +93,7 @@ Formal N is selected by the pre-registered Calibration method. The sample plan i
 
 ## 6. Next work and restrictions
 
-After the documentation pause is lifted:
+Dataset acquisition and construction may now proceed:
 1. acquire new SWE-bench/mini-SWE-agent and BFCL Web Search traces;
 2. freeze BFCL outputs as deterministic, hash-bound fixtures and audit third-party content terms;
 3. preserve immutable raw artifacts and source provenance;

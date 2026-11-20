@@ -31,7 +31,7 @@ This Phase 5 overlay supersedes the Phase 3 execution assignments below.
 - **M2 / M3 — Targeted support:** M2 supports source/license/related-work questions when requested; M3 supports frozen baseline and system-identity questions. Neither changes accepted arm definitions.
 - **M7 — Reporting:** prepares the final report and presentation after M1 accepts evidence and claim boundaries.
 
-**Current operating state (2026-11-19):** the approved next work package is [Phase 5 Dataset Acquisition & Construction](experiments/phase5-dataset-acquisition-and-construction.md). Acquisition is temporarily paused for documentation synchronization. Once lifted, M6 may proceed continuously through acquisition and mechanical qualification while M4 performs independent source, license, outcome-blind and Cohort review. Routine data processing does not require step-by-step M1 approval.
+**Current operating state (2026-11-20):** PR #125 is merged and the documentation pause is lifted. M6 may proceed continuously through the approved acquisition, normalization, Token Materialization and mechanical qualification work package while M4 performs independent source, license, outcome-blind and Cohort review. Routine data processing does not require step-by-step M1 approval.
 
 **GPU boundary:** no Phase 5 Native GPU Conformance, Calibration, or six-system Formal Campaign is authorized by the dataset-construction decision. These require separate gate acceptance and explicit M1 authorization.
 
