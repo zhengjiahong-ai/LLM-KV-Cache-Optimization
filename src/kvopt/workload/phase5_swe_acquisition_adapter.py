@@ -66,8 +66,6 @@ def _tool_result(
     terminal_submission: bool,
 ) -> object:
     if assistant_index + 1 >= len(trajectory_messages):
-        if terminal_submission:
-            return {"terminal_submission": True, "serialized_result": False}
         raise ValueError("successful tool call lacks a following observation")
     next_message = _mapping(trajectory_messages[assistant_index + 1], "tool result")
     content = next_message.get("content")
@@ -75,8 +73,11 @@ def _tool_result(
         match = _TOOL_RESULT.fullmatch(content)
         if match is not None:
             return {"returncode": int(match.group(1)), "output": match.group(2)}
-        if content == "" and terminal_submission:
-            return {"terminal_submission": True, "serialized_result": False}
+        if terminal_submission:
+            return {
+                "returncode": 0,
+                "output": f"COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT\n{content}",
+            }
     raise ValueError("tool result cannot be recovered from trajectory")
 
 
