@@ -66,3 +66,12 @@ qualification.
 
 Secrets must be supplied through the execution environment and must not be
 committed, printed, or stored in evidence artifacts.
+
+Following the supplemental M1 authorization, M6 selected
+`TAVILY_FROZEN_FIXTURE` as the preferred acquisition adapter, pending M4's
+targeted terms and provenance review. Google HTML automation was rejected;
+Brave's default terms do not fit the required long-term evidence archive; and
+self-hosted SearXNG leaves a more complex upstream-terms and stability chain.
+Tavily explicitly permits retaining complete responses and later replay. The
+underlying third-party content remains owned by its publishers and is kept for
+internal research only. Full-page crawling is not authorized by this selection.

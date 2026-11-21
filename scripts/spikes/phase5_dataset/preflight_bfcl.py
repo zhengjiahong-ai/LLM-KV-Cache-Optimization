@@ -50,8 +50,8 @@ def main() -> int:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument(
         "--acquisition-adapter",
-        choices=("PINNED_BFCL_SERPAPI",),
-        default="PINNED_BFCL_SERPAPI",
+        choices=("PINNED_BFCL_SERPAPI", "TAVILY_FROZEN_FIXTURE"),
+        default="TAVILY_FROZEN_FIXTURE",
     )
     args = parser.parse_args()
     if args.output.exists():
@@ -73,11 +73,10 @@ def main() -> int:
     protocol = json.loads(args.protocol.read_text(encoding="utf-8"))
     native = next(system for system in protocol["systems"] if system["id"] == "NATIVE")
     base_url = os.getenv("REMOTE_OPENAI_BASE_URL")
-    adapter_runtime_ready = (
-        bool(os.getenv("SERPAPI_API_KEY"))
-        if args.acquisition_adapter == "PINNED_BFCL_SERPAPI"
-        else False
-    )
+    adapter_runtime_ready = {
+        "PINNED_BFCL_SERPAPI": bool(os.getenv("SERPAPI_API_KEY")),
+        "TAVILY_FROZEN_FIXTURE": bool(os.getenv("TAVILY_API_KEY")),
+    }[args.acquisition_adapter]
     report = build_bfcl_preflight_report(
         source_validation=validation,
         protocol_sha256=file_sha256(args.protocol),
