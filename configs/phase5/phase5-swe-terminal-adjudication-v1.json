@@ -1,0 +1,18 @@
+{
+  "schema_version": "phase5.swe_terminal_adjudication.v1",
+  "status": "M1_ACCEPTED_SESSION_TURN_SENSITIVITY_INPUT",
+  "source_analysis_commit": "3820ca48ff6987b65952e2bfb88cab9593113340",
+  "rules": {
+    "LimitsExceeded": "STEP_LIMIT_RIGHT_CENSORED",
+    "ContextLengthExceeded": "CONTEXT_LIMIT_FAILURE",
+    "JobTimeoutError": "INFRASTRUCTURE_FAILURE",
+    "Submitted": "NATURAL_COMPLETION"
+  },
+  "forced_exclusions": {
+    "phase5:swe:django__django-13401:session:1": "INFRASTRUCTURE_FAILURE:JobTimeoutError",
+    "phase5:swe:django__django-16569:session:1": "INFRASTRUCTURE_FAILURE:JobTimeoutError",
+    "phase5:swe:pytest-dev__pytest-7521:session:1": "INFRASTRUCTURE_FAILURE:JobTimeoutError"
+  },
+  "formal_cohort_selected": false,
+  "gpu_execution_authorized": false
+}
