@@ -1,0 +1,39 @@
+{
+  "schema_version": "phase5.bfcl_search_provider.v1",
+  "status": "M6_SELECTED_PENDING_M4_TARGETED_REVIEW",
+  "provider": "TAVILY_SEARCH_API",
+  "purpose": "ONE_TIME_REAL_SEARCH_ACQUISITION_FOR_FROZEN_LOCAL_REPLAY",
+  "selection": {
+    "google_search_html": "REJECTED_AUTOMATED_ACCESS_AND_RETENTION_BOUNDARY",
+    "brave_search_api": "REJECTED_DEFAULT_STORAGE_AND_AI_EVALUATION_RESTRICTIONS",
+    "self_hosted_searxng": "REJECTED_AS_PRIMARY_UPSTREAM_TERMS_AND_STABILITY_COMPLEXITY",
+    "tavily_search_api": "SELECTED_STORAGE_AND_REPLAY_PERMITTED"
+  },
+  "official_terms_evidence": {
+    "storage_and_retention": "https://help.tavily.com/articles/1612400809-storing-caching-retaining-output",
+    "permitted_use": "https://help.tavily.com/articles/5880393096-permitted-use-customer-applications",
+    "pricing_and_free_allowance": "https://www.tavily.com/pricing",
+    "reviewed_at_utc": "2026-11-21T00:00:00Z"
+  },
+  "collection_contract": {
+    "endpoint": "https://api.tavily.com/search",
+    "search_depth": "basic",
+    "topic": "general",
+    "include_answer": false,
+    "include_raw_content": false,
+    "include_images": false,
+    "max_results": 10,
+    "raw_response_immutable": true,
+    "formal_replay_network_access": false,
+    "snippet_and_no_snippet_share_raw_identity_when_query_equal": true,
+    "no_snippet_is_a_view_not_a_second_search": true
+  },
+  "third_party_content": {
+    "ownership": "REMAINS_WITH_ORIGINAL_PUBLISHERS",
+    "redistribution": "NOT_CLEARED",
+    "use_scope": "INTERNAL_RESEARCH_ONLY_PENDING_M4_REVIEW",
+    "full_page_fetch": "NOT_AUTHORIZED_BY_THIS_PROVIDER_SELECTION"
+  },
+  "formal_cohort_selected": false,
+  "gpu_execution_authorized": false
+}
