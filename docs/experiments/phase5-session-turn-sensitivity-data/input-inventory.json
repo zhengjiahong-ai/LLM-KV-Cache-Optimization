@@ -1,0 +1,1390 @@
+{
+  "analysis_code_bindings": [
+    {
+      "path": "src/kvopt/workload/phase5_turn_sensitivity.py",
+      "sha256": "e3071de878b757c2fa2f74d46f56b5129d6b3f3772b56e7e7a07a359652e3943"
+    },
+    {
+      "path": "scripts/probes/phase5_session_turn_sensitivity.py",
+      "sha256": "2a4017fd80e71ff6ad079c2d8ff1ab8e1739ebc5725572478c4434d2f4017472"
+    }
+  ],
+  "base_git_sha": "ccd84369652028413b58397c174264eec68de1b3",
+  "protocol_modified": false,
+  "read_only_analysis": true,
+  "schema_version": "phase5.session_turn_input_inventory.v1",
+  "source_files": [
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/astropy__astropy-7606.json",
+      "sha256": "42469ded0b194416d34a80f4547d9cbd834031f39a52210a9d592be750c789da"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/astropy__astropy-7671.json",
+      "sha256": "42696ad92be31966619af12b9a72435b88dacd6b658482f7df209092574eac4e"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/django__django-11095.json",
+      "sha256": "3061a269834c44725a6e87daca5016b1dc681adc09e17174c98027b5134d25e0"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/django__django-11119.json",
+      "sha256": "9415cdc2426e02511ebbef5c2ac3054da4951739635fed058fce54e8b7c717d0"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/django__django-11138.json",
+      "sha256": "9b1167c324ac14357bf9792f430889c5625246211ba312ef33e9d821541f0852"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/django__django-11149.json",
+      "sha256": "9dcd43d59a62c2e11850000ea2d0346419abb8d1c7d1a8980cffe3163aad9a34"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/django__django-11400.json",
+      "sha256": "82562c38190433910a7973ad21c8157610477f83be915224eeec8541c552e33a"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/django__django-11490.json",
+      "sha256": "896b8963737e68746193d668f08f7dacf741af8a008a8b0b2f1838415621fc78"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/django__django-11603.json",
+      "sha256": "8114c6c64d69e84578c232c7a4db90c2b6e0c66737f5ef109d8b9b2fdf518e1f"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/django__django-11880.json",
+      "sha256": "0221fa34edd32344bc6832d96c888dfbc053357a206b68c29a8070ac4a8538d9"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/django__django-12050.json",
+      "sha256": "4c9641f2c7277253ebf61e673c0d5276c6f6c9c1353a283d0bd1843f6cd627b5"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/django__django-12209.json",
+      "sha256": "9c7f46897b48dcb6680a62d83d31dcde23227fdacb355b4939eee02e23b9c2cc"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/django__django-12276.json",
+      "sha256": "f45120c7767a157346750d5c6c76f57b68d636a54d7900d6beff812116c3e6d2"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/django__django-12754.json",
+      "sha256": "71a7ade06b34c3d083f007a44488272d9945f34eaec0a3990688c66e19d1eca5"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/django__django-12858.json",
+      "sha256": "059c1789105905fdc90afc612f2b21002895c3dcd9d6d611ecac8a517aab9d7f"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/django__django-13212.json",
+      "sha256": "67209f5dc6cfb8c53b191970c0571727ac0f604ed4ce69b5f367e4ee416c635b"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/django__django-13401.json",
+      "sha256": "d6f84287e6cbf32203b421ed6be086c3622ac0b45a62f9a1ff1597774b4419f2"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/django__django-13449.json",
+      "sha256": "7c84be322fbbfdb8d09bcb539ebb44685bc424f94a6f28a3ccedd2b72c7596de"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/django__django-13513.json",
+      "sha256": "60cbeb4e49ba2f483e26a4dee243a28d954269b4e88aa8411ffe09a25074573f"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/django__django-13933.json",
+      "sha256": "dae4d602eb65193e7a8b00abe5bb3d15dfa2a5af17fd7d16a43b283a92e46775"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/django__django-14011.json",
+      "sha256": "3b27305f21e4921dc623309436b36834eebb4a414427885039957e8f914f697d"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/django__django-14170.json",
+      "sha256": "e697924144feb3089fd5d534bb7f5a7f9a6f5729b4bdcb211467786d767365ed"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/django__django-14373.json",
+      "sha256": "73a4356e0449c116b91570b37e7d308033ea7df208bddbae1bb40072af55f7bd"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/django__django-15569.json",
+      "sha256": "d6d10d29cc5c6bbc5dff6f98f3b39ab9712c7940bda6a7f7ed7cda55fed266af"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/django__django-15572.json",
+      "sha256": "9bc24915c07fa8debaafd0d55556c5833ab8315543bdab44f6acdc54e3dced63"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/django__django-15741.json",
+      "sha256": "7596b8ee6f53420a5c41b0fbc150e5c4a5ce3ee4f45aef49eed27385ce0798fa"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/django__django-16032.json",
+      "sha256": "879a8f70c851782190005c33ebdc3915cf725d33a2d7311d4b6c75f7d98f8087"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/django__django-16569.json",
+      "sha256": "3ccb68875eb84526de22f841eb22e02f803e76e7caa04f84c0f1e0a7f39c0ba5"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/django__django-16901.json",
+      "sha256": "63dcacc95f6946acf7f231d2da8c52eee382496f6b180a4552b2a8a188e4a452"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/django__django-17087.json",
+      "sha256": "735a1f5a9400ea1b35fcb022a20293d26ad4d12b63d659f7ff44c594595734d4"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/matplotlib__matplotlib-14623.json",
+      "sha256": "dde02d2f965e098b66b704f8af88bb5a8f8042a47cfa0221a4f3a3936cdc6375"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/matplotlib__matplotlib-25287.json",
+      "sha256": "04a70aa2bbfd14757276e0cb416629954e02ebdd0c7d00c4bcc9c5c83979647d"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/matplotlib__matplotlib-26113.json",
+      "sha256": "2b432221a26ef83487f142223a868300267c97b6050fae345940c5b34027d1cf"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/matplotlib__matplotlib-26466.json",
+      "sha256": "2f153fd18134d32e7d5bbc9ac414388bb2a13497de0d696280e1eb7972a38a2e"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/psf__requests-2317.json",
+      "sha256": "99e7cfb4482682ed673afb637c4bdd818143c1a4d43d1899729bbf9c4e9f411b"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/pydata__xarray-3095.json",
+      "sha256": "443517410342ba559ffd4cf265b0133dedba3909d608e28f03eb55bf8d4c28ac"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/pydata__xarray-3305.json",
+      "sha256": "d503c3b17cb0d584739deb8f6639bfb09174b3f13eaa4fa51b338680f14f6f10"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/pydata__xarray-4695.json",
+      "sha256": "2af5251ad8bc7bde8592f49e1ebc8bb532578da2a3d800a21a1ca370abf0cce2"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/pylint-dev__pylint-4551.json",
+      "sha256": "b8a281f8868bf03812508a5508a844b4b9c3b1bb342d5f5402fca2798951966e"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/pytest-dev__pytest-7205.json",
+      "sha256": "2920d03e78e9f132f97af4771afe8f223c9541f4cbfec7e02f23f3574934b1ee"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/pytest-dev__pytest-7521.json",
+      "sha256": "b1ae71078a8a9ebdda39fd00a698ab9df905e66ee68507f75209e6804416b3af"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/pytest-dev__pytest-8399.json",
+      "sha256": "397ccc946a23f3a3b130d30a74057462055d552382b0e758dd7a2d9f4a511105"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/scikit-learn__scikit-learn-14496.json",
+      "sha256": "02f784cc7d55ce0ee20461485bec01382c92fb39d81e7a6fad1c6064dabe08d8"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/scikit-learn__scikit-learn-14894.json",
+      "sha256": "14d0020fd5cad7238822e65276e2f53d3b0993e6813d629f408525be71459c7b"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/scikit-learn__scikit-learn-25747.json",
+      "sha256": "2c7ad81d79eb49e36f0d38cc0c3eb015307daf448883ca25e9f782034e1aac37"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/scikit-learn__scikit-learn-26194.json",
+      "sha256": "b3bcf28c1cf9d71ccfe8579a551d61e34bdbe224b658346e2972f1a6a991d615"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/sphinx-doc__sphinx-10323.json",
+      "sha256": "5509d367472d01f4f7d43e0126e029cf51a7e8e6fc7b3daf6ceddd7c7e8a837a"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/sphinx-doc__sphinx-8721.json",
+      "sha256": "45219acf2ae16aa249a3c6e95dbeb6cfa5cf89221cc0586a0df100aeb2b9b5ce"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/sphinx-doc__sphinx-9281.json",
+      "sha256": "6a0afe206b5255db6ac5d9e9ce9edc22c6e15cce5e5c0eada6dcef29bc09ab1d"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/sympy__sympy-12419.json",
+      "sha256": "27f049362bc335fa2a039a5923d1cbeb81b82ad5cb574a750ca50af6e9c5cae5"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/sympy__sympy-13551.json",
+      "sha256": "4a95e0193f5b96907a3ca34588833b99a855686ad298eebb61ef3a5f4a43b4c5"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/sympy__sympy-13974.json",
+      "sha256": "a60271bebca6b0e74c45baf0b6de1d459622598614616d631d4d3d66864f9480"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/sympy__sympy-18199.json",
+      "sha256": "8138e0275fbd10a95a9b6aac2b3ab54a556093c3df9196436c32b62ea9b0664b"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/sympy__sympy-19783.json",
+      "sha256": "8a514bf226c4c70e0d8afe8bfdd062cb469a60814f92853858e2e42c0213952d"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/sympy__sympy-20801.json",
+      "sha256": "27916351e0b021843b1e31b555caaf19f342c0b82df991e6d154d76fc6dff184"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/sympy__sympy-22714.json",
+      "sha256": "63d8bed14de922bb90999eec671de382b94f05b03176148bed640f9e88cb7860"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-adapted-v2/records/sympy__sympy-24539.json",
+      "sha256": "f58bc8a06d6dd8aa76c4bb1dc43f1ac2c6fc91d94ce55d79e9a1dda9fd3c5a90"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-infra-retry-v1/django__django-11119/acquisition-sidecar.json",
+      "sha256": "43d2cb01aac453266e8e96738770ee41533473d89616447ba44bdcdf06c0dd66"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-infra-retry-v1/django__django-11119/run.json",
+      "sha256": "5d146d9da1f10848042b5938fe49a215d67a992aaa4aa64a3cffc43a8123dd49"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-infra-retry-v1/django__django-11149/acquisition-sidecar.json",
+      "sha256": "5614cc5bf682c5c3f3a282da5be20c2d14dbe23d1346cec004ada3e051d2fa02"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-infra-retry-v1/django__django-11149/run.json",
+      "sha256": "bda1e4764c77309601428db5b55ae976a4e5b8e28a5862dadf5b38d0fd2ac916"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-infra-retry-v1/django__django-12209/acquisition-sidecar.json",
+      "sha256": "f9699a59bc98da4b0874419cf8264d2d4b1d8c9dc4c7bf3dd24c68a085e48e3f"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-infra-retry-v1/django__django-12209/run.json",
+      "sha256": "bef4a30a938ad8608824cc32d047ce290fdb0ef3d0420908dbb3702e18b7f37a"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-infra-retry-v1/django__django-13933/acquisition-sidecar.json",
+      "sha256": "a3a0ac7d537edc749c17429f4d201458033f0842f06b50098ce39cc6aa825e59"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-infra-retry-v1/django__django-13933/run.json",
+      "sha256": "93b68641194414dd5d563e029f3e9154c9ed1c32c8debfb40c72742ec3a5841b"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-infra-retry-v1/django__django-14011/acquisition-sidecar.json",
+      "sha256": "69b9c0a9f4d6b269c7b5d3fc79bcb6f6d9e4cd9370aa4da7688828745dbddd76"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-infra-retry-v1/django__django-14011/run.json",
+      "sha256": "ebc315876883c5b3c1042202522a838f2e4af39e331a0dfc159b9133d595bf3d"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-infra-retry-v1/django__django-14373/acquisition-sidecar.json",
+      "sha256": "eb69bcfa754c8be2a86058ff1523141750fceb8c8407da861b27e5725bb0ad45"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-infra-retry-v1/django__django-14373/run.json",
+      "sha256": "37d3aefa52e250ee463fa9e9fd282eb1e4c7a12157c9179bd8967056c3e316a0"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-infra-retry-v1/django__django-15741/acquisition-sidecar.json",
+      "sha256": "5a0086c99abd0b75bba02abac0fe4505e74760e5bd7dd469e1b97bfe5fd41e90"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-infra-retry-v1/django__django-15741/run.json",
+      "sha256": "126ad66b6861eb8014ce9a5bcf52eba2b4c575a0836d429d719a6e32363805c6"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-infra-retry-v1/django__django-16569/acquisition-sidecar.json",
+      "sha256": "48fa9b904d2a75ed1edf8620b8a9c497e681e8ee4afc34249b1c205b8fda7e73"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-infra-retry-v1/django__django-16569/run.json",
+      "sha256": "6a213c4b1448e5471bfc84181b9cf7c5f2e0660fcab31d8dc0de8e82bf789181"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-infra-retry-v1/sympy__sympy-18199/acquisition-sidecar.json",
+      "sha256": "69bfdbbdfabdc7c590f3aef68ae6aa7a0bcc1d82b290f9665469d576da9609f2"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-infra-retry-v1/sympy__sympy-18199/run.json",
+      "sha256": "92904ebb4065156aa4a8c92aa21279ffef73c314230fdcd41b1bc7d82be2ff6b"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:astropy__astropy-7606:session:1/normalized-trace.json",
+      "sha256": "e2adafd244cf94982f99f6fad7d39a3eb228079f429546f15452f922a98e6f18"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:astropy__astropy-7606:session:1/qualification.json",
+      "sha256": "85eebc12d883470fbf986dd9b707994b6b802f10a0ca4630d053361dffe8197d"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:astropy__astropy-7606:session:1/token-materialization.json",
+      "sha256": "582eaf044a04e2db0dda9ba579362ebaed730b02eb92fb897920e71a1f711f92"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:astropy__astropy-7671:session:1/normalized-trace.json",
+      "sha256": "6831251cfffbdf1dfaf3022df026bedd692ba6105b009ff2a88b8f44dc5f3ea7"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:astropy__astropy-7671:session:1/qualification.json",
+      "sha256": "878172db0d8070be41d4f0ece85c2f319eaef25861b7f08684d4e4840bace753"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:astropy__astropy-7671:session:1/token-materialization.json",
+      "sha256": "5318c9b8c4805a22e095a2d8ff230b85aac9117789ed98398a07ba2cfdd6e68c"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-11095:session:1/normalized-trace.json",
+      "sha256": "1c892e59c85e5c989f93affd23983fab398c8e3dc0768ab21c6e77d7e28640f3"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-11095:session:1/qualification.json",
+      "sha256": "00828497efdf951fcddb25ad2cd6185ef1845ca61496864d0c853598c47fb8ac"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-11095:session:1/token-materialization.json",
+      "sha256": "3313ab0aea987f22944f79da481b7b532eedfe80f72e3d05025a92a18d710f6c"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-11119:session:1/normalized-trace.json",
+      "sha256": "d3e088db67a1583a8fb5f7bea47928359c2550287451bfc2e139841791d7a205"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-11119:session:1/qualification.json",
+      "sha256": "91369b8f32cd1ebb32c56ad5b7d7b74a1a4555b5e1e7e1ab1d10c84e5afbd789"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-11119:session:1/token-materialization.json",
+      "sha256": "be37c1e556ab449b5a71ffbf7461d605feaa1a9d0f657155af1980b12f625034"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-11138:session:1/normalized-trace.json",
+      "sha256": "11745363a918cfe2bcf23bd6270f1697e08521b863ecafca7160c855aefe1960"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-11138:session:1/qualification.json",
+      "sha256": "7c8d95e29f3b63a1c4111933828a1a9e948798b6e4a94cd292c57e5f4cdeb4fa"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-11138:session:1/token-materialization.json",
+      "sha256": "2f6fbfd7ce820e20ca16d6ff2e1e3a914a81acd00fe4b76aa5238901d667b520"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-11149:session:1/normalized-trace.json",
+      "sha256": "0067dc32c88e4dfde30c176a8306be7a20b36bcaf6639e7533c2f6426d257048"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-11149:session:1/qualification.json",
+      "sha256": "dca68d1af3a8cc14dfa2557b790800dd14ad382b17fa87f1bdcaaff6be8f1174"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-11149:session:1/token-materialization.json",
+      "sha256": "06934921e0364e56c0da3d0404a23848466510db919f81390842daa00abd4fb1"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-11400:session:1/normalized-trace.json",
+      "sha256": "1f39b04670483ccca247b675d0d4b9c2092323bc7f2da7d4b03b569158855638"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-11400:session:1/qualification.json",
+      "sha256": "d1a0fa43e67b57425f130391012f0d30b4619c1a3195717a8b635f8bfea2d710"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-11400:session:1/token-materialization.json",
+      "sha256": "a8babf9a46172864207c79bbef4fce25fbf30128fdf098a2b109a451e29ad181"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-11490:session:1/normalized-trace.json",
+      "sha256": "538530ed536667501352214dc7d548dbc0bf57c0ccd6b8a7959412b04c996cee"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-11490:session:1/qualification.json",
+      "sha256": "0a8f07805914db35165627d20fbd7b00cd561ec8eb4e74cd41984e215e1f96d8"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-11490:session:1/token-materialization.json",
+      "sha256": "5d756a5a8bc4b39352872ceb2994f209b87daf539336851e86fd52ecc0a9a6aa"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-11603:session:1/normalized-trace.json",
+      "sha256": "c6554fb04b58fc9ce2a6ef5bf8da3b9bdf5881c2943e1b1b38594a4c9dba76c6"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-11603:session:1/qualification.json",
+      "sha256": "2f39f47163047872b5e2c8d4011a5bc5aa83b0daa62d2c910abdd494bdd3eb30"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-11603:session:1/token-materialization.json",
+      "sha256": "55d0a6368a86e878c7a7c7a43ec01d0d8440cca713b5ca0a138e35e532633868"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-11880:session:1/normalized-trace.json",
+      "sha256": "db65dd4697a03eab0c4d1d370f3c2cd595ad6e374fe1cbbf186271057c53f290"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-11880:session:1/qualification.json",
+      "sha256": "a98f7a58f58320ad897f494391e45616a38072a03d4e160e00395798b110b8ad"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-11880:session:1/token-materialization.json",
+      "sha256": "81b85d1f6fcf9607c68ad5f03092cb1c255c086a1cb4191221ff1bffee85c803"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-12050:session:1/normalized-trace.json",
+      "sha256": "edcaca7e1a6b7db8e6634ecc5ecccfcf4c5a0731fe1eca468bc4afb19a33fe05"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-12050:session:1/qualification.json",
+      "sha256": "3aed813196299fe2eced566189569c81aa5de3d9a50888a71e244a1958815a46"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-12050:session:1/token-materialization.json",
+      "sha256": "e1c69297debf33d16396406a6422c7ca58b8b41cc36ae83a62973600b6dad891"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-12209:session:1/normalized-trace.json",
+      "sha256": "7e947e35a6dd1598439ecf45bb0503c82d5e7d6c091165f6df46003deddece73"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-12209:session:1/qualification.json",
+      "sha256": "79245e784c4c05e016efa6804a893e504c3eb189ec953db74591b67d874f63a0"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-12209:session:1/token-materialization.json",
+      "sha256": "b710830b883af9cf30af908a35877cdee216ba950a51730e5bbf8207f6039c10"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-12276:session:1/normalized-trace.json",
+      "sha256": "e4373ab7ee6fffaf54344c6edf0cedf95347bf324600f9a2665fddd0f289ee89"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-12276:session:1/qualification.json",
+      "sha256": "7bd1270ebe70028d0d09282906e9dd9c8bd1350a0e48cd9f811fb6d6bded9066"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-12276:session:1/token-materialization.json",
+      "sha256": "930d5bd1639653909b69b3214d5cbd368cd9ce018caaa7afea4fd8e06b2960c8"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-12754:session:1/normalized-trace.json",
+      "sha256": "5d82f8cc0d780e0776382c765dcc5f429c426bfd6a5211765eed75d261e21330"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-12754:session:1/qualification.json",
+      "sha256": "68d9330864d3aa0d698856087ae1009d39698f8bb007de17c0625762625c3601"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-12754:session:1/token-materialization.json",
+      "sha256": "ef29c2357b5ed1e324fcd37acd60c25ecd7fbc97295b1d45f0fe42cb66c3b5d8"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-12858:session:1/normalized-trace.json",
+      "sha256": "a2dfb7d24d6956f62855a76632d105a70982fa63730dc9c4627e0857e38a70ab"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-12858:session:1/qualification.json",
+      "sha256": "4d55351f795f5192eb4def870a18a12e95eea9f476c0c2cc634a70dc061be899"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-12858:session:1/token-materialization.json",
+      "sha256": "4cc87dabb2bb03a0b19e2a6dfe57fbd1209ab3ce423f89066bb69c06d22e4e7c"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-13212:session:1/normalized-trace.json",
+      "sha256": "7c79b0391b00657982a1ae71e1cbeaf03495a76df92e6f333284b37cf8122142"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-13212:session:1/qualification.json",
+      "sha256": "7de3f0aca50a351996aae433ea35c3e68c8783ab5bff64150883bf4d5f3d93e4"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-13212:session:1/token-materialization.json",
+      "sha256": "27d8563b42be80c53e4dd49b16ccd740177ea73e4e420f5793cf6e4dc49e053f"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-13401:session:1/normalized-trace.json",
+      "sha256": "22132dea1193216fdac8ee18db855a7e827a74a3b976594535cfc52c40e9e8ff"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-13401:session:1/qualification.json",
+      "sha256": "c8a4bb3b98d1c37a9e6efcc0bc0a2040c43266dd067def2502ef62189d2c8423"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-13401:session:1/token-materialization.json",
+      "sha256": "80140a94440677ee624ee9630420c655b06d6d7e6d978a5108bb825cde7118fb"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-13449:session:1/normalized-trace.json",
+      "sha256": "3bd96e20da483e7442970a3b95473e676fdc3ab3e4a30dede40e8a76170c1ac9"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-13449:session:1/qualification.json",
+      "sha256": "5e4f082102e914bf208c73d7799dc95e25d77af1c4caf32191d7f789eb7a9300"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-13449:session:1/token-materialization.json",
+      "sha256": "334245f35373ddc05694276b0c9c46f436bc1eae64d279ca37f1526bca5f8bd3"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-13513:session:1/normalized-trace.json",
+      "sha256": "a3af1fb6c5709dc134489ba8f1f0b8e7a6725824da3c6e433422b93446d0babb"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-13513:session:1/qualification.json",
+      "sha256": "4ee34708907e6c52fdec97b91e33f4920390d52beeff11bc42773bd2ccc1da93"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-13513:session:1/token-materialization.json",
+      "sha256": "d7a01bb4f90becbf970a718be09578c209843d64f621c1e9aa93b653f911bd5b"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-13933:session:1/normalized-trace.json",
+      "sha256": "137704b1e1ce8714048adee8864639ac93a769022f051279f3f12978f3740241"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-13933:session:1/qualification.json",
+      "sha256": "510d3b2994d352ead764e6cda14ad44356438ab3f1894350317128ec85ba4e7e"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-13933:session:1/token-materialization.json",
+      "sha256": "97dec7a423e9cfd38537f8f425f1a5df01d1b70f9e0d10c137a415e35d5584f1"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-14011:session:1/normalized-trace.json",
+      "sha256": "53dd8c77d510a346e9fcba082e2d7826181ffb21d663ba8ec9f6bbbaab3f4f5e"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-14011:session:1/qualification.json",
+      "sha256": "15e9c2c602809c2c4333acba457d1a8601805a8a05d842e51ccb821fccc3c5b7"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-14011:session:1/token-materialization.json",
+      "sha256": "306cda6819afcd42d7e3e7c0d1a6c3af0dd0cfe3180b252b7d79a38e5f9d22c0"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-14170:session:1/normalized-trace.json",
+      "sha256": "9124b93ddd218a3be59be3f2a24c3c599ad29069316e2fb1a28de739a780836b"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-14170:session:1/qualification.json",
+      "sha256": "117aeaca8ecdf9b8950338bc33d3cfd65bcad4eab6eb12246a34393fe8bad71a"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-14170:session:1/token-materialization.json",
+      "sha256": "780e3a7363439aa7ff9b541b41273508f8e2085d6bb4453d32fba907e31cd2c6"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-14373:session:1/normalized-trace.json",
+      "sha256": "0eaa48fd4157660b6bfc2e9ec262698713aef05e553a16915fc8e7636e190f0d"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-14373:session:1/qualification.json",
+      "sha256": "160cc746be685f22e6fa767060438e15aaf044278f4e1c8b715023b21f4fafce"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-14373:session:1/token-materialization.json",
+      "sha256": "826b89bcbe3a736ed62768b232b59a3e13386fa4a05063fe2e50cf439f753daa"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-15569:session:1/normalized-trace.json",
+      "sha256": "2b7547551dcd09abe1b2c7d37caa0728343b66701a2ce08b2ac6cba13afb17df"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-15569:session:1/qualification.json",
+      "sha256": "48a4f07b1a2fe1c84c08dde724a067d875a3688fbdc6a80611136ff7e7cc36d2"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-15569:session:1/token-materialization.json",
+      "sha256": "c4b2647d65f174130be2402e4c06db57e4f3eb5c60ae5526deb9c23c65c6d62f"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-15572:session:1/normalized-trace.json",
+      "sha256": "dff2dfd96920c1bc891fa5a17aa45adc915487ad18ba66f4a14b4f8050d338ad"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-15572:session:1/qualification.json",
+      "sha256": "971958c3d32f24fff437e0ee4464db0a75c5d078a29c7ec4017d0999ed67ffff"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-15572:session:1/token-materialization.json",
+      "sha256": "1987e32064a50d6c819364c92142c594263a5950ea003560976fe5571f7bf888"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-15741:session:1/normalized-trace.json",
+      "sha256": "8684b4006c6b5a7fe06c6c70b733b9e1c54f69fdf2a06108b75f9de46c180cff"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-15741:session:1/qualification.json",
+      "sha256": "2468a48f665b41978a8b2e1c25ba59975e91a263cdbf03b8a4e20a97f471878a"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-15741:session:1/token-materialization.json",
+      "sha256": "a3d55d1e797fa51c2fde9857876e09f9fa2a817d49db872ce544f3113147b6d4"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-16032:session:1/normalized-trace.json",
+      "sha256": "9cfbc4964e39eff2c3162a3e1f331bd117a89d553269de508dd95219af5cd29e"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-16032:session:1/qualification.json",
+      "sha256": "878f31bdc0bf368456c7ec1d2005dbd8f43dfbb6973ffe534b7c9e182477c2f0"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-16032:session:1/token-materialization.json",
+      "sha256": "afdfd0e06385bba8203161ee4d3bf16ccce46a758fe0c4da3b48852ce3e1024c"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-16569:session:1/normalized-trace.json",
+      "sha256": "3b32fd7a2707423da8080b3b6a9949d8b877cb2b69cc7dc0042586849fb15a4f"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-16569:session:1/qualification.json",
+      "sha256": "4ac20009beaf959a26fc207edfa5659478a8fe1fec300426e100301fe45eae8b"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-16569:session:1/token-materialization.json",
+      "sha256": "a59114a250cae645d8cd4a194128bcc402c2f4cd77887d5025e588359bd356db"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-16901:session:1/normalized-trace.json",
+      "sha256": "8c4c6cf277936df11d55ed8e3384f1bf6957b5ac1c0de0505f311be7a3a3f30c"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-16901:session:1/qualification.json",
+      "sha256": "f7654797795ecb078efaf859b4df65811579ba028182bf242ac21450cde4832d"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-16901:session:1/token-materialization.json",
+      "sha256": "43db7615e9e20693a3312f456b485d976407f8e89969b054ee6f31edabf56b2b"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-17087:session:1/normalized-trace.json",
+      "sha256": "b2201d260940c23bdd3646b3e3ed0483055c9e2dcec4cad2b802ee10f336e3da"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-17087:session:1/qualification.json",
+      "sha256": "2123e4347d9e071105da74bff0d57f9d6ebace8161b8422586fec1a34df139ab"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:django__django-17087:session:1/token-materialization.json",
+      "sha256": "eea31c855d06851fd3f87deae9c9becbe661120a4da36bfd4f16be1e75bac2f3"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:matplotlib__matplotlib-14623:session:1/normalized-trace.json",
+      "sha256": "0d94a0a8fc89549db0f16af89c0d69534dbeb56430c9308729b09e86373bf655"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:matplotlib__matplotlib-14623:session:1/qualification.json",
+      "sha256": "dc52af16e772dc8dbee93fce639552b9d4dfedbe97f98a89ab208cc5cec43be3"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:matplotlib__matplotlib-14623:session:1/token-materialization.json",
+      "sha256": "5d812f556c393781fcab5cd1ee5c9384e65b68aecb6c1379ac0a9695d1cb4b43"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:matplotlib__matplotlib-25287:session:1/normalized-trace.json",
+      "sha256": "df94a75c5b0cf08b1bfb0275eef48ae6aea3a1572be664443995c8b747441938"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:matplotlib__matplotlib-25287:session:1/qualification.json",
+      "sha256": "ab7779b3ea11db7fc49b84edaa3ebc656eec9bcd36c23ddb8af39bf9325fdd84"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:matplotlib__matplotlib-25287:session:1/token-materialization.json",
+      "sha256": "b02e3647929efb529df9dd505791d5f7c0e7f874f675d3b874c8b6d482f3f88e"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:matplotlib__matplotlib-26113:session:1/normalized-trace.json",
+      "sha256": "c1a873360aac7d91bc6dd0e0b29bffe079268ea8cd83324981a09f3222a5b10a"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:matplotlib__matplotlib-26113:session:1/qualification.json",
+      "sha256": "8ad21f2146921e3b470db4399b8ef751a78c8e404e657bfbd61bcf1d8aa5188a"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:matplotlib__matplotlib-26113:session:1/token-materialization.json",
+      "sha256": "87aef30ccdd55a73b57cd55d9b644a8884d71bf59465bcee5a1c08425fb9e46c"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:matplotlib__matplotlib-26466:session:1/normalized-trace.json",
+      "sha256": "0b0b82fd84e142975aa4d3c9bde582b346f168aa1f9dd913bf3f0126212a33b9"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:matplotlib__matplotlib-26466:session:1/qualification.json",
+      "sha256": "db3fc0d2d8faa4eed0c389a91025a8df32cf349d14420f99b128d1b73f11ab97"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:matplotlib__matplotlib-26466:session:1/token-materialization.json",
+      "sha256": "a95656401a7e01422d6974532a2d9c563046f6e8a49b08cfcbece8c9ca2884d7"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:psf__requests-2317:session:1/normalized-trace.json",
+      "sha256": "d964ecee90bea0865ada68955ea5aabc5d9c4ff536cc2694ce8a1e911357df43"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:psf__requests-2317:session:1/qualification.json",
+      "sha256": "2c3de67ce7d82f154e0d1bc30e5834e6595691d2709924be3db65d89b19acdc3"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:psf__requests-2317:session:1/token-materialization.json",
+      "sha256": "448a0834312899111c6f56b975886687bc6c9ecc341be8b348395e07315a9879"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:pydata__xarray-3095:session:1/normalized-trace.json",
+      "sha256": "0414479f989a01537bc68fbe9394cde64c292bc082128a25b3a96e9d6bad239d"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:pydata__xarray-3095:session:1/qualification.json",
+      "sha256": "7561ca2a4c3daa854fd2e180895538718e32cc695179b7eac91144f68744769b"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:pydata__xarray-3095:session:1/token-materialization.json",
+      "sha256": "2d2a61f8b9f9a3ec2f5de0447de9caa6089bf93daeb1c64d6e2aa30fde49c729"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:pydata__xarray-3305:session:1/normalized-trace.json",
+      "sha256": "43cd8a942e9e445dd11b942adc57532392e3d510158334fc470b8019d7a51bbf"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:pydata__xarray-3305:session:1/qualification.json",
+      "sha256": "d0f7c21fc6ca249bfe4a3a3c1b737d972cbad81d6c1fe3f6e85beb0e615096e1"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:pydata__xarray-3305:session:1/token-materialization.json",
+      "sha256": "baa71b32152d8e51e170a42a7b7a24e3149be52b6519d68396570892774a215f"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:pydata__xarray-4695:session:1/normalized-trace.json",
+      "sha256": "cafe55441449c1db07017f71c66422b041fc9687b53c989b9142f4a36bf34e9a"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:pydata__xarray-4695:session:1/qualification.json",
+      "sha256": "b4c8075df2e6515fa40877d450012d083c4f9949772aae016697a64134de1d97"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:pydata__xarray-4695:session:1/token-materialization.json",
+      "sha256": "1a1ee2da324f9b23a76d78d033d096e4544700ffd68c5d063eb2f97b415db544"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:pylint-dev__pylint-4551:session:1/normalized-trace.json",
+      "sha256": "cda30851f0ec49aa7b4d4f533f9b6acfc9a8f225740405717d6b9220c46dff1a"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:pylint-dev__pylint-4551:session:1/qualification.json",
+      "sha256": "17dd48fcf6b2b0123b29dc7c5ad72597615c907753e951594b0a036a8dc2406c"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:pylint-dev__pylint-4551:session:1/token-materialization.json",
+      "sha256": "62dcf8980fca55bdc16526ace89db46c1b7b72fc80463cab1d39af2c9fb3406c"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:pytest-dev__pytest-7205:session:1/normalized-trace.json",
+      "sha256": "cb0e1d140d5546645dc099576338006aa3cc8d3b31d0b07cfa6a0ebad1aa7661"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:pytest-dev__pytest-7205:session:1/qualification.json",
+      "sha256": "e82470c7a2dfb926344791cc8f3b6e5a2f1e164374f07409121c70f39bdd7d7f"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:pytest-dev__pytest-7205:session:1/token-materialization.json",
+      "sha256": "778862541470deb8dfb8cf611db78c82246d9a8f1879d668dde2e1bdc889ed54"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:pytest-dev__pytest-7521:session:1/normalized-trace.json",
+      "sha256": "7dc6911f8603d16bf8c296e10a989ea9651e1aeb52341e9c3ec72205fb63ec4e"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:pytest-dev__pytest-7521:session:1/qualification.json",
+      "sha256": "d61369aebd9ea8e06777cf206cd8d597781c5209d6ea40b0a1e70da53ecc68cf"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:pytest-dev__pytest-7521:session:1/token-materialization.json",
+      "sha256": "ba6aeb735fe61c4f4d1313ba5ecc4b13a56806fc9b95f5120fe6fb1a039058ef"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:pytest-dev__pytest-8399:session:1/normalized-trace.json",
+      "sha256": "7431cb3f080a20f05ac06023a89423e612bf93cdeab8d8ef3dd011a75618ab40"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:pytest-dev__pytest-8399:session:1/qualification.json",
+      "sha256": "6038f7d1182299cd59b0915067d06d452a9167aa6c07ecf3c772999811450d8a"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:pytest-dev__pytest-8399:session:1/token-materialization.json",
+      "sha256": "6cb35a67d35fdeaa23275b4e027e52e8875a5d1179d98a9b574c3f896da693a3"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:scikit-learn__scikit-learn-14496:session:1/normalized-trace.json",
+      "sha256": "5b3560fe328cee17abf58a375f7fb06603424478f4e72fcb6db97da5a1acd9be"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:scikit-learn__scikit-learn-14496:session:1/qualification.json",
+      "sha256": "de3e60377afb81d8a692d67ee0926c3107f0f775a4a8d9499191fe86b4125572"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:scikit-learn__scikit-learn-14496:session:1/token-materialization.json",
+      "sha256": "c5998525cd6ecff3c50a4d6da0933f4d20c7165e2fe588f7c06a0978581fb55d"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:scikit-learn__scikit-learn-14894:session:1/normalized-trace.json",
+      "sha256": "b4caa87cf25836f8cff04d83a2c7fbac2983373fa39a096798af2da786cec6e3"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:scikit-learn__scikit-learn-14894:session:1/qualification.json",
+      "sha256": "bbe490b50bca75077149bc0034f33b6c3eb61e3b9b29279f3e3a5e1a00ac50d3"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:scikit-learn__scikit-learn-14894:session:1/token-materialization.json",
+      "sha256": "c801cd2337324704595101d3cc4ed89e45cf2256ec0ba1df85d9c03daac833f2"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:scikit-learn__scikit-learn-25747:session:1/normalized-trace.json",
+      "sha256": "a22a52fc84e8822e8b73b32cb30a0d2a0d8e428368ed8b2431a72e66655b83c5"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:scikit-learn__scikit-learn-25747:session:1/qualification.json",
+      "sha256": "50a7bddeeada78856587bf49390a68519e89d64a2fa06e8f8fbe82175af172d5"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:scikit-learn__scikit-learn-25747:session:1/token-materialization.json",
+      "sha256": "07e41e22c2f051aefcedd4d40ed1c9dbd4b05da41bcf8c7e3ff878c7b8deb446"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:scikit-learn__scikit-learn-26194:session:1/normalized-trace.json",
+      "sha256": "24eb070317f2d12bb77fa6cb0b7db0e1d62310619ee6f74320306ee4568c6164"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:scikit-learn__scikit-learn-26194:session:1/qualification.json",
+      "sha256": "9f2116595da10aa3fccbc08398d7945835b433ffc38a74fe693422d2fbd48378"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:scikit-learn__scikit-learn-26194:session:1/token-materialization.json",
+      "sha256": "106d9d56a0c73c1ad9183f9d071fc655854dc1fa290411a57cdf32f9c488acd7"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:sphinx-doc__sphinx-10323:session:1/normalized-trace.json",
+      "sha256": "b8216f584d189a71244cbdedafd3322c66ddae19ee5baa18255b856dc5c4530d"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:sphinx-doc__sphinx-10323:session:1/qualification.json",
+      "sha256": "19ef7fe13ec0fbff5610718279f295b5ea64adca3b85f803ab4b25d890c30365"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:sphinx-doc__sphinx-10323:session:1/token-materialization.json",
+      "sha256": "836acd6757668006f44ea7e7db05081f4fda8a557abfe6b42893d3c6d9c5b6d7"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:sphinx-doc__sphinx-8721:session:1/normalized-trace.json",
+      "sha256": "2725ac6acb7bac7c26c603bdd057bf41907f348394b99d4b3b3f7e5529d8b4c7"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:sphinx-doc__sphinx-8721:session:1/qualification.json",
+      "sha256": "35467730d8fa02ba983c858fca85df0059bd442dc30d59b1058785e60681a649"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:sphinx-doc__sphinx-8721:session:1/token-materialization.json",
+      "sha256": "5e0602ac0f5506da4b3e35b00d3158308f0b345446bc33a7bab3c53fb2f7117e"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:sphinx-doc__sphinx-9281:session:1/normalized-trace.json",
+      "sha256": "414c24f2a2a511ba39b510576d6912178e8c6ab16ce18366d5fdb243de4ce361"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:sphinx-doc__sphinx-9281:session:1/qualification.json",
+      "sha256": "fdef612f213d6fde8c7c112f3cfd3cbe58dd4f1f004ff5e5c38a14d5baef5eda"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:sphinx-doc__sphinx-9281:session:1/token-materialization.json",
+      "sha256": "f731fec98f979f2a5eba93d1c6c6e883ba8904000d01790185373b429c86ea63"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:sympy__sympy-12419:session:1/normalized-trace.json",
+      "sha256": "db725315b661311bc872d452c8439f607b3bed45a4eba1638892bab3dcc04bdb"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:sympy__sympy-12419:session:1/qualification.json",
+      "sha256": "263e43698062d80675bdc3136f6c7f6ed651210e6ef0ac0766cdcf74ef495ccf"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:sympy__sympy-12419:session:1/token-materialization.json",
+      "sha256": "4a6561cbee0345281101da64f69713aabd226312d2b57cb617ce540000aa8def"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:sympy__sympy-13551:session:1/normalized-trace.json",
+      "sha256": "88fedb3cb69f7cf0e9cb230707cfada16036f1cda6dd1731701655084153c940"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:sympy__sympy-13551:session:1/qualification.json",
+      "sha256": "bf3e6fbdfbc169806a6fd3c6357eff04a586d0415bc7059de2acba17b73e7fca"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:sympy__sympy-13551:session:1/token-materialization.json",
+      "sha256": "5fa3546ae227ed883ad7e7ae970bdd92f5388a6b12a1ed3ac115deb05adf24de"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:sympy__sympy-13974:session:1/normalized-trace.json",
+      "sha256": "ea7da75b1c52371f4bd3ebb06fbef339030bf9f1668911f6e680728dfd7f2089"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:sympy__sympy-13974:session:1/qualification.json",
+      "sha256": "30f6c20a79a6b6acddee9d3d994b6a57fa8c477263326da6a4264fe3069c7fe0"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:sympy__sympy-13974:session:1/token-materialization.json",
+      "sha256": "f4007ccd77d4af64eb44c26ec27742ca56933d5b0d09e7bffd80af71e5faa8d5"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:sympy__sympy-18199:session:1/normalized-trace.json",
+      "sha256": "b79ddf079b9c5910a697aeeddb24a6f1df382bbde4e1b344dde518ee1d74ab96"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:sympy__sympy-18199:session:1/qualification.json",
+      "sha256": "c81435f89530599de05c94e70274abc86ced73dec96fda19a5db6aa56d9e9181"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:sympy__sympy-18199:session:1/token-materialization.json",
+      "sha256": "e92da9c60aaec1b06962a76d303674fcc6c07e9259b3ad68528e4e8505d6d7bd"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:sympy__sympy-19783:session:1/normalized-trace.json",
+      "sha256": "235ac485fc8b7ba1cdcd2afce8dac14d02313d3754471d59f692f2bc5037569c"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:sympy__sympy-19783:session:1/qualification.json",
+      "sha256": "8e4cf910c07afc5b7b4ccea1b5bb9ea646995ca161524f520c89251d8606c163"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:sympy__sympy-19783:session:1/token-materialization.json",
+      "sha256": "2bb0ca856beb6a62387d0c4ac324d604efb0f234c7f6b79484f3723a4193d3dd"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:sympy__sympy-20801:session:1/normalized-trace.json",
+      "sha256": "b795745ea97f17cadb2844c2db3d52e5c02c71ce6674ce58b394f02306aff95a"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:sympy__sympy-20801:session:1/qualification.json",
+      "sha256": "11006639ee3432634a48a63ba5738544f49f1517c9a002250cdc3a0d4b1d3c77"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:sympy__sympy-20801:session:1/token-materialization.json",
+      "sha256": "b0bedb57410a5237b780c599d0de2a5335478aa4a5d94cc8726eaa34897b393d"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:sympy__sympy-22714:session:1/normalized-trace.json",
+      "sha256": "dfbb5d74cf0529d343409e99092cefbee0dd7ecec5dc92b5a17ea802dff108f7"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:sympy__sympy-22714:session:1/qualification.json",
+      "sha256": "0d7cb67883d38472d78911fe9f325a86a7d62e4d13821dcab8a9d9d1fdccab89"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:sympy__sympy-22714:session:1/token-materialization.json",
+      "sha256": "5d045e7ebbfde871196089722b9608f1f1746cf02f813df37c8669ce45ebe51a"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:sympy__sympy-24539:session:1/normalized-trace.json",
+      "sha256": "2d956ac9f4debd9eabceb42357d43009d94170f48424d2a54ea07fd86daf0ac1"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:sympy__sympy-24539:session:1/qualification.json",
+      "sha256": "41bcb2e4a547141add30b8f31a902353dc3feecbd66a4393f429160c26e61d3d"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-processed-v1/sessions/phase5:swe:sympy__sympy-24539:session:1/token-materialization.json",
+      "sha256": "1e297ae2b17c593162fd6f600277df0df383b53cebdc77c44769cc845ed01d70"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-reconciliation-v1/attempt-reconciliation.json",
+      "sha256": "c1adf1f64beb7bc8bab12b6fccf5e0c5e9c6f0e20d2597f57049887b0e5efa37"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-reserve-v1/astropy__astropy-7671/acquisition-sidecar.json",
+      "sha256": "c26a559e39aa98d059cc2c084deeca2ab1132954f3ca0e37d68a57619aa69363"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-reserve-v1/astropy__astropy-7671/run.json",
+      "sha256": "76cb151e32598f4f5119edbda3f9b4a511537f390ddd71135c09fbb16c51cd5d"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-reserve-v1/django__django-12858/acquisition-sidecar.json",
+      "sha256": "06fb78989edbede5c8d6b6416051d7993bf36da46feb8de844f27bc5caa7ddfd"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-reserve-v1/django__django-12858/run.json",
+      "sha256": "c54faf5242d7aa9d91b754ddf1fc3e1cd6835be2702af83c792543e61e8ed7f5"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-reserve-v1/django__django-13212/acquisition-sidecar.json",
+      "sha256": "0ae8b66ce74b23d1610903e3bc8b63e867642b0c62448024da9ce1a66fc6c1d9"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-reserve-v1/django__django-13212/run.json",
+      "sha256": "a9e689835c43208bf9c5859cbcaec6b33896dc5c0aeb04880addd9815962b83e"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-reserve-v1/django__django-13401/acquisition-sidecar.json",
+      "sha256": "72033e9d44ae3ec0af8065a7ed6a4cd065f5da16c726961245c5b93dc7ba1d6c"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-reserve-v1/django__django-13401/run.json",
+      "sha256": "32ac453b739d41b1c5e37b5ec21b531f5cb0fa8f496fff3efa3305fac6c22a9d"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-reserve-v1/matplotlib__matplotlib-26113/acquisition-sidecar.json",
+      "sha256": "482937a279989a1ab53540d2b6c41016238aa49adaba892560f5cdaf97d492d1"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-reserve-v1/matplotlib__matplotlib-26113/run.json",
+      "sha256": "ab4f165f7cb2c4a6bb728e4d37681fa0273370d39aa29a3c319dc3abfbb1a3a1"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-reserve-v1/pydata__xarray-4695/acquisition-sidecar.json",
+      "sha256": "6b9146012cfdc1acba84396fa4c136b0ba404cda7ae44cda0d697830f7445393"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-reserve-v1/pydata__xarray-4695/run.json",
+      "sha256": "c8644bf7b0ea4493934e094c85384f5e6c64677a59d1a64d527fe901222d24bc"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-reserve-v1/pytest-dev__pytest-7205/acquisition-sidecar.json",
+      "sha256": "17ea8306f06ed3fbea2845e4dcda90d35950ed040f7a6020842777d53752c997"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-reserve-v1/pytest-dev__pytest-7205/run.json",
+      "sha256": "d0d95ecfeef896f1b056b8ea28d621ad810221022818c53f39669370ec531614"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-reserve-v1/scikit-learn__scikit-learn-14496/acquisition-sidecar.json",
+      "sha256": "ac00d004def7d8fbbbec6bbd69ca5bae11d3f66045f19c35f1ef639fe6ee40df"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-reserve-v1/scikit-learn__scikit-learn-14496/run.json",
+      "sha256": "eda3a603ea8d6f3e54d0d8f2e02d992b0bece42646fb3adabf908cd2d0bc47cb"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-reserve-v1/scikit-learn__scikit-learn-25747/acquisition-sidecar.json",
+      "sha256": "a662d206aaa7add5e52fb7841aa5f8d3f0a5697e95b20ed21e3dffb8b3cfe156"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-reserve-v1/scikit-learn__scikit-learn-25747/run.json",
+      "sha256": "98523381a7fc8dd4bc22450a5cd3be667f02f264687d06ae6c04fc75fe4cec86"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-reserve-v1/sphinx-doc__sphinx-10323/acquisition-sidecar.json",
+      "sha256": "f235f91853f86c878e3468495fd82d7c18f555b29707203aae0dbbdf12d6f43b"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-reserve-v1/sphinx-doc__sphinx-10323/run.json",
+      "sha256": "705a995ed1500b74b290f4fbfa77f4583c6b3f114f03b6877230ffdc0a5ee5e2"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-reserve-v1/sphinx-doc__sphinx-9281/acquisition-sidecar.json",
+      "sha256": "4cad0f45a8d83528bf31ae2d067fc43f3717e59bbcb5585e2a613a7228aae869"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-reserve-v1/sphinx-doc__sphinx-9281/run.json",
+      "sha256": "fa8b0f16fbcfcbdab56ad87d6ae261458dc526b35913f71337297c02db07018e"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-reserve-v1/sympy__sympy-12419/acquisition-sidecar.json",
+      "sha256": "d05d6638bb38611c85dd71f7300b3d5456c8036c2943a14fc8f91af138ac9683"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-reserve-v1/sympy__sympy-12419/run.json",
+      "sha256": "e9e7e4f4f15304d4a4402b66b74c258f8e044b571fcdf5189bb381e5350e41ea"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-reserve-v1/sympy__sympy-22714/acquisition-sidecar.json",
+      "sha256": "10d52e047b2201af86885f36c46e30aea2cd0b9808d3e715b6f986340c84bb12"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-reserve-v1/sympy__sympy-22714/run.json",
+      "sha256": "0e54b4a04caa7ed6bbd7c83bd4a77639d520d199716bea4dbeda3f2544f62923"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-reserve-v1/sympy__sympy-24539/acquisition-sidecar.json",
+      "sha256": "b57b8b647cb2fb15e4fa3d0a03d736e1b26588a9741f9f62a610f9e9fc1bc84b"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-reserve-v1/sympy__sympy-24539/run.json",
+      "sha256": "11ee6f5487d1d6aeb3722ecd9345ac8cbf5c68733098030225dab2886992fb46"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/astropy__astropy-7606/acquisition-sidecar.json",
+      "sha256": "6af67c4ee96b322eb70fbdb483d4ea5a9907d2eb50806f1f62523204ef19edbd"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/astropy__astropy-7606/run.json",
+      "sha256": "6cf0e600f5283b269dd340d9a734e5db7ec23ac0e9425000c8bfbb71c8358a13"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/django__django-11095/acquisition-sidecar.json",
+      "sha256": "66b7a886576c3751b296a43059da4e2fb8a3130fc189f2cfbe7523fe14fa4ccb"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/django__django-11095/run.json",
+      "sha256": "4e38d696e0e4bab9fcd529b0b5bb0d6702cc588870b24bb9164e1c588f6baa68"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/django__django-11138/acquisition-sidecar.json",
+      "sha256": "0ccf35b87c6afb91230bfc735ea177ccfcc360e61d86cd1c1006ed3c7bba0996"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/django__django-11138/run.json",
+      "sha256": "13320ce70b681ea365514bfba8e89bb6a603bbf27fda166ea5cb0f6887996b2e"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/django__django-11400/acquisition-sidecar.json",
+      "sha256": "cce436e29a2c5f3e803387d35fe31cfc84a3ff2cea5d3d6720992695ef7750db"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/django__django-11400/run.json",
+      "sha256": "76235f3bb51b79df5cf2588f18749179861e8bd51321bd19c033e8207c04248f"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/django__django-11490/acquisition-sidecar.json",
+      "sha256": "dc6efd7e8bb2e0504804b792f3ff78123a5e0ffeea97d57af2ea0df5d6fee91e"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/django__django-11490/run.json",
+      "sha256": "22dcd44d0df1c11b7db096ca07d2095e100055caa3b669f754d0ca3f4e3a4963"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/django__django-11603/acquisition-sidecar.json",
+      "sha256": "e82e41a30632153a740ecab6c14e43484f61be46fc42480935413c1d718f20ac"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/django__django-11603/run.json",
+      "sha256": "53d35acc7113e0de0629188ecf913f95905af2ff92efad71fb906521b41d1563"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/django__django-11880/acquisition-sidecar.json",
+      "sha256": "0791303b9e1082bb4cd3a87cb1f987b343101104c49859f6fce5447f1e996f9f"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/django__django-11880/run.json",
+      "sha256": "38a192d123dffa7dd47edaf31be5ee415d9cacb88f250e0af02e4d3ecc8929d9"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/django__django-12050/acquisition-sidecar.json",
+      "sha256": "4f536fb8c7f6d00e0d7539f562bf43ee3d5069e92c259f52efb165056c146039"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/django__django-12050/run.json",
+      "sha256": "cfb630dc359a0b4d520b0d8cbd83d54155a031813ac243a34191b33f24f1928e"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/django__django-12276/acquisition-sidecar.json",
+      "sha256": "94ca2fe816150c751c0590ff823046162dcf2442ed42a2a994bbbb7e0d36cb83"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/django__django-12276/run.json",
+      "sha256": "36ef7f6af53d08c13039b1d8cb9d7d38c1f50443d4aae2f6ef984b54fe0214f0"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/django__django-12754/acquisition-sidecar.json",
+      "sha256": "44a9b92c4b44e78cfc9da6a4759c9826b6ac633a75baca33355eca420c05168e"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/django__django-12754/run.json",
+      "sha256": "1b21acbe8be3b4884fd5554949c13f86568a24021b1cc9ef8f490dc8b21ea189"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/django__django-13449/acquisition-sidecar.json",
+      "sha256": "91b08448a69a8f08febba124c7bc5be5993ba35f9ee1a0da57b521d0163f277c"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/django__django-13449/run.json",
+      "sha256": "4c599768951087feb57758704c6b3130399beaaa297f4baeaf22e0747516a981"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/django__django-13513/acquisition-sidecar.json",
+      "sha256": "c8d4f8de1948772421d2b1f36f9bc89771493ee0245b2291157e9df642d4f32c"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/django__django-13513/run.json",
+      "sha256": "657110c07358c0a1316ecfaeebc716b9ddb66d7ea3c3b5762ac4e2a43993b1af"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/django__django-14170/acquisition-sidecar.json",
+      "sha256": "222095dd6aeb3b1653ba29dab1958ca285cbfc1294ccae0c5579095c4664c9f3"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/django__django-14170/run.json",
+      "sha256": "fbe804f56ef74fa0a12ab540202999be8ec4507cde29dc56061f90c5b16e1c61"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/django__django-15569/acquisition-sidecar.json",
+      "sha256": "c6527d01f876bdb2ec6da62e14cda8fd6b231422060f81b7c1e0759a5e5fb0a3"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/django__django-15569/run.json",
+      "sha256": "2d6ef30374e894a7345b841bc7161b6bc2f853557c725c363ee67910cc3616b5"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/django__django-15572/acquisition-sidecar.json",
+      "sha256": "e4100d72bcbcd235e98176eb4939cba2b2ddd0474435b27302a2ec36ea607d98"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/django__django-15572/run.json",
+      "sha256": "412c9ecdc339e951f48ae3582f91b85717231087d98c94841fd4b31450621b10"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/django__django-16032/acquisition-sidecar.json",
+      "sha256": "c178a345466eab1d6f8164ebf76a630f1cf033328f2acd4640d5918cb10a4824"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/django__django-16032/run.json",
+      "sha256": "5af2e94c16c1fe283f0a4e697a0dd434296e6b0a6ecf678f07b0ea72f638ec2c"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/django__django-16901/acquisition-sidecar.json",
+      "sha256": "c9afe957b2add6a35f7659aaa3a7ce1ac1c6978c59e1f05994bf27f8c9538d26"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/django__django-16901/run.json",
+      "sha256": "32e7c2340cb20a14401e3ef6cb656c75034475d31e7ffdfdc12ca43858ab6f61"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/django__django-17087/acquisition-sidecar.json",
+      "sha256": "99a6a02c586f5bdbba4c0be33345c2ee812a5af63938577dd474af34fc3b8dcb"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/django__django-17087/run.json",
+      "sha256": "c4337cdb23d0f6310c45832b2d1b09d2a617964d2e80e07c5dc909e7c984f427"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/matplotlib__matplotlib-14623/acquisition-sidecar.json",
+      "sha256": "3c15bc49f4282a610b3124e0ebb42cdf5c9489fd988bd8f3766590e61afa3f7e"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/matplotlib__matplotlib-14623/run.json",
+      "sha256": "86338af39f33fd7dd84b747609b3d8f3818e9763003e55e530e95b4fc2c248ea"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/matplotlib__matplotlib-25287/acquisition-sidecar.json",
+      "sha256": "4f3c137f0e2440960619ec68186fc288c11783f08db10439086c12bc8d9fd331"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/matplotlib__matplotlib-25287/run.json",
+      "sha256": "e689e34e6d2f4d3f92d735f9521f8d4e0c6cdec9307f531f66cd9d0debeb401a"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/matplotlib__matplotlib-26466/acquisition-sidecar.json",
+      "sha256": "544f07f7022dafe60f4bbcc6b46594ee639b1a953528741fa586eaa70cb1580e"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/matplotlib__matplotlib-26466/run.json",
+      "sha256": "c7991e6d3044be85374f0e241f68f819dd64a6aeb368ff7565ce8d6ea4680fe4"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/psf__requests-2317/acquisition-sidecar.json",
+      "sha256": "13d53573540edb28a73a2a14c888719d369701dea498a3b4d2701d3e639a5009"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/psf__requests-2317/run.json",
+      "sha256": "5c83bb00d69bca66605144f1d3ffb77c6cf432a729051db971a74a9f76d42edd"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/pydata__xarray-3095/acquisition-sidecar.json",
+      "sha256": "6fcc9f3868a27ebc8ed5217befd91538f2fcdf31f64c999575e2423c061ecce1"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/pydata__xarray-3095/run.json",
+      "sha256": "be9bfb80452d46aa3d060bd624359c7c5ee24f576c6ea9a2a1979f56545d0e05"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/pydata__xarray-3305/acquisition-sidecar.json",
+      "sha256": "526b876f0487e854a406b7f1ab4dba04c5abcd17ae52f116fb4998e25367ab4d"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/pydata__xarray-3305/run.json",
+      "sha256": "32404420fbadb6f8bfd4ccaff51966759cc12d971f496753fd4826e0c27c30a3"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/pylint-dev__pylint-4551/acquisition-sidecar.json",
+      "sha256": "c75703432790cb7c03ec96a5d6b9318b1ac25dfbae4afc5ccfa0a95b852ab426"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/pylint-dev__pylint-4551/run.json",
+      "sha256": "c7ad0125938531447e1454a6bda933384fab0c7440ac8a3a8bbfc3e3f20b7e72"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/pytest-dev__pytest-7521/acquisition-sidecar.json",
+      "sha256": "1a4f9a1f5b6edf098bcddb846c53b1d2afb0462258247d0a9b5a5842c1894861"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/pytest-dev__pytest-7521/run.json",
+      "sha256": "aac033deb6f646ad213b263982490f772f1db1c00218c5a0b5a7143c8a58e29d"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/pytest-dev__pytest-8399/acquisition-sidecar.json",
+      "sha256": "923da7149dffd87a98b989d14e2eead4a6b2c8b0b7b9e6898152752d8c635816"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/pytest-dev__pytest-8399/run.json",
+      "sha256": "ee0c80e86b193d14c426a1604459bca700f07a48fb3b0c1390a6e221cabae824"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/scikit-learn__scikit-learn-14894/acquisition-sidecar.json",
+      "sha256": "86058d7d6b37349a24c65cb10753ded5b580d7cb66e6dbdc85776a76fc2e846f"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/scikit-learn__scikit-learn-14894/run.json",
+      "sha256": "3498944b071f5683427dfe59b30831f4121e0e5633041656f9f94e3881182dd2"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/scikit-learn__scikit-learn-26194/acquisition-sidecar.json",
+      "sha256": "1e90bc1d44669cf4c40faa56effab483593c78365ba5c3d073057751f8bc22ef"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/scikit-learn__scikit-learn-26194/run.json",
+      "sha256": "16da5b8b31f3d7bf3554c5aef47899a86bb3e9f0925abe481eb25ca578e44ebb"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/sphinx-doc__sphinx-8721/acquisition-sidecar.json",
+      "sha256": "acc8cbb1830829e0a638cac069bf4a0a9b864d7ea582c8af5a077527e4a8147a"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/sphinx-doc__sphinx-8721/run.json",
+      "sha256": "1e50524592058c8683dc0f27eff25f2d9c7bfdc2ce06f34a2cb4cd6b0e0c9b8b"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/sympy__sympy-13551/acquisition-sidecar.json",
+      "sha256": "17afd53fb20d34aab08bd5893b996499cea40b4055e1ce69a40487bc5d8ec386"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/sympy__sympy-13551/run.json",
+      "sha256": "0ec127df77376eef449b2db8a2c3962719075315cf6252690a21dedc3a516241"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/sympy__sympy-13974/acquisition-sidecar.json",
+      "sha256": "f8e6c5748fc0490f151258d0e9ba64e1e845fa065863b1d796748856e54e5ac7"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/sympy__sympy-13974/run.json",
+      "sha256": "6f02f21f0791ea9ec60ebf2e3c1ae5d67b344dd389c1262ceb684ec8cd5a14f6"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/sympy__sympy-19783/acquisition-sidecar.json",
+      "sha256": "5ed83a6598c7a24546815588708d19d7e34f3f7dc8815bcfbc906fc7c5edbc29"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/sympy__sympy-19783/run.json",
+      "sha256": "f21fed12aa04550960b38f43e0d8a8e310b974fc33983ea3e9624a42e32dee24"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/sympy__sympy-20801/acquisition-sidecar.json",
+      "sha256": "4839b64ebb9d1ed1f03a2e740504016dcc66a7b99f2be34ed371e6c4838074ff"
+    },
+    {
+      "path": "artifacts/phase5-swe-acquisition-v1/sympy__sympy-20801/run.json",
+      "sha256": "edc0e3ca3d30327e6e28a0405993133c88cfa7f382bafb4b46fee6090d87f5e7"
+    }
+  ]
+}
