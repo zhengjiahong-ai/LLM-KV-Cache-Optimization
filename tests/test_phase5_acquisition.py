@@ -5,7 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from kvopt.workload.phase5_acquisition import process_collection
+from kvopt.workload.phase5_acquisition import (
+    SWE_LICENSE_EXPRESSION,
+    process_collection,
+)
 
 
 def _record(*, turns: int = 4, revision: str = "source-revision") -> dict[str, object]:
@@ -118,6 +121,21 @@ def test_unresolved_source_revision_fails_closed(tmp_path: Path) -> None:
         tmp_path / "unresolved.json", _record(revision="PINNED_BY_M1")
     )
     with pytest.raises(ValueError, match="revision remains unresolved"):
+        process_collection(
+            inputs=(source,),
+            output_root=tmp_path / "output",
+            license_accepted=True,
+            outcome_blind=True,
+        )
+
+
+def test_mini_swe_missing_license_components_fails_closed(tmp_path: Path) -> None:
+    record = _record()
+    record["schema_version"] = "phase5.mini_swe_acquisition_bundle.v1"
+    record["source"]["license"] = SWE_LICENSE_EXPRESSION
+    source = _write(tmp_path / "swe.json", record)
+
+    with pytest.raises(TypeError, match="license_components"):
         process_collection(
             inputs=(source,),
             output_root=tmp_path / "output",
