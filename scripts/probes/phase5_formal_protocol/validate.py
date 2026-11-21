@@ -74,6 +74,8 @@ def validate_protocol(protocol: dict[str, Any], schema: dict[str, Any]) -> None:
         raise ValueError("frozen repeat counts must be formal=2 and calibration=3")
     if protocol["workload"]["min_turns_per_session"] < 4:
         raise ValueError("formal Sessions must have at least four turns")
+    if "max_turns_per_session" in protocol["workload"]:
+        raise ValueError("formal Sessions must not have an additional fixed turn ceiling")
     if (
         protocol["workload"]["max_prompt_tokens"] + protocol["workload"]["max_generation_tokens"]
         > protocol["workload"]["max_prompt_plus_generation_tokens"]
@@ -364,6 +366,7 @@ def validate_cross_documents(
     family: dict[str, Any],
     evaluation: dict[str, Any],
     metrics: dict[str, Any],
+    workload_qualification: dict[str, Any],
 ) -> None:
     """Check the statistical and budget definitions agree across files."""
 
@@ -456,6 +459,19 @@ def validate_cross_documents(
     if metrics["candidate_evaluation_contract"] != "phase5.candidate_evaluation.v1":
         raise ValueError("metrics contract does not bind candidate evaluation")
 
+    unit_contract = workload_qualification["unit_contract"]
+    if unit_contract.get("min_turns_per_session") != protocol["workload"][
+        "min_turns_per_session"
+    ]:
+        raise ValueError("protocol and workload qualification minimum Turns disagree")
+    if unit_contract.get("additional_turn_ceiling", object()) is not None:
+        raise ValueError("workload qualification must not add a fixed Turn ceiling")
+    rule_ids = {
+        rule["id"] for rule in workload_qualification["qualification_rules"]
+    }
+    if "Q6_CONTEXT_AND_EXACT_TOKENS" not in rule_ids:
+        raise ValueError("workload qualification Q6 does not bind context and exact tokens")
+
     if protocol["entry_gates"].count("G2_SIX_SYSTEM_FREEZE") != 1:
         raise ValueError("entry gates must contain exactly one G2 six-system freeze")
     if "G2_FOUR_SYSTEM_FREEZE" in protocol["entry_gates"]:
@@ -473,6 +489,7 @@ def validate_cross_contracts(protocol: dict[str, Any], repository: Path) -> None
         documents["cost_aware_candidate_family"],
         documents["candidate_evaluation"],
         documents["metrics"],
+        documents["workload_qualification"],
     )
 
 

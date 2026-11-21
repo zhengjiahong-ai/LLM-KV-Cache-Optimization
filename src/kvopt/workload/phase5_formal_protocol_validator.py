@@ -123,6 +123,13 @@ def validate_protocol_bundle(
         )
     if protocol["scope"]["systems"] != list(SYSTEM_IDS):
         raise Phase5ProtocolValidationError("scope systems differ from arm definitions")
+    workload = protocol["workload"]
+    if workload["min_turns_per_session"] != 4:
+        raise Phase5ProtocolValidationError("formal Sessions require at least four Turns")
+    if "max_turns_per_session" in workload:
+        raise Phase5ProtocolValidationError(
+            "formal Sessions must not have an additional fixed Turn ceiling"
+        )
 
     contracts_schema = _load(contracts_schema_path)
     contracts: dict[str, Mapping[str, Any]] = {}
@@ -141,6 +148,22 @@ def validate_protocol_bundle(
             )
         contracts[name] = contract
         hashes[name] = _sha256(path)
+
+    qualification = contracts["workload_qualification"]
+    unit_contract = qualification["unit_contract"]
+    if unit_contract.get("min_turns_per_session") != workload["min_turns_per_session"]:
+        raise Phase5ProtocolValidationError(
+            "workload qualification minimum Turns differ from protocol"
+        )
+    if unit_contract.get("additional_turn_ceiling", object()) is not None:
+        raise Phase5ProtocolValidationError(
+            "workload qualification must define no additional Turn ceiling"
+        )
+    q6 = {rule["id"]: rule for rule in qualification["qualification_rules"]}
+    if "Q6_CONTEXT_AND_EXACT_TOKENS" not in q6:
+        raise Phase5ProtocolValidationError(
+            "workload qualification is missing the context and exact-token Q6"
+        )
 
     expected_contracts = {
         "metrics",

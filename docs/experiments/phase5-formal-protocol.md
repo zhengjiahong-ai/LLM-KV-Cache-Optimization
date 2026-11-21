@@ -125,7 +125,7 @@ A Session is eligible for the formal cohort only if all hold:
 3. Program, Session, Turn and request identities are unique and monotone;
 4. within-Session Turn order and tool gaps are preserved;
 5. the Session ends in a natural accepted terminal or is explicitly right-censored; no context-limit failure is converted into a successful request;
-6. no request exceeds the frozen context limit (`32,768` tokens) and the Session has at most the frozen turn cap;
+6. the Session contains at least 4 Turns with exact token evidence, every Prompt is at most `32,640` tokens, and no Prompt plus the frozen generation budget exceeds the context limit (`32,768` tokens); no additional Turn ceiling applies;
 7. all tool outputs used by the trace are frozen and hash-bound;
 8. source license/provenance passes review;
 9. no A0/A1/A2/A3/Cost-Aware outcome was used to include or exclude the Session.
@@ -143,10 +143,11 @@ Qualification is outcome-blind. The full field contract is in `phase5-workload-q
 - Formal repeats per Group/System: **2**; calibration repeats: **3**.
 - Six systems per Group; formal runs = **6 × N × 2 × 2 = 24N** (192 at min, 288 at target, 384 at max). Calibration runs = **6 × 4 × 3 × 2 = 144**.
 - A Group is `COMPLETE` only if all 4 Sessions and all required requests produce valid evidence in every system/repeat.
-- Every qualified Session has **at least 4 Turns and at most 16 Turns**. This preserves the Phase 5A minimum multi-turn qualification and avoids single-turn task rows.
+- Every qualified Session has **at least 4 Turns**. There is no additional fixed Turn ceiling; the explicit acquisition stop/step limit, exact-token evidence, context limits and terminal/right-censoring rules remain binding. Turns remain repeated observations within a Session, not independent statistical units.
 - The frozen generation configuration is: `temperature=0.0`, `top_p=1.0`, `top_k=0`, `seed=20261201`, `max_new_tokens=128`, `stop=[]`, `ignore_eos=false`. It is identical across systems and repeats.
 - Every request must satisfy `prompt_tokens + max_new_tokens <= max_model_len (32,768)`. A request that cannot satisfy this is excluded at qualification; it is never truncated into a valid request.
 - A right-censored source Session is included in the primary analysis if every observed Turn is valid; its unobserved future Turns are not imputed and do not create synthetic requests. A system failure is never relabeled as source right-censoring.
+- BFCL qualification remains independent; no BFCL normalized/tokenized Session evidence was available for the Turn-cap sensitivity decision.
 
 The target sample size is not fixed at design time; it is selected by the pre-registered calibration algorithm in §5. The max cap prevents an unbounded campaign. If the required N exceeds the cap, the campaign is explicitly underpowered; no mid-campaign extension.
 

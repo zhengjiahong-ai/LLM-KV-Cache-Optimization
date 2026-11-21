@@ -21,9 +21,14 @@ from kvopt.workload.phase5_workload_qualification import (
 )
 
 
-def _trace(index: int = 1, *, terminal=TraceTerminalState.COMPLETED):
+def _trace(
+    index: int = 1,
+    *,
+    terminal=TraceTerminalState.COMPLETED,
+    turn_count: int = 4,
+):
     raw = f"raw-{index}".encode()
-    request_id = f"p{index}:r1"
+    request_ids = tuple(f"p{index}:r{ordinal}" for ordinal in range(1, turn_count + 1))
     trace = NormalizedAgentTrace(
         trace_id=f"trace-{index}",
         program_id=f"program-{index}",
@@ -39,34 +44,47 @@ def _trace(index: int = 1, *, terminal=TraceTerminalState.COMPLETED):
             raw_artifact_identity=f"raw-{index}",
         ),
         evidence_level=TraceEvidenceLevel.FULL_REPLAYABLE,
-        turns=(
+        turns=tuple(
             TraceTurn(
-                turn_id=f"turn-{index}",
-                ordinal=1,
+                turn_id=f"turn-{index}-{ordinal}",
+                ordinal=ordinal,
                 request_id=request_id,
-                messages=(TraceMessage(f"message-{index}", 1, "user", "x"),),
+                messages=(
+                    TraceMessage(
+                        f"message-{index}-{ordinal}", 1, "user", "x"
+                    ),
+                ),
                 model_identity="model",
-                submitted_at_seconds=0.0,
-                completed_at_seconds=1.0,
+                submitted_at_seconds=float(ordinal - 1),
+                completed_at_seconds=float(ordinal),
                 clock_domain="source",
                 terminal_state=terminal,
-            ),
+                failure_reason=(
+                    "collector transport failure"
+                    if terminal is TraceTerminalState.FAILED
+                    else None
+                ),
+            )
+            for ordinal, request_id in enumerate(request_ids, start=1)
         ),
         terminal_state=terminal,
         adapter_name="fixture",
         adapter_version="1",
     )
-    tokens = (1, 2, 3)
-    materialization = TokenMaterialization(
-        request_id=request_id,
-        rendered_prompt_sha256="1" * 64,
-        token_ids=tokens,
-        token_ids_sha256=canonical_sha256(list(tokens)),
-        model_revision="model-revision",
-        tokenizer_revision="tokenizer-revision",
-        chat_template_sha256="2" * 64,
+    token_ids = (1, 2, 3)
+    materializations = tuple(
+        TokenMaterialization(
+            request_id=request_id,
+            rendered_prompt_sha256="1" * 64,
+            token_ids=token_ids,
+            token_ids_sha256=canonical_sha256(list(token_ids)),
+            model_revision="model-revision",
+            tokenizer_revision="tokenizer-revision",
+            chat_template_sha256="2" * 64,
+        )
+        for request_id in request_ids
     )
-    return trace, materialization
+    return trace, materializations
 
 
 def _inputs(**changes):
@@ -83,7 +101,7 @@ def _inputs(**changes):
 def test_qualifies_replay_ready_session_without_selecting_cohort() -> None:
     trace, tokens = _trace()
     report = qualify_formal_session(
-        trace=trace, token_materializations=(tokens,), inputs=_inputs()
+        trace=trace, token_materializations=tokens, inputs=_inputs()
     )
     assert report["status"] == "QUALIFIED"
     assert report["formal_cohort_selected"] is False
@@ -101,7 +119,7 @@ def test_qualifies_replay_ready_session_without_selecting_cohort() -> None:
 def test_external_acquisition_facts_fail_closed(changes, failed_rule) -> None:
     trace, tokens = _trace()
     report = qualify_formal_session(
-        trace=trace, token_materializations=(tokens,), inputs=_inputs(**changes)
+        trace=trace, token_materializations=tokens, inputs=_inputs(**changes)
     )
     assert report["status"] == "EXCLUDED"
     assert failed_rule in report["failed_rules"]
@@ -110,11 +128,11 @@ def test_external_acquisition_facts_fail_closed(changes, failed_rule) -> None:
 def test_right_censor_requires_reason_and_is_not_zero_filled() -> None:
     trace, tokens = _trace(terminal=TraceTerminalState.RIGHT_CENSORED)
     rejected = qualify_formal_session(
-        trace=trace, token_materializations=(tokens,), inputs=_inputs()
+        trace=trace, token_materializations=tokens, inputs=_inputs()
     )
     accepted = qualify_formal_session(
         trace=trace,
-        token_materializations=(tokens,),
+        token_materializations=tokens,
         inputs=_inputs(censor_reason="source trace ended"),
     )
     assert rejected["checks"]["Q5_TERMINAL_OR_CENSOR"] is False
@@ -126,12 +144,84 @@ def test_context_limit_excludes_instead_of_truncating() -> None:
     trace, tokens = _trace()
     report = qualify_formal_session(
         trace=trace,
-        token_materializations=(tokens,),
+        token_materializations=tokens,
         inputs=_inputs(),
         maximum_prompt_tokens=2,
+        maximum_generation_tokens=1,
+        maximum_prompt_plus_generation_tokens=3,
     )
     assert report["status"] == "EXCLUDED"
-    assert report["checks"]["Q6_CONTEXT_AND_TURNS"] is False
+    assert report["checks"]["Q6_CONTEXT_AND_EXACT_TOKENS"] is False
+
+
+def test_session_above_sixteen_turns_passes_without_additional_ceiling() -> None:
+    trace, tokens = _trace(turn_count=17)
+    report = qualify_formal_session(
+        trace=trace, token_materializations=tokens, inputs=_inputs()
+    )
+    assert report["status"] == "QUALIFIED"
+    assert report["checks"]["Q6_CONTEXT_AND_EXACT_TOKENS"] is True
+
+
+def test_session_below_four_turns_fails_q6() -> None:
+    trace, tokens = _trace(turn_count=3)
+    report = qualify_formal_session(
+        trace=trace, token_materializations=tokens, inputs=_inputs()
+    )
+    assert report["status"] == "EXCLUDED"
+    assert report["checks"]["Q6_CONTEXT_AND_EXACT_TOKENS"] is False
+
+
+def test_missing_exact_token_evidence_fails_q2_and_q6() -> None:
+    trace, tokens = _trace(turn_count=17)
+    report = qualify_formal_session(
+        trace=trace, token_materializations=tokens[:-1], inputs=_inputs()
+    )
+    assert report["status"] == "EXCLUDED"
+    assert report["checks"]["Q2_EXACT_TOKEN_IDS"] is False
+    assert report["checks"]["Q6_CONTEXT_AND_EXACT_TOKENS"] is False
+
+
+def test_incomplete_and_invalid_censor_provenance_fail_closed() -> None:
+    incomplete_trace, tokens = _trace(turn_count=17)
+    incomplete_trace = NormalizedAgentTrace(
+        trace_id=incomplete_trace.trace_id,
+        program_id=incomplete_trace.program_id,
+        session_id=incomplete_trace.session_id,
+        task_id=incomplete_trace.task_id,
+        provenance=incomplete_trace.provenance,
+        evidence_level=TraceEvidenceLevel.PARTIAL_MESSAGES,
+        turns=incomplete_trace.turns,
+        terminal_state=incomplete_trace.terminal_state,
+        adapter_name=incomplete_trace.adapter_name,
+        adapter_version=incomplete_trace.adapter_version,
+        qualification_limitations=("missing source payload",),
+    )
+    incomplete = qualify_formal_session(
+        trace=incomplete_trace, token_materializations=tokens, inputs=_inputs()
+    )
+    censored_trace, censored_tokens = _trace(
+        turn_count=17, terminal=TraceTerminalState.RIGHT_CENSORED
+    )
+    invalid_censor = qualify_formal_session(
+        trace=censored_trace,
+        token_materializations=censored_tokens,
+        inputs=_inputs(censor_reason="  "),
+    )
+    assert incomplete["checks"]["Q1_COMPLETE_PAYLOAD"] is False
+    assert invalid_censor["checks"]["Q5_TERMINAL_OR_CENSOR"] is False
+
+
+def test_infrastructure_failure_is_not_treated_as_censoring() -> None:
+    trace, tokens = _trace(turn_count=17, terminal=TraceTerminalState.FAILED)
+    report = qualify_formal_session(
+        trace=trace,
+        token_materializations=tokens,
+        inputs=_inputs(censor_reason="collector transport failure"),
+    )
+    assert report["status"] == "EXCLUDED"
+    assert report["terminal_class"] == "EXCLUDED"
+    assert report["checks"]["Q5_TERMINAL_OR_CENSOR"] is False
 
 
 def test_group_requires_four_distinct_qualified_programs() -> None:
@@ -140,7 +230,7 @@ def test_group_requires_four_distinct_qualified_programs() -> None:
         trace, tokens = _trace(index)
         reports.append(
             qualify_formal_session(
-                trace=trace, token_materializations=(tokens,), inputs=_inputs()
+                trace=trace, token_materializations=tokens, inputs=_inputs()
             )
         )
     assert validate_qualified_group(reports)["status"] == "PASS"
