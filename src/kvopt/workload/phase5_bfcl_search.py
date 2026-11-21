@@ -197,6 +197,7 @@ class DeterministicSearchReplay:
         max_results: int = 10,
         region: str = "wt-wt",
         logical_time_seconds: float | None = None,
+        case_id: str | None = None,
     ) -> list[dict[str, object]]:
         identity = search_identity(
             query=query, max_results=max_results, region=region
@@ -235,6 +236,7 @@ class DeterministicSearchReplay:
             "replay": True,
             "network_access": False,
             "logical_time_seconds": logical_time_seconds,
+            "case_id": case_id,
             "latency_semantics": "LOCAL_REPLAY_NOT_REAL_NETWORK_LATENCY",
         }
         with self._lock:
