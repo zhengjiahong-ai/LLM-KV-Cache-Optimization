@@ -6,10 +6,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import traceback
 import urllib.request
 from pathlib import Path
 
-from bfcl_eval._llm_response_generation import multi_threaded_inference
 from bfcl_eval.eval_checker.multi_turn_eval.func_source_code.web_search import (
     WebSearchAPI,
 )
@@ -32,6 +32,21 @@ from kvopt.workload.phase5_replay import canonical_sha256
 
 MODEL = "Qwen/Qwen2.5-Coder-1.5B-Instruct"
 MODEL_REVISION = "d18ecad881a290f0c792f1c2b5dbee1820d4a424"
+
+
+def _run_inference(
+    handler: QuickTestingOSSHandler, test_case: dict[str, object]
+) -> dict[str, object]:
+    """Invoke only the selected handler without importing BFCL's global registry."""
+
+    try:
+        result, metadata = handler.inference(
+            test_case, include_input_log=True, exclude_state_log=False
+        )
+    except Exception as error:  # noqa: BLE001 - preserve BFCL failure evidence
+        result = f"Error during inference: {error}"
+        metadata = {"traceback": traceback.format_exc()}
+    return {"id": test_case["id"], "result": result, **metadata}
 
 
 def _arguments() -> argparse.Namespace:
@@ -104,14 +119,7 @@ def main() -> int:
             base_handler_module=base_handler,
         ):
             for test_case in selected:
-                results.append(
-                    multi_threaded_inference(
-                        handler,
-                        test_case,
-                        include_input_log=True,
-                        exclude_state_log=False,
-                    )
-                )
+                results.append(_run_inference(handler, test_case))
     finally:
         handler.shutdown_local_server()
 
