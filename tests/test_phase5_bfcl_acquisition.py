@@ -49,7 +49,7 @@ def test_bfcl_source_revision_mismatch_fails_closed(tmp_path: Path) -> None:
         )
 
 
-def test_bfcl_preflight_requires_real_search_and_expected_model() -> None:
+def test_bfcl_preflight_separates_protocol_from_adapter_requirements() -> None:
     report = build_bfcl_preflight_report(
         source_validation={"status": "PASS", "validation_sha256": "a" * 64},
         protocol_sha256="b" * 64,
@@ -57,14 +57,17 @@ def test_bfcl_preflight_requires_real_search_and_expected_model() -> None:
         expected_model="Qwen/Qwen2.5-Coder-1.5B-Instruct",
         expected_model_revision="d" * 40,
         endpoint_models=["some-other-model"],
-        serpapi_key_present=False,
         model_endpoint_configured=True,
+        acquisition_adapter="PINNED_BFCL_SERPAPI",
+        adapter_runtime_ready=False,
     )
     assert report["status"] == "FAIL_CLOSED"
     assert report["blockers"] == [
-        "SERPAPI_KEY_PRESENT",
         "EXPECTED_MODEL_SERVED",
+        "ADAPTER_RUNTIME_READY",
     ]
+    assert "SERPAPI_KEY_PRESENT" not in report["protocol_checks"]
+    assert report["adapter_runtime_requirement_is_protocol_requirement"] is False
     assert report["credentials_recorded"] is False
 
 
@@ -77,8 +80,9 @@ def test_bfcl_preflight_ready_does_not_authorize_gpu_or_select_cohort() -> None:
         expected_model=model,
         expected_model_revision="d" * 40,
         endpoint_models=[model],
-        serpapi_key_present=True,
         model_endpoint_configured=True,
+        acquisition_adapter="PINNED_BFCL_SERPAPI",
+        adapter_runtime_ready=True,
     )
     assert report["status"] == "READY"
     assert report["formal_cohort_selected"] is False
