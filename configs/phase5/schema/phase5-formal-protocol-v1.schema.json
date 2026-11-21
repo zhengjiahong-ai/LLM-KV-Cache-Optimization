@@ -249,12 +249,20 @@
     },
     "workload": {
       "type": "object",
+      "not": {
+        "required": [
+          "max_turns_per_session"
+        ]
+      },
       "required": [
         "strata",
         "unit_definitions",
         "programs_per_group",
         "sessions_per_program",
-        "max_turns_per_session",
+        "min_turns_per_session",
+        "max_prompt_tokens",
+        "max_generation_tokens",
+        "max_prompt_plus_generation_tokens",
         "sample_plan",
         "qualification_contract"
       ],
@@ -304,9 +312,21 @@
         "sessions_per_program": {
           "const": 1
         },
-        "max_turns_per_session": {
+        "min_turns_per_session": {
           "type": "integer",
-          "minimum": 1
+          "const": 4
+        },
+        "max_prompt_tokens": {
+          "type": "integer",
+          "const": 32640
+        },
+        "max_generation_tokens": {
+          "type": "integer",
+          "const": 128
+        },
+        "max_prompt_plus_generation_tokens": {
+          "type": "integer",
+          "const": 32768
         },
         "sample_plan": {
           "type": "object",

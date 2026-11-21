@@ -126,7 +126,25 @@
           "minItems": 2
         },
         "unit_contract": {
-          "type": "object"
+          "type": "object",
+          "not": {
+            "required": [
+              "max_turns_per_session"
+            ]
+          },
+          "required": [
+            "min_turns_per_session",
+            "additional_turn_ceiling"
+          ],
+          "properties": {
+            "min_turns_per_session": {
+              "const": 4
+            },
+            "additional_turn_ceiling": {
+              "type": "null"
+            }
+          },
+          "additionalProperties": true
         },
         "qualification_rules": {
           "type": "array",

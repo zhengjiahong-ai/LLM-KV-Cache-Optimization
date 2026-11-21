@@ -29,7 +29,7 @@
     "workload_group": "4 independent Programs and their Sessions",
     "independent_unit": "WORKLOAD_GROUP",
     "min_turns_per_session": 4,
-    "max_turns_per_session": 16
+    "additional_turn_ceiling": null
   },
   "generation_config": {
     "temperature": 0.0,
@@ -89,8 +89,8 @@
       "fail_action": "EXCLUDE_OR_CENSOR_ONLY"
     },
     {
-      "id": "Q6_TURNS_AND_CONTEXT",
-      "rule": "Session must contain at least 4 and at most 16 Turns; each request prompt+generation must be <= max_model_len (32,768)",
+      "id": "Q6_CONTEXT_AND_EXACT_TOKENS",
+      "rule": "Session must contain at least 4 Turns with exact token evidence; each request prompt must be <= 32,640 tokens and prompt+generation must be <= max_model_len (32,768); no additional Turn ceiling applies",
       "fail_action": "EXCLUDE_SESSION"
     },
     {

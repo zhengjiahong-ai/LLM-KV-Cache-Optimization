@@ -116,9 +116,27 @@ def test_rejects_session_below_four_turns() -> None:
     try:
         module.validate_protocol(protocol, _schema())
     except ValueError as error:
-        assert "four turns" in str(error)
+        assert "four turns" in str(error) or "4 was expected" in str(error)
     else:
         raise AssertionError("three-turn qualification was accepted")
+
+
+def test_protocol_has_no_additional_session_turn_ceiling() -> None:
+    protocol = _protocol()
+    assert protocol["workload"]["min_turns_per_session"] == 4
+    assert "max_turns_per_session" not in protocol["workload"]
+
+
+def test_rejects_reintroduced_session_turn_ceiling() -> None:
+    module = _load_module()
+    protocol = _protocol()
+    protocol["workload"]["max_turns_per_session"] = 16
+    try:
+        module.validate_protocol(protocol, _schema())
+    except ValueError as error:
+        assert "schema" in str(error) or "turn ceiling" in str(error)
+    else:
+        raise AssertionError("legacy fixed Turn ceiling was accepted")
 
 
 def test_rejects_prompt_plus_generation_over_context() -> None:
@@ -128,7 +146,7 @@ def test_rejects_prompt_plus_generation_over_context() -> None:
     try:
         module.validate_protocol(protocol, _schema())
     except ValueError as error:
-        assert "prompt plus generation" in str(error)
+        assert "prompt plus generation" in str(error) or "32640 was expected" in str(error)
     else:
         raise AssertionError("over-context prompt was accepted")
 
@@ -278,6 +296,12 @@ def _contract_docs():
         "metrics": json.loads(
             (ROOT / "configs/phase5/phase5-metrics-contract-v1.json").read_text(encoding="utf-8")
         ),
+        "workload_qualification": json.loads(
+            (
+                ROOT
+                / "configs/phase5/phase5-workload-qualification-contract-v1.json"
+            ).read_text(encoding="utf-8")
+        ),
     }
 
 
@@ -289,6 +313,7 @@ def _cross_validate(docs) -> None:
         docs["family"],
         docs["evaluation"],
         docs["metrics"],
+        docs["workload_qualification"],
     )
 
 

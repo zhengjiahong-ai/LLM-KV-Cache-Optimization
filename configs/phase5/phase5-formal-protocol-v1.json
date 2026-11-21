@@ -48,7 +48,6 @@
     "programs_per_group": 4,
     "sessions_per_program": 1,
     "min_turns_per_session": 4,
-    "max_turns_per_session": 16,
     "max_prompt_tokens": 32640,
     "max_generation_tokens": 128,
     "max_prompt_plus_generation_tokens": 32768,

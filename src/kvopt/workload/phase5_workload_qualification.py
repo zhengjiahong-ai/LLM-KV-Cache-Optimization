@@ -28,7 +28,7 @@ _RULES = (
     "Q3_IDENTITY",
     "Q4_ORDER_AND_GAPS",
     "Q5_TERMINAL_OR_CENSOR",
-    "Q6_CONTEXT_AND_TURNS",
+    "Q6_CONTEXT_AND_EXACT_TOKENS",
     "Q7_FROZEN_TOOLS",
     "Q8_LICENSE",
     "Q9_OUTCOME_BLIND",
@@ -54,13 +54,22 @@ def qualify_formal_session(
     trace: NormalizedAgentTrace,
     token_materializations: Sequence[TokenMaterialization],
     inputs: QualificationInputs,
-    maximum_prompt_tokens: int = 32768,
-    maximum_turns: int = 16,
+    minimum_turns: int = 4,
+    maximum_prompt_tokens: int = 32640,
+    maximum_generation_tokens: int = 128,
+    maximum_prompt_plus_generation_tokens: int = 32768,
 ) -> dict[str, object]:
     """Evaluate Q1--Q9 without making any research-design decisions."""
 
-    if maximum_prompt_tokens <= 0 or maximum_turns <= 0:
-        raise ValueError("qualification limits must be positive")
+    if (
+        minimum_turns <= 0
+        or maximum_prompt_tokens <= 0
+        or maximum_generation_tokens <= 0
+        or maximum_prompt_plus_generation_tokens <= 0
+        or maximum_prompt_tokens + maximum_generation_tokens
+        > maximum_prompt_plus_generation_tokens
+    ):
+        raise ValueError("qualification limits must be positive and context-consistent")
     request_ids = tuple(turn.request_id for turn in trace.turns)
     materialized = {row.request_id: row for row in token_materializations}
     duplicate_materializations = len(materialized) != len(token_materializations)
@@ -100,10 +109,12 @@ def qualify_formal_session(
         and bool(inputs.censor_reason.strip())
     )
     q6 = (
-        len(trace.turns) <= maximum_turns
+        len(trace.turns) >= minimum_turns
         and q2
         and all(
             len(materialized[request_id].token_ids) <= maximum_prompt_tokens
+            and len(materialized[request_id].token_ids) + maximum_generation_tokens
+            <= maximum_prompt_plus_generation_tokens
             for request_id in request_ids
             if request_id is not None and request_id in materialized
         )
