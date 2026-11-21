@@ -9,7 +9,13 @@ import re
 from collections.abc import Mapping
 from pathlib import Path
 
-from .phase5_acquisition import MINI_SWE_SCHEMA
+from .phase5_acquisition import (
+    MINI_SWE_SCHEMA,
+    SWE_LICENSE_COMPONENTS,
+    SWE_LICENSE_EXPRESSION,
+    SWE_LICENSE_NOTES,
+    SWE_LICENSE_REDISTRIBUTION_STATUS,
+)
 from .phase5_replay import canonical_sha256
 
 _TOOL_RESULT = re.compile(
@@ -92,6 +98,10 @@ def build_mini_swe_acquisition_record(
 
     if not re.fullmatch(r"[0-9a-f]{64}", chat_template_sha256):
         raise ValueError("chat_template_sha256 must be a lowercase SHA-256")
+    if license_expression != SWE_LICENSE_EXPRESSION:
+        raise ValueError(
+            "license_expression must match the frozen M4 internal-research LicenseRef"
+        )
     run_path = run_directory / "run.json"
     sidecar_path = run_directory / "acquisition-sidecar.json"
     if not run_path.is_file() or not sidecar_path.is_file():
@@ -272,6 +282,9 @@ def build_mini_swe_acquisition_record(
             "uri": "https://huggingface.co/datasets/princeton-nlp/SWE-bench_Verified",
             "license": license_expression,
         },
+        "license_components": dict(SWE_LICENSE_COMPONENTS),
+        "license_redistribution_status": SWE_LICENSE_REDISTRIBUTION_STATUS,
+        "license_notes": SWE_LICENSE_NOTES,
         "model_identity": f"{model_name}@{model_revision}",
         "model_revision": model_revision,
         "tokenizer_revision": tokenizer_revision,

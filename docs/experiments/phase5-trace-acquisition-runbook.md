@@ -62,6 +62,12 @@ python -m kvopt.workload.phase5_swe_acquisition_adapter \
   --output /absolute/path/to/staging/one-session.json
 ```
 
+The M4 adjudication freezes the SWE acquisition expression to
+`LicenseRef-Phase5-Internal-Research-Only`. The adapter rejects a blanket
+`MIT` expression and emits the required component markers, redistribution
+status and internal-research-only note. This technical acceptance does not
+grant redistribution permission.
+
 The adapter verifies the run, trajectory and sidecar hashes, request sequence,
 assistant response hashes, tool-result hashes and original source identity. A
 trailing failed model attempt, such as a context-limit rejection with no
@@ -95,3 +101,17 @@ The output contains:
 
 An accepted Session must have 4--16 Turns. Failures, truncation, and explicit
 right-censoring remain visible and are never padded with synthetic Turns.
+
+An `incomplete chunked read` transport interruption is a failed acquisition,
+not a right-censored Session. Generate the immutable failure ledger from the
+reconciled attempt history before processing completed Sessions:
+
+```bash
+python -m kvopt.workload.phase5_swe_acquisition_ledger \
+  --reconciliation /absolute/path/to/attempt-reconciliation.json \
+  --output /absolute/path/to/swe-failure-ledger.json
+```
+
+Such entries remain `FAILED`, `UNRESOLVED`, and `EXCLUDED`; another retry
+requires new M1 authorization. They are not inputs to the normalized formal
+collection.

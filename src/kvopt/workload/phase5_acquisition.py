@@ -37,6 +37,20 @@ from .phase5_workload_qualification import (
 MINI_SWE_SCHEMA = "phase5.mini_swe_acquisition_bundle.v1"
 BFCL_SCHEMA = "phase5.bfcl_web_search_acquisition.v1"
 COLLECTION_SCHEMA = "phase5.acquisition_collection.v1"
+SWE_LICENSE_EXPRESSION = "LicenseRef-Phase5-Internal-Research-Only"
+SWE_LICENSE_COMPONENTS = {
+    "swe_bench_verified_dataset": (
+        "LicenseRef-SWE-bench-Verified-Dataset-Conditional"
+    ),
+    "mini_swe_agent": "MIT",
+    "upstream_task_repository": "LicenseRef-Upstream-Repository-Per-Task",
+    "phase5_acquisition_output": "LicenseRef-Phase5-Internal-Research-Only",
+}
+SWE_LICENSE_REDISTRIBUTION_STATUS = "PROHIBITED_PENDING_REVIEW"
+SWE_LICENSE_NOTES = (
+    "Internal research only. Components retain separate terms; no blanket MIT "
+    "and no redistribution permission."
+)
 
 
 def _mapping(value: object, label: str) -> Mapping[str, object]:
@@ -102,6 +116,19 @@ def _provenance(record: Mapping[str, object], raw: RawTraceArtifact) -> TraceSou
         raw_artifact_sha256=raw.sha256,
         raw_artifact_identity=raw.artifact_identity,
     )
+
+
+def _validate_mini_swe_license(record: Mapping[str, object]) -> None:
+    source = _mapping(record.get("source"), "source")
+    if source.get("license") != SWE_LICENSE_EXPRESSION:
+        raise ValueError("mini-SWE license_expression differs from M4 adjudication")
+    components = _mapping(record.get("license_components"), "license_components")
+    if dict(components) != SWE_LICENSE_COMPONENTS:
+        raise ValueError("mini-SWE license_components are missing or inconsistent")
+    if record.get("license_redistribution_status") != SWE_LICENSE_REDISTRIBUTION_STATUS:
+        raise ValueError("mini-SWE redistribution status is missing or inconsistent")
+    if record.get("license_notes") != SWE_LICENSE_NOTES:
+        raise ValueError("mini-SWE license notes are missing or inconsistent")
 
 
 def _token_materialization(row: Mapping[str, object]) -> TokenMaterialization:
@@ -191,6 +218,8 @@ def adapt_acquisition(raw: RawTraceArtifact) -> AdaptedAcquisition:
     schema = record.get("schema_version")
     if schema not in {MINI_SWE_SCHEMA, BFCL_SCHEMA}:
         raise ValueError("unsupported Phase 5 acquisition schema")
+    if schema == MINI_SWE_SCHEMA:
+        _validate_mini_swe_license(record)
     provenance = _provenance(record, raw)
     program_id = _text(record.get("program_id"), "program_id")
     session_id = _text(record.get("session_id"), "session_id")

@@ -6,6 +6,12 @@ from pathlib import Path
 
 import pytest
 
+from kvopt.workload.phase5_acquisition import (
+    SWE_LICENSE_COMPONENTS,
+    SWE_LICENSE_EXPRESSION,
+    SWE_LICENSE_NOTES,
+    SWE_LICENSE_REDISTRIBUTION_STATUS,
+)
 from kvopt.workload.phase5_replay import canonical_sha256
 from kvopt.workload.phase5_swe_acquisition_adapter import (
     build_mini_swe_acquisition_record,
@@ -100,7 +106,7 @@ def test_adapts_hash_bound_mini_swe_run(tmp_path: Path) -> None:
     record = build_mini_swe_acquisition_record(
         run_directory=_fixture(tmp_path),
         chat_template_sha256="a" * 64,
-        license_expression="MIT AND UPSTREAM_REVIEW_REQUIRED",
+        license_expression=SWE_LICENSE_EXPRESSION,
         acquisition_origin="HISTORICAL_W1C_REUSE",
     )
     assert record["schema_version"] == "phase5.mini_swe_acquisition_bundle.v1"
@@ -111,6 +117,13 @@ def test_adapts_hash_bound_mini_swe_run(tmp_path: Path) -> None:
         "output": "result 1",
     }
     assert len(record["original_artifact_sha256"]) == 3
+    assert record["source"]["license"] == SWE_LICENSE_EXPRESSION
+    assert record["license_components"] == SWE_LICENSE_COMPONENTS
+    assert (
+        record["license_redistribution_status"]
+        == SWE_LICENSE_REDISTRIBUTION_STATUS
+    )
+    assert record["license_notes"] == SWE_LICENSE_NOTES
 
 
 def test_rejects_tampered_sidecar(tmp_path: Path) -> None:
@@ -121,7 +134,7 @@ def test_rejects_tampered_sidecar(tmp_path: Path) -> None:
         build_mini_swe_acquisition_record(
             run_directory=root,
             chat_template_sha256="a" * 64,
-            license_expression="MIT",
+            license_expression=SWE_LICENSE_EXPRESSION,
             acquisition_origin="PHASE5_NEW_ACQUISITION",
         )
 
@@ -140,7 +153,7 @@ def test_rejects_noncontiguous_request_identity(tmp_path: Path) -> None:
         build_mini_swe_acquisition_record(
             run_directory=root,
             chat_template_sha256="a" * 64,
-            license_expression="MIT",
+            license_expression=SWE_LICENSE_EXPRESSION,
             acquisition_origin="PHASE5_NEW_ACQUISITION",
         )
 
@@ -166,7 +179,7 @@ def test_retains_trailing_failed_model_call_as_limitation(tmp_path: Path) -> Non
     record = build_mini_swe_acquisition_record(
         run_directory=root,
         chat_template_sha256="a" * 64,
-        license_expression="MIT",
+        license_expression=SWE_LICENSE_EXPRESSION,
         acquisition_origin="PHASE5_NEW_ACQUISITION",
     )
     assert record["terminal_state"] == "RIGHT_CENSORED"
@@ -174,3 +187,13 @@ def test_retains_trailing_failed_model_call_as_limitation(tmp_path: Path) -> Non
     assert record["limitations"] == [
         "TRAILING_MODEL_CALL_FAILED:ContextLengthExceeded: maximum context reached"
     ]
+
+
+def test_rejects_blanket_mit_license_expression(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="frozen M4 internal-research LicenseRef"):
+        build_mini_swe_acquisition_record(
+            run_directory=_fixture(tmp_path),
+            chat_template_sha256="a" * 64,
+            license_expression="MIT",
+            acquisition_origin="PHASE5_NEW_ACQUISITION",
+        )
