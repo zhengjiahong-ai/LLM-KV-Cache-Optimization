@@ -40,8 +40,9 @@ qualification result only; M6 does not select the Formal Cohort.
 
 The official source checkout must be at the frozen revision. The preflight
 independently validates the 100 source rows, the 200 ordered SNIPPET /
-NO_SNIPPET identities, both protocol hashes, the real model endpoint, and the
-presence (but never the value) of the SerpAPI credential.
+NO_SNIPPET identities, both protocol hashes, and the real model endpoint.
+Protocol gates are reported separately from the selected acquisition adapter's
+runtime requirements.
 
 ```bash
 .venv/bin/python scripts/spikes/phase5_dataset/preflight_bfcl.py \
@@ -50,15 +51,18 @@ presence (but never the value) of the SerpAPI credential.
   --protocol configs/phase5/phase5-formal-protocol-v1.json \
   --qualification-contract \
     configs/phase5/phase5-workload-qualification-contract-v1.json \
+  --acquisition-adapter PINNED_BFCL_SERPAPI \
   --output artifacts/phase5-bfcl-acquisition-preflight-v1
 ```
 
-At the time of this record, source validation passes, while acquisition remains
-fail-closed because `SERPAPI_API_KEY` and a configured OpenAI-compatible model
-endpoint serving the frozen model are absent. No synthetic model response or
-search fixture is substituted. Live search is permitted only during
-acquisition; every response must subsequently be frozen and hash-bound, and
-Formal Replay must not access live search.
+The protocol does not prescribe SerpAPI or require a SerpAPI credential. It
+requires a real provider to be identified in every Fixture, complete provenance
+and response hashes, and no live search during Formal Replay. The
+`PINNED_BFCL_SERPAPI` adapter reuses the official pinned BFCL implementation;
+`SERPAPI_API_KEY` is therefore an operational requirement of that adapter, not
+a Formal Protocol field. No synthetic model response or search fixture may be
+substituted. Every acquired response must be frozen and hash-bound before
+qualification.
 
 Secrets must be supplied through the execution environment and must not be
 committed, printed, or stored in evidence artifacts.

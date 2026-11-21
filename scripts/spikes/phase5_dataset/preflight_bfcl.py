@@ -48,6 +48,11 @@ def main() -> int:
     parser.add_argument("--protocol", type=Path, required=True)
     parser.add_argument("--qualification-contract", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--acquisition-adapter",
+        choices=("PINNED_BFCL_SERPAPI",),
+        default="PINNED_BFCL_SERPAPI",
+    )
     args = parser.parse_args()
     if args.output.exists():
         raise RuntimeError("output already exists; preflight records are immutable")
@@ -68,6 +73,11 @@ def main() -> int:
     protocol = json.loads(args.protocol.read_text(encoding="utf-8"))
     native = next(system for system in protocol["systems"] if system["id"] == "NATIVE")
     base_url = os.getenv("REMOTE_OPENAI_BASE_URL")
+    adapter_runtime_ready = (
+        bool(os.getenv("SERPAPI_API_KEY"))
+        if args.acquisition_adapter == "PINNED_BFCL_SERPAPI"
+        else False
+    )
     report = build_bfcl_preflight_report(
         source_validation=validation,
         protocol_sha256=file_sha256(args.protocol),
@@ -75,8 +85,9 @@ def main() -> int:
         expected_model=native["model"],
         expected_model_revision=native["model_revision"],
         endpoint_models=_endpoint_models(base_url),
-        serpapi_key_present=bool(os.getenv("SERPAPI_API_KEY")),
         model_endpoint_configured=bool(base_url),
+        acquisition_adapter=args.acquisition_adapter,
+        adapter_runtime_ready=adapter_runtime_ready,
     )
     _write(args.output / "source-validation.json", validation)
     _write(args.output / "preflight.json", report)

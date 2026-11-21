@@ -123,31 +123,44 @@ def build_bfcl_preflight_report(
     expected_model: str,
     expected_model_revision: str,
     endpoint_models: Sequence[str] | None,
-    serpapi_key_present: bool,
     model_endpoint_configured: bool,
+    acquisition_adapter: str,
+    adapter_runtime_ready: bool,
 ) -> dict[str, object]:
-    """Build a credential-safe acquisition readiness report."""
+    """Build a credential-safe protocol and adapter readiness report."""
 
-    checks = {
+    protocol_checks = {
         "SOURCE_IDENTITY": source_validation.get("status") == "PASS",
-        "SERPAPI_KEY_PRESENT": serpapi_key_present,
         "MODEL_ENDPOINT_CONFIGURED": model_endpoint_configured,
         "EXPECTED_MODEL_SERVED": (
             endpoint_models is not None and expected_model in endpoint_models
         ),
         "MODEL_REVISION_PINNED": len(expected_model_revision) == 40,
+        "SEARCH_PROVIDER_PROVENANCE_REQUIRED": True,
+        "FORMAL_REPLAY_LIVE_SEARCH_DISABLED": True,
     }
-    blockers = [name for name, passed in checks.items() if not passed]
+    implementation_checks = {
+        "ACQUISITION_ADAPTER_DECLARED": bool(acquisition_adapter),
+        "ADAPTER_RUNTIME_READY": adapter_runtime_ready,
+    }
+    blockers = [
+        name
+        for name, passed in {**protocol_checks, **implementation_checks}.items()
+        if not passed
+    ]
     payload: dict[str, object] = {
         "schema_version": "phase5.bfcl_acquisition_preflight.v1",
         "status": "READY" if not blockers else "FAIL_CLOSED",
-        "checks": checks,
+        "protocol_checks": protocol_checks,
+        "implementation_checks": implementation_checks,
         "blockers": blockers,
         "protocol_sha256": protocol_sha256,
         "qualification_contract_sha256": qualification_contract_sha256,
         "expected_model": expected_model,
         "expected_model_revision": expected_model_revision,
         "endpoint_model_ids": sorted(endpoint_models or []),
+        "acquisition_adapter": acquisition_adapter,
+        "adapter_runtime_requirement_is_protocol_requirement": False,
         "credentials_recorded": False,
         "live_search_for_formal_replay": False,
         "formal_cohort_selected": False,
