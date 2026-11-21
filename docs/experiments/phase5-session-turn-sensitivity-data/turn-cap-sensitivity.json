@@ -1,0 +1,1272 @@
+{
+  "analysis_sha256": "67c2627b2256ba224f2335ff07ae20c26f66b7b2641e8f06347cfba32b40628c",
+  "inputs": {
+    "attempt_count": 75,
+    "attempt_ledger_path": "artifacts/phase5-swe-acquisition-reconciliation-v1/attempt-reconciliation.json",
+    "attempt_ledger_sha256": "c1adf1f64beb7bc8bab12b6fccf5e0c5e9c6f0e20d2597f57049887b0e5efa37",
+    "bfcl_sessions_available": 0,
+    "completed_attempt_count": 62,
+    "deduplication_rule": "one normalized session_id per task; bind the processed raw run SHA-256 to exactly one completed attempt; failed attempts remain attempt-level only",
+    "failed_attempt_count": 13,
+    "historical_evidence_role": "SEPARATE_BACKGROUND_NOT_MIXED",
+    "historical_w1_records_included": 0,
+    "phase5_new_acquisition_sessions": 57,
+    "processed_session_count": 57,
+    "unique_completed_count": 62
+  },
+  "long_session_research_proxies": {
+    "adjacent_prefix_pairs_above_16_lower_bound": 3648,
+    "interpretation": "trajectory-level opportunity only; does not establish Native cache hits, candidate exposure, physical victims, eviction, recomputation, or benefit",
+    "long_session_adjacent_prefix_lcp_total": 52010853,
+    "long_session_tool_calls": 3067,
+    "session_count_above_16": 49,
+    "successful_turns_above_first_16": 3648
+  },
+  "observed_distribution": {
+    "prompt_token_limit_exceeded_by_successful_turn": 0,
+    "prompt_token_maximum": {
+      "count": 57,
+      "maximum": 32256,
+      "mean": 20470.877192982458,
+      "median": 20311.0,
+      "minimum": 1728,
+      "p25": 15610.0,
+      "p75": 31481.0,
+      "p95": 32224.0
+    },
+    "session_count": 57,
+    "terminal_counts": {
+      "CONTEXT_LIMIT_FAILURE": 14,
+      "INFRASTRUCTURE_FAILURE": 3,
+      "NATURAL_COMPLETION": 7,
+      "STEP_LIMIT_RIGHT_CENSORED": 33
+    },
+    "turn_band_counts": {
+      "ABOVE_16": 49,
+      "BELOW_4": 5,
+      "FOUR_TO_16": 3
+    },
+    "turn_count": {
+      "count": 57,
+      "maximum": 100,
+      "mean": 78.28070175438596,
+      "median": 100.0,
+      "minimum": 3,
+      "p25": 59.0,
+      "p75": 100.0,
+      "p95": 100.0
+    }
+  },
+  "recommendation": {
+    "decision": "REMOVE_ADDITIONAL_PROTOCOL_TURN_CAP",
+    "limitations": [
+      "BFCL acquisition artifacts were not available in this snapshot.",
+      "Thirty-three retained long sessions are right-censored at the collector limit.",
+      "More turns do not increase the independent statistical unit count beyond groups.",
+      "Trajectory proxies cannot establish Native KV behavior or algorithmic benefit."
+    ],
+    "rationale": "Within observed Phase 5 SWE data, caps 16 through 64 retain only the two natural sessions already admitted at 4-16 turns. Cap 100 and no additional cap both retain 35 sessions: two natural completions and 33 explicitly step-limit-right-censored sessions. Successful prompts remain <=32640. The extra cap therefore discards observed multi-turn/prefix evidence without adding context protection; context and infrastructure failures remain excluded.",
+    "retain_explicit_collection_termination": true,
+    "retain_minimum_turns": 4,
+    "retain_prompt_token_limit": 32640,
+    "right_censoring_must_remain_explicit": true
+  },
+  "schema_version": "phase5.session_turn_analysis.v1",
+  "sensitivity": {
+    "caps": [
+      {
+        "by_stratum": [
+          {
+            "adjacent_prefix_lcp_total": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "classification_counts": {},
+            "context_failures_observed_within_cap": 0,
+            "excluded_fraction": null,
+            "excluded_sessions": 0,
+            "group_count_upper_bound": 0,
+            "observed_sessions": 0,
+            "prompt_token_growth_first_to_last": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "prompt_token_maximum": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "prompt_token_total": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "retained_fraction": null,
+            "retained_natural_completion": 0,
+            "retained_sessions": 0,
+            "retained_step_limit_right_censored": 0,
+            "session_duration_seconds": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "source_stratum": "BFCL",
+            "tool_wait_seconds_maximum": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "tool_wait_seconds_total": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "turn_count": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "turn_window_eligible_sessions": 0
+          },
+          {
+            "adjacent_prefix_lcp_total": {
+              "count": 2,
+              "maximum": 8848,
+              "mean": 7571.5,
+              "median": 7571.5,
+              "minimum": 6295,
+              "p25": 6933.25,
+              "p75": 8209.75,
+              "p95": 8720.35
+            },
+            "classification_counts": {
+              "EXCLUDED_ABOVE_TURN_CAP": 49,
+              "EXCLUDED_BELOW_MIN_TURNS": 5,
+              "EXCLUDED_CONTEXT_LIMIT_FAILURE": 1,
+              "RETAINED": 2
+            },
+            "context_failures_observed_within_cap": 1,
+            "excluded_fraction": 0.9649122807017544,
+            "excluded_sessions": 55,
+            "group_count_upper_bound": 0,
+            "observed_sessions": 57,
+            "prompt_token_growth_first_to_last": {
+              "count": 2,
+              "maximum": 696,
+              "mean": 590.5,
+              "median": 590.5,
+              "minimum": 485,
+              "p25": 537.75,
+              "p75": 643.25,
+              "p95": 685.4499999999999
+            },
+            "prompt_token_maximum": {
+              "count": 2,
+              "maximum": 2198,
+              "mean": 2029.5,
+              "median": 2029.5,
+              "minimum": 1861,
+              "p25": 1945.25,
+              "p75": 2113.75,
+              "p95": 2181.15
+            },
+            "prompt_token_total": {
+              "count": 2,
+              "maximum": 11046,
+              "mean": 9601.0,
+              "median": 9601.0,
+              "minimum": 8156,
+              "p25": 8878.5,
+              "p75": 10323.5,
+              "p95": 10901.5
+            },
+            "retained_fraction": 0.03508771929824561,
+            "retained_natural_completion": 2,
+            "retained_sessions": 2,
+            "retained_step_limit_right_censored": 0,
+            "session_duration_seconds": {
+              "count": 2,
+              "maximum": 19.615513625001768,
+              "mean": 18.17048164600419,
+              "median": 18.17048164600419,
+              "minimum": 16.725449667006615,
+              "p25": 17.447965656505403,
+              "p75": 18.89299763550298,
+              "p95": 19.47101042710201
+            },
+            "source_stratum": "SWE",
+            "tool_wait_seconds_maximum": {
+              "count": 2,
+              "maximum": 1.2239758749929024,
+              "mean": 1.0326105209969683,
+              "median": 1.0326105209969683,
+              "minimum": 0.8412451670010341,
+              "p25": 0.9369278439990012,
+              "p75": 1.1282931979949353,
+              "p95": 1.204839339593309
+            },
+            "tool_wait_seconds_total": {
+              "count": 2,
+              "maximum": 3.1126345829979982,
+              "mean": 2.662802875500347,
+              "median": 2.662802875500347,
+              "minimum": 2.2129711680026958,
+              "p25": 2.4378870217515214,
+              "p75": 2.8877187292491726,
+              "p95": 3.067651412248233
+            },
+            "turn_count": {
+              "count": 2,
+              "maximum": 6,
+              "mean": 5.5,
+              "median": 5.5,
+              "minimum": 5,
+              "p25": 5.25,
+              "p75": 5.75,
+              "p95": 5.949999999999999
+            },
+            "turn_window_eligible_sessions": 3
+          }
+        ],
+        "turn_cap": "16"
+      },
+      {
+        "by_stratum": [
+          {
+            "adjacent_prefix_lcp_total": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "classification_counts": {},
+            "context_failures_observed_within_cap": 0,
+            "excluded_fraction": null,
+            "excluded_sessions": 0,
+            "group_count_upper_bound": 0,
+            "observed_sessions": 0,
+            "prompt_token_growth_first_to_last": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "prompt_token_maximum": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "prompt_token_total": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "retained_fraction": null,
+            "retained_natural_completion": 0,
+            "retained_sessions": 0,
+            "retained_step_limit_right_censored": 0,
+            "session_duration_seconds": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "source_stratum": "BFCL",
+            "tool_wait_seconds_maximum": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "tool_wait_seconds_total": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "turn_count": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "turn_window_eligible_sessions": 0
+          },
+          {
+            "adjacent_prefix_lcp_total": {
+              "count": 2,
+              "maximum": 8848,
+              "mean": 7571.5,
+              "median": 7571.5,
+              "minimum": 6295,
+              "p25": 6933.25,
+              "p75": 8209.75,
+              "p95": 8720.35
+            },
+            "classification_counts": {
+              "EXCLUDED_ABOVE_TURN_CAP": 49,
+              "EXCLUDED_BELOW_MIN_TURNS": 5,
+              "EXCLUDED_CONTEXT_LIMIT_FAILURE": 1,
+              "RETAINED": 2
+            },
+            "context_failures_observed_within_cap": 1,
+            "excluded_fraction": 0.9649122807017544,
+            "excluded_sessions": 55,
+            "group_count_upper_bound": 0,
+            "observed_sessions": 57,
+            "prompt_token_growth_first_to_last": {
+              "count": 2,
+              "maximum": 696,
+              "mean": 590.5,
+              "median": 590.5,
+              "minimum": 485,
+              "p25": 537.75,
+              "p75": 643.25,
+              "p95": 685.4499999999999
+            },
+            "prompt_token_maximum": {
+              "count": 2,
+              "maximum": 2198,
+              "mean": 2029.5,
+              "median": 2029.5,
+              "minimum": 1861,
+              "p25": 1945.25,
+              "p75": 2113.75,
+              "p95": 2181.15
+            },
+            "prompt_token_total": {
+              "count": 2,
+              "maximum": 11046,
+              "mean": 9601.0,
+              "median": 9601.0,
+              "minimum": 8156,
+              "p25": 8878.5,
+              "p75": 10323.5,
+              "p95": 10901.5
+            },
+            "retained_fraction": 0.03508771929824561,
+            "retained_natural_completion": 2,
+            "retained_sessions": 2,
+            "retained_step_limit_right_censored": 0,
+            "session_duration_seconds": {
+              "count": 2,
+              "maximum": 19.615513625001768,
+              "mean": 18.17048164600419,
+              "median": 18.17048164600419,
+              "minimum": 16.725449667006615,
+              "p25": 17.447965656505403,
+              "p75": 18.89299763550298,
+              "p95": 19.47101042710201
+            },
+            "source_stratum": "SWE",
+            "tool_wait_seconds_maximum": {
+              "count": 2,
+              "maximum": 1.2239758749929024,
+              "mean": 1.0326105209969683,
+              "median": 1.0326105209969683,
+              "minimum": 0.8412451670010341,
+              "p25": 0.9369278439990012,
+              "p75": 1.1282931979949353,
+              "p95": 1.204839339593309
+            },
+            "tool_wait_seconds_total": {
+              "count": 2,
+              "maximum": 3.1126345829979982,
+              "mean": 2.662802875500347,
+              "median": 2.662802875500347,
+              "minimum": 2.2129711680026958,
+              "p25": 2.4378870217515214,
+              "p75": 2.8877187292491726,
+              "p95": 3.067651412248233
+            },
+            "turn_count": {
+              "count": 2,
+              "maximum": 6,
+              "mean": 5.5,
+              "median": 5.5,
+              "minimum": 5,
+              "p25": 5.25,
+              "p75": 5.75,
+              "p95": 5.949999999999999
+            },
+            "turn_window_eligible_sessions": 3
+          }
+        ],
+        "turn_cap": "32"
+      },
+      {
+        "by_stratum": [
+          {
+            "adjacent_prefix_lcp_total": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "classification_counts": {},
+            "context_failures_observed_within_cap": 0,
+            "excluded_fraction": null,
+            "excluded_sessions": 0,
+            "group_count_upper_bound": 0,
+            "observed_sessions": 0,
+            "prompt_token_growth_first_to_last": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "prompt_token_maximum": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "prompt_token_total": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "retained_fraction": null,
+            "retained_natural_completion": 0,
+            "retained_sessions": 0,
+            "retained_step_limit_right_censored": 0,
+            "session_duration_seconds": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "source_stratum": "BFCL",
+            "tool_wait_seconds_maximum": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "tool_wait_seconds_total": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "turn_count": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "turn_window_eligible_sessions": 0
+          },
+          {
+            "adjacent_prefix_lcp_total": {
+              "count": 2,
+              "maximum": 8848,
+              "mean": 7571.5,
+              "median": 7571.5,
+              "minimum": 6295,
+              "p25": 6933.25,
+              "p75": 8209.75,
+              "p95": 8720.35
+            },
+            "classification_counts": {
+              "EXCLUDED_ABOVE_TURN_CAP": 47,
+              "EXCLUDED_BELOW_MIN_TURNS": 5,
+              "EXCLUDED_CONTEXT_LIMIT_FAILURE": 3,
+              "RETAINED": 2
+            },
+            "context_failures_observed_within_cap": 3,
+            "excluded_fraction": 0.9649122807017544,
+            "excluded_sessions": 55,
+            "group_count_upper_bound": 0,
+            "observed_sessions": 57,
+            "prompt_token_growth_first_to_last": {
+              "count": 2,
+              "maximum": 696,
+              "mean": 590.5,
+              "median": 590.5,
+              "minimum": 485,
+              "p25": 537.75,
+              "p75": 643.25,
+              "p95": 685.4499999999999
+            },
+            "prompt_token_maximum": {
+              "count": 2,
+              "maximum": 2198,
+              "mean": 2029.5,
+              "median": 2029.5,
+              "minimum": 1861,
+              "p25": 1945.25,
+              "p75": 2113.75,
+              "p95": 2181.15
+            },
+            "prompt_token_total": {
+              "count": 2,
+              "maximum": 11046,
+              "mean": 9601.0,
+              "median": 9601.0,
+              "minimum": 8156,
+              "p25": 8878.5,
+              "p75": 10323.5,
+              "p95": 10901.5
+            },
+            "retained_fraction": 0.03508771929824561,
+            "retained_natural_completion": 2,
+            "retained_sessions": 2,
+            "retained_step_limit_right_censored": 0,
+            "session_duration_seconds": {
+              "count": 2,
+              "maximum": 19.615513625001768,
+              "mean": 18.17048164600419,
+              "median": 18.17048164600419,
+              "minimum": 16.725449667006615,
+              "p25": 17.447965656505403,
+              "p75": 18.89299763550298,
+              "p95": 19.47101042710201
+            },
+            "source_stratum": "SWE",
+            "tool_wait_seconds_maximum": {
+              "count": 2,
+              "maximum": 1.2239758749929024,
+              "mean": 1.0326105209969683,
+              "median": 1.0326105209969683,
+              "minimum": 0.8412451670010341,
+              "p25": 0.9369278439990012,
+              "p75": 1.1282931979949353,
+              "p95": 1.204839339593309
+            },
+            "tool_wait_seconds_total": {
+              "count": 2,
+              "maximum": 3.1126345829979982,
+              "mean": 2.662802875500347,
+              "median": 2.662802875500347,
+              "minimum": 2.2129711680026958,
+              "p25": 2.4378870217515214,
+              "p75": 2.8877187292491726,
+              "p95": 3.067651412248233
+            },
+            "turn_count": {
+              "count": 2,
+              "maximum": 6,
+              "mean": 5.5,
+              "median": 5.5,
+              "minimum": 5,
+              "p25": 5.25,
+              "p75": 5.75,
+              "p95": 5.949999999999999
+            },
+            "turn_window_eligible_sessions": 5
+          }
+        ],
+        "turn_cap": "50"
+      },
+      {
+        "by_stratum": [
+          {
+            "adjacent_prefix_lcp_total": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "classification_counts": {},
+            "context_failures_observed_within_cap": 0,
+            "excluded_fraction": null,
+            "excluded_sessions": 0,
+            "group_count_upper_bound": 0,
+            "observed_sessions": 0,
+            "prompt_token_growth_first_to_last": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "prompt_token_maximum": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "prompt_token_total": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "retained_fraction": null,
+            "retained_natural_completion": 0,
+            "retained_sessions": 0,
+            "retained_step_limit_right_censored": 0,
+            "session_duration_seconds": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "source_stratum": "BFCL",
+            "tool_wait_seconds_maximum": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "tool_wait_seconds_total": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "turn_count": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "turn_window_eligible_sessions": 0
+          },
+          {
+            "adjacent_prefix_lcp_total": {
+              "count": 2,
+              "maximum": 8848,
+              "mean": 7571.5,
+              "median": 7571.5,
+              "minimum": 6295,
+              "p25": 6933.25,
+              "p75": 8209.75,
+              "p95": 8720.35
+            },
+            "classification_counts": {
+              "EXCLUDED_ABOVE_TURN_CAP": 41,
+              "EXCLUDED_BELOW_MIN_TURNS": 5,
+              "EXCLUDED_CONTEXT_LIMIT_FAILURE": 8,
+              "EXCLUDED_INFRASTRUCTURE_FAILURE": 1,
+              "RETAINED": 2
+            },
+            "context_failures_observed_within_cap": 8,
+            "excluded_fraction": 0.9649122807017544,
+            "excluded_sessions": 55,
+            "group_count_upper_bound": 0,
+            "observed_sessions": 57,
+            "prompt_token_growth_first_to_last": {
+              "count": 2,
+              "maximum": 696,
+              "mean": 590.5,
+              "median": 590.5,
+              "minimum": 485,
+              "p25": 537.75,
+              "p75": 643.25,
+              "p95": 685.4499999999999
+            },
+            "prompt_token_maximum": {
+              "count": 2,
+              "maximum": 2198,
+              "mean": 2029.5,
+              "median": 2029.5,
+              "minimum": 1861,
+              "p25": 1945.25,
+              "p75": 2113.75,
+              "p95": 2181.15
+            },
+            "prompt_token_total": {
+              "count": 2,
+              "maximum": 11046,
+              "mean": 9601.0,
+              "median": 9601.0,
+              "minimum": 8156,
+              "p25": 8878.5,
+              "p75": 10323.5,
+              "p95": 10901.5
+            },
+            "retained_fraction": 0.03508771929824561,
+            "retained_natural_completion": 2,
+            "retained_sessions": 2,
+            "retained_step_limit_right_censored": 0,
+            "session_duration_seconds": {
+              "count": 2,
+              "maximum": 19.615513625001768,
+              "mean": 18.17048164600419,
+              "median": 18.17048164600419,
+              "minimum": 16.725449667006615,
+              "p25": 17.447965656505403,
+              "p75": 18.89299763550298,
+              "p95": 19.47101042710201
+            },
+            "source_stratum": "SWE",
+            "tool_wait_seconds_maximum": {
+              "count": 2,
+              "maximum": 1.2239758749929024,
+              "mean": 1.0326105209969683,
+              "median": 1.0326105209969683,
+              "minimum": 0.8412451670010341,
+              "p25": 0.9369278439990012,
+              "p75": 1.1282931979949353,
+              "p95": 1.204839339593309
+            },
+            "tool_wait_seconds_total": {
+              "count": 2,
+              "maximum": 3.1126345829979982,
+              "mean": 2.662802875500347,
+              "median": 2.662802875500347,
+              "minimum": 2.2129711680026958,
+              "p25": 2.4378870217515214,
+              "p75": 2.8877187292491726,
+              "p95": 3.067651412248233
+            },
+            "turn_count": {
+              "count": 2,
+              "maximum": 6,
+              "mean": 5.5,
+              "median": 5.5,
+              "minimum": 5,
+              "p25": 5.25,
+              "p75": 5.75,
+              "p95": 5.949999999999999
+            },
+            "turn_window_eligible_sessions": 11
+          }
+        ],
+        "turn_cap": "64"
+      },
+      {
+        "by_stratum": [
+          {
+            "adjacent_prefix_lcp_total": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "classification_counts": {},
+            "context_failures_observed_within_cap": 0,
+            "excluded_fraction": null,
+            "excluded_sessions": 0,
+            "group_count_upper_bound": 0,
+            "observed_sessions": 0,
+            "prompt_token_growth_first_to_last": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "prompt_token_maximum": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "prompt_token_total": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "retained_fraction": null,
+            "retained_natural_completion": 0,
+            "retained_sessions": 0,
+            "retained_step_limit_right_censored": 0,
+            "session_duration_seconds": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "source_stratum": "BFCL",
+            "tool_wait_seconds_maximum": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "tool_wait_seconds_total": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "turn_count": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "turn_window_eligible_sessions": 0
+          },
+          {
+            "adjacent_prefix_lcp_total": {
+              "count": 35,
+              "maximum": 1671770,
+              "mean": 992827.0571428571,
+              "median": 1022167.0,
+              "minimum": 6295,
+              "p25": 864428.0,
+              "p75": 1193793.5,
+              "p95": 1546253.4999999995
+            },
+            "classification_counts": {
+              "EXCLUDED_BELOW_MIN_TURNS": 5,
+              "EXCLUDED_CONTEXT_LIMIT_FAILURE": 14,
+              "EXCLUDED_INFRASTRUCTURE_FAILURE": 3,
+              "RETAINED": 35
+            },
+            "context_failures_observed_within_cap": 14,
+            "excluded_fraction": 0.38596491228070173,
+            "excluded_sessions": 22,
+            "group_count_upper_bound": 8,
+            "observed_sessions": 57,
+            "prompt_token_growth_first_to_last": {
+              "count": 35,
+              "maximum": 30782,
+              "mean": 17266.314285714285,
+              "median": 17356.0,
+              "minimum": 485,
+              "p25": 14368.0,
+              "p75": 20860.5,
+              "p95": 29670.9
+            },
+            "prompt_token_maximum": {
+              "count": 35,
+              "maximum": 32093,
+              "mean": 18861.485714285714,
+              "median": 19159.0,
+              "minimum": 1861,
+              "p25": 16081.5,
+              "p75": 22688.0,
+              "p95": 31087.6
+            },
+            "prompt_token_total": {
+              "count": 35,
+              "maximum": 1703863,
+              "mean": 1011688.5428571429,
+              "median": 1041442.0,
+              "minimum": 8156,
+              "p25": 880509.5,
+              "p75": 1216481.5,
+              "p95": 1577341.0999999996
+            },
+            "retained_fraction": 0.6140350877192983,
+            "retained_natural_completion": 2,
+            "retained_sessions": 35,
+            "retained_step_limit_right_censored": 33,
+            "session_duration_seconds": {
+              "count": 35,
+              "maximum": 804.0961278329924,
+              "mean": 391.44455525117064,
+              "median": 369.995709625,
+              "minimum": 16.725449667006615,
+              "p25": 298.5121947289954,
+              "p75": 435.16872881249583,
+              "p95": 746.1420110919032
+            },
+            "source_stratum": "SWE",
+            "tool_wait_seconds_maximum": {
+              "count": 35,
+              "maximum": 8.220743917001528,
+              "mean": 1.3109759023708258,
+              "median": 0.6782898749952437,
+              "minimum": 0.0,
+              "p25": 0.3575445624956046,
+              "p75": 1.333699353999691,
+              "p95": 5.470625308001763
+            },
+            "tool_wait_seconds_total": {
+              "count": 35,
+              "maximum": 156.19616212509573,
+              "mean": 29.442217588720293,
+              "median": 26.902029582997784,
+              "minimum": 0,
+              "p25": 3.0954931460146327,
+              "p75": 33.760254355082,
+              "p95": 94.85358041723804
+            },
+            "turn_count": {
+              "count": 35,
+              "maximum": 100,
+              "mean": 94.6,
+              "median": 100.0,
+              "minimum": 5,
+              "p25": 100.0,
+              "p75": 100.0,
+              "p95": 100.0
+            },
+            "turn_window_eligible_sessions": 52
+          }
+        ],
+        "turn_cap": "100"
+      },
+      {
+        "by_stratum": [
+          {
+            "adjacent_prefix_lcp_total": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "classification_counts": {},
+            "context_failures_observed_within_cap": 0,
+            "excluded_fraction": null,
+            "excluded_sessions": 0,
+            "group_count_upper_bound": 0,
+            "observed_sessions": 0,
+            "prompt_token_growth_first_to_last": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "prompt_token_maximum": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "prompt_token_total": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "retained_fraction": null,
+            "retained_natural_completion": 0,
+            "retained_sessions": 0,
+            "retained_step_limit_right_censored": 0,
+            "session_duration_seconds": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "source_stratum": "BFCL",
+            "tool_wait_seconds_maximum": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "tool_wait_seconds_total": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "turn_count": {
+              "count": 0,
+              "maximum": null,
+              "mean": null,
+              "median": null,
+              "minimum": null,
+              "p25": null,
+              "p75": null,
+              "p95": null
+            },
+            "turn_window_eligible_sessions": 0
+          },
+          {
+            "adjacent_prefix_lcp_total": {
+              "count": 35,
+              "maximum": 1671770,
+              "mean": 992827.0571428571,
+              "median": 1022167.0,
+              "minimum": 6295,
+              "p25": 864428.0,
+              "p75": 1193793.5,
+              "p95": 1546253.4999999995
+            },
+            "classification_counts": {
+              "EXCLUDED_BELOW_MIN_TURNS": 5,
+              "EXCLUDED_CONTEXT_LIMIT_FAILURE": 14,
+              "EXCLUDED_INFRASTRUCTURE_FAILURE": 3,
+              "RETAINED": 35
+            },
+            "context_failures_observed_within_cap": 14,
+            "excluded_fraction": 0.38596491228070173,
+            "excluded_sessions": 22,
+            "group_count_upper_bound": 8,
+            "observed_sessions": 57,
+            "prompt_token_growth_first_to_last": {
+              "count": 35,
+              "maximum": 30782,
+              "mean": 17266.314285714285,
+              "median": 17356.0,
+              "minimum": 485,
+              "p25": 14368.0,
+              "p75": 20860.5,
+              "p95": 29670.9
+            },
+            "prompt_token_maximum": {
+              "count": 35,
+              "maximum": 32093,
+              "mean": 18861.485714285714,
+              "median": 19159.0,
+              "minimum": 1861,
+              "p25": 16081.5,
+              "p75": 22688.0,
+              "p95": 31087.6
+            },
+            "prompt_token_total": {
+              "count": 35,
+              "maximum": 1703863,
+              "mean": 1011688.5428571429,
+              "median": 1041442.0,
+              "minimum": 8156,
+              "p25": 880509.5,
+              "p75": 1216481.5,
+              "p95": 1577341.0999999996
+            },
+            "retained_fraction": 0.6140350877192983,
+            "retained_natural_completion": 2,
+            "retained_sessions": 35,
+            "retained_step_limit_right_censored": 33,
+            "session_duration_seconds": {
+              "count": 35,
+              "maximum": 804.0961278329924,
+              "mean": 391.44455525117064,
+              "median": 369.995709625,
+              "minimum": 16.725449667006615,
+              "p25": 298.5121947289954,
+              "p75": 435.16872881249583,
+              "p95": 746.1420110919032
+            },
+            "source_stratum": "SWE",
+            "tool_wait_seconds_maximum": {
+              "count": 35,
+              "maximum": 8.220743917001528,
+              "mean": 1.3109759023708258,
+              "median": 0.6782898749952437,
+              "minimum": 0.0,
+              "p25": 0.3575445624956046,
+              "p75": 1.333699353999691,
+              "p95": 5.470625308001763
+            },
+            "tool_wait_seconds_total": {
+              "count": 35,
+              "maximum": 156.19616212509573,
+              "mean": 29.442217588720293,
+              "median": 26.902029582997784,
+              "minimum": 0,
+              "p25": 3.0954931460146327,
+              "p75": 33.760254355082,
+              "p95": 94.85358041723804
+            },
+            "turn_count": {
+              "count": 35,
+              "maximum": 100,
+              "mean": 94.6,
+              "median": 100.0,
+              "minimum": 5,
+              "p25": 100.0,
+              "p75": 100.0,
+              "p95": 100.0
+            },
+            "turn_window_eligible_sessions": 52
+          }
+        ],
+        "turn_cap": "OBSERVED_NO_ADDITIONAL_CAP"
+      }
+    ],
+    "minimum_turns": 4,
+    "prompt_token_limit": 32640,
+    "schema_version": "phase5.session_turn_sensitivity.v1"
+  },
+  "status": "COMPLETE_WITH_BFCL_DATA_GAP"
+}
