@@ -13,6 +13,7 @@ from .phase5_gpu_conformance import (
     materialize_phase5e_prompt_token_ids,
 )
 from .phase5_replay import canonical_sha256
+from .phase5e_a3_retention import build_phase5e_cpu_mock_retention_manifest
 
 _GIT_SHA = re.compile(r"[0-9a-f]{40}")
 RUN_ID = "P5E-A-01"
@@ -92,6 +93,7 @@ def build_phase5e_freeze_payloads(*, repository: Path, git_sha: str) -> dict[str
             "P5E-G6": "UNIQUE_FINITE_IDENTITY_CONSISTENT_EXPOSURE_EVIDENCE",
             "P5E-G7": "ZERO_OBSERVABLE_LIFECYCLE_OR_ENGINE_LEAKS",
             "P5E-G8": "INTERNAL_AND_OUTER_ARCHIVE_HASH_VALID",
+            "P5E-G9": "RETENTION_INPUT_COMPLETE_AND_HASH_BOUND",
         },
     }
     code_bindings = [
@@ -103,6 +105,7 @@ def build_phase5e_freeze_payloads(*, repository: Path, git_sha: str) -> dict[str
             "src/kvopt/workload/phase5_asyncllm_adapter.py",
             "src/kvopt/workload/phase5e_native_runner.py",
             "src/kvopt/workload/phase5e_native_evidence_source.py",
+            "src/kvopt/workload/phase5e_a3_retention.py",
             "src/kvopt/workload/phase5e_freeze.py",
             "scripts/spikes/prepare_phase5e_part_a.py",
         )
@@ -112,6 +115,9 @@ def build_phase5e_freeze_payloads(*, repository: Path, git_sha: str) -> dict[str
         "workload_seal": dict(plan.workload_seal),
         "explicit_inputs": explicit_inputs,
         "gates": gates,
+        "retention_input_fixture": build_phase5e_cpu_mock_retention_manifest(
+            plan=plan
+        ),
         "code_bindings": code_bindings,
     }
 
@@ -136,6 +142,10 @@ def materialize_phase5e_freeze(
             output_root / "explicit-inputs.json", payloads["explicit_inputs"]
         ),
         "gate-contract.json": _write_json(output_root / "gate-contract.json", payloads["gates"]),
+        "a3-retention-input-cpu-mock.json": _write_json(
+            output_root / "a3-retention-input-cpu-mock.json",
+            payloads["retention_input_fixture"],
+        ),
     }
     manifest = {
         "schema_version": "phase5e.part_a_execution_manifest.v1",

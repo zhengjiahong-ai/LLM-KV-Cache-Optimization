@@ -157,6 +157,22 @@ class RuntimeEventEvidenceSource:
             "algorithmic_benefit_claim": "NOT_ESTABLISHED",
         }
 
+    def a3_retention_input_manifest(self) -> Mapping[str, object]:
+        """Read the decision-bound Manifest from the reviewed live integration."""
+
+        integration = self.runtime_integration()
+        read = getattr(integration, "a3_retention_input_manifest", None)
+        if not callable(read):
+            raise Phase5ENativeEvidenceError(
+                "live A3 retention input manifest is not observable"
+            )
+        value = read()
+        if not isinstance(value, Mapping):
+            raise Phase5ENativeEvidenceError(
+                "live A3 retention input manifest is not an object"
+            )
+        return dict(value)
+
     def raw_evidence(self) -> Sequence[Mapping[str, object]]:
         return self._snapshot()
 

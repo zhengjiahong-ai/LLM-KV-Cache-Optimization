@@ -28,6 +28,9 @@ class _Integration:
     def observe_native_eviction(self, _block_id: object) -> None:
         return None
 
+    def a3_retention_input_manifest(self) -> dict[str, object]:
+        return {}
+
     def program_for_internal_request(self, _request_id: str) -> ProgramIdentity:
         return ProgramIdentity("p1")
 
@@ -120,6 +123,27 @@ def test_runtime_install_requires_same_core_ownership(
             kv_cache_manager=manager,
             block_pool=block_pool,
             integration=_Integration(source),
+            clock=FakeClock(),
+            event_source=source,
+        )
+
+
+def test_runtime_install_requires_live_a3_retention_manifest_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    core, scheduler, manager, block_pool = _ownership()
+    source = Phase5ERuntimeEventSource()
+    integration = _Integration(source)
+    integration.a3_retention_input_manifest = None  # type: ignore[method-assign]
+    monkeypatch.setattr(runtime, "validate_pinned_vllm_source_identity", dict)
+
+    with pytest.raises(Phase5ENativeRuntimeError, match="retention input manifest"):
+        install_phase5e_a3_runtime(
+            engine_core=core,
+            scheduler=scheduler,
+            kv_cache_manager=manager,
+            block_pool=block_pool,
+            integration=integration,
             clock=FakeClock(),
             event_source=source,
         )

@@ -12,6 +12,7 @@ from .phase5_archive import (
 )
 from .phase5_gpu_conformance import Phase5GPUConformancePlan
 from .phase5_replay import canonical_sha256
+from .phase5e_a3_retention import build_phase5e_cpu_mock_retention_manifest
 from .phase5e_part_a import (
     PartAAdapter,
     PartARequestInput,
@@ -49,6 +50,9 @@ async def run_phase5e_part_a_mock_pipeline(
         requests=requests,
         adapter=adapter,
         candidate_exposure_evaluator=candidate_exposure_evaluator,
+        retention_input_manifest_provider=(
+            lambda: build_phase5e_cpu_mock_retention_manifest(plan=plan)
+        ),
         run_epoch_monotonic=run_epoch_monotonic,
         monotonic=monotonic,
         sleep=sleep,

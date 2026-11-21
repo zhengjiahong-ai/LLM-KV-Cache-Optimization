@@ -360,6 +360,13 @@ fixture change requires a new authorization and a new run identity.
 | P5E-G6 Exposure | unique, finite and identity-consistent candidate/plan/outcome evidence |
 | P5E-G7 Cleanup | zero observable RequestState, collector, adapter and Engine leftovers |
 | P5E-G8 Archive | envelope, events, reports and manifest verify against archive SHA-256 |
+| P5E-G9 Retention input | the A3 retention input is complete, internally consistent, bound to the frozen decision boundary and EngineCore identity, and its canonical SHA-256 verifies before pressure or A3 selection |
+
+P5E-G9 is evaluated after the measured-wave requests are dispatched and before
+Native Pressure or A3 selection. Failure is fail-closed: A3 is not executed,
+fallback to A1 or Native LRU is forbidden, and missing values are not synthesized.
+The frozen `a3-retention-input-cpu-mock.json` file is a CPU contract fixture only;
+it is not GPU execution evidence.
 
 All applicable gates are conjunctive. `NOT_OBSERVABLE` is not PASS. Part B has
 its own readiness result and is not silently included in Part A.

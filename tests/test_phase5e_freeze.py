@@ -26,8 +26,14 @@ def test_phase5e_final_payload_binds_explicit_inputs_and_code() -> None:
     assert len(inputs["prompt_token_ids"]) == 8
     assert all(len(row) == 1984 for row in inputs["prompt_token_ids"].values())
     assert len(inputs["pressure_token_ids"]) == 24576
-    assert len(payloads["code_bindings"]) == 8
+    assert len(payloads["code_bindings"]) == 9
     assert payloads["gates"]["not_observable_is_pass"] is False
+    assert payloads["gates"]["gates"]["P5E-G9"] == (
+        "RETENTION_INPUT_COMPLETE_AND_HASH_BOUND"
+    )
+    assert payloads["retention_input_fixture"]["evidence_scope"] == (
+        "CPU_MOCK_CONTRACT_ONLY_NOT_GPU_EVIDENCE"
+    )
 
 
 def test_phase5e_materialization_is_exclusive_and_not_authorized(
@@ -46,7 +52,8 @@ def test_phase5e_materialization_is_exclusive_and_not_authorized(
     assert manifest["automatic_retry_allowed"] is False
     assert manifest["execution_authorized"] is False
     assert request["execution_authorized"] is False
-    assert len((output / "sha256-manifest.txt").read_text().splitlines()) == 6
+    assert (output / "a3-retention-input-cpu-mock.json").is_file()
+    assert len((output / "sha256-manifest.txt").read_text().splitlines()) == 7
 
     with pytest.raises(FileExistsError):
         materialize_phase5e_freeze(

@@ -2,11 +2,18 @@ from __future__ import annotations
 
 import asyncio
 
+import pytest
+
 from kvopt.workload.phase2b_fidelity_runner import RequestCompletion, RequestHandle
 from kvopt.workload.phase5_gpu_conformance import build_phase5e_review_candidate
 from kvopt.workload.phase5_native_async import PressureExecutionEvidence
+from kvopt.workload.phase5e_a3_retention import (
+    build_phase5e_cpu_mock_retention_manifest,
+    evaluate_p5e_g9,
+)
 from kvopt.workload.phase5e_part_a import (
     PartARequestInput,
+    Phase5EG9GateFailure,
     evaluate_part_a_prearchive_gates,
     execute_phase5e_part_a,
 )
@@ -137,12 +144,16 @@ def test_part_a_prearchive_gates_pass_without_claiming_algorithmic_benefit() -> 
         pressure=_pressure(plan),
         adapter_report=_adapter_report(plan),
         candidate_exposure_report=_exposure(),
+        g9_report=evaluate_p5e_g9(
+            build_phase5e_cpu_mock_retention_manifest(plan=plan)
+        ),
     )
 
     assert report["status"] == "PASS"
     assert report["gates"]["P5E-G3"]["gpu_kernel_overlap_claim"] == "NOT_CLAIMED"
     assert report["gates"]["P5E-G6"]["algorithmic_benefit_claim"] == "NOT_ESTABLISHED"
     assert report["gates"]["P5E-G8"]["status"] == "EXTERNAL_ARCHIVE_GATE_REQUIRED"
+    assert report["gates"]["P5E-G9"]["status"] == "PASS"
 
 
 def test_part_a_gates_fail_closed_on_order_lifecycle_or_cleanup_drift() -> None:
@@ -156,6 +167,9 @@ def test_part_a_gates_fail_closed_on_order_lifecycle_or_cleanup_drift() -> None:
         pressure=_pressure(plan),
         adapter_report=_adapter_report(plan, closed=False),
         candidate_exposure_report=_exposure(),
+        g9_report=evaluate_p5e_g9(
+            build_phase5e_cpu_mock_retention_manifest(plan=plan)
+        ),
     )
     assert report["status"] == "FAIL_CLOSED"
     assert report["gates"]["P5E-G1"]["status"] == "FAIL_CLOSED"
@@ -251,6 +265,9 @@ def test_part_a_controller_executes_two_waves_and_one_pressure_boundary() -> Non
             requests=inputs,
             adapter=adapter,
             candidate_exposure_evaluator=_exposure,
+            retention_input_manifest_provider=lambda: (
+                build_phase5e_cpu_mock_retention_manifest(plan=plan)
+            ),
             run_epoch_monotonic=0.0,
             monotonic=lambda: 10.0,
         )
@@ -258,5 +275,31 @@ def test_part_a_controller_executes_two_waves_and_one_pressure_boundary() -> Non
         assert result.controller_submission_order == plan.frozen_native_enqueue_order
         assert result.peak_controller_inflight == 4
         assert result.pressure.boundary_id == "phase5e-pressure-01"
+
+    asyncio.run(scenario())
+
+
+def test_part_a_g9_failure_stops_before_native_pressure() -> None:
+    async def scenario() -> None:
+        plan = build_phase5e_review_candidate("a" * 40)
+        adapter = _Adapter(plan)
+        inputs = {
+            request_id: PartARequestInput(request_id, [1, 2], {"max_tokens": 64})
+            for request_id in plan.frozen_native_enqueue_order
+        }
+        bad_manifest = build_phase5e_cpu_mock_retention_manifest(plan=plan)
+        bad_manifest["histories"]["eta"].pop("provenance")
+        with pytest.raises(Phase5EG9GateFailure):
+            await execute_phase5e_part_a(
+                plan=plan,
+                run_id="P5E-A-01",
+                requests=inputs,
+                adapter=adapter,
+                candidate_exposure_evaluator=_exposure,
+                retention_input_manifest_provider=lambda: bad_manifest,
+                run_epoch_monotonic=0.0,
+                monotonic=lambda: 10.0,
+            )
+        assert tuple(adapter.inflight) == plan.frozen_native_enqueue_order[4:]
 
     asyncio.run(scenario())

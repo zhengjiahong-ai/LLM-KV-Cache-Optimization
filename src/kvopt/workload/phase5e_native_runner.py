@@ -59,6 +59,8 @@ class Phase5ENativeEvidenceSource(Protocol):
 
     def candidate_exposure_report(self) -> Mapping[str, object]: ...
 
+    def a3_retention_input_manifest(self) -> Mapping[str, object]: ...
+
     def raw_evidence(self) -> Sequence[Mapping[str, object]]: ...
 
     def runtime_installation_report(self) -> Mapping[str, object]: ...
@@ -437,6 +439,9 @@ async def run_phase5e_native_pipeline(
             requests=requests,
             adapter=adapter,
             candidate_exposure_evaluator=evidence_source.candidate_exposure_report,
+            retention_input_manifest_provider=(
+                evidence_source.a3_retention_input_manifest
+            ),
             run_epoch_monotonic=run_epoch_monotonic,
             monotonic=clock,
         )

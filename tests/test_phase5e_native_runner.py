@@ -12,6 +12,9 @@ from kvopt.workload.phase5_gpu_conformance import (
     materialize_phase5e_prompt_token_ids,
 )
 from kvopt.workload.phase5_native_async import PressureExecutionEvidence
+from kvopt.workload.phase5e_a3_retention import (
+    build_phase5e_cpu_mock_retention_manifest,
+)
 from kvopt.workload.phase5e_native_evidence_source import Phase5ENativeEvidenceError
 from kvopt.workload.phase5e_native_runner import (
     Phase5ENativeAuthorization,
@@ -48,6 +51,11 @@ class _Engine:
 
 
 class _Evidence:
+    def a3_retention_input_manifest(self):
+        return build_phase5e_cpu_mock_retention_manifest(
+            plan=build_phase5e_review_candidate("a" * 40)
+        )
+
     def runtime_integration(self):
         return type(
             "IdentityObserver",

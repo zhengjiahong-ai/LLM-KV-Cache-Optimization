@@ -241,6 +241,10 @@ def install_phase5e_a3_runtime(
         getattr(integration, "observe_native_eviction", None)
     ):
         raise Phase5ENativeRuntimeError("live A3 integration contract is incomplete")
+    if not callable(getattr(integration, "a3_retention_input_manifest", None)):
+        raise Phase5ENativeRuntimeError(
+            "live A3 integration lacks the unified retention input manifest"
+        )
     integration_source = getattr(integration, "event_source", None)
     if integration_source is not event_source:
         raise Phase5ENativeRuntimeError(
