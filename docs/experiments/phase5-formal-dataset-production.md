@@ -75,3 +75,16 @@ self-hosted SearXNG leaves a more complex upstream-terms and stability chain.
 Tavily explicitly permits retaining complete responses and later replay. The
 underlying third-party content remains owned by its publishers and is kept for
 internal research only. Full-page crawling is not authorized by this selection.
+
+Before the 200-case acquisition, one real query verifies byte-exact raw
+archival and the two deterministic replay views:
+
+```bash
+.venv/bin/python scripts/spikes/phase5_dataset/collect_bfcl_search_pilot.py \
+  --query "Qwen2.5 Coder model release" \
+  --output artifacts/phase5-bfcl-tavily-pilot-v1
+```
+
+The pilot is not a benchmark Session and cannot enter the Formal Cohort. It is
+only an interface-compatibility check and is permanently separated from the
+frozen 200-case acquisition evidence.
