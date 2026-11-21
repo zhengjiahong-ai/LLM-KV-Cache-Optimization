@@ -306,6 +306,42 @@ def test_randomized_internal_id_is_bound_to_external_and_logical_id() -> None:
     asyncio.run(scenario())
 
 
+def test_randomized_internal_id_is_bound_to_live_native_observer() -> None:
+    class Observer:
+        def __init__(self) -> None:
+            self.rows = []
+
+        def bind_request_identity(self, **kwargs: str) -> None:
+            self.rows.append(kwargs)
+
+    async def scenario() -> None:
+        engine = _AsyncLLM()
+        observer = Observer()
+        adapter = AsyncLLMNativeAdapter(
+            engine=engine,
+            vllm_version=PINNED_VLLM_VERSION,
+            run_epoch_monotonic=100.0,
+            clock=_Clock(),
+            frontend_has_internal_request=lambda request_id: (
+                request_id in engine.frontend_internal_ids
+            ),
+            native_request_identity_observer=observer,
+        )
+        handle = await adapter.submit(_spec())
+        assert observer.rows == [
+            {
+                "logical_request_id": "r1",
+                "external_request_id": "external:r1",
+                "internal_request_id": handle.native_request_id,
+            }
+        ]
+        await _natural_finish(engine, handle.native_request_id)
+        await adapter.shutdown()
+        await engine.close()
+
+    asyncio.run(scenario())
+
+
 def test_actual_background_output_handler_uses_proxy_as_single_consumer() -> None:
     async def scenario() -> None:
         engine = _AsyncLLM()

@@ -12,6 +12,15 @@ from .phase2b_fidelity_runner import RequestCompletion, RequestHandle
 from .phase5_asyncllm_adapter import AsyncLLMRequestSpec
 from .phase5_gpu_conformance import Phase5GPUConformancePlan
 from .phase5_native_async import PressureExecutionEvidence
+from .phase5e_a3_retention import evaluate_p5e_g9
+
+
+class Phase5EG9GateFailure(RuntimeError):
+    """G9 rejected the bound A3 input before Native Pressure execution."""
+
+    def __init__(self, report: Mapping[str, object]) -> None:
+        super().__init__(str(report.get("failure_reason", "P5E-G9 failed closed")))
+        self.report = dict(report)
 
 
 class PartAAdapter(Protocol):
@@ -87,8 +96,9 @@ def evaluate_part_a_prearchive_gates(
     pressure: PressureExecutionEvidence,
     adapter_report: Mapping[str, object],
     candidate_exposure_report: Mapping[str, object],
+    g9_report: Mapping[str, object],
 ) -> dict[str, object]:
-    """Independently evaluate G1-G7; G0 and G8 remain external freeze/archive gates."""
+    """Independently evaluate G1-G7 and G9; G0/G8 remain external gates."""
 
     expected = plan.frozen_native_enqueue_order
     dispatches = _event_rows(adapter_report, "ADAPTER_DISPATCH_STARTED")
@@ -195,8 +205,11 @@ def evaluate_part_a_prearchive_gates(
         },
         "P5E-G7": {"status": "PASS" if cleanup_valid else "FAIL_CLOSED"},
         "P5E-G8": {"status": "EXTERNAL_ARCHIVE_GATE_REQUIRED"},
+        "P5E-G9": dict(g9_report),
     }
-    internal = [gates[f"P5E-G{index}"]["status"] for index in range(1, 8)]
+    internal = [gates[f"P5E-G{index}"]["status"] for index in range(1, 8)] + [
+        gates["P5E-G9"]["status"]
+    ]
     return {
         "schema_version": "phase5e.part_a_prearchive_gates.v1",
         "run_id": run_id,
@@ -212,6 +225,7 @@ async def execute_phase5e_part_a(
     requests: Mapping[str, PartARequestInput],
     adapter: PartAAdapter,
     candidate_exposure_evaluator: Callable[[], Mapping[str, object]],
+    retention_input_manifest_provider: Callable[[], Mapping[str, object]],
     run_epoch_monotonic: float,
     monotonic: Callable[[], float],
     sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
@@ -281,6 +295,9 @@ async def execute_phase5e_part_a(
     for request_id in second_wave:
         await dispatch(request_id)
         peak = max(peak, len(inflight))
+    g9 = evaluate_p5e_g9(retention_input_manifest_provider())
+    if g9["status"] != "PASS":
+        raise Phase5EG9GateFailure(g9)
     pressure = await adapter.execute_native_pressure(
         plan.pressure.to_native_allocation_request(plan.resource_budget.block_size_tokens),
         expected_inflight_request_ids=second_wave,
@@ -300,6 +317,7 @@ async def execute_phase5e_part_a(
         pressure=pressure,
         adapter_report=adapter_report,
         candidate_exposure_report=exposure,
+        g9_report=g9,
     )
     return PartAControllerResult(
         status=str(gates["status"]),
