@@ -15,7 +15,9 @@ from kvopt.workload.phase5_trace_contract import (
     TraceTurn,
 )
 from kvopt.workload.phase5_workload_qualification import (
+    AcquisitionTerminalState,
     QualificationInputs,
+    map_acquisition_terminal_state,
     qualify_formal_session,
     validate_qualified_group,
 )
@@ -107,6 +109,79 @@ def test_qualifies_replay_ready_session_without_selecting_cohort() -> None:
     assert report["formal_cohort_selected"] is False
     assert report["execution_authorized"] is False
     assert all(report["checks"].values())
+    assert len(report["observed_tool_gaps"]) == 3
+    assert all(row["tool_gap_seconds"] == 0.0 for row in report["observed_tool_gaps"])
+
+
+def test_q4_rejects_overlap_and_mixed_clock_gap_evidence() -> None:
+    trace, tokens = _trace()
+    turns = list(trace.turns)
+    following = turns[1]
+    turns[1] = TraceTurn(
+        turn_id=following.turn_id,
+        ordinal=following.ordinal,
+        request_id=following.request_id,
+        messages=following.messages,
+        model_identity=following.model_identity,
+        submitted_at_seconds=0.5,
+        completed_at_seconds=following.completed_at_seconds,
+        clock_domain="different-clock",
+        terminal_state=following.terminal_state,
+        failure_reason=following.failure_reason,
+    )
+    invalid = NormalizedAgentTrace(
+        trace_id=trace.trace_id,
+        program_id=trace.program_id,
+        session_id=trace.session_id,
+        task_id=trace.task_id,
+        provenance=trace.provenance,
+        evidence_level=trace.evidence_level,
+        turns=tuple(turns),
+        terminal_state=trace.terminal_state,
+        adapter_name=trace.adapter_name,
+        adapter_version=trace.adapter_version,
+    )
+    report = qualify_formal_session(
+        trace=invalid, token_materializations=tokens, inputs=_inputs()
+    )
+    assert report["checks"]["Q4_ORDER_AND_GAPS"] is False
+    assert report["observed_tool_gaps"][0]["valid"] is False
+
+
+@pytest.mark.parametrize(
+    ("acquisition_state", "expected"),
+    [
+        (AcquisitionTerminalState.NATURAL_COMPLETION, TraceTerminalState.COMPLETED),
+        (
+            AcquisitionTerminalState.CONTEXT_LIMIT_FAILURE,
+            TraceTerminalState.FAILED,
+        ),
+        (AcquisitionTerminalState.TOOL_FAILURE, TraceTerminalState.FAILED),
+        (AcquisitionTerminalState.PROVIDER_TIMEOUT, TraceTerminalState.FAILED),
+        (
+            AcquisitionTerminalState.INFRASTRUCTURE_FAILURE,
+            TraceTerminalState.FAILED,
+        ),
+        (AcquisitionTerminalState.MODEL_FAILURE, TraceTerminalState.FAILED),
+        (AcquisitionTerminalState.INCOMPLETE_EVIDENCE, TraceTerminalState.FAILED),
+    ],
+)
+def test_acquisition_terminal_mapping(acquisition_state, expected) -> None:
+    assert map_acquisition_terminal_state(acquisition_state) is expected
+
+
+def test_step_limit_terminal_mapping_requires_explicit_reason() -> None:
+    with pytest.raises(ValueError, match="explicit reason"):
+        map_acquisition_terminal_state(
+            AcquisitionTerminalState.STEP_LIMIT_RIGHT_CENSORED
+        )
+    assert (
+        map_acquisition_terminal_state(
+            AcquisitionTerminalState.STEP_LIMIT_RIGHT_CENSORED,
+            censor_reason="collector step limit 100 reached",
+        )
+        is TraceTerminalState.RIGHT_CENSORED
+    )
 
 
 @pytest.mark.parametrize(

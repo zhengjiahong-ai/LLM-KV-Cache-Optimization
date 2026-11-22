@@ -63,17 +63,23 @@ counted as complete.
 ## Evidence that must be newly observed
 
 Every supplemental acquisition attempt must record the following from the same
-Agent Session and the same clock domain:
+Agent Session and the same clock domain. The exact event boundaries are:
 
 1. planned case start and actual Agent start;
-2. every model-request dispatch and model-response completion;
-3. every tool-call emission, including exact tool name and arguments;
-4. provider request dispatch and response completion;
-5. every URL-fetch dispatch and response completion, when the mode requires a
-   page fetch;
-6. delivery of each tool result to the Agent;
-7. dispatch of the next model request;
-8. explicit terminal transition and reason.
+2. `model_request_dispatch`: immediately before the request is submitted to the
+   model endpoint, before queue admission or scheduler dispatch;
+3. `model_response_complete`: after the final streamed token, usage/metadata,
+   and response body have been fully consumed and parsed;
+4. `tool_call_emission`: when the complete model response has been parsed into
+   a tool call, including the exact tool name and arguments;
+5. `provider_request_dispatch` and `provider_response_complete` around the
+   actual provider call;
+6. `url_fetch_dispatch` and `url_fetch_complete` around every required page
+   fetch;
+7. `tool_result_delivery`: when each complete tool result is handed to the
+   Agent;
+8. dispatch of the next model request at the same boundary as item 2;
+9. explicit terminal transition and reason.
 
 The primary timing clock is `system_monotonic`. UTC timestamps are recorded
 only for audit/provenance. For consecutive model requests `i` and `i+1`, the
@@ -84,6 +90,10 @@ tool_gap_i = model_request_dispatch_(i+1) - model_response_complete_i
 ```
 
 The provider/fetch sub-events remain available to decompose that interval.
+When a response emits multiple tool calls, every call interval is recorded and
+the gap ends only at the next model dispatch after all required tool results
+have been delivered. A terminal response has no following Tool Gap; the
+collector does not record a zero or fabricated terminal gap.
 Negative or missing intervals, mixed clock domains, inferred times, and values
 derived from source latency summaries fail Q4. Replay uses the frozen observed
 gap; it does not replay live network access or claim that local fixture latency
@@ -110,14 +120,28 @@ class, retry count, right-censor flag, and raw-evidence SHA-256. Q5 remains a
 mechanical qualification decision; no `final_answer_present -> completed`
 inference is introduced.
 
+The collector labels map to the existing trace contract as follows:
+
+| Acquisition terminal | `TraceTerminalState` | Q5 |
+|---|---|---|
+| `NATURAL_COMPLETION` | `COMPLETED` | PASS |
+| `STEP_LIMIT_RIGHT_CENSORED` | `RIGHT_CENSORED` with explicit reason | PASS |
+| every failure category above | `FAILED` | EXCLUDED |
+
+A recovered tool error remains tool evidence and is not a Session terminal.
+`TOOL_FAILURE` is used only when the error terminates the Session.
+
 ## Provider and content admission gate
 
-Before any network call, M4 must approve a single documented chain covering:
+Before any network call, one documented chain must satisfy
+`M4_TECHNICAL_PROVENANCE_ACCEPTANCE`. M4 review does not grant publisher rights
+or replace legal review. M1 confirmation and legal/publisher permission are
+required where applicable. The review covers:
 
 - provider identity, API/version, automated-access terms, and retention terms;
 - whether raw search responses may be retained for private internal research;
 - publisher terms, robots/access controls, paywall/login state, and retention
-  boundary for every required page-fetch domain;
+  boundary separately for every required page-fetch domain;
 - third-party-content labeling and the private Evidence Root;
 - prohibition on public redistribution of raw page bodies and derived tokens;
 - error, empty-result, rate-limit, and timeout behavior without substitution;
@@ -156,6 +180,24 @@ calls/results, monotonic Tool Gap evidence, explicit terminal evidence,
 immutable raw provider responses, private content retention, exact Qwen
 materialization, and content/provenance hashes. A failure stops the route and is
 archived; it does not trigger a second pilot automatically.
+
+The outcome-blind pilot identity is predeclared as the first frozen source pair:
+
+- source case: `web_search_0`;
+- SNIPPET: `phase5_case_index=1`, `bfcl_web_search_0:snippet`;
+- NO_SNIPPET: `phase5_case_index=101`,
+  `bfcl_web_search_0:no_snippet`;
+- query: `Some countries are known for producing luxury goods, including the
+  world's most expensive tea. In April 2025, who is the richest billionaire
+  (according to Forbes) from the country that produces the most expensive
+  tea?`;
+- private Evidence Root:
+  `artifacts/phase5-bfcl-supplemental-pilot-v1/private-evidence`.
+
+Provider identity/API version and the provider-returned page-fetch domain set
+remain explicit unresolved blockers. They must be frozen after M4 technical
+review and any applicable M1/legal permission, before the pilot is authorized.
+The prior Forbes attempt is not retried under this plan without that permission.
 
 ### Stage 2 — frozen 200-case acquisition
 
@@ -206,7 +248,8 @@ or monetary budget before those observations exist.
 ## Decision requested from M4 and M1
 
 M4 should first state whether any proposed provider/content chain satisfies the
-admission gate. If none does, the recommended outcome is to retain BFCL only as
+technical/provenance admission gate; M1 and legal/publisher permission remain
+separate where applicable. If none does, the recommended outcome is to retain BFCL only as
 an internal derived workload and proceed without the BFCL Formal stratum,
 subject to M1's handling of the frozen two-stratum design. If one chain passes,
 M1 may separately authorize the exact one-pair pilot. No batch authorization is

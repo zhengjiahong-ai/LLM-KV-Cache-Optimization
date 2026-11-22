@@ -11,6 +11,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from enum import StrEnum
 from itertools import pairwise
 
 from .phase5_replay import canonical_sha256
@@ -43,6 +44,72 @@ class QualificationInputs:
     outcome_blind: bool
     censor_reason: str | None
     tool_fixture_sha256_by_call_id: Mapping[str, str]
+
+
+class AcquisitionTerminalState(StrEnum):
+    """Collector terminal labels mapped into the frozen trace contract."""
+
+    NATURAL_COMPLETION = "NATURAL_COMPLETION"
+    STEP_LIMIT_RIGHT_CENSORED = "STEP_LIMIT_RIGHT_CENSORED"
+    CONTEXT_LIMIT_FAILURE = "CONTEXT_LIMIT_FAILURE"
+    TOOL_FAILURE = "TOOL_FAILURE"
+    PROVIDER_TIMEOUT = "PROVIDER_TIMEOUT"
+    INFRASTRUCTURE_FAILURE = "INFRASTRUCTURE_FAILURE"
+    MODEL_FAILURE = "MODEL_FAILURE"
+    INCOMPLETE_EVIDENCE = "INCOMPLETE_EVIDENCE"
+
+
+def map_acquisition_terminal_state(
+    state: AcquisitionTerminalState, *, censor_reason: str | None = None
+) -> TraceTerminalState:
+    """Map an explicit collector terminal into the Q5 trace state.
+
+    ``TOOL_FAILURE`` is supplied only when the error terminates the Session. A
+    recovered tool error remains tool evidence and is not a Session terminal.
+    """
+
+    if state is AcquisitionTerminalState.NATURAL_COMPLETION:
+        return TraceTerminalState.COMPLETED
+    if state is AcquisitionTerminalState.STEP_LIMIT_RIGHT_CENSORED:
+        if not isinstance(censor_reason, str) or not censor_reason.strip():
+            raise ValueError("step-limit right censor requires an explicit reason")
+        return TraceTerminalState.RIGHT_CENSORED
+    return TraceTerminalState.FAILED
+
+
+def _observed_tool_gaps(trace: NormalizedAgentTrace) -> tuple[dict[str, object], ...]:
+    """Recompute consecutive request gaps from recorded monotonic boundaries."""
+
+    gaps: list[dict[str, object]] = []
+    for preceding, following in pairwise(trace.turns):
+        completion = preceding.completed_at_seconds
+        dispatch = following.submitted_at_seconds
+        same_clock = (
+            isinstance(preceding.clock_domain, str)
+            and preceding.clock_domain == following.clock_domain
+        )
+        valid = (
+            completion is not None
+            and dispatch is not None
+            and same_clock
+            and dispatch >= completion
+        )
+        gaps.append(
+            {
+                "preceding_request_id": preceding.request_id,
+                "following_request_id": following.request_id,
+                "model_response_complete_seconds": completion,
+                "next_model_request_dispatch_seconds": dispatch,
+                "clock_domain": preceding.clock_domain if same_clock else None,
+                "tool_gap_seconds": (
+                    dispatch - completion
+                    if valid and dispatch is not None and completion is not None
+                    else None
+                ),
+                "valid": valid,
+            }
+        )
+    return tuple(gaps)
 
 
 def _valid_sha256(value: object) -> bool:
@@ -94,12 +161,16 @@ def qualify_formal_session(
         == tuple(range(1, len(trace.turns) + 1))
     )
     submissions = tuple(turn.submitted_at_seconds for turn in trace.turns)
+    completions = tuple(turn.completed_at_seconds for turn in trace.turns)
+    tool_gaps = _observed_tool_gaps(trace)
     q4 = (
         all(value is not None for value in submissions)
+        and all(value is not None for value in completions)
         and all(
             later >= earlier
             for earlier, later in pairwise(submissions)
         )
+        and all(row["valid"] is True for row in tool_gaps)
     )
     natural = trace.terminal_state is TraceTerminalState.COMPLETED
     censored = trace.terminal_state is TraceTerminalState.RIGHT_CENSORED
@@ -154,6 +225,7 @@ def qualify_formal_session(
             else "EXCLUDED"
         ),
         "censor_reason": inputs.censor_reason if censored else None,
+        "observed_tool_gaps": tool_gaps,
         "checks": checks,
         "failed_rules": failed,
         "status": "QUALIFIED" if not failed else "EXCLUDED",
