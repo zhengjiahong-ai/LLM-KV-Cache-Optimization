@@ -14,6 +14,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any, Self
 
+from .phase5_bfcl_pilot_evidence import BFCLPilotEvidenceRecorder
 from .phase5_bfcl_search import (
     BFCLSearchError,
     DeterministicSearchReplay,
@@ -39,12 +40,14 @@ class BFCLFrozenSearchBridge:
         event_log_path: Path,
         collector: TavilyFixtureCollector | None = None,
         replay: DeterministicSearchReplay | None = None,
+        lifecycle_recorder: BFCLPilotEvidenceRecorder | None = None,
     ) -> None:
         if (collector is None) == (replay is None):
             raise BFCLBridgeError("configure exactly one of collector or replay")
         self.collector = collector
         self.replay = replay
         self.event_log_path = event_log_path
+        self.lifecycle_recorder = lifecycle_recorder
         self._lock = threading.Lock()
 
     @property
@@ -64,9 +67,31 @@ class BFCLFrozenSearchBridge:
             raise BFCLBridgeError("BFCL search call has no bound case identity")
 
         if self.collector is not None:
-            fixture = self.collector.search(
-                query=query, max_results=max_results, region=region
-            )
+            if self.lifecycle_recorder is not None:
+                self.lifecycle_recorder.record(
+                    "PROVIDER_REQUEST_DISPATCH",
+                    provider=self.collector.provider,
+                    query_sha256=canonical_sha256(query),
+                )
+            try:
+                fixture = self.collector.search(
+                    query=query, max_results=max_results, region=region
+                )
+            except BaseException as error:
+                if self.lifecycle_recorder is not None:
+                    self.lifecycle_recorder.record(
+                        "PROVIDER_REQUEST_FAILED",
+                        provider=self.collector.provider,
+                        error_type=type(error).__name__,
+                    )
+                raise
+            if self.lifecycle_recorder is not None:
+                self.lifecycle_recorder.record(
+                    "PROVIDER_RESPONSE_COMPLETE",
+                    provider=self.collector.provider,
+                    fixture_id=fixture.fixture_id,
+                    raw_response_sha256=fixture.raw_response_sha256,
+                )
             if fixture.error is not None:
                 raise BFCLSearchError(f"real provider error: {fixture.error}")
             response: list[dict[str, object]] = []
@@ -188,15 +213,32 @@ class InstalledBFCLBridge:
         ) -> Any:
             token = _CURRENT_CASE_ID.set(test_entry_id)
             try:
-                return original_execute(
-                    func_call_list,
-                    initial_config,
-                    involved_classes,
-                    model_name,
-                    test_entry_id,
-                    *args,
-                    **kwargs,
-                )
+                if bridge.lifecycle_recorder is not None:
+                    bridge.lifecycle_recorder.record(
+                        "TOOL_CALL_EMISSION",
+                        tool_call_count=len(func_call_list),
+                        tool_calls_sha256=canonical_sha256(func_call_list),
+                    )
+                try:
+                    result = original_execute(
+                        func_call_list,
+                        initial_config,
+                        involved_classes,
+                        model_name,
+                        test_entry_id,
+                        *args,
+                        **kwargs,
+                    )
+                except BaseException as error:
+                    if bridge.lifecycle_recorder is not None:
+                        bridge.lifecycle_recorder.record(
+                            "TOOL_EXECUTION_FAILED",
+                            error_type=type(error).__name__,
+                        )
+                    raise
+                if bridge.lifecycle_recorder is not None:
+                    bridge.lifecycle_recorder.record("TOOL_RESULT_DELIVERY")
+                return result
             finally:
                 _CURRENT_CASE_ID.reset(token)
 

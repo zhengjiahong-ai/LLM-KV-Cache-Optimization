@@ -11,6 +11,10 @@ from kvopt.workload.phase5_bfcl_agent_bridge import (
     BFCLFrozenSearchBridge,
     InstalledBFCLBridge,
 )
+from kvopt.workload.phase5_bfcl_pilot_evidence import (
+    BFCLPilotEvidenceRecorder,
+    load_lifecycle_events,
+)
 
 
 class _Fixture:
@@ -28,6 +32,8 @@ class _Fixture:
 
 
 class _Collector:
+    provider = "TEST_PROVIDER"
+
     def search(self, **_kwargs: object) -> _Fixture:
         return _Fixture()
 
@@ -60,13 +66,20 @@ def _base_module() -> ModuleType:
 
 
 def test_bridge_binds_case_and_rejects_page_fetch(tmp_path: Path) -> None:
+    clock = iter(float(value) for value in range(1, 20))
+    lifecycle = BFCLPilotEvidenceRecorder(
+        path=tmp_path / "lifecycle.jsonl",
+        monotonic=lambda: next(clock),
+        utc_now=lambda: "2026-11-22T00:00:00Z",
+    )
     bridge = BFCLFrozenSearchBridge(
         collector=_Collector(),  # type: ignore[arg-type]
         event_log_path=tmp_path / "events.jsonl",
+        lifecycle_recorder=lifecycle,
     )
     module = _base_module()
     original = _WebSearch.search_engine_query
-    with InstalledBFCLBridge(
+    with lifecycle.bind_case("case-1"), InstalledBFCLBridge(
         bridge=bridge, web_search_class=_WebSearch, base_handler_module=module
     ):
         search, fetch = module.execute_multi_turn_func_call([], {}, [], "m", "case-1")
@@ -76,6 +89,13 @@ def test_bridge_binds_case_and_rejects_page_fetch(tmp_path: Path) -> None:
     events = [json.loads(line) for line in (tmp_path / "events.jsonl").read_text().splitlines()]
     assert [event["case_id"] for event in events] == ["case-1", "case-1"]
     assert events[1]["search_snippet_used_as_page_content"] is False
+    lifecycle_events = load_lifecycle_events(tmp_path / "lifecycle.jsonl")
+    assert [row["event"] for row in lifecycle_events] == [
+        "TOOL_CALL_EMISSION",
+        "PROVIDER_REQUEST_DISPATCH",
+        "PROVIDER_RESPONSE_COMPLETE",
+        "TOOL_RESULT_DELIVERY",
+    ]
 
 
 def test_unbound_tool_call_fails_closed(tmp_path: Path) -> None:
