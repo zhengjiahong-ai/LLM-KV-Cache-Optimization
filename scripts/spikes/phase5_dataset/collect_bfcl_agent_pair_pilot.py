@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import re
 import traceback
 import urllib.request
 from pathlib import Path
@@ -29,17 +28,17 @@ from kvopt.workload.phase5_bfcl_agent_bridge import (
 )
 from kvopt.workload.phase5_bfcl_pilot_evidence import (
     BFCLPilotEvidenceRecorder,
+    classify_inference_terminal,
     evaluate_paired_pilot_lifecycle,
     load_lifecycle_events,
+    validate_provider_approval,
 )
 from kvopt.workload.phase5_bfcl_search import TavilyFixtureCollector
 from kvopt.workload.phase5_dataset_processing import file_sha256
 from kvopt.workload.phase5_replay import canonical_sha256
-from kvopt.workload.phase5_workload_qualification import AcquisitionTerminalState
 
 MODEL = "Qwen/Qwen2.5-Coder-1.5B-Instruct"
 MODEL_REVISION = "d18ecad881a290f0c792f1c2b5dbee1820d4a424"
-_SHA256 = re.compile(r"[0-9a-f]{64}")
 
 
 def _run_inference(
@@ -54,14 +53,12 @@ def _run_inference(
             test_case, include_input_log=True, exclude_state_log=False
         )
     except Exception as error:  # noqa: BLE001 - preserve BFCL failure evidence
-        lifecycle.terminal(
-            AcquisitionTerminalState.MODEL_FAILURE,
-            failure_reason=f"{type(error).__name__}: {error}",
-        )
         result = f"Error during inference: {error}"
         metadata = {"traceback": traceback.format_exc()}
+        terminal, failure_reason = classify_inference_terminal(result, error=error)
     else:
-        lifecycle.terminal(AcquisitionTerminalState.NATURAL_COMPLETION)
+        terminal, failure_reason = classify_inference_terminal(result)
+    lifecycle.terminal(terminal, failure_reason=failure_reason)
     return {"id": test_case["id"], "result": result, **metadata}
 
 
@@ -83,52 +80,31 @@ def _endpoint_models(base_url: str, api_key: str) -> list[str]:
     return [str(row["id"]) for row in payload.get("data", [])]
 
 
-def _validate_provider_approval(path: Path, expected_ids: list[str]) -> dict[str, object]:
-    value = json.loads(path.read_text(encoding="utf-8"))
-    domains = value.get("page_fetch_domains")
-    reviews = value.get("domain_reviews")
-    domain_reviews_valid = (
-        isinstance(domains, list)
-        and bool(domains)
-        and isinstance(reviews, list)
-        and {row.get("domain") for row in reviews if isinstance(row, dict)}
-        == set(domains)
-        and all(
-            isinstance(row, dict)
-            and row.get("technical_provenance_status") == "ACCEPTED"
-            and row.get("publisher_permission_status") == "CONFIRMED"
-            and row.get("robots_status") == "ALLOWED"
-            and row.get("access_control_status") == "PUBLIC_NO_LOGIN_NO_PAYWALL"
-            and isinstance(row.get("evidence_sha256"), str)
-            and _SHA256.fullmatch(row["evidence_sha256"]) is not None
-            for row in reviews
-        )
-    )
-    checks = {
-        "STATUS_APPROVED": value.get("status") == "APPROVED",
-        "EXACT_CASE_IDS": value.get("case_ids") == expected_ids,
-        "TAVILY_PROVIDER_PINNED": value.get("provider") == "TAVILY_SEARCH_API",
-        "API_VERSION_PINNED": bool(value.get("api_version")),
-        "PAGE_FETCH_DOMAINS_PINNED": isinstance(domains, list) and bool(domains),
-        "PER_DOMAIN_REVIEWS_ACCEPTED": domain_reviews_valid,
-        "M4_TECHNICAL_PROVENANCE_ACCEPTED": (
-            value.get("m4_technical_provenance_accepted") is True
-        ),
-        "M1_PERMISSION_CONFIRMED": value.get("m1_permission_confirmed") is True,
-    }
-    if not all(checks.values()):
-        failed = [name for name, passed in checks.items() if not passed]
-        raise RuntimeError(f"provider approval is not execution-ready: {failed}")
-    return {**value, "checks": checks, "approval_sha256": file_sha256(path)}
-
-
 def main() -> int:
     args = _arguments()
+    if args.source_index != 0:
+        raise RuntimeError("the authorized paired pilot is frozen to source index 0")
     expected_ids = [
         f"web_search_base_{args.source_index}",
         f"web_search_no_snippet_{args.source_index}",
     ]
-    approval = _validate_provider_approval(args.provider_approval, expected_ids)
+    expected_bindings = [
+        {
+            "native_case_id": expected_ids[0],
+            "formal_case_id": "bfcl_web_search_0:snippet",
+            "phase5_case_index": 1,
+        },
+        {
+            "native_case_id": expected_ids[1],
+            "formal_case_id": "bfcl_web_search_0:no_snippet",
+            "phase5_case_index": 101,
+        },
+    ]
+    approval = validate_provider_approval(
+        args.provider_approval,
+        expected_case_bindings=expected_bindings,
+        expected_provider="TAVILY_SEARCH_API",
+    )
     api_key = os.environ.get("TAVILY_API_KEY", "")
     base_url = os.environ.get("REMOTE_OPENAI_BASE_URL", "")
     endpoint_key = os.environ.get("REMOTE_OPENAI_API_KEY", "EMPTY")
@@ -153,6 +129,7 @@ def main() -> int:
         collector=collector,
         event_log_path=tool_events,
         lifecycle_recorder=lifecycle,
+        approved_page_fetch_domains=frozenset(approval["page_fetch_domains"]),
     )
 
     selected = []
@@ -215,6 +192,10 @@ def main() -> int:
     url_fetch_events = [
         event for event in events if event["event"] == "URL_CONTENT_NOT_AUTHORIZED"
     ]
+    observed_page_domains = {
+        str(event.get("url_domain")) for event in url_fetch_events
+    }
+    approved_page_domains = set(approval["page_fetch_domains"])
     result_errors = [
         result["id"]
         for result in results
@@ -226,6 +207,8 @@ def main() -> int:
         blockers.append("SEARCH_NOT_OBSERVED_FOR_BOTH_CASES")
     if url_fetch_events:
         blockers.append("URL_CONTENT_REQUESTED_BUT_NOT_AUTHORIZED")
+    if observed_page_domains != approved_page_domains:
+        blockers.append("OBSERVED_PAGE_DOMAINS_DIFFER_FROM_APPROVAL")
     if result_errors:
         blockers.append("AGENT_INFERENCE_ERROR")
     if lifecycle_report["status"] != "PASS":

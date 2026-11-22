@@ -82,7 +82,9 @@ def test_bridge_binds_case_and_rejects_page_fetch(tmp_path: Path) -> None:
     with lifecycle.bind_case("case-1"), InstalledBFCLBridge(
         bridge=bridge, web_search_class=_WebSearch, base_handler_module=module
     ):
-        search, fetch = module.execute_multi_turn_func_call([], {}, [], "m", "case-1")
+        search, fetch = module.execute_multi_turn_func_call(
+            ["search_engine_query(keywords='query')"], {}, [], "m", "case-1"
+        )
         assert search[0]["body"] == "Real snippet"
         assert "not authorized" in fetch["error"]
     assert _WebSearch.search_engine_query is original

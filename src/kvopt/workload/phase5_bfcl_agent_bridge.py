@@ -9,10 +9,12 @@ from __future__ import annotations
 import contextvars
 import json
 import threading
+from collections import Counter
 from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
 from typing import Any, Self
+from urllib.parse import urlparse
 
 from .phase5_bfcl_pilot_evidence import BFCLPilotEvidenceRecorder
 from .phase5_bfcl_search import (
@@ -41,6 +43,7 @@ class BFCLFrozenSearchBridge:
         collector: TavilyFixtureCollector | None = None,
         replay: DeterministicSearchReplay | None = None,
         lifecycle_recorder: BFCLPilotEvidenceRecorder | None = None,
+        approved_page_fetch_domains: frozenset[str] = frozenset(),
     ) -> None:
         if (collector is None) == (replay is None):
             raise BFCLBridgeError("configure exactly one of collector or replay")
@@ -48,7 +51,10 @@ class BFCLFrozenSearchBridge:
         self.replay = replay
         self.event_log_path = event_log_path
         self.lifecycle_recorder = lifecycle_recorder
+        self.approved_page_fetch_domains = approved_page_fetch_domains
         self._lock = threading.Lock()
+        self._provider_ordinals: Counter[str] = Counter()
+        self._tool_batch_ordinals: Counter[str] = Counter()
 
     @property
     def mode(self) -> str:
@@ -67,9 +73,14 @@ class BFCLFrozenSearchBridge:
             raise BFCLBridgeError("BFCL search call has no bound case identity")
 
         if self.collector is not None:
+            self._provider_ordinals[case_id] += 1
+            provider_request_id = (
+                f"{case_id}:provider:{self._provider_ordinals[case_id]}"
+            )
             if self.lifecycle_recorder is not None:
                 self.lifecycle_recorder.record(
                     "PROVIDER_REQUEST_DISPATCH",
+                    provider_request_id=provider_request_id,
                     provider=self.collector.provider,
                     query_sha256=canonical_sha256(query),
                 )
@@ -81,6 +92,7 @@ class BFCLFrozenSearchBridge:
                 if self.lifecycle_recorder is not None:
                     self.lifecycle_recorder.record(
                         "PROVIDER_REQUEST_FAILED",
+                        provider_request_id=provider_request_id,
                         provider=self.collector.provider,
                         error_type=type(error).__name__,
                     )
@@ -88,6 +100,7 @@ class BFCLFrozenSearchBridge:
             if self.lifecycle_recorder is not None:
                 self.lifecycle_recorder.record(
                     "PROVIDER_RESPONSE_COMPLETE",
+                    provider_request_id=provider_request_id,
                     provider=self.collector.provider,
                     fixture_id=fixture.fixture_id,
                     raw_response_sha256=fixture.raw_response_sha256,
@@ -131,12 +144,16 @@ class BFCLFrozenSearchBridge:
         case_id = _CURRENT_CASE_ID.get()
         if not case_id:
             raise BFCLBridgeError("BFCL URL fetch has no bound case identity")
+        domain = (urlparse(url).hostname or "").lower()
         event = {
             "event": "URL_CONTENT_NOT_AUTHORIZED",
             "case_id": case_id,
             "url": url,
+            "url_domain": domain,
             "mode": mode,
             "search_snippet_used_as_page_content": False,
+            "approved_page_fetch_domains": sorted(self.approved_page_fetch_domains),
+            "domain_approved": domain in self.approved_page_fetch_domains,
         }
         self._record(event)
         return {
@@ -213,12 +230,21 @@ class InstalledBFCLBridge:
         ) -> Any:
             token = _CURRENT_CASE_ID.set(test_entry_id)
             try:
+                bridge._tool_batch_ordinals[test_entry_id] += 1
+                batch_ordinal = bridge._tool_batch_ordinals[test_entry_id]
+                tool_call_ids = [
+                    f"{test_entry_id}:tool:{batch_ordinal}:{index}"
+                    for index in range(1, len(func_call_list) + 1)
+                ]
                 if bridge.lifecycle_recorder is not None:
-                    bridge.lifecycle_recorder.record(
-                        "TOOL_CALL_EMISSION",
-                        tool_call_count=len(func_call_list),
-                        tool_calls_sha256=canonical_sha256(func_call_list),
-                    )
+                    for tool_call_id, func_call in zip(
+                        tool_call_ids, func_call_list, strict=True
+                    ):
+                        bridge.lifecycle_recorder.record(
+                            "TOOL_CALL_EMISSION",
+                            tool_call_id=tool_call_id,
+                            tool_call_sha256=canonical_sha256(func_call),
+                        )
                 try:
                     result = original_execute(
                         func_call_list,
@@ -237,7 +263,19 @@ class InstalledBFCLBridge:
                         )
                     raise
                 if bridge.lifecycle_recorder is not None:
-                    bridge.lifecycle_recorder.record("TOOL_RESULT_DELIVERY")
+                    execution_results = result[0]
+                    if len(execution_results) != len(tool_call_ids):
+                        raise BFCLBridgeError(
+                            "tool result count differs from emitted call count"
+                        )
+                    for tool_call_id, execution_result in zip(
+                        tool_call_ids, execution_results, strict=True
+                    ):
+                        bridge.lifecycle_recorder.record(
+                            "TOOL_RESULT_DELIVERY",
+                            tool_call_id=tool_call_id,
+                            tool_result_sha256=canonical_sha256(execution_result),
+                        )
                 return result
             finally:
                 _CURRENT_CASE_ID.reset(token)
