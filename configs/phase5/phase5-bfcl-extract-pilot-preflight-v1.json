@@ -1,0 +1,49 @@
+{
+  "schema_version": "phase5.bfcl_extract_preflight_input.v1",
+  "review_date": "2026-11-22",
+  "scope": "M1_AUTHORIZED_TWO_URL_PILOT_ONLY",
+  "m4_adjudication": "CONDITIONALLY_ALLOWED_ONCE_IF_ALL_ACCESS_CONDITIONS_ARE_CLEAR",
+  "m1_rule": "ANY_UNCLEAR_PERMISSION_OR_ACCESS_CONTROL_FAILS_CLOSED_BEFORE_CALL",
+  "provider": {
+    "name": "TAVILY_EXTRACT",
+    "storage_and_internal_replay_allowed": true,
+    "source": "https://help.tavily.com/articles/1612400809-storing-caching-retaining-output",
+    "publisher_rights_remain_applicable": true
+  },
+  "publisher": {
+    "name": "FORBES",
+    "terms_source": "https://tollbit.forbes.com/terms/",
+    "permissions_source": "https://tollbit.forbes.com/connect/permissions-data-licensing",
+    "terms_observation": "SECTION_1_3_LIMITS_CONTENT_USE_TO_PERSONAL_NON_COMMERCIAL_INFORMATIONAL_USE",
+    "permissions_observation": "OTHER_CONTENT_USE_REQUIRES_EXPRESS_WRITTEN_PERMISSION",
+    "express_permission_observed": false
+  },
+  "urls": [
+    {
+      "case_id": "web_search_base_0",
+      "url": "https://www.forbes.com/2025/04/17/billionaires-from-the-worlds-most-expensive-tea/",
+      "robots_source": "https://www.forbes.com/robots.txt",
+      "robots_observation": "NOT_OBSERVABLE_BY_AUDIT_CLIENT",
+      "robots_observable": false,
+      "page_access_observation": "NOT_OBSERVABLE_BY_AUDIT_CLIENT",
+      "page_access_observable": false,
+      "paywall_absence_proven": false,
+      "publisher_permission_clear": false
+    },
+    {
+      "case_id": "web_search_no_snippet_0",
+      "url": "https://www.forbes.com/2025/04/07/billionaires-from-the-worlds-most-expensive-tea/",
+      "robots_source": "https://www.forbes.com/robots.txt",
+      "robots_observation": "NOT_OBSERVABLE_BY_AUDIT_CLIENT",
+      "robots_observable": false,
+      "page_access_observation": "NOT_OBSERVABLE_BY_AUDIT_CLIENT",
+      "page_access_observable": false,
+      "paywall_absence_proven": false,
+      "publisher_permission_clear": false
+    }
+  ],
+  "credentials_recorded": false,
+  "formal_cohort_selected": false,
+  "bfcl_200_case_authorized": false,
+  "gpu_execution_authorized": false
+}
