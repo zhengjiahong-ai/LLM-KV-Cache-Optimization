@@ -1,0 +1,29 @@
+{
+  "context_budget_exclusions_file_sha256": "46689df87bf38838dac454d33d2a5141934167296791eb08cb2d453b5e5fb15e",
+  "derived_q4d_status": "PASS",
+  "derived_q5d_status": "PASS",
+  "formal_cohort_selected": false,
+  "formal_q1_q9_status": "NOT_EVALUATED",
+  "gpu_execution_authorized": false,
+  "membership_content_sha256": "7f41eb6031c61417e47758619bc33a17ce21f7925c25bb29c52fab430ae420fd",
+  "parent_workload_seal_content_sha256": "2c991244c8c153650bf3b0353006cef71700897da39becf4c2c01622a42cbcde",
+  "protocol_appendix_canonical_sha256": "0d5f5b92fb03a631707cf51cb46c993f1347c80e178543cf63f9f2db7e6de52e",
+  "protocol_appendix_file_sha256": "5f945eb087859ffaeae8dca2aff7a7f7411a858d0514c4a6e55ba11d14676e5c",
+  "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+  "required_formal_systems": [
+    "NATIVE",
+    "CONTINUUM_OFFICIAL",
+    "CONTINUUM_ADAPTED_A0",
+    "A1_ORIGINAL",
+    "A3_SUFFIX",
+    "DVA_ER_V1"
+  ],
+  "schema_version": "phase5.bfcl_derived_cohort_preparation_seal.v1",
+  "seal_content_sha256": "615c8b2568b82e240bbb47aab20afa5388f7da71a1ca1704dadd0c135484e992",
+  "snippet_no_snippet_modes_are_independent_programs": false,
+  "source_question_is_independent_program_unit": true,
+  "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+  "status": "PROPOSAL_FROZEN_PENDING_M4_M1_ACCEPTANCE",
+  "synthetic_timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED",
+  "workload_type": "BFCL_DERIVED_CONTROLLED_TIMING"
+}

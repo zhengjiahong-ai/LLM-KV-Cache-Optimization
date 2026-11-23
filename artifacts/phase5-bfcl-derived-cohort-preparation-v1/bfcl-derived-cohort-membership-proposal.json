@@ -1,0 +1,3648 @@
+{
+  "accepted_asset_session_count": 199,
+  "calibration_groups_assigned": false,
+  "context_excluded_session_count": 40,
+  "derived_eligible_session_count": 159,
+  "eligible_no_snippet_session_count": 73,
+  "eligible_snippet_session_count": 86,
+  "formal_cohort_selected": false,
+  "formal_groups_assigned": false,
+  "gpu_execution_authorized": false,
+  "independent_source_question_program_count": 88,
+  "maximum_disjoint_four_program_group_count": 22,
+  "membership_content_sha256": "7f41eb6031c61417e47758619bc33a17ce21f7925c25bb29c52fab430ae420fd",
+  "mode_pattern_counts": {
+    "BOTH": 71,
+    "NEITHER": 12,
+    "NO_SNIPPET_ONLY": 2,
+    "SNIPPET_ONLY": 15
+  },
+  "schema_version": "phase5.bfcl_derived_cohort_membership_proposal.v1",
+  "selection_semantics": "OUTCOME_BLIND_APPENDIX_ORDER_FILTERED_BY_CONTEXT_BUDGET_ONLY",
+  "session_membership": [
+    {
+      "archive_record_id": "web_search_base_0",
+      "derived_session_sha256": "b5dada9fde0a4df5a31671c59756fa16c41fc034e02eec922d32356a6fd5ab2e",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 1,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_0:snippet",
+      "program_identity": "bfcl_derived_program_000",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_0",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "321ada3c776e9e9605c84bcbc3ecf5d4c7465d45cf3be2e786374be1f15c9cea",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_2",
+      "derived_session_sha256": "e10586216d0a243589cc844106c9fc90c0d8680c040de2da549a4727a83b7739",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 2,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_2:snippet",
+      "program_identity": "bfcl_derived_program_002",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_2",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "0f49423b4eb031e85c74bfff7093c8675e49c3b326b6a3cc515f39d92015bf5f",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_4",
+      "derived_session_sha256": "d66887e1ffc443eb618f93d348603ae3be6413250b5726b9317a30b0893eaded",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 3,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_4:snippet",
+      "program_identity": "bfcl_derived_program_004",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_4",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "54f347b957c9be44622353df4d86390149d635df21781110a760df36740572cb",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_5",
+      "derived_session_sha256": "d72bd4af8187af43d457e3cf160b78504ed0bece1ae78f4ee46e4169bd0dccb1",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 4,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_5:snippet",
+      "program_identity": "bfcl_derived_program_005",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_5",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "a8eff4656ef0c031c8fab881af14b906175eeba4193bc5f23d86f8ee43cee1a6",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_6",
+      "derived_session_sha256": "57bfa410fb25ed22466e2e6fd8449065d78102e26268087e968e59f77565dd94",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 5,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_6:snippet",
+      "program_identity": "bfcl_derived_program_006",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_6",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "05e7ea799368768ba20277c3810519d220e41d487fa20f058d814dbb42afe38b",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_7",
+      "derived_session_sha256": "4fef9a68d73e7c522b2a7bb30db9af4d9fe439c670072e5b67038767ee24d1d5",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 6,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_7:snippet",
+      "program_identity": "bfcl_derived_program_007",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_7",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "1bfbdb6b0a609849474262f5ed9ad5a491c3977d575e86cb6518631b08f77744",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_8",
+      "derived_session_sha256": "798711b49669466595fddce43e598fba87dde041eb44a5132ad820ff1510fa6d",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 7,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_8:snippet",
+      "program_identity": "bfcl_derived_program_008",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_8",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "a171445dcf2c3eb7dfdd064a101fd832daf0c28405d21d40b5c75651b30d6f3b",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_9",
+      "derived_session_sha256": "aab8d92c09efde454829985103413223f3deb471c336bc91896a62a80be21fab",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 8,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_9:snippet",
+      "program_identity": "bfcl_derived_program_009",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_9",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "913a65bf24495961a379c903d5ca5f5f8b28d180855d903c74cd7fc74ce3af85",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_10",
+      "derived_session_sha256": "b3ec6f48e236bcc76a5b5596d43ee20cf51878972b107f8b8b3c2a6a2211467b",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 9,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_10:snippet",
+      "program_identity": "bfcl_derived_program_010",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_10",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "b046f350487130d2643ce773ed6250f838f651b41d4c9894d0c086647f70cc4e",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_11",
+      "derived_session_sha256": "59dd3089a6b91b637396fcdfc5d43986d8f6ace8f063a11431f9377238b876ec",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 10,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_11:snippet",
+      "program_identity": "bfcl_derived_program_011",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_11",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "5c241236b0906b279d1bbc575e22477aebe4908b9fccaec7314e76a702178b95",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_12",
+      "derived_session_sha256": "cd42f63336c888b783d43135ce2bf0cc97f0c6502f6c51c40b5003b5b7e43574",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 11,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_12:snippet",
+      "program_identity": "bfcl_derived_program_012",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_12",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "9aa06c952cf9a6d567eb55a3b755f3d4adeefa980fd6455ec1e5bd40c23011c6",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_13",
+      "derived_session_sha256": "e5f2a5708dac73a541ad335032c5724ee8e3cb6a02d6378462a6cb80ffeac90f",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 12,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_13:snippet",
+      "program_identity": "bfcl_derived_program_013",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_13",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "551bc817e780378bbe50147a16bf97cb72f183b694c700cd34fe4ae7682301a0",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_15",
+      "derived_session_sha256": "318816af0b910fc7120ef4c53dd6bd4d9b63d5625b079295827f9cb74681987e",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 13,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_15:snippet",
+      "program_identity": "bfcl_derived_program_015",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_15",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "75c35231fc104c1ca4dd2539e23dff0a69316233597673e815cf1c1bb3d06770",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_16",
+      "derived_session_sha256": "e906cc054655d3ef85ff5187b73b6ac90565e148b0aee87e2d69eee7855a0e33",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 14,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_16:snippet",
+      "program_identity": "bfcl_derived_program_016",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_16",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "4e25699423a9b56868e1236031a6cd5b7e2cbeac9d1817a38700dfce6a46a20e",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_17",
+      "derived_session_sha256": "6754b3c2272a9ff7abde96c305a7e647ae82f8975366a2f121975afcd9b26016",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 15,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_17:snippet",
+      "program_identity": "bfcl_derived_program_017",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_17",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "97fd6ed13c847f2801ce8584b43d4c45d8f6d87a220f409780da92b5fdb66597",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_18",
+      "derived_session_sha256": "0ff346e48db7b88a1ccd2dacb2bd0b638e5b1d928820376f72e1d4ee3256771a",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 16,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_18:snippet",
+      "program_identity": "bfcl_derived_program_018",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_18",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "5182c8a92c090f677401319ab0f0262f60a27a89025e3a1026e4a1501546afc4",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_19",
+      "derived_session_sha256": "601e50a48c03cb0b5cf4fb9581669fc685b05785276144cf2707147ca02277da",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 17,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_19:snippet",
+      "program_identity": "bfcl_derived_program_019",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_19",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "fcf9a8dd9f72aa8a6026b839f55d6e8f8ffb3becb15cf93750b86528d2034658",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_20",
+      "derived_session_sha256": "6af5d4b872657d5db02f6b8190f0c7a4e0b471a1001728db87a7e730afa958e0",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 18,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_20:snippet",
+      "program_identity": "bfcl_derived_program_020",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_20",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "4dcca247c0e09295aa833f527bfc7cd4a8b49289bea91d6e88a292e7e33b420a",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_21",
+      "derived_session_sha256": "61e4aacc39832c06aeb476418e8409a5ef7967e2cadd55e6330cca26f2949bce",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 19,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_21:snippet",
+      "program_identity": "bfcl_derived_program_021",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_21",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "7417d47136454e8a5360f6b42fd8d6f4655aa2d7685ab63f90ebd55d0964538c",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_22",
+      "derived_session_sha256": "f4eea4a1fa26c94f72cf5c0bd9e8518868f805e9109364fb8766acbb9a200909",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 20,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_22:snippet",
+      "program_identity": "bfcl_derived_program_022",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_22",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "38faee4af244418c8da36bca5f830f5b7927a6fcaa20578f1414ce4fc1441fd8",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_23",
+      "derived_session_sha256": "b536192ab5f2bac60abb2fc2a8daf4944e80161b7f805e637c9fe1fcb6bc13ce",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 21,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_23:snippet",
+      "program_identity": "bfcl_derived_program_023",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_23",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "940d2af02c1f920fc3f83c38136932d5f34527eacf970e7ed167d27d36f37517",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_24",
+      "derived_session_sha256": "d369e4cf8bc48645453175d32f85ec98331b4bfc34eb546bb7bb31364f3dad67",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 22,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_24:snippet",
+      "program_identity": "bfcl_derived_program_024",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_24",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "afb2a45a8847c62ba7be9dbf55d8a771b82f8cea6e7bb7975022616a5f3e4283",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_26",
+      "derived_session_sha256": "c64c8232b9a51fdeee27ebcbd8e0f23abf58404de644a11a9be66632abfcade6",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 23,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_26:snippet",
+      "program_identity": "bfcl_derived_program_026",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_26",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "cf511874b170bc0ee4613a006286eaf217a6c64cf48f817d0b6d7deb1c5a5afa",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_27",
+      "derived_session_sha256": "b039d7830b7c1d624714ba4674e034884d9b289efd713fb9427be5b18cab0074",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 24,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_27:snippet",
+      "program_identity": "bfcl_derived_program_027",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_27",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "67987ede145192453c5bc1a810af4ef35d80aeccaf05241a9aee73d19b07fe10",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_28",
+      "derived_session_sha256": "f64d7ef89e7c62f98b9aedb326e9bd997b18211a9494c1dc64badf1eef8793ea",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 25,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_28:snippet",
+      "program_identity": "bfcl_derived_program_028",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_28",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "74387b247f1a4b569b76d3d62ef07f658ce40f45441754b72d84869e11e6321b",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_29",
+      "derived_session_sha256": "0ffa0c7e38af3041e586b57b9d0154d74f3d67d029989d35e373c9fd79c8b939",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 26,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_29:snippet",
+      "program_identity": "bfcl_derived_program_029",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_29",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "31fa7416c2fcdc824fba5ae779b267699c4cd90f8516f92ede77b7710dd95657",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_30",
+      "derived_session_sha256": "4f2be044c71e928931ebbf8c18b29cbe4878d1ad47dcc5fcb4ddcd012ca27f93",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 27,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_30:snippet",
+      "program_identity": "bfcl_derived_program_030",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_30",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "068a5b1e05d5a6b4ee7e1c88c54c4fcc4c2ae25c34746bddfd9f5293f98d35f8",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_31",
+      "derived_session_sha256": "252bbc1023fed6a1dab2c5f0680ef2782a19250bf16ffaac7e40bdfa55be2378",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 28,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_31:snippet",
+      "program_identity": "bfcl_derived_program_031",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_31",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "125b9d33d7312c39024b86e4e10dabb84cb9918c6429f649248cca6b8c16612a",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_32",
+      "derived_session_sha256": "60d0c9825481cc2e9c3db2f92cdfb94243adbd8a52add61c245d50cce05f3fc4",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 29,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_32:snippet",
+      "program_identity": "bfcl_derived_program_032",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_32",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "33c92d3d081f9449002c9db5dca8980f3fdded4babe395e3deb01824532c7552",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_34",
+      "derived_session_sha256": "110ec1d71c5395057d4016bb078b6a9a147ab99172f8fa97ffed67d6e78e4244",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 30,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_34:snippet",
+      "program_identity": "bfcl_derived_program_034",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_34",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "668ec4556e6e1db8d2864885236acf9a12152b2f5a57b1f0cb5641c835ef5dbd",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_35",
+      "derived_session_sha256": "56abfb4dd356f5b75de39057460a9dc6f592758d27866d37681c57db846683bb",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 31,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_35:snippet",
+      "program_identity": "bfcl_derived_program_035",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_35",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "0d7229ca8651060472840b21fd0c1d464d60439b4b1ac78ba5d3296cf1a94b65",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_36",
+      "derived_session_sha256": "daaba773f550572fea7c0a3d30c397cd6d830bdc904af475efe1f601e56504e2",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 32,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_36:snippet",
+      "program_identity": "bfcl_derived_program_036",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_36",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "0da9530b6e2b9662c0410970272e5f598c96e1ecae201d6eec64edd53f81d576",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_37",
+      "derived_session_sha256": "6be0fd339ddcdb00bcb2560f74b830e3fd62ffff72f79683bff070c740499cba",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 33,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_37:snippet",
+      "program_identity": "bfcl_derived_program_037",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_37",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "5137de8a0433bd92506bac04018dcefc411ed0562ccd10170b264dbb4011808f",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_38",
+      "derived_session_sha256": "4a30bf755192e9f19d0e8cbe8b62055460729045e5d052d37809f5e3ade8f62f",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 34,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_38:snippet",
+      "program_identity": "bfcl_derived_program_038",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_38",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "172ca8f6048811cf0251c310c63881bc955acc3d794a69cd9e22a3d14a8caf74",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_39",
+      "derived_session_sha256": "f54063869ae0952a564ffc36726b44dfd7a22033ba84399700220fc9835eb0e1",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 35,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_39:snippet",
+      "program_identity": "bfcl_derived_program_039",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_39",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "3a1bebf741d8485fe50f4723766f22ebbcf90516ba0550e6eb6a514909316174",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_40",
+      "derived_session_sha256": "6c4cc0a75a640e12cd2cb2e7809109b31f566c8c5d9485ecb0886fd81868e6dc",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 36,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_40:snippet",
+      "program_identity": "bfcl_derived_program_040",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_40",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "09976db87eef4808ef1bd0c6e1e3d3f7e5ca0e6bed40673842729c630d1c9a11",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_41",
+      "derived_session_sha256": "faba8c8fdfe5323c1b4b31fc424809e69d9f975819a01f0e61ff68c5d98e986b",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 37,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_41:snippet",
+      "program_identity": "bfcl_derived_program_041",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_41",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "b66a4f4228fc81addad0153b3986e4e5b83a410fb7fcb9bc36388f241888deff",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_42",
+      "derived_session_sha256": "060593352191b4c74960b7db9e13da9bbf4ce6e7f70686292ef02d4c24d60f89",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 38,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_42:snippet",
+      "program_identity": "bfcl_derived_program_042",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_42",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "c394b9e454e2ad2fef00180753c0e89f95955a907930aad8be53b6df98a68f43",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_44",
+      "derived_session_sha256": "bd9da29ef8921e3f0bd6e88b1301d9740c44c4a81deb44d48187f6924861e684",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 39,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_44:snippet",
+      "program_identity": "bfcl_derived_program_044",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_44",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "2528c88060a5543dcaeb7a178d666fd044ec0cb8a4171b5917c5228ee61df7b8",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_45",
+      "derived_session_sha256": "4175799f8f72b500ba869b94df60bdd502e5af1b967e82d94716264bf56ca24b",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 40,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_45:snippet",
+      "program_identity": "bfcl_derived_program_045",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_45",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "d78e6b819984cdf94fd446cdbf8845e5fec02f8ee045b4150cd9653d7163aa08",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_46",
+      "derived_session_sha256": "3962c2804a4f72d571a5f75ea12c8bc74b94d69c47ca671607e9772ea8c9ad3f",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 41,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_46:snippet",
+      "program_identity": "bfcl_derived_program_046",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_46",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "bf819a669805ec5d3835d1b3d33839465a018b7fbcea6ae2ced2cc7344b3b53c",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_47",
+      "derived_session_sha256": "71ee7b579664fedea35d39845dad2b00481f9cdb13868f3cb6ecbd7e0dfa5716",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 42,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_47:snippet",
+      "program_identity": "bfcl_derived_program_047",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_47",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "e1dac42729a804273df9a24b794e24513f0e989f7ff19717a94665a2fdb0bef4",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_48",
+      "derived_session_sha256": "91233035c2402b42b4dc96ff14b880351a36ed6ca0c2ff8abe118c7225a44801",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 43,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_48:snippet",
+      "program_identity": "bfcl_derived_program_048",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_48",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "d42ffed81a94e55e25b0fa89aad40abd2dc346050d9731db1747e40c9a446761",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_49",
+      "derived_session_sha256": "241ae5903723b78b9c2e07b4f6ee504ffc001d0ec4ce5cb54a5288868acbf009",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 44,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_49:snippet",
+      "program_identity": "bfcl_derived_program_049",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_49",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "e529352fba140de41cc63fc90ff0a79a478cea6b366a5b958917fdda4c2213ba",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_50",
+      "derived_session_sha256": "f6ca16c4db5ce21451d71677b029124656c3fc957e09be7effdb3df0f38c491c",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 45,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_50:snippet",
+      "program_identity": "bfcl_derived_program_050",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_50",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "ff290757f3098acb162ac0c7dd4010fa656128fed669b85dcd15813fe154db20",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_51",
+      "derived_session_sha256": "151745cff399978289798b6a8b1f28f1c5f7585e347d60addd9e11f67a841bab",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 46,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_51:snippet",
+      "program_identity": "bfcl_derived_program_051",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_51",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "1ebbe69b6988c03a06fd939036df7746dcf9ac0ef094d1ba039c0ae8e5e1a958",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_52",
+      "derived_session_sha256": "0bd601c2cbf328078e6d32703558a4ac1222ca1f99c4f63b07a2ca060d22ecfc",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 47,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_52:snippet",
+      "program_identity": "bfcl_derived_program_052",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_52",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "cb3060320ff433da167a5ad036fdda83c83783a12c50ea313b7b42bdd1675bc0",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_53",
+      "derived_session_sha256": "514cb0d63fcebe27781f95ec887957e3a8a2eac6b4af780fb283589355769b0e",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 48,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_53:snippet",
+      "program_identity": "bfcl_derived_program_053",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_53",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "015bd1818733165b87c73e2b705f06942b2b49ce9e8e74777392f280848ac72d",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_54",
+      "derived_session_sha256": "3ebcd38f8a5b036888fafe8bb4699fd216dc9efac5dff0ca68e88bed98c54a55",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 49,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_54:snippet",
+      "program_identity": "bfcl_derived_program_054",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_54",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "68e17ccad4da9f36682ebf5069eb083cc8037f278dbe71118116e9a67666a3c8",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_55",
+      "derived_session_sha256": "6ec1df4631dbbad861f07601054eae411611b172a9d4db04774f8c9a242a4730",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 50,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_55:snippet",
+      "program_identity": "bfcl_derived_program_055",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_55",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "d7944ec1339cfe28ea27b5634bd942ad7e22c3d5f5e6e2d21efaf54f39e2cb39",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_56",
+      "derived_session_sha256": "b304254ddcf3229d371738ee58747e18ca1eec805f9458a9d76256203b405be7",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 51,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_56:snippet",
+      "program_identity": "bfcl_derived_program_056",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_56",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "e93bd20f954861a8f19348a63f945727ba8022c568559f9f9dd946035e216742",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_57",
+      "derived_session_sha256": "3f8c57f204de83ad7c3fbebfb1bb448f26a77473e8733eb7be05facd700c220f",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 52,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_57:snippet",
+      "program_identity": "bfcl_derived_program_057",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_57",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "d4b77157c9442244a5bc34eb7684d548380ae3817c14b2e6230b14c47bd85fee",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_59",
+      "derived_session_sha256": "91a51723600dc8135177f357930bc97e934c60a9c364a0c4dc27786af7efd3ca",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 53,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_59:snippet",
+      "program_identity": "bfcl_derived_program_059",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_59",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "91f0352dd02103daca84c0dd39eb5dc9593b8f889846d1a989907d3928bb8ff3",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_60",
+      "derived_session_sha256": "6dec53721cf116118ee29786b2008fbbe6017b864d91ed1b10adb02215819b91",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 54,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_60:snippet",
+      "program_identity": "bfcl_derived_program_060",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_60",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "3f3e2c7f855832493d1c9856d199dbcf357622ad4936575ea6d1384d1ec10050",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_61",
+      "derived_session_sha256": "f0eac5a1036636e80e431fd1130230b42b220c967d2aac8a608f00020c1cdb2f",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 55,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_61:snippet",
+      "program_identity": "bfcl_derived_program_061",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_61",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "a4dc315bf33f086098edb791bf514c29184dc070bd70f5a13fa4178184c4d0e8",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_62",
+      "derived_session_sha256": "46c381b1e6dc0f22b67cd7777a9259d35257fede4174b5ab9f3ae963dfdf36df",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 56,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_62:snippet",
+      "program_identity": "bfcl_derived_program_062",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_62",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "657ce230b581c23e7749082cb48d046b97145364cbc8e2aba1d0a011e2e47a14",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_63",
+      "derived_session_sha256": "1f3519c132ba08f0f09ce20d6f6d300e1f9061a93c04a7c0c130edb6b8f669fb",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 57,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_63:snippet",
+      "program_identity": "bfcl_derived_program_063",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_63",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "eab645c0f85ad2bc310092c5da872fda8728b370f3b8a22a88fa38588100c4a5",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_64",
+      "derived_session_sha256": "1de0b7a32271c3920c381073298488213856479eb743227c354a2292989a0f01",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 58,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_64:snippet",
+      "program_identity": "bfcl_derived_program_064",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_64",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "e91b3c236c816796239100e3992b58f2ae23f1c905c171b7c0fba691065f235f",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_66",
+      "derived_session_sha256": "b82e7f1366c6f230b58032eb3c1ac9ea9301be25f5792dfadca04bfb3bb45f5b",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 59,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_66:snippet",
+      "program_identity": "bfcl_derived_program_066",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_66",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "a7eb55461615a18aa016a74952c137e5c6faf196416e709ebdb955b3c7ce7419",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_67",
+      "derived_session_sha256": "61557f89631b992fdbd934795ec798bff372f22f4f5b1e0149f4d62de312dba7",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 60,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_67:snippet",
+      "program_identity": "bfcl_derived_program_067",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_67",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "d8588eec257e51607fcf9c684da4f9101abf98b1d408b541e9d4ef30f5870f12",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_68",
+      "derived_session_sha256": "7b948f1bfda823e3933a49acc0613599f7b2929d2510b2299891fe84ec0bde0d",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 61,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_68:snippet",
+      "program_identity": "bfcl_derived_program_068",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_68",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "ce586f9e1a630f05807a2000c59baa410c54b0de757d79ce986eba1f412aafd3",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_69",
+      "derived_session_sha256": "2fd06d60b2d60225fa14fa3b074bfb7fc6ef67b5802bed523723d32be4238839",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 62,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_69:snippet",
+      "program_identity": "bfcl_derived_program_069",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_69",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "838e3dcf01f5b65f0e0956df3364396c5230a18512dc728109409f95790a7a16",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_71",
+      "derived_session_sha256": "e828ba5038988e458ab842e2d2f75a0d9faa62c9d894aaeb083c0e8e91be5684",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 63,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_71:snippet",
+      "program_identity": "bfcl_derived_program_071",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_71",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "aeaca102914ad74de2a878f57788655132e71a8813264cfe6634b7a97e39996d",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_72",
+      "derived_session_sha256": "1e85578ffb734decf56bc12ee93315f268433f010684ea2234bd86ccc63136f6",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 64,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_72:snippet",
+      "program_identity": "bfcl_derived_program_072",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_72",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "9aadd15da8d236eacf4f109e96606b33558286ef8fe7049d9173ee8cd0f5f4f9",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_73",
+      "derived_session_sha256": "7a93cd1d96d1c6d7624fee6570fa810a3fd4c26645d13dcbf9db008ae70af7f6",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 65,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_73:snippet",
+      "program_identity": "bfcl_derived_program_073",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_73",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "573ad75bdd7c3927f78268e30f8cf0dff5c42d8fcf23831c153730e511ddf6e1",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_74",
+      "derived_session_sha256": "63a00f3b1a8825f71c47a48088e9305f31f091338baae9ac2e07b5c10ec1e36f",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 66,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_74:snippet",
+      "program_identity": "bfcl_derived_program_074",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_74",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "28502c120996686788e8a9d2314514a46f6ed9efbb0c36c3537f931c29730618",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_75",
+      "derived_session_sha256": "503efe1bd3f8ab5895e81d4393b8318f77adc4b80e9e10146d0e4e5b0c610713",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 67,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_75:snippet",
+      "program_identity": "bfcl_derived_program_075",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_75",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "ede198eabd2c99512dd01a7e838a4ed8882df43c8069e8780df5e2db1f907853",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_77",
+      "derived_session_sha256": "39df35e91a4ed989dbd15bae7856ef0eb4f32c2e35758f6fd309130dca4dca3e",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 68,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_77:snippet",
+      "program_identity": "bfcl_derived_program_077",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_77",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "824d67ef34516204f0a8ed2260e4f05699a82cdbb2491715491835ee954199fd",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_78",
+      "derived_session_sha256": "3208d0ce6fb0061eb6a9c61a90da0d5b957dac94907e9f186c273e9b1f7d18e4",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 69,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_78:snippet",
+      "program_identity": "bfcl_derived_program_078",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_78",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "899e50561d4a3bac37bba731a8bea43340e7d485e92ad24a52a3bb4b220d67e6",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_79",
+      "derived_session_sha256": "17f10c4a637d0cb3a4a27221a1a2db5b86e6779a1575c2c49200c560b571a331",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 70,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_79:snippet",
+      "program_identity": "bfcl_derived_program_079",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_79",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "90e8ef1e390a3731d2b494856606a82d73389175f1225f60f1b87279147df34a",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_80",
+      "derived_session_sha256": "b2a79d41587f361ee730d4024ba39c084f21d1695f8cf9bd1f19f68ba5d8920b",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 71,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_80:snippet",
+      "program_identity": "bfcl_derived_program_080",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_80",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "405afea4ab282b4659f9bde9f1201dc3097bb754a1e6ce1e5eecbfdaa4325d10",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_82",
+      "derived_session_sha256": "99a5a2314d1578d59de6033d969371aa7fe77fa45f0b9a8b1376e98ba4fb3e25",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 72,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_82:snippet",
+      "program_identity": "bfcl_derived_program_082",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_82",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "8453392b9e8213ad130787efb691694d92f4fafb48b325e392ac2d0eef933608",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_83",
+      "derived_session_sha256": "edd16d2c2049a4de65353aef93fc7e9c794e19f2bf40425bf0a23bd71e3954ca",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 73,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_83:snippet",
+      "program_identity": "bfcl_derived_program_083",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_83",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "d48397b91b59a2b660ec6300d506962a3968f73865ff10c0c3e9d39fc1fb15ee",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_84",
+      "derived_session_sha256": "a467bb14f6e88e6cadc2e217584c1938f1c534afd71e883b0bbea41589ba7391",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 74,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_84:snippet",
+      "program_identity": "bfcl_derived_program_084",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_84",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "27002a1167544d8469f533acf3b74f0790b905446e7a380e9651901f38b9d0c4",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_85",
+      "derived_session_sha256": "d6832a28a842b85206e29c305fb429e5ea67cf4f92719bcc2570344c25b99b0f",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 75,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_85:snippet",
+      "program_identity": "bfcl_derived_program_085",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_85",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "38a8e1c3a37c09509042e5209d502e17c98b89cfa2aa459b7129bf7d7c858afc",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_86",
+      "derived_session_sha256": "a6bc2be0a0c2a9b1f64bc1d7630f02c727e0a0cb5ee337d9ea9276d2962086fe",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 76,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_86:snippet",
+      "program_identity": "bfcl_derived_program_086",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_86",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "d5323ce1947a78a7a19d1ddd25558adf064d7ea8d6391cf368c19021fda46384",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_88",
+      "derived_session_sha256": "bf4ae044dd8fcca0678d31fce93def661b9ec3fec781a6d58aa59fd4b307efd7",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 77,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_88:snippet",
+      "program_identity": "bfcl_derived_program_088",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_88",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "705e8e93d912e60f13058a9851bc33ff537d76f87d79820ef3ec0d06e0949443",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_89",
+      "derived_session_sha256": "c6d273344fcdd4c00b2037b5ec542860e9fd2a659053919c42c177370fa15b98",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 78,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_89:snippet",
+      "program_identity": "bfcl_derived_program_089",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_89",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "fa2e5e6a9055143ac526504a713237e869607a6b0f1d39735e87cb684692bf8c",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_91",
+      "derived_session_sha256": "d5947d2a38143d5a274bb4a26856bc9f19d46904bd2be5a33ca228b97bbc4a65",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 79,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_91:snippet",
+      "program_identity": "bfcl_derived_program_091",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_91",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "8f8b44e4c4f1a330b388805624eb4b49569377a6667fda0c42dac97a47c0d568",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_92",
+      "derived_session_sha256": "34183b4eb3d088dac3299b34cbff78bc133e776361f2d12d8b0b2df03a004ce2",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 80,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_92:snippet",
+      "program_identity": "bfcl_derived_program_092",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_92",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "ad337cff25f56d14f973cf2b0cbbf828f082e0cbeda844f841e34dfc85c756fd",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_93",
+      "derived_session_sha256": "e0c5ab7d0761b3dc587b97e23128ff4eb8de81f6e8724825eea3cd3978538ebb",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 81,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_93:snippet",
+      "program_identity": "bfcl_derived_program_093",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_93",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "97eeac26e3ce50bbfc4ecd13f5998f0aa6a28263011affbfcfb5e007c1bb422b",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_94",
+      "derived_session_sha256": "5c9f3b7bc6409f998e33db17a91aa5f59d8744dda872e2b9fc3a6a0896c4668a",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 82,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_94:snippet",
+      "program_identity": "bfcl_derived_program_094",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_94",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "76391ca836de85af6ac5b233bfb5bb275b5f8633957c2d4091aad905ed77f9ca",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_95",
+      "derived_session_sha256": "f78f6bfb704782a472f7f7443e1d0b7a27bda54f1d1f3df26f51f9b318581fcb",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 83,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_95:snippet",
+      "program_identity": "bfcl_derived_program_095",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_95",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "1242b7ad50f4ec82352383020c5fff21f9bb75a87a544ed7e0bdeba1efb735dd",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_96",
+      "derived_session_sha256": "f56dd14f64292ebe6a9b942cef5e7eef0b17e535d3a5978be7cf5e9b93e7b0ef",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 84,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_96:snippet",
+      "program_identity": "bfcl_derived_program_096",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_96",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "7551323167c6e40c0ede36915c14e698fda69dd7a1767ffed6adeb20f5c33cf5",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_98",
+      "derived_session_sha256": "2df29261a9c9ab6571f1375c657f1a1e7cb5a3beac2dcbec287a245c518bc788",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 85,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_98:snippet",
+      "program_identity": "bfcl_derived_program_098",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_98",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "fd4686df24c848a858e863f8e988df8473dbb29ab4c9e419be71ac9a55273081",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_base_99",
+      "derived_session_sha256": "c0d2823adfea3e8161f45bf363c3f88530b56c70f3a8f2543d6abb51696bf786",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 86,
+      "mode": "SNIPPET",
+      "phase5_case_id": "bfcl_web_search_99:snippet",
+      "program_identity": "bfcl_derived_program_099",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_99",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "7deaea3b791102e207dbe3b356b268b5b81aec7372d5c98fea7a880d615192a9",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_0",
+      "derived_session_sha256": "88b44411c873d384bc909fe3e86071c04edd5ee81727e9ea108a8e291d94c9d3",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 87,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_0:no_snippet",
+      "program_identity": "bfcl_derived_program_000",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_0",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "0f395bceb6757b14a81b2d03e032468faf595ff890a12a928819c63c2c46519a",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_2",
+      "derived_session_sha256": "a1215938200e3e061b0aca15ca55df157bad91d676bdf3cb5323ec2a0734376e",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 88,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_2:no_snippet",
+      "program_identity": "bfcl_derived_program_002",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_2",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "c0d3c352c76f86e42cb1972dc5faedb296fe4e80e18b536f74c3aa5836dbea44",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_4",
+      "derived_session_sha256": "38589b73f69bc20a9b8d6047bf48de571c682c12832f42cd2c68946a5e3acdff",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 89,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_4:no_snippet",
+      "program_identity": "bfcl_derived_program_004",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_4",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "32666691f428bc8930d209ff86c5e2f5c313de5c8c66d57bf8c330860e198b3f",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_6",
+      "derived_session_sha256": "5ad51c34d7cc8e0bec9c1b378bf85c44593e1713ba9fafbf72fc06c3f807bdc2",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 90,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_6:no_snippet",
+      "program_identity": "bfcl_derived_program_006",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_6",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "0af468a1ab81cd67e9216aef9ff4f3ecf8f44412c3bc3d5b2a4f0b13437fa201",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_7",
+      "derived_session_sha256": "213e54dc8b5ce6afe9344bf64be442da59dc57b918ab25fd2ebe0e0b5c3785de",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 91,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_7:no_snippet",
+      "program_identity": "bfcl_derived_program_007",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_7",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "1747317c01bfeffab963a794957980e16fa9414a51a660ed101a54bc9bb370ea",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_8",
+      "derived_session_sha256": "20df6cd1db0792b0dfc07499e214fd3b2cf1d82b36f79335f0bc840637dae6d3",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 92,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_8:no_snippet",
+      "program_identity": "bfcl_derived_program_008",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_8",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "681715b3a55f566127d1eef9450236841af1bf3d5bb0e02e1d029e6fe1289754",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_9",
+      "derived_session_sha256": "048e1aaf197149f551c5ba72edeea01ec8f4c57fd3cf9619c6b450036135d238",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 93,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_9:no_snippet",
+      "program_identity": "bfcl_derived_program_009",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_9",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "8f984911242e6eb9051b84a6fd50532918da9683db1eebd97d5b2f3a565050af",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_10",
+      "derived_session_sha256": "694905ac5c2e9d220349d094ba03ba4d233ddf0d94c0bf3f064a27a4ef0f0fd0",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 94,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_10:no_snippet",
+      "program_identity": "bfcl_derived_program_010",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_10",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "ac486d32c3c66a62cf514bdb17264acb0c1cdcca8f54bc3ab25e5520ae3b6c06",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_11",
+      "derived_session_sha256": "c085cf1a832ddb9ff7ef569758a4ebae45f70d30b909d5dfe299ed25b79b50e3",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 95,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_11:no_snippet",
+      "program_identity": "bfcl_derived_program_011",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_11",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "5bfb64b4c8351137427428b47083e1ab5336e05531a3e7cc86d0c40752e7f6dd",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_12",
+      "derived_session_sha256": "5f79965ec4ebdab0814cb14c135b8b5c7bfaf7ff6fa48cbf0b42dd48063c86d0",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 96,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_12:no_snippet",
+      "program_identity": "bfcl_derived_program_012",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_12",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "b8cd0a4b3e760bdef93789e3f69b249d8ba9e56b082a2ab9a361ee85fc586589",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_13",
+      "derived_session_sha256": "94407de0c5fb434bd1d470dfc2ff7394da95440be795c96ae80c364cb78c062b",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 97,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_13:no_snippet",
+      "program_identity": "bfcl_derived_program_013",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_13",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "46f3310311d5097a146698da14677ce98f53744c9b27dce170d4f9e8b6d732f5",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_15",
+      "derived_session_sha256": "0b97980e556d9b6ddfecd041057c53fd52b3d9dc53a79fd4ae245b5444c64595",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 98,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_15:no_snippet",
+      "program_identity": "bfcl_derived_program_015",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_15",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "253beffa265085e9b5eb34320174970d345dfbcd3f149468f8308726fba1fa5d",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_16",
+      "derived_session_sha256": "0e5451d452bdb2617d38a37aa4c9aa9e313c538e2e56b5fff5ada2869a35580c",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 99,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_16:no_snippet",
+      "program_identity": "bfcl_derived_program_016",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_16",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "093dcde943d058664028c05163a057c8abdf4acbe699a4e6f34c0113b7461aeb",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_17",
+      "derived_session_sha256": "dc4ba15d225101215ece29d2c84e33057b4374c0026c44580fe9d7991926fb05",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 100,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_17:no_snippet",
+      "program_identity": "bfcl_derived_program_017",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_17",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "07d1d8819a08746a9af98ce79b536e1f48fa5e23b81b933d7075b5c5d2aa2bd4",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_18",
+      "derived_session_sha256": "a4059f347e786e1015e52e1c3720d687dd559275bc0768b2a7b75a39b65ccb18",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 101,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_18:no_snippet",
+      "program_identity": "bfcl_derived_program_018",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_18",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "c000202d059aa9ef7703b935226fb974a015b25d5e1865ffbb69bdc9eaff6f3a",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_19",
+      "derived_session_sha256": "488d1f9dc82f5b8618944f2e0d8dc5ddbfc027c3b0d5bd4fb1331e15ea48e04c",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 102,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_19:no_snippet",
+      "program_identity": "bfcl_derived_program_019",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_19",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "c685452fa8170bc233f08f962f14992b6c5320e8b4c18a4684a4a6ad6a6c26ca",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_20",
+      "derived_session_sha256": "d130c560624ca295a74950955911182173656677e1f46e8458df73dbf958ad3f",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 103,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_20:no_snippet",
+      "program_identity": "bfcl_derived_program_020",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_20",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "4940287a3fc240f34827b5a453864a85579ccae4f6d1c635bdc2d228cdc3d4bc",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_21",
+      "derived_session_sha256": "1ae8f81ada5e053cbb60ac015d16445ec4085afec40ba7e56f99e43fc621c314",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 104,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_21:no_snippet",
+      "program_identity": "bfcl_derived_program_021",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_21",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "901a46de97564c0e5e3a27816f5d077f3f8f2e782424fa82ab08090952e69df0",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_22",
+      "derived_session_sha256": "d4d504ca1888c424ce8b7796daf5c1e830147cdcad9cf38f5ea4d2d7d7a2d486",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 105,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_22:no_snippet",
+      "program_identity": "bfcl_derived_program_022",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_22",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "9c0bdc6128701e05935d1f50273895dfd2f9a02c8da6103bf5cdc814a6ea75c9",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_26",
+      "derived_session_sha256": "1aa6fb97373a57239c0699d27f69634bf946ecf66082bc83c480fd96aeb194a3",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 106,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_26:no_snippet",
+      "program_identity": "bfcl_derived_program_026",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_26",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "062eb65ac25ba308fb82a1dec2ea535a60c9c3e0416707ffeb650bc31139d47b",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_27",
+      "derived_session_sha256": "cab2cce0c05a56fae2d7b77ee256cce0ed0f8271ee62cd0769740bfee0eeb020",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 107,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_27:no_snippet",
+      "program_identity": "bfcl_derived_program_027",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_27",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "09465a293ccf0ceebcc1cac259cb0b29745ec7501f7571102005e12dd293496b",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_28",
+      "derived_session_sha256": "76b5cabb53a83ce403b7c726170cafc192da582c377791a3a78b7118bf88c81d",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 108,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_28:no_snippet",
+      "program_identity": "bfcl_derived_program_028",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_28",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "e332829884dd0c497c1675cbb961da589b6e8456de1fa27eb0fb21c06c151e76",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_30",
+      "derived_session_sha256": "daf05fc74250943c158f2f4ca67ac378de0aff7e7d09355b5eea5f0e94d6f4f8",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 109,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_30:no_snippet",
+      "program_identity": "bfcl_derived_program_030",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_30",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "337b94f2c621cad6356e355f70c0f53bbdd5fd55839e7283a18d1e237eff01b4",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_31",
+      "derived_session_sha256": "07e8496488b02b59296f50237fc9a01586b93ad2d7ebf992f08c3fe8567c28a0",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 110,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_31:no_snippet",
+      "program_identity": "bfcl_derived_program_031",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_31",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "08b294438f2eed3f314bce411eec7d1e7c13e252cad917034406ddecacad1cb4",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_32",
+      "derived_session_sha256": "495a4ff8803eff1fa99b3fdd1beb60a06a1d4603aa9efa1a078cd3d95c9fdcf8",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 111,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_32:no_snippet",
+      "program_identity": "bfcl_derived_program_032",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_32",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "d73e9ea01766a67f65e43eee45f903fdfd7febcbf014c347984569535d1568ec",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_33",
+      "derived_session_sha256": "a6aa692f8765731f148c1e853bdcfe3fb44d26f1592254bf26a50a1e0bbd5354",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 112,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_33:no_snippet",
+      "program_identity": "bfcl_derived_program_033",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_33",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "a71bef153530eadb0e1c3cf2a04b6f0522c8ccac5e8b3a84e358a8a6c6e5912d",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_34",
+      "derived_session_sha256": "0ec53af0c5ab950454c6e9910649074f772a71e0ee6b9b375fd7627829360062",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 113,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_34:no_snippet",
+      "program_identity": "bfcl_derived_program_034",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_34",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "6aadb93277f120b45fdb41f28f4ccc9b0d57f600d5931982d794257e639ec4e6",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_35",
+      "derived_session_sha256": "1e3b9e56543be231151923288f80134c669d4251a6b827c69551b4daea0f5871",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 114,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_35:no_snippet",
+      "program_identity": "bfcl_derived_program_035",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_35",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "c4acaea15b1fbc4482fe3de5abd85855fa4103fcce9ef5dde386bec10909dd30",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_36",
+      "derived_session_sha256": "68d2d2215c9add078805f3dd1d19b7cca73304308d24f6d58d9711ab2a1746df",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 115,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_36:no_snippet",
+      "program_identity": "bfcl_derived_program_036",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_36",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "b07668f8b3e03b7ab2d9aef2dd4e59e46e214b375658a8e535c379f4f2597858",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_37",
+      "derived_session_sha256": "5bf1ee946cc6ccfea3e237983a91a7688bdba0f4145dea9f13cbc860fef5b858",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 116,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_37:no_snippet",
+      "program_identity": "bfcl_derived_program_037",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_37",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "c6b0651543a1ed325b46fb52952e84640ddc32f346646e19d66d337199d65613",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_38",
+      "derived_session_sha256": "05e18273b31b493d53b2d73b361a7d649c9b9d788ea5156fcd094646414c8bf1",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 117,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_38:no_snippet",
+      "program_identity": "bfcl_derived_program_038",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_38",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "6e73a8a729634c7cb8f5c3f2dd3433270eaafcf657d193fa1bf80c5a6e2b7e96",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_40",
+      "derived_session_sha256": "835d76797b183f9b3cee8d221650d8a7d62877d26b55e5eeeb17239ca62d6c5e",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 118,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_40:no_snippet",
+      "program_identity": "bfcl_derived_program_040",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_40",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "b70a82358d98004d0d35e221194de7894972360c95b158a901d5d0bf75afd777",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_41",
+      "derived_session_sha256": "2566a0624c1243aed3127c2160004bcbb55c0ff413a1f32cd0f082265621ff7f",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 119,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_41:no_snippet",
+      "program_identity": "bfcl_derived_program_041",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_41",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "2fd987c5d22d97dac9d24c696b2a7171af5b418549cab4253726f6621d05aed9",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_42",
+      "derived_session_sha256": "786437824d57dd50fe7c07364fdae76740ae2ab983cae61b1990c283a8097495",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 120,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_42:no_snippet",
+      "program_identity": "bfcl_derived_program_042",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_42",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "a304edb1a550347d3c0498a202fc9eb681a0f007f21649c2e7e0de7568075c71",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_45",
+      "derived_session_sha256": "e1781acb0b741e003f08e590f2faa9c9fc38b87dde33b4806d375101c24367bc",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 121,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_45:no_snippet",
+      "program_identity": "bfcl_derived_program_045",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_45",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "3fd95e8ee20ca95f874a91202bd12bc84e3405b61b838a61eed358133caa87ee",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_46",
+      "derived_session_sha256": "3ce97a30467afa05b75fe30a2995eb586f803fb331aa292f2be62e091bb23e92",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 122,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_46:no_snippet",
+      "program_identity": "bfcl_derived_program_046",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_46",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "e065bbe09d64754195f9b3e704c00f3a714c4565922d77b79f88a1e7fbf5f1b0",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_47",
+      "derived_session_sha256": "61ac347d9862ba8e456fcbfa6c6bdae1cbaf415d60c2904e2e14d2ab257e261f",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 123,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_47:no_snippet",
+      "program_identity": "bfcl_derived_program_047",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_47",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "45b35b0091d7d04f030de2243eafc789483d964f2541467c5202735185b35f09",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_48",
+      "derived_session_sha256": "bad28ad9eb4e27161a4eb3b1b6014a6afa046642a6db4255d0d8ea3c2c29d388",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 124,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_48:no_snippet",
+      "program_identity": "bfcl_derived_program_048",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_48",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "d7cac3c7219cd93b30748d4b4b07ab78efbcccc69f466dfe43d037cc59f91fd5",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_49",
+      "derived_session_sha256": "669b84e11d5ba981e06805356df79d6a6b6a64d2af8566a898ec3828a85772c7",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 125,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_49:no_snippet",
+      "program_identity": "bfcl_derived_program_049",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_49",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "ffcdc6a46103fbb1bd8920cf1ff3d5b61d5a554b33bfd4884bc48e1644d78c3a",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_53",
+      "derived_session_sha256": "da65bd29a43b562b29cf105972953907989460c8b92c80267e7430cf64db8f39",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 126,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_53:no_snippet",
+      "program_identity": "bfcl_derived_program_053",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_53",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "e5fe59d5d4efcbffbad4db6e34616870ebb7df7e29d013e1477769fa72dd2dc1",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_54",
+      "derived_session_sha256": "195c117cbcc13aa8c092f1a0f0739763b6233c55ecb3113a44b05aa175cdb416",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 127,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_54:no_snippet",
+      "program_identity": "bfcl_derived_program_054",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_54",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "535272e523d10f221afe1474dad3c54d1a711325861fe8ebf787c0f48d828464",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_55",
+      "derived_session_sha256": "83982e9d19fca2cac679bec7c72024e0791f4467c18e671c21245e0086ce9d7f",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 128,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_55:no_snippet",
+      "program_identity": "bfcl_derived_program_055",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_55",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "b3fc86dec9a547eb65f3548af74130b9e6d8179c7a1abebd2cbc369fea03132b",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_56",
+      "derived_session_sha256": "e881729b1c2ef1b7d17efb1736b6ba9f1dfc108bfb9d70b409f2bceb6bce46b7",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 129,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_56:no_snippet",
+      "program_identity": "bfcl_derived_program_056",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_56",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "b1b0ed7703ae9cb577adb60953de6d61f71e58ff9389ffadba32730fcab8927c",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_57",
+      "derived_session_sha256": "bd7819b137d3898a6249faf300220abf8c90f10526f03732c77eec3bd1ca3ddc",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 130,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_57:no_snippet",
+      "program_identity": "bfcl_derived_program_057",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_57",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "d8d684c3d1b379b770ea7fa6f6cbe419f1489fd418aa4d7fee26232a0121612d",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_58",
+      "derived_session_sha256": "441b83de381331d8104900ec810ac20f04caf6fa7c9fe519807027d0284a6997",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 131,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_58:no_snippet",
+      "program_identity": "bfcl_derived_program_058",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_58",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "dd47a3644c46fa5b3c1efcdb9e2e02c1f5ef2eeffe40348b7cc7d454f1644515",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_59",
+      "derived_session_sha256": "40d076975e33e1ce697bde0e4c14f38dffc189fdc42f4f95365a72d27fba88a2",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 132,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_59:no_snippet",
+      "program_identity": "bfcl_derived_program_059",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_59",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "4aece08c9a8f25b3f160157821d5ce7ae9480819e9db5ab823943942e5ac8020",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_60",
+      "derived_session_sha256": "dad8066c6fef77bceb55e9def2849b136cf90849a31f79d393bd3727ee402467",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 133,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_60:no_snippet",
+      "program_identity": "bfcl_derived_program_060",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_60",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "13836b0c2d65667ea84fd13c4a377a03035d240dd3781cf896094d4d847b4c01",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_62",
+      "derived_session_sha256": "17237fc1d18391661327de8d81c2a1c7c69cd3604569ef9ce0261bbde0d413a0",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 134,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_62:no_snippet",
+      "program_identity": "bfcl_derived_program_062",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_62",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "4e730656520e6a27103dc08d1c3a96f40489ebd1ebdd22e5ab006a04a90c743c",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_63",
+      "derived_session_sha256": "a9c4e9c5dda723e9a6daff4179ecbcf25b6b23689714c40aff7ac3f0926d79e5",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 135,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_63:no_snippet",
+      "program_identity": "bfcl_derived_program_063",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_63",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "89a39b5cdac3e3b55ecf6db693019af55ee347992f0b24e7b5a6544e3bd19c9f",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_64",
+      "derived_session_sha256": "e4e1583d0ed46da86ce3916d6d38b87837f4d1b4a9ff651e1324e79f340449a4",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 136,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_64:no_snippet",
+      "program_identity": "bfcl_derived_program_064",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_64",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "93975a760721510ca654bbabe3cb4abb713631eb5e8f76e297dbaf6ca3b73d22",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_66",
+      "derived_session_sha256": "b0b64173b3134590e418321326f86d1d30cb8de1d1940caae00a86ee00a8cd49",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 137,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_66:no_snippet",
+      "program_identity": "bfcl_derived_program_066",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_66",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "5ad435aa2d14fb1a0dfcd6dd86c200ca451969f53018efa2dfb2163c785c8692",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_67",
+      "derived_session_sha256": "5cdfda29b6725c4a2ab1d758d0c822780abbb1931eaa1c8156cde4f5df117a9a",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 138,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_67:no_snippet",
+      "program_identity": "bfcl_derived_program_067",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_67",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "f4d30c6407d2cfcbbb9125fa8a91e799922d95f9bb538f76a3d069781390904a",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_68",
+      "derived_session_sha256": "5d367d0cb4c80b7cb43b71603d8c5e7e09846cc3626d1b3a4a2a379bbac0c831",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 139,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_68:no_snippet",
+      "program_identity": "bfcl_derived_program_068",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_68",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "6029f0c3d59f6ea7fd0d97657e685f1907602ba4b2eb4900b860fe35ac9ded37",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_71",
+      "derived_session_sha256": "8faad20bbe4934e4f9f0007c5136f7368b36edeb293ee9c0f16783c216161efc",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 140,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_71:no_snippet",
+      "program_identity": "bfcl_derived_program_071",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_71",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "27c6d32be9092af58b585e9ec01994fd3bf00a48adfb5757763901f3e2f144b7",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_73",
+      "derived_session_sha256": "cea145f28ec6b9a0405169a5f220a61be21a3802e3ff1d778172be6829082af3",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 141,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_73:no_snippet",
+      "program_identity": "bfcl_derived_program_073",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_73",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "893e3a2ceb90d098db0e83611273371cbe04021ffb63cc8817d196eafae79dbe",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_74",
+      "derived_session_sha256": "5f6195972ec39fc5c4c502a0f61731c500f940800aa04632b6e22444eb68b683",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 142,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_74:no_snippet",
+      "program_identity": "bfcl_derived_program_074",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_74",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "19b822e9249f41504279e9747f7f161ab2b1a945a2bb5643caed70a2aee76403",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_77",
+      "derived_session_sha256": "084d76d2ca3585a0a948be6a38022c8e0a077b7ab4c29ab957ecffad9ed6c878",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 143,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_77:no_snippet",
+      "program_identity": "bfcl_derived_program_077",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_77",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "45149a35e9f8d24b81413fa0b020e5904f500a4afdf520dc9c1510aebc07a9f0",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_78",
+      "derived_session_sha256": "1785e2ee211546152ddf7c674a26fc8157f7ced9ddb9753f995af555f07e6234",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 144,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_78:no_snippet",
+      "program_identity": "bfcl_derived_program_078",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_78",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "e5e0725bcfd810650dec4dbb99c0780d733475d167c899920745c1b774c106c7",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_79",
+      "derived_session_sha256": "fa17cfb05acae6b5647f9148487bf735ac1cac3bfe2eb4fea781cad09089e110",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 145,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_79:no_snippet",
+      "program_identity": "bfcl_derived_program_079",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_79",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "73f768831cd6d483679c7711cfe4a6dc88f5775345b1ed17994d53f9deb4e405",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_80",
+      "derived_session_sha256": "e2efba898a999a09696680cdcf0e487d752290cae20d72ec138ca487e0805997",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 146,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_80:no_snippet",
+      "program_identity": "bfcl_derived_program_080",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_80",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "4d19ff6f56a24f8e88172dd46ddccaf0795e428a81effd8850ad5c75d09a7265",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_82",
+      "derived_session_sha256": "7e874a4d10b0cb69beee01df75ab2af4eb0d5b45563fa15a9dc03797513328c9",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 147,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_82:no_snippet",
+      "program_identity": "bfcl_derived_program_082",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_82",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "bf6aa9344a0354827bc4211dd8e9f4f204558df00b9ea31993bc66b6081e1df5",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_83",
+      "derived_session_sha256": "cf75db80b81b5ced2803885a76e24f14be678987579e0cf111c1974a41eff43e",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 148,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_83:no_snippet",
+      "program_identity": "bfcl_derived_program_083",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_83",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "160203fd2e5a1c3df7ea7a3e6fbeeb8648baf403255b2a04d40f1b0e55424ee4",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_84",
+      "derived_session_sha256": "83d6f77459acdd4dc05370bdc1cd8a03a1132bd73716c2c2d4bd66787f537030",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 149,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_84:no_snippet",
+      "program_identity": "bfcl_derived_program_084",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_84",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "cda1a919994fbefd601ca2218035246ea8c0da76fe5f9536d6cf1785ec547a82",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_85",
+      "derived_session_sha256": "455830e84a599ba0220c2ba5bebb168a6848c7fc61ce3735fc1f860e3f03b9e3",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 150,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_85:no_snippet",
+      "program_identity": "bfcl_derived_program_085",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_85",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "281bc688304da187ea9f57d44faeb96b69a3583bcce36eb235a1b46fe6880cc9",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_89",
+      "derived_session_sha256": "93eb1d9b64ea756084487cd267b9d47798e0e582f0b9fc36139170502a05a1a4",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 151,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_89:no_snippet",
+      "program_identity": "bfcl_derived_program_089",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_89",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "8384da771e8adbe0d0051aa37da748ec268070fb09543c5b894501698d332b05",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_91",
+      "derived_session_sha256": "69d2acbc09870461ac2d3113703c38094cacc4693ea37778b9710c1fc9e8d124",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 152,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_91:no_snippet",
+      "program_identity": "bfcl_derived_program_091",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_91",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "e0891b74d3989af230433b400afb4115842ebc5eea16e44bfa928f000c69f8be",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_92",
+      "derived_session_sha256": "a73ec1e73ea79d3da00159b37cfb42c7aae740df6228c42b59524880cf29d22c",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 153,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_92:no_snippet",
+      "program_identity": "bfcl_derived_program_092",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_92",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "14d063017746d77991f1e60548eabe91668241def19c38ac11578c20c84feb65",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_93",
+      "derived_session_sha256": "d26b20e81a0f5a5de25562171ed1ec4d53138c5bc6faefcd6195afa9c16141f5",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 154,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_93:no_snippet",
+      "program_identity": "bfcl_derived_program_093",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_93",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "3ab6daa616784bf468b4d9e569ed128468eb03a4161719fb374457dde93aa42a",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_94",
+      "derived_session_sha256": "444ffc82948464291c8afacc019935de1dd783292ab82f27eeb5c04307815374",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 155,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_94:no_snippet",
+      "program_identity": "bfcl_derived_program_094",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_94",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "724bfa46712a13a1eb044aaeb0b3b80cfe0e065df48eb0e9f68535864168402d",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_95",
+      "derived_session_sha256": "c834ca3ad57f01618e1130b1c6033700756676eca5f9721c3ee2620a03f82640",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 156,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_95:no_snippet",
+      "program_identity": "bfcl_derived_program_095",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_95",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "4c0b9242f90e5e6399cbec91b662bfe02480f3b89a77555d300f8281e12904ef",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_96",
+      "derived_session_sha256": "f8216092194958569ae06d9673ef0cb97be165c87931b446fa06f306b56e611b",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 157,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_96:no_snippet",
+      "program_identity": "bfcl_derived_program_096",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_96",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "7c0a7d8a9855a20fa24066d95af75d34893c4d7c1dd1d56f3f93fd7fcc764ad9",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_98",
+      "derived_session_sha256": "eec0ce7550aeda4392fb2df4fd97fcdf1cf82c0c09f8340c1ddddf8b55fcf58d",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 158,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_98:no_snippet",
+      "program_identity": "bfcl_derived_program_098",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_98",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "4e5cc91876bcb2a811c89928730c102688b8aa4e79a060d1ef224d1977b7835d",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_99",
+      "derived_session_sha256": "51d9bbafe4719c6809471c905527700b1109a4574aa606347e379fea4eb8dd9d",
+      "eligibility": "DERIVED_ELIGIBLE_PENDING_INDEPENDENT_COHORT_REVIEW",
+      "membership_ordinal": 159,
+      "mode": "NO_SNIPPET",
+      "phase5_case_id": "bfcl_web_search_99:no_snippet",
+      "program_identity": "bfcl_derived_program_099",
+      "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+      "source_question_id": "web_search_99",
+      "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+      "synthetic_tool_gap_schedule_sha256": "4905a0e8ddd34291a007053fcc7b5317b740c99b29233ab97ba0259db27b61cb",
+      "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+    }
+  ],
+  "source_question_clusters": [
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_0",
+        "web_search_no_snippet_0"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_000",
+      "source_question_id": "web_search_0"
+    },
+    {
+      "eligibility": "NO_ELIGIBLE_SESSION",
+      "eligible_archive_record_ids": [],
+      "eligible_modes": [],
+      "independent_program_count": 0,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_001",
+      "source_question_id": "web_search_1"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_2",
+        "web_search_no_snippet_2"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_002",
+      "source_question_id": "web_search_2"
+    },
+    {
+      "eligibility": "NO_ELIGIBLE_SESSION",
+      "eligible_archive_record_ids": [],
+      "eligible_modes": [],
+      "independent_program_count": 0,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_003",
+      "source_question_id": "web_search_3"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_4",
+        "web_search_no_snippet_4"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_004",
+      "source_question_id": "web_search_4"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_5"
+      ],
+      "eligible_modes": [
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_005",
+      "source_question_id": "web_search_5"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_6",
+        "web_search_no_snippet_6"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_006",
+      "source_question_id": "web_search_6"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_7",
+        "web_search_no_snippet_7"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_007",
+      "source_question_id": "web_search_7"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_8",
+        "web_search_no_snippet_8"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_008",
+      "source_question_id": "web_search_8"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_9",
+        "web_search_no_snippet_9"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_009",
+      "source_question_id": "web_search_9"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_10",
+        "web_search_no_snippet_10"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_010",
+      "source_question_id": "web_search_10"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_11",
+        "web_search_no_snippet_11"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_011",
+      "source_question_id": "web_search_11"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_12",
+        "web_search_no_snippet_12"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_012",
+      "source_question_id": "web_search_12"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_13",
+        "web_search_no_snippet_13"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_013",
+      "source_question_id": "web_search_13"
+    },
+    {
+      "eligibility": "NO_ELIGIBLE_SESSION",
+      "eligible_archive_record_ids": [],
+      "eligible_modes": [],
+      "independent_program_count": 0,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_014",
+      "source_question_id": "web_search_14"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_15",
+        "web_search_no_snippet_15"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_015",
+      "source_question_id": "web_search_15"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_16",
+        "web_search_no_snippet_16"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_016",
+      "source_question_id": "web_search_16"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_17",
+        "web_search_no_snippet_17"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_017",
+      "source_question_id": "web_search_17"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_18",
+        "web_search_no_snippet_18"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_018",
+      "source_question_id": "web_search_18"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_19",
+        "web_search_no_snippet_19"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_019",
+      "source_question_id": "web_search_19"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_20",
+        "web_search_no_snippet_20"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_020",
+      "source_question_id": "web_search_20"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_21",
+        "web_search_no_snippet_21"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_021",
+      "source_question_id": "web_search_21"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_22",
+        "web_search_no_snippet_22"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_022",
+      "source_question_id": "web_search_22"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_23"
+      ],
+      "eligible_modes": [
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_023",
+      "source_question_id": "web_search_23"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_24"
+      ],
+      "eligible_modes": [
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_024",
+      "source_question_id": "web_search_24"
+    },
+    {
+      "eligibility": "NO_ELIGIBLE_SESSION",
+      "eligible_archive_record_ids": [],
+      "eligible_modes": [],
+      "independent_program_count": 0,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_025",
+      "source_question_id": "web_search_25"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_26",
+        "web_search_no_snippet_26"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_026",
+      "source_question_id": "web_search_26"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_27",
+        "web_search_no_snippet_27"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_027",
+      "source_question_id": "web_search_27"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_28",
+        "web_search_no_snippet_28"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_028",
+      "source_question_id": "web_search_28"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_29"
+      ],
+      "eligible_modes": [
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_029",
+      "source_question_id": "web_search_29"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_30",
+        "web_search_no_snippet_30"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_030",
+      "source_question_id": "web_search_30"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_31",
+        "web_search_no_snippet_31"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_031",
+      "source_question_id": "web_search_31"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_32",
+        "web_search_no_snippet_32"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_032",
+      "source_question_id": "web_search_32"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_no_snippet_33"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_033",
+      "source_question_id": "web_search_33"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_34",
+        "web_search_no_snippet_34"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_034",
+      "source_question_id": "web_search_34"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_35",
+        "web_search_no_snippet_35"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_035",
+      "source_question_id": "web_search_35"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_36",
+        "web_search_no_snippet_36"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_036",
+      "source_question_id": "web_search_36"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_37",
+        "web_search_no_snippet_37"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_037",
+      "source_question_id": "web_search_37"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_38",
+        "web_search_no_snippet_38"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_038",
+      "source_question_id": "web_search_38"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_39"
+      ],
+      "eligible_modes": [
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_039",
+      "source_question_id": "web_search_39"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_40",
+        "web_search_no_snippet_40"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_040",
+      "source_question_id": "web_search_40"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_41",
+        "web_search_no_snippet_41"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_041",
+      "source_question_id": "web_search_41"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_42",
+        "web_search_no_snippet_42"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_042",
+      "source_question_id": "web_search_42"
+    },
+    {
+      "eligibility": "NO_ELIGIBLE_SESSION",
+      "eligible_archive_record_ids": [],
+      "eligible_modes": [],
+      "independent_program_count": 0,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_043",
+      "source_question_id": "web_search_43"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_44"
+      ],
+      "eligible_modes": [
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_044",
+      "source_question_id": "web_search_44"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_45",
+        "web_search_no_snippet_45"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_045",
+      "source_question_id": "web_search_45"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_46",
+        "web_search_no_snippet_46"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_046",
+      "source_question_id": "web_search_46"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_47",
+        "web_search_no_snippet_47"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_047",
+      "source_question_id": "web_search_47"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_48",
+        "web_search_no_snippet_48"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_048",
+      "source_question_id": "web_search_48"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_49",
+        "web_search_no_snippet_49"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_049",
+      "source_question_id": "web_search_49"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_50"
+      ],
+      "eligible_modes": [
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_050",
+      "source_question_id": "web_search_50"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_51"
+      ],
+      "eligible_modes": [
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_051",
+      "source_question_id": "web_search_51"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_52"
+      ],
+      "eligible_modes": [
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_052",
+      "source_question_id": "web_search_52"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_53",
+        "web_search_no_snippet_53"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_053",
+      "source_question_id": "web_search_53"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_54",
+        "web_search_no_snippet_54"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_054",
+      "source_question_id": "web_search_54"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_55",
+        "web_search_no_snippet_55"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_055",
+      "source_question_id": "web_search_55"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_56",
+        "web_search_no_snippet_56"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_056",
+      "source_question_id": "web_search_56"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_57",
+        "web_search_no_snippet_57"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_057",
+      "source_question_id": "web_search_57"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_no_snippet_58"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_058",
+      "source_question_id": "web_search_58"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_59",
+        "web_search_no_snippet_59"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_059",
+      "source_question_id": "web_search_59"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_60",
+        "web_search_no_snippet_60"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_060",
+      "source_question_id": "web_search_60"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_61"
+      ],
+      "eligible_modes": [
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_061",
+      "source_question_id": "web_search_61"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_62",
+        "web_search_no_snippet_62"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_062",
+      "source_question_id": "web_search_62"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_63",
+        "web_search_no_snippet_63"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_063",
+      "source_question_id": "web_search_63"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_64",
+        "web_search_no_snippet_64"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_064",
+      "source_question_id": "web_search_64"
+    },
+    {
+      "eligibility": "NO_ELIGIBLE_SESSION",
+      "eligible_archive_record_ids": [],
+      "eligible_modes": [],
+      "independent_program_count": 0,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_065",
+      "source_question_id": "web_search_65"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_66",
+        "web_search_no_snippet_66"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_066",
+      "source_question_id": "web_search_66"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_67",
+        "web_search_no_snippet_67"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_067",
+      "source_question_id": "web_search_67"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_68",
+        "web_search_no_snippet_68"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_068",
+      "source_question_id": "web_search_68"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_69"
+      ],
+      "eligible_modes": [
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_069",
+      "source_question_id": "web_search_69"
+    },
+    {
+      "eligibility": "NO_ELIGIBLE_SESSION",
+      "eligible_archive_record_ids": [],
+      "eligible_modes": [],
+      "independent_program_count": 0,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_070",
+      "source_question_id": "web_search_70"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_71",
+        "web_search_no_snippet_71"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_071",
+      "source_question_id": "web_search_71"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_72"
+      ],
+      "eligible_modes": [
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_072",
+      "source_question_id": "web_search_72"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_73",
+        "web_search_no_snippet_73"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_073",
+      "source_question_id": "web_search_73"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_74",
+        "web_search_no_snippet_74"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_074",
+      "source_question_id": "web_search_74"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_75"
+      ],
+      "eligible_modes": [
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_075",
+      "source_question_id": "web_search_75"
+    },
+    {
+      "eligibility": "NO_ELIGIBLE_SESSION",
+      "eligible_archive_record_ids": [],
+      "eligible_modes": [],
+      "independent_program_count": 0,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_076",
+      "source_question_id": "web_search_76"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_77",
+        "web_search_no_snippet_77"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_077",
+      "source_question_id": "web_search_77"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_78",
+        "web_search_no_snippet_78"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_078",
+      "source_question_id": "web_search_78"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_79",
+        "web_search_no_snippet_79"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_079",
+      "source_question_id": "web_search_79"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_80",
+        "web_search_no_snippet_80"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_080",
+      "source_question_id": "web_search_80"
+    },
+    {
+      "eligibility": "NO_ELIGIBLE_SESSION",
+      "eligible_archive_record_ids": [],
+      "eligible_modes": [],
+      "independent_program_count": 0,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_081",
+      "source_question_id": "web_search_81"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_82",
+        "web_search_no_snippet_82"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_082",
+      "source_question_id": "web_search_82"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_83",
+        "web_search_no_snippet_83"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_083",
+      "source_question_id": "web_search_83"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_84",
+        "web_search_no_snippet_84"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_084",
+      "source_question_id": "web_search_84"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_85",
+        "web_search_no_snippet_85"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_085",
+      "source_question_id": "web_search_85"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_86"
+      ],
+      "eligible_modes": [
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_086",
+      "source_question_id": "web_search_86"
+    },
+    {
+      "eligibility": "NO_ELIGIBLE_SESSION",
+      "eligible_archive_record_ids": [],
+      "eligible_modes": [],
+      "independent_program_count": 0,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_087",
+      "source_question_id": "web_search_87"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_88"
+      ],
+      "eligible_modes": [
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_088",
+      "source_question_id": "web_search_88"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_89",
+        "web_search_no_snippet_89"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_089",
+      "source_question_id": "web_search_89"
+    },
+    {
+      "eligibility": "NO_ELIGIBLE_SESSION",
+      "eligible_archive_record_ids": [],
+      "eligible_modes": [],
+      "independent_program_count": 0,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_090",
+      "source_question_id": "web_search_90"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_91",
+        "web_search_no_snippet_91"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_091",
+      "source_question_id": "web_search_91"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_92",
+        "web_search_no_snippet_92"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_092",
+      "source_question_id": "web_search_92"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_93",
+        "web_search_no_snippet_93"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_093",
+      "source_question_id": "web_search_93"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_94",
+        "web_search_no_snippet_94"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_094",
+      "source_question_id": "web_search_94"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_95",
+        "web_search_no_snippet_95"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_095",
+      "source_question_id": "web_search_95"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_96",
+        "web_search_no_snippet_96"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_096",
+      "source_question_id": "web_search_96"
+    },
+    {
+      "eligibility": "NO_ELIGIBLE_SESSION",
+      "eligible_archive_record_ids": [],
+      "eligible_modes": [],
+      "independent_program_count": 0,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_097",
+      "source_question_id": "web_search_97"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_98",
+        "web_search_no_snippet_98"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_098",
+      "source_question_id": "web_search_98"
+    },
+    {
+      "eligibility": "ELIGIBLE_PROGRAM_CLUSTER",
+      "eligible_archive_record_ids": [
+        "web_search_base_99",
+        "web_search_no_snippet_99"
+      ],
+      "eligible_modes": [
+        "NO_SNIPPET",
+        "SNIPPET"
+      ],
+      "independent_program_count": 1,
+      "mode_relationship": "PAIRED_VARIANTS_NOT_INDEPENDENT_PROGRAMS",
+      "program_identity": "bfcl_derived_program_099",
+      "source_question_id": "web_search_99"
+    }
+  ],
+  "status": "READY_FOR_M4_INDEPENDENT_REVIEW",
+  "workload_type": "BFCL_DERIVED_CONTROLLED_TIMING"
+}
