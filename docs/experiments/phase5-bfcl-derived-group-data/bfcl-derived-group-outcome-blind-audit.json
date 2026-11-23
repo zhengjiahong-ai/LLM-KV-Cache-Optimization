@@ -1,0 +1,27 @@
+{
+  "audit_content_sha256": "6c3831db4729c364198e0745565792461cc3b1636776756bc9865a0c3307b2e4",
+  "checks": {
+    "BOTH_MODE_ALTERNATION_STARTS_SNIPPET": true,
+    "NO_MEMBER_SUBSTITUTION": true,
+    "NO_SYSTEM_OUTCOME_INPUTS": true,
+    "PROGRAM_IDENTITIES_DISJOINT": true,
+    "SOURCE_INDEX_ASCENDING": true,
+    "SUCCESSIVE_GROUPS_OF_FOUR": true
+  },
+  "forbidden_inputs_absent": [
+    "system_outcome",
+    "candidate_exposure",
+    "victim_set",
+    "recomputation",
+    "latency",
+    "throughput"
+  ],
+  "schema_version": "phase5.bfcl_derived_group_outcome_blind_audit.v1",
+  "selection_inputs": [
+    "source_question_index",
+    "eligible_modes",
+    "frozen_membership_order",
+    "minimum_turns_per_session"
+  ],
+  "status": "PASS"
+}

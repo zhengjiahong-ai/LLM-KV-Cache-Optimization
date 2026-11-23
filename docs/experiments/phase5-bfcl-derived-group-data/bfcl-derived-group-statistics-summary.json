@@ -1,0 +1,18 @@
+{
+  "analysis_checks_pass_group_count": 12,
+  "both_mode_program_count": 71,
+  "candidate_capacity_is_formal_group_count": false,
+  "candidate_group_count": 22,
+  "candidate_program_count": 88,
+  "formal_cohort_selected": false,
+  "gpu_execution_authorized": false,
+  "member_substitution_count": 0,
+  "primary_mode_counts": {
+    "NO_SNIPPET": 37,
+    "SNIPPET": 51
+  },
+  "primary_session_below_minimum_turn_count": 14,
+  "schema_version": "phase5.bfcl_derived_group_statistics.v1",
+  "summary_content_sha256": "dd51414d69f7079a57bbeed1e9d8aebe0e36d3e8674dbb9b3ff668dbccde4620",
+  "unqualified_minimum_turn_group_count": 10
+}

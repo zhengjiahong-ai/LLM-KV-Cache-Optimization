@@ -1,0 +1,17 @@
+{
+  "calibration_groups_assigned": false,
+  "cohort_membership_content_sha256": "7f41eb6031c61417e47758619bc33a17ce21f7925c25bb29c52fab430ae420fd",
+  "cohort_preparation_seal_content_sha256": "20e1b4102cc1f17a63014ae11cc077ad25f5d8471312977a29240b52d3e4f2a3",
+  "formal_cohort_selected": false,
+  "formal_groups_assigned": false,
+  "formal_q1_q9_status": "NOT_EVALUATED",
+  "gpu_execution_authorized": false,
+  "group_manifest_content_sha256": "06e58bc03ba14c7091014e94dbfb60d1957a8e53fcb54a33d56afc7149e0dac3",
+  "lineage_validation_sha256": "61a5185c26e8c7bb7013a920ed9298adda190cac92da71b9a188292bffd78456",
+  "outcome_blind_audit_content_sha256": "6c3831db4729c364198e0745565792461cc3b1636776756bc9865a0c3307b2e4",
+  "paired_ledger_content_sha256": "8c3a10c4a4cc1f4aa6349299a29259fbe4cf8614536052322632cc2063a1d5d8",
+  "schema_version": "phase5.bfcl_derived_group_preparation_seal.v1",
+  "seal_content_sha256": "2fad52cbc22c32909402a266fa9680c489032676406db0dbc9316e5e12c46a77",
+  "statistics_summary_content_sha256": "dd51414d69f7079a57bbeed1e9d8aebe0e36d3e8674dbb9b3ff668dbccde4620",
+  "status": "READY_FOR_M4_GROUP_REVIEW"
+}
