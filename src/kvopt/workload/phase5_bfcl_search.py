@@ -302,7 +302,11 @@ class TavilyPageContentCollector:
                 if len(matches) == 1 and isinstance(
                     matches[0].get("raw_content"), str
                 ):
-                    content = matches[0]["raw_content"]
+                    extracted = matches[0]["raw_content"]
+                    if extracted.strip():
+                        content = extracted
+                    else:
+                        error = "EXTRACT_EMPTY_CONTENT"
                 elif failures:
                     error = f"EXTRACT_FAILED:{failures[0].get('error', 'UNKNOWN')}"
                 else:

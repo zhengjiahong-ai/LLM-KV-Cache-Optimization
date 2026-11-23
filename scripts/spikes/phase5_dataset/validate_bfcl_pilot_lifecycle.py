@@ -48,15 +48,26 @@ def main() -> int:
         )
         for case_id in EXPECTED_CASE_IDS
     ]
+    binding_status = (
+        "PASS"
+        if all(row["status"] == "PASS" for row in bindings)
+        else "FAIL_CLOSED"
+    )
+    binding_manifest = {
+        "case_ids": list(EXPECTED_CASE_IDS),
+        "binding_sha256_by_case_id": {
+            str(row["case_id"]): str(row["binding_sha256"])
+            for row in bindings
+        },
+        "status": binding_status,
+    }
     payload: dict[str, object] = {
         "schema_version": "phase5.bfcl_paired_pilot_trace_binding.v1",
         "case_ids": list(EXPECTED_CASE_IDS),
         "bindings": bindings,
-        "status": (
-            "PASS"
-            if all(row["status"] == "PASS" for row in bindings)
-            else "FAIL_CLOSED"
-        ),
+        "lifecycle_trace_binding_sha256": canonical_sha256(binding_manifest),
+        "lifecycle_trace_binding_status": binding_status,
+        "status": binding_status,
         "formal_cohort_selected": False,
         "gpu_execution_authorized": False,
     }

@@ -162,3 +162,23 @@ def test_tavily_page_collector_rejects_unapproved_domain_before_network(
     with pytest.raises(BFCLSearchError, match="not approved"):
         collector.fetch(url="https://other.test/page")
     assert called is False
+
+
+def test_tavily_page_collector_rejects_empty_extracted_content(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    url = "https://example.test/empty"
+    payload = json.dumps(
+        {"results": [{"url": url, "raw_content": "  \n\t"}]}
+    ).encode()
+    monkeypatch.setattr(
+        urllib.request, "urlopen", lambda *_args, **_kwargs: _Response(payload)
+    )
+    collector = TavilyPageContentCollector(
+        api_key="secret",
+        archive_root=tmp_path,
+        approved_domains=frozenset({"example.test"}),
+    )
+    fixture = collector.fetch(url=url)
+    assert fixture.content is None
+    assert fixture.error == "EXTRACT_EMPTY_CONTENT"
