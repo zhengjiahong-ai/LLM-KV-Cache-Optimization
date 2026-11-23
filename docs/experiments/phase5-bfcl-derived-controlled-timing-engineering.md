@@ -95,5 +95,9 @@ must not be committed to public Git/PR artifacts.
 
 The materializer validates the appendix canonical and file identities, the 199
 accepted IDs, all 841 frozen boundaries, Q4D/Q5D contracts and companion input
-hashes before producing evidence. Q4D/Q5D PASS is a data and deterministic replay
-contract result; it does not claim GPU Native conformance or algorithmic benefit.
+hashes before producing evidence. Each Q4D expected Schedule is rebuilt directly
+from the frozen appendix and compared with the evaluated Schedule; it is not a
+self-referential hash check. The collection reports `formal_q1_q9_status` as
+`NOT_EVALUATED` and reports Q4D/Q5D independently. Q4D/Q5D PASS is a data and
+deterministic replay contract result; it does not claim full formal Q1–Q9, GPU
+Native conformance or algorithmic benefit.

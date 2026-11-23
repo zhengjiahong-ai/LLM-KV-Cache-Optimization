@@ -16,6 +16,7 @@ from kvopt.workload.phase5_bfcl_derived import (
     BFCLSyntheticTimingCursor,
     adapt_bfcl_result_record,
     build_explicit_synthetic_tool_gap_schedule,
+    build_frozen_schedule_from_protocol_appendix,
     classify_bfcl_context_budget,
     create_bfcl_derived_workload_seal,
     evaluate_bfcl_derived_mechanical_readiness,
@@ -261,6 +262,10 @@ def main() -> int:
         if session.archive_record_id not in set(formal_eligible_ids):
             continue
         schedule = schedule_by_record[session.archive_record_id]
+        frozen_appendix_schedule = build_frozen_schedule_from_protocol_appendix(
+            session=session,
+            protocol_appendix=appendix,
+        )
         consumed_by_system = {}
         terminal_by_system = {}
         release_order_by_system = {}
@@ -283,7 +288,8 @@ def main() -> int:
         report = evaluate_bfcl_derived_q4d_q5d(
             session=session,
             schedule=schedule,
-            expected_schedule_sha256=schedule.sha256,
+            frozen_appendix_schedule=frozen_appendix_schedule,
+            frozen_appendix_schedule_map_sha256=appendix_identities["synthetic_schedule_sha256"],
             system_schedule_sha256={system: schedule.sha256 for system in REQUIRED_FORMAL_SYSTEMS},
             consumed_request_ids_by_system=consumed_by_system,
             replay_terminal_by_system=terminal_by_system,
@@ -333,6 +339,18 @@ def main() -> int:
         "q4d_pass_count": sum(row["q4d"]["status"] == "PASS" for row in q4d_q5d_reports),
         "q5d_pass_count": sum(row["q5d"]["status"] == "PASS" for row in q4d_q5d_reports),
         "formal_q1_q9_status": BFCL_DERIVED_Q1_Q9_STATUS,
+        "derived_q4d_status": (
+            "PASS"
+            if len(q4d_q5d_reports) == len(formal_eligible_ids)
+            and all(row["q4d"]["status"] == "PASS" for row in q4d_q5d_reports)
+            else "FAIL_CLOSED"
+        ),
+        "derived_q5d_status": (
+            "PASS"
+            if len(q4d_q5d_reports) == len(formal_eligible_ids)
+            and all(row["q5d"]["status"] == "PASS" for row in q4d_q5d_reports)
+            else "FAIL_CLOSED"
+        ),
         "formal_cohort_selected": False,
         "gpu_execution_authorized": False,
         "seal_content_sha256": seal["seal_content_sha256"],

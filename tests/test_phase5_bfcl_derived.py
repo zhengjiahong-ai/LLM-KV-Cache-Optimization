@@ -195,7 +195,8 @@ def test_q4d_q5d_pass_only_for_six_identical_complete_replays() -> None:
     report = evaluate_bfcl_derived_q4d_q5d(
         session=session,
         schedule=schedule,
-        expected_schedule_sha256=schedule.sha256,
+        frozen_appendix_schedule=schedule,
+        frozen_appendix_schedule_map_sha256="a" * 64,
         system_schedule_sha256={system: schedule.sha256 for system in REQUIRED_FORMAL_SYSTEMS},
         consumed_request_ids_by_system={system: request_ids for system in REQUIRED_FORMAL_SYSTEMS},
         replay_terminal_by_system={
@@ -225,12 +226,19 @@ def test_q4d_q5d_fail_closed_on_different_schedule_or_incomplete_replay() -> Non
     request_ids = [row.request_id for row in session.requests]
     system_hashes = {system: schedule.sha256 for system in REQUIRED_FORMAL_SYSTEMS}
     system_hashes["NATIVE"] = "0" * 64
+    frozen_schedule = build_explicit_synthetic_tool_gap_schedule(
+        session=session,
+        gap_seconds=(2.0,),
+        contract_sha256="d" * 64,
+        generator="DETERMINISTIC_CONSTANT_1S_V1",
+    )
     consumed = {system: request_ids for system in REQUIRED_FORMAL_SYSTEMS}
     consumed["DVA_ER_V1"] = request_ids[:-1]
     report = evaluate_bfcl_derived_q4d_q5d(
         session=session,
         schedule=schedule,
-        expected_schedule_sha256=schedule.sha256,
+        frozen_appendix_schedule=frozen_schedule,
+        frozen_appendix_schedule_map_sha256="a" * 64,
         system_schedule_sha256=system_hashes,
         consumed_request_ids_by_system=consumed,
         replay_terminal_by_system={

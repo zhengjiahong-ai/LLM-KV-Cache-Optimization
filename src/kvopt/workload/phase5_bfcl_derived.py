@@ -29,7 +29,7 @@ REQUIRED_FORMAL_SYSTEMS = (
     "DVA_ER_V1",
 )
 BFCL_DERIVED_APPENDIX_SCHEMA = "phase5.bfcl_derived_protocol_appendix.v1"
-BFCL_DERIVED_Q1_Q9_STATUS = "EVALUATED_UNDER_BFCL_DERIVED_APPENDIX_V1"
+BFCL_DERIVED_Q1_Q9_STATUS = "NOT_EVALUATED"
 
 
 class BFCLDerivedError(ValueError):
@@ -331,6 +331,31 @@ def build_explicit_synthetic_tool_gap_schedule(
     )
 
 
+def build_frozen_schedule_from_protocol_appendix(
+    *,
+    session: BFCLDerivedSession,
+    protocol_appendix: Mapping[str, Any],
+) -> BFCLSyntheticToolGapSchedule:
+    """Rebuild one expected schedule directly from the frozen appendix."""
+
+    identities = validate_bfcl_derived_protocol_appendix(protocol_appendix)
+    timing = protocol_appendix["synthetic_tool_gap_schedule"]
+    if not isinstance(timing, dict):
+        raise BFCLDerivedError("protocol appendix synthetic schedule is missing")
+    gaps_by_record = timing["gap_seconds_by_archive_record_id"]
+    if not isinstance(gaps_by_record, dict):
+        raise BFCLDerivedError("protocol appendix synthetic schedule map is missing")
+    gaps = gaps_by_record.get(session.archive_record_id)
+    if not isinstance(gaps, list):
+        raise BFCLDerivedError("session is absent from the frozen appendix schedule")
+    return build_explicit_synthetic_tool_gap_schedule(
+        session=session,
+        gap_seconds=gaps,
+        contract_sha256=identities["protocol_appendix_canonical_sha256"],
+        generator=str(timing["generator"]),
+    )
+
+
 class BFCLSyntheticTimingCursor:
     """Reveal one frozen gap only after its preceding request completes."""
 
@@ -607,7 +632,8 @@ def evaluate_bfcl_derived_q4d_q5d(
     *,
     session: BFCLDerivedSession,
     schedule: BFCLSyntheticToolGapSchedule,
-    expected_schedule_sha256: str,
+    frozen_appendix_schedule: BFCLSyntheticToolGapSchedule,
+    frozen_appendix_schedule_map_sha256: str,
     system_schedule_sha256: Mapping[str, str],
     consumed_request_ids_by_system: Mapping[str, Sequence[str]],
     replay_terminal_by_system: Mapping[str, str],
@@ -625,7 +651,9 @@ def evaluate_bfcl_derived_q4d_q5d(
             math.isfinite(float(value)) and float(value) >= 0
             for value in schedule.gap_seconds_by_preceding_request_id.values()
         ),
-        "FROZEN_SCHEDULE_HASH": schedule.sha256 == expected_schedule_sha256,
+        "FROZEN_SCHEDULE_HASH": schedule.sha256 == frozen_appendix_schedule.sha256
+        and schedule.to_dict() == frozen_appendix_schedule.to_dict()
+        and _SHA256.fullmatch(frozen_appendix_schedule_map_sha256) is not None,
         "RELEASE_ONLY_AFTER_PRECEDING_COMPLETION": set(
             released_after_preceding_completion_by_system
         )
@@ -637,7 +665,7 @@ def evaluate_bfcl_derived_q4d_q5d(
         and schedule.to_dict()["future_gap_visibility"]
         == "FORBIDDEN_UNTIL_PRECEDING_REQUEST_COMPLETES",
         "SIX_SYSTEM_SCHEDULE_IDENTITY": set(system_schedule_sha256) == set(REQUIRED_FORMAL_SYSTEMS)
-        and set(system_schedule_sha256.values()) == {expected_schedule_sha256},
+        and set(system_schedule_sha256.values()) == {frozen_appendix_schedule.sha256},
         "SYNTHETIC_TIMING_LABEL": schedule.to_dict()["timing_semantics"]
         == "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED",
     }
@@ -667,6 +695,8 @@ def evaluate_bfcl_derived_q4d_q5d(
         "archive_record_id": session.archive_record_id,
         "evidence_scope": "FROZEN_DATA_AND_DETERMINISTIC_REPLAY_CONTRACT",
         "native_runtime_conformance_claimed": False,
+        "frozen_appendix_schedule_sha256": frozen_appendix_schedule.sha256,
+        "frozen_appendix_schedule_map_sha256": frozen_appendix_schedule_map_sha256,
         "q4d": {
             "status": "PASS" if not q4_failed else "FAIL_CLOSED",
             "checks": q4_checks,
