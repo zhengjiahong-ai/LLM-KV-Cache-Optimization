@@ -33,9 +33,22 @@ class _Fixture:
 
 class _Collector:
     provider = "TEST_PROVIDER"
+    api_version = "TEST_API_V1"
 
     def search(self, **_kwargs: object) -> _Fixture:
         return _Fixture()
+
+
+class _PageFixture:
+    error = None
+    fixture_id = "page-fixture"
+    raw_response_sha256 = "b" * 64
+    content = "real page body"
+
+
+class _PageCollector:
+    def fetch(self, **_kwargs: object) -> _PageFixture:
+        return _PageFixture()
 
 
 class _WebSearch:
@@ -107,6 +120,46 @@ def test_unbound_tool_call_fails_closed(tmp_path: Path) -> None:
     )
     with pytest.raises(BFCLBridgeError, match="no bound case identity"):
         bridge.search(query="query", show_snippet=True)
+
+
+def test_bridge_executes_approved_page_fetch_and_records_lifecycle(
+    tmp_path: Path,
+) -> None:
+    clock = iter(float(value) for value in range(1, 30))
+    lifecycle = BFCLPilotEvidenceRecorder(
+        path=tmp_path / "lifecycle.jsonl",
+        monotonic=lambda: next(clock),
+        utc_now=lambda: "2026-11-22T00:00:00Z",
+    )
+    bridge = BFCLFrozenSearchBridge(
+        collector=_Collector(),  # type: ignore[arg-type]
+        event_log_path=tmp_path / "events.jsonl",
+        lifecycle_recorder=lifecycle,
+        approved_page_fetch_domains=frozenset({"x"}),
+        page_collector=_PageCollector(),  # type: ignore[arg-type]
+    )
+    module = _base_module()
+    with lifecycle.bind_case("case-1"), InstalledBFCLBridge(
+        bridge=bridge, web_search_class=_WebSearch, base_handler_module=module
+    ):
+        _search, fetch = module.execute_multi_turn_func_call(
+            ["search_engine_query(keywords='query')"], {}, [], "m", "case-1"
+        )
+    assert fetch == {"url": "https://x", "content": "real page body"}
+    events = [
+        json.loads(line)
+        for line in (tmp_path / "events.jsonl").read_text().splitlines()
+    ]
+    assert events[-1]["event"] == "URL_FETCH_COMPLETE"
+    lifecycle_events = load_lifecycle_events(tmp_path / "lifecycle.jsonl")
+    assert [row["event"] for row in lifecycle_events] == [
+        "TOOL_CALL_EMISSION",
+        "PROVIDER_REQUEST_DISPATCH",
+        "PROVIDER_RESPONSE_COMPLETE",
+        "URL_FETCH_DISPATCH",
+        "URL_FETCH_COMPLETE",
+        "TOOL_RESULT_DELIVERY",
+    ]
 
 
 def test_bridge_requires_exactly_one_mode(tmp_path: Path) -> None:

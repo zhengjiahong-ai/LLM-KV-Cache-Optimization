@@ -164,6 +164,8 @@ def validate_provider_approval(
     *,
     expected_case_bindings: Sequence[Mapping[str, object]],
     expected_provider: str,
+    expected_api_version: str,
+    expected_model_identity: Mapping[str, str],
 ) -> dict[str, object]:
     """Resolve every authority/domain hash before any endpoint network call."""
 
@@ -190,6 +192,15 @@ def validate_provider_approval(
             and _SHA256.fullmatch(expected_sha) is not None
             and file_sha256(candidate) == expected_sha
         )
+
+    def load_evidence_json(row: object) -> object:
+        if not evidence_matches(row) or not isinstance(row, dict):
+            return None
+        candidate = (approval_root / str(row["evidence_path"])).resolve()
+        try:
+            return json.loads(candidate.read_text(encoding="utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return None
 
     bindings = [dict(row) for row in expected_case_bindings]
     native_ids = [str(row["native_case_id"]) for row in bindings]
@@ -219,12 +230,22 @@ def validate_provider_approval(
         and set(authority_evidence) == {"m1", "m4"}
         and all(evidence_matches(row) for row in authority_evidence.values())
     )
+    endpoint_runtime_evidence = value.get("endpoint_runtime_evidence")
+    endpoint_runtime_identity = load_evidence_json(endpoint_runtime_evidence)
     checks = {
         "STATUS_APPROVED": value.get("status") == "APPROVED",
         "EXACT_CASE_IDS": value.get("case_ids") == native_ids,
         "FORMAL_NATIVE_CASE_BINDINGS": value.get("case_bindings") == bindings,
         "PROVIDER_PINNED": value.get("provider") == expected_provider,
-        "API_VERSION_PINNED": bool(value.get("api_version")),
+        "API_VERSION_PINNED": value.get("api_version") == expected_api_version,
+        "MODEL_IDENTITY_PINNED": value.get("model_identity")
+        == dict(expected_model_identity),
+        "ENDPOINT_RUNTIME_IDENTITY_HASH_BOUND": (
+            isinstance(endpoint_runtime_identity, dict)
+            and endpoint_runtime_identity.get("status") == "PASS"
+            and endpoint_runtime_identity.get("model_identity")
+            == dict(expected_model_identity)
+        ),
         "PAGE_FETCH_DOMAINS_PINNED": isinstance(domains, list) and bool(domains),
         "PER_DOMAIN_REVIEWS_ACCEPTED": domain_reviews_valid,
         "AUTHORITY_EVIDENCE_HASH_BOUND": authority_bound,
@@ -240,6 +261,31 @@ def validate_provider_approval(
         )
     approval_sha = file_sha256(path)
     return {**value, "checks": checks, "approval_sha256": approval_sha}
+
+
+def validate_approval_trust_anchor(
+    anchor: Mapping[str, object],
+    *,
+    approval_sha256: str,
+    committed_anchor: Mapping[str, object],
+) -> dict[str, object]:
+    """Bind mutable private approval evidence to an externally reviewed blob."""
+
+    checks = {
+        "ANCHOR_EXACTLY_MATCHES_COMMITTED_BLOB": dict(anchor)
+        == dict(committed_anchor),
+        "ANCHOR_STATUS_APPROVED": anchor.get("status") == "APPROVED",
+        "APPROVAL_SHA256_BOUND": anchor.get("approval_sha256")
+        == approval_sha256,
+        "M1_ACCEPTANCE_RECORDED": anchor.get("m1_accepted") is True,
+        "M4_ACCEPTANCE_RECORDED": anchor.get("m4_accepted") is True,
+    }
+    failed = [name for name, passed in checks.items() if not passed]
+    if failed:
+        raise BFCLPilotEvidenceError(
+            f"provider approval trust anchor is invalid: {failed}"
+        )
+    return {"checks": checks, "trust_anchor_sha256": canonical_sha256(anchor)}
 
 
 def load_lifecycle_events(path: Path) -> tuple[dict[str, object], ...]:
@@ -295,7 +341,20 @@ def evaluate_paired_pilot_lifecycle(
             row
             for row in rows
             if row.get("event")
-            in {"PROVIDER_RESPONSE_COMPLETE", "PROVIDER_REQUEST_FAILED"}
+            in {
+                "PROVIDER_RESPONSE_COMPLETE",
+                "PROVIDER_RESPONSE_ERROR",
+                "PROVIDER_REQUEST_FAILED",
+            }
+        ]
+        page_dispatches = [
+            row for row in rows if row.get("event") == "URL_FETCH_DISPATCH"
+        ]
+        page_outcomes = [
+            row
+            for row in rows
+            if row.get("event")
+            in {"URL_FETCH_COMPLETE", "URL_FETCH_ERROR", "URL_FETCH_FAILED"}
         ]
         times = [row.get("monotonic_seconds") for row in rows]
         gaps = []
@@ -328,6 +387,18 @@ def evaluate_paired_pilot_lifecycle(
                         completion.get("clock_domain") if valid else None
                     ),
                     "tool_gap_seconds": float(start) - float(end) if valid else None,
+                    "contained_event_ordinals": (
+                        [
+                            row.get("event_ordinal")
+                            for row in rows
+                            if isinstance(row.get("event_ordinal"), int)
+                            and int(completion["event_ordinal"])
+                            < int(row["event_ordinal"])
+                            < int(dispatch["event_ordinal"])
+                        ]
+                        if valid
+                        else []
+                    ),
                     "valid": valid,
                 }
             )
@@ -354,6 +425,64 @@ def evaluate_paired_pilot_lifecycle(
             for dispatch, outcome in zip(
                 provider_dispatches, provider_outcomes, strict=True
             )
+        )
+        page_order_valid = len(page_dispatches) == len(page_outcomes) and all(
+            dispatch.get("page_request_id") == outcome.get("page_request_id")
+            and isinstance(dispatch.get("event_ordinal"), int)
+            and isinstance(outcome.get("event_ordinal"), int)
+            and int(dispatch["event_ordinal"]) < int(outcome["event_ordinal"])
+            for dispatch, outcome in zip(
+                page_dispatches, page_outcomes, strict=True
+            )
+        )
+        gap_intervals = [
+            (
+                int(gap["model_response_complete_ordinal"]),
+                int(gap["next_model_request_dispatch_ordinal"]),
+            )
+            for gap in gaps
+            if gap["valid"] is True
+        ]
+
+        def inside_a_gap(
+            row: Mapping[str, object],
+            intervals: tuple[tuple[int, int], ...] = tuple(gap_intervals),
+        ) -> bool:
+            ordinal = row.get("event_ordinal")
+            return isinstance(ordinal, int) and any(
+                start < ordinal < end for start, end in intervals
+            )
+
+        inter_request_events = (
+            tool_calls
+            + tool_results
+            + provider_dispatches
+            + provider_outcomes
+            + page_dispatches
+            + page_outcomes
+        )
+        gap_coverage_valid = all(
+            any(
+                inside_a_gap(row)
+                and start < int(row["event_ordinal"]) < end
+                for row in tool_calls
+            )
+            and any(
+                inside_a_gap(row)
+                and start < int(row["event_ordinal"]) < end
+                for row in tool_results
+            )
+            and any(
+                inside_a_gap(row)
+                and start < int(row["event_ordinal"]) < end
+                for row in provider_dispatches
+            )
+            and any(
+                inside_a_gap(row)
+                and start < int(row["event_ordinal"]) < end
+                for row in provider_outcomes
+            )
+            for start, end in gap_intervals
         )
         terminal_mapping_valid = False
         terminal_reason_valid = False
@@ -402,6 +531,22 @@ def evaluate_paired_pilot_lifecycle(
             "TOOL_CALL_RESULT_BALANCED": tool_order_valid and bool(tool_calls),
             "PROVIDER_LIFECYCLE_BALANCED": (
                 provider_order_valid and bool(provider_dispatches)
+            ),
+            "PAGE_LIFECYCLE_BALANCED_IF_PRESENT": page_order_valid,
+            "TOOL_AND_PROVIDER_EVENTS_INSIDE_MODEL_GAPS": (
+                bool(gap_intervals)
+                and all(inside_a_gap(row) for row in inter_request_events)
+                and gap_coverage_valid
+            ),
+            "NO_PROVIDER_OR_PAGE_ERROR": all(
+                row.get("event")
+                not in {
+                    "PROVIDER_RESPONSE_ERROR",
+                    "PROVIDER_REQUEST_FAILED",
+                    "URL_FETCH_ERROR",
+                    "URL_FETCH_FAILED",
+                }
+                for row in provider_outcomes + page_outcomes
             ),
             "ALL_TOOL_GAPS_OBSERVED": (
                 len(gaps) == expected_gap_count
@@ -462,6 +607,7 @@ def validate_lifecycle_trace_binding(
     completions = [
         row for row in rows if row.get("event") == "MODEL_RESPONSE_COMPLETE"
     ]
+    terminals = [row for row in rows if row.get("event") == "SESSION_TERMINAL"]
     turn_bindings = []
     for turn, dispatch, completion in zip(
         trace.turns, dispatches, completions, strict=False
@@ -491,6 +637,14 @@ def validate_lifecycle_trace_binding(
                 "status": "PASS" if all(checks.values()) else "FAIL_CLOSED",
             }
         )
+    terminal_checks = {
+        "EXACTLY_ONE_LIFECYCLE_TERMINAL": len(terminals) == 1,
+        "TRACE_TERMINAL_MATCHES_LIFECYCLE": (
+            len(terminals) == 1
+            and trace.terminal_state.value
+            == terminals[0].get("trace_terminal_state")
+        ),
+    }
     payload: dict[str, object] = {
         "schema_version": "phase5.bfcl_lifecycle_trace_binding.v1",
         "case_id": case_id,
@@ -500,10 +654,13 @@ def validate_lifecycle_trace_binding(
         "dispatch_count": len(dispatches),
         "completion_count": len(completions),
         "turn_bindings": turn_bindings,
+        "numeric_binding_semantics": "EXACT_JSON_NUMBER_VALUE",
+        "terminal_checks": terminal_checks,
         "status": (
             "PASS"
             if len(trace.turns) == len(dispatches) == len(completions)
             and all(row["status"] == "PASS" for row in turn_bindings)
+            and all(terminal_checks.values())
             else "FAIL_CLOSED"
         ),
     }

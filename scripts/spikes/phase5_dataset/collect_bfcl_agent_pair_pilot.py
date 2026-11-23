@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import subprocess
 import traceback
 import urllib.request
 from pathlib import Path
@@ -31,14 +33,24 @@ from kvopt.workload.phase5_bfcl_pilot_evidence import (
     classify_inference_terminal,
     evaluate_paired_pilot_lifecycle,
     load_lifecycle_events,
+    validate_approval_trust_anchor,
     validate_provider_approval,
 )
-from kvopt.workload.phase5_bfcl_search import TavilyFixtureCollector
+from kvopt.workload.phase5_bfcl_search import (
+    TavilyFixtureCollector,
+    TavilyPageContentCollector,
+)
 from kvopt.workload.phase5_dataset_processing import file_sha256
 from kvopt.workload.phase5_replay import canonical_sha256
 
 MODEL = "Qwen/Qwen2.5-Coder-1.5B-Instruct"
 MODEL_REVISION = "d18ecad881a290f0c792f1c2b5dbee1820d4a424"
+TOKENIZER_REVISION = MODEL_REVISION
+CHAT_TEMPLATE_SHA256 = (
+    "44d5f08f3f72b837eaad09f13a54c1f9f4eb58d75240334548b7fd52a5437fa5"
+)
+PROVIDER = "TAVILY_SEARCH_API_WITH_TAVILY_EXTRACT"
+PROVIDER_API_VERSION = "TAVILY_HTTP_API_V1"
 
 
 def _run_inference(
@@ -67,6 +79,9 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--source-index", type=int, default=0)
     parser.add_argument("--provider-approval", type=Path, required=True)
+    parser.add_argument("--approval-trust-anchor", type=Path, required=True)
+    parser.add_argument("--approval-git-commit", required=True)
+    parser.add_argument("--repository", type=Path, required=True)
     return parser.parse_args()
 
 
@@ -103,18 +118,67 @@ def main() -> int:
     approval = validate_provider_approval(
         args.provider_approval,
         expected_case_bindings=expected_bindings,
-        expected_provider="TAVILY_SEARCH_API",
+        expected_provider=PROVIDER,
+        expected_api_version=PROVIDER_API_VERSION,
+        expected_model_identity={
+            "model": MODEL,
+            "model_revision": MODEL_REVISION,
+            "tokenizer_revision": TOKENIZER_REVISION,
+            "chat_template_sha256": CHAT_TEMPLATE_SHA256,
+        },
+    )
+    repository = args.repository.resolve()
+    anchor_path = args.approval_trust_anchor.resolve()
+    if repository not in anchor_path.parents:
+        raise RuntimeError("approval trust anchor must be inside the repository")
+    relative_anchor = anchor_path.relative_to(repository)
+    committed_anchor_bytes = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repository),
+            "show",
+            f"{args.approval_git_commit}:{relative_anchor.as_posix()}",
+        ],
+        check=True,
+        capture_output=True,
+    ).stdout
+    anchor_bytes = anchor_path.read_bytes()
+    if anchor_bytes != committed_anchor_bytes:
+        raise RuntimeError("working approval trust anchor differs from Git blob")
+    anchor = json.loads(anchor_bytes)
+    committed_anchor = json.loads(committed_anchor_bytes)
+    trust_anchor = validate_approval_trust_anchor(
+        anchor,
+        approval_sha256=approval["approval_sha256"],
+        committed_anchor=committed_anchor,
     )
     api_key = os.environ.get("TAVILY_API_KEY", "")
     base_url = os.environ.get("REMOTE_OPENAI_BASE_URL", "")
     endpoint_key = os.environ.get("REMOTE_OPENAI_API_KEY", "EMPTY")
     tokenizer_path = os.environ.get("REMOTE_OPENAI_TOKENIZER_PATH", "")
+    model_revision = os.environ.get("REMOTE_OPENAI_MODEL_REVISION", "")
+    tokenizer_revision = os.environ.get("REMOTE_OPENAI_TOKENIZER_REVISION", "")
     if not api_key:
         raise RuntimeError("TAVILY_API_KEY is required")
     if not base_url:
         raise RuntimeError("REMOTE_OPENAI_BASE_URL is required")
     if not tokenizer_path:
         raise RuntimeError("REMOTE_OPENAI_TOKENIZER_PATH is required")
+    if model_revision != MODEL_REVISION:
+        raise RuntimeError("REMOTE_OPENAI_MODEL_REVISION does not match the freeze")
+    if tokenizer_revision != TOKENIZER_REVISION:
+        raise RuntimeError(
+            "REMOTE_OPENAI_TOKENIZER_REVISION does not match the freeze"
+        )
+    tokenizer_config_path = Path(tokenizer_path) / "tokenizer_config.json"
+    tokenizer_config = json.loads(tokenizer_config_path.read_text(encoding="utf-8"))
+    chat_template = tokenizer_config.get("chat_template")
+    if not isinstance(chat_template, str):
+        raise TypeError("tokenizer chat_template is missing")
+    chat_template_sha256 = hashlib.sha256(chat_template.encode()).hexdigest()
+    if chat_template_sha256 != CHAT_TEMPLATE_SHA256:
+        raise RuntimeError("tokenizer chat_template SHA-256 does not match the freeze")
     if MODEL not in _endpoint_models(base_url, endpoint_key):
         raise RuntimeError(f"endpoint does not serve {MODEL}")
 
@@ -125,11 +189,17 @@ def main() -> int:
     collector = TavilyFixtureCollector(
         api_key=api_key, archive_root=args.output / "search-evidence"
     )
+    page_collector = TavilyPageContentCollector(
+        api_key=api_key,
+        archive_root=args.output / "page-evidence",
+        approved_domains=frozenset(approval["page_fetch_domains"]),
+    )
     bridge = BFCLFrozenSearchBridge(
         collector=collector,
         event_log_path=tool_events,
         lifecycle_recorder=lifecycle,
         approved_page_fetch_domains=frozenset(approval["page_fetch_domains"]),
+        page_collector=page_collector,
     )
 
     selected = []
@@ -190,7 +260,14 @@ def main() -> int:
         if event["event"] == "REAL_SEARCH_ACQUIRED"
     }
     url_fetch_events = [
-        event for event in events if event["event"] == "URL_CONTENT_NOT_AUTHORIZED"
+        event
+        for event in events
+        if event["event"]
+        in {
+            "URL_CONTENT_NOT_AUTHORIZED",
+            "URL_FETCH_COMPLETE",
+            "URL_FETCH_ERROR",
+        }
     ]
     observed_page_domains = {
         str(event.get("url_domain")) for event in url_fetch_events
@@ -205,8 +282,12 @@ def main() -> int:
     blockers = []
     if observed_search_ids != set(expected_ids):
         blockers.append("SEARCH_NOT_OBSERVED_FOR_BOTH_CASES")
-    if url_fetch_events:
+    if any(
+        event["event"] != "URL_FETCH_COMPLETE" for event in url_fetch_events
+    ):
         blockers.append("URL_CONTENT_REQUESTED_BUT_NOT_AUTHORIZED")
+    if not url_fetch_events:
+        blockers.append("URL_CONTENT_NOT_OBSERVED")
     if observed_page_domains != approved_page_domains:
         blockers.append("OBSERVED_PAGE_DOMAINS_DIFFER_FROM_APPROVAL")
     if result_errors:
@@ -220,6 +301,10 @@ def main() -> int:
         "case_ids": expected_ids,
         "model": MODEL,
         "model_revision": MODEL_REVISION,
+        "tokenizer_revision": TOKENIZER_REVISION,
+        "chat_template_sha256": chat_template_sha256,
+        "provider": PROVIDER,
+        "provider_api_version": PROVIDER_API_VERSION,
         "tool_event_count": len(events),
         "real_search_event_count": sum(
             event["event"] == "REAL_SEARCH_ACQUIRED" for event in events
@@ -235,6 +320,8 @@ def main() -> int:
         "lifecycle_events_sha256": file_sha256(lifecycle_path),
         "lifecycle_report_sha256": file_sha256(lifecycle_report_path),
         "provider_approval_sha256": approval["approval_sha256"],
+        "approval_trust_anchor_sha256": trust_anchor["trust_anchor_sha256"],
+        "approval_git_commit": args.approval_git_commit,
     }
     report["pilot_sha256"] = canonical_sha256(report)
     report_path = args.output / "pilot-report.json"

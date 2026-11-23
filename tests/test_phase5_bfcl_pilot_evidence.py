@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -12,6 +13,7 @@ from kvopt.workload.phase5_bfcl_pilot_evidence import (
     classify_inference_terminal,
     evaluate_paired_pilot_lifecycle,
     load_lifecycle_events,
+    validate_approval_trust_anchor,
     validate_lifecycle_trace_binding,
     validate_provider_approval,
 )
@@ -126,6 +128,53 @@ def test_lifecycle_timestamps_bind_exactly_to_normalized_trace(tmp_path: Path) -
     assert validate_lifecycle_trace_binding(
         events, case_id="case", trace=trace
     )["status"] == "PASS"
+    failed_trace = replace(trace, terminal_state=TraceTerminalState.FAILED)
+    failed_binding = validate_lifecycle_trace_binding(
+        events, case_id="case", trace=failed_trace
+    )
+    assert failed_binding["status"] == "FAIL_CLOSED"
+    assert (
+        failed_binding["terminal_checks"][
+            "TRACE_TERMINAL_MATCHES_LIFECYCLE"
+        ]
+        is False
+    )
+
+
+def test_tool_and_provider_events_outside_model_gap_fail_closed(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "events.jsonl"
+    recorder = BFCLPilotEvidenceRecorder(
+        path=path, monotonic=_Clock(), utc_now=lambda: "2026-11-22T00:00:00Z"
+    )
+    handler = _Handler()
+    for case_id in ("snippet", "no-snippet"):
+        with recorder.bind_case(case_id), recorder.instrument_model_query(handler):
+            recorder.record("TOOL_CALL_EMISSION", tool_call_id=f"{case_id}:tool:1")
+            recorder.record(
+                "PROVIDER_REQUEST_DISPATCH",
+                provider_request_id=f"{case_id}:provider:1",
+            )
+            recorder.record(
+                "PROVIDER_RESPONSE_COMPLETE",
+                provider_request_id=f"{case_id}:provider:1",
+            )
+            recorder.record(
+                "TOOL_RESULT_DELIVERY", tool_call_id=f"{case_id}:tool:1"
+            )
+            handler._query_FC({})
+            handler._query_FC({})
+            recorder.terminal(AcquisitionTerminalState.NATURAL_COMPLETION)
+    report = evaluate_paired_pilot_lifecycle(
+        load_lifecycle_events(path),
+        expected_case_ids=("snippet", "no-snippet"),
+    )
+    assert report["status"] == "FAIL_CLOSED"
+    assert all(
+        case["checks"]["TOOL_AND_PROVIDER_EVENTS_INSIDE_MODEL_GAPS"] is False
+        for case in report["cases"]
+    )
 
 
 def test_terminal_before_later_event_and_wrong_mapping_fail_closed() -> None:
@@ -258,6 +307,20 @@ def test_provider_approval_resolves_authority_and_domain_evidence(
         path = tmp_path / name
         path.write_text(name)
         evidence[name] = hashlib.sha256(path.read_bytes()).hexdigest()
+    endpoint_identity = {
+        "status": "PASS",
+        "model_identity": {
+            "model": "model",
+            "model_revision": "revision",
+            "tokenizer_revision": "revision",
+            "chat_template_sha256": "b" * 64,
+        },
+    }
+    endpoint_path = tmp_path / "endpoint-runtime.json"
+    endpoint_path.write_text(json.dumps(endpoint_identity))
+    evidence["endpoint-runtime.json"] = hashlib.sha256(
+        endpoint_path.read_bytes()
+    ).hexdigest()
     bindings = [
         {
             "native_case_id": "native-snippet",
@@ -276,6 +339,12 @@ def test_provider_approval_resolves_authority_and_domain_evidence(
         "case_bindings": bindings,
         "provider": "TEST_PROVIDER",
         "api_version": "v1",
+        "model_identity": {
+            "model": "model",
+            "model_revision": "revision",
+            "tokenizer_revision": "revision",
+            "chat_template_sha256": "b" * 64,
+        },
         "page_fetch_domains": ["example.test"],
         "domain_reviews": [
             {
@@ -298,6 +367,10 @@ def test_provider_approval_resolves_authority_and_domain_evidence(
                 "evidence_sha256": evidence["m4.md"],
             },
         },
+        "endpoint_runtime_evidence": {
+            "evidence_path": "endpoint-runtime.json",
+            "evidence_sha256": evidence["endpoint-runtime.json"],
+        },
         "m4_technical_provenance_accepted": True,
         "m1_permission_confirmed": True,
     }
@@ -307,6 +380,13 @@ def test_provider_approval_resolves_authority_and_domain_evidence(
         path,
         expected_case_bindings=bindings,
         expected_provider="TEST_PROVIDER",
+        expected_api_version="v1",
+        expected_model_identity={
+            "model": "model",
+            "model_revision": "revision",
+            "tokenizer_revision": "revision",
+            "chat_template_sha256": "b" * 64,
+        },
     )
     assert all(report["checks"].values())
 
@@ -316,6 +396,13 @@ def test_provider_approval_resolves_authority_and_domain_evidence(
             path,
             expected_case_bindings=bindings,
             expected_provider="TEST_PROVIDER",
+            expected_api_version="v1",
+            expected_model_identity={
+                "model": "model",
+                "model_revision": "revision",
+                "tokenizer_revision": "revision",
+                "chat_template_sha256": "b" * 64,
+            },
         )
 
 
@@ -351,5 +438,26 @@ def test_provider_approval_rejects_duplicate_domain_reviews(tmp_path: Path) -> N
     )
     with pytest.raises(BFCLPilotEvidenceError, match="not execution-ready"):
         validate_provider_approval(
-            path, expected_case_bindings=[], expected_provider="TEST_PROVIDER"
+            path,
+            expected_case_bindings=[],
+            expected_provider="TEST_PROVIDER",
+            expected_api_version="v1",
+            expected_model_identity={},
+        )
+
+
+def test_approval_trust_anchor_binds_private_approval_sha() -> None:
+    anchor = {
+        "status": "APPROVED",
+        "approval_sha256": "a" * 64,
+        "m1_accepted": True,
+        "m4_accepted": True,
+    }
+    report = validate_approval_trust_anchor(
+        anchor, approval_sha256="a" * 64, committed_anchor=anchor
+    )
+    assert all(report["checks"].values())
+    with pytest.raises(BFCLPilotEvidenceError, match="trust anchor"):
+        validate_approval_trust_anchor(
+            anchor, approval_sha256="b" * 64, committed_anchor=anchor
         )

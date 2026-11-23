@@ -21,6 +21,7 @@ from .phase5_bfcl_search import (
     BFCLSearchError,
     DeterministicSearchReplay,
     TavilyFixtureCollector,
+    TavilyPageContentCollector,
 )
 from .phase5_replay import canonical_sha256
 
@@ -44,6 +45,7 @@ class BFCLFrozenSearchBridge:
         replay: DeterministicSearchReplay | None = None,
         lifecycle_recorder: BFCLPilotEvidenceRecorder | None = None,
         approved_page_fetch_domains: frozenset[str] = frozenset(),
+        page_collector: TavilyPageContentCollector | None = None,
     ) -> None:
         if (collector is None) == (replay is None):
             raise BFCLBridgeError("configure exactly one of collector or replay")
@@ -52,9 +54,11 @@ class BFCLFrozenSearchBridge:
         self.event_log_path = event_log_path
         self.lifecycle_recorder = lifecycle_recorder
         self.approved_page_fetch_domains = approved_page_fetch_domains
+        self.page_collector = page_collector
         self._lock = threading.Lock()
         self._provider_ordinals: Counter[str] = Counter()
         self._tool_batch_ordinals: Counter[str] = Counter()
+        self._page_ordinals: Counter[str] = Counter()
 
     @property
     def mode(self) -> str:
@@ -82,6 +86,7 @@ class BFCLFrozenSearchBridge:
                     "PROVIDER_REQUEST_DISPATCH",
                     provider_request_id=provider_request_id,
                     provider=self.collector.provider,
+                    provider_api_version=self.collector.api_version,
                     query_sha256=canonical_sha256(query),
                 )
             try:
@@ -94,16 +99,26 @@ class BFCLFrozenSearchBridge:
                         "PROVIDER_REQUEST_FAILED",
                         provider_request_id=provider_request_id,
                         provider=self.collector.provider,
+                        provider_api_version=self.collector.api_version,
                         error_type=type(error).__name__,
                     )
                 raise
             if self.lifecycle_recorder is not None:
                 self.lifecycle_recorder.record(
-                    "PROVIDER_RESPONSE_COMPLETE",
+                    (
+                        "PROVIDER_RESPONSE_COMPLETE"
+                        if fixture.error is None
+                        else "PROVIDER_RESPONSE_ERROR"
+                    ),
                     provider_request_id=provider_request_id,
                     provider=self.collector.provider,
+                    provider_api_version=self.collector.api_version,
                     fixture_id=fixture.fixture_id,
                     raw_response_sha256=fixture.raw_response_sha256,
+                    provider_outcome_status=(
+                        "SUCCESS" if fixture.error is None else "ERROR"
+                    ),
+                    provider_error=fixture.error,
                 )
             if fixture.error is not None:
                 raise BFCLSearchError(f"real provider error: {fixture.error}")
@@ -140,28 +155,88 @@ class BFCLFrozenSearchBridge:
             case_id=case_id,
         )
 
-    def reject_url_fetch(self, *, url: str, mode: str) -> dict[str, str]:
+    def fetch_url_content(self, *, url: str, mode: str) -> dict[str, str]:
         case_id = _CURRENT_CASE_ID.get()
         if not case_id:
             raise BFCLBridgeError("BFCL URL fetch has no bound case identity")
         domain = (urlparse(url).hostname or "").lower()
+        approved = domain in self.approved_page_fetch_domains
+        if self.page_collector is None or not approved:
+            event = {
+                "event": "URL_CONTENT_NOT_AUTHORIZED",
+                "case_id": case_id,
+                "url": url,
+                "url_domain": domain,
+                "mode": mode,
+                "search_snippet_used_as_page_content": False,
+                "approved_page_fetch_domains": sorted(
+                    self.approved_page_fetch_domains
+                ),
+                "domain_approved": approved,
+            }
+            self._record(event)
+            return {
+                "error": (
+                    "Phase 5 URL-content acquisition is not authorized; "
+                    "search snippets were not substituted for page content"
+                )
+            }
+
+        self._page_ordinals[case_id] += 1
+        page_request_id = f"{case_id}:page:{self._page_ordinals[case_id]}"
+        if self.lifecycle_recorder is not None:
+            self.lifecycle_recorder.record(
+                "URL_FETCH_DISPATCH",
+                page_request_id=page_request_id,
+                url_sha256=canonical_sha256(url),
+                url_domain=domain,
+            )
+        try:
+            fixture = self.page_collector.fetch(url=url, mode=mode)
+        except BaseException as error:
+            if self.lifecycle_recorder is not None:
+                self.lifecycle_recorder.record(
+                    "URL_FETCH_FAILED",
+                    page_request_id=page_request_id,
+                    url_domain=domain,
+                    error_type=type(error).__name__,
+                )
+            raise
+        outcome = "URL_FETCH_COMPLETE" if fixture.error is None else "URL_FETCH_ERROR"
+        if self.lifecycle_recorder is not None:
+            self.lifecycle_recorder.record(
+                outcome,
+                page_request_id=page_request_id,
+                url_domain=domain,
+                fixture_id=fixture.fixture_id,
+                raw_response_sha256=fixture.raw_response_sha256,
+                provider_outcome_status=(
+                    "SUCCESS" if fixture.error is None else "ERROR"
+                ),
+                provider_error=fixture.error,
+            )
         event = {
-            "event": "URL_CONTENT_NOT_AUTHORIZED",
+            "event": outcome,
             "case_id": case_id,
             "url": url,
             "url_domain": domain,
             "mode": mode,
             "search_snippet_used_as_page_content": False,
             "approved_page_fetch_domains": sorted(self.approved_page_fetch_domains),
-            "domain_approved": domain in self.approved_page_fetch_domains,
+            "domain_approved": True,
+            "fixture_id": fixture.fixture_id,
+            "raw_response_sha256": fixture.raw_response_sha256,
+            "content_sha256": (
+                canonical_sha256(fixture.content)
+                if fixture.content is not None
+                else None
+            ),
+            "error": fixture.error,
         }
         self._record(event)
-        return {
-            "error": (
-                "Phase 5 URL-content acquisition is not authorized; "
-                "search snippets were not substituted for page content"
-            )
-        }
+        if fixture.error is not None or fixture.content is None:
+            return {"error": fixture.error or "PAGE_CONTENT_MISSING"}
+        return {"url": url, "content": fixture.content}
 
     def _record(self, event: dict[str, object]) -> None:
         payload = {
@@ -217,7 +292,7 @@ class InstalledBFCLBridge:
         def fetch_url_content(
             _instance: object, url: str, mode: str = "raw"
         ) -> dict[str, str]:
-            return bridge.reject_url_fetch(url=url, mode=mode)
+            return bridge.fetch_url_content(url=url, mode=mode)
 
         def execute_with_case_identity(
             func_call_list: list[str],
