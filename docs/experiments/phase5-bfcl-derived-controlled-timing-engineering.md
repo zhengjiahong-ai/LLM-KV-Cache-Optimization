@@ -1,7 +1,7 @@
 # Phase 5 BFCL Derived Controlled-Timing Engineering
 
-**Status:** CPU engineering implemented; final qualification pending the frozen
-M4 protocol appendix. No GPU or network acquisition is authorized by this work.
+**Status:** Frozen M4 appendix integrated; offline materialization and Q4D/Q5D
+evaluation implemented. No Formal Cohort or GPU execution is authorized.
 
 ## Scope
 
@@ -34,6 +34,13 @@ would have existed.
   Definitions, Arrival Generator, per-Session timing and Token IDs.
 - One cross-system timing identity shared by Native, Continuum Official, A0,
   A1, A3 and DVA-ER v1.
+- Independent Q4D/Q5D evaluation with fail-closed six-system schedule identity,
+  exact-once request consumption and terminal-state separation.
+- Mechanical context-budget partitioning into 40
+  `EXCLUDED_CONTEXT_BUDGET` Sessions and 159 derived-qualified Sessions without
+  failing the whole collection.
+- A hash-bound `context-budget-exclusions.json` included in the workload Seal
+  and archive manifest.
 - Formal Cohort selection and GPU authorization remain false.
 
 The historical assistant tool-call list is converted to replay prompt text only
@@ -52,11 +59,9 @@ Read-only validation against the two pinned BFCL-Result archives found:
 - reconstructed model requests: 1,040;
 - adapter parse failures: 0.
 
-This exposes an ambiguity in the M1 decision text: it states “99 SNIPPET + 99
-NO_SNIPPET” and also states a total of 199. The pinned archive evidence is 100
-SNIPPET + 99 NO_SNIPPET = 199. The engineering code does not choose an extra
-SNIPPET exclusion; the M4 appendix must supply the complete ordered accepted-ID
-list.
+The frozen appendix resolves the accepted population as 100 SNIPPET plus 99
+NO_SNIPPET Sessions. The only archive-level exclusion remains
+`web_search_no_snippet_51`.
 
 Using the pinned Qwen tokenizer and chat-template identity, the read-only
 materialization check found:
@@ -67,10 +72,11 @@ materialization check found:
 | NO_SNIPPET | 99 | 569 | 41 | 26 | 210,085 |
 | Total | 199 | 1,040 | 63 | 40 | 210,085 |
 
-These requests remain fail-closed under the current 32,640 Prompt Token limit.
-The implementation does not truncate Tool Results, shorten history, split a
-Session or reconstruct a different Prompt. M4 must specify their qualification
-treatment in the special-workload appendix.
+The 40 affected Sessions remain in the evidence ledger and are marked
+`EXCLUDED_CONTEXT_BUDGET`; they do not receive Q4D/Q5D PASS and do not enter the
+eligible derived population. The other 159 Sessions continue, and the collection
+status is `READY_WITH_CONTEXT_EXCLUSIONS`. The implementation does not truncate
+Tool Results, shorten history, split a Session or reconstruct a different Prompt.
 
 ## Materialization entry point
 
@@ -87,7 +93,7 @@ The script refuses to overwrite output and requires the output directory to be
 inside the private Evidence Root. Raw third-party content and derived Token IDs
 must not be committed to public Git/PR artifacts.
 
-Until the M4 appendix supplies the exact accepted IDs, Synthetic Gap schedule,
-context treatment and Q4/Q5 rules, generated engineering readiness reports are
-explicitly labeled `NOT_EVALUATED_PENDING_FROZEN_M4_APPENDIX`; they are not
-formal Q1–Q9 results.
+The materializer validates the appendix canonical and file identities, the 199
+accepted IDs, all 841 frozen boundaries, Q4D/Q5D contracts and companion input
+hashes before producing evidence. Q4D/Q5D PASS is a data and deterministic replay
+contract result; it does not claim GPU Native conformance or algorithmic benefit.

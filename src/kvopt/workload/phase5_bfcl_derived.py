@@ -28,6 +28,8 @@ REQUIRED_FORMAL_SYSTEMS = (
     "A3_SUFFIX",
     "DVA_ER_V1",
 )
+BFCL_DERIVED_APPENDIX_SCHEMA = "phase5.bfcl_derived_protocol_appendix.v1"
+BFCL_DERIVED_Q1_Q9_STATUS = "EVALUATED_UNDER_BFCL_DERIVED_APPENDIX_V1"
 
 
 class BFCLDerivedError(ValueError):
@@ -40,6 +42,77 @@ class BFCLSourceTerminalState(StrEnum):
 
 class BFCLReplayTerminalState(StrEnum):
     REPLAY_TRACE_EXHAUSTED = "REPLAY_TRACE_EXHAUSTED"
+
+
+def validate_bfcl_derived_protocol_appendix(
+    appendix: Mapping[str, Any], *, file_sha256: str | None = None
+) -> dict[str, str]:
+    """Validate the frozen appendix and return its bound contract identities."""
+
+    if appendix.get("schema_version") != BFCL_DERIVED_APPENDIX_SCHEMA:
+        raise BFCLDerivedError("unsupported BFCL derived protocol appendix")
+    if appendix.get("status") != "FROZEN":
+        raise BFCLDerivedError("BFCL derived protocol appendix is not frozen")
+    if appendix.get("workload_type") != "BFCL_DERIVED_CONTROLLED_TIMING":
+        raise BFCLDerivedError("BFCL derived workload type mismatch")
+    canonical_payload = dict(appendix)
+    observed_canonical = canonical_payload.pop("protocol_appendix_sha256", None)
+    if observed_canonical != canonical_sha256(canonical_payload):
+        raise BFCLDerivedError("protocol appendix canonical SHA-256 mismatch")
+    if file_sha256 is not None and _SHA256.fullmatch(file_sha256) is None:
+        raise BFCLDerivedError("protocol appendix file SHA-256 is invalid")
+
+    accepted = appendix.get("accepted_archive_record_ids")
+    excluded = appendix.get("excluded_archive_record_ids")
+    timing = appendix.get("synthetic_tool_gap_schedule")
+    if not isinstance(accepted, list) or not isinstance(excluded, list):
+        raise BFCLDerivedError("protocol appendix identity lists are missing")
+    if len(accepted) != 199 or len(accepted) != len(set(accepted)):
+        raise BFCLDerivedError("protocol appendix accepted identity set is invalid")
+    if excluded != ["web_search_no_snippet_51"] or set(accepted) & set(excluded):
+        raise BFCLDerivedError("protocol appendix exclusion identity is invalid")
+    accepted_ids_sha256 = canonical_sha256(accepted)
+    if not isinstance(timing, dict):
+        raise BFCLDerivedError("protocol appendix synthetic schedule is missing")
+    gaps = timing.get("gap_seconds_by_archive_record_id")
+    if (
+        timing.get("generator") != "DETERMINISTIC_CONSTANT_1S_V1"
+        or timing.get("timing_semantics") != "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED"
+        or not isinstance(gaps, dict)
+        or set(gaps) != set(accepted)
+    ):
+        raise BFCLDerivedError("protocol appendix synthetic schedule contract drifted")
+    flat_gaps: list[float] = []
+    for record_id in accepted:
+        values = gaps.get(record_id)
+        if not isinstance(values, list):
+            raise BFCLDerivedError("protocol appendix synthetic schedule row is invalid")
+        if any(
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(float(value))
+            or float(value) != 1.0
+            for value in values
+        ):
+            raise BFCLDerivedError("protocol appendix synthetic gap value drifted")
+        flat_gaps.extend(float(value) for value in values)
+    synthetic_schedule_sha256 = canonical_sha256(timing)
+    if len(flat_gaps) != 841:
+        raise BFCLDerivedError("protocol appendix synthetic boundary count mismatch")
+    contract_hashes = {}
+    for key in ("q4_derived", "q5_derived"):
+        value = appendix.get(key)
+        if not isinstance(value, dict):
+            raise BFCLDerivedError(f"protocol appendix {key} contract is missing")
+        contract_hashes[key] = canonical_sha256(value)
+    return {
+        "protocol_appendix_canonical_sha256": str(observed_canonical),
+        "protocol_appendix_file_sha256": file_sha256 or "NOT_PROVIDED",
+        "accepted_ids_sha256": accepted_ids_sha256,
+        "synthetic_schedule_sha256": synthetic_schedule_sha256,
+        "q4_derived_sha256": contract_hashes["q4_derived"],
+        "q5_derived_sha256": contract_hashes["q5_derived"],
+    }
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,9 +154,7 @@ class BFCLDerivedSession:
             raise BFCLDerivedError("raw record SHA-256 is invalid")
         if not self.requests:
             raise BFCLDerivedError("derived session contains no model requests")
-        if tuple(row.ordinal for row in self.requests) != tuple(
-            range(1, len(self.requests) + 1)
-        ):
+        if tuple(row.ordinal for row in self.requests) != tuple(range(1, len(self.requests) + 1)):
             raise BFCLDerivedError("derived request ordinals are not contiguous")
         ids = [row.request_id for row in self.requests]
         if len(ids) != len(set(ids)):
@@ -157,9 +228,7 @@ def adapt_bfcl_result_record(
         assistants = [row for row in semantic if row.get("role") == "assistant"]
         if len(assistants) != 1 or semantic[0] is not assistants[0]:
             raise BFCLDerivedError("step must begin with exactly one assistant response")
-        tool_messages = tuple(
-            dict(row) for row in semantic[1:] if row.get("role") == "tool"
-        )
+        tool_messages = tuple(dict(row) for row in semantic[1:] if row.get("role") == "tool")
         if len(tool_messages) != len(semantic) - 1:
             raise BFCLDerivedError("step contains unsupported semantic message ordering")
         request = BFCLDerivedRequest(
@@ -324,6 +393,60 @@ def materialize_derived_tokens(
     return tuple(rows)
 
 
+def classify_bfcl_context_budget(
+    *,
+    sessions: Sequence[BFCLDerivedSession],
+    token_materializations_by_record: Mapping[str, Sequence[TokenMaterialization]],
+    maximum_prompt_tokens: int,
+    maximum_generation_tokens: int,
+    maximum_combined_tokens: int,
+) -> dict[str, object]:
+    """Mechanically partition accepted sessions without failing the collection."""
+
+    if set(token_materializations_by_record) != {session.archive_record_id for session in sessions}:
+        raise BFCLDerivedError("context classification token coverage mismatch")
+    exclusions = []
+    eligible_ids = []
+    for session in sessions:
+        over_limit = [
+            {
+                "request_id": row.request_id,
+                "prompt_tokens": len(row.token_ids),
+                "combined_tokens": len(row.token_ids) + maximum_generation_tokens,
+            }
+            for row in token_materializations_by_record[session.archive_record_id]
+            if len(row.token_ids) > maximum_prompt_tokens
+            or len(row.token_ids) + maximum_generation_tokens > maximum_combined_tokens
+        ]
+        if over_limit:
+            exclusions.append(
+                {
+                    "archive_record_id": session.archive_record_id,
+                    "phase5_case_id": session.phase5_case_id,
+                    "search_mode": session.search_mode,
+                    "status": "EXCLUDED_CONTEXT_BUDGET",
+                    "over_limit_requests": over_limit,
+                }
+            )
+        else:
+            eligible_ids.append(session.archive_record_id)
+    return {
+        "schema_version": "phase5.bfcl_context_budget_exclusions.v1",
+        "policy": "EXCLUDE_SESSION_FROM_FORMAL_DERIVED_ELIGIBILITY",
+        "maximum_prompt_tokens": maximum_prompt_tokens,
+        "maximum_generation_tokens": maximum_generation_tokens,
+        "maximum_combined_tokens": maximum_combined_tokens,
+        "excluded_session_count": len(exclusions),
+        "excluded_request_count": sum(len(row["over_limit_requests"]) for row in exclusions),
+        "excluded_archive_record_ids": [row["archive_record_id"] for row in exclusions],
+        "formal_eligible_session_count": len(eligible_ids),
+        "formal_eligible_archive_record_ids": eligible_ids,
+        "exclusions": exclusions,
+        "formal_cohort_selected": False,
+        "gpu_execution_authorized": False,
+    }
+
+
 def create_bfcl_derived_workload_seal(
     *,
     sessions: Sequence[BFCLDerivedSession],
@@ -332,14 +455,18 @@ def create_bfcl_derived_workload_seal(
     expected_archive_record_ids: Sequence[str],
     excluded_archive_record_ids: Sequence[str],
     source_archive_sha256: Mapping[str, str],
-    protocol_appendix_sha256: str,
+    protocol_appendix_canonical_sha256: str,
+    protocol_appendix_file_sha256: str,
+    context_budget_exclusions: Mapping[str, object],
     tool_definitions_sha256: str,
     arrival_generator_sha256: str,
 ) -> dict[str, object]:
     """Bind derived BFCL identities without selecting a formal Cohort."""
 
-    if _SHA256.fullmatch(protocol_appendix_sha256) is None:
-        raise BFCLDerivedError("protocol appendix SHA-256 is invalid")
+    if _SHA256.fullmatch(protocol_appendix_canonical_sha256) is None:
+        raise BFCLDerivedError("protocol appendix canonical SHA-256 is invalid")
+    if _SHA256.fullmatch(protocol_appendix_file_sha256) is None:
+        raise BFCLDerivedError("protocol appendix file SHA-256 is invalid")
     if _SHA256.fullmatch(tool_definitions_sha256) is None:
         raise BFCLDerivedError("tool definitions SHA-256 is invalid")
     if _SHA256.fullmatch(arrival_generator_sha256) is None:
@@ -354,19 +481,27 @@ def create_bfcl_derived_workload_seal(
         row.phase5_case_id for row in sessions
     }:
         raise BFCLDerivedError("synthetic schedules do not cover exact derived sessions")
-    expected_requests = [
-        request.request_id for session in sessions for request in session.requests
-    ]
+    expected_requests = [request.request_id for session in sessions for request in session.requests]
     tokens = {row.request_id: row for row in token_materializations}
     if len(tokens) != len(token_materializations) or set(tokens) != set(expected_requests):
         raise BFCLDerivedError("derived Token Materialization coverage mismatch")
     if any(_SHA256.fullmatch(value) is None for value in source_archive_sha256.values()):
         raise BFCLDerivedError("source archive hash map is invalid")
+    exclusion_ids = context_budget_exclusions.get("excluded_archive_record_ids")
+    eligible_ids = context_budget_exclusions.get("formal_eligible_archive_record_ids")
+    if (
+        not isinstance(exclusion_ids, list)
+        or not isinstance(eligible_ids, list)
+        or set(exclusion_ids) & set(eligible_ids)
+        or set(exclusion_ids) | set(eligible_ids) != set(ids)
+    ):
+        raise BFCLDerivedError("context-budget exclusion partition is invalid")
 
     payload: dict[str, object] = {
         "schema_version": "phase5.bfcl_derived_workload_seal.v1",
         "workload_type": "BFCL_DERIVED_CONTROLLED_TIMING",
-        "protocol_appendix_sha256": protocol_appendix_sha256,
+        "protocol_appendix_canonical_sha256": protocol_appendix_canonical_sha256,
+        "protocol_appendix_file_sha256": protocol_appendix_file_sha256,
         "tool_definitions_sha256": tool_definitions_sha256,
         "arrival_generator_sha256": arrival_generator_sha256,
         "source_model": "gpt-5.2-2025-12-11-FC",
@@ -376,13 +511,14 @@ def create_bfcl_derived_workload_seal(
         "source_archive_sha256": dict(sorted(source_archive_sha256.items())),
         "accepted_archive_record_ids": ids,
         "excluded_archive_record_ids": list(excluded_archive_record_ids),
+        "context_budget_exclusions_sha256": canonical_sha256(context_budget_exclusions),
+        "context_budget_excluded_archive_record_ids": exclusion_ids,
+        "formal_eligible_archive_record_ids": eligible_ids,
         "session_identities": {
             row.phase5_case_id: {
                 "archive_record_id": row.archive_record_id,
                 "derived_session_sha256": row.sha256,
-                "synthetic_tool_gap_schedule_sha256": schedule_by_case[
-                    row.phase5_case_id
-                ].sha256,
+                "synthetic_tool_gap_schedule_sha256": schedule_by_case[row.phase5_case_id].sha256,
             }
             for row in sessions
         },
@@ -436,10 +572,8 @@ def evaluate_bfcl_derived_mechanical_readiness(
         is BFCLReplayTerminalState.REPLAY_TRACE_EXHAUSTED,
         "EXACT_TOKEN_COVERAGE": len(tokens) == len(token_materializations)
         and set(tokens) == set(expected_requests),
-        "SYNTHETIC_GAP_COVERAGE": schedule.phase5_case_id
-        == session.phase5_case_id
-        and set(schedule.gap_seconds_by_preceding_request_id)
-        == expected_gap_requests,
+        "SYNTHETIC_GAP_COVERAGE": schedule.phase5_case_id == session.phase5_case_id
+        and set(schedule.gap_seconds_by_preceding_request_id) == expected_gap_requests,
         "SYNTHETIC_NOT_SOURCE_TIMING": schedule.to_dict()["timing_semantics"]
         == "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED",
         "PROMPT_CONTEXT_BUDGET": all(
@@ -469,6 +603,87 @@ def evaluate_bfcl_derived_mechanical_readiness(
     return {**payload, "readiness_sha256": canonical_sha256(payload)}
 
 
+def evaluate_bfcl_derived_q4d_q5d(
+    *,
+    session: BFCLDerivedSession,
+    schedule: BFCLSyntheticToolGapSchedule,
+    expected_schedule_sha256: str,
+    system_schedule_sha256: Mapping[str, str],
+    consumed_request_ids_by_system: Mapping[str, Sequence[str]],
+    replay_terminal_by_system: Mapping[str, str],
+    released_after_preceding_completion_by_system: Mapping[str, bool],
+    future_gap_visible_before_completion_by_system: Mapping[str, bool],
+) -> dict[str, object]:
+    """Evaluate the frozen Q4D/Q5D data and deterministic replay contracts."""
+
+    expected_requests = [row.request_id for row in session.requests]
+    expected_boundaries = set(expected_requests[:-1])
+    q4_checks = {
+        "EXACT_BOUNDARY_COVERAGE": set(schedule.gap_seconds_by_preceding_request_id)
+        == expected_boundaries,
+        "FINITE_NON_NEGATIVE_GAPS": all(
+            math.isfinite(float(value)) and float(value) >= 0
+            for value in schedule.gap_seconds_by_preceding_request_id.values()
+        ),
+        "FROZEN_SCHEDULE_HASH": schedule.sha256 == expected_schedule_sha256,
+        "RELEASE_ONLY_AFTER_PRECEDING_COMPLETION": set(
+            released_after_preceding_completion_by_system
+        )
+        == set(REQUIRED_FORMAL_SYSTEMS)
+        and all(released_after_preceding_completion_by_system.values()),
+        "NO_FUTURE_GAP_VISIBILITY": set(future_gap_visible_before_completion_by_system)
+        == set(REQUIRED_FORMAL_SYSTEMS)
+        and not any(future_gap_visible_before_completion_by_system.values())
+        and schedule.to_dict()["future_gap_visibility"]
+        == "FORBIDDEN_UNTIL_PRECEDING_REQUEST_COMPLETES",
+        "SIX_SYSTEM_SCHEDULE_IDENTITY": set(system_schedule_sha256) == set(REQUIRED_FORMAL_SYSTEMS)
+        and set(system_schedule_sha256.values()) == {expected_schedule_sha256},
+        "SYNTHETIC_TIMING_LABEL": schedule.to_dict()["timing_semantics"]
+        == "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED",
+    }
+    q5_checks = {
+        "SOURCE_TERMINAL_UNKNOWN": session.source_terminal_state
+        is BFCLSourceTerminalState.SOURCE_TERMINAL_UNKNOWN,
+        "REPLAY_TERMINAL_EXHAUSTED": set(replay_terminal_by_system) == set(REQUIRED_FORMAL_SYSTEMS)
+        and set(replay_terminal_by_system.values())
+        == {BFCLReplayTerminalState.REPLAY_TRACE_EXHAUSTED.value},
+        "REQUESTS_CONSUMED_EXACTLY_ONCE": set(consumed_request_ids_by_system)
+        == set(REQUIRED_FORMAL_SYSTEMS)
+        and all(
+            list(values) == expected_requests for values in consumed_request_ids_by_system.values()
+        ),
+        "NO_SOURCE_TERMINAL_INFERENCE": session.to_dict().get("source_terminal_state")
+        == "SOURCE_TERMINAL_UNKNOWN",
+        "NO_COMPLETED_OR_RIGHT_CENSORED_MAPPING": not any(
+            value in {"COMPLETED", "NATURAL_COMPLETION", "RIGHT_CENSORED"}
+            for value in replay_terminal_by_system.values()
+        ),
+    }
+    q4_failed = [name for name, passed in q4_checks.items() if not passed]
+    q5_failed = [name for name, passed in q5_checks.items() if not passed]
+    payload: dict[str, object] = {
+        "schema_version": "phase5.bfcl_derived_q4d_q5d_evaluation.v1",
+        "phase5_case_id": session.phase5_case_id,
+        "archive_record_id": session.archive_record_id,
+        "evidence_scope": "FROZEN_DATA_AND_DETERMINISTIC_REPLAY_CONTRACT",
+        "native_runtime_conformance_claimed": False,
+        "q4d": {
+            "status": "PASS" if not q4_failed else "FAIL_CLOSED",
+            "checks": q4_checks,
+            "failed_checks": q4_failed,
+        },
+        "q5d": {
+            "status": "PASS" if not q5_failed else "FAIL_CLOSED",
+            "checks": q5_checks,
+            "failed_checks": q5_failed,
+        },
+        "status": "PASS" if not q4_failed and not q5_failed else "FAIL_CLOSED",
+        "formal_cohort_selected": False,
+        "gpu_execution_authorized": False,
+    }
+    return {**payload, "evaluation_sha256": canonical_sha256(payload)}
+
+
 def validate_bfcl_derived_workload_seal(seal: Mapping[str, object]) -> None:
     """Fail closed on identity drift or accidental execution authorization."""
 
@@ -484,6 +699,12 @@ def validate_bfcl_derived_workload_seal(seal: Mapping[str, object]) -> None:
         raise BFCLDerivedError("formal system identity set mismatch")
     if seal.get("same_synthetic_schedule_required_across_systems") is not True:
         raise BFCLDerivedError("cross-system schedule equality is not required")
+    if _SHA256.fullmatch(str(seal.get("protocol_appendix_canonical_sha256"))) is None:
+        raise BFCLDerivedError("protocol appendix canonical identity is missing")
+    if _SHA256.fullmatch(str(seal.get("protocol_appendix_file_sha256"))) is None:
+        raise BFCLDerivedError("protocol appendix file identity is missing")
+    if _SHA256.fullmatch(str(seal.get("context_budget_exclusions_sha256"))) is None:
+        raise BFCLDerivedError("context-budget exclusion identity is missing")
     if seal.get("formal_cohort_selected") is not False:
         raise BFCLDerivedError("engineering seal cannot select a Formal Cohort")
     if seal.get("gpu_execution_authorized") is not False:
