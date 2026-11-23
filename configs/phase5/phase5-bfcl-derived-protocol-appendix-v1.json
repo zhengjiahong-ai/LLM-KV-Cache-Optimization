@@ -1,0 +1,1541 @@
+{
+  "schema_version": "phase5.bfcl_derived_protocol_appendix.v1",
+  "status": "FROZEN",
+  "workload_type": "BFCL_DERIVED_CONTROLLED_TIMING",
+  "source": {
+    "repository": "HuanzhiMao/BFCL-Result",
+    "commit": "cadd76a8dc62984e7bf15ecaf358f070bae745cc",
+    "source_model": "gpt-5.2-2025-12-11-FC",
+    "source_model_is_phase5_execution_model": false,
+    "snippet_archive_sha256": "62ab5b7751431809bbcd3ee9970065e5d8580f7d35a1b00f63ddf911d405416e",
+    "no_snippet_archive_sha256": "6f6574ad0b990266b9faf37c4c3ae371e80008a3c49a446fba0844c44a4eb3be"
+  },
+  "accepted_archive_record_ids": [
+    "web_search_base_0",
+    "web_search_base_1",
+    "web_search_base_2",
+    "web_search_base_3",
+    "web_search_base_4",
+    "web_search_base_5",
+    "web_search_base_6",
+    "web_search_base_7",
+    "web_search_base_8",
+    "web_search_base_9",
+    "web_search_base_10",
+    "web_search_base_11",
+    "web_search_base_12",
+    "web_search_base_13",
+    "web_search_base_14",
+    "web_search_base_15",
+    "web_search_base_16",
+    "web_search_base_17",
+    "web_search_base_18",
+    "web_search_base_19",
+    "web_search_base_20",
+    "web_search_base_21",
+    "web_search_base_22",
+    "web_search_base_23",
+    "web_search_base_24",
+    "web_search_base_25",
+    "web_search_base_26",
+    "web_search_base_27",
+    "web_search_base_28",
+    "web_search_base_29",
+    "web_search_base_30",
+    "web_search_base_31",
+    "web_search_base_32",
+    "web_search_base_33",
+    "web_search_base_34",
+    "web_search_base_35",
+    "web_search_base_36",
+    "web_search_base_37",
+    "web_search_base_38",
+    "web_search_base_39",
+    "web_search_base_40",
+    "web_search_base_41",
+    "web_search_base_42",
+    "web_search_base_43",
+    "web_search_base_44",
+    "web_search_base_45",
+    "web_search_base_46",
+    "web_search_base_47",
+    "web_search_base_48",
+    "web_search_base_49",
+    "web_search_base_50",
+    "web_search_base_51",
+    "web_search_base_52",
+    "web_search_base_53",
+    "web_search_base_54",
+    "web_search_base_55",
+    "web_search_base_56",
+    "web_search_base_57",
+    "web_search_base_58",
+    "web_search_base_59",
+    "web_search_base_60",
+    "web_search_base_61",
+    "web_search_base_62",
+    "web_search_base_63",
+    "web_search_base_64",
+    "web_search_base_65",
+    "web_search_base_66",
+    "web_search_base_67",
+    "web_search_base_68",
+    "web_search_base_69",
+    "web_search_base_70",
+    "web_search_base_71",
+    "web_search_base_72",
+    "web_search_base_73",
+    "web_search_base_74",
+    "web_search_base_75",
+    "web_search_base_76",
+    "web_search_base_77",
+    "web_search_base_78",
+    "web_search_base_79",
+    "web_search_base_80",
+    "web_search_base_81",
+    "web_search_base_82",
+    "web_search_base_83",
+    "web_search_base_84",
+    "web_search_base_85",
+    "web_search_base_86",
+    "web_search_base_87",
+    "web_search_base_88",
+    "web_search_base_89",
+    "web_search_base_90",
+    "web_search_base_91",
+    "web_search_base_92",
+    "web_search_base_93",
+    "web_search_base_94",
+    "web_search_base_95",
+    "web_search_base_96",
+    "web_search_base_97",
+    "web_search_base_98",
+    "web_search_base_99",
+    "web_search_no_snippet_0",
+    "web_search_no_snippet_1",
+    "web_search_no_snippet_2",
+    "web_search_no_snippet_3",
+    "web_search_no_snippet_4",
+    "web_search_no_snippet_5",
+    "web_search_no_snippet_6",
+    "web_search_no_snippet_7",
+    "web_search_no_snippet_8",
+    "web_search_no_snippet_9",
+    "web_search_no_snippet_10",
+    "web_search_no_snippet_11",
+    "web_search_no_snippet_12",
+    "web_search_no_snippet_13",
+    "web_search_no_snippet_14",
+    "web_search_no_snippet_15",
+    "web_search_no_snippet_16",
+    "web_search_no_snippet_17",
+    "web_search_no_snippet_18",
+    "web_search_no_snippet_19",
+    "web_search_no_snippet_20",
+    "web_search_no_snippet_21",
+    "web_search_no_snippet_22",
+    "web_search_no_snippet_23",
+    "web_search_no_snippet_24",
+    "web_search_no_snippet_25",
+    "web_search_no_snippet_26",
+    "web_search_no_snippet_27",
+    "web_search_no_snippet_28",
+    "web_search_no_snippet_29",
+    "web_search_no_snippet_30",
+    "web_search_no_snippet_31",
+    "web_search_no_snippet_32",
+    "web_search_no_snippet_33",
+    "web_search_no_snippet_34",
+    "web_search_no_snippet_35",
+    "web_search_no_snippet_36",
+    "web_search_no_snippet_37",
+    "web_search_no_snippet_38",
+    "web_search_no_snippet_39",
+    "web_search_no_snippet_40",
+    "web_search_no_snippet_41",
+    "web_search_no_snippet_42",
+    "web_search_no_snippet_43",
+    "web_search_no_snippet_44",
+    "web_search_no_snippet_45",
+    "web_search_no_snippet_46",
+    "web_search_no_snippet_47",
+    "web_search_no_snippet_48",
+    "web_search_no_snippet_49",
+    "web_search_no_snippet_50",
+    "web_search_no_snippet_52",
+    "web_search_no_snippet_53",
+    "web_search_no_snippet_54",
+    "web_search_no_snippet_55",
+    "web_search_no_snippet_56",
+    "web_search_no_snippet_57",
+    "web_search_no_snippet_58",
+    "web_search_no_snippet_59",
+    "web_search_no_snippet_60",
+    "web_search_no_snippet_61",
+    "web_search_no_snippet_62",
+    "web_search_no_snippet_63",
+    "web_search_no_snippet_64",
+    "web_search_no_snippet_65",
+    "web_search_no_snippet_66",
+    "web_search_no_snippet_67",
+    "web_search_no_snippet_68",
+    "web_search_no_snippet_69",
+    "web_search_no_snippet_70",
+    "web_search_no_snippet_71",
+    "web_search_no_snippet_72",
+    "web_search_no_snippet_73",
+    "web_search_no_snippet_74",
+    "web_search_no_snippet_75",
+    "web_search_no_snippet_76",
+    "web_search_no_snippet_77",
+    "web_search_no_snippet_78",
+    "web_search_no_snippet_79",
+    "web_search_no_snippet_80",
+    "web_search_no_snippet_81",
+    "web_search_no_snippet_82",
+    "web_search_no_snippet_83",
+    "web_search_no_snippet_84",
+    "web_search_no_snippet_85",
+    "web_search_no_snippet_86",
+    "web_search_no_snippet_87",
+    "web_search_no_snippet_88",
+    "web_search_no_snippet_89",
+    "web_search_no_snippet_90",
+    "web_search_no_snippet_91",
+    "web_search_no_snippet_92",
+    "web_search_no_snippet_93",
+    "web_search_no_snippet_94",
+    "web_search_no_snippet_95",
+    "web_search_no_snippet_96",
+    "web_search_no_snippet_97",
+    "web_search_no_snippet_98",
+    "web_search_no_snippet_99"
+  ],
+  "accepted_record_ordering": "phase5_case_index: SNIPPET 1..100, then NO_SNIPPET 101..200",
+  "excluded_archive_record_ids": [
+    "web_search_no_snippet_51"
+  ],
+  "excluded_record_identity": {
+    "archive_record_id": "web_search_no_snippet_51",
+    "phase5_case_id": "bfcl_web_search_51:no_snippet",
+    "phase5_case_index": 152,
+    "reason": "SOURCE_TOOL_OUTPUT_SIZE_LIMIT",
+    "semantic_trace_complete": false
+  },
+  "counts": {
+    "accepted_sessions": 199,
+    "snippet_sessions": 100,
+    "no_snippet_sessions": 99,
+    "excluded_sessions": 1,
+    "model_requests": 1040
+  },
+  "synthetic_tool_gap_schedule": {
+    "generator": "DETERMINISTIC_CONSTANT_1S_V1",
+    "parameters": {
+      "gap_seconds": 1.0,
+      "clock_domain": "synthetic_controlled",
+      "source_observed": false,
+      "future_gap_visibility": "FORBIDDEN_UNTIL_PRECEDING_REQUEST_COMPLETES"
+    },
+    "timing_semantics": "SYNTHETIC_CONTROLLED_NOT_SOURCE_OBSERVED",
+    "gap_seconds_by_archive_record_id": {
+      "web_search_base_0": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_1": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_2": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_3": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_4": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_5": [
+        1.0,
+        1.0
+      ],
+      "web_search_base_6": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_7": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_8": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_9": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_10": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_11": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_12": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_13": [
+        1.0,
+        1.0
+      ],
+      "web_search_base_14": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_15": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_16": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_17": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_18": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_19": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_20": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_21": [
+        1.0,
+        1.0
+      ],
+      "web_search_base_22": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_23": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_24": [
+        1.0,
+        1.0
+      ],
+      "web_search_base_25": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_26": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_27": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_28": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_29": [
+        1.0,
+        1.0
+      ],
+      "web_search_base_30": [
+        1.0,
+        1.0
+      ],
+      "web_search_base_31": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_32": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_33": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_34": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_35": [
+        1.0
+      ],
+      "web_search_base_36": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_37": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_38": [
+        1.0,
+        1.0
+      ],
+      "web_search_base_39": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_40": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_41": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_42": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_43": [
+        1.0,
+        1.0
+      ],
+      "web_search_base_44": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_45": [
+        1.0
+      ],
+      "web_search_base_46": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_47": [
+        1.0,
+        1.0
+      ],
+      "web_search_base_48": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_49": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_50": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_51": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_52": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_53": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_54": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_55": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_56": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_57": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_58": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_59": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_60": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_61": [
+        1.0,
+        1.0
+      ],
+      "web_search_base_62": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_63": [
+        1.0,
+        1.0
+      ],
+      "web_search_base_64": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_65": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_66": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_67": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_68": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_69": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_70": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_71": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_72": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_73": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_74": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_75": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_76": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_77": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_78": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_79": [
+        1.0,
+        1.0
+      ],
+      "web_search_base_80": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_81": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_82": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_83": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_84": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_85": [
+        1.0,
+        1.0
+      ],
+      "web_search_base_86": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_87": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_88": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_89": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_90": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_91": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_92": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_93": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_94": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_95": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_96": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_97": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_base_98": [
+        1.0,
+        1.0
+      ],
+      "web_search_base_99": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_0": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_1": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_2": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_3": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_4": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_5": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_6": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_7": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_8": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_9": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_10": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_11": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_12": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_13": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_14": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_15": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_16": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_17": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_18": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_19": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_20": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_21": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_22": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_23": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_24": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_25": [
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_26": [
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_27": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_28": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_29": [
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_30": [
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_31": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_32": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_33": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_34": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_35": [
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_36": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_37": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_38": [
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_39": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_40": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_41": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_42": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_43": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_44": [
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_45": [
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_46": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_47": [
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_48": [
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_49": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_50": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_52": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_53": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_54": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_55": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_56": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_57": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_58": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_59": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_60": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_61": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_62": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_63": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_64": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_65": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_66": [
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_67": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_68": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_69": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_70": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_71": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_72": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_73": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_74": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_75": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_76": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_77": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_78": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_79": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_80": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_81": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_82": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_83": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_84": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_85": [
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_86": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_87": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_88": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_89": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_90": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_91": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_92": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_93": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_94": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_95": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_96": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_97": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_98": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "web_search_no_snippet_99": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    }
+  },
+  "q4_derived": {
+    "rule_id": "Q4D_SYNTHETIC_CONTROLLED_TIMING",
+    "source_observed_tool_gap_required": false,
+    "synthetic_schedule_required": true,
+    "same_schedule_across_six_systems": true,
+    "required_checks": [
+      "schedule covers exact request boundaries",
+      "all gaps finite and non-negative",
+      "schedule hash matches appendix",
+      "gap released only after preceding request completes",
+      "no future gap visible to policy",
+      "no source-observed timing claim"
+    ]
+  },
+  "q5_derived": {
+    "rule_id": "Q5D_SOURCE_UNKNOWN_REPLAY_EXHAUSTED",
+    "source_terminal_state": "SOURCE_TERMINAL_UNKNOWN",
+    "replay_terminal_state": "REPLAY_TRACE_EXHAUSTED",
+    "natural_completion_allowed": false,
+    "right_censored_allowed": false,
+    "replay_exhaustion_is_not_natural_completion": true,
+    "required_checks": [
+      "all frozen requests consumed exactly once",
+      "source terminal remains unknown",
+      "replay terminal is exactly REPLAY_TRACE_EXHAUSTED",
+      "no source terminal is inferred",
+      "early replay stop is FAIL_CLOSED"
+    ]
+  },
+  "context_budget": {
+    "maximum_prompt_tokens": 32640,
+    "maximum_generation_tokens": 128,
+    "maximum_combined_tokens": 32768,
+    "over_limit_sessions": 40,
+    "over_limit_requests": 63,
+    "snippet_over_limit_sessions": 14,
+    "no_snippet_over_limit_sessions": 26,
+    "maximum_prompt_tokens_observed": 210085,
+    "policy": "EXCLUDE_SESSION_FROM_FORMAL_DERIVED_ELIGIBILITY",
+    "truncation_allowed": false,
+    "history_rewrite_allowed": false,
+    "session_split_allowed": false,
+    "expected_formal_eligible_sessions": 159,
+    "exact_exclusion_ids_source": "M6 materialization report / context-budget-exclusions.json"
+  },
+  "assistant_tool_call_serialization": "BFCL_HANDLER_DECODED_LIST_BRACKET_JOIN_V1",
+  "tokenizer_identity": {
+    "model": "Qwen/Qwen2.5-Coder-1.5B-Instruct",
+    "model_revision": "d18ecad881a290f0c792f1c2b5dbee1820d4a424",
+    "tokenizer_revision": "d18ecad881a290f0c792f1c2b5dbee1820d4a424",
+    "chat_template_sha256": "44d5f08f3f72b837eaad09f13a54c1f9f4eb58d75240334548b7fd52a5437fa5"
+  },
+  "tool_definitions_sha256": "61fcee411e35f7ff67415e18cd67276615cf06e1c8841a683d2d997dbb46eac5",
+  "arrival_generator_sha256": "cbc9d51f96527650642d3b0b5621ebe1e5a2e5fd6fdee5ee94a57779638d62e5",
+  "formal_cohort_selected": false,
+  "gpu_execution_authorized": false,
+  "formal_q1_q9_status": "NOT_EVALUATED_PENDING_FROZEN_M4_APPENDIX",
+  "protocol_appendix_sha256": "0d5f5b92fb03a631707cf51cb46c993f1347c80e178543cf63f9f2db7e6de52e"
+}
