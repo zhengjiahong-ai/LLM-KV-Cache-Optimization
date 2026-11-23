@@ -1,0 +1,23 @@
+{
+  "checks": {
+    "PARENT_ACCEPTED_ORDER_MATCH": true,
+    "PARENT_APPENDIX_CANONICAL_HASH_MATCH": true,
+    "PARENT_APPENDIX_FILE_HASH_MATCH": true,
+    "PARENT_CONTEXT_CANONICAL_HASH_MATCH": true,
+    "PARENT_CONTEXT_EXCLUDED_ORDER_MATCH": true,
+    "PARENT_ELIGIBLE_ORDER_MATCH": true,
+    "PARENT_MANIFEST_BINDS_CONTEXT_EXCLUSION_FILE": true,
+    "PARENT_MANIFEST_BINDS_WORKLOAD_SEAL_FILE": true,
+    "PARENT_WORKLOAD_SEAL_VALID": true
+  },
+  "context_budget_exclusions_canonical_sha256": "e1d4c24a443c3636d9817f937aae3346c724b1eae98060faa37d457006a7b998",
+  "context_budget_exclusions_file_sha256": "46689df87bf38838dac454d33d2a5141934167296791eb08cb2d453b5e5fb15e",
+  "lineage_validation_sha256": "61a5185c26e8c7bb7013a920ed9298adda190cac92da71b9a188292bffd78456",
+  "parent_evidence_manifest_file_sha256": "df53a14d049504d1da5af436fff9a48b65002a70977fd59147e1a32b4cdfece0",
+  "parent_workload_seal_content_sha256": "2c991244c8c153650bf3b0353006cef71700897da39becf4c2c01622a42cbcde",
+  "parent_workload_seal_file_sha256": "c586b1084b8ade532ec928cf38307f10b7f2dffd2629e8462f4f87220065cced",
+  "protocol_appendix_canonical_sha256": "0d5f5b92fb03a631707cf51cb46c993f1347c80e178543cf63f9f2db7e6de52e",
+  "protocol_appendix_file_sha256": "5f945eb087859ffaeae8dca2aff7a7f7411a858d0514c4a6e55ba11d14676e5c",
+  "schema_version": "phase5.bfcl_derived_cohort_lineage_validation.v1",
+  "status": "PASS"
+}

@@ -7,10 +7,89 @@ from collections import Counter
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from .phase5_bfcl_derived import REQUIRED_FORMAL_SYSTEMS, BFCLDerivedError
+from .phase5_bfcl_derived import (
+    REQUIRED_FORMAL_SYSTEMS,
+    BFCLDerivedError,
+    validate_bfcl_derived_protocol_appendix,
+    validate_bfcl_derived_workload_seal,
+)
 from .phase5_replay import canonical_sha256
 
 _SHA256 = re.compile(r"[0-9a-f]{64}")
+
+
+def validate_bfcl_derived_cohort_lineage(
+    *,
+    parent_workload_seal: Mapping[str, Any],
+    parent_evidence_manifest: Mapping[str, Any],
+    parent_workload_seal_file_sha256: str,
+    parent_evidence_manifest_file_sha256: str,
+    context_budget_exclusions: Mapping[str, Any],
+    context_budget_exclusions_file_sha256: str,
+    protocol_appendix: Mapping[str, Any],
+    protocol_appendix_file_sha256: str,
+) -> dict[str, object]:
+    """Close Parent Seal -> Appendix -> Context Exclusion lineage fail-closed."""
+
+    validate_bfcl_derived_workload_seal(parent_workload_seal)
+    appendix_ids = validate_bfcl_derived_protocol_appendix(
+        protocol_appendix, file_sha256=protocol_appendix_file_sha256
+    )
+    for value in (
+        context_budget_exclusions_file_sha256,
+        parent_workload_seal_file_sha256,
+        parent_evidence_manifest_file_sha256,
+    ):
+        if _SHA256.fullmatch(value) is None:
+            raise BFCLDerivedError("parent evidence file SHA-256 is invalid")
+    context_canonical_sha256 = canonical_sha256(context_budget_exclusions)
+    checks = {
+        "PARENT_WORKLOAD_SEAL_VALID": True,
+        "PARENT_APPENDIX_CANONICAL_HASH_MATCH": parent_workload_seal.get(
+            "protocol_appendix_canonical_sha256"
+        )
+        == appendix_ids["protocol_appendix_canonical_sha256"],
+        "PARENT_APPENDIX_FILE_HASH_MATCH": parent_workload_seal.get("protocol_appendix_file_sha256")
+        == protocol_appendix_file_sha256,
+        "PARENT_CONTEXT_CANONICAL_HASH_MATCH": parent_workload_seal.get(
+            "context_budget_exclusions_sha256"
+        )
+        == context_canonical_sha256,
+        "PARENT_MANIFEST_BINDS_WORKLOAD_SEAL_FILE": parent_evidence_manifest.get(
+            "bfcl-derived-workload-seal.json"
+        )
+        == parent_workload_seal_file_sha256,
+        "PARENT_MANIFEST_BINDS_CONTEXT_EXCLUSION_FILE": parent_evidence_manifest.get(
+            "context-budget-exclusions.json"
+        )
+        == context_budget_exclusions_file_sha256,
+        "PARENT_ACCEPTED_ORDER_MATCH": parent_workload_seal.get("accepted_archive_record_ids")
+        == protocol_appendix.get("accepted_archive_record_ids"),
+        "PARENT_CONTEXT_EXCLUDED_ORDER_MATCH": parent_workload_seal.get(
+            "context_budget_excluded_archive_record_ids"
+        )
+        == context_budget_exclusions.get("excluded_archive_record_ids"),
+        "PARENT_ELIGIBLE_ORDER_MATCH": parent_workload_seal.get(
+            "formal_eligible_archive_record_ids"
+        )
+        == context_budget_exclusions.get("formal_eligible_archive_record_ids"),
+    }
+    failed = [name for name, passed in checks.items() if not passed]
+    if failed:
+        raise BFCLDerivedError("derived cohort lineage validation failed: " + ", ".join(failed))
+    payload: dict[str, object] = {
+        "schema_version": "phase5.bfcl_derived_cohort_lineage_validation.v1",
+        "status": "PASS",
+        "checks": checks,
+        "parent_workload_seal_content_sha256": parent_workload_seal["seal_content_sha256"],
+        "parent_workload_seal_file_sha256": parent_workload_seal_file_sha256,
+        "parent_evidence_manifest_file_sha256": parent_evidence_manifest_file_sha256,
+        "protocol_appendix_canonical_sha256": appendix_ids["protocol_appendix_canonical_sha256"],
+        "protocol_appendix_file_sha256": protocol_appendix_file_sha256,
+        "context_budget_exclusions_canonical_sha256": context_canonical_sha256,
+        "context_budget_exclusions_file_sha256": context_budget_exclusions_file_sha256,
+    }
+    return {**payload, "lineage_validation_sha256": canonical_sha256(payload)}
 
 
 def _source_question_index(archive_record_id: str) -> int:
@@ -35,6 +114,8 @@ def build_bfcl_derived_cohort_proposal(
     context_budget_exclusions_file_sha256: str,
     protocol_appendix_canonical_sha256: str,
     protocol_appendix_file_sha256: str,
+    context_budget_exclusions_canonical_sha256: str,
+    lineage_validation_sha256: str,
 ) -> tuple[dict[str, object], dict[str, object]]:
     """Freeze the eligible pool without selecting Calibration or Formal Groups."""
 
@@ -43,6 +124,8 @@ def build_bfcl_derived_cohort_proposal(
         context_budget_exclusions_file_sha256,
         protocol_appendix_canonical_sha256,
         protocol_appendix_file_sha256,
+        context_budget_exclusions_canonical_sha256,
+        lineage_validation_sha256,
     ):
         if _SHA256.fullmatch(value) is None:
             raise BFCLDerivedError("derived cohort input SHA-256 is invalid")
@@ -157,6 +240,9 @@ def build_bfcl_derived_cohort_proposal(
         "membership_content_sha256": membership["membership_content_sha256"],
         "parent_workload_seal_content_sha256": parent_workload_seal_content_sha256,
         "context_budget_exclusions_file_sha256": context_budget_exclusions_file_sha256,
+        "context_budget_exclusions_canonical_sha256": (context_budget_exclusions_canonical_sha256),
+        "lineage_validation_sha256": lineage_validation_sha256,
+        "lineage_validation_status": "PASS",
         "protocol_appendix_canonical_sha256": protocol_appendix_canonical_sha256,
         "protocol_appendix_file_sha256": protocol_appendix_file_sha256,
         "source_question_is_independent_program_unit": True,

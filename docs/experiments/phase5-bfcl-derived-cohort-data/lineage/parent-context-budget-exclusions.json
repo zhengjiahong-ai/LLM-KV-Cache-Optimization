@@ -1,0 +1,852 @@
+{
+  "excluded_archive_record_ids": [
+    "web_search_base_1",
+    "web_search_base_3",
+    "web_search_base_14",
+    "web_search_base_25",
+    "web_search_base_33",
+    "web_search_base_43",
+    "web_search_base_58",
+    "web_search_base_65",
+    "web_search_base_70",
+    "web_search_base_76",
+    "web_search_base_81",
+    "web_search_base_87",
+    "web_search_base_90",
+    "web_search_base_97",
+    "web_search_no_snippet_1",
+    "web_search_no_snippet_3",
+    "web_search_no_snippet_5",
+    "web_search_no_snippet_14",
+    "web_search_no_snippet_23",
+    "web_search_no_snippet_24",
+    "web_search_no_snippet_25",
+    "web_search_no_snippet_29",
+    "web_search_no_snippet_39",
+    "web_search_no_snippet_43",
+    "web_search_no_snippet_44",
+    "web_search_no_snippet_50",
+    "web_search_no_snippet_52",
+    "web_search_no_snippet_61",
+    "web_search_no_snippet_65",
+    "web_search_no_snippet_69",
+    "web_search_no_snippet_70",
+    "web_search_no_snippet_72",
+    "web_search_no_snippet_75",
+    "web_search_no_snippet_76",
+    "web_search_no_snippet_81",
+    "web_search_no_snippet_86",
+    "web_search_no_snippet_87",
+    "web_search_no_snippet_88",
+    "web_search_no_snippet_90",
+    "web_search_no_snippet_97"
+  ],
+  "excluded_request_count": 63,
+  "excluded_session_count": 40,
+  "exclusions": [
+    {
+      "archive_record_id": "web_search_base_1",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 74327,
+          "prompt_tokens": 74199,
+          "request_id": "bfcl_web_search_1:snippet:request:4"
+        },
+        {
+          "combined_tokens": 98099,
+          "prompt_tokens": 97971,
+          "request_id": "bfcl_web_search_1:snippet:request:5"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_1:snippet",
+      "search_mode": "SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_base_3",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 65823,
+          "prompt_tokens": 65695,
+          "request_id": "bfcl_web_search_3:snippet:request:5"
+        },
+        {
+          "combined_tokens": 68552,
+          "prompt_tokens": 68424,
+          "request_id": "bfcl_web_search_3:snippet:request:6"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_3:snippet",
+      "search_mode": "SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_base_14",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 42095,
+          "prompt_tokens": 41967,
+          "request_id": "bfcl_web_search_14:snippet:request:4"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_14:snippet",
+      "search_mode": "SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_base_25",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 87663,
+          "prompt_tokens": 87535,
+          "request_id": "bfcl_web_search_25:snippet:request:4"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_25:snippet",
+      "search_mode": "SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_base_33",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 93330,
+          "prompt_tokens": 93202,
+          "request_id": "bfcl_web_search_33:snippet:request:5"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_33:snippet",
+      "search_mode": "SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_base_43",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 46825,
+          "prompt_tokens": 46697,
+          "request_id": "bfcl_web_search_43:snippet:request:3"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_43:snippet",
+      "search_mode": "SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_base_58",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 41067,
+          "prompt_tokens": 40939,
+          "request_id": "bfcl_web_search_58:snippet:request:4"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_58:snippet",
+      "search_mode": "SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_base_65",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 34080,
+          "prompt_tokens": 33952,
+          "request_id": "bfcl_web_search_65:snippet:request:7"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_65:snippet",
+      "search_mode": "SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_base_70",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 37718,
+          "prompt_tokens": 37590,
+          "request_id": "bfcl_web_search_70:snippet:request:5"
+        },
+        {
+          "combined_tokens": 47493,
+          "prompt_tokens": 47365,
+          "request_id": "bfcl_web_search_70:snippet:request:6"
+        },
+        {
+          "combined_tokens": 61133,
+          "prompt_tokens": 61005,
+          "request_id": "bfcl_web_search_70:snippet:request:7"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_70:snippet",
+      "search_mode": "SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_base_76",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 36262,
+          "prompt_tokens": 36134,
+          "request_id": "bfcl_web_search_76:snippet:request:3"
+        },
+        {
+          "combined_tokens": 38231,
+          "prompt_tokens": 38103,
+          "request_id": "bfcl_web_search_76:snippet:request:4"
+        },
+        {
+          "combined_tokens": 42754,
+          "prompt_tokens": 42626,
+          "request_id": "bfcl_web_search_76:snippet:request:5"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_76:snippet",
+      "search_mode": "SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_base_81",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 57551,
+          "prompt_tokens": 57423,
+          "request_id": "bfcl_web_search_81:snippet:request:5"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_81:snippet",
+      "search_mode": "SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_base_87",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 33463,
+          "prompt_tokens": 33335,
+          "request_id": "bfcl_web_search_87:snippet:request:8"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_87:snippet",
+      "search_mode": "SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_base_90",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 49163,
+          "prompt_tokens": 49035,
+          "request_id": "bfcl_web_search_90:snippet:request:4"
+        },
+        {
+          "combined_tokens": 49772,
+          "prompt_tokens": 49644,
+          "request_id": "bfcl_web_search_90:snippet:request:5"
+        },
+        {
+          "combined_tokens": 56043,
+          "prompt_tokens": 55915,
+          "request_id": "bfcl_web_search_90:snippet:request:6"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_90:snippet",
+      "search_mode": "SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_base_97",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 52679,
+          "prompt_tokens": 52551,
+          "request_id": "bfcl_web_search_97:snippet:request:4"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_97:snippet",
+      "search_mode": "SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_1",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 78974,
+          "prompt_tokens": 78846,
+          "request_id": "bfcl_web_search_1:no_snippet:request:5"
+        },
+        {
+          "combined_tokens": 79250,
+          "prompt_tokens": 79122,
+          "request_id": "bfcl_web_search_1:no_snippet:request:6"
+        },
+        {
+          "combined_tokens": 106226,
+          "prompt_tokens": 106098,
+          "request_id": "bfcl_web_search_1:no_snippet:request:7"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_1:no_snippet",
+      "search_mode": "NO_SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_3",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 64700,
+          "prompt_tokens": 64572,
+          "request_id": "bfcl_web_search_3:no_snippet:request:4"
+        },
+        {
+          "combined_tokens": 64960,
+          "prompt_tokens": 64832,
+          "request_id": "bfcl_web_search_3:no_snippet:request:5"
+        },
+        {
+          "combined_tokens": 67689,
+          "prompt_tokens": 67561,
+          "request_id": "bfcl_web_search_3:no_snippet:request:6"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_3:no_snippet",
+      "search_mode": "NO_SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_5",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 51515,
+          "prompt_tokens": 51387,
+          "request_id": "bfcl_web_search_5:no_snippet:request:6"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_5:no_snippet",
+      "search_mode": "NO_SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_14",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 42058,
+          "prompt_tokens": 41930,
+          "request_id": "bfcl_web_search_14:no_snippet:request:5"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_14:no_snippet",
+      "search_mode": "NO_SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_23",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 47485,
+          "prompt_tokens": 47357,
+          "request_id": "bfcl_web_search_23:no_snippet:request:5"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_23:no_snippet",
+      "search_mode": "NO_SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_24",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 60064,
+          "prompt_tokens": 59936,
+          "request_id": "bfcl_web_search_24:no_snippet:request:5"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_24:no_snippet",
+      "search_mode": "NO_SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_25",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 88707,
+          "prompt_tokens": 88579,
+          "request_id": "bfcl_web_search_25:no_snippet:request:3"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_25:no_snippet",
+      "search_mode": "NO_SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_29",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 39408,
+          "prompt_tokens": 39280,
+          "request_id": "bfcl_web_search_29:no_snippet:request:3"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_29:no_snippet",
+      "search_mode": "NO_SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_39",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 38327,
+          "prompt_tokens": 38199,
+          "request_id": "bfcl_web_search_39:no_snippet:request:8"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_39:no_snippet",
+      "search_mode": "NO_SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_43",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 47136,
+          "prompt_tokens": 47008,
+          "request_id": "bfcl_web_search_43:no_snippet:request:5"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_43:no_snippet",
+      "search_mode": "NO_SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_44",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 56242,
+          "prompt_tokens": 56114,
+          "request_id": "bfcl_web_search_44:no_snippet:request:3"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_44:no_snippet",
+      "search_mode": "NO_SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_50",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 80443,
+          "prompt_tokens": 80315,
+          "request_id": "bfcl_web_search_50:no_snippet:request:4"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_50:no_snippet",
+      "search_mode": "NO_SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_52",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 37032,
+          "prompt_tokens": 36904,
+          "request_id": "bfcl_web_search_52:no_snippet:request:4"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_52:no_snippet",
+      "search_mode": "NO_SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_61",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 40452,
+          "prompt_tokens": 40324,
+          "request_id": "bfcl_web_search_61:no_snippet:request:5"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_61:no_snippet",
+      "search_mode": "NO_SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_65",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 47042,
+          "prompt_tokens": 46914,
+          "request_id": "bfcl_web_search_65:no_snippet:request:5"
+        },
+        {
+          "combined_tokens": 47316,
+          "prompt_tokens": 47188,
+          "request_id": "bfcl_web_search_65:no_snippet:request:6"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_65:no_snippet",
+      "search_mode": "NO_SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_69",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 37545,
+          "prompt_tokens": 37417,
+          "request_id": "bfcl_web_search_69:no_snippet:request:5"
+        },
+        {
+          "combined_tokens": 47249,
+          "prompt_tokens": 47121,
+          "request_id": "bfcl_web_search_69:no_snippet:request:6"
+        },
+        {
+          "combined_tokens": 47615,
+          "prompt_tokens": 47487,
+          "request_id": "bfcl_web_search_69:no_snippet:request:7"
+        },
+        {
+          "combined_tokens": 53981,
+          "prompt_tokens": 53853,
+          "request_id": "bfcl_web_search_69:no_snippet:request:8"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_69:no_snippet",
+      "search_mode": "NO_SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_70",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 56723,
+          "prompt_tokens": 56595,
+          "request_id": "bfcl_web_search_70:no_snippet:request:5"
+        },
+        {
+          "combined_tokens": 95622,
+          "prompt_tokens": 95494,
+          "request_id": "bfcl_web_search_70:no_snippet:request:6"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_70:no_snippet",
+      "search_mode": "NO_SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_72",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 38870,
+          "prompt_tokens": 38742,
+          "request_id": "bfcl_web_search_72:no_snippet:request:5"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_72:no_snippet",
+      "search_mode": "NO_SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_75",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 44580,
+          "prompt_tokens": 44452,
+          "request_id": "bfcl_web_search_75:no_snippet:request:7"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_75:no_snippet",
+      "search_mode": "NO_SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_76",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 36567,
+          "prompt_tokens": 36439,
+          "request_id": "bfcl_web_search_76:no_snippet:request:6"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_76:no_snippet",
+      "search_mode": "NO_SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_81",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 37891,
+          "prompt_tokens": 37763,
+          "request_id": "bfcl_web_search_81:no_snippet:request:6"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_81:no_snippet",
+      "search_mode": "NO_SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_86",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 51548,
+          "prompt_tokens": 51420,
+          "request_id": "bfcl_web_search_86:no_snippet:request:7"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_86:no_snippet",
+      "search_mode": "NO_SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_87",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 178819,
+          "prompt_tokens": 178691,
+          "request_id": "bfcl_web_search_87:no_snippet:request:5"
+        },
+        {
+          "combined_tokens": 179151,
+          "prompt_tokens": 179023,
+          "request_id": "bfcl_web_search_87:no_snippet:request:6"
+        },
+        {
+          "combined_tokens": 196641,
+          "prompt_tokens": 196513,
+          "request_id": "bfcl_web_search_87:no_snippet:request:7"
+        },
+        {
+          "combined_tokens": 196922,
+          "prompt_tokens": 196794,
+          "request_id": "bfcl_web_search_87:no_snippet:request:8"
+        },
+        {
+          "combined_tokens": 197019,
+          "prompt_tokens": 196891,
+          "request_id": "bfcl_web_search_87:no_snippet:request:9"
+        },
+        {
+          "combined_tokens": 210213,
+          "prompt_tokens": 210085,
+          "request_id": "bfcl_web_search_87:no_snippet:request:10"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_87:no_snippet",
+      "search_mode": "NO_SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_88",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 103762,
+          "prompt_tokens": 103634,
+          "request_id": "bfcl_web_search_88:no_snippet:request:4"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_88:no_snippet",
+      "search_mode": "NO_SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_90",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 33052,
+          "prompt_tokens": 32924,
+          "request_id": "bfcl_web_search_90:no_snippet:request:6"
+        },
+        {
+          "combined_tokens": 39323,
+          "prompt_tokens": 39195,
+          "request_id": "bfcl_web_search_90:no_snippet:request:7"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_90:no_snippet",
+      "search_mode": "NO_SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    },
+    {
+      "archive_record_id": "web_search_no_snippet_97",
+      "over_limit_requests": [
+        {
+          "combined_tokens": 54014,
+          "prompt_tokens": 53886,
+          "request_id": "bfcl_web_search_97:no_snippet:request:5"
+        }
+      ],
+      "phase5_case_id": "bfcl_web_search_97:no_snippet",
+      "search_mode": "NO_SNIPPET",
+      "status": "EXCLUDED_CONTEXT_BUDGET"
+    }
+  ],
+  "formal_cohort_selected": false,
+  "formal_eligible_archive_record_ids": [
+    "web_search_base_0",
+    "web_search_base_2",
+    "web_search_base_4",
+    "web_search_base_5",
+    "web_search_base_6",
+    "web_search_base_7",
+    "web_search_base_8",
+    "web_search_base_9",
+    "web_search_base_10",
+    "web_search_base_11",
+    "web_search_base_12",
+    "web_search_base_13",
+    "web_search_base_15",
+    "web_search_base_16",
+    "web_search_base_17",
+    "web_search_base_18",
+    "web_search_base_19",
+    "web_search_base_20",
+    "web_search_base_21",
+    "web_search_base_22",
+    "web_search_base_23",
+    "web_search_base_24",
+    "web_search_base_26",
+    "web_search_base_27",
+    "web_search_base_28",
+    "web_search_base_29",
+    "web_search_base_30",
+    "web_search_base_31",
+    "web_search_base_32",
+    "web_search_base_34",
+    "web_search_base_35",
+    "web_search_base_36",
+    "web_search_base_37",
+    "web_search_base_38",
+    "web_search_base_39",
+    "web_search_base_40",
+    "web_search_base_41",
+    "web_search_base_42",
+    "web_search_base_44",
+    "web_search_base_45",
+    "web_search_base_46",
+    "web_search_base_47",
+    "web_search_base_48",
+    "web_search_base_49",
+    "web_search_base_50",
+    "web_search_base_51",
+    "web_search_base_52",
+    "web_search_base_53",
+    "web_search_base_54",
+    "web_search_base_55",
+    "web_search_base_56",
+    "web_search_base_57",
+    "web_search_base_59",
+    "web_search_base_60",
+    "web_search_base_61",
+    "web_search_base_62",
+    "web_search_base_63",
+    "web_search_base_64",
+    "web_search_base_66",
+    "web_search_base_67",
+    "web_search_base_68",
+    "web_search_base_69",
+    "web_search_base_71",
+    "web_search_base_72",
+    "web_search_base_73",
+    "web_search_base_74",
+    "web_search_base_75",
+    "web_search_base_77",
+    "web_search_base_78",
+    "web_search_base_79",
+    "web_search_base_80",
+    "web_search_base_82",
+    "web_search_base_83",
+    "web_search_base_84",
+    "web_search_base_85",
+    "web_search_base_86",
+    "web_search_base_88",
+    "web_search_base_89",
+    "web_search_base_91",
+    "web_search_base_92",
+    "web_search_base_93",
+    "web_search_base_94",
+    "web_search_base_95",
+    "web_search_base_96",
+    "web_search_base_98",
+    "web_search_base_99",
+    "web_search_no_snippet_0",
+    "web_search_no_snippet_2",
+    "web_search_no_snippet_4",
+    "web_search_no_snippet_6",
+    "web_search_no_snippet_7",
+    "web_search_no_snippet_8",
+    "web_search_no_snippet_9",
+    "web_search_no_snippet_10",
+    "web_search_no_snippet_11",
+    "web_search_no_snippet_12",
+    "web_search_no_snippet_13",
+    "web_search_no_snippet_15",
+    "web_search_no_snippet_16",
+    "web_search_no_snippet_17",
+    "web_search_no_snippet_18",
+    "web_search_no_snippet_19",
+    "web_search_no_snippet_20",
+    "web_search_no_snippet_21",
+    "web_search_no_snippet_22",
+    "web_search_no_snippet_26",
+    "web_search_no_snippet_27",
+    "web_search_no_snippet_28",
+    "web_search_no_snippet_30",
+    "web_search_no_snippet_31",
+    "web_search_no_snippet_32",
+    "web_search_no_snippet_33",
+    "web_search_no_snippet_34",
+    "web_search_no_snippet_35",
+    "web_search_no_snippet_36",
+    "web_search_no_snippet_37",
+    "web_search_no_snippet_38",
+    "web_search_no_snippet_40",
+    "web_search_no_snippet_41",
+    "web_search_no_snippet_42",
+    "web_search_no_snippet_45",
+    "web_search_no_snippet_46",
+    "web_search_no_snippet_47",
+    "web_search_no_snippet_48",
+    "web_search_no_snippet_49",
+    "web_search_no_snippet_53",
+    "web_search_no_snippet_54",
+    "web_search_no_snippet_55",
+    "web_search_no_snippet_56",
+    "web_search_no_snippet_57",
+    "web_search_no_snippet_58",
+    "web_search_no_snippet_59",
+    "web_search_no_snippet_60",
+    "web_search_no_snippet_62",
+    "web_search_no_snippet_63",
+    "web_search_no_snippet_64",
+    "web_search_no_snippet_66",
+    "web_search_no_snippet_67",
+    "web_search_no_snippet_68",
+    "web_search_no_snippet_71",
+    "web_search_no_snippet_73",
+    "web_search_no_snippet_74",
+    "web_search_no_snippet_77",
+    "web_search_no_snippet_78",
+    "web_search_no_snippet_79",
+    "web_search_no_snippet_80",
+    "web_search_no_snippet_82",
+    "web_search_no_snippet_83",
+    "web_search_no_snippet_84",
+    "web_search_no_snippet_85",
+    "web_search_no_snippet_89",
+    "web_search_no_snippet_91",
+    "web_search_no_snippet_92",
+    "web_search_no_snippet_93",
+    "web_search_no_snippet_94",
+    "web_search_no_snippet_95",
+    "web_search_no_snippet_96",
+    "web_search_no_snippet_98",
+    "web_search_no_snippet_99"
+  ],
+  "formal_eligible_session_count": 159,
+  "gpu_execution_authorized": false,
+  "maximum_combined_tokens": 32768,
+  "maximum_generation_tokens": 128,
+  "maximum_prompt_tokens": 32640,
+  "policy": "EXCLUDE_SESSION_FROM_FORMAL_DERIVED_ELIGIBILITY",
+  "schema_version": "phase5.bfcl_context_budget_exclusions.v1"
+}
