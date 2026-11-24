@@ -1,29 +1,38 @@
 # Research Status (M1 canonical status index)
 
-Status: **PHASE 5 CURRENT — M1-ACCEPTED DESIGN; DATASET CONSTRUCTION AUTHORIZED**
-Historical Phase 3 execution reference (2026-11-12): execution code `00a512111f15abddcad329572f6e50ccaaa76775`; [final M6 results](experiments/phase3-option-f-final-results.md); immutable evidence archive SHA-256 `d36a3765296199806e1aef04dcc655fd16d3afb6d7a5bc5a125397bea90ce5c8`.
+Status: **PHASE 5 CURRENT — SINGLE FORMAL SWE STRATUM + BFCL DERIVED SUPPLEMENT**
 Owner: M1. This document indexes decisions and evidence; it does **not** amend sealed artifacts or replace their final reports.
 
-## Current Phase 5 status (M1 canonical, 2026-11-20)
+## Current Phase 5 status (M1 scope amendment, 2026-11-24)
 
-**Current phase:** Phase 5 — six-system trace-driven research. M1 accepts M4's design and selects SWE-bench Verified coding-agent traces plus BFCL v4 Web Search traces with frozen fixtures as the two primary workload strata.
+**Current execution structure:** two data-construction workstreams proceed concurrently, followed by one unified system/protocol/Native gate stage (D), then experiment execution (E). There is no separate A-stage.
 
-**Current work package:** [Phase 5 Dataset Acquisition & Construction](experiments/phase5-dataset-acquisition-and-construction.md). PR #125 merged on 2026-11-19 (merge commit `5e453a6926e3c1092235b2ec2e8b6227a22362f3`); the documentation-control pause is lifted. M6 may begin the approved acquisition and construction work package, with M4 performing independent qualification and cohort review.
+1. **SWE-bench Verified is the sole formal workload stratum.** It alone supplies the formal Calibration and six-system Formal Campaign, subject to the single-stratum protocol amendment, Q1–Q9 qualification, disjoint Cohort Seal, system gates and separate M1 GPU authorization.
+2. **BFCL Derived Controlled-Timing is an independent supplementary experiment.** It uses the accepted derived asset and 4+8 Group plan. It does not contribute to SWE Formal groups, Calibration estimates, sample size, power, multiplicity families or confirmatory claims. No additional real-time BFCL formal-stratum acquisition is required.
 
-**Engineering baseline:** PR #122 (protocol design), PR #123 (DVA-ER CPU implementation) and PR #124 (integrated six-system CPU/Mock engineering) are merged. Current main at the start of this documentation update was `4a8ff8e3f9c3829be4fd542f8a19132f1837d753`. PR #124 reports 285 Phase 5/DVA targeted tests passed (1 skipped), 2,241 repository CPU tests passed (16 skipped), and a separate clean-worktree test passed. These are CPU/Mock results only.
+**Canonical scope decision:** [Phase 5 Scope Amendment — SWE Formal + BFCL Derived Supplement](experiments/phase5-scope-amendment-2026-11-24.md). This supersedes the earlier two-primary-strata scope for current and future Phase 5 planning. Historical protocol JSON, old two-stratum design records and sealed artifacts remain immutable and must not be executed as if they implement this amendment.
 
-**Ready:** generic trace normalization, Token Materialization contract, Q1–Q9 mechanical evaluator, Workload Seal mechanics, N-session/Frozen-Poisson planning, six-system matrix/routing, candidate adapters, independent metrics, Calibration/statistical backend, manifests and deterministic archive contracts, and production-shaped Phase 5E Native runner wiring.
+### Data construction — authorized and concurrent
 
-**Not completed:** new Phase 5 SWE-bench/BFCL Agent Trace acquisition; frozen BFCL fixtures; qualified Phase 5 cohort; Calibration/Formal Group selection; Formal Workload Seal; live Phase 5E Native GPU Conformance; six-system GPU Calibration or Formal execution.
+- **SWE formal dataset:** M6 continues acquisition/normalization/token materialization/Q1–Q9; M4 independently qualifies and constructs disjoint Calibration/Formal Groups. PR #129's read-only reconstruction found 35 candidate Sessions (2 natural, 33 explicitly step-limit right-censored) from 57 processed Sessions. These are candidates, not M4-accepted qualified Programs. At least 48 independent qualified Programs are needed for the minimum 4 Calibration + 8 Formal Groups. Under the optimistic assumption all 35 current candidates qualify, at least 13 more independent qualified Programs are needed; recompute after M4 identity and qualification review. Historical W1-C ledger-only candidates are not automatically promoted.
+- **BFCL supplementary dataset:** accepted derived asset: 199 accepted semantic Sessions; 40 context-excluded Sessions / 63 Requests; 159 derived-eligible Sessions; 88 independent source-question Programs; 22 candidate Groups, 12 minimum-Turn-applicable. M1's 4+8 partition is frozen in Issue #132: Calibration G02/G10/G14/G19; Evaluation G04/G05/G12/G13/G16/G17/G21/G22. M6 prepares child manifests; M4 prepares the independent supplementary protocol and review. This work runs in parallel with SWE, not as a separate phase.
 
-**Authorization boundary:** M1 has approved dataset acquisition, trace capture, normalization, Token Materialization, BFCL fixture construction, Q1–Q9 qualification and outcome-blind Cohort preparation now that the documentation pause is lifted. No Native GPU Conformance, GPU Calibration, Formal Campaign, or 72–112 GPU-hour resource reservation is authorized.
+### D — unified system and Native execution gates
 
-**Still open:** BFCL exact revision and third-party content terms; actual trace completeness and token reproducibility; Q1–Q9; Calibration/Formal disjointness; DVA-ER formal candidate selection/freeze; Continuum Official compatibility; Continuum Adapted scheduler conformance; final arrival parameters; Phase 5E Native Part A; GPU resource authorization and final execution manifests.
+After both data packages are accepted, complete DVA-ER formal selection/freeze, A0 scheduler conformance, Continuum Official compatibility, final Arrival/Seed, single-stratum protocol/schema/validator/runner/calibration-plan reconciliation, final manifests, and Phase 5E Part A Native/GPU Conformance. Part B Abort remains separate and is not a prerequisite unless a concrete dependency is shown.
 
-The machine-readable protocol remains `DESIGN_FROZEN_CANDIDATE` with `execution_authorized=false`. Design acceptance and dataset-construction approval do not make GPU execution executable.
+### E — execution
 
+After D passes and M1 separately authorizes:
+- SWE: 72-run Calibration → freeze Formal N → 96/144/192-run Formal Campaign (N=8/12/16).
+- BFCL Derived: separate 4-Group descriptive Calibration + 8-Group exploratory Evaluation under its own protocol and separate execution authorization/budget.
+- Evaluate, archive and report the studies separately.
 
-## Research synthesis (R1.3, 2026-11-14; M4 review incorporated)
+**SWE formal run-count design:** 72 Calibration runs; Formal 96/144/192 runs at N=8/12/16; combined totals 168/216/264. These are planning counts, not GPU authorization. The old two-stratum 144-run Calibration and 192/288/384-run Formal totals are superseded for current execution.
+
+**Authorization boundary:** dataset construction and derived partition/protocol preparation are authorized. No Phase 5E Native/GPU Conformance, SWE Calibration/Formal Campaign, or BFCL Derived GPU execution is authorized. The machine-readable v1 protocol and campaign artifacts remain old two-stratum identities until a coordinated M4/M6 amendment updates protocol, schema, validators, statistical model, campaign planner, manifests and tests. Do not execute them under the new scope before that amendment is accepted.
+
+# Research synthesis (R1.3, 2026-11-14; M4 review incorporated)
 
 The revised cross-phase synthesis is available in [Research Results and Contributions](research-consolidation/research-results-and-contributions.md). It incorporates M4's independent review: Phase 4 right-censoring and weak TOOL_GAP proxy results, Phase 2C APC hit distribution, P2 fail-closed exclusions, exact A0 ordering, Phase 3 decision-layer / cell-clustering corrections, and explicit campaign-estimand boundaries. The [R1 evidence ledger](research-consolidation/r1-experiment-evidence-ledger.md) remains the navigation and provenance layer.
 

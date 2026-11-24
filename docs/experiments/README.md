@@ -21,14 +21,14 @@ This is a **navigation index**, not a replacement for primary evidence, historic
 | W1-C expanded Agent workload | [Research status](../research-status.md) | Bounded S50/S100 pilot completed and accepted; 18 comparable tasks used for the subsequent Native evaluation; full ~100-task acquisition not authorized |
 | Bounded Native Cost-Aware evaluation | [Final execution report](../continuum-native-cost-aware-bounded-results.md), [PR #82](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/82) | **M1 ACCEPTED / CLOSED (2026-10-27)**; 54/54 runs reported successful; A1 0/1/8 and A2 0/3/6 better/worse/tied across nine groups; no observed improvement; external archive handed to M4 |
 
-## Phase 5 Current Campaign
+## Phase 5 Current Campaign — SWE Formal + BFCL Derived Supplement
 
 | Topic | Primary record | Current reading boundary |
 | --- | --- | --- |
-| M1 dataset-construction decision | [Phase 5 Dataset Acquisition & Construction](phase5-dataset-acquisition-and-construction.md) | M1 accepts SWE-bench Verified + BFCL v4 Web Search as primary strata; acquisition/qualification is next and temporarily paused for documentation synchronization; no GPU authorization |
-| Six-system Formal Protocol | [Protocol document](phase5-formal-protocol.md), [machine-readable protocol](../../configs/phase5/phase5-formal-protocol-v1.json) | Research design accepted by M1; protocol JSON remains `DESIGN_FROZEN_CANDIDATE` / `execution_authorized=false`; design acceptance is not execution authority |
+| M1 scope amendment | [Phase 5 Scope Amendment](phase5-scope-amendment-2026-11-24.md) | SWE-bench is the sole formal stratum; BFCL Derived is a separate supplementary experiment; data construction runs concurrently, then D gates, then E execution |
+| Formal Protocol | [Protocol document](phase5-formal-protocol.md) | Original two-stratum v1 is historical/superseded for execution; coordinated SWE-only protocol/schema/statistical/runner amendment is required in D |
 | Engineering integration | [Engineering preparation](phase5-formal-engineering-preparation.md), [acceptance status](phase5-formal-engineering-acceptance-status.md), [PR #124](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/124) | PR #124 merged at `4a8ff8e`; CPU/Mock integration and production-shaped runner wiring are present; no new Phase 5 traces, live GPU conformance, Calibration or Formal run |
-| DVA-ER v1 | [Implementation record](dva-er-v1-implementation.md), [PR #123](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/123) | 28 focused CPU correctness tests passed; candidate remains provisional pending formal selection/freeze and Native Conformance |
+| BFCL Derived supplementary experiment | [Issue #132](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/issues/132) | 4 Calibration + 8 Evaluation Groups frozen; M6 partition package and M4 independent protocol/review in progress; not formal BFCL and not confirmatory |
 | Workload feasibility | [Phase 5 workload feasibility](phase5-workload-feasibility-report.md) | Source/replay/resource audit that informed the design; current acquisition handoff is the M1 decision above |
 | Phase 5A–5E history | [N-session replay](phase5a-engineering-adaptation-report.md), [Phase 5E review](phase5e-latest-review.md) | Engineering milestones and review history; CPU/Mock results do not substitute for Native GPU Conformance |
 

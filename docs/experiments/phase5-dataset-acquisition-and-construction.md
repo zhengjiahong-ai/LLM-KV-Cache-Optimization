@@ -1,135 +1,113 @@
-# Phase 5 Dataset Acquisition & Construction
+# Phase 5 Concurrent Dataset Construction
 
 **Decision owner:** M1  
-**Research design:** M4  
+**Research design / independent qualification:** M4  
 **Acquisition / engineering:** M6  
-**Decision date:** 2026-11-19  
-**Status update:** 2026-11-20 — PR #125 merged; documentation pause lifted; acquisition authorized to proceed  
-**Status:** DESIGN ACCEPTED; DATASET CONSTRUCTION AUTHORIZED  
+**Scope amendment:** [2026-11-24 M1 decision](phase5-scope-amendment-2026-11-24.md)  
+**Status:** TWO DATA WORKSTREAMS AUTHORIZED IN PARALLEL  
 **GPU execution:** NOT AUTHORIZED
 
-## 1. M1 decision
+## 1. M1 decision and work structure
 
-M1 accepts M4's Phase 5 six-system trace-driven design and approves construction of two primary workload strata:
+The previous Phase 5 design treated SWE-bench and BFCL Web Search as two primary formal strata. M1 has superseded that scope.
 
-1. **SWE-bench Verified** — coding-Agent Sessions acquired through the pinned mini-SWE-agent path.
-2. **BFCL v4 Web Search** — tool-use Agent Sessions with captured search/tool outputs frozen as deterministic fixtures.
+The current work package constructs two datasets concurrently, with different research roles:
 
-The approved work package includes source acquisition, real Agent Trace capture, immutable raw retention, source-specific normalization, Token Materialization, Q1–Q9 qualification, outcome-blind Group construction, and submission of the dataset evidence package.
+- **SWE-bench Verified — sole formal dataset.** Complete the real Agent Trace acquisition, exact Token Materialization, Q1–Q9 qualification, outcome-blind independent Program grouping, disjoint Calibration/Formal cohorts and Workload Seal.
+- **BFCL Derived Controlled-Timing — supplementary dataset.** Complete the already accepted derived 4+8 Group partition and independent supplementary protocol. No new real-time BFCL formal-stratum acquisition is required.
 
-**Documentation synchronization:** PR #125 merged on 2026-11-19 at `5e453a6926e3c1092235b2ec2e8b6227a22362f3`. The temporary documentation-control pause is lifted. M6 may proceed with the approved acquisition and construction work package; M4 performs independent source, license, outcome-blind and Cohort review.
+There is no separate A-stage. These are parallel workstreams within one data-construction phase. After both packages are accepted, proceed to D (unified system/protocol/Native gates), then E (experiment execution).
 
-This is a limited acquisition decision. It does not alter the hash-bound Formal Protocol JSON, authorize GPU work, or make the Formal Campaign executable.
+## 2. SWE-bench — sole formal stratum
 
-## 2. Frozen research shape
+Use the accepted SWE-bench Verified task revision and pinned mini-SWE-agent acquisition path. Reuse existing collection infrastructure; do not reopen source selection absent a concrete provenance problem.
 
-- One Program is one logical Agent task/workflow.
-- One Session is one acquired execution of one Program.
-- One Turn is one model request in that Session.
-- Each qualified Session must contain **4–16 real Turns**.
-- Each Workload Group contains **4 distinct Programs**, one Session per Program.
+The latest read-only reconstruction (PR #129) identified:
+- 75 acquisition attempts;
+- 57 unique processed Sessions;
+- 35 candidate Sessions after applying minimum-Turn, context, terminal and evidence rules: 2 natural completions + 33 explicitly step-limit right-censored Sessions;
+- 14 context failures, 3 infrastructure failures and 5 below-minimum Sessions remain excluded.
+
+These 35 are not yet M4-accepted qualified Programs. Preserve explicit right-censor status; do not relabel censored sessions as natural completion. The accepted removal of the arbitrary 16-Turn ceiling (PR #131) remains in force: minimum 4 Turns, exact token evidence, Prompt ≤32,640 tokens, Prompt + frozen generation budget ≤32,768 tokens, and all other Q1–Q9 constraints remain binding.
+
+Formal design:
+- 4 distinct Programs per Group;
+- 4 disjoint Calibration Groups (16 Programs), 3 repeats per system;
+- Formal N selected by the accepted single-stratum Calibration method, minimum 8 / target 12 / maximum 16 Groups, 2 repeats per system;
+- at least 48 independent qualified Programs for the minimum 4 Calibration + 8 Formal Groups;
+- Calibration and Formal Groups must be disjoint;
 - Workload Group is the independent statistical unit.
-- Preserve within-Session Turn order and observed tool gaps.
-- Each Group is replayed across all six systems and repeats with the same frozen Trace, Token IDs and Arrival realization.
 
-No synthetic Turn, duplicated request, fabricated tool output, or artificial task split may be used to meet the minimum Turn count. Ineligible candidates remain in the acquisition ledger with explicit rejection reasons.
+If all 35 current candidates qualify, they provide at most 8 Groups and at least 13 additional independent qualified Programs are still needed to reach the 48-Program minimum. M4 must recompute the gap after final identity and Q1–Q9 review. Historical W1-C ledger-only records are not automatically promoted. Reserve promotion remains outcome-blind.
 
-| Partition | Groups per stratum | Programs per stratum | Repeats per system |
-| --- | ---: | ---: | ---: |
-| Calibration | 4 | 16 | 3 |
-| Formal minimum | 8 | 32 | 2 |
-| Formal target | 12 | 48 | 2 |
-| Formal maximum | 16 | 64 | 2 |
+M6 continues acquisition, raw evidence preservation, normalization, Token Materialization and Q1–Q9. M4 independently reviews provenance, censoring, semantic completeness, Program independence, outcome blindness and disjoint Cohorts.
 
-At the target, each stratum needs 64 qualified Programs (16 Groups total); across two strata this is 128. At the maximum, each stratum needs 80 Programs; across two strata this is 160. These are qualified counts, not candidate-pool sizes. M4/M6 must plan a pre-registered reserve using source/evidence quality only.
+## 3. BFCL — supplementary Derived Controlled-Timing dataset
 
-Calibration and Formal Groups must be disjoint. Formal N is determined by the pre-registered Calibration procedure. No lowering the minimum or outcome-informed extension/replacement.
+Do not acquire a new BFCL real-time formal stratum to satisfy the superseded two-stratum design.
 
-Run counts are design references only:
-- Calibration: 2 × 4 × 6 × 3 = **144**.
-- Formal minimum / target / maximum: **192 / 288 / 384**.
+Accepted parent asset and candidate inventory:
+- 199 accepted semantic Sessions;
+- 40 context-excluded Sessions / 63 Requests;
+- 159 derived-eligible Sessions;
+- 88 independent source-question Programs;
+- 22 candidate Groups, 12 minimum-Turn-applicable and 10 unqualified without replacement.
 
-## 3. Acquisition and evidence pipeline
+M1-frozen partition (Issue #132):
+- Derived Calibration: G02, G10, G14, G19 (4 Groups / 16 Programs);
+- Derived Evaluation: G04, G05, G12, G13, G16, G17, G21, G22 (8 Groups / 32 Programs).
 
-`Source task/revision → Raw Agent Trace → Normalized Trace → Token Materialization → Q1–Q9 Qualification → Outcome-blind Groups → Workload Seal / Manifest`
+M6 creates child partition manifests, per-Program paired-mode links, lineage/hash bindings and disjointness validators. Do not mutate the accepted parent inventory. Paired SNIPPET/NO_SNIPPET alternatives stay attached to their source Program and do not count as independent Programs.
 
-### SWE-bench
+M4 prepares a short, standalone supplementary protocol and performs independent review. Four Calibration Groups are descriptive only; eight Evaluation Groups are exploratory, not confirmatory. The study remains labelled `BFCL_DERIVED_CONTROLLED_TIMING`, preserves synthetic Tool Gap and `SOURCE_TERMINAL_UNKNOWN` / `REPLAY_TRACE_EXHAUSTED` semantics, and cannot establish natural-time workload benefit or replace SWE formal evidence.
 
-Use the protocol-pinned SWE-bench Verified revision `c104f840cc67f8b6eec6f759ebc8b2693d585d4a`, unless a separately reviewed M1 decision supersedes it. Pin mini-SWE-agent, agent configuration, model/provider identity, tokenizer and chat template. Public task rows and patches are L0 task inputs, not replayable Agent Traces. Keep upstream repository licenses distinct from the benchmark and agent licenses.
+## 4. Ownership and coordination
 
-### BFCL Web Search
+**M6**
+1. Continue SWE formal dataset acquisition and qualification pipeline.
+2. In parallel, finish the BFCL Derived 4+8 child partition package.
+3. Preserve raw evidence, failures, exclusions, provenance and hashes.
+4. Submit both workstream artifacts with separate manifests and status reports.
 
-Use the BFCL v4 Web Search source family (200 cases: 100 snippet and 100 no-snippet). Record the exact immutable revision and selected case IDs before sealing. Capture actual model/tool interactions and every search response. Freeze fixtures with provider, collection time, query, source URL, response bytes/hash, errors and retrieval metadata. Audit third-party content terms separately; BFCL's repository license does not automatically license external page content. Formal Replay must use fixtures, never live search.
+**M4**
+1. Independently qualify SWE Q1–Q9 and construct disjoint Calibration/Formal Groups.
+2. Independently review SWE Program identity, censoring, provenance, outcome blindness and Workload Seal.
+3. Prepare the BFCL Derived supplementary protocol and independently review its partition.
+4. Submit separate qualification reports; do not merge the inferential populations.
 
-### Required raw evidence
+**M1**
+M1 accepts the two packages separately. Once both are accepted, the project moves to D. No step-by-step approval is required for routine, reversible acquisition and packaging work already authorized.
 
-For every acquisition attempt retain source revision/task ID, agent version/config/code revision, model identity, complete messages, tool calls/arguments/results/errors, timestamps with clock domains, terminal/failure/truncation/right-censor state, raw bytes and SHA-256, and license/provenance information. Failed, incomplete and censored attempts remain recorded.
+## 5. Required deliverables
 
-### Token Materialization
+### SWE formal package
+- source and acquisition-attempt inventory;
+- immutable raw traces and SHA-256;
+- normalized traces and adapter identity;
+- exact Token Materialization and model/tokenizer/template hashes;
+- Q1–Q9 per-Session evidence and exclusions;
+- independent Program and Group manifests;
+- disjoint Calibration/Formal manifests;
+- censoring/missingness/yield report;
+- Workload Seal, Arrival Plan and provenance manifest;
+- independent M4 qualification report.
 
-Pin model, tokenizer and chat-template revisions. Store rendered prompt identity, exact Token IDs, Token-ID hash and revision/template hashes per request. Local tokenization is not proof of Native submission; Native identity is checked later. Context overflow is rejected, never repaired by silent truncation.
-
-### Qualification and Cohort construction
-
-M6 runs mechanical Q1–Q9 and retains per-rule evidence and every rejection. M4 independently reviews semantic completeness, provenance/license, censor reasons, diversity, outcome blindness and qualification. M4 constructs four disjoint Calibration Groups per stratum and Formal Groups at the Calibration-selected N (8 minimum, 12 target, 16 maximum). Reserve promotion uses only predeclared evidence-quality rules.
-
-No algorithm outcome, candidate exposure, selection divergence, victim set or recomputation metric may influence inclusion, exclusion or replacement.
-
-## 4. Ownership
-
-**M6 — acquisition and engineering**
-1. Implement SWE-bench and BFCL source-specific Trace adapters.
-2. Execute acquisition and capture immutable raw evidence.
-3. Build/hash BFCL fixtures.
-4. Produce normalized traces and Token Materializations.
-5. Run Q1–Q9 and retain failures/rejections.
-6. Produce source inventories, provenance manifests and reproducible packaging.
-7. Report yield, missingness, failure/censor distribution and resource cost.
-
-**M4 — research qualification and Cohort**
-1. Freeze source revisions and task sampling frames before acquisition.
-2. Review licenses, provenance and third-party fixture terms.
-3. Audit Q1–Q9 semantics and adapter completeness.
-4. Verify outcome-blind selection and reserve rules.
-5. Construct disjoint Calibration/Formal Groups and audit independence/diversity.
-6. Submit Dataset Qualification Report and proposed Workload Seals to M1.
-
-**M1 — final authority**
-
-M1 retains authority over source exceptions, Cohort Seal acceptance, formal protocol freeze, Native/GPU gates, resource authorization and Formal Campaign. Routine acquisition/normalization/qualification requires no step-by-step approval after the documentation pause is lifted. Material protocol changes, source substitutions, license exceptions, outcome-informed selection or sample-minimum changes require a new M1 decision.
-
-## 5. Required dataset package
-
-- source/task inventory and immutable revisions;
-- complete Raw Trace Archive, including rejected/failed attempts;
-- raw SHA-256 manifest;
-- normalized Trace set and adapter/version identity;
-- Token Materialization and model/tokenizer/template hashes;
-- BFCL frozen fixtures and third-party content provenance/license audit;
-- Q1–Q9 per-Session matrix with evidence and rejection reasons;
-- source/license/provenance report;
-- acquisition yield and missingness report;
-- outcome-blind sampling and reserve-promotion record;
-- disjoint Calibration/Formal Group manifests;
-- Workload Seal(s), Arrival Plan identity and canonical hashes;
-- independent M4 Dataset Qualification Report.
+### BFCL supplementary package
+- Calibration and Evaluation child manifests;
+- Program/Session/Mode identities and paired alternative ledger;
+- parent manifest, Seal, lineage and context-exclusion hash bindings;
+- disjointness/exact-count validator;
+- supplementary protocol, run-matrix proposal and statistical/claim boundaries;
+- independent M4 review and SHA-256 manifest.
 
 ## 6. Non-authorizations
 
-This decision does **not** authorize Phase 5E Part A/B Native GPU Conformance, six-system GPU Calibration, Formal Campaign, or use/reservation of the requested 72–112 GPU-hour envelope. Each requires separate gate review and explicit M1 authorization.
+This work package does not authorize:
+- Phase 5E Part A/B Native GPU Conformance;
+- SWE Calibration or Formal execution;
+- BFCL Derived GPU execution;
+- a formal BFCL Native Stratum;
+- use of BFCL Derived Groups in SWE Formal or Calibration;
+- any 72–112 GPU-hour reservation or execution.
 
-The machine-readable Formal Protocol remains `DESIGN_FROZEN_CANDIDATE` with `execution_authorized=false`. DVA-ER formal candidate freeze/selection, Continuum Official compatibility, Continuum Adapted scheduler conformance, Native conformance, Calibration, final sample-size freeze, resources and execution manifests remain gates.
-
-## 7. Checklist
-
-- [x] M1 accepts M4's six-system research design.
-- [x] SWE-bench Verified and BFCL v4 Web Search selected as primary strata.
-- [x] Dataset construction approved in principle.
-- [x] Documentation synchronization complete (PR #125 merged); pause lifted.
-- [ ] New Phase 5 SWE-bench Agent Traces acquired.
-- [ ] New Phase 5 BFCL Agent Traces and frozen fixtures acquired.
-- [ ] Token Materialization complete.
-- [ ] Q1–Q9 qualification complete.
-- [ ] Calibration/Formal Cohorts constructed and independently reviewed.
-- [ ] Workload Seal and SHA-256 manifests accepted by M1.
-- [ ] Separate Native/GPU and Calibration/Formal authorization granted.
+The old two-stratum Formal Protocol/JSON and its 144-run Calibration plan are superseded for current execution but remain immutable history until a coordinated protocol/engineering amendment is accepted.
