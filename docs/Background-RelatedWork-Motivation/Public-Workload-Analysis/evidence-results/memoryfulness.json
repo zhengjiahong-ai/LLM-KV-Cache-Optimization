@@ -1,0 +1,468 @@
+{
+  "rows": 67074,
+  "issue_count": 6306,
+  "repo_count": 1823,
+  "interruption_statuses": {
+    "RuntimeError: Agent reached maximum iteration. Current iteration: 100, max iteration: 100": 6003,
+    "unknown": 10,
+    "Timeout: litellm.Timeout: APITimeoutError - Request timed out. Error_str: Request timed out.": 36,
+    "AgentStuckInLoopError: Agent got stuck in a loop": 252,
+    "RuntimeError: There was an unexpected error while running the agent: ServiceUnavailableError. You can refresh the page or ask the agent to try again.": 29,
+    "AttributeError: 'str' object has no attribute 'get'": 5
+  },
+  "observed_at_100": {
+    "step_limit": 5750,
+    "submit": 204
+  },
+  "turn_tool_count_correlation": 0.9999951636488194,
+  "archive_endpoint_eta": {
+    "attempts": 67074,
+    "issues": 6306,
+    "observed_turn_sum": 4316962,
+    "snapshots": 4316962,
+    "mean_turns": 64.36118317082625,
+    "turn_p50_p90_p95": [
+      61.0,
+      97.0,
+      100.0
+    ],
+    "eta": 0.6554692522712097,
+    "attempt_weighted_eta": 0.6284728841561681,
+    "issue_cluster_percentile_95": [
+      0.6513740078468047,
+      0.6601444023884752
+    ]
+  },
+  "submitted_eta": {
+    "attempts": 60739,
+    "issues": 6251,
+    "observed_turn_sum": 3706777,
+    "snapshots": 3706777,
+    "mean_turns": 61.027955679217634,
+    "turn_p50_p90_p95": [
+      59.0,
+      84.0,
+      90.0
+    ],
+    "eta": 0.7108749791072808,
+    "attempt_weighted_eta": 0.6925352593676274,
+    "issue_cluster_percentile_95": [
+      0.7066223729926446,
+      0.7152418933239278
+    ]
+  },
+  "submitted_preterminal_eta": {
+    "attempts": 60739,
+    "issues": 6251,
+    "observed_turn_sum": 3706777,
+    "snapshots": 3646038,
+    "mean_turns": 61.027955679217634,
+    "turn_p50_p90_p95": [
+      59.0,
+      84.0,
+      90.0
+    ],
+    "eta": 0.7041102283955323,
+    "attempt_weighted_eta": 0.6843770754908992
+  },
+  "submitted_under100_eta": {
+    "attempts": 60535,
+    "issues": 6247,
+    "observed_turn_sum": 3686377,
+    "snapshots": 3686377,
+    "mean_turns": 60.89662178904766,
+    "turn_p50_p90_p95": [
+      59.0,
+      83.0,
+      90.0
+    ],
+    "eta": 0.7145564280853024,
+    "attempt_weighted_eta": 0.6959150244330403
+  },
+  "exclude_step_limit_endpoint_eta": {
+    "attempts": 61071,
+    "issues": 6255,
+    "observed_turn_sum": 3722378,
+    "snapshots": 3722378,
+    "mean_turns": 60.95164644430253,
+    "turn_p50_p90_p95": [
+      59.0,
+      84.0,
+      90.0
+    ],
+    "eta": 0.7096028951088421,
+    "attempt_weighted_eta": 0.6905151399610177
+  },
+  "hypothetical_extension": {
+    "10": {
+      "attempts": 67074,
+      "issues": 6306,
+      "observed_turn_sum": 4316962,
+      "snapshots": 4380312,
+      "mean_turns": 64.36118317082625,
+      "turn_p50_p90_p95": [
+        61.0,
+        97.0,
+        100.0
+      ],
+      "eta": 0.5984581503974028,
+      "attempt_weighted_eta": 0.583478319144854
+    },
+    "25": {
+      "attempts": 67074,
+      "issues": 6306,
+      "observed_turn_sum": 4316962,
+      "snapshots": 4475337,
+      "mean_turns": 64.36118317082625,
+      "turn_p50_p90_p95": [
+        61.0,
+        97.0,
+        100.0
+      ],
+      "eta": 0.49955683049092103,
+      "attempt_weighted_eta": 0.5067065192513227
+    },
+    "50": {
+      "attempts": 67074,
+      "issues": 6306,
+      "observed_turn_sum": 4316962,
+      "snapshots": 4633712,
+      "mean_turns": 64.36118317082625,
+      "turn_p50_p90_p95": [
+        61.0,
+        97.0,
+        100.0
+      ],
+      "eta": 0.3365797644530944,
+      "attempt_weighted_eta": 0.3730940247947456
+    }
+  },
+  "by_end_observed_endpoint": {
+    "other_interruption": {
+      "attempts": 332,
+      "issues": 298,
+      "observed_turn_sum": 15601,
+      "snapshots": 15601,
+      "mean_turns": 46.99096385542169,
+      "turn_p50_p90_p95": [
+        43.0,
+        73.0,
+        82.44999999999999
+      ],
+      "eta": 0.5008783691296831,
+      "attempt_weighted_eta": 0.4737412937365975
+    },
+    "step_limit": {
+      "attempts": 6003,
+      "issues": 1768,
+      "observed_turn_sum": 594584,
+      "snapshots": 594584,
+      "mean_turns": 99.04780942861902,
+      "turn_p50_p90_p95": [
+        100.0,
+        100.0,
+        100.0
+      ],
+      "eta": 0.9884998220355232,
+      "attempt_weighted_eta": 0.980943198227609
+    },
+    "submit": {
+      "attempts": 60739,
+      "issues": 6251,
+      "observed_turn_sum": 3706777,
+      "snapshots": 3706777,
+      "mean_turns": 61.027955679217634,
+      "turn_p50_p90_p95": [
+        59.0,
+        84.0,
+        90.0
+      ],
+      "eta": 0.7108749791072808,
+      "attempt_weighted_eta": 0.6925352593676274
+    }
+  },
+  "submitted_by_length": {
+    "<=25": {
+      "attempts": 1,
+      "issues": 1,
+      "observed_turn_sum": 25,
+      "snapshots": 25,
+      "mean_turns": 25.0,
+      "turn_p50_p90_p95": [
+        25.0,
+        25.0,
+        25.0
+      ],
+      "eta": 1.0,
+      "attempt_weighted_eta": 1.0
+    },
+    "26-50": {
+      "attempts": 17176,
+      "issues": 3577,
+      "observed_turn_sum": 749285,
+      "snapshots": 749285,
+      "mean_turns": 43.623952026082904,
+      "turn_p50_p90_p95": [
+        44.0,
+        49.0,
+        50.0
+      ],
+      "eta": 0.9368586948404488,
+      "attempt_weighted_eta": 0.9292710594252733
+    },
+    "51-75": {
+      "attempts": 32096,
+      "issues": 5682,
+      "observed_turn_sum": 1977305,
+      "snapshots": 1977305,
+      "mean_turns": 61.60596335992024,
+      "turn_p50_p90_p95": [
+        61.0,
+        72.0,
+        74.0
+      ],
+      "eta": 0.9278298493810839,
+      "attempt_weighted_eta": 0.9269854018435877
+    },
+    "76-99": {
+      "attempts": 11262,
+      "issues": 3526,
+      "observed_turn_sum": 959762,
+      "snapshots": 959762,
+      "mean_turns": 85.22127508435446,
+      "turn_p50_p90_p95": [
+        84.0,
+        95.0,
+        97.0
+      ],
+      "eta": 0.9638391325217734,
+      "attempt_weighted_eta": 0.9642702854163215
+    },
+    "100+": {
+      "attempts": 204,
+      "issues": 195,
+      "observed_turn_sum": 20400,
+      "snapshots": 20400,
+      "mean_turns": 100.0,
+      "turn_p50_p90_p95": [
+        100.0,
+        100.0,
+        100.0
+      ],
+      "eta": 1.0,
+      "attempt_weighted_eta": 1.0
+    }
+  },
+  "submitted_by_tool_mix": {
+    "bash_more": {
+      "attempts": 46008,
+      "issues": 6057,
+      "observed_turn_sum": 2776703,
+      "snapshots": 2776703,
+      "mean_turns": 60.35261258911493,
+      "turn_p50_p90_p95": [
+        58.0,
+        83.0,
+        90.0
+      ],
+      "eta": 0.7085472692039948,
+      "attempt_weighted_eta": 0.6932568776097333
+    },
+    "editor_more": {
+      "attempts": 12422,
+      "issues": 3642,
+      "observed_turn_sum": 796677,
+      "snapshots": 796677,
+      "mean_turns": 64.1343583963935,
+      "turn_p50_p90_p95": [
+        63.0,
+        87.0,
+        92.0
+      ],
+      "eta": 0.7332539339006204,
+      "attempt_weighted_eta": 0.7057622767629084
+    },
+    "tie": {
+      "attempts": 2309,
+      "issues": 1732,
+      "observed_turn_sum": 133397,
+      "snapshots": 133397,
+      "mean_turns": 57.77262884365526,
+      "turn_p50_p90_p95": [
+        56.0,
+        80.0,
+        87.0
+      ],
+      "eta": 0.6895805847473531,
+      "attempt_weighted_eta": 0.6769454993151808
+    }
+  },
+  "submitted_by_repository": {
+    "conan-io/conan": {
+      "attempts": 630,
+      "issues": 67,
+      "observed_turn_sum": 39478,
+      "snapshots": 39478,
+      "mean_turns": 62.663492063492065,
+      "turn_p50_p90_p95": [
+        62.0,
+        83.0,
+        92.0
+      ],
+      "eta": 0.7409323600096094,
+      "attempt_weighted_eta": 0.7246948274312729
+    },
+    "iterative/dvc": {
+      "attempts": 774,
+      "issues": 67,
+      "observed_turn_sum": 49333,
+      "snapshots": 49333,
+      "mean_turns": 63.73772609819122,
+      "turn_p50_p90_p95": [
+        61.0,
+        86.0,
+        92.0
+      ],
+      "eta": 0.7413945187712082,
+      "attempt_weighted_eta": 0.7240850836078154
+    },
+    "other": {
+      "attempts": 55485,
+      "issues": 5655,
+      "observed_turn_sum": 3355584,
+      "snapshots": 3355584,
+      "mean_turns": 60.477318194106516,
+      "turn_p50_p90_p95": [
+        58.0,
+        83.0,
+        90.0
+      ],
+      "eta": 0.7079546939280379,
+      "attempt_weighted_eta": 0.6908974023132209
+    },
+    "python-pillow/Pillow": {
+      "attempts": 1167,
+      "issues": 126,
+      "observed_turn_sum": 75767,
+      "snapshots": 75767,
+      "mean_turns": 64.92459297343616,
+      "turn_p50_p90_p95": [
+        63.0,
+        89.0,
+        93.0
+      ],
+      "eta": 0.7430983086870655,
+      "attempt_weighted_eta": 0.7267204340388727
+    },
+    "streamlink/streamlink": {
+      "attempts": 608,
+      "issues": 67,
+      "observed_turn_sum": 38051,
+      "snapshots": 38051,
+      "mean_turns": 62.58388157894737,
+      "turn_p50_p90_p95": [
+        61.0,
+        84.0,
+        90.29999999999995
+      ],
+      "eta": 0.7393373088660663,
+      "attempt_weighted_eta": 0.726718520184241
+    },
+    "tobymao/sqlglot": {
+      "attempts": 2075,
+      "issues": 269,
+      "observed_turn_sum": 148564,
+      "snapshots": 148564,
+      "mean_turns": 71.59710843373495,
+      "turn_p50_p90_p95": [
+        71.0,
+        92.0,
+        96.0
+      ],
+      "eta": 0.8136891938614573,
+      "attempt_weighted_eta": 0.7976104708564742
+    }
+  },
+  "remaining_by_checkpoint": {
+    "16": {
+      "other_interruption": {
+        "attempts": 331,
+        "mean_visible_remaining": 31.099697885196374
+      },
+      "step_limit": {
+        "attempts": 6003,
+        "mean_visible_remaining": 83.04780942861902
+      },
+      "submit": {
+        "attempts": 60739,
+        "mean_visible_remaining": 45.027955679217634
+      }
+    },
+    "24": {
+      "other_interruption": {
+        "attempts": 324,
+        "mean_visible_remaining": 23.660493827160494
+      },
+      "step_limit": {
+        "attempts": 6003,
+        "mean_visible_remaining": 75.04780942861902
+      },
+      "submit": {
+        "attempts": 60739,
+        "mean_visible_remaining": 37.027955679217634
+      }
+    },
+    "32": {
+      "other_interruption": {
+        "attempts": 278,
+        "mean_visible_remaining": 18.949640287769785
+      },
+      "step_limit": {
+        "attempts": 6003,
+        "mean_visible_remaining": 67.04780942861902
+      },
+      "submit": {
+        "attempts": 60484,
+        "mean_visible_remaining": 29.15995965875273
+      }
+    },
+    "64": {
+      "other_interruption": {
+        "attempts": 59,
+        "mean_visible_remaining": 13.186440677966102
+      },
+      "step_limit": {
+        "attempts": 5953,
+        "mean_visible_remaining": 35.43759449017302
+      },
+      "submit": {
+        "attempts": 24088,
+        "mean_visible_remaining": 12.855363666555961
+      }
+    },
+    "90": {
+      "other_interruption": {
+        "attempts": 8,
+        "mean_visible_remaining": 3.375
+      },
+      "step_limit": {
+        "attempts": 5827,
+        "mean_visible_remaining": 9.938047022481552
+      },
+      "submit": {
+        "attempts": 3365,
+        "mean_visible_remaining": 4.417533432392274
+      }
+    },
+    "99": {
+      "step_limit": {
+        "attempts": 5767,
+        "mean_visible_remaining": 0.9970521935148258
+      },
+      "submit": {
+        "attempts": 437,
+        "mean_visible_remaining": 0.4668192219679634
+      }
+    }
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "input_artifacts": [
+    {
+      "file": "trajectories.parquet",
+      "source": "https://huggingface.co/datasets/nebius/SWE-rebench-openhands-trajectories/resolve/35455389ab51bf5e2306bfd436ef72d0f98bf882/trajectories.parquet",
+      "sha256": "14048dd1fcd22ce094b6e85f8a38f223a9ef1327031aaaad052804870212efa1",
+      "bytes": 2079503354
+    },
+    {
+      "file": "tokenizer.json",
+      "source": "https://huggingface.co/Qwen/Qwen3-Coder-480B-A35B-Instruct/resolve/9d90cf8fca1bf7b7acca42d3fc9ae694a2194069/tokenizer.json",
+      "sha256": "19564a48c4f71a2a1b937cce34c737a1e662b171c5f5d7edf641a15cd896f07d",
+      "bytes": 7032399
+    },
+    {
+      "file": "tokenizer_config.json",
+      "source": "https://huggingface.co/Qwen/Qwen3-Coder-480B-A35B-Instruct/resolve/9d90cf8fca1bf7b7acca42d3fc9ae694a2194069/tokenizer_config.json",
+      "sha256": "60f6e8cb15c98dd07300a3cc465ea662de245d2095e4245616af21b2324db3fc",
+      "bytes": 13055
+    },
+    {
+      "file": "tokenizer.json",
+      "source": "https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct/resolve/d18ecad881a290f0c792f1c2b5dbee1820d4a424/tokenizer.json",
+      "sha256": "c0382117ea329cdf097041132f6d735924b697924d6f6fc3945713e96ce87539",
+      "bytes": 7031645
+    },
+    {
+      "file": "tokenizer_config.json",
+      "source": "https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct/resolve/d18ecad881a290f0c792f1c2b5dbee1820d4a424/tokenizer_config.json",
+      "sha256": "e0f3c98369c93e05e00fa73d32a5a52fd0fb09269196cba514a8f1fe7709c3ec",
+      "bytes": 7225
+    }
+  ],
+  "code_commit": "eaf76bb5f1791eadd5ee26f65679e43269963a9f",
+  "configuration": {
+    "warm_turn": 24,
+    "horizon_slots": [
+      1,
+      4,
+      12
+    ],
+    "block_sizes": [
+      16,
+      32,
+      64,
+      128
+    ],
+    "victim_budget": 2,
+    "target_project_input_limit": 32640,
+    "sampled_issue_clusters": 128,
+    "bootstrap_seed": 251102230,
+    "bootstrap_replicates": 1000,
+    "online_native_policies": {
+      "Native LRU": "NOT_EVALUABLE",
+      "A1": "NOT_EVALUABLE",
+      "A2": "NOT_EVALUABLE",
+      "A3": "NOT_EVALUABLE",
+      "DVA-ER": "NOT_EVALUABLE"
+    }
+  },
+  "integrity": {
+    "archive_attempts": 67074,
+    "selected_attempts": 384,
+    "direct_template_checks_per_projection": 4,
+    "issues_disjoint": true,
+    "oracle_cells_evaluated": 15360,
+    "case_exclusions": {}
+  },
+  "outputs": {
+    "memoryfulness.json": "480e7e9d49919e8a7a47c1d63c1af2d09e5e9e0f76402f642a8819b983464f24",
+    "geometry.json": "e7f2b478ca440efdb47d21c06b74e69a27d5f51dbe024b71554d9a05161a4dcd",
+    "oracle_summary.csv": "4f3d6cd2b7a28f6f39ea2eb6af99ae54896c91880d8f27f7884ea9577a65cbb2",
+    "issue_clusters.csv": "22c9968cf746bcea9b907303f55c653f3ceafa2fbe7b04118e44243516eba021",
+    "oracle_regret.png": "193563528c11b525ad6982eeb839d9a140abcb3bd8e1379ac4f6ccab48e6b04a"
+  }
+}

@@ -34,6 +34,10 @@ After D passes and M1 separately authorizes:
 
 **Authorization boundary:** dataset construction and derived partition/protocol preparation are authorized. No Phase 5E Native/GPU Conformance, SWE Calibration/Formal Campaign, or BFCL Derived GPU execution is authorized. The machine-readable v1 protocol and campaign artifacts remain old two-stratum identities until a coordinated M4/M6 amendment updates protocol, schema, validators, statistical model, campaign planner, manifests and tests. Do not execute them under the new scope before that amendment is accepted.
 
+## Public Workload Evidence — CPU study complete, pending M1 review
+
+The independent Nebius OpenHands study covers 67,074 attempts and 6,306 Issues. It supports long multi-turn, tool-interleaved workload structure and estimates turn-based memoryfulness conditional on observed completion. The counterfactual replay shows that equal-budget victim sets can have different downstream token costs. Return order and the logical rank comparator strongly affect avoidable loss. Native candidate legality, TTL calibration, actual eviction, and policy performance remain unobserved. The recommended next question is whether a Native case can expose distinct, attributable victim sets whose future losses can be predicted from decision-time evidence. This work belongs to the [Public Workload Evidence research track](Background-RelatedWork-Motivation/Public-Workload-Analysis/README.md).
+
 # Research synthesis (R1.3, 2026-11-14; M4 review incorporated)
 
 The revised cross-phase synthesis is available in [Research Results and Contributions](research-consolidation/research-results-and-contributions.md). It incorporates M4's independent review: Phase 4 right-censoring and weak TOOL_GAP proxy results, Phase 2C APC hit distribution, P2 fail-closed exclusions, exact A0 ordering, Phase 3 decision-layer / cell-clustering corrections, and explicit campaign-estimand boundaries. The [R1 evidence ledger](research-consolidation/r1-experiment-evidence-ledger.md) remains the navigation and provenance layer.
