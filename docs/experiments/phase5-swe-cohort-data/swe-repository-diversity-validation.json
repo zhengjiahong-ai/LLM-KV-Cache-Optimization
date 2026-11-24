@@ -1,0 +1,118 @@
+{
+  "diversity_content_sha256": "2fa8a944a83b670e3e8982ba0f4cabd00a2f50f68abe497daf764421bdd08228",
+  "groups": [
+    {
+      "group_id": "SWE_G01",
+      "repository_counts": {
+        "django": 2,
+        "mwaskom": 1,
+        "scikit-learn": 1
+      },
+      "status": "PASS"
+    },
+    {
+      "group_id": "SWE_G02",
+      "repository_counts": {
+        "django": 1,
+        "pydata": 1,
+        "pylint-dev": 1,
+        "sympy": 1
+      },
+      "status": "PASS"
+    },
+    {
+      "group_id": "SWE_G03",
+      "repository_counts": {
+        "django": 2,
+        "matplotlib": 1,
+        "sympy": 1
+      },
+      "status": "PASS"
+    },
+    {
+      "group_id": "SWE_G04",
+      "repository_counts": {
+        "django": 2,
+        "pytest-dev": 1,
+        "sympy": 1
+      },
+      "status": "PASS"
+    },
+    {
+      "group_id": "SWE_G05",
+      "repository_counts": {
+        "django": 2,
+        "scikit-learn": 1,
+        "sphinx-doc": 1
+      },
+      "status": "PASS"
+    },
+    {
+      "group_id": "SWE_G06",
+      "repository_counts": {
+        "django": 2,
+        "matplotlib": 1,
+        "sympy": 1
+      },
+      "status": "PASS"
+    },
+    {
+      "group_id": "SWE_G07",
+      "repository_counts": {
+        "django": 2,
+        "psf": 1,
+        "sympy": 1
+      },
+      "status": "PASS"
+    },
+    {
+      "group_id": "SWE_G08",
+      "repository_counts": {
+        "django": 2,
+        "matplotlib": 1,
+        "sympy": 1
+      },
+      "status": "PASS"
+    },
+    {
+      "group_id": "SWE_G09",
+      "repository_counts": {
+        "django": 2,
+        "pydata": 1,
+        "sympy": 1
+      },
+      "status": "PASS"
+    },
+    {
+      "group_id": "SWE_G10",
+      "repository_counts": {
+        "django": 2,
+        "matplotlib": 1,
+        "sympy": 1
+      },
+      "status": "PASS"
+    },
+    {
+      "group_id": "SWE_G11",
+      "repository_counts": {
+        "django": 2,
+        "psf": 1,
+        "sympy": 1
+      },
+      "status": "PASS"
+    },
+    {
+      "group_id": "SWE_G12",
+      "repository_counts": {
+        "django": 2,
+        "pydata": 1,
+        "pytest-dev": 1
+      },
+      "status": "PASS"
+    }
+  ],
+  "max_programs_per_repository_per_group": 2,
+  "min_distinct_repositories": 3,
+  "schema_version": "phase5.swe_repository_diversity.v1",
+  "status": "PASS"
+}

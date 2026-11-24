@@ -1,0 +1,9 @@
+{
+  "combined_candidate_content_sha256": "ae4c1d493e094a7ebb0d4c81193e01fb5ecb131863a2153f97645ad9790054df",
+  "gpu_execution_authorized": false,
+  "m1_acceptance_required": true,
+  "schema_version": "phase5.swe_workload_seal_input.v1",
+  "seal_input_content_sha256": "839689ed4c5ef1eb85e1c3de91f776b95cd35064684ce37102f942ce31fe279f",
+  "status": "INPUT_READY_PENDING_M4_AND_M1_ACCEPTANCE",
+  "workload_seal_issued": false
+}

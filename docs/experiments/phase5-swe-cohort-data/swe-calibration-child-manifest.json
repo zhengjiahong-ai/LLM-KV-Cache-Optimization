@@ -1,0 +1,284 @@
+{
+  "arrival_manifest_content_sha256": "379738f3d3bbca3edf5494d7d2be2c2a020e30197629c909d1cfc2f487a299eb",
+  "child_content_sha256": "54bd4dc5932a974959cbaa332903fecb916c35902de21cd69d1e6777932b13a7",
+  "formal_cohort_selected": false,
+  "gpu_execution_authorized": false,
+  "groups": [
+    {
+      "group_content_sha256": "8ecb897eeafdcd39b4e287d5f97643f575b6b00d9ff8375b678243892d4d9825",
+      "group_id": "SWE_G01",
+      "members": [
+        {
+          "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+          "ordinal": 1,
+          "program_id": "django__django-15572",
+          "provenance_partition": "EXISTING_PHASE5",
+          "qualification_sha256": "c8b5da53ac30cd061543482bdd628bb62dbeba1e831372318446e1aaaa9c86d6",
+          "raw_artifact_sha256": "9bc24915c07fa8debaafd0d55556c5833ab8315543bdab44f6acdc54e3dced63",
+          "repository_id": "django",
+          "session_id": "phase5:swe:django__django-15572:session:1",
+          "source_trace_sha256": "14bc728842170f3ad86ca68e2fbc5511002312e220d2bb9a12a4303755f0d544",
+          "terminal_class": "RIGHT_CENSORED",
+          "token_materialization_file_sha256": "1987e32064a50d6c819364c92142c594263a5950ea003560976fe5571f7bf888",
+          "trace_id": "phase5:swe:django__django-15572"
+        },
+        {
+          "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+          "ordinal": 2,
+          "program_id": "scikit-learn__scikit-learn-14894",
+          "provenance_partition": "EXISTING_PHASE5",
+          "qualification_sha256": "27f682ef16018604d84189e836f377455966b053f846954ce89e5955f2e1a86a",
+          "raw_artifact_sha256": "14d0020fd5cad7238822e65276e2f53d3b0993e6813d629f408525be71459c7b",
+          "repository_id": "scikit-learn",
+          "session_id": "phase5:swe:scikit-learn__scikit-learn-14894:session:1",
+          "source_trace_sha256": "7ebe0cc7bc60e6b942e27eaebe29cbad92a501c49444745bbfdf17e9f01bdde6",
+          "terminal_class": "RIGHT_CENSORED",
+          "token_materialization_file_sha256": "c801cd2337324704595101d3cc4ed89e45cf2256ec0ba1df85d9c03daac833f2",
+          "trace_id": "phase5:swe:scikit-learn__scikit-learn-14894"
+        },
+        {
+          "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+          "ordinal": 3,
+          "program_id": "mwaskom__seaborn-3069",
+          "provenance_partition": "FRESH_REACQUISITION",
+          "qualification_sha256": "807ffdb5bc495f8d27e1461a437b05c406eeb852617fa976911dffce57c0ccdc",
+          "raw_artifact_sha256": "e8ebe546494a051d191e31ba696183c4b012ce95bf54652032f558a4adbbd49b",
+          "repository_id": "mwaskom",
+          "session_id": "phase5:swe:mwaskom__seaborn-3069:session:1",
+          "source_trace_sha256": "6c509f662a9e0c75ed76de1ef44a36599168c3c186177a32e938937d406171f9",
+          "terminal_class": "RIGHT_CENSORED",
+          "token_materialization_file_sha256": "1cc7168b68d944c497d2691ecb03f70084d2f3122cde5224cbd36a2782995052",
+          "trace_id": "phase5:swe:mwaskom__seaborn-3069"
+        },
+        {
+          "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+          "ordinal": 4,
+          "program_id": "django__django-11138",
+          "provenance_partition": "EXISTING_PHASE5",
+          "qualification_sha256": "754e6592b4aa9fcdee48704febe08a46fcb7c7ad99f5ec1cd3cd908cd5d2a5ff",
+          "raw_artifact_sha256": "9b1167c324ac14357bf9792f430889c5625246211ba312ef33e9d821541f0852",
+          "repository_id": "django",
+          "session_id": "phase5:swe:django__django-11138:session:1",
+          "source_trace_sha256": "47f52227426e198ecac2e4593a443fcefb23c155069d5611e16375b14907088c",
+          "terminal_class": "RIGHT_CENSORED",
+          "token_materialization_file_sha256": "2f6fbfd7ce820e20ca16d6ff2e1e3a914a81acd00fe4b76aa5238901d667b520",
+          "trace_id": "phase5:swe:django__django-11138"
+        }
+      ],
+      "repository_counts": {
+        "django": 2,
+        "mwaskom": 1,
+        "scikit-learn": 1
+      },
+      "role": "CALIBRATION"
+    },
+    {
+      "group_content_sha256": "701b0d741d1e3d1f0b5d86db6edbfc4a734a1941c26f5af6c8c15c1215bf558f",
+      "group_id": "SWE_G02",
+      "members": [
+        {
+          "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+          "ordinal": 1,
+          "program_id": "pydata__xarray-4695",
+          "provenance_partition": "EXISTING_PHASE5",
+          "qualification_sha256": "734e288a5c79794f4e39e344e5403772c65856b3ff18e69a07f44628c722a5b5",
+          "raw_artifact_sha256": "2af5251ad8bc7bde8592f49e1ebc8bb532578da2a3d800a21a1ca370abf0cce2",
+          "repository_id": "pydata",
+          "session_id": "phase5:swe:pydata__xarray-4695:session:1",
+          "source_trace_sha256": "2e0ec1487462ec1ac7fc57a448b37f7c271cf0a72dae8b0e74420f24eace37a1",
+          "terminal_class": "RIGHT_CENSORED",
+          "token_materialization_file_sha256": "1a1ee2da324f9b23a76d78d033d096e4544700ffd68c5d063eb2f97b415db544",
+          "trace_id": "phase5:swe:pydata__xarray-4695"
+        },
+        {
+          "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+          "ordinal": 2,
+          "program_id": "django__django-11095",
+          "provenance_partition": "EXISTING_PHASE5",
+          "qualification_sha256": "0e431088aa188088c5b4aea9bbba9bd68186ef7721ffc1c6699f2eba9da0db1a",
+          "raw_artifact_sha256": "3061a269834c44725a6e87daca5016b1dc681adc09e17174c98027b5134d25e0",
+          "repository_id": "django",
+          "session_id": "phase5:swe:django__django-11095:session:1",
+          "source_trace_sha256": "8c64f8b4d713dd6e477ba6a9d548ca43761a8bb3fde1f028903558b1349b3178",
+          "terminal_class": "RIGHT_CENSORED",
+          "token_materialization_file_sha256": "3313ab0aea987f22944f79da481b7b532eedfe80f72e3d05025a92a18d710f6c",
+          "trace_id": "phase5:swe:django__django-11095"
+        },
+        {
+          "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+          "ordinal": 3,
+          "program_id": "pylint-dev__pylint-4551",
+          "provenance_partition": "EXISTING_PHASE5",
+          "qualification_sha256": "3e769e7b07b1343b2b11d98b434fd9aa8d4a30957558440a4d0e133a99c5af0c",
+          "raw_artifact_sha256": "b8a281f8868bf03812508a5508a844b4b9c3b1bb342d5f5402fca2798951966e",
+          "repository_id": "pylint-dev",
+          "session_id": "phase5:swe:pylint-dev__pylint-4551:session:1",
+          "source_trace_sha256": "14bfdcd679053d8546c7d1285570cef480b58fc59416bbe14481ab4b4317f18c",
+          "terminal_class": "RIGHT_CENSORED",
+          "token_materialization_file_sha256": "62dcf8980fca55bdc16526ace89db46c1b7b72fc80463cab1d39af2c9fb3406c",
+          "trace_id": "phase5:swe:pylint-dev__pylint-4551"
+        },
+        {
+          "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+          "ordinal": 4,
+          "program_id": "sympy__sympy-18199",
+          "provenance_partition": "EXISTING_PHASE5",
+          "qualification_sha256": "6e5c0386c0f01debcd86b4ddbb7f1f2a23d9d70712bb9edb99ac30455b4a574a",
+          "raw_artifact_sha256": "8138e0275fbd10a95a9b6aac2b3ab54a556093c3df9196436c32b62ea9b0664b",
+          "repository_id": "sympy",
+          "session_id": "phase5:swe:sympy__sympy-18199:session:1",
+          "source_trace_sha256": "23c734e2b089751bedaf8c083829f3636bd7a0408b8d8a8cf7d43e65182e7f3f",
+          "terminal_class": "RIGHT_CENSORED",
+          "token_materialization_file_sha256": "e92da9c60aaec1b06962a76d303674fcc6c07e9259b3ad68528e4e8505d6d7bd",
+          "trace_id": "phase5:swe:sympy__sympy-18199"
+        }
+      ],
+      "repository_counts": {
+        "django": 1,
+        "pydata": 1,
+        "pylint-dev": 1,
+        "sympy": 1
+      },
+      "role": "CALIBRATION"
+    },
+    {
+      "group_content_sha256": "2c839323f6257daefb4198b766a651107ed3911668285819a759dfd758d30909",
+      "group_id": "SWE_G03",
+      "members": [
+        {
+          "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+          "ordinal": 1,
+          "program_id": "django__django-15741",
+          "provenance_partition": "EXISTING_PHASE5",
+          "qualification_sha256": "e49fd33178c6da2a46b5ac19a3f1dd16df9bbff43597a7bd28cca852e4588eea",
+          "raw_artifact_sha256": "7596b8ee6f53420a5c41b0fbc150e5c4a5ce3ee4f45aef49eed27385ce0798fa",
+          "repository_id": "django",
+          "session_id": "phase5:swe:django__django-15741:session:1",
+          "source_trace_sha256": "cb68d66c9c68507b66505e6499809df0423037f35f15e0e2ecf529dc36c240ea",
+          "terminal_class": "RIGHT_CENSORED",
+          "token_materialization_file_sha256": "a3d55d1e797fa51c2fde9857876e09f9fa2a817d49db872ce544f3113147b6d4",
+          "trace_id": "phase5:swe:django__django-15741"
+        },
+        {
+          "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+          "ordinal": 2,
+          "program_id": "sympy__sympy-13974",
+          "provenance_partition": "EXISTING_PHASE5",
+          "qualification_sha256": "e707cb28e7487260238181f72e1d4b5b06c21174d18e053e156b544a94015bcf",
+          "raw_artifact_sha256": "a60271bebca6b0e74c45baf0b6de1d459622598614616d631d4d3d66864f9480",
+          "repository_id": "sympy",
+          "session_id": "phase5:swe:sympy__sympy-13974:session:1",
+          "source_trace_sha256": "34fecb167bba5134225092fdfc5149e7fd524a03728f08d61592b03d2ce79486",
+          "terminal_class": "RIGHT_CENSORED",
+          "token_materialization_file_sha256": "f4007ccd77d4af64eb44c26ec27742ca56933d5b0d09e7bffd80af71e5faa8d5",
+          "trace_id": "phase5:swe:sympy__sympy-13974"
+        },
+        {
+          "censor_reason": null,
+          "ordinal": 3,
+          "program_id": "django__django-11880",
+          "provenance_partition": "EXISTING_PHASE5",
+          "qualification_sha256": "ac382dec75223a1324be581415ef08938b59e846a945ac3985596b56d9cdf467",
+          "raw_artifact_sha256": "0221fa34edd32344bc6832d96c888dfbc053357a206b68c29a8070ac4a8538d9",
+          "repository_id": "django",
+          "session_id": "phase5:swe:django__django-11880:session:1",
+          "source_trace_sha256": "222cb1de48d6fb524967842eaaf1db6a73baa2e43e7981100f0d1372aa43752d",
+          "terminal_class": "NATURAL_TERMINAL",
+          "token_materialization_file_sha256": "81b85d1f6fcf9607c68ad5f03092cb1c255c086a1cb4191221ff1bffee85c803",
+          "trace_id": "phase5:swe:django__django-11880"
+        },
+        {
+          "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+          "ordinal": 4,
+          "program_id": "matplotlib__matplotlib-25311",
+          "provenance_partition": "FRESH_REACQUISITION",
+          "qualification_sha256": "3de441da580f5297c9a27a4a37d79ced769c098470ca869ef30e9236e4ca17df",
+          "raw_artifact_sha256": "b290065ccf56541384aadd259e73affc2d603a5895dd411da0fbe4e96ceb897a",
+          "repository_id": "matplotlib",
+          "session_id": "phase5:swe:matplotlib__matplotlib-25311:session:1",
+          "source_trace_sha256": "33458139c359497bfb1bb8956e73b4585da23f186322b34eb766e20ac348eab7",
+          "terminal_class": "RIGHT_CENSORED",
+          "token_materialization_file_sha256": "7880fd95c4c2def5262a13c92ef0e3fb75e3da4454e9714b51f4033103e680fb",
+          "trace_id": "phase5:swe:matplotlib__matplotlib-25311"
+        }
+      ],
+      "repository_counts": {
+        "django": 2,
+        "matplotlib": 1,
+        "sympy": 1
+      },
+      "role": "CALIBRATION"
+    },
+    {
+      "group_content_sha256": "698504bf98e1ee34e349337c0d383c9420055e9eb9297e9a13732562b7ab4ba9",
+      "group_id": "SWE_G04",
+      "members": [
+        {
+          "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+          "ordinal": 1,
+          "program_id": "sympy__sympy-21596",
+          "provenance_partition": "FRESH_REACQUISITION",
+          "qualification_sha256": "9a2bde46182a3a9201a8d09e764935d8b8f4d827c3a2ad6c4997ac05b2d8a667",
+          "raw_artifact_sha256": "14fb1dc2780e7ae9438bc56d507357bebdb74654984609ee27a441da144b51ca",
+          "repository_id": "sympy",
+          "session_id": "phase5:swe:sympy__sympy-21596:session:1",
+          "source_trace_sha256": "b4cf18c05c122cd8cd23c7795519d34fe11b2e6c99795224544fcce9b228cd76",
+          "terminal_class": "RIGHT_CENSORED",
+          "token_materialization_file_sha256": "f5671d5db97328b9235287c6a7d3e18d510819b67280811f2867a6e8a11128a2",
+          "trace_id": "phase5:swe:sympy__sympy-21596"
+        },
+        {
+          "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+          "ordinal": 2,
+          "program_id": "django__django-13212",
+          "provenance_partition": "EXISTING_PHASE5",
+          "qualification_sha256": "608f24bb097c403a9b39169d62f487c7525ccb195dfb23330c8d7b71f7ceff7d",
+          "raw_artifact_sha256": "67209f5dc6cfb8c53b191970c0571727ac0f604ed4ce69b5f367e4ee416c635b",
+          "repository_id": "django",
+          "session_id": "phase5:swe:django__django-13212:session:1",
+          "source_trace_sha256": "df27175e25b7f6f0976aea75573b2aca14ab5547a9bcbbb29da277c8302c9280",
+          "terminal_class": "RIGHT_CENSORED",
+          "token_materialization_file_sha256": "27d8563b42be80c53e4dd49b16ccd740177ea73e4e420f5793cf6e4dc49e053f",
+          "trace_id": "phase5:swe:django__django-13212"
+        },
+        {
+          "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+          "ordinal": 3,
+          "program_id": "django__django-13513",
+          "provenance_partition": "EXISTING_PHASE5",
+          "qualification_sha256": "602a9d76d374dc58d707fbe204517b45aa06855ef57383f9eb0ef10e022d02ca",
+          "raw_artifact_sha256": "60cbeb4e49ba2f483e26a4dee243a28d954269b4e88aa8411ffe09a25074573f",
+          "repository_id": "django",
+          "session_id": "phase5:swe:django__django-13513:session:1",
+          "source_trace_sha256": "2744e3d6b9a0fecfe13beee8f5d765fb22a18b3c57393ff98df0f53825240b6d",
+          "terminal_class": "RIGHT_CENSORED",
+          "token_materialization_file_sha256": "d7a01bb4f90becbf970a718be09578c209843d64f621c1e9aa93b653f911bd5b",
+          "trace_id": "phase5:swe:django__django-13513"
+        },
+        {
+          "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+          "ordinal": 4,
+          "program_id": "pytest-dev__pytest-7982",
+          "provenance_partition": "FRESH_REACQUISITION",
+          "qualification_sha256": "7c00e30bff1313c5bdb4e7c91d6018e0646242cc6184e4045ae40d27ac9ee6bb",
+          "raw_artifact_sha256": "e14e96bf6a56980cbb0a81caa35932424c9de4371afd4828debfbdba8049418b",
+          "repository_id": "pytest-dev",
+          "session_id": "phase5:swe:pytest-dev__pytest-7982:session:1",
+          "source_trace_sha256": "6c758f26eb5f677a666e694f1f7847df1603317c8365ae79ef84f2bf49807410",
+          "terminal_class": "RIGHT_CENSORED",
+          "token_materialization_file_sha256": "a68d914c54f14dc1790f94219d6261cb3c58da4206a3f3db1ceaf1c3f469987d",
+          "trace_id": "phase5:swe:pytest-dev__pytest-7982"
+        }
+      ],
+      "repository_counts": {
+        "django": 2,
+        "pytest-dev": 1,
+        "sympy": 1
+      },
+      "role": "CALIBRATION"
+    }
+  ],
+  "parent_group_manifest_content_sha256": "afdaa8c2c7c6bd70866da2e39dbfa66cf723083a11d08a87c654b33efdadb70e",
+  "role": "CALIBRATION",
+  "schema_version": "phase5.swe_child_manifest.v1"
+}

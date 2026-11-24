@@ -1,0 +1,26 @@
+{
+  "calibration_group_count": 4,
+  "formal_candidate_group_count": 8,
+  "group_count": 12,
+  "program_count": 48,
+  "repository_counts": {
+    "django": 23,
+    "matplotlib": 4,
+    "mwaskom": 1,
+    "psf": 2,
+    "pydata": 3,
+    "pylint-dev": 1,
+    "pytest-dev": 2,
+    "scikit-learn": 2,
+    "sphinx-doc": 1,
+    "sympy": 9
+  },
+  "right_censoring_primary_rule": "VALID_OBSERVED_TURNS_ONLY",
+  "right_censoring_sensitivity_rule": "EXCLUDE_RIGHT_CENSORED_SESSIONS",
+  "schema_version": "phase5.swe_group_statistics.v1",
+  "statistics_content_sha256": "d948f2af5c522a5ed87b9d82b63e98f0c80f9f4fba583bb9ab5a14234649bb5e",
+  "terminal_class_counts": {
+    "NATURAL_TERMINAL": 2,
+    "RIGHT_CENSORED": 46
+  }
+}

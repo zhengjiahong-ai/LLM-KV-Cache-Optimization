@@ -1,0 +1,337 @@
+{
+  "arrival_manifest_content_sha256": "379738f3d3bbca3edf5494d7d2be2c2a020e30197629c909d1cfc2f487a299eb",
+  "arrival_mode": "FROZEN_POISSON",
+  "derivation": "ONE_48_PROGRAM_STREAM_SLICE_4_AND_SUBTRACT_GROUP_FIRST",
+  "generator": "PYTHON_RANDOM_MT19937_EXPONENTIAL_V1",
+  "groups": [
+    {
+      "group_id": "SWE_G01",
+      "schedule_sha256": "d54af1caa5da24ffa58e9cc0ac915df0398907a205897b9f64265e4e5c31a381",
+      "starts": [
+        {
+          "ordinal": 1,
+          "program_id": "django__django-15572",
+          "start_offset_seconds": 0.0
+        },
+        {
+          "ordinal": 2,
+          "program_id": "scikit-learn__scikit-learn-14894",
+          "start_offset_seconds": 1.5295016885120167
+        },
+        {
+          "ordinal": 3,
+          "program_id": "mwaskom__seaborn-3069",
+          "start_offset_seconds": 35.70314351321025
+        },
+        {
+          "ordinal": 4,
+          "program_id": "django__django-11138",
+          "start_offset_seconds": 37.31528956935591
+        }
+      ]
+    },
+    {
+      "group_id": "SWE_G02",
+      "schedule_sha256": "57527e1b689d4b67af2f5f8f0ca65c47bb1da41d4cc9d7dfb7d949fd80119dea",
+      "starts": [
+        {
+          "ordinal": 1,
+          "program_id": "pydata__xarray-4695",
+          "start_offset_seconds": 0.0
+        },
+        {
+          "ordinal": 2,
+          "program_id": "django__django-11095",
+          "start_offset_seconds": 50.305303169580114
+        },
+        {
+          "ordinal": 3,
+          "program_id": "pylint-dev__pylint-4551",
+          "start_offset_seconds": 51.00513720188198
+        },
+        {
+          "ordinal": 4,
+          "program_id": "sympy__sympy-18199",
+          "start_offset_seconds": 77.42809909727112
+        }
+      ]
+    },
+    {
+      "group_id": "SWE_G03",
+      "schedule_sha256": "c49275659c144332ffabbb1cbcd643caa4d17bbf7f8c58a619f2e8ede22da5bc",
+      "starts": [
+        {
+          "ordinal": 1,
+          "program_id": "django__django-15741",
+          "start_offset_seconds": 0.0
+        },
+        {
+          "ordinal": 2,
+          "program_id": "sympy__sympy-13974",
+          "start_offset_seconds": 3.890010868556999
+        },
+        {
+          "ordinal": 3,
+          "program_id": "django__django-11880",
+          "start_offset_seconds": 25.659702237797816
+        },
+        {
+          "ordinal": 4,
+          "program_id": "matplotlib__matplotlib-25311",
+          "start_offset_seconds": 43.24291454473068
+        }
+      ]
+    },
+    {
+      "group_id": "SWE_G04",
+      "schedule_sha256": "6cc396effd9955f69e003ec9c866077be50e2d2727c62c10fe04c9cbb0c60c49",
+      "starts": [
+        {
+          "ordinal": 1,
+          "program_id": "sympy__sympy-21596",
+          "start_offset_seconds": 0.0
+        },
+        {
+          "ordinal": 2,
+          "program_id": "django__django-13212",
+          "start_offset_seconds": 9.803148315883107
+        },
+        {
+          "ordinal": 3,
+          "program_id": "django__django-13513",
+          "start_offset_seconds": 10.820224716839789
+        },
+        {
+          "ordinal": 4,
+          "program_id": "pytest-dev__pytest-7982",
+          "start_offset_seconds": 26.05580921955479
+        }
+      ]
+    },
+    {
+      "group_id": "SWE_G05",
+      "schedule_sha256": "faae16c9427192cfa5c837254ee6741181ac0f1f9b5c28fd450ce9b570dbf2b3",
+      "starts": [
+        {
+          "ordinal": 1,
+          "program_id": "scikit-learn__scikit-learn-25747",
+          "start_offset_seconds": 0.0
+        },
+        {
+          "ordinal": 2,
+          "program_id": "django__django-12209",
+          "start_offset_seconds": 9.302202847436803
+        },
+        {
+          "ordinal": 3,
+          "program_id": "django__django-14373",
+          "start_offset_seconds": 40.94730605173726
+        },
+        {
+          "ordinal": 4,
+          "program_id": "sphinx-doc__sphinx-8721",
+          "start_offset_seconds": 44.94366758792012
+        }
+      ]
+    },
+    {
+      "group_id": "SWE_G06",
+      "schedule_sha256": "bda7a81289ee1f484f6c4df8b45b6769d2bc380989d1e35630455e0b5e31cc87",
+      "starts": [
+        {
+          "ordinal": 1,
+          "program_id": "django__django-16032",
+          "start_offset_seconds": 0.0
+        },
+        {
+          "ordinal": 2,
+          "program_id": "django__django-13023",
+          "start_offset_seconds": 18.47786661452733
+        },
+        {
+          "ordinal": 3,
+          "program_id": "sympy__sympy-15017",
+          "start_offset_seconds": 21.381279055737252
+        },
+        {
+          "ordinal": 4,
+          "program_id": "matplotlib__matplotlib-25287",
+          "start_offset_seconds": 46.79469674671071
+        }
+      ]
+    },
+    {
+      "group_id": "SWE_G07",
+      "schedule_sha256": "26c7a6534ef28b1c13dc25e23d23a6b11be945622869191306956d85b2ed4443",
+      "starts": [
+        {
+          "ordinal": 1,
+          "program_id": "sympy__sympy-20801",
+          "start_offset_seconds": 0.0
+        },
+        {
+          "ordinal": 2,
+          "program_id": "django__django-15554",
+          "start_offset_seconds": 8.822667554501265
+        },
+        {
+          "ordinal": 3,
+          "program_id": "psf__requests-2931",
+          "start_offset_seconds": 15.97965268996154
+        },
+        {
+          "ordinal": 4,
+          "program_id": "django__django-16662",
+          "start_offset_seconds": 23.976504366386393
+        }
+      ]
+    },
+    {
+      "group_id": "SWE_G08",
+      "schedule_sha256": "9688943ad589e80e0ea9ee0004df09c8509361a7643cb52d3c6a93cbf236aa3c",
+      "starts": [
+        {
+          "ordinal": 1,
+          "program_id": "django__django-13569",
+          "start_offset_seconds": 0.0
+        },
+        {
+          "ordinal": 2,
+          "program_id": "sympy__sympy-12419",
+          "start_offset_seconds": 13.122831244367717
+        },
+        {
+          "ordinal": 3,
+          "program_id": "matplotlib__matplotlib-26466",
+          "start_offset_seconds": 16.855664119197513
+        },
+        {
+          "ordinal": 4,
+          "program_id": "django__django-14011",
+          "start_offset_seconds": 36.799289872856775
+        }
+      ]
+    },
+    {
+      "group_id": "SWE_G09",
+      "schedule_sha256": "07746a73ed561ed8cd19e0a04bec715c39d18cde93b2bce27e78822f19d25cbf",
+      "starts": [
+        {
+          "ordinal": 1,
+          "program_id": "pydata__xarray-3305",
+          "start_offset_seconds": 0.0
+        },
+        {
+          "ordinal": 2,
+          "program_id": "django__django-14493",
+          "start_offset_seconds": 0.3511926908623195
+        },
+        {
+          "ordinal": 3,
+          "program_id": "sympy__sympy-22714",
+          "start_offset_seconds": 10.07697103451801
+        },
+        {
+          "ordinal": 4,
+          "program_id": "django__django-14170",
+          "start_offset_seconds": 12.03576188668427
+        }
+      ]
+    },
+    {
+      "group_id": "SWE_G10",
+      "schedule_sha256": "0b1e77070db9e7eec5873c7d6a9304ddfeb8e6e252c80d73121728df70a69f1f",
+      "starts": [
+        {
+          "ordinal": 1,
+          "program_id": "django__django-11790",
+          "start_offset_seconds": 0.0
+        },
+        {
+          "ordinal": 2,
+          "program_id": "sympy__sympy-16886",
+          "start_offset_seconds": 1.6953402721863995
+        },
+        {
+          "ordinal": 3,
+          "program_id": "django__django-15569",
+          "start_offset_seconds": 34.123523059558124
+        },
+        {
+          "ordinal": 4,
+          "program_id": "matplotlib__matplotlib-14623",
+          "start_offset_seconds": 44.126931111168744
+        }
+      ]
+    },
+    {
+      "group_id": "SWE_G11",
+      "schedule_sha256": "a1e998e0ead3e90bb40f2cbe705f8c0f11941e5d4ae2486dc5eac58b3d7ac262",
+      "starts": [
+        {
+          "ordinal": 1,
+          "program_id": "psf__requests-2317",
+          "start_offset_seconds": 0.0
+        },
+        {
+          "ordinal": 2,
+          "program_id": "sympy__sympy-13551",
+          "start_offset_seconds": 10.693629506366335
+        },
+        {
+          "ordinal": 3,
+          "program_id": "django__django-12276",
+          "start_offset_seconds": 31.045331303365174
+        },
+        {
+          "ordinal": 4,
+          "program_id": "django__django-12050",
+          "start_offset_seconds": 33.40345408961889
+        }
+      ]
+    },
+    {
+      "group_id": "SWE_G12",
+      "schedule_sha256": "043fa03b7bb9d990aa7908cd90b3fb228767a9f85f3886588fcf90b0871c9107",
+      "starts": [
+        {
+          "ordinal": 1,
+          "program_id": "pytest-dev__pytest-8399",
+          "start_offset_seconds": 0.0
+        },
+        {
+          "ordinal": 2,
+          "program_id": "django__django-13933",
+          "start_offset_seconds": 10.706128179593406
+        },
+        {
+          "ordinal": 3,
+          "program_id": "django__django-16901",
+          "start_offset_seconds": 21.273808372796566
+        },
+        {
+          "ordinal": 4,
+          "program_id": "pydata__xarray-3095",
+          "start_offset_seconds": 41.21783498150444
+        }
+      ]
+    }
+  ],
+  "master_plan_sha256": "078769e0a459d96edc5db79017b2e7dc6c7fa4b69db9e2ee71cbd358918b13a3",
+  "master_seed": 20261201,
+  "program_start_rate_per_second": 0.1,
+  "reuse_contract": {
+    "all_repeats": true,
+    "per_repeat_resampling_allowed": false,
+    "per_system_resampling_allowed": false,
+    "systems": [
+      "NATIVE",
+      "CONTINUUM_OFFICIAL",
+      "CONTINUUM_ADAPTED_A0",
+      "A1_ORIGINAL",
+      "A3_SUFFIX",
+      "DVA_ER_V1"
+    ]
+  },
+  "schema_version": "phase5.swe_frozen_poisson_arrivals.v1"
+}

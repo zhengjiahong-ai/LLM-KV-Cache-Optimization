@@ -1,0 +1,23 @@
+{
+  "files": {
+    "swe-calibration-child-manifest.json": "97e3709a6be1175d762f6cc60054c6834ee3d7833557c82abc6d2ca66c88c54e",
+    "swe-cohort-disjointness-validation.json": "235c3912b6c5359514227e1b8ec17ba874967747cb12ecf9930f3a87d7a8c101",
+    "swe-combined-cohort-candidate-manifest.json": "fbfdf4f5d3bd4be2db38b9879b58a3277070e50881170a1128c3c9708205d850",
+    "swe-formal-candidate-child-manifest.json": "6dadaddecead9be4b552e0e843f0cecd2c7b465449d6e6d589845384a01c2bb7",
+    "swe-frozen-poisson-arrival-manifest.json": "09b6c1ef10b950a85a7f5a29d59181106373e3fdef63b664239d64ef117fcbae",
+    "swe-group-manifest.json": "2354d9c98862828684dd6491c67eaa4a6dd7007d5fa38d6a1a1e7aa13a6b020f",
+    "swe-group-statistics-summary.json": "2345fc7aad2e738532f7242c51c80f2ab3709f970e5aa0ec10e9d79acc318931",
+    "swe-outcome-blind-audit.json": "64b3f8f5c41bb983fce4aa8c4f483c7e46f56ec0a9e02462b1810900e6d715f4",
+    "swe-repository-diversity-validation.json": "46d6d01b6e4283efad84ce1430da2e64ffb5642d2bc0a00e140287246f9ba059",
+    "swe-workload-seal-input-bundle.json": "588d53a027133d813c8dcf44486324b71188e4e701098bb71b598284bb919965"
+  },
+  "schema_version": "phase5.swe_cohort_package_manifest.v1",
+  "source_bindings": {
+    "arrival_implementation_file_sha256": "c2880f9db1234237b02bcce35f001627c166fe5048de02ba663a5862b12b4d6f",
+    "cohort_materializer_file_sha256": "6d07eb43aa74a3da2c7c428bcb864615c62060bf63205c63d9fa2ed172805c48",
+    "construction_freeze_file_sha256": "0057d0d45725951925e74e84e598386249a65627751e441b8ad161edb0662946",
+    "fresh_review_manifest_file_sha256": "3e7f05808cacc7efba37d89d257fc710a679d8f649221c15b6a65242b9ba7b3f",
+    "fresh_review_summary_file_sha256": "352beb2ae2f73645a4190dd0e23393812b5df3fd5a7c9de92a58d89076c7cff4",
+    "source_48_program_inventory_file_sha256": "575665709114ad3c9741d9c903f8356342eb14cca9bbb56b517f414c3cd1e4db"
+  }
+}

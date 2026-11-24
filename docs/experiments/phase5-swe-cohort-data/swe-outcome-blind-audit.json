@@ -1,0 +1,14 @@
+{
+  "algorithm": "FROZEN_SHA256_SORT_AND_CONSECUTIVE_PARTITION",
+  "consumed_fields": [
+    "program_id",
+    "session_id",
+    "identity/evidence hashes",
+    "terminal classification",
+    "provenance partition"
+  ],
+  "outcome_blind_content_sha256": "067d1e2bde8b61e7a3ac2f66c865829e523f93dc51ecdd9940ce08ab47d165f9",
+  "prohibited_outcome_fields_consumed": [],
+  "schema_version": "phase5.swe_outcome_blind_audit.v1",
+  "status": "PASS"
+}

@@ -1,0 +1,9 @@
+{
+  "all_48_programs_exactly_once": true,
+  "disjointness_content_sha256": "c8d65c477f4b23158ded5f662d5b056936657c8d7665d9cdeed38a57081d833b",
+  "group_overlap": [],
+  "program_overlap": [],
+  "schema_version": "phase5.swe_cohort_disjointness.v1",
+  "session_overlap": [],
+  "status": "PASS"
+}
