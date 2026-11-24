@@ -1,3 +1,5 @@
+> **2026-11-24 scope supersession:** this engineering acceptance record describes the original two-formal-stratum design. Current scope is SWE-bench as the sole formal stratum plus BFCL Derived as an independent supplementary study. Its 144-run two-stratum Calibration matrix and old formal run totals are not executable under the current scope. See [Phase 5 Scope Amendment](phase5-scope-amendment-2026-11-24.md). A coordinated single-stratum update to protocol/schema/statistics/validators/planner is required in D.
+
 # Phase 5 Formal Campaign Engineering Acceptance Status
 
 **As of:** 2026-11-19  
