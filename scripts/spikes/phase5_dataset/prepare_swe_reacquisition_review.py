@@ -33,6 +33,7 @@ def main() -> int:
     parser.add_argument("--existing-inventory", type=Path, required=True)
     parser.add_argument("--batch-manifest", type=Path, required=True)
     parser.add_argument("--raw-root", type=Path, required=True)
+    parser.add_argument("--historical-w1c-root", type=Path, required=True)
     parser.add_argument("--conversion-report", type=Path, required=True)
     parser.add_argument("--processed-root", type=Path, required=True)
     parser.add_argument("--sampling-frame", type=Path, required=True)
@@ -64,7 +65,10 @@ def main() -> int:
     }
     attempt_rows = []
     conversion_rows = []
-    for identity in ordered:
+    ranks = batch.get("candidate_ranks")
+    if not isinstance(ranks, list) or len(ranks) != len(ordered):
+        raise TypeError("batch manifest lacks candidate_ranks")
+    for rank, identity in zip(ranks, ordered, strict=True):
         run_root = args.raw_root.resolve() / identity
         run_path = run_root / "run.json"
         trajectory_paths = sorted(run_root.glob("*.traj.json"))
@@ -74,15 +78,78 @@ def main() -> int:
         run = _load(run_path)
         if not isinstance(run, dict) or run.get("instance_id") != identity:
             raise ValueError(f"run identity mismatch: {identity}")
+        fresh_hashes = {
+            "run_json_sha256": _sha256(run_path),
+            "trajectory_sha256": _sha256(trajectory_paths[0]),
+            "sidecar_sha256": _sha256(sidecar_path),
+        }
+        historical_comparisons = []
+        for condition in ("S50", "S100"):
+            historical_root = args.historical_w1c_root.resolve() / condition / identity
+            historical_run = historical_root / "run.json"
+            historical_sidecar = historical_root / "acquisition-sidecar.json"
+            historical_trajectories = sorted(historical_root.glob("*.traj.json"))
+            if len(historical_trajectories) != 1:
+                raise ValueError(
+                    f"historical {condition}/{identity} must have one trajectory"
+                )
+            old_hashes = {
+                "run_json_sha256": _sha256(historical_run),
+                "trajectory_sha256": _sha256(historical_trajectories[0]),
+                "sidecar_sha256": _sha256(historical_sidecar),
+            }
+            historical_comparisons.append(
+                {
+                    "condition": condition,
+                    "historical_evidence_paths": {
+                        "run_json": str(historical_run),
+                        "trajectory": str(historical_trajectories[0]),
+                        "sidecar": str(historical_sidecar),
+                    },
+                    "historical_artifact_hashes": old_hashes,
+                    "per_artifact_hash_match": {
+                        key: fresh_hashes[key] == old_hashes[key]
+                        for key in sorted(fresh_hashes)
+                    },
+                    "any_artifact_hash_match": any(
+                        fresh_hashes[key] == old_hashes[key]
+                        for key in fresh_hashes
+                    ),
+                }
+            )
+        model = run.get("model")
+        dataset = run.get("dataset")
+        if not isinstance(model, dict) or not isinstance(dataset, dict):
+            raise TypeError(f"run model/dataset identity missing: {identity}")
         attempt_rows.append(
             {
                 "instance_id": identity,
+                "phase5_rank": rank,
+                "attempt_id": f"phase5-swe-historical-rank-{rank:02d}:{identity}",
+                "phase5_acquisition_identity": (
+                    "PHASE5_HISTORICAL_CANDIDATE_FRESH_REACQUISITION:"
+                    f"{identity}"
+                ),
                 "status": run.get("status"),
                 "agent_outcome": run.get("agent_outcome"),
                 "agent_exit_status": run.get("agent_exit_status"),
-                "run_json_sha256": _sha256(run_path),
-                "trajectory_sha256": _sha256(trajectory_paths[0]),
-                "sidecar_sha256": _sha256(sidecar_path),
+                "started_at_utc": run.get("started_at_utc"),
+                "finished_at_utc": run.get("finished_at_utc"),
+                "condition": run.get("condition"),
+                "repository_git_sha": run.get("repository_git_sha"),
+                "mini_swe_agent_git_sha": run.get("author_repository_git_sha"),
+                "config_sha256": run.get("config_sha256"),
+                "dataset_identity": dataset,
+                "model_identity": model,
+                "server_runtime": run.get("server_runtime"),
+                "fresh_evidence_paths": {
+                    "run_json": str(run_path),
+                    "trajectory": str(trajectory_paths[0]),
+                    "sidecar": str(sidecar_path),
+                },
+                **fresh_hashes,
+                "old_w1c_evidence_reused": False,
+                "historical_w1c_hash_comparisons": historical_comparisons,
             }
         )
         if identity in converted:
@@ -137,6 +204,14 @@ def main() -> int:
                 },
                 "failed_rules": qualification["failed_rules"],
                 "qualification_sha256": qualification["qualification_sha256"],
+                "source_trace_sha256": qualification["source_trace_sha256"],
+                "raw_artifact_identity": normalized["provenance"][
+                    "raw_artifact_identity"
+                ],
+                "raw_artifact_sha256": normalized["provenance"][
+                    "raw_artifact_sha256"
+                ],
+                "source_revision": normalized["provenance"]["source_revision"],
                 "normalized_trace_file_sha256": _sha256(normalized_path),
                 "token_materialization_file_sha256": _sha256(token_path),
                 "tool_fixtures_file_sha256": _sha256(fixtures_path),
@@ -156,6 +231,9 @@ def main() -> int:
         ),
         "sampling_frame_file_sha256": args.sampling_frame,
         "authorization_file_sha256": args.authorization,
+        "historical_w1c_feasibility_report_file_sha256": (
+            args.historical_w1c_root / "feasibility-report.json"
+        ),
     }
     ledger, candidates, summary = build_swe_reacquisition_review(
         existing_inventory=existing,
@@ -174,10 +252,21 @@ def main() -> int:
     }
     for name, value in files.items():
         _write(output / name, value)
+    lineage = output / "lineage"
+    lineage.mkdir()
+    lineage_sources = {
+        "phase5-swe-historical-reacquisition-batch.json": args.batch_manifest,
+        "phase5-swe-historical-reacquisition-authorization.json": args.authorization,
+        "phase5-swe-sampling-frame-v1.json": args.sampling_frame,
+    }
+    for name, source in lineage_sources.items():
+        (lineage / name).write_bytes(source.resolve().read_bytes())
     manifest = {
-        "schema_version": "phase5.swe_reacquisition_review_manifest.v1",
+        "schema_version": "phase5.swe_reacquisition_review_manifest.v2",
         "files": {
-            name: _sha256(output / name) for name in sorted(files)
+            str(path.relative_to(output)): _sha256(path)
+            for path in sorted(output.rglob("*.json"))
+            if path.name != "sha256-manifest.json"
         },
     }
     _write(output / "sha256-manifest.json", manifest)

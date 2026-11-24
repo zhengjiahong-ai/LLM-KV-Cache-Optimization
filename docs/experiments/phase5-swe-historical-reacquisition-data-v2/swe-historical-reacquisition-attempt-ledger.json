@@ -1,0 +1,2705 @@
+{
+  "attempted_count": 20,
+  "automatic_retry_performed": false,
+  "completed_attempt_count": 20,
+  "converted_count": 17,
+  "historical_w1c_hash_match_count": 0,
+  "ledger_content_sha256": "56cb2bff98301c549114a6a7a1034dc059e5b2e9782748f069097b063ebb5f5c",
+  "old_w1c_evidence_reused": false,
+  "ordered_instance_ids": [
+    "astropy__astropy-8872",
+    "django__django-11790",
+    "django__django-13023",
+    "django__django-13551",
+    "django__django-13569",
+    "django__django-14493",
+    "django__django-15554",
+    "django__django-16662",
+    "matplotlib__matplotlib-25311",
+    "mwaskom__seaborn-3069",
+    "pallets__flask-5014",
+    "psf__requests-2931",
+    "pydata__xarray-3993",
+    "pylint-dev__pylint-6386",
+    "pytest-dev__pytest-7982",
+    "scikit-learn__scikit-learn-14983",
+    "sphinx-doc__sphinx-8593",
+    "sympy__sympy-15017",
+    "sympy__sympy-16886",
+    "sympy__sympy-21596"
+  ],
+  "pre_normalization_excluded_count": 3,
+  "q1_q9_excluded_count": 4,
+  "q1_q9_qualified_count": 13,
+  "rows": [
+    {
+      "attempt": {
+        "agent_exit_status": "ContextLengthExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "attempt_id": "phase5-swe-historical-rank-65:astropy__astropy-8872",
+        "condition": "PHASE5_HISTORICAL_REACQUISITION_S100",
+        "config_sha256": "fb5bfe5dde3e02bd9e491a6eec54466ffde6d63f39dcbfdeb0b5e15ae46c3e22",
+        "dataset_identity": {
+          "config": "default",
+          "name": "princeton-nlp/SWE-bench_Verified",
+          "revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+          "split": "test"
+        },
+        "finished_at_utc": "2026-11-24T07:08:03.516400+00:00",
+        "fresh_evidence_paths": {
+          "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/astropy__astropy-8872/run.json",
+          "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/astropy__astropy-8872/acquisition-sidecar.json",
+          "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/astropy__astropy-8872/astropy__astropy-8872.traj.json"
+        },
+        "historical_w1c_hash_comparisons": [
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S50",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "d8e038bf58f3bfd2e92a3c5773324a9922355b22c97d980ea7c33a28b5f40fb7",
+              "sidecar_sha256": "169334c68671d67450275097706d9df4c1a3b81ae5a71afbc61f100ab55f40ef",
+              "trajectory_sha256": "99aea81a52dca2e7d9ad5ff6e5e5b4ee9ac3c10049e5b7918b401bddd44bd4b9"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/astropy__astropy-8872/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/astropy__astropy-8872/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/astropy__astropy-8872/astropy__astropy-8872.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          },
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S100",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "b2ec5146ab398a99f25fd5c6214ef03dfd98c9f17d7ea1278072df8a30bcea50",
+              "sidecar_sha256": "a627092fdcb2d87ce13e57dd17b0c0a9218c588b3abdbf317d46986e9b9f0f6f",
+              "trajectory_sha256": "3e9a9722d0e431a799dd7a3984f0f3160bf8daac5cac5be31b5775eec72a3306"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/astropy__astropy-8872/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/astropy__astropy-8872/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/astropy__astropy-8872/astropy__astropy-8872.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          }
+        ],
+        "instance_id": "astropy__astropy-8872",
+        "mini_swe_agent_git_sha": "316a58794a6ff86b216e579b74fd56ed0c5a911f",
+        "model_identity": {
+          "base_url": "http://localhost:8100/v1",
+          "max_completion_tokens": 512,
+          "model_class": "vllm",
+          "model_kwargs": {
+            "seed": 20261023,
+            "temperature": 0.0
+          },
+          "model_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "model_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225",
+          "paper_example_difference": "Fresh Phase 5 reacquisition only; historical W1-C evidence is not reused.",
+          "stream": true,
+          "tokenizer_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "tokenizer_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225"
+        },
+        "old_w1c_evidence_reused": false,
+        "phase5_acquisition_identity": "PHASE5_HISTORICAL_CANDIDATE_FRESH_REACQUISITION:astropy__astropy-8872",
+        "phase5_rank": 65,
+        "repository_git_sha": "e6e8e90427abccbd560c41cdd8cc965e11cb3731",
+        "run_json_sha256": "a5bf9e611b869ea0ff3cec7b1f57a8e5c67b3f1dbc8185cbe8059249df58c13a",
+        "server_runtime": {
+          "backend": "vllm-metal",
+          "environment": {
+            "HF_HUB_OFFLINE": "1",
+            "TRANSFORMERS_OFFLINE": "1",
+            "VLLM_ENABLE_V1_MULTIPROCESSING": "0"
+          },
+          "gpu_memory_utilization": 0.75,
+          "host": "127.0.0.1",
+          "max_model_len": 32768,
+          "port": 8100,
+          "vllm_metal_version": "0.3.0",
+          "vllm_version": "0.27.1+cpu"
+        },
+        "sidecar_sha256": "917dcabd71836c1562fe13f8c9928784daeb63171e4bba6e806710654ff34456",
+        "started_at_utc": "2026-11-24T06:53:43.332473+00:00",
+        "status": "completed",
+        "trajectory_sha256": "2c4d29e4f3c79b367fa213966bf6aeea5a205e258f0a6a6a42b9a0e852f37a61"
+      },
+      "conversion": {
+        "instance_id": "astropy__astropy-8872",
+        "record_sha256": "18e108487d1c6b249bafedbed4b48aae4183dde9216e164d2e6dcf4bbeb7ae32",
+        "status": "CONVERTED"
+      },
+      "instance_id": "astropy__astropy-8872",
+      "qualification": {
+        "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+        "failed_rules": [
+          "Q1_COMPLETE_PAYLOAD"
+        ],
+        "normalized_trace_file_sha256": "c330f3066ab3f1313951ff648a79177de1119686222864b178a9b4119f81d979",
+        "program_id": "astropy__astropy-8872",
+        "qualification_checks": {
+          "Q1": false,
+          "Q2": true,
+          "Q3": true,
+          "Q4": true,
+          "Q5": true,
+          "Q6": true,
+          "Q7": true,
+          "Q8": true,
+          "Q9": true
+        },
+        "qualification_file_sha256": "5395afde92f0ff69ed6e06bbdd56953dc4838ae5cc024e2eb0a1aa51e58cbfdf",
+        "qualification_sha256": "6e4fb274be7da9523aa3f2d9e1480e9316da100e13271e734648012d9c82e7dd",
+        "qualification_status": "EXCLUDED",
+        "raw_artifact_identity": "astropy__astropy-8872.json",
+        "raw_artifact_sha256": "18e108487d1c6b249bafedbed4b48aae4183dde9216e164d2e6dcf4bbeb7ae32",
+        "session_id": "phase5:swe:astropy__astropy-8872:session:1",
+        "source_revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+        "source_trace_sha256": "1d3d7b0dc90ddfc3c7279f8520f5f724f95794bfcefeaaa68529b4cdae67afcf",
+        "terminal_class": "RIGHT_CENSORED",
+        "token_materialization_file_sha256": "b94508c02ef7ed67441a9090e905aa3980244f3b0bf1a24bebcac52aa6bfb3d0",
+        "tool_fixtures_file_sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "trace_id": "phase5:swe:astropy__astropy-8872"
+      },
+      "qualification_status": "EXCLUDED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "LimitsExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "attempt_id": "phase5-swe-historical-rank-66:django__django-11790",
+        "condition": "PHASE5_HISTORICAL_REACQUISITION_S100",
+        "config_sha256": "fb5bfe5dde3e02bd9e491a6eec54466ffde6d63f39dcbfdeb0b5e15ae46c3e22",
+        "dataset_identity": {
+          "config": "default",
+          "name": "princeton-nlp/SWE-bench_Verified",
+          "revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+          "split": "test"
+        },
+        "finished_at_utc": "2026-11-24T07:12:42.917663+00:00",
+        "fresh_evidence_paths": {
+          "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/django__django-11790/run.json",
+          "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/django__django-11790/acquisition-sidecar.json",
+          "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/django__django-11790/django__django-11790.traj.json"
+        },
+        "historical_w1c_hash_comparisons": [
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S50",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "53fdf18e17526513fe87504695d570f5a144eb97b17d5ed7bcf9c4d1be16d364",
+              "sidecar_sha256": "c30ba37c9b4dceba4543e72d03f019c7662bf5eeb77ed0eb3e179e1d991eceed",
+              "trajectory_sha256": "70976d25cc093cef7b29808111cf35e658a9364e6b2ca7595df7d99e696d6b9c"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/django__django-11790/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/django__django-11790/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/django__django-11790/django__django-11790.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          },
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S100",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "707e8fb77935b2059735756426696ffe30ecdfd52cd6c63cc537fa480132f4da",
+              "sidecar_sha256": "0759217f5cdd7d80d7ce6e04b62f095df3c4591347e33036d31039a4ac977e86",
+              "trajectory_sha256": "d8700b531f7b772b7f4de051585072674aaf34464b1abc93399404722756d591"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/django__django-11790/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/django__django-11790/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/django__django-11790/django__django-11790.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          }
+        ],
+        "instance_id": "django__django-11790",
+        "mini_swe_agent_git_sha": "316a58794a6ff86b216e579b74fd56ed0c5a911f",
+        "model_identity": {
+          "base_url": "http://localhost:8100/v1",
+          "max_completion_tokens": 512,
+          "model_class": "vllm",
+          "model_kwargs": {
+            "seed": 20261023,
+            "temperature": 0.0
+          },
+          "model_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "model_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225",
+          "paper_example_difference": "Fresh Phase 5 reacquisition only; historical W1-C evidence is not reused.",
+          "stream": true,
+          "tokenizer_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "tokenizer_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225"
+        },
+        "old_w1c_evidence_reused": false,
+        "phase5_acquisition_identity": "PHASE5_HISTORICAL_CANDIDATE_FRESH_REACQUISITION:django__django-11790",
+        "phase5_rank": 66,
+        "repository_git_sha": "e6e8e90427abccbd560c41cdd8cc965e11cb3731",
+        "run_json_sha256": "7ebf277f43faee3e260276160086afe915fb269e02e0f3da7c75dc6ef68e5bf6",
+        "server_runtime": {
+          "backend": "vllm-metal",
+          "environment": {
+            "HF_HUB_OFFLINE": "1",
+            "TRANSFORMERS_OFFLINE": "1",
+            "VLLM_ENABLE_V1_MULTIPROCESSING": "0"
+          },
+          "gpu_memory_utilization": 0.75,
+          "host": "127.0.0.1",
+          "max_model_len": 32768,
+          "port": 8100,
+          "vllm_metal_version": "0.3.0",
+          "vllm_version": "0.27.1+cpu"
+        },
+        "sidecar_sha256": "8652975795a952534467a585433ed596592d116d8627ebecd65e6678de9cf69b",
+        "started_at_utc": "2026-11-24T07:08:03.582977+00:00",
+        "status": "completed",
+        "trajectory_sha256": "fb3579de4ba51341145aa603066a9c73d4bc1063e6c1bc2341ff5e5440f6a5cc"
+      },
+      "conversion": {
+        "instance_id": "django__django-11790",
+        "record_sha256": "813e303517c2b492bf1d3075771521c118439d0e9f7d8055312488ab14b945a2",
+        "status": "CONVERTED"
+      },
+      "instance_id": "django__django-11790",
+      "qualification": {
+        "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+        "failed_rules": [],
+        "normalized_trace_file_sha256": "53a21a8dd745733a4ac61802d3df57113921f22d1d4c10701468b82b80eb6004",
+        "program_id": "django__django-11790",
+        "qualification_checks": {
+          "Q1": true,
+          "Q2": true,
+          "Q3": true,
+          "Q4": true,
+          "Q5": true,
+          "Q6": true,
+          "Q7": true,
+          "Q8": true,
+          "Q9": true
+        },
+        "qualification_file_sha256": "ffeeeb6e7a1de46e68eba22a026aefcbfc0be964c5db66673629a12f9bb903e2",
+        "qualification_sha256": "58a59d88bcf4c18684e72a9d0fa104fb681b5bbfd75631182be67fe4b47e5f40",
+        "qualification_status": "QUALIFIED",
+        "raw_artifact_identity": "django__django-11790.json",
+        "raw_artifact_sha256": "813e303517c2b492bf1d3075771521c118439d0e9f7d8055312488ab14b945a2",
+        "session_id": "phase5:swe:django__django-11790:session:1",
+        "source_revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+        "source_trace_sha256": "3bc3b6734f013ff451f4d02b3fefb8e228cab0a67d37872e7c311d48d5a76136",
+        "terminal_class": "RIGHT_CENSORED",
+        "token_materialization_file_sha256": "48267deffcdb9dac6e592ebcd718aca47d0bc973c308865b0855cb389763b4a8",
+        "tool_fixtures_file_sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "trace_id": "phase5:swe:django__django-11790"
+      },
+      "qualification_status": "QUALIFIED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "LimitsExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "attempt_id": "phase5-swe-historical-rank-67:django__django-13023",
+        "condition": "PHASE5_HISTORICAL_REACQUISITION_S100",
+        "config_sha256": "fb5bfe5dde3e02bd9e491a6eec54466ffde6d63f39dcbfdeb0b5e15ae46c3e22",
+        "dataset_identity": {
+          "config": "default",
+          "name": "princeton-nlp/SWE-bench_Verified",
+          "revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+          "split": "test"
+        },
+        "finished_at_utc": "2026-11-24T07:21:26.373688+00:00",
+        "fresh_evidence_paths": {
+          "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/django__django-13023/run.json",
+          "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/django__django-13023/acquisition-sidecar.json",
+          "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/django__django-13023/django__django-13023.traj.json"
+        },
+        "historical_w1c_hash_comparisons": [
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S50",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "0262082017fa665af07956e4245386288a02f04791de01a30e53cdc64c994e49",
+              "sidecar_sha256": "d5370d918aa590cb2a74f134eaf2976caf9a221a4cefd092df6bf3e7f9d184ae",
+              "trajectory_sha256": "c98531c9c4f82450df5dc76e428a6f2c166536757b774a867b8e4f3859723b11"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/django__django-13023/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/django__django-13023/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/django__django-13023/django__django-13023.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          },
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S100",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "935a75ddd975156f3582fa8894f0979ea8e70fa9f70c4c16088810091bcfc85e",
+              "sidecar_sha256": "5d39abd0974cac0921e1b47c4907d2cb0b4d0ca7bd8a881a427b20c8b68f8a31",
+              "trajectory_sha256": "ea003eced150c99c576507c0c6548b1ccf27f12c118d2f5950a818b48afe6ae3"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/django__django-13023/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/django__django-13023/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/django__django-13023/django__django-13023.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          }
+        ],
+        "instance_id": "django__django-13023",
+        "mini_swe_agent_git_sha": "316a58794a6ff86b216e579b74fd56ed0c5a911f",
+        "model_identity": {
+          "base_url": "http://localhost:8100/v1",
+          "max_completion_tokens": 512,
+          "model_class": "vllm",
+          "model_kwargs": {
+            "seed": 20261023,
+            "temperature": 0.0
+          },
+          "model_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "model_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225",
+          "paper_example_difference": "Fresh Phase 5 reacquisition only; historical W1-C evidence is not reused.",
+          "stream": true,
+          "tokenizer_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "tokenizer_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225"
+        },
+        "old_w1c_evidence_reused": false,
+        "phase5_acquisition_identity": "PHASE5_HISTORICAL_CANDIDATE_FRESH_REACQUISITION:django__django-13023",
+        "phase5_rank": 67,
+        "repository_git_sha": "e6e8e90427abccbd560c41cdd8cc965e11cb3731",
+        "run_json_sha256": "6d3bd5093778b13aa8e0c5c515e2c84f2b2d934ffb91b34c8f9ddca1ef976116",
+        "server_runtime": {
+          "backend": "vllm-metal",
+          "environment": {
+            "HF_HUB_OFFLINE": "1",
+            "TRANSFORMERS_OFFLINE": "1",
+            "VLLM_ENABLE_V1_MULTIPROCESSING": "0"
+          },
+          "gpu_memory_utilization": 0.75,
+          "host": "127.0.0.1",
+          "max_model_len": 32768,
+          "port": 8100,
+          "vllm_metal_version": "0.3.0",
+          "vllm_version": "0.27.1+cpu"
+        },
+        "sidecar_sha256": "bc820232ff05e7c93aaef78f51f9028fce0a799e3c76c31179d5f04382d2e78b",
+        "started_at_utc": "2026-11-24T07:12:42.995087+00:00",
+        "status": "completed",
+        "trajectory_sha256": "d47d463742eeafd3bc56ec33562286d494fbf9a170066f52f9d9fe0319a41627"
+      },
+      "conversion": {
+        "instance_id": "django__django-13023",
+        "record_sha256": "7f6cbda870f6bf341140b9478b074b0f3c9c2c84713ffb41fc0c1a65e1853acb",
+        "status": "CONVERTED"
+      },
+      "instance_id": "django__django-13023",
+      "qualification": {
+        "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+        "failed_rules": [],
+        "normalized_trace_file_sha256": "fd759957ab9356a9086bc5fa1bc72a4c8a7bdcc7832abd9713eaa4f0015f6aef",
+        "program_id": "django__django-13023",
+        "qualification_checks": {
+          "Q1": true,
+          "Q2": true,
+          "Q3": true,
+          "Q4": true,
+          "Q5": true,
+          "Q6": true,
+          "Q7": true,
+          "Q8": true,
+          "Q9": true
+        },
+        "qualification_file_sha256": "8a3bc7192928aad8a2ec788f13419d72dac656fc691731540ded3ee1622d7eaf",
+        "qualification_sha256": "361a9068f2ac44fda8f5505990474e6d49c960567b455061cd374976340c9f10",
+        "qualification_status": "QUALIFIED",
+        "raw_artifact_identity": "django__django-13023.json",
+        "raw_artifact_sha256": "7f6cbda870f6bf341140b9478b074b0f3c9c2c84713ffb41fc0c1a65e1853acb",
+        "session_id": "phase5:swe:django__django-13023:session:1",
+        "source_revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+        "source_trace_sha256": "d9ad3679fcc4d7ff2a00df3e6163a091c7fb3749c0c1c13e0ebdf22223934101",
+        "terminal_class": "RIGHT_CENSORED",
+        "token_materialization_file_sha256": "6861d5cb28b7dbd34cb5c850a0ebfb43851e9fd04da5b95a33fa541642416352",
+        "tool_fixtures_file_sha256": "dd28b0d914a87f7edd13f9480e260b0119355e59f3cb982e25e71a816afeaa8f",
+        "trace_id": "phase5:swe:django__django-13023"
+      },
+      "qualification_status": "QUALIFIED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "ContextLengthExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "attempt_id": "phase5-swe-historical-rank-68:django__django-13551",
+        "condition": "PHASE5_HISTORICAL_REACQUISITION_S100",
+        "config_sha256": "fb5bfe5dde3e02bd9e491a6eec54466ffde6d63f39dcbfdeb0b5e15ae46c3e22",
+        "dataset_identity": {
+          "config": "default",
+          "name": "princeton-nlp/SWE-bench_Verified",
+          "revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+          "split": "test"
+        },
+        "finished_at_utc": "2026-11-24T07:24:52.817578+00:00",
+        "fresh_evidence_paths": {
+          "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/django__django-13551/run.json",
+          "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/django__django-13551/acquisition-sidecar.json",
+          "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/django__django-13551/django__django-13551.traj.json"
+        },
+        "historical_w1c_hash_comparisons": [
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S50",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "7b7e8bb83b9f33a729795c1fe6e9cbeb063d5b7d719085017dff07f4a85558da",
+              "sidecar_sha256": "aa20f23600a06431926edffa01f768bfcc44e57d4d4fea83c48778e5e0771986",
+              "trajectory_sha256": "5ee2b2541884b3860be0122c3ec55f76ad6a45bdc9eda7fe874e374e902ec3b8"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/django__django-13551/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/django__django-13551/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/django__django-13551/django__django-13551.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          },
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S100",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "0bc91cabecc44a92eebaa6e6a30232c390b4261497810780e4184fbd40c46613",
+              "sidecar_sha256": "22da49edfe5e158355a45c914f038eb0ea181f73f0dd51d5cdec2bf5d82431e6",
+              "trajectory_sha256": "5beea638c878ea947c2525bfe772ff6c2108fb3791a83282dacf851453300314"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/django__django-13551/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/django__django-13551/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/django__django-13551/django__django-13551.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          }
+        ],
+        "instance_id": "django__django-13551",
+        "mini_swe_agent_git_sha": "316a58794a6ff86b216e579b74fd56ed0c5a911f",
+        "model_identity": {
+          "base_url": "http://localhost:8100/v1",
+          "max_completion_tokens": 512,
+          "model_class": "vllm",
+          "model_kwargs": {
+            "seed": 20261023,
+            "temperature": 0.0
+          },
+          "model_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "model_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225",
+          "paper_example_difference": "Fresh Phase 5 reacquisition only; historical W1-C evidence is not reused.",
+          "stream": true,
+          "tokenizer_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "tokenizer_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225"
+        },
+        "old_w1c_evidence_reused": false,
+        "phase5_acquisition_identity": "PHASE5_HISTORICAL_CANDIDATE_FRESH_REACQUISITION:django__django-13551",
+        "phase5_rank": 68,
+        "repository_git_sha": "e6e8e90427abccbd560c41cdd8cc965e11cb3731",
+        "run_json_sha256": "3a9d3ee5bdccd249d2f4594347ab15a9a9bbb619e0cfb49e0c2c5508a5309749",
+        "server_runtime": {
+          "backend": "vllm-metal",
+          "environment": {
+            "HF_HUB_OFFLINE": "1",
+            "TRANSFORMERS_OFFLINE": "1",
+            "VLLM_ENABLE_V1_MULTIPROCESSING": "0"
+          },
+          "gpu_memory_utilization": 0.75,
+          "host": "127.0.0.1",
+          "max_model_len": 32768,
+          "port": 8100,
+          "vllm_metal_version": "0.3.0",
+          "vllm_version": "0.27.1+cpu"
+        },
+        "sidecar_sha256": "122c2b99b25be477746607bfac578b944df848819b68540340f0ecbded6bf0f2",
+        "started_at_utc": "2026-11-24T07:21:26.449988+00:00",
+        "status": "completed",
+        "trajectory_sha256": "a7b9cd53b01e6675225f716ce391e879fb61683a2aa7aa29026e3c15fe894938"
+      },
+      "conversion": {
+        "instance_id": "django__django-13551",
+        "record_sha256": "0a136075988f085772b68626653c97b612a1a56cc838241e09fb6c7a0d281033",
+        "status": "CONVERTED"
+      },
+      "instance_id": "django__django-13551",
+      "qualification": {
+        "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+        "failed_rules": [
+          "Q1_COMPLETE_PAYLOAD"
+        ],
+        "normalized_trace_file_sha256": "a2e6658780689442fa866c5ae616a15416374595ce19e32e4fe29442551e6c97",
+        "program_id": "django__django-13551",
+        "qualification_checks": {
+          "Q1": false,
+          "Q2": true,
+          "Q3": true,
+          "Q4": true,
+          "Q5": true,
+          "Q6": true,
+          "Q7": true,
+          "Q8": true,
+          "Q9": true
+        },
+        "qualification_file_sha256": "de4dfcf6acbcc003cdb0c9df64678cdc5dcd492f16eb0ad15c300945e4620251",
+        "qualification_sha256": "b0626d1ebb48e78f6c358e4a15b84cd5ed3809d2db91ee6d4874396171c2f067",
+        "qualification_status": "EXCLUDED",
+        "raw_artifact_identity": "django__django-13551.json",
+        "raw_artifact_sha256": "0a136075988f085772b68626653c97b612a1a56cc838241e09fb6c7a0d281033",
+        "session_id": "phase5:swe:django__django-13551:session:1",
+        "source_revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+        "source_trace_sha256": "42524e5089dbfa7dd2b1772e36d61c849d3ef208d78fd59626a4065de9e3bc57",
+        "terminal_class": "RIGHT_CENSORED",
+        "token_materialization_file_sha256": "eac6d3bbcdbb7f37cbb9c8c2fb2e9cb6b3bc66f3751d9d7487b1c03de3b65e60",
+        "tool_fixtures_file_sha256": "912137e09c59986cb81be19d637acb310294b360833b72172e66d1a4ca94d04e",
+        "trace_id": "phase5:swe:django__django-13551"
+      },
+      "qualification_status": "EXCLUDED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "LimitsExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "attempt_id": "phase5-swe-historical-rank-69:django__django-13569",
+        "condition": "PHASE5_HISTORICAL_REACQUISITION_S100",
+        "config_sha256": "fb5bfe5dde3e02bd9e491a6eec54466ffde6d63f39dcbfdeb0b5e15ae46c3e22",
+        "dataset_identity": {
+          "config": "default",
+          "name": "princeton-nlp/SWE-bench_Verified",
+          "revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+          "split": "test"
+        },
+        "finished_at_utc": "2026-11-24T07:36:05.968384+00:00",
+        "fresh_evidence_paths": {
+          "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/django__django-13569/run.json",
+          "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/django__django-13569/acquisition-sidecar.json",
+          "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/django__django-13569/django__django-13569.traj.json"
+        },
+        "historical_w1c_hash_comparisons": [
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S50",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "41a6c8b784d0850d73a397a8a4b9e4b3b7423a9e85e131e4261ba02f1bcaf1c1",
+              "sidecar_sha256": "b6221197fdaa47fd9d60fa3e4300e403e1a9cd97bd037c0d118255fbd4ff4fcb",
+              "trajectory_sha256": "80bb003d0d42f89953dfd7a74896759697e39540fb6e864885a41277540415df"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/django__django-13569/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/django__django-13569/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/django__django-13569/django__django-13569.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          },
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S100",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "41198f2f794193bd2aad720def43ca299dd81b714431bf0845fa65ee50d31c1e",
+              "sidecar_sha256": "7e7024d7d78a2d9b9f4773c587dd375cc7f828b8c849981ce809d4a8cb20e916",
+              "trajectory_sha256": "5082f14f6bb38084b28e6117f819989aaca71bc9ddd06b319b54d7fb3c88cec8"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/django__django-13569/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/django__django-13569/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/django__django-13569/django__django-13569.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          }
+        ],
+        "instance_id": "django__django-13569",
+        "mini_swe_agent_git_sha": "316a58794a6ff86b216e579b74fd56ed0c5a911f",
+        "model_identity": {
+          "base_url": "http://localhost:8100/v1",
+          "max_completion_tokens": 512,
+          "model_class": "vllm",
+          "model_kwargs": {
+            "seed": 20261023,
+            "temperature": 0.0
+          },
+          "model_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "model_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225",
+          "paper_example_difference": "Fresh Phase 5 reacquisition only; historical W1-C evidence is not reused.",
+          "stream": true,
+          "tokenizer_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "tokenizer_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225"
+        },
+        "old_w1c_evidence_reused": false,
+        "phase5_acquisition_identity": "PHASE5_HISTORICAL_CANDIDATE_FRESH_REACQUISITION:django__django-13569",
+        "phase5_rank": 69,
+        "repository_git_sha": "e6e8e90427abccbd560c41cdd8cc965e11cb3731",
+        "run_json_sha256": "556eabd93a2a305c31dc18de38b3d24d43ef5de9c7f86f6fe86bf3802e37d0fa",
+        "server_runtime": {
+          "backend": "vllm-metal",
+          "environment": {
+            "HF_HUB_OFFLINE": "1",
+            "TRANSFORMERS_OFFLINE": "1",
+            "VLLM_ENABLE_V1_MULTIPROCESSING": "0"
+          },
+          "gpu_memory_utilization": 0.75,
+          "host": "127.0.0.1",
+          "max_model_len": 32768,
+          "port": 8100,
+          "vllm_metal_version": "0.3.0",
+          "vllm_version": "0.27.1+cpu"
+        },
+        "sidecar_sha256": "60f35c066f0bfc4a6b0e2edc2f08e7e8d4221b3ea04daf92b8d16f6e0140562f",
+        "started_at_utc": "2026-11-24T07:24:52.850933+00:00",
+        "status": "completed",
+        "trajectory_sha256": "ef3221524517dc0bd232c9b0f1cb019d8ca4143f5f0069ed2be623a383ff3561"
+      },
+      "conversion": {
+        "instance_id": "django__django-13569",
+        "record_sha256": "ff39f5f8387b9009426bedba9492eaf7d1061aea878c6bcd6b540799a571f5bb",
+        "status": "CONVERTED"
+      },
+      "instance_id": "django__django-13569",
+      "qualification": {
+        "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+        "failed_rules": [],
+        "normalized_trace_file_sha256": "140dc4bb86140185dbe067c8198f6437d39e432a9f73f9da641dfcaf78872342",
+        "program_id": "django__django-13569",
+        "qualification_checks": {
+          "Q1": true,
+          "Q2": true,
+          "Q3": true,
+          "Q4": true,
+          "Q5": true,
+          "Q6": true,
+          "Q7": true,
+          "Q8": true,
+          "Q9": true
+        },
+        "qualification_file_sha256": "206f269a32f4bd0b9d747ebfca0f07006523a2995fd63546b7fa2587d7c5fb40",
+        "qualification_sha256": "8bbedc10af38920e1e26efcd1fafd1b8b1899d1463a7ff323cbec7ab31c12384",
+        "qualification_status": "QUALIFIED",
+        "raw_artifact_identity": "django__django-13569.json",
+        "raw_artifact_sha256": "ff39f5f8387b9009426bedba9492eaf7d1061aea878c6bcd6b540799a571f5bb",
+        "session_id": "phase5:swe:django__django-13569:session:1",
+        "source_revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+        "source_trace_sha256": "1ab23cb49cde06c0a587ea6a5927de9fd5a241f23ccecd685d68a52f2abfc390",
+        "terminal_class": "RIGHT_CENSORED",
+        "token_materialization_file_sha256": "9b5405aa05db66632a957b50090b71009ce318cfcd51a4221dba6acb1e74da65",
+        "tool_fixtures_file_sha256": "8d734e6cbe2cf47cbf134b45e9d96d0c7c656432da17a40b32d7c5bbd13d4a1a",
+        "trace_id": "phase5:swe:django__django-13569"
+      },
+      "qualification_status": "QUALIFIED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "LimitsExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "attempt_id": "phase5-swe-historical-rank-70:django__django-14493",
+        "condition": "PHASE5_HISTORICAL_REACQUISITION_S100",
+        "config_sha256": "fb5bfe5dde3e02bd9e491a6eec54466ffde6d63f39dcbfdeb0b5e15ae46c3e22",
+        "dataset_identity": {
+          "config": "default",
+          "name": "princeton-nlp/SWE-bench_Verified",
+          "revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+          "split": "test"
+        },
+        "finished_at_utc": "2026-11-24T07:39:59.692046+00:00",
+        "fresh_evidence_paths": {
+          "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/django__django-14493/run.json",
+          "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/django__django-14493/acquisition-sidecar.json",
+          "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/django__django-14493/django__django-14493.traj.json"
+        },
+        "historical_w1c_hash_comparisons": [
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S50",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "ac1fc23e75a8ddc13cd950ace205c79d67fcf6f9779039b1a266cd5c4ece3e8f",
+              "sidecar_sha256": "2f2673df824a9db2e46ac9b8b814fad00565143f9c3ab0895de3b01c860d6f06",
+              "trajectory_sha256": "5137c096db84b82b9461fac18da811e99ae1a413bff8daf720a4368923cfa7c4"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/django__django-14493/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/django__django-14493/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/django__django-14493/django__django-14493.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          },
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S100",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "b8a63a9c5521eb39d22529ee92c407ab101f0aa8aded7785d34eb0c4dc4f94ad",
+              "sidecar_sha256": "d9c3525e8eda34ef583423e7a50f946d2e6a7b8bdcaf45aca1e72a465323ed07",
+              "trajectory_sha256": "9c3fecb017211e38df4bb43f9980cfe74f864de52e0e3010aa03749ce846401e"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/django__django-14493/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/django__django-14493/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/django__django-14493/django__django-14493.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          }
+        ],
+        "instance_id": "django__django-14493",
+        "mini_swe_agent_git_sha": "316a58794a6ff86b216e579b74fd56ed0c5a911f",
+        "model_identity": {
+          "base_url": "http://localhost:8100/v1",
+          "max_completion_tokens": 512,
+          "model_class": "vllm",
+          "model_kwargs": {
+            "seed": 20261023,
+            "temperature": 0.0
+          },
+          "model_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "model_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225",
+          "paper_example_difference": "Fresh Phase 5 reacquisition only; historical W1-C evidence is not reused.",
+          "stream": true,
+          "tokenizer_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "tokenizer_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225"
+        },
+        "old_w1c_evidence_reused": false,
+        "phase5_acquisition_identity": "PHASE5_HISTORICAL_CANDIDATE_FRESH_REACQUISITION:django__django-14493",
+        "phase5_rank": 70,
+        "repository_git_sha": "e6e8e90427abccbd560c41cdd8cc965e11cb3731",
+        "run_json_sha256": "2a95b8a8a47207cb5c2a8b7c3e357baa03352ce8c22605be2ed3963f482ecfac",
+        "server_runtime": {
+          "backend": "vllm-metal",
+          "environment": {
+            "HF_HUB_OFFLINE": "1",
+            "TRANSFORMERS_OFFLINE": "1",
+            "VLLM_ENABLE_V1_MULTIPROCESSING": "0"
+          },
+          "gpu_memory_utilization": 0.75,
+          "host": "127.0.0.1",
+          "max_model_len": 32768,
+          "port": 8100,
+          "vllm_metal_version": "0.3.0",
+          "vllm_version": "0.27.1+cpu"
+        },
+        "sidecar_sha256": "d46bf16eb883fc3a38ff8e686799e5deb41ad73b463e929f87800cd156f1b7ff",
+        "started_at_utc": "2026-11-24T07:36:06.042963+00:00",
+        "status": "completed",
+        "trajectory_sha256": "d8961b71a765f5a796910c46b268c2092438b6a9582b57329d4988f767c7e2d3"
+      },
+      "conversion": {
+        "instance_id": "django__django-14493",
+        "record_sha256": "820fb9d3737232b2bc80786b792517011e47bda85859a5690d93eb109c29390a",
+        "status": "CONVERTED"
+      },
+      "instance_id": "django__django-14493",
+      "qualification": {
+        "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+        "failed_rules": [],
+        "normalized_trace_file_sha256": "0b412126308b981fdae7f8d741219e99d41364cae5f43c2acb812531cc414ce0",
+        "program_id": "django__django-14493",
+        "qualification_checks": {
+          "Q1": true,
+          "Q2": true,
+          "Q3": true,
+          "Q4": true,
+          "Q5": true,
+          "Q6": true,
+          "Q7": true,
+          "Q8": true,
+          "Q9": true
+        },
+        "qualification_file_sha256": "e3421f1864638d5be1541a75a4f478e7a40399b8b4cbd729a70ecf7e2942b344",
+        "qualification_sha256": "ca1bb4c0e38b98403e7a946f324210a7e7a1f1535cc3f87490a4d7009aeb7027",
+        "qualification_status": "QUALIFIED",
+        "raw_artifact_identity": "django__django-14493.json",
+        "raw_artifact_sha256": "820fb9d3737232b2bc80786b792517011e47bda85859a5690d93eb109c29390a",
+        "session_id": "phase5:swe:django__django-14493:session:1",
+        "source_revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+        "source_trace_sha256": "4fc283128ee51a449fe65f672328a7c53019865add110acfb54746180061dca6",
+        "terminal_class": "RIGHT_CENSORED",
+        "token_materialization_file_sha256": "4d0ddc943aac3ed01e4c777bf24a6e5699271848b3c6b864a2650e82636b530a",
+        "tool_fixtures_file_sha256": "1aa998e078f299dc39c2dd59546fbb734399d9253792389b67770a5cd81106c8",
+        "trace_id": "phase5:swe:django__django-14493"
+      },
+      "qualification_status": "QUALIFIED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "LimitsExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "attempt_id": "phase5-swe-historical-rank-71:django__django-15554",
+        "condition": "PHASE5_HISTORICAL_REACQUISITION_S100",
+        "config_sha256": "fb5bfe5dde3e02bd9e491a6eec54466ffde6d63f39dcbfdeb0b5e15ae46c3e22",
+        "dataset_identity": {
+          "config": "default",
+          "name": "princeton-nlp/SWE-bench_Verified",
+          "revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+          "split": "test"
+        },
+        "finished_at_utc": "2026-11-24T07:45:34.921704+00:00",
+        "fresh_evidence_paths": {
+          "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/django__django-15554/run.json",
+          "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/django__django-15554/acquisition-sidecar.json",
+          "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/django__django-15554/django__django-15554.traj.json"
+        },
+        "historical_w1c_hash_comparisons": [
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S50",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "99585ed93c40614551867648eb8d5d5cf119f72b64ffe69d0811af9f3bfb5cf9",
+              "sidecar_sha256": "6ff4c982cd6182ab5438f9325ea0dadf6f609dcf048824870f9de2fb3e0d2d91",
+              "trajectory_sha256": "5d671942180c8f36ecf76c4ceef00f8f956ed6f16d692cad68ca31338a268235"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/django__django-15554/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/django__django-15554/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/django__django-15554/django__django-15554.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          },
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S100",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "18e86059474f8ec4926aca17c8c05632f71d9865d12abe359f99812b183ec256",
+              "sidecar_sha256": "bb5b5013a3b3f1055d7731751d772fe2ac38d4d21c735516db40345c64a78f4d",
+              "trajectory_sha256": "3c8320f8f51e32de8241c1cd9f6b2adff1b3ded238915221610cb5f05d7ae681"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/django__django-15554/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/django__django-15554/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/django__django-15554/django__django-15554.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          }
+        ],
+        "instance_id": "django__django-15554",
+        "mini_swe_agent_git_sha": "316a58794a6ff86b216e579b74fd56ed0c5a911f",
+        "model_identity": {
+          "base_url": "http://localhost:8100/v1",
+          "max_completion_tokens": 512,
+          "model_class": "vllm",
+          "model_kwargs": {
+            "seed": 20261023,
+            "temperature": 0.0
+          },
+          "model_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "model_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225",
+          "paper_example_difference": "Fresh Phase 5 reacquisition only; historical W1-C evidence is not reused.",
+          "stream": true,
+          "tokenizer_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "tokenizer_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225"
+        },
+        "old_w1c_evidence_reused": false,
+        "phase5_acquisition_identity": "PHASE5_HISTORICAL_CANDIDATE_FRESH_REACQUISITION:django__django-15554",
+        "phase5_rank": 71,
+        "repository_git_sha": "e6e8e90427abccbd560c41cdd8cc965e11cb3731",
+        "run_json_sha256": "21f19eed39dffc680b9504f1791e9cfc37cd1d3e1803e99e8ffe06b93112f50b",
+        "server_runtime": {
+          "backend": "vllm-metal",
+          "environment": {
+            "HF_HUB_OFFLINE": "1",
+            "TRANSFORMERS_OFFLINE": "1",
+            "VLLM_ENABLE_V1_MULTIPROCESSING": "0"
+          },
+          "gpu_memory_utilization": 0.75,
+          "host": "127.0.0.1",
+          "max_model_len": 32768,
+          "port": 8100,
+          "vllm_metal_version": "0.3.0",
+          "vllm_version": "0.27.1+cpu"
+        },
+        "sidecar_sha256": "cf4442ffd707a77fae6358071d7a45824cfb8599b6540a4530e37e0a16cb2a3b",
+        "started_at_utc": "2026-11-24T07:39:59.767461+00:00",
+        "status": "completed",
+        "trajectory_sha256": "ca5e624ee6008ae036c716af225a1c1d631a37fcc28791eb79c38eb457164241"
+      },
+      "conversion": {
+        "instance_id": "django__django-15554",
+        "record_sha256": "368bfbd8a36cd9ae29689ecb826c17ccbc51b5e0078f77f11781290b740f86b2",
+        "status": "CONVERTED"
+      },
+      "instance_id": "django__django-15554",
+      "qualification": {
+        "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+        "failed_rules": [],
+        "normalized_trace_file_sha256": "73da67232d0d20b358d79622c981a5ce2f08a93fb2894c11dac65ada380b5e60",
+        "program_id": "django__django-15554",
+        "qualification_checks": {
+          "Q1": true,
+          "Q2": true,
+          "Q3": true,
+          "Q4": true,
+          "Q5": true,
+          "Q6": true,
+          "Q7": true,
+          "Q8": true,
+          "Q9": true
+        },
+        "qualification_file_sha256": "c29ee9a79951846592aa4603acd4eeac6d3a838f1920bfafe70d92d00d8f105f",
+        "qualification_sha256": "c6cb3bdb27688ea7ae5a31d55c777afdf7d8951b430bad1b203d6c41bbb46baa",
+        "qualification_status": "QUALIFIED",
+        "raw_artifact_identity": "django__django-15554.json",
+        "raw_artifact_sha256": "368bfbd8a36cd9ae29689ecb826c17ccbc51b5e0078f77f11781290b740f86b2",
+        "session_id": "phase5:swe:django__django-15554:session:1",
+        "source_revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+        "source_trace_sha256": "631836a68a5065b6832f7a1a32bd4284a0cc99319ae28bddcea9aa25cf828d5d",
+        "terminal_class": "RIGHT_CENSORED",
+        "token_materialization_file_sha256": "97302d8de34dd6a3ee3b9e6ae2469ab0e3bf8885a1f0fd807180534348b7254b",
+        "tool_fixtures_file_sha256": "e60486e40f9603b135b3c2f2eb987b958e7c58d02c1fb6014e401b2e60a9fe82",
+        "trace_id": "phase5:swe:django__django-15554"
+      },
+      "qualification_status": "QUALIFIED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "LimitsExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "attempt_id": "phase5-swe-historical-rank-72:django__django-16662",
+        "condition": "PHASE5_HISTORICAL_REACQUISITION_S100",
+        "config_sha256": "fb5bfe5dde3e02bd9e491a6eec54466ffde6d63f39dcbfdeb0b5e15ae46c3e22",
+        "dataset_identity": {
+          "config": "default",
+          "name": "princeton-nlp/SWE-bench_Verified",
+          "revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+          "split": "test"
+        },
+        "finished_at_utc": "2026-11-24T07:50:23.616856+00:00",
+        "fresh_evidence_paths": {
+          "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/django__django-16662/run.json",
+          "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/django__django-16662/acquisition-sidecar.json",
+          "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/django__django-16662/django__django-16662.traj.json"
+        },
+        "historical_w1c_hash_comparisons": [
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S50",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "b2013865214fe0f513e6c33a9ad865e4d6e1345b4842014fbce75ae8194d290c",
+              "sidecar_sha256": "9f4029173ccd8102b9932ad6575cc8c947fd58ca6e247e7f452f6773aea98b17",
+              "trajectory_sha256": "5175dccd645627042c969dc97b2e556090825fb755b1b88a734eb959ae92d371"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/django__django-16662/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/django__django-16662/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/django__django-16662/django__django-16662.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          },
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S100",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "ccffb9137449e1c2d8c9ef268f07e2288a1c283abf62c69c2f79a65350b9b81d",
+              "sidecar_sha256": "fad53eee96ba41ed73a3e61990532ed4b05c42e10f3762a2d059addcc0c4a003",
+              "trajectory_sha256": "31de4e7baf01d07fcc54611327bbc220e7643de2759b81682ff2d8de39028c8a"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/django__django-16662/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/django__django-16662/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/django__django-16662/django__django-16662.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          }
+        ],
+        "instance_id": "django__django-16662",
+        "mini_swe_agent_git_sha": "316a58794a6ff86b216e579b74fd56ed0c5a911f",
+        "model_identity": {
+          "base_url": "http://localhost:8100/v1",
+          "max_completion_tokens": 512,
+          "model_class": "vllm",
+          "model_kwargs": {
+            "seed": 20261023,
+            "temperature": 0.0
+          },
+          "model_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "model_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225",
+          "paper_example_difference": "Fresh Phase 5 reacquisition only; historical W1-C evidence is not reused.",
+          "stream": true,
+          "tokenizer_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "tokenizer_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225"
+        },
+        "old_w1c_evidence_reused": false,
+        "phase5_acquisition_identity": "PHASE5_HISTORICAL_CANDIDATE_FRESH_REACQUISITION:django__django-16662",
+        "phase5_rank": 72,
+        "repository_git_sha": "e6e8e90427abccbd560c41cdd8cc965e11cb3731",
+        "run_json_sha256": "4bf7b058b934ffa0830c543386821573a1759b36ff93abeffa35a7fce45e3159",
+        "server_runtime": {
+          "backend": "vllm-metal",
+          "environment": {
+            "HF_HUB_OFFLINE": "1",
+            "TRANSFORMERS_OFFLINE": "1",
+            "VLLM_ENABLE_V1_MULTIPROCESSING": "0"
+          },
+          "gpu_memory_utilization": 0.75,
+          "host": "127.0.0.1",
+          "max_model_len": 32768,
+          "port": 8100,
+          "vllm_metal_version": "0.3.0",
+          "vllm_version": "0.27.1+cpu"
+        },
+        "sidecar_sha256": "df42f7bac70cb08eaad17afbbe0488d985438ad1ffe9d43e4a90f28143eaf78a",
+        "started_at_utc": "2026-11-24T07:45:35.001000+00:00",
+        "status": "completed",
+        "trajectory_sha256": "28c97e49aab582bcadf9598bd7f6145678bb586b071c2985a30b2bcc6769de0a"
+      },
+      "conversion": {
+        "instance_id": "django__django-16662",
+        "record_sha256": "6158d65acdea6f9500448c33fbb35988b402333e7056db1ec14ce8e7c6359054",
+        "status": "CONVERTED"
+      },
+      "instance_id": "django__django-16662",
+      "qualification": {
+        "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+        "failed_rules": [],
+        "normalized_trace_file_sha256": "511f9595d4a857f5b0d85d17182af74e20d265baa21445c036cbb797197cb52b",
+        "program_id": "django__django-16662",
+        "qualification_checks": {
+          "Q1": true,
+          "Q2": true,
+          "Q3": true,
+          "Q4": true,
+          "Q5": true,
+          "Q6": true,
+          "Q7": true,
+          "Q8": true,
+          "Q9": true
+        },
+        "qualification_file_sha256": "7ae951e5e14447a556b0cf97c21889e50bdc79e46a6f0fccad2549c9e5f90fce",
+        "qualification_sha256": "1a94491fd709cc68d0e33104353a2be5e756aec4ef96f474a90fc698b5f4f8d7",
+        "qualification_status": "QUALIFIED",
+        "raw_artifact_identity": "django__django-16662.json",
+        "raw_artifact_sha256": "6158d65acdea6f9500448c33fbb35988b402333e7056db1ec14ce8e7c6359054",
+        "session_id": "phase5:swe:django__django-16662:session:1",
+        "source_revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+        "source_trace_sha256": "37f1f02b9960aa6e53dabc0b65fdf1fe216f132d7a9a5382a685031a60e7c829",
+        "terminal_class": "RIGHT_CENSORED",
+        "token_materialization_file_sha256": "3d5b935621aa6ad15f1251714de918ddd97bc8fe0b0ac9ddc1aff9fc56a76df8",
+        "tool_fixtures_file_sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "trace_id": "phase5:swe:django__django-16662"
+      },
+      "qualification_status": "QUALIFIED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "LimitsExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "attempt_id": "phase5-swe-historical-rank-73:matplotlib__matplotlib-25311",
+        "condition": "PHASE5_HISTORICAL_REACQUISITION_S100",
+        "config_sha256": "fb5bfe5dde3e02bd9e491a6eec54466ffde6d63f39dcbfdeb0b5e15ae46c3e22",
+        "dataset_identity": {
+          "config": "default",
+          "name": "princeton-nlp/SWE-bench_Verified",
+          "revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+          "split": "test"
+        },
+        "finished_at_utc": "2026-11-24T07:55:41.811114+00:00",
+        "fresh_evidence_paths": {
+          "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/matplotlib__matplotlib-25311/run.json",
+          "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/matplotlib__matplotlib-25311/acquisition-sidecar.json",
+          "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/matplotlib__matplotlib-25311/matplotlib__matplotlib-25311.traj.json"
+        },
+        "historical_w1c_hash_comparisons": [
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S50",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "e19874f962d01a459724fd5338c689e6739722063a5515586b483c8ce08e8ace",
+              "sidecar_sha256": "e6b42c44fbe76eb865d9d1218a35a27f81d9902a757f76573a075cc462ce9ca9",
+              "trajectory_sha256": "c50b901f7e03cdf9ac1ca5f3c088b098e987085d00078fe4b9524480c8df8407"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/matplotlib__matplotlib-25311/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/matplotlib__matplotlib-25311/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/matplotlib__matplotlib-25311/matplotlib__matplotlib-25311.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          },
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S100",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "5d0f381e2868cf02c576d910d0855ef1fb95aee756ae6680093f6af6f2ee2582",
+              "sidecar_sha256": "4f4f4cb8ab6e60adf14b7c07b239a9e3fc2bb1e825e30bfacb2298a2d9a32e6a",
+              "trajectory_sha256": "a48be9af6e9637bae0988aeb568b8f1d1fc744d80050091709e69e9857172e3e"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/matplotlib__matplotlib-25311/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/matplotlib__matplotlib-25311/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/matplotlib__matplotlib-25311/matplotlib__matplotlib-25311.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          }
+        ],
+        "instance_id": "matplotlib__matplotlib-25311",
+        "mini_swe_agent_git_sha": "316a58794a6ff86b216e579b74fd56ed0c5a911f",
+        "model_identity": {
+          "base_url": "http://localhost:8100/v1",
+          "max_completion_tokens": 512,
+          "model_class": "vllm",
+          "model_kwargs": {
+            "seed": 20261023,
+            "temperature": 0.0
+          },
+          "model_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "model_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225",
+          "paper_example_difference": "Fresh Phase 5 reacquisition only; historical W1-C evidence is not reused.",
+          "stream": true,
+          "tokenizer_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "tokenizer_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225"
+        },
+        "old_w1c_evidence_reused": false,
+        "phase5_acquisition_identity": "PHASE5_HISTORICAL_CANDIDATE_FRESH_REACQUISITION:matplotlib__matplotlib-25311",
+        "phase5_rank": 73,
+        "repository_git_sha": "e6e8e90427abccbd560c41cdd8cc965e11cb3731",
+        "run_json_sha256": "08ef2b8d45449dbbb3ff0b109d4801bf5cd7a71548924a8a6dc4502aa975ba0f",
+        "server_runtime": {
+          "backend": "vllm-metal",
+          "environment": {
+            "HF_HUB_OFFLINE": "1",
+            "TRANSFORMERS_OFFLINE": "1",
+            "VLLM_ENABLE_V1_MULTIPROCESSING": "0"
+          },
+          "gpu_memory_utilization": 0.75,
+          "host": "127.0.0.1",
+          "max_model_len": 32768,
+          "port": 8100,
+          "vllm_metal_version": "0.3.0",
+          "vllm_version": "0.27.1+cpu"
+        },
+        "sidecar_sha256": "b239ca7077804de5ff442294f4e9c279d853e3dcf3c4e4dfdf6c7e51e2eb8146",
+        "started_at_utc": "2026-11-24T07:50:23.700874+00:00",
+        "status": "completed",
+        "trajectory_sha256": "c73ff9c6bf880d2b534d756f3d05b2f2f79e5d78200c4d62b180a1e50fdde885"
+      },
+      "conversion": {
+        "instance_id": "matplotlib__matplotlib-25311",
+        "record_sha256": "b290065ccf56541384aadd259e73affc2d603a5895dd411da0fbe4e96ceb897a",
+        "status": "CONVERTED"
+      },
+      "instance_id": "matplotlib__matplotlib-25311",
+      "qualification": {
+        "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+        "failed_rules": [],
+        "normalized_trace_file_sha256": "dba5cec420688f4146fbd274815a52a8cba88f284c5c05c7c540526e4c901e97",
+        "program_id": "matplotlib__matplotlib-25311",
+        "qualification_checks": {
+          "Q1": true,
+          "Q2": true,
+          "Q3": true,
+          "Q4": true,
+          "Q5": true,
+          "Q6": true,
+          "Q7": true,
+          "Q8": true,
+          "Q9": true
+        },
+        "qualification_file_sha256": "38bdb9f3bced701cfcad24c07fc9ae47879ba3a7fa9a022ae81759c34cc1f342",
+        "qualification_sha256": "3de441da580f5297c9a27a4a37d79ced769c098470ca869ef30e9236e4ca17df",
+        "qualification_status": "QUALIFIED",
+        "raw_artifact_identity": "matplotlib__matplotlib-25311.json",
+        "raw_artifact_sha256": "b290065ccf56541384aadd259e73affc2d603a5895dd411da0fbe4e96ceb897a",
+        "session_id": "phase5:swe:matplotlib__matplotlib-25311:session:1",
+        "source_revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+        "source_trace_sha256": "33458139c359497bfb1bb8956e73b4585da23f186322b34eb766e20ac348eab7",
+        "terminal_class": "RIGHT_CENSORED",
+        "token_materialization_file_sha256": "7880fd95c4c2def5262a13c92ef0e3fb75e3da4454e9714b51f4033103e680fb",
+        "tool_fixtures_file_sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "trace_id": "phase5:swe:matplotlib__matplotlib-25311"
+      },
+      "qualification_status": "QUALIFIED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "LimitsExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "attempt_id": "phase5-swe-historical-rank-74:mwaskom__seaborn-3069",
+        "condition": "PHASE5_HISTORICAL_REACQUISITION_S100",
+        "config_sha256": "fb5bfe5dde3e02bd9e491a6eec54466ffde6d63f39dcbfdeb0b5e15ae46c3e22",
+        "dataset_identity": {
+          "config": "default",
+          "name": "princeton-nlp/SWE-bench_Verified",
+          "revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+          "split": "test"
+        },
+        "finished_at_utc": "2026-11-24T08:00:47.702290+00:00",
+        "fresh_evidence_paths": {
+          "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/mwaskom__seaborn-3069/run.json",
+          "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/mwaskom__seaborn-3069/acquisition-sidecar.json",
+          "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/mwaskom__seaborn-3069/mwaskom__seaborn-3069.traj.json"
+        },
+        "historical_w1c_hash_comparisons": [
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S50",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "8ba6af537cd4b1655b0301ffc076fa6cc3926d097691d26ff1e810779bae1023",
+              "sidecar_sha256": "7e89345b72fd4af11a8b14cb9c958c160579095966360298c7d9e48a8613353c",
+              "trajectory_sha256": "0bed2cc4060471ad7263831061c821d3f0f8cf80f34a54395898de43d0fa3559"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/mwaskom__seaborn-3069/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/mwaskom__seaborn-3069/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/mwaskom__seaborn-3069/mwaskom__seaborn-3069.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          },
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S100",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "1920c879fd4bce1ac5f7adc9c80751412afd0c02f208c966b4c460407971fc73",
+              "sidecar_sha256": "c7c9c421af578ee66f2c4a79f2e6df546dba4553880bea0fc1c402d7df0561ce",
+              "trajectory_sha256": "4f64f50e6e25949f3519eb726bfbcab528c1b6e1ed9b0423495d29181d9230b7"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/mwaskom__seaborn-3069/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/mwaskom__seaborn-3069/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/mwaskom__seaborn-3069/mwaskom__seaborn-3069.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          }
+        ],
+        "instance_id": "mwaskom__seaborn-3069",
+        "mini_swe_agent_git_sha": "316a58794a6ff86b216e579b74fd56ed0c5a911f",
+        "model_identity": {
+          "base_url": "http://localhost:8100/v1",
+          "max_completion_tokens": 512,
+          "model_class": "vllm",
+          "model_kwargs": {
+            "seed": 20261023,
+            "temperature": 0.0
+          },
+          "model_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "model_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225",
+          "paper_example_difference": "Fresh Phase 5 reacquisition only; historical W1-C evidence is not reused.",
+          "stream": true,
+          "tokenizer_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "tokenizer_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225"
+        },
+        "old_w1c_evidence_reused": false,
+        "phase5_acquisition_identity": "PHASE5_HISTORICAL_CANDIDATE_FRESH_REACQUISITION:mwaskom__seaborn-3069",
+        "phase5_rank": 74,
+        "repository_git_sha": "e6e8e90427abccbd560c41cdd8cc965e11cb3731",
+        "run_json_sha256": "aadbeff22b92503ea78d163dc26a5e4786cb046ea7ecfa1c7b3708d8e8cf158f",
+        "server_runtime": {
+          "backend": "vllm-metal",
+          "environment": {
+            "HF_HUB_OFFLINE": "1",
+            "TRANSFORMERS_OFFLINE": "1",
+            "VLLM_ENABLE_V1_MULTIPROCESSING": "0"
+          },
+          "gpu_memory_utilization": 0.75,
+          "host": "127.0.0.1",
+          "max_model_len": 32768,
+          "port": 8100,
+          "vllm_metal_version": "0.3.0",
+          "vllm_version": "0.27.1+cpu"
+        },
+        "sidecar_sha256": "eb65aa3ce36ef5c00ea49beeb2cf11f85ba6bbf4cfd79c1bd12dbdc174273abd",
+        "started_at_utc": "2026-11-24T07:55:41.879289+00:00",
+        "status": "completed",
+        "trajectory_sha256": "b1a8ed575258c1bf52e93c83f7cf041be173ce9334c65e7fb0d529f8aa3a5c87"
+      },
+      "conversion": {
+        "instance_id": "mwaskom__seaborn-3069",
+        "record_sha256": "e8ebe546494a051d191e31ba696183c4b012ce95bf54652032f558a4adbbd49b",
+        "status": "CONVERTED"
+      },
+      "instance_id": "mwaskom__seaborn-3069",
+      "qualification": {
+        "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+        "failed_rules": [],
+        "normalized_trace_file_sha256": "4a7aa82edde1c0ea3313b05af471d1929db17037be2fd8b8a3627fd7ab67035c",
+        "program_id": "mwaskom__seaborn-3069",
+        "qualification_checks": {
+          "Q1": true,
+          "Q2": true,
+          "Q3": true,
+          "Q4": true,
+          "Q5": true,
+          "Q6": true,
+          "Q7": true,
+          "Q8": true,
+          "Q9": true
+        },
+        "qualification_file_sha256": "50874f3d436ef082d1df74a88067f1ad7ef7835a4367d93f43f020115d7ca425",
+        "qualification_sha256": "807ffdb5bc495f8d27e1461a437b05c406eeb852617fa976911dffce57c0ccdc",
+        "qualification_status": "QUALIFIED",
+        "raw_artifact_identity": "mwaskom__seaborn-3069.json",
+        "raw_artifact_sha256": "e8ebe546494a051d191e31ba696183c4b012ce95bf54652032f558a4adbbd49b",
+        "session_id": "phase5:swe:mwaskom__seaborn-3069:session:1",
+        "source_revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+        "source_trace_sha256": "6c509f662a9e0c75ed76de1ef44a36599168c3c186177a32e938937d406171f9",
+        "terminal_class": "RIGHT_CENSORED",
+        "token_materialization_file_sha256": "1cc7168b68d944c497d2691ecb03f70084d2f3122cde5224cbd36a2782995052",
+        "tool_fixtures_file_sha256": "6b207cf7fc307dbb2b1642b9f32f45fcf90b8134b540a0e4e3ccf7fd0cfde527",
+        "trace_id": "phase5:swe:mwaskom__seaborn-3069"
+      },
+      "qualification_status": "QUALIFIED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "LimitsExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "attempt_id": "phase5-swe-historical-rank-75:pallets__flask-5014",
+        "condition": "PHASE5_HISTORICAL_REACQUISITION_S100",
+        "config_sha256": "fb5bfe5dde3e02bd9e491a6eec54466ffde6d63f39dcbfdeb0b5e15ae46c3e22",
+        "dataset_identity": {
+          "config": "default",
+          "name": "princeton-nlp/SWE-bench_Verified",
+          "revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+          "split": "test"
+        },
+        "finished_at_utc": "2026-11-24T08:07:38.001229+00:00",
+        "fresh_evidence_paths": {
+          "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/pallets__flask-5014/run.json",
+          "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/pallets__flask-5014/acquisition-sidecar.json",
+          "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/pallets__flask-5014/pallets__flask-5014.traj.json"
+        },
+        "historical_w1c_hash_comparisons": [
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S50",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "ddae19f36be5763819fa2c39ab4840d07c2c03a5ebe2b0c9bf62ee3aafe93c27",
+              "sidecar_sha256": "32b50eae6021bc4a41b5269a3f3296feaa76a5b01347f9534f0cb8295da1b2a8",
+              "trajectory_sha256": "e9aad276ef5669b3b756cff7ee3f0f68c7beb636e5887409e37f0abda0bb7c9d"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/pallets__flask-5014/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/pallets__flask-5014/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/pallets__flask-5014/pallets__flask-5014.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          },
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S100",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "09cb94b81a18bb9d1fbac62ed841ce3a9a8fbc9ce83481e05fbeadd79b706dd5",
+              "sidecar_sha256": "f078d74c0a030208eff75ea0cd80b07044d8b56508972616bf57149bace681b7",
+              "trajectory_sha256": "4a23599b2fbc8a0ae4d18b08564578a0c89f9a123e6ba776a73b2f5432b861ed"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/pallets__flask-5014/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/pallets__flask-5014/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/pallets__flask-5014/pallets__flask-5014.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          }
+        ],
+        "instance_id": "pallets__flask-5014",
+        "mini_swe_agent_git_sha": "316a58794a6ff86b216e579b74fd56ed0c5a911f",
+        "model_identity": {
+          "base_url": "http://localhost:8100/v1",
+          "max_completion_tokens": 512,
+          "model_class": "vllm",
+          "model_kwargs": {
+            "seed": 20261023,
+            "temperature": 0.0
+          },
+          "model_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "model_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225",
+          "paper_example_difference": "Fresh Phase 5 reacquisition only; historical W1-C evidence is not reused.",
+          "stream": true,
+          "tokenizer_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "tokenizer_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225"
+        },
+        "old_w1c_evidence_reused": false,
+        "phase5_acquisition_identity": "PHASE5_HISTORICAL_CANDIDATE_FRESH_REACQUISITION:pallets__flask-5014",
+        "phase5_rank": 75,
+        "repository_git_sha": "e6e8e90427abccbd560c41cdd8cc965e11cb3731",
+        "run_json_sha256": "d9a847a6ba352d35745b5737c2f0f146e5650f3abe41ae62a6d2eb06e45059b5",
+        "server_runtime": {
+          "backend": "vllm-metal",
+          "environment": {
+            "HF_HUB_OFFLINE": "1",
+            "TRANSFORMERS_OFFLINE": "1",
+            "VLLM_ENABLE_V1_MULTIPROCESSING": "0"
+          },
+          "gpu_memory_utilization": 0.75,
+          "host": "127.0.0.1",
+          "max_model_len": 32768,
+          "port": 8100,
+          "vllm_metal_version": "0.3.0",
+          "vllm_version": "0.27.1+cpu"
+        },
+        "sidecar_sha256": "5088abb960f1b837311c32f47cbedc9a652af0d426354186e7408d2b6e3faeb5",
+        "started_at_utc": "2026-11-24T08:00:47.785354+00:00",
+        "status": "completed",
+        "trajectory_sha256": "fa96a45e1c92dae91e6b2280269ea56a11000a6075d25353dc40d86a6079ad53"
+      },
+      "conversion": {
+        "instance_id": "pallets__flask-5014",
+        "reason": "ValueError: tool result cannot be recovered from trajectory",
+        "retry_authorized": false,
+        "status": "EXCLUDED_PRE_NORMALIZATION"
+      },
+      "instance_id": "pallets__flask-5014",
+      "qualification": null,
+      "qualification_status": "NOT_EVALUATED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "LimitsExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "attempt_id": "phase5-swe-historical-rank-76:psf__requests-2931",
+        "condition": "PHASE5_HISTORICAL_REACQUISITION_S100",
+        "config_sha256": "fb5bfe5dde3e02bd9e491a6eec54466ffde6d63f39dcbfdeb0b5e15ae46c3e22",
+        "dataset_identity": {
+          "config": "default",
+          "name": "princeton-nlp/SWE-bench_Verified",
+          "revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+          "split": "test"
+        },
+        "finished_at_utc": "2026-11-24T08:12:14.178943+00:00",
+        "fresh_evidence_paths": {
+          "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/psf__requests-2931/run.json",
+          "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/psf__requests-2931/acquisition-sidecar.json",
+          "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/psf__requests-2931/psf__requests-2931.traj.json"
+        },
+        "historical_w1c_hash_comparisons": [
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S50",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "321ab9d86b156a87bca30f127f057196221e16f72d4fa54407457ddef8245005",
+              "sidecar_sha256": "6a622ed7498b3adedc12c0a37c650cd5bf78cdb9b267f204b628661167a98cec",
+              "trajectory_sha256": "66c5c96b74815c05a3171874dd38de1142450f0ff4aaeb9502e53cf06cf7d00f"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/psf__requests-2931/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/psf__requests-2931/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/psf__requests-2931/psf__requests-2931.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          },
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S100",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "8ba2153e0f30df090c607ea208be1679d7796547c6c269f1c528ca9fd1d9838b",
+              "sidecar_sha256": "8000abb24a77c6e6e3e9773499153d50e4deb3bdcdcfd04a7a2ee6a5023dc4bf",
+              "trajectory_sha256": "345008148cd22fc67e683c3ad1a5b4a5318820475fd445beb340ce0428198a40"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/psf__requests-2931/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/psf__requests-2931/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/psf__requests-2931/psf__requests-2931.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          }
+        ],
+        "instance_id": "psf__requests-2931",
+        "mini_swe_agent_git_sha": "316a58794a6ff86b216e579b74fd56ed0c5a911f",
+        "model_identity": {
+          "base_url": "http://localhost:8100/v1",
+          "max_completion_tokens": 512,
+          "model_class": "vllm",
+          "model_kwargs": {
+            "seed": 20261023,
+            "temperature": 0.0
+          },
+          "model_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "model_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225",
+          "paper_example_difference": "Fresh Phase 5 reacquisition only; historical W1-C evidence is not reused.",
+          "stream": true,
+          "tokenizer_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "tokenizer_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225"
+        },
+        "old_w1c_evidence_reused": false,
+        "phase5_acquisition_identity": "PHASE5_HISTORICAL_CANDIDATE_FRESH_REACQUISITION:psf__requests-2931",
+        "phase5_rank": 76,
+        "repository_git_sha": "e6e8e90427abccbd560c41cdd8cc965e11cb3731",
+        "run_json_sha256": "d6cbb3c207b0a85f5220236539869215ed4bce3b106fdecea6180b949cd2f35e",
+        "server_runtime": {
+          "backend": "vllm-metal",
+          "environment": {
+            "HF_HUB_OFFLINE": "1",
+            "TRANSFORMERS_OFFLINE": "1",
+            "VLLM_ENABLE_V1_MULTIPROCESSING": "0"
+          },
+          "gpu_memory_utilization": 0.75,
+          "host": "127.0.0.1",
+          "max_model_len": 32768,
+          "port": 8100,
+          "vllm_metal_version": "0.3.0",
+          "vllm_version": "0.27.1+cpu"
+        },
+        "sidecar_sha256": "4f3c09000d2e24d96608413e372aab2abe5e43f7bdac097b2eda042dd8c1f55d",
+        "started_at_utc": "2026-11-24T08:07:38.078448+00:00",
+        "status": "completed",
+        "trajectory_sha256": "e805911089d9623ee680a399da65cd177b35ec65825a132a2abd2a6ea21fd35b"
+      },
+      "conversion": {
+        "instance_id": "psf__requests-2931",
+        "record_sha256": "c42fefedcc668e7e13ad620161f09f97602236d34e73bd3114a9e637474ff99b",
+        "status": "CONVERTED"
+      },
+      "instance_id": "psf__requests-2931",
+      "qualification": {
+        "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+        "failed_rules": [],
+        "normalized_trace_file_sha256": "85ae547370d18165150a3da5ba22e9287d49da73becf8526f24e16c408886113",
+        "program_id": "psf__requests-2931",
+        "qualification_checks": {
+          "Q1": true,
+          "Q2": true,
+          "Q3": true,
+          "Q4": true,
+          "Q5": true,
+          "Q6": true,
+          "Q7": true,
+          "Q8": true,
+          "Q9": true
+        },
+        "qualification_file_sha256": "9bc7eaf2daf6b13f3c36906ed08b23e7530fc0c85f3b7304c013ff778d7129f3",
+        "qualification_sha256": "b7bccae2099015f31a8ef899e01a415645dfc0cd3db34f904ede8446e5052306",
+        "qualification_status": "QUALIFIED",
+        "raw_artifact_identity": "psf__requests-2931.json",
+        "raw_artifact_sha256": "c42fefedcc668e7e13ad620161f09f97602236d34e73bd3114a9e637474ff99b",
+        "session_id": "phase5:swe:psf__requests-2931:session:1",
+        "source_revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+        "source_trace_sha256": "b5fbba4a2b1ee9b0e483a1a751dec19c751d4fc71755cd66fd113eee0703c331",
+        "terminal_class": "RIGHT_CENSORED",
+        "token_materialization_file_sha256": "8feec47e45100901be4d432e6c7d6ca3ee401c4132faf184136eff6550f9455b",
+        "tool_fixtures_file_sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "trace_id": "phase5:swe:psf__requests-2931"
+      },
+      "qualification_status": "QUALIFIED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "Submitted",
+        "agent_outcome": "SUBMITTED",
+        "attempt_id": "phase5-swe-historical-rank-77:pydata__xarray-3993",
+        "condition": "PHASE5_HISTORICAL_REACQUISITION_S100",
+        "config_sha256": "fb5bfe5dde3e02bd9e491a6eec54466ffde6d63f39dcbfdeb0b5e15ae46c3e22",
+        "dataset_identity": {
+          "config": "default",
+          "name": "princeton-nlp/SWE-bench_Verified",
+          "revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+          "split": "test"
+        },
+        "finished_at_utc": "2026-11-24T08:12:25.528737+00:00",
+        "fresh_evidence_paths": {
+          "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/pydata__xarray-3993/run.json",
+          "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/pydata__xarray-3993/acquisition-sidecar.json",
+          "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/pydata__xarray-3993/pydata__xarray-3993.traj.json"
+        },
+        "historical_w1c_hash_comparisons": [
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S50",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "5bdf75c3a1c88ddd3fdb8658918aa99c204153da6f2382bfc515a64c6ac4fc5a",
+              "sidecar_sha256": "bf1b07c2ee3990406d9a93c57085ea895b082912495b5c7d1090e600aac5feec",
+              "trajectory_sha256": "f1bc65c8df5af96e37aa427cc3e1b3ec6df54b2c7371206b7fe0daa29b7c2261"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/pydata__xarray-3993/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/pydata__xarray-3993/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/pydata__xarray-3993/pydata__xarray-3993.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          },
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S100",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "ab8dfd48c90a2d09cacbc998f1748a576c92d177f6058089bcd1429d9ed9aa46",
+              "sidecar_sha256": "aa3e986a698cb1a13d21abfb53c1077910ccc8e78d69c2edcf81f18b118d3747",
+              "trajectory_sha256": "404809eee9be18795d5088dc2808f78a8dfde06fe54347c883f0cde98d78cfa9"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/pydata__xarray-3993/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/pydata__xarray-3993/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/pydata__xarray-3993/pydata__xarray-3993.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          }
+        ],
+        "instance_id": "pydata__xarray-3993",
+        "mini_swe_agent_git_sha": "316a58794a6ff86b216e579b74fd56ed0c5a911f",
+        "model_identity": {
+          "base_url": "http://localhost:8100/v1",
+          "max_completion_tokens": 512,
+          "model_class": "vllm",
+          "model_kwargs": {
+            "seed": 20261023,
+            "temperature": 0.0
+          },
+          "model_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "model_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225",
+          "paper_example_difference": "Fresh Phase 5 reacquisition only; historical W1-C evidence is not reused.",
+          "stream": true,
+          "tokenizer_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "tokenizer_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225"
+        },
+        "old_w1c_evidence_reused": false,
+        "phase5_acquisition_identity": "PHASE5_HISTORICAL_CANDIDATE_FRESH_REACQUISITION:pydata__xarray-3993",
+        "phase5_rank": 77,
+        "repository_git_sha": "e6e8e90427abccbd560c41cdd8cc965e11cb3731",
+        "run_json_sha256": "d16e1282f75691d1f29b0541021d7ca81c4f2c599dc43e227520f339c621a687",
+        "server_runtime": {
+          "backend": "vllm-metal",
+          "environment": {
+            "HF_HUB_OFFLINE": "1",
+            "TRANSFORMERS_OFFLINE": "1",
+            "VLLM_ENABLE_V1_MULTIPROCESSING": "0"
+          },
+          "gpu_memory_utilization": 0.75,
+          "host": "127.0.0.1",
+          "max_model_len": 32768,
+          "port": 8100,
+          "vllm_metal_version": "0.3.0",
+          "vllm_version": "0.27.1+cpu"
+        },
+        "sidecar_sha256": "7d4c34fe39b969b119ad02f0dcd97693be5d4fa734be39e56ba6b0907aca1d52",
+        "started_at_utc": "2026-11-24T08:12:14.252256+00:00",
+        "status": "completed",
+        "trajectory_sha256": "cce992cd34c223b4eb27ffc99da973abc21f6f5f12f6f4690fceae0a343b644e"
+      },
+      "conversion": {
+        "instance_id": "pydata__xarray-3993",
+        "record_sha256": "4b80d2d47cd1cda3073033097f93106a0c0fe639695bc4cbeff3df45b82c7db5",
+        "status": "CONVERTED"
+      },
+      "instance_id": "pydata__xarray-3993",
+      "qualification": {
+        "censor_reason": null,
+        "failed_rules": [
+          "Q6_CONTEXT_AND_EXACT_TOKENS"
+        ],
+        "normalized_trace_file_sha256": "a042a6a44d40e9563a86573267ddda4337f7deab0910c7bdc267ae10d82f4454",
+        "program_id": "pydata__xarray-3993",
+        "qualification_checks": {
+          "Q1": true,
+          "Q2": true,
+          "Q3": true,
+          "Q4": true,
+          "Q5": true,
+          "Q6": false,
+          "Q7": true,
+          "Q8": true,
+          "Q9": true
+        },
+        "qualification_file_sha256": "3fdac39e545058f6d65113df2ddac258c167c20d3897bde83d0bb9555b5c64a9",
+        "qualification_sha256": "dd7c448872c9b9ecfdbe9a1dd14f56309117094d8c4fed845c86c28f91aa5d0e",
+        "qualification_status": "EXCLUDED",
+        "raw_artifact_identity": "pydata__xarray-3993.json",
+        "raw_artifact_sha256": "4b80d2d47cd1cda3073033097f93106a0c0fe639695bc4cbeff3df45b82c7db5",
+        "session_id": "phase5:swe:pydata__xarray-3993:session:1",
+        "source_revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+        "source_trace_sha256": "bc5944fab21c31a8f29cd5af03d2ec205596e1cfaa8851f1eaeacdcefd5d0ef9",
+        "terminal_class": "NATURAL_TERMINAL",
+        "token_materialization_file_sha256": "334c19f5875f50207013d90a7c47ddc43ea0f49cdc57c513b056633a88dba173",
+        "tool_fixtures_file_sha256": "e77fe8297a7d3eadb512790388dc515f573ad9fb0b372740901bcaa9acbf7a32",
+        "trace_id": "phase5:swe:pydata__xarray-3993"
+      },
+      "qualification_status": "EXCLUDED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "ContextLengthExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "attempt_id": "phase5-swe-historical-rank-78:pylint-dev__pylint-6386",
+        "condition": "PHASE5_HISTORICAL_REACQUISITION_S100",
+        "config_sha256": "fb5bfe5dde3e02bd9e491a6eec54466ffde6d63f39dcbfdeb0b5e15ae46c3e22",
+        "dataset_identity": {
+          "config": "default",
+          "name": "princeton-nlp/SWE-bench_Verified",
+          "revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+          "split": "test"
+        },
+        "finished_at_utc": "2026-11-24T08:13:35.213125+00:00",
+        "fresh_evidence_paths": {
+          "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/pylint-dev__pylint-6386/run.json",
+          "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/pylint-dev__pylint-6386/acquisition-sidecar.json",
+          "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/pylint-dev__pylint-6386/pylint-dev__pylint-6386.traj.json"
+        },
+        "historical_w1c_hash_comparisons": [
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S50",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "f7f62f6a7ede301520ca4a4347ed0d1571a52e73dd65dd3ab79ea3735db2f48b",
+              "sidecar_sha256": "6fd38cbca691d7579adf8c092349e24faa66d94ee1764f7afbcf7264cbeb882f",
+              "trajectory_sha256": "b2369927f7c39535411a28206d81128f28112c3351bb2cf1797228a450a7b571"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/pylint-dev__pylint-6386/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/pylint-dev__pylint-6386/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/pylint-dev__pylint-6386/pylint-dev__pylint-6386.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          },
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S100",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "aa094eafc021f23f869c7d1f1e421c1670d48bf098bd6bb7a26ddc9efab65015",
+              "sidecar_sha256": "9db69a2f8ecbeb61743718bed1ae54a46bd1c1edcc2316d321fd392632d1cc64",
+              "trajectory_sha256": "2f8951cbe86aa33cd6eecfa94548ed87739bd1005997925862db2296eb510e7c"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/pylint-dev__pylint-6386/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/pylint-dev__pylint-6386/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/pylint-dev__pylint-6386/pylint-dev__pylint-6386.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          }
+        ],
+        "instance_id": "pylint-dev__pylint-6386",
+        "mini_swe_agent_git_sha": "316a58794a6ff86b216e579b74fd56ed0c5a911f",
+        "model_identity": {
+          "base_url": "http://localhost:8100/v1",
+          "max_completion_tokens": 512,
+          "model_class": "vllm",
+          "model_kwargs": {
+            "seed": 20261023,
+            "temperature": 0.0
+          },
+          "model_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "model_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225",
+          "paper_example_difference": "Fresh Phase 5 reacquisition only; historical W1-C evidence is not reused.",
+          "stream": true,
+          "tokenizer_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "tokenizer_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225"
+        },
+        "old_w1c_evidence_reused": false,
+        "phase5_acquisition_identity": "PHASE5_HISTORICAL_CANDIDATE_FRESH_REACQUISITION:pylint-dev__pylint-6386",
+        "phase5_rank": 78,
+        "repository_git_sha": "e6e8e90427abccbd560c41cdd8cc965e11cb3731",
+        "run_json_sha256": "f04539b737b77d4aca3356379551a9bd8291e4e010c61f23528bfd7f3aace5e4",
+        "server_runtime": {
+          "backend": "vllm-metal",
+          "environment": {
+            "HF_HUB_OFFLINE": "1",
+            "TRANSFORMERS_OFFLINE": "1",
+            "VLLM_ENABLE_V1_MULTIPROCESSING": "0"
+          },
+          "gpu_memory_utilization": 0.75,
+          "host": "127.0.0.1",
+          "max_model_len": 32768,
+          "port": 8100,
+          "vllm_metal_version": "0.3.0",
+          "vllm_version": "0.27.1+cpu"
+        },
+        "sidecar_sha256": "4723aa2a14ef3865f0e52932ad3ded1938f72d8c672215d92a0a6f195a803b17",
+        "started_at_utc": "2026-11-24T08:12:25.582497+00:00",
+        "status": "completed",
+        "trajectory_sha256": "e65bc9001e67d10cec45493ee35c012b7ace6482189f15b222409e5b7c3f88a9"
+      },
+      "conversion": {
+        "instance_id": "pylint-dev__pylint-6386",
+        "reason": "ValueError: tool result cannot be recovered from trajectory",
+        "retry_authorized": false,
+        "status": "EXCLUDED_PRE_NORMALIZATION"
+      },
+      "instance_id": "pylint-dev__pylint-6386",
+      "qualification": null,
+      "qualification_status": "NOT_EVALUATED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "LimitsExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "attempt_id": "phase5-swe-historical-rank-79:pytest-dev__pytest-7982",
+        "condition": "PHASE5_HISTORICAL_REACQUISITION_S100",
+        "config_sha256": "fb5bfe5dde3e02bd9e491a6eec54466ffde6d63f39dcbfdeb0b5e15ae46c3e22",
+        "dataset_identity": {
+          "config": "default",
+          "name": "princeton-nlp/SWE-bench_Verified",
+          "revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+          "split": "test"
+        },
+        "finished_at_utc": "2026-11-24T08:23:04.810717+00:00",
+        "fresh_evidence_paths": {
+          "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/pytest-dev__pytest-7982/run.json",
+          "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/pytest-dev__pytest-7982/acquisition-sidecar.json",
+          "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/pytest-dev__pytest-7982/pytest-dev__pytest-7982.traj.json"
+        },
+        "historical_w1c_hash_comparisons": [
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S50",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "d53056c485846e389b36bbaf7f7ad866c78ee38a72f5aaa5cfd05cc7745ca75e",
+              "sidecar_sha256": "ea68ef70f866e1b233421202da20cdf7f245f9b677cefc269caa4e98ea5b47c5",
+              "trajectory_sha256": "02716a4ef70d03c2885ac05683124a0c43f28ad975b60c84f1f50dd4b8883f46"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/pytest-dev__pytest-7982/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/pytest-dev__pytest-7982/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/pytest-dev__pytest-7982/pytest-dev__pytest-7982.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          },
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S100",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "3433e6fab29bffd3d67f7704ada74de4b1a0a8df88db7dde04c60290b867f8c8",
+              "sidecar_sha256": "ae8d96f5094c570ba16ab2c67b5080c46aceb883e798d928b55b3b0993db91ca",
+              "trajectory_sha256": "c744f93914b17a9fdd9c4ab989831eb260cb17a0066ebb7f3f625c1dc777a45c"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/pytest-dev__pytest-7982/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/pytest-dev__pytest-7982/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/pytest-dev__pytest-7982/pytest-dev__pytest-7982.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          }
+        ],
+        "instance_id": "pytest-dev__pytest-7982",
+        "mini_swe_agent_git_sha": "316a58794a6ff86b216e579b74fd56ed0c5a911f",
+        "model_identity": {
+          "base_url": "http://localhost:8100/v1",
+          "max_completion_tokens": 512,
+          "model_class": "vllm",
+          "model_kwargs": {
+            "seed": 20261023,
+            "temperature": 0.0
+          },
+          "model_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "model_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225",
+          "paper_example_difference": "Fresh Phase 5 reacquisition only; historical W1-C evidence is not reused.",
+          "stream": true,
+          "tokenizer_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "tokenizer_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225"
+        },
+        "old_w1c_evidence_reused": false,
+        "phase5_acquisition_identity": "PHASE5_HISTORICAL_CANDIDATE_FRESH_REACQUISITION:pytest-dev__pytest-7982",
+        "phase5_rank": 79,
+        "repository_git_sha": "e6e8e90427abccbd560c41cdd8cc965e11cb3731",
+        "run_json_sha256": "50f136a303ccf1c1308d923f9e4a625343880d3a0f3fd5a9bca1994c9dcb1a30",
+        "server_runtime": {
+          "backend": "vllm-metal",
+          "environment": {
+            "HF_HUB_OFFLINE": "1",
+            "TRANSFORMERS_OFFLINE": "1",
+            "VLLM_ENABLE_V1_MULTIPROCESSING": "0"
+          },
+          "gpu_memory_utilization": 0.75,
+          "host": "127.0.0.1",
+          "max_model_len": 32768,
+          "port": 8100,
+          "vllm_metal_version": "0.3.0",
+          "vllm_version": "0.27.1+cpu"
+        },
+        "sidecar_sha256": "b96760d264a5132a529c4146aeb05369e02aab7007069799429e24ca55e94eb1",
+        "started_at_utc": "2026-11-24T08:13:35.246145+00:00",
+        "status": "completed",
+        "trajectory_sha256": "ba36c6e06212494f1408820cb03c0b9eb6243da86ed11b45e57d70f44fce3c1c"
+      },
+      "conversion": {
+        "instance_id": "pytest-dev__pytest-7982",
+        "record_sha256": "e14e96bf6a56980cbb0a81caa35932424c9de4371afd4828debfbdba8049418b",
+        "status": "CONVERTED"
+      },
+      "instance_id": "pytest-dev__pytest-7982",
+      "qualification": {
+        "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+        "failed_rules": [],
+        "normalized_trace_file_sha256": "71d0e74dbb6665c1f0f6d29cc5e51899c932ecc597975ad651e6102fbe6a19bc",
+        "program_id": "pytest-dev__pytest-7982",
+        "qualification_checks": {
+          "Q1": true,
+          "Q2": true,
+          "Q3": true,
+          "Q4": true,
+          "Q5": true,
+          "Q6": true,
+          "Q7": true,
+          "Q8": true,
+          "Q9": true
+        },
+        "qualification_file_sha256": "87e328b3bfcb90109c81e4d0eefd7213b8fa294bcb65cf5ba2cb7681e56d583b",
+        "qualification_sha256": "7c00e30bff1313c5bdb4e7c91d6018e0646242cc6184e4045ae40d27ac9ee6bb",
+        "qualification_status": "QUALIFIED",
+        "raw_artifact_identity": "pytest-dev__pytest-7982.json",
+        "raw_artifact_sha256": "e14e96bf6a56980cbb0a81caa35932424c9de4371afd4828debfbdba8049418b",
+        "session_id": "phase5:swe:pytest-dev__pytest-7982:session:1",
+        "source_revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+        "source_trace_sha256": "6c758f26eb5f677a666e694f1f7847df1603317c8365ae79ef84f2bf49807410",
+        "terminal_class": "RIGHT_CENSORED",
+        "token_materialization_file_sha256": "a68d914c54f14dc1790f94219d6261cb3c58da4206a3f3db1ceaf1c3f469987d",
+        "tool_fixtures_file_sha256": "d11a75901f83a52173fab7272c9ef92a29faaff7c1142507968afc13fdb33df8",
+        "trace_id": "phase5:swe:pytest-dev__pytest-7982"
+      },
+      "qualification_status": "QUALIFIED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "Submitted",
+        "agent_outcome": "SUBMITTED",
+        "attempt_id": "phase5-swe-historical-rank-80:scikit-learn__scikit-learn-14983",
+        "condition": "PHASE5_HISTORICAL_REACQUISITION_S100",
+        "config_sha256": "fb5bfe5dde3e02bd9e491a6eec54466ffde6d63f39dcbfdeb0b5e15ae46c3e22",
+        "dataset_identity": {
+          "config": "default",
+          "name": "princeton-nlp/SWE-bench_Verified",
+          "revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+          "split": "test"
+        },
+        "finished_at_utc": "2026-11-24T08:23:18.110605+00:00",
+        "fresh_evidence_paths": {
+          "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/scikit-learn__scikit-learn-14983/run.json",
+          "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/scikit-learn__scikit-learn-14983/acquisition-sidecar.json",
+          "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/scikit-learn__scikit-learn-14983/scikit-learn__scikit-learn-14983.traj.json"
+        },
+        "historical_w1c_hash_comparisons": [
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S50",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "14618ac430855756e0258ae4679fdea0d6928895e99e4d3a22df20ea446a18dc",
+              "sidecar_sha256": "66ac42f1a8571c1ccab898a62a9c33042f20506bfff7de2329307b4f9c4671f9",
+              "trajectory_sha256": "0cffabb2dbe904844ebb280f715ea45f8574606dbfaee6d530ebe08c9d5502b9"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/scikit-learn__scikit-learn-14983/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/scikit-learn__scikit-learn-14983/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/scikit-learn__scikit-learn-14983/scikit-learn__scikit-learn-14983.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          },
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S100",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "dd8cee215aa17f766340f56fbbbaafa141b04084b54bad93b7b0a77f5fc3ef5f",
+              "sidecar_sha256": "95f0f3fd17e2419de0481c7ef2fa1559443c4b609bdf7f365a9bda3314ef36b6",
+              "trajectory_sha256": "d7770923f82fa4254b1b783ffb0551e22afaf400b0867e9780b48caff782a99a"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/scikit-learn__scikit-learn-14983/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/scikit-learn__scikit-learn-14983/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/scikit-learn__scikit-learn-14983/scikit-learn__scikit-learn-14983.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          }
+        ],
+        "instance_id": "scikit-learn__scikit-learn-14983",
+        "mini_swe_agent_git_sha": "316a58794a6ff86b216e579b74fd56ed0c5a911f",
+        "model_identity": {
+          "base_url": "http://localhost:8100/v1",
+          "max_completion_tokens": 512,
+          "model_class": "vllm",
+          "model_kwargs": {
+            "seed": 20261023,
+            "temperature": 0.0
+          },
+          "model_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "model_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225",
+          "paper_example_difference": "Fresh Phase 5 reacquisition only; historical W1-C evidence is not reused.",
+          "stream": true,
+          "tokenizer_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "tokenizer_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225"
+        },
+        "old_w1c_evidence_reused": false,
+        "phase5_acquisition_identity": "PHASE5_HISTORICAL_CANDIDATE_FRESH_REACQUISITION:scikit-learn__scikit-learn-14983",
+        "phase5_rank": 80,
+        "repository_git_sha": "e6e8e90427abccbd560c41cdd8cc965e11cb3731",
+        "run_json_sha256": "6cad1e46588d11526f68c95785613e9ccf25d56e311c12e6b8cb23e0d4eb3478",
+        "server_runtime": {
+          "backend": "vllm-metal",
+          "environment": {
+            "HF_HUB_OFFLINE": "1",
+            "TRANSFORMERS_OFFLINE": "1",
+            "VLLM_ENABLE_V1_MULTIPROCESSING": "0"
+          },
+          "gpu_memory_utilization": 0.75,
+          "host": "127.0.0.1",
+          "max_model_len": 32768,
+          "port": 8100,
+          "vllm_metal_version": "0.3.0",
+          "vllm_version": "0.27.1+cpu"
+        },
+        "sidecar_sha256": "067ec08a933e1a4c0a107cdc44f19562df0e9ad4ce58f0e55fb76387ad7fccb9",
+        "started_at_utc": "2026-11-24T08:23:04.878952+00:00",
+        "status": "completed",
+        "trajectory_sha256": "0b887e702d44a449ebae26769d17906eee1d714473dbee8b307cc09ad3f237de"
+      },
+      "conversion": {
+        "instance_id": "scikit-learn__scikit-learn-14983",
+        "record_sha256": "10eb7d4217e171de8861bab60eee6339acdd272d7072454b7bf474bb0a0e501b",
+        "status": "CONVERTED"
+      },
+      "instance_id": "scikit-learn__scikit-learn-14983",
+      "qualification": {
+        "censor_reason": null,
+        "failed_rules": [
+          "Q6_CONTEXT_AND_EXACT_TOKENS"
+        ],
+        "normalized_trace_file_sha256": "8ba6211edc6f4660ed8a44b0776e94e0091d05cd89952f62e97664889668a8e8",
+        "program_id": "scikit-learn__scikit-learn-14983",
+        "qualification_checks": {
+          "Q1": true,
+          "Q2": true,
+          "Q3": true,
+          "Q4": true,
+          "Q5": true,
+          "Q6": false,
+          "Q7": true,
+          "Q8": true,
+          "Q9": true
+        },
+        "qualification_file_sha256": "3b04ff28302688a60b3138fbcfdfe05e9d21aca45231da6cd8ff10b009d4a632",
+        "qualification_sha256": "470323d6f8b8124d79b3d35001653ba390c5367de817b49519199a27bc3663a4",
+        "qualification_status": "EXCLUDED",
+        "raw_artifact_identity": "scikit-learn__scikit-learn-14983.json",
+        "raw_artifact_sha256": "10eb7d4217e171de8861bab60eee6339acdd272d7072454b7bf474bb0a0e501b",
+        "session_id": "phase5:swe:scikit-learn__scikit-learn-14983:session:1",
+        "source_revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+        "source_trace_sha256": "9ef0048afc21ab598f398fc9805dfcec34f4deb9c050c8d6087f2f005c81208e",
+        "terminal_class": "NATURAL_TERMINAL",
+        "token_materialization_file_sha256": "fdff42c2a784b445b58a1a0d8e29028f1acd58372f088a80f73f972123df1916",
+        "tool_fixtures_file_sha256": "17a9e73ed1395092e9479acb41bdea728864cd38b698c61d6bbf48bd33777c5e",
+        "trace_id": "phase5:swe:scikit-learn__scikit-learn-14983"
+      },
+      "qualification_status": "EXCLUDED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "ContextLengthExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "attempt_id": "phase5-swe-historical-rank-81:sphinx-doc__sphinx-8593",
+        "condition": "PHASE5_HISTORICAL_REACQUISITION_S100",
+        "config_sha256": "fb5bfe5dde3e02bd9e491a6eec54466ffde6d63f39dcbfdeb0b5e15ae46c3e22",
+        "dataset_identity": {
+          "config": "default",
+          "name": "princeton-nlp/SWE-bench_Verified",
+          "revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+          "split": "test"
+        },
+        "finished_at_utc": "2026-11-24T08:25:57.286749+00:00",
+        "fresh_evidence_paths": {
+          "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/sphinx-doc__sphinx-8593/run.json",
+          "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/sphinx-doc__sphinx-8593/acquisition-sidecar.json",
+          "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/sphinx-doc__sphinx-8593/sphinx-doc__sphinx-8593.traj.json"
+        },
+        "historical_w1c_hash_comparisons": [
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S50",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "0c151ecb79ccb3839c9e1ee6364186947c39183913fd973ba000ad5af0541750",
+              "sidecar_sha256": "b6ef5cd36b3cf85c8e5fe539c76e457c26f24fc3d3760594e6a6f8f73cdd6364",
+              "trajectory_sha256": "eacbe062bb402894a74b13c7f7ced8a1dfd55437e52a88a72f25883a3b9717d8"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/sphinx-doc__sphinx-8593/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/sphinx-doc__sphinx-8593/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/sphinx-doc__sphinx-8593/sphinx-doc__sphinx-8593.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          },
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S100",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "5b2ac722bb99ef6b55f04a02c50bd96de92ea16405cd933b42d6eae6aacbfb32",
+              "sidecar_sha256": "09e1608b04100ba2c03dcec63a078afa6e1a09588ad2143f08e1bf3077b9955e",
+              "trajectory_sha256": "49a49c7676203c6d915cb0308669a9e17d481aab526474465806b1a5302bea82"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/sphinx-doc__sphinx-8593/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/sphinx-doc__sphinx-8593/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/sphinx-doc__sphinx-8593/sphinx-doc__sphinx-8593.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          }
+        ],
+        "instance_id": "sphinx-doc__sphinx-8593",
+        "mini_swe_agent_git_sha": "316a58794a6ff86b216e579b74fd56ed0c5a911f",
+        "model_identity": {
+          "base_url": "http://localhost:8100/v1",
+          "max_completion_tokens": 512,
+          "model_class": "vllm",
+          "model_kwargs": {
+            "seed": 20261023,
+            "temperature": 0.0
+          },
+          "model_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "model_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225",
+          "paper_example_difference": "Fresh Phase 5 reacquisition only; historical W1-C evidence is not reused.",
+          "stream": true,
+          "tokenizer_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "tokenizer_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225"
+        },
+        "old_w1c_evidence_reused": false,
+        "phase5_acquisition_identity": "PHASE5_HISTORICAL_CANDIDATE_FRESH_REACQUISITION:sphinx-doc__sphinx-8593",
+        "phase5_rank": 81,
+        "repository_git_sha": "e6e8e90427abccbd560c41cdd8cc965e11cb3731",
+        "run_json_sha256": "0063acc65e1ad3814305c0266b3841a0348e5aa9ca1dc6e5e50aefee1a0cf593",
+        "server_runtime": {
+          "backend": "vllm-metal",
+          "environment": {
+            "HF_HUB_OFFLINE": "1",
+            "TRANSFORMERS_OFFLINE": "1",
+            "VLLM_ENABLE_V1_MULTIPROCESSING": "0"
+          },
+          "gpu_memory_utilization": 0.75,
+          "host": "127.0.0.1",
+          "max_model_len": 32768,
+          "port": 8100,
+          "vllm_metal_version": "0.3.0",
+          "vllm_version": "0.27.1+cpu"
+        },
+        "sidecar_sha256": "503b2193ce09e68535f814c3e1cb365769839463a71383316c01e5a48bd3e698",
+        "started_at_utc": "2026-11-24T08:23:18.164213+00:00",
+        "status": "completed",
+        "trajectory_sha256": "1da8369076426b13d95553767649b3ff41222c1ba93faefb4d439c8b8bf0cf85"
+      },
+      "conversion": {
+        "instance_id": "sphinx-doc__sphinx-8593",
+        "reason": "ValueError: tool result cannot be recovered from trajectory",
+        "retry_authorized": false,
+        "status": "EXCLUDED_PRE_NORMALIZATION"
+      },
+      "instance_id": "sphinx-doc__sphinx-8593",
+      "qualification": null,
+      "qualification_status": "NOT_EVALUATED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "LimitsExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "attempt_id": "phase5-swe-historical-rank-82:sympy__sympy-15017",
+        "condition": "PHASE5_HISTORICAL_REACQUISITION_S100",
+        "config_sha256": "fb5bfe5dde3e02bd9e491a6eec54466ffde6d63f39dcbfdeb0b5e15ae46c3e22",
+        "dataset_identity": {
+          "config": "default",
+          "name": "princeton-nlp/SWE-bench_Verified",
+          "revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+          "split": "test"
+        },
+        "finished_at_utc": "2026-11-24T08:30:06.191538+00:00",
+        "fresh_evidence_paths": {
+          "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/sympy__sympy-15017/run.json",
+          "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/sympy__sympy-15017/acquisition-sidecar.json",
+          "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/sympy__sympy-15017/sympy__sympy-15017.traj.json"
+        },
+        "historical_w1c_hash_comparisons": [
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S50",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "702ad09566ade16235c906adcf7eef66a83036a1836878d9dcbd1fa25625a414",
+              "sidecar_sha256": "8c896a091ac82e6f1144ebdb78212759b377988a759ac2fa025bf9d7bc457e1f",
+              "trajectory_sha256": "f9d7ad6593857094ee4d385a1656681f9d3242efc0392c75ae8470ee8c0e9b96"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/sympy__sympy-15017/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/sympy__sympy-15017/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/sympy__sympy-15017/sympy__sympy-15017.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          },
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S100",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "b15ec236ff837f8ca9464b5f119815598aae3a13af57f6bebd54bfaadd2be009",
+              "sidecar_sha256": "50ade68d15ae69dc68b716b4a664d44abf51b1483f788c001adf0b24c968c2cd",
+              "trajectory_sha256": "5db09e058e7a8fc6170c0ec1ff89276dc62884cc38c0d5f2ec130154237ce6e6"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/sympy__sympy-15017/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/sympy__sympy-15017/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/sympy__sympy-15017/sympy__sympy-15017.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          }
+        ],
+        "instance_id": "sympy__sympy-15017",
+        "mini_swe_agent_git_sha": "316a58794a6ff86b216e579b74fd56ed0c5a911f",
+        "model_identity": {
+          "base_url": "http://localhost:8100/v1",
+          "max_completion_tokens": 512,
+          "model_class": "vllm",
+          "model_kwargs": {
+            "seed": 20261023,
+            "temperature": 0.0
+          },
+          "model_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "model_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225",
+          "paper_example_difference": "Fresh Phase 5 reacquisition only; historical W1-C evidence is not reused.",
+          "stream": true,
+          "tokenizer_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "tokenizer_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225"
+        },
+        "old_w1c_evidence_reused": false,
+        "phase5_acquisition_identity": "PHASE5_HISTORICAL_CANDIDATE_FRESH_REACQUISITION:sympy__sympy-15017",
+        "phase5_rank": 82,
+        "repository_git_sha": "e6e8e90427abccbd560c41cdd8cc965e11cb3731",
+        "run_json_sha256": "6bd0c8051f6186d61a068ee0989c77ca6292f6aa85ad6665621ae032090b923d",
+        "server_runtime": {
+          "backend": "vllm-metal",
+          "environment": {
+            "HF_HUB_OFFLINE": "1",
+            "TRANSFORMERS_OFFLINE": "1",
+            "VLLM_ENABLE_V1_MULTIPROCESSING": "0"
+          },
+          "gpu_memory_utilization": 0.75,
+          "host": "127.0.0.1",
+          "max_model_len": 32768,
+          "port": 8100,
+          "vllm_metal_version": "0.3.0",
+          "vllm_version": "0.27.1+cpu"
+        },
+        "sidecar_sha256": "c1f619d406c4fc6e7993292cb5126f7337653c59f0e0a60e771e56a5371b8c17",
+        "started_at_utc": "2026-11-24T08:25:57.356715+00:00",
+        "status": "completed",
+        "trajectory_sha256": "cc0dc747bcd9dec228babf5fe55a8a3dac361b8ec22f9f9879799d0d559b69db"
+      },
+      "conversion": {
+        "instance_id": "sympy__sympy-15017",
+        "record_sha256": "80917c07e26fa95ecfa514423ed619c1c2b3c7c48229483181440724075563d1",
+        "status": "CONVERTED"
+      },
+      "instance_id": "sympy__sympy-15017",
+      "qualification": {
+        "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+        "failed_rules": [],
+        "normalized_trace_file_sha256": "73b7d817c28887b8531b76e8e580cfbbbaf0faabc8352a37853a7410db82c6bd",
+        "program_id": "sympy__sympy-15017",
+        "qualification_checks": {
+          "Q1": true,
+          "Q2": true,
+          "Q3": true,
+          "Q4": true,
+          "Q5": true,
+          "Q6": true,
+          "Q7": true,
+          "Q8": true,
+          "Q9": true
+        },
+        "qualification_file_sha256": "ca74d317cb35fcfd29aac9041f58bc9a4a7a393a60b27054374a746227ae5071",
+        "qualification_sha256": "f5b062da0373175f938f3a3f9b687df163fb932aa16a3f97e73602066ffaa03d",
+        "qualification_status": "QUALIFIED",
+        "raw_artifact_identity": "sympy__sympy-15017.json",
+        "raw_artifact_sha256": "80917c07e26fa95ecfa514423ed619c1c2b3c7c48229483181440724075563d1",
+        "session_id": "phase5:swe:sympy__sympy-15017:session:1",
+        "source_revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+        "source_trace_sha256": "d6eecbde4177b1447783db2e2bc2ad14a3087e40c0b7c2b3fb16b5b60e2dfa3e",
+        "terminal_class": "RIGHT_CENSORED",
+        "token_materialization_file_sha256": "9ea41a6a52b6894a505dd5b09b46a18c5301b2cb21e2ac90690d5418b06b4f3f",
+        "tool_fixtures_file_sha256": "e9dd0a7e750f05a4fc8f7faf674f396114ae40c679d81fc9a95ba3bf7f152424",
+        "trace_id": "phase5:swe:sympy__sympy-15017"
+      },
+      "qualification_status": "QUALIFIED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "LimitsExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "attempt_id": "phase5-swe-historical-rank-83:sympy__sympy-16886",
+        "condition": "PHASE5_HISTORICAL_REACQUISITION_S100",
+        "config_sha256": "fb5bfe5dde3e02bd9e491a6eec54466ffde6d63f39dcbfdeb0b5e15ae46c3e22",
+        "dataset_identity": {
+          "config": "default",
+          "name": "princeton-nlp/SWE-bench_Verified",
+          "revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+          "split": "test"
+        },
+        "finished_at_utc": "2026-11-24T08:33:19.847968+00:00",
+        "fresh_evidence_paths": {
+          "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/sympy__sympy-16886/run.json",
+          "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/sympy__sympy-16886/acquisition-sidecar.json",
+          "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/sympy__sympy-16886/sympy__sympy-16886.traj.json"
+        },
+        "historical_w1c_hash_comparisons": [
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S50",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "2efb1b8aaa923c711eabc19233f1b2d41935ee74b0ffb0203ed2f3a1504a9047",
+              "sidecar_sha256": "2299b6136ca114081fb34f351c02c9d4475ba57b3063284b165466d6383de321",
+              "trajectory_sha256": "fd0fd500eb72a1962028d06c7985fa1d73c584ee982f2d5b37b3dd0dcc662c8e"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/sympy__sympy-16886/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/sympy__sympy-16886/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/sympy__sympy-16886/sympy__sympy-16886.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          },
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S100",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "2e883042a51573323e0af27e59b9d62b07467eec17e60b7469171f8b389964b0",
+              "sidecar_sha256": "407c7333c49c4f6c425f59be4662f595f40d80d3898a7f5cf113e21c940cfb2a",
+              "trajectory_sha256": "e52e81af471d264a5123af41055b5d5994451bbbc30c0b10dab4b22ae79099e7"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/sympy__sympy-16886/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/sympy__sympy-16886/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/sympy__sympy-16886/sympy__sympy-16886.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          }
+        ],
+        "instance_id": "sympy__sympy-16886",
+        "mini_swe_agent_git_sha": "316a58794a6ff86b216e579b74fd56ed0c5a911f",
+        "model_identity": {
+          "base_url": "http://localhost:8100/v1",
+          "max_completion_tokens": 512,
+          "model_class": "vllm",
+          "model_kwargs": {
+            "seed": 20261023,
+            "temperature": 0.0
+          },
+          "model_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "model_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225",
+          "paper_example_difference": "Fresh Phase 5 reacquisition only; historical W1-C evidence is not reused.",
+          "stream": true,
+          "tokenizer_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "tokenizer_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225"
+        },
+        "old_w1c_evidence_reused": false,
+        "phase5_acquisition_identity": "PHASE5_HISTORICAL_CANDIDATE_FRESH_REACQUISITION:sympy__sympy-16886",
+        "phase5_rank": 83,
+        "repository_git_sha": "e6e8e90427abccbd560c41cdd8cc965e11cb3731",
+        "run_json_sha256": "0c0903f733261c6b03a0a70783e1798ab1edf2294cd85e7763df07b7c0538387",
+        "server_runtime": {
+          "backend": "vllm-metal",
+          "environment": {
+            "HF_HUB_OFFLINE": "1",
+            "TRANSFORMERS_OFFLINE": "1",
+            "VLLM_ENABLE_V1_MULTIPROCESSING": "0"
+          },
+          "gpu_memory_utilization": 0.75,
+          "host": "127.0.0.1",
+          "max_model_len": 32768,
+          "port": 8100,
+          "vllm_metal_version": "0.3.0",
+          "vllm_version": "0.27.1+cpu"
+        },
+        "sidecar_sha256": "d8f67635eed8ce4b3cb3068974eb18a984d16ff81fd3e239c30afd06e4107230",
+        "started_at_utc": "2026-11-24T08:30:06.271786+00:00",
+        "status": "completed",
+        "trajectory_sha256": "91566af003186d2aac6eb481359c219b259be0703d79a337aec3c4f84cdf207d"
+      },
+      "conversion": {
+        "instance_id": "sympy__sympy-16886",
+        "record_sha256": "a9f9f5842107068a350ceeee0c0e21071fa69cc378d082ebd449373ab6324e1b",
+        "status": "CONVERTED"
+      },
+      "instance_id": "sympy__sympy-16886",
+      "qualification": {
+        "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+        "failed_rules": [],
+        "normalized_trace_file_sha256": "b7efd9d2a88f579240fbf9a9f0a8a53c0471a1c66fad9d771e144152ff1ccb24",
+        "program_id": "sympy__sympy-16886",
+        "qualification_checks": {
+          "Q1": true,
+          "Q2": true,
+          "Q3": true,
+          "Q4": true,
+          "Q5": true,
+          "Q6": true,
+          "Q7": true,
+          "Q8": true,
+          "Q9": true
+        },
+        "qualification_file_sha256": "b9d7758d308e857ac086d82ad6897ba547a7834b892fc53b9f65e77abe2bdc6d",
+        "qualification_sha256": "0754b42148ea345a9fb139dfb04358076835f98eaaafb2faa283dccbe9965edd",
+        "qualification_status": "QUALIFIED",
+        "raw_artifact_identity": "sympy__sympy-16886.json",
+        "raw_artifact_sha256": "a9f9f5842107068a350ceeee0c0e21071fa69cc378d082ebd449373ab6324e1b",
+        "session_id": "phase5:swe:sympy__sympy-16886:session:1",
+        "source_revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+        "source_trace_sha256": "e702289c3fc765ed5d0f945b5fbff9993a173cd92f1d93e667a67635445498be",
+        "terminal_class": "RIGHT_CENSORED",
+        "token_materialization_file_sha256": "15e35cd211cca5a2a02bde9cf13370b782cfb2e5cb912df38f71bde76ad20822",
+        "tool_fixtures_file_sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "trace_id": "phase5:swe:sympy__sympy-16886"
+      },
+      "qualification_status": "QUALIFIED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "LimitsExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "attempt_id": "phase5-swe-historical-rank-84:sympy__sympy-21596",
+        "condition": "PHASE5_HISTORICAL_REACQUISITION_S100",
+        "config_sha256": "fb5bfe5dde3e02bd9e491a6eec54466ffde6d63f39dcbfdeb0b5e15ae46c3e22",
+        "dataset_identity": {
+          "config": "default",
+          "name": "princeton-nlp/SWE-bench_Verified",
+          "revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+          "split": "test"
+        },
+        "finished_at_utc": "2026-11-24T08:37:26.971993+00:00",
+        "fresh_evidence_paths": {
+          "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/sympy__sympy-21596/run.json",
+          "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/sympy__sympy-21596/acquisition-sidecar.json",
+          "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/phase5-swe-historical-reacquisition-v1/sympy__sympy-21596/sympy__sympy-21596.traj.json"
+        },
+        "historical_w1c_hash_comparisons": [
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S50",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "111197ebe44014a08db509f0a4cfa13322a1e595604b0b62be7df6be956db3e9",
+              "sidecar_sha256": "bc0295ba85d674eaae92e863773891f19563436b87a9e887453ba80ae1b61c60",
+              "trajectory_sha256": "def2dad4438ee5c0d26953c38708d0be6f3e414909af737f6812c9b982efc0a6"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/sympy__sympy-21596/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/sympy__sympy-21596/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S50/sympy__sympy-21596/sympy__sympy-21596.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          },
+          {
+            "any_artifact_hash_match": false,
+            "condition": "S100",
+            "historical_artifact_hashes": {
+              "run_json_sha256": "602bf8cafd50876fa0f4fb2d65285fa674e5bc937153d1681fc64c22cea7f1b2",
+              "sidecar_sha256": "92e62382e2b8607b9abd74d5e624a694e227f1f678b0ab826cf127ac72be336f",
+              "trajectory_sha256": "9fe5d923bce8d058b40c7c2e2363ac7788812e58ca8800308a7289d9206dd2aa"
+            },
+            "historical_evidence_paths": {
+              "run_json": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/sympy__sympy-21596/run.json",
+              "sidecar": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/sympy__sympy-21596/acquisition-sidecar.json",
+              "trajectory": "/Users/rlymacbook/Desktop/LLM-KV-Cache-Optimization/artifacts/continuum-w1c-pilot-runs-v1/S100/sympy__sympy-21596/sympy__sympy-21596.traj.json"
+            },
+            "per_artifact_hash_match": {
+              "run_json_sha256": false,
+              "sidecar_sha256": false,
+              "trajectory_sha256": false
+            }
+          }
+        ],
+        "instance_id": "sympy__sympy-21596",
+        "mini_swe_agent_git_sha": "316a58794a6ff86b216e579b74fd56ed0c5a911f",
+        "model_identity": {
+          "base_url": "http://localhost:8100/v1",
+          "max_completion_tokens": 512,
+          "model_class": "vllm",
+          "model_kwargs": {
+            "seed": 20261023,
+            "temperature": 0.0
+          },
+          "model_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "model_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225",
+          "paper_example_difference": "Fresh Phase 5 reacquisition only; historical W1-C evidence is not reused.",
+          "stream": true,
+          "tokenizer_name": "Qwen/Qwen2.5-Coder-3B-Instruct",
+          "tokenizer_revision": "2ffd030b308f6bdd29ee43e7383f30ce8ac2e225"
+        },
+        "old_w1c_evidence_reused": false,
+        "phase5_acquisition_identity": "PHASE5_HISTORICAL_CANDIDATE_FRESH_REACQUISITION:sympy__sympy-21596",
+        "phase5_rank": 84,
+        "repository_git_sha": "e6e8e90427abccbd560c41cdd8cc965e11cb3731",
+        "run_json_sha256": "3dcbfa2338e3283587a84b3581b71d7607a4aaba5d99d4c75ddcfde8dd8ee073",
+        "server_runtime": {
+          "backend": "vllm-metal",
+          "environment": {
+            "HF_HUB_OFFLINE": "1",
+            "TRANSFORMERS_OFFLINE": "1",
+            "VLLM_ENABLE_V1_MULTIPROCESSING": "0"
+          },
+          "gpu_memory_utilization": 0.75,
+          "host": "127.0.0.1",
+          "max_model_len": 32768,
+          "port": 8100,
+          "vllm_metal_version": "0.3.0",
+          "vllm_version": "0.27.1+cpu"
+        },
+        "sidecar_sha256": "112b75f1e2db28b1928973170d3977d2c881f2786cd7df93c9dbaf489dcab9bd",
+        "started_at_utc": "2026-11-24T08:33:19.909833+00:00",
+        "status": "completed",
+        "trajectory_sha256": "f891afce08b01a679a83ec75618171cc291ed9843d02e6dbeadfc5daa4687b76"
+      },
+      "conversion": {
+        "instance_id": "sympy__sympy-21596",
+        "record_sha256": "14fb1dc2780e7ae9438bc56d507357bebdb74654984609ee27a441da144b51ca",
+        "status": "CONVERTED"
+      },
+      "instance_id": "sympy__sympy-21596",
+      "qualification": {
+        "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+        "failed_rules": [],
+        "normalized_trace_file_sha256": "e9c3524b9c319a73594343c9b28ecbb7b10b77f11ceb254950a54423a1d03611",
+        "program_id": "sympy__sympy-21596",
+        "qualification_checks": {
+          "Q1": true,
+          "Q2": true,
+          "Q3": true,
+          "Q4": true,
+          "Q5": true,
+          "Q6": true,
+          "Q7": true,
+          "Q8": true,
+          "Q9": true
+        },
+        "qualification_file_sha256": "5aa5a4ed8de3aa79bc5fdaf000f2d16fc491fcdda0ce544806031f9e08522d9d",
+        "qualification_sha256": "9a2bde46182a3a9201a8d09e764935d8b8f4d827c3a2ad6c4997ac05b2d8a667",
+        "qualification_status": "QUALIFIED",
+        "raw_artifact_identity": "sympy__sympy-21596.json",
+        "raw_artifact_sha256": "14fb1dc2780e7ae9438bc56d507357bebdb74654984609ee27a441da144b51ca",
+        "session_id": "phase5:swe:sympy__sympy-21596:session:1",
+        "source_revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+        "source_trace_sha256": "b4cf18c05c122cd8cd23c7795519d34fe11b2e6c99795224544fcce9b228cd76",
+        "terminal_class": "RIGHT_CENSORED",
+        "token_materialization_file_sha256": "f5671d5db97328b9235287c6a7d3e18d510819b67280811f2867a6e8a11128a2",
+        "tool_fixtures_file_sha256": "4778d30619583a744a3aa8fbd9c6f60e7ed596a4a93f44045c232149b52389f3",
+        "trace_id": "phase5:swe:sympy__sympy-21596"
+      },
+      "qualification_status": "QUALIFIED"
+    }
+  ],
+  "schema_version": "phase5.swe_historical_reacquisition_ledger.v2",
+  "status": "COMPLETE_WITH_EXCLUSIONS"
+}

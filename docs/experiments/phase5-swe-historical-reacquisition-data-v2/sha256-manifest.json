@@ -1,0 +1,11 @@
+{
+  "files": {
+    "lineage/phase5-swe-historical-reacquisition-authorization.json": "9292f3e992d8b2ff381330f50aaa9ddfb8bc4b9597b867f17892cead6498fa6a",
+    "lineage/phase5-swe-historical-reacquisition-batch.json": "c60ac7f7776b46b1be14bbc27e4b6b816a63c141276025e05e2a240c0788fcb0",
+    "lineage/phase5-swe-sampling-frame-v1.json": "cdeda2fbc32beafcf7ac772b8519d2f5189496871b9b005e595572564e7356e2",
+    "swe-combined-48-program-candidate-inventory.json": "575665709114ad3c9741d9c903f8356342eb14cca9bbb56b517f414c3cd1e4db",
+    "swe-historical-reacquisition-attempt-ledger.json": "3875c9dbfc9326e47db12235f3246fae10cde4c287b3f2a54ac9b77a7a4dbaf2",
+    "swe-historical-reacquisition-review-summary.json": "352beb2ae2f73645a4190dd0e23393812b5df3fd5a7c9de92a58d89076c7cff4"
+  },
+  "schema_version": "phase5.swe_reacquisition_review_manifest.v2"
+}

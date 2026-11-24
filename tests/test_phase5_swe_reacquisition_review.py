@@ -22,7 +22,25 @@ def _inputs():
     }
     ordered = [f"new-{index:02d}" for index in range(20)]
     attempts = [
-        {"instance_id": identity, "status": "completed"} for identity in ordered
+        {
+            "instance_id": identity,
+            "attempt_id": f"attempt:{identity}",
+            "status": "completed",
+            "phase5_acquisition_identity": (
+                f"PHASE5_HISTORICAL_CANDIDATE_FRESH_REACQUISITION:{identity}"
+            ),
+            "started_at_utc": "2026-11-24T00:00:00+00:00",
+            "finished_at_utc": "2026-11-24T00:01:00+00:00",
+            "old_w1c_evidence_reused": False,
+            "run_json_sha256": f"run-{identity}",
+            "trajectory_sha256": f"trajectory-{identity}",
+            "sidecar_sha256": f"sidecar-{identity}",
+            "historical_w1c_hash_comparisons": [
+                {"condition": condition, "any_artifact_hash_match": False}
+                for condition in ("S50", "S100")
+            ],
+        }
+        for identity in ordered
     ]
     conversions = [
         {
@@ -64,6 +82,7 @@ def test_builds_48_program_review_pool_without_selecting_cohort() -> None:
     assert ledger["pre_normalization_excluded_count"] == 3
     assert candidates["combined_independent_program_count"] == 48
     assert summary["minimum_dataset_gate"] == "PASS"
+    assert summary["fresh_provenance_gate"] == "PASS"
     assert summary["formal_cohort_selected"] is False
 
 
@@ -98,3 +117,19 @@ def test_rejects_authorization_claim_drift() -> None:
     outputs[2]["gpu_execution_authorized"] = True
     with pytest.raises(SWEReacquisitionReviewError, match="mismatch"):
         validate_swe_reacquisition_review(*outputs)
+
+
+def test_rejects_historical_artifact_hash_reuse() -> None:
+    values = _inputs()
+    values[2][0]["historical_w1c_hash_comparisons"][0][
+        "any_artifact_hash_match"
+    ] = True
+    with pytest.raises(SWEReacquisitionReviewError, match="reuses"):
+        build_swe_reacquisition_review(
+            existing_inventory=values[0],
+            ordered_instance_ids=values[1],
+            attempt_rows=values[2],
+            conversion_rows=values[3],
+            qualification_rows=values[4],
+            input_bindings={},
+        )

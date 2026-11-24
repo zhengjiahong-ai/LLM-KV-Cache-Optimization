@@ -53,6 +53,25 @@ def build_swe_reacquisition_review(
         raise SWEReacquisitionReviewError("conversion ledger does not cover frozen reserve")
     if any(attempts[identity].get("status") != "completed" for identity in ordered):
         raise SWEReacquisitionReviewError("all 20 authorized attempts must be represented")
+    for identity in ordered:
+        attempt = attempts[identity]
+        if attempt.get("phase5_acquisition_identity") != (
+            f"PHASE5_HISTORICAL_CANDIDATE_FRESH_REACQUISITION:{identity}"
+        ):
+            raise SWEReacquisitionReviewError("fresh Phase 5 attempt identity mismatch")
+        if not attempt.get("started_at_utc") or not attempt.get("finished_at_utc"):
+            raise SWEReacquisitionReviewError("fresh attempt timestamps are incomplete")
+        if attempt.get("old_w1c_evidence_reused") is not False:
+            raise SWEReacquisitionReviewError("fresh attempt claims old W1-C evidence reuse")
+        comparisons = attempt.get("historical_w1c_hash_comparisons")
+        if not isinstance(comparisons, list) or len(comparisons) != 2:
+            raise SWEReacquisitionReviewError(
+                "fresh attempt lacks both historical W1-C hash comparisons"
+            )
+        if any(row.get("any_artifact_hash_match") is not False for row in comparisons):
+            raise SWEReacquisitionReviewError(
+                "fresh attempt reuses a historical W1-C artifact hash"
+            )
 
     ledger_rows = []
     qualified_new = []
@@ -81,7 +100,18 @@ def build_swe_reacquisition_review(
                     raise SWEReacquisitionReviewError(
                         "qualified reserve Program has a failed Q1-Q9 check"
                     )
-                qualified_new.append(qualification)
+                qualified_new.append(
+                    {
+                        **qualification,
+                        "attempt_id": attempt["attempt_id"],
+                        "phase5_acquisition_identity": attempt[
+                            "phase5_acquisition_identity"
+                        ],
+                        "run_json_sha256": attempt["run_json_sha256"],
+                        "trajectory_sha256": attempt["trajectory_sha256"],
+                        "sidecar_sha256": attempt["sidecar_sha256"],
+                    }
+                )
         elif conversion_status == "EXCLUDED_PRE_NORMALIZATION":
             if qualification is not None:
                 raise SWEReacquisitionReviewError(
@@ -127,7 +157,7 @@ def build_swe_reacquisition_review(
         raise SWEReacquisitionReviewError("combined pool is not 48 independent Programs")
 
     ledger_payload: dict[str, object] = {
-        "schema_version": "phase5.swe_historical_reacquisition_ledger.v1",
+        "schema_version": "phase5.swe_historical_reacquisition_ledger.v2",
         "status": "COMPLETE_WITH_EXCLUSIONS",
         "ordered_instance_ids": ordered,
         "attempted_count": 20,
@@ -138,12 +168,13 @@ def build_swe_reacquisition_review(
         "q1_q9_excluded_count": q_excluded_count,
         "automatic_retry_performed": False,
         "old_w1c_evidence_reused": False,
+        "historical_w1c_hash_match_count": 0,
         "rows": ledger_rows,
     }
     ledger = _with_hash(ledger_payload, "ledger_content_sha256")
 
     candidate_payload: dict[str, object] = {
-        "schema_version": "phase5.swe_combined_candidate_program_inventory.v1",
+        "schema_version": "phase5.swe_combined_candidate_program_inventory.v2",
         "status": "MINIMUM_48_PROGRAM_CANDIDATE_POOL_READY_FOR_M4_REVIEW",
         "workload_type": "SWE_BENCH_VERIFIED_FORMAL",
         "existing_qualified_program_count": 35,
@@ -153,6 +184,8 @@ def build_swe_reacquisition_review(
         "fresh_qualified_programs": qualified_new,
         "program_identity_order": combined_ids,
         "cross_batch_overlap": overlap,
+        "fresh_provenance_verified": True,
+        "historical_w1c_hash_match_count": 0,
         "selection_inputs": [
             "frozen_sampling_frame_order",
             "Q1_Q9_qualification",
@@ -176,7 +209,7 @@ def build_swe_reacquisition_review(
         for reason in row.get("failed_rules", [])
     )
     summary_payload: dict[str, object] = {
-        "schema_version": "phase5.swe_historical_reacquisition_review.v1",
+        "schema_version": "phase5.swe_historical_reacquisition_review.v2",
         "status": "MINIMUM_DATASET_GATE_PASS_PENDING_M4_COHORT_REVIEW",
         "attempted_count": 20,
         "completed_attempt_count": 20,
@@ -189,6 +222,8 @@ def build_swe_reacquisition_review(
         "combined_independent_program_count": 48,
         "minimum_required_program_count": 48,
         "minimum_dataset_gate": "PASS",
+        "fresh_provenance_gate": "PASS",
+        "historical_w1c_hash_match_count": 0,
         "input_bindings": dict(sorted(input_bindings.items())),
         "ledger_content_sha256": ledger["ledger_content_sha256"],
         "candidate_inventory_content_sha256": candidates[
@@ -231,6 +266,10 @@ def validate_swe_reacquisition_review(
         raise SWEReacquisitionReviewError("combined Program identities are not unique")
     if summary.get("minimum_dataset_gate") != "PASS":
         raise SWEReacquisitionReviewError("minimum dataset gate must pass")
+    if summary.get("fresh_provenance_gate") != "PASS":
+        raise SWEReacquisitionReviewError("fresh provenance gate must pass")
+    if ledger.get("historical_w1c_hash_match_count") != 0:
+        raise SWEReacquisitionReviewError("historical W1-C hash reuse detected")
     if any(
         value is not False
         for value in (
