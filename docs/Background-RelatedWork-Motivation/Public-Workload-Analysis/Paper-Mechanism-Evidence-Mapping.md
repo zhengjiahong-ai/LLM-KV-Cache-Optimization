@@ -11,7 +11,7 @@
 | §2.1、3.1 多轮 Agent | 推理与外部工具交替，每个 Program 多次调用模型 | 有序 Assistant、Tool 消息及调用对象 | 可见请求均值 64.36，P50 61、P90 97、P95 100。工具调用 431.68 万次，调用量与轮数 Pearson r = 0.999995 | SUPPORTED | 单一 Agent、模型和 SWE 类型，隐式重试不可见 |
 | §3.1–3.2 输入历史累积 | 后续推理承接上轮历史及工具输出 | 对话记录、工具定义、固定公开模板 | PR #135 的 Qwen3 重建首轮中位数 6,959 tokens，末轮 50,606。相邻前缀占当前输入的中位数 98.50% | SUPPORTED | 测得内容结构。运行时截断和原始提交 IDs 不可观测 |
 | §3.2、4.1 保留可避免重算 | 返回请求需要原有 token 链，失去驻留可能造成 prefill/reload | 可重建内容、按父链标识的逻辑 blocks | 相邻 Exact LCP P50 30,940 tokens。离线 Oracle 显示在规定驻留、压力与返回次序下，等量不同 victim 可造成不同未来损失 | PARTIALLY_SUPPORTED | 反事实逻辑 blocks。实际驻留、物理受害块、实际耗时均缺失 |
-| §4.1 Program memoryfulness | `η = −Corr(k, N−k)`，进展关联剩余请求量 | 按尝试可见请求序列、结束方式 | submit 子集 0.711，严格低于 100 轮 0.715。全表观测末端代理 0.655。截断假设改变结果 | PARTIALLY_SUPPORTED | 提交子集选择、采集上限和未知后继。eta 是离线相关量 |
+| §4.1 Program memoryfulness | `η = −Corr(k, N−k)`，进展关联剩余请求量 | 按尝试可见请求序列、结束方式 | submit 子集 0.711，严格低于 100 轮 0.715。全表观测末端代理 0.655。截断假设改变结果 | PARTIALLY_SUPPORTED | 提交子集选择、采集上限和未知后继。η 依赖完整 N，是事后工作负载统计 |
 | §3.1、4.2、5.1 工具耗时分布与 `P(τ,f)` | 上一模型完成至同 Program 下一请求到达的服务器间隔，对工具类别拟合经验 CDF | 工具类型、调用次数、结果文本及顺序 | 数据显示工具交替及结果长度，缺少模型完成和下一次请求到达时间 | NOT_OBSERVABLE | 工具类型、输出字节数以及未配对的最后调用均不能替代时间 |
 | §4.1–4.2 PrefillReload | KV 重建或 offload reload 耗时，由 profile 标定 | 重建 token 与逻辑 block 数 | 深度与 token 数量有明确变化。数据不含重算、传输或 GPU 耗时 | NOT_OBSERVABLE | 不能把 token 数或旧 GPU、短上下文 profile 当成目标 prefill 时间 |
 | §4.1–4.2 MemUsage | 请求的 GPU 占用、总体平均占用和保留时间成本 | 前缀长度、block 对齐投影 | 可给定 block size 计算完整逻辑块数 | PARTIALLY_SUPPORTED | 实际 KV 布局、占用时长、并发驻留和平均 GPU 占用不可观测 |

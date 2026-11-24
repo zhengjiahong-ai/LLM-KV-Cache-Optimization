@@ -67,10 +67,15 @@
     "case_exclusions": {}
   },
   "outputs": {
-    "memoryfulness.json": "480e7e9d49919e8a7a47c1d63c1af2d09e5e9e0f76402f642a8819b983464f24",
-    "geometry.json": "e7f2b478ca440efdb47d21c06b74e69a27d5f51dbe024b71554d9a05161a4dcd",
-    "oracle_summary.csv": "4f3d6cd2b7a28f6f39ea2eb6af99ae54896c91880d8f27f7884ea9577a65cbb2",
+    "memoryfulness.json": "68e895947f56939d4e35e2a51432cb3655b66be55a58c62a836803188c4bebfc",
+    "geometry.json": "31f1cb4fa2e7468cc6945c346edb037168aeb9eafa340cf5c96cffc431a3b05c",
+    "oracle_summary.csv": "c7217b5547f8ac38d5437da250ff17a46ed6640a5477199a644e6d67d680f6e7",
     "issue_clusters.csv": "22c9968cf746bcea9b907303f55c653f3ceafa2fbe7b04118e44243516eba021",
-    "oracle_regret.png": "193563528c11b525ad6982eeb839d9a140abcb3bd8e1379ac4f6ccab48e6b04a"
+    "oracle_regret.png": "38371fb880f5e20e9cb74536f5c9d13bf4badc08e80be6fc7f853a802d156d03"
+  },
+  "coverage_refresh": {
+    "code_commit": "817065d2c9095c352a7948362f69c5119c8f40ab",
+    "source": "Pinned Parquet role and exit_status columns for the saved issue clusters",
+    "scope": "Request counts and presentation only. Retained original loss values and replay code_commit."
   }
 }

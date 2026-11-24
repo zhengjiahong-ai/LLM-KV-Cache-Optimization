@@ -4,7 +4,7 @@
 
 公开轨迹补足了真实 Agent 请求的逻辑前缀几何，并让事后重算损失能在明确的反事实下独立计算。实证支持三点。共享祖先可以属于多条链，最浅受害者往往支配静态后缀损失，短窗口的实际重算还取决于谁先返回及缺块何时被回填。最后一点说明仅靠当前长度或 victim 数量无法覆盖全部机制。
 
-在本研究的两块预算、固定槽序与候选集合内，两 Program 都返回的 12 槽竞争里，相对浅层并列的 logical LRU 有平均 6,280 tokens 的理论空间，改用深层并列剩 1,286。当前几何穷举代理最接近 Oracle，该窗口平均 regret 为 0。只看第一槽时，几何代理仍平均损失 4,556 或 4,164 tokens，取决于第一个返回者。这为 A2 的几何项和 A3 的后缀项提供条件性依据。Native LRU、A1、A2、A3 和 DVA-ER 依赖的真实 rank、deadline、profile 或 armed follow-up 缺失，全部标为 **NOT_EVALUABLE**。离线结果不支持在这五个实现之间给出优劣排序。[成本几何、场景及 Oracle 定义](Public-Workload-Cost-Geometry-and-Oracle.md)
+在两块预算、固定槽序和候选集合的双 Program 竞争中，128 簇都观测满 12 个请求。该设置下，合成 A→B 触碰顺序、浅层优先基线的平均 regret 为 6,280 tokens。同一触碰顺序下改用深层优先，平均 regret 为 1,286。当前几何穷举代理最接近 Oracle，该窗口平均 regret 为 0。只看第一槽时，几何代理仍平均损失 4,556 或 4,164 tokens，取决于第一个返回者。这为 A2 的几何项和 A3 的后缀项提供条件性依据。Native LRU、A1、A2、A3 和 DVA-ER 依赖的真实 rank、deadline、profile 或 armed follow-up 缺失，全部标为 **NOT_EVALUABLE**。离线结果不支持在这五个实现之间给出优劣排序。[成本几何、场景及 Oracle 定义](Public-Workload-Cost-Geometry-and-Oracle.md)
 
 历史裁定以当时独立工作负载、合法候选、可观察性与指标为边界。下文的「新解释」限于把几何、时间、选择、物理执行和后续需求拆开。历史数值不与 Nebius 合并。[R1 Evidence Ledger](../../research-consolidation/r1-experiment-evidence-ledger.md) · [R1.3 M4 复核](../../research-consolidation/research-results-and-contributions.md)
 
@@ -40,7 +40,7 @@ A1 的 `q` 是 deadline 的单调变换，独立分歧还需要新增可回收�
 
 ## 下一轮判断与论文主张
 
-1. **继续 DVA-ER 的证据门槛研究。** 优先核对同一决策的完整 Native rank 与 refcount、保护所有者、预测 victim 与物理驱逐的一致性。用事后损失判定是否存在决策空间，再独立评估决策时的 armed follow-up 能否识别它。Oracle 结果只供事后评分。
+1. **继续 DVA-ER 的证据门槛研究。** 优先核对同一决策的完整 Native rank 与 refcount、保护所有者、预测 victim 与物理驱逐的一致性。用事后损失判定是否存在决策空间，再用独立的未来连续前缀重算 token 标签，验证现有 DVA-ER score 的排序或预测价值。Oracle 结果只供事后评分。
 2. **优先回放两种几何。** 一种是同 Issue 的深共享祖先加分叉后缀，覆盖祖先回填的记账及顺序敏感性。另一种是不同 Issue 的独立尾部竞争，保留固定公共头部，并配同深度、仅一条返回和两条均返回的等预算对照。额外保留已到目标 context 上限的样本计数。优先挑选本研究实际 Qwen2.5 投影可装入预算的案例。新 Replay/GPU 需要另行授权。
 3. **Phase 5 D/E 的衔接。** D 中已有的身份、资格、候选竞争、队列与受害者证明应先通过。Nebius 几何可用于独立的 CPU/未来 Native 压力设计，不进入 SWE 正式、BFCL Derived 的采集、样本量、效应估计或 E 配对统计。真实持续压力、部署时序分布和 GPU 节省留待对应实验，当前研究的离线损失覆盖单次压力。
 4. **论文证据。** Introduction 可用真实长程、多工具与大比例前缀的独立样本。Algorithm Design 可引用多链、祖先缺口与时间次序的条件性理论例子。Evaluation 可列完整归档描述与独立的反事实结果，明确配置及对照范围。应修正的假设是把更多长 Program、更多候选或不同的分数直接当成更多可避免重算。几类条件必须逐层实证。
