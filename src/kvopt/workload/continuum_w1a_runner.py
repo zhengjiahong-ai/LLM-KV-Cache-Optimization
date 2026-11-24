@@ -19,12 +19,14 @@ from .continuum_w1a_acquisition import (
     ObservedEnvironment,
     ObservedModel,
 )
+from .phase5_replay import canonical_sha256
 
 CONFIG_SCHEMAS = {
     "continuum.w1a_acquisition_config.v1",
     "continuum.w1a_acquisition_config.v2",
     "continuum.w1c_acquisition_config.v1",
     "phase3.agent_acquisition_config.v1",
+    "phase5.swe_historical_reacquisition_config.v1",
 }
 
 
@@ -51,19 +53,24 @@ def load_acquisition_config(
     schema = config.get("schema_version")
     w1c = schema == "continuum.w1c_acquisition_config.v1"
     phase3 = schema == "phase3.agent_acquisition_config.v1"
+    phase5_historical = schema == "phase5.swe_historical_reacquisition_config.v1"
     expected_scope = (
-        "PHASE3_FROZEN_COHORT_AGENT_ACQUISITION_NO_NATIVE_CAMPAIGN"
-        if phase3
+        "PHASE5_HISTORICAL_W1C_FRESH_REACQUISITION_NO_NATIVE_CAMPAIGN"
+        if phase5_historical
         else (
-            "W1C_BOUNDED_PAIRED_STEP_LIMIT_FEASIBILITY_PILOT"
-            if w1c
-            else "W1A_BOUNDED_TRAJECTORY_ACQUISITION_NO_NATIVE_CAMPAIGN"
+            "PHASE3_FROZEN_COHORT_AGENT_ACQUISITION_NO_NATIVE_CAMPAIGN"
+            if phase3
+            else (
+                "W1C_BOUNDED_PAIRED_STEP_LIMIT_FEASIBILITY_PILOT"
+                if w1c
+                else "W1A_BOUNDED_TRAJECTORY_ACQUISITION_NO_NATIVE_CAMPAIGN"
+            )
         )
     )
     if config.get("scope") != expected_scope:
         raise ValueError("bounded acquisition scope mismatch")
     authorization = config.get(
-        "execution_budget" if (w1c or phase3) else "acquisition"
+        "execution_budget" if (w1c or phase3 or phase5_historical) else "acquisition"
     )
     if not isinstance(authorization, dict) or authorization.get(
         "formal_native_campaign_authorized"
@@ -73,9 +80,41 @@ def load_acquisition_config(
         raise ValueError("W1-C full acquisition must remain unauthorized")
     sample_path = repository / str(config["sample_manifest"])
     sample = json.loads(sample_path.read_text(encoding="utf-8"))
-    if config["dataset"]["revision"] != sample["dataset"]["revision"]:
+    sample_dataset = sample.get("source", sample.get("dataset", {}))
+    if config["dataset"]["revision"] != sample_dataset["revision"]:
         raise ValueError("dataset revision does not match the W0 frozen sample")
-    if phase3:
+    if phase5_historical:
+        if authorization.get("agent_acquisition_authorized") is not True:
+            raise ValueError("Phase 5 historical reacquisition is not authorized")
+        if authorization.get("historical_w1c_reacquisition_authorized") is not True:
+            raise ValueError("historical W1-C reacquisition authorization is absent")
+        if sample.get("schema_version") != "phase5.swe_sampling_frame.v1":
+            raise ValueError("Phase 5 SWE sampling-frame schema mismatch")
+        if sample.get("status") != "FROZEN_ACQUISITION_FRAME_NOT_FORMAL_COHORT":
+            raise ValueError("Phase 5 SWE sampling frame is not frozen")
+        if _sha256(sample_path) != config.get("sampling_frame_file_sha256"):
+            raise ValueError("Phase 5 SWE sampling-frame file SHA-256 mismatch")
+        sample_payload = dict(sample)
+        expected_frame_sha = sample_payload.pop("frame_sha256", None)
+        if canonical_sha256(sample_payload) != expected_frame_sha:
+            raise ValueError("Phase 5 SWE sampling-frame canonical SHA-256 mismatch")
+        if config.get("sampling_frame_canonical_sha256") != expected_frame_sha:
+            raise ValueError("Phase 5 config does not bind the frozen frame identity")
+        authorization_path = repository / str(config.get("authorization_record"))
+        if not authorization_path.is_file() or _sha256(authorization_path) != config.get(
+            "authorization_record_sha256"
+        ):
+            raise ValueError("Phase 5 historical authorization binding mismatch")
+        authorization_record = json.loads(authorization_path.read_text(encoding="utf-8"))
+        authorization_payload = dict(authorization_record)
+        authorization_sha = authorization_payload.pop("authorization_sha256", None)
+        if canonical_sha256(authorization_payload) != authorization_sha:
+            raise ValueError("Phase 5 historical authorization canonical hash mismatch")
+        if authorization_record.get("execution_authorized") is not True:
+            raise ValueError("Phase 5 historical authorization record is disabled")
+        if config["author_runner"].get("effective_step_limit") != 100:
+            raise ValueError("Phase 5 reacquisition requires the frozen 100-step limit")
+    elif phase3:
         if authorization.get("agent_acquisition_authorized") is not True:
             raise ValueError("Phase 3 Agent Acquisition is not authorized")
         if sample.get("schema_version") != "phase3.cohort_candidate_plan.v1":

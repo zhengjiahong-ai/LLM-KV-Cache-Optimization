@@ -126,6 +126,17 @@ def test_adapts_hash_bound_mini_swe_run(tmp_path: Path) -> None:
     assert record["license_notes"] == SWE_LICENSE_NOTES
 
 
+def test_fresh_historical_candidate_does_not_reuse_old_evidence(tmp_path: Path) -> None:
+    record = build_mini_swe_acquisition_record(
+        run_directory=_fixture(tmp_path),
+        chat_template_sha256="a" * 64,
+        license_expression=SWE_LICENSE_EXPRESSION,
+        acquisition_origin="PHASE5_HISTORICAL_CANDIDATE_FRESH_REACQUISITION",
+    )
+    assert record["historical_candidate_provenance_only"] is True
+    assert record["old_w1c_evidence_reused"] is False
+
+
 def test_rejects_tampered_sidecar(tmp_path: Path) -> None:
     root = _fixture(tmp_path)
     sidecar = root / "acquisition-sidecar.json"

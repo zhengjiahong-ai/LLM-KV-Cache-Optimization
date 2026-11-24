@@ -113,7 +113,7 @@ def test_short_session_is_excluded_by_q6(tmp_path: Path) -> None:
         (output / "sessions/session-1/qualification.json").read_text()
     )
     assert report["status"] == "EXCLUDED"
-    assert report["checks"]["Q6_CONTEXT_AND_TURNS"] is False
+    assert report["checks"]["Q6_CONTEXT_AND_EXACT_TOKENS"] is False
 
 
 def test_unresolved_source_revision_fails_closed(tmp_path: Path) -> None:

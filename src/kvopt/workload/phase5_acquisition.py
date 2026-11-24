@@ -349,7 +349,8 @@ def process_collection(
             ),
             maximum_prompt_tokens=32640,
             minimum_turns=4,
-            maximum_turns=16,
+            maximum_generation_tokens=128,
+            maximum_prompt_plus_generation_tokens=32768,
         )
         qualification_path = session_root / "qualification.json"
         _write_json(normalized_path, adapted.trace.to_dict())

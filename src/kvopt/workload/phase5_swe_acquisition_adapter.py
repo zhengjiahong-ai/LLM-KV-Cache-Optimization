@@ -21,6 +21,11 @@ from .phase5_replay import canonical_sha256
 _TOOL_RESULT = re.compile(
     r"<returncode>(-?\d+)</returncode>\n<output>\n(.*)</output>", re.DOTALL
 )
+_ACQUISITION_ORIGINS = {
+    "PHASE5_NEW_ACQUISITION",
+    "PHASE5_HISTORICAL_CANDIDATE_FRESH_REACQUISITION",
+    "HISTORICAL_W1C_REUSE",
+}
 
 
 def _sha256(path: Path) -> str:
@@ -102,6 +107,8 @@ def build_mini_swe_acquisition_record(
         raise ValueError(
             "license_expression must match the frozen M4 internal-research LicenseRef"
         )
+    if acquisition_origin not in _ACQUISITION_ORIGINS:
+        raise ValueError("unsupported Phase 5 SWE acquisition origin")
     run_path = run_directory / "run.json"
     sidecar_path = run_directory / "acquisition-sidecar.json"
     if not run_path.is_file() or not sidecar_path.is_file():
@@ -294,6 +301,9 @@ def build_mini_swe_acquisition_record(
         "limitations": limitations,
         "failed_model_calls": failed_model_calls,
         "acquisition_origin": acquisition_origin,
+        "historical_candidate_provenance_only": acquisition_origin
+        == "PHASE5_HISTORICAL_CANDIDATE_FRESH_REACQUISITION",
+        "old_w1c_evidence_reused": acquisition_origin == "HISTORICAL_W1C_REUSE",
         "original_artifact_sha256": artifacts,
         "original_artifact_set_sha256": canonical_sha256(artifacts),
         "original_repository_git_sha": run.get("repository_git_sha"),
@@ -308,7 +318,7 @@ def main() -> int:
     parser.add_argument("--license-expression", required=True)
     parser.add_argument(
         "--acquisition-origin",
-        choices=("PHASE5_NEW_ACQUISITION", "HISTORICAL_W1C_REUSE"),
+        choices=tuple(sorted(_ACQUISITION_ORIGINS)),
         required=True,
     )
     parser.add_argument("--output", type=Path, required=True)

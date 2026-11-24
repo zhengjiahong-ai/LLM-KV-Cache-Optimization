@@ -99,8 +99,17 @@ The output contains:
 - per-Session Q1--Q9 reports;
 - collection statistics and a SHA-256 manifest.
 
-An accepted Session must have 4--16 Turns. Failures, truncation, and explicit
-right-censoring remain visible and are never padded with synthetic Turns.
+An accepted Session must have at least 4 Turns. There is no additional fixed
+maximum Turn ceiling. Prompt Token IDs must remain exact, each Prompt is capped
+at 32,640 tokens, and Prompt plus the frozen 128-token generation budget is
+capped at 32,768. Failures, truncation, and explicit right-censoring remain
+visible and are never padded with synthetic Turns.
+
+For the M1-authorized ranks 65--84 Historical W1-C reserve reacquisition, use
+`PHASE5_HISTORICAL_CANDIDATE_FRESH_REACQUISITION`. This label means that only
+the frozen candidate identity is historical: the Agent execution, timings,
+request/tool evidence and Token Materialization are all newly observed Phase 5
+evidence. `HISTORICAL_W1C_REUSE` is not permitted for this acquisition batch.
 
 An `incomplete chunked read` transport interruption is a failed acquisition,
 not a right-censored Session. Generate the immutable failure ledger from the
