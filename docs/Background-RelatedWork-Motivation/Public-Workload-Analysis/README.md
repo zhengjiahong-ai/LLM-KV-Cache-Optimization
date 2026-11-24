@@ -7,6 +7,7 @@ Nebius OpenHands is an independent public workload for studying multi-turn softw
 | Which Continuum assumptions can the archive test? | [Paper Mechanism Evidence Mapping](Paper-Mechanism-Evidence-Mapping.md) |
 | How much recomputation can an eviction change under a shared initial state? | [Cost Geometry and Offline Oracle](Public-Workload-Cost-Geometry-and-Oracle.md) |
 | How does that evidence change the interpretation of A1, A2, A3 and DVA-ER? | [Algorithm Evolution Analysis](Cost-Aware-Algorithm-Evolution-Analysis.md) |
+| Can DVA-ER be evaluated against attributable Native downstream loss? | [DVA-ER Predictive Validity Gate](DVA-ER-Predictive-Validity-Analysis.md) |
 | What does the complete public archive contain? | [Initial full-workload analysis, PR #135](Nebius-OpenHands-Trajectories.md) |
 
 ## Research assets

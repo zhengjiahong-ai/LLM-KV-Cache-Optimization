@@ -1,0 +1,374 @@
+{
+  "phase2d": {
+    "raw": {
+      "inspection": "HASH_VERIFIED_RAW_EVENTS",
+      "sha256": "1bfbbb5314a48569a94a8b1b7c8ff999b73cc4870acf60144bf1ce325094256e",
+      "event_runs": 14,
+      "excluded_noncanonical_event_files": 5,
+      "events": {
+        "FORCED_RELEASE_DECISION": 14,
+        "FORCED_RELEASE_DECISION_BINDING": 0,
+        "NATIVE_ENTRY_RELEASE_SELECTION_PLAN": 0,
+        "VLLM_NATIVE_HASHED_CACHE_ENTRY_EVICTED": 164,
+        "VLLM_REQUEST_SUBMITTED": 70,
+        "VLLM_NATIVE_REQUEST_OBSERVATION": 70,
+        "FOLLOWUP_WAITING": 28,
+        "TOOL_GAP_STARTED": 28,
+        "TOOL_GAP_ENDED": 28,
+        "PRESSURE_REQUEST_COMPLETED": 14
+      },
+      "event_fields": {
+        "explicit_armed_timer_events": 0,
+        "dva_named_events": 0,
+        "request_observations_with_hash_process_id": 70,
+        "waiting_events_with_payload": 0,
+        "forced_decisions_with_multiple_candidates": 14,
+        "forced_decisions_with_recorded_queue": 14,
+        "forced_decisions_with_explicit_id": 0,
+        "native_evictions_with_decision_id": 0,
+        "native_evictions_with_refcount": 164,
+        "pressure_completions_with_selected_block_ids": 14
+      }
+    },
+    "paired_intervention": {
+      "gate": "HEADROOM_OBSERVED",
+      "successful_run_count": 8,
+      "valid_pair_count": 4,
+      "intervention_layer": "FIRST_LOGICAL_RETENTION_RELEASE",
+      "native_physical_victim_forced": false,
+      "metric": "native_prompt_tokens - native_cached_prefix_tokens",
+      "pairs": [
+        {
+          "case": "target-a",
+          "repeat": 1,
+          "release_a": 65,
+          "release_b": 1,
+          "delta_a_minus_b": 64
+        },
+        {
+          "case": "target-a",
+          "repeat": 2,
+          "release_a": 65,
+          "release_b": 1,
+          "delta_a_minus_b": 64
+        },
+        {
+          "case": "target-b",
+          "repeat": 1,
+          "release_a": 1,
+          "release_b": 65,
+          "delta_a_minus_b": -64
+        },
+        {
+          "case": "target-b",
+          "repeat": 2,
+          "release_a": 1,
+          "release_b": 65,
+          "delta_a_minus_b": -64
+        }
+      ],
+      "materialization_manifest_sha256": "4d54a1fcb06ffebdf7c13aa771ee5802760a9cec1fd60cfe76213fffe389770a",
+      "gate_sha256": "a2972af479fa31c38bd1dcf74fadc27bfbe21d6462d5e701ddb75343b98dc989",
+      "execution_summary_sha256": "098c4a2326dae7a548a0a3bb7363839075cb9d32851bbd769cf1dcc2c6b642c5"
+    }
+  },
+  "phase2g_gate2_v3": {
+    "inspection": "HASH_VERIFIED_RAW_EVENTS",
+    "sha256": "da932167be664458295bde182284f8a76762cfe66d63c7d6a046afc3bfbad802",
+    "event_runs": 144,
+    "excluded_noncanonical_event_files": 0,
+    "events": {
+      "FORCED_RELEASE_DECISION": 108,
+      "FORCED_RELEASE_DECISION_BINDING": 0,
+      "NATIVE_ENTRY_RELEASE_SELECTION_PLAN": 0,
+      "VLLM_NATIVE_HASHED_CACHE_ENTRY_EVICTED": 4604,
+      "VLLM_REQUEST_SUBMITTED": 1556,
+      "VLLM_NATIVE_REQUEST_OBSERVATION": 1556,
+      "FOLLOWUP_WAITING": 720,
+      "TOOL_GAP_STARTED": 720,
+      "TOOL_GAP_ENDED": 720,
+      "PRESSURE_REQUEST_COMPLETED": 248
+    },
+    "event_fields": {
+      "explicit_armed_timer_events": 0,
+      "dva_named_events": 0,
+      "request_observations_with_hash_process_id": 1556,
+      "waiting_events_with_payload": 0,
+      "forced_decisions_with_multiple_candidates": 108,
+      "forced_decisions_with_recorded_queue": 108,
+      "forced_decisions_with_explicit_id": 0,
+      "native_evictions_with_decision_id": 0,
+      "native_evictions_with_refcount": 4604,
+      "pressure_completions_with_selected_block_ids": 248
+    }
+  },
+  "phase3": {
+    "raw_archive": {
+      "filename": "phase3-option-f-unified-270-runs-v2-evidence.tar.gz",
+      "sha256": "d36a3765296199806e1aef04dcc655fd16d3afb6d7a5bc5a125397bea90ce5c8",
+      "inspection": "CHECKED_IN_DERIVATIVES_ONLY"
+    },
+    "main_runs_with_observed_request_order": 240,
+    "main_request_arm_outcomes": 5760,
+    "arms": {
+      "A0": {
+        "forced_decisions": 127,
+        "competitive": 7,
+        "physical_outcome_statuses": {
+          "PHYSICAL_EVICTION_OBSERVED": 127
+        },
+        "downstream_attribution": {
+          "NOT_ESTABLISHED": 127
+        }
+      },
+      "A1": {
+        "forced_decisions": 127,
+        "competitive": 7,
+        "physical_outcome_statuses": {
+          "PHYSICAL_EVICTION_OBSERVED": 127
+        },
+        "downstream_attribution": {
+          "NOT_ESTABLISHED": 127
+        }
+      },
+      "A2": {
+        "forced_decisions": 127,
+        "competitive": 7,
+        "physical_outcome_statuses": {
+          "PHYSICAL_EVICTION_OBSERVED": 127
+        },
+        "downstream_attribution": {
+          "NOT_ESTABLISHED": 127
+        }
+      },
+      "A3": {
+        "forced_decisions": 127,
+        "competitive": 7,
+        "physical_outcome_statuses": {
+          "PHYSICAL_EVICTION_OBSERVED": 127
+        },
+        "downstream_attribution": {
+          "NOT_ESTABLISHED": 127
+        }
+      },
+      "E0": {
+        "forced_decisions": 127,
+        "competitive": 7,
+        "physical_outcome_statuses": {
+          "PHYSICAL_EVICTION_OBSERVED": 127
+        },
+        "downstream_attribution": {
+          "NOT_ESTABLISHED": 127
+        }
+      }
+    },
+    "legacy_candidate_comparison": {
+      "label": "EXISTING_A0_ANCHORED_STAGE0_COUNTERFACTUAL_WINDOW_DELTA",
+      "distinct_groups": 4,
+      "equal_victim_budget_pairs": 7,
+      "unequal_window_losses": 4,
+      "strict_p2_geometry_pairs": 5,
+      "depth_order_by_label": {
+        "TIED_LABEL": 2,
+        "DISCORDANT": 3
+      },
+      "cases": [
+        {
+          "cell": "g09-c1",
+          "run_id": "phase3-main-g09-c1-r1-a0",
+          "decision_id": "native-entry-release-27",
+          "forced_event_index": 404,
+          "a0_program": "sympy__sympy-13551",
+          "relative_stage0_window_loss_tokens": {
+            "sympy__sympy-13551": 0,
+            "django__django-12050": 0
+          },
+          "assumed_victim_blocks": {
+            "sympy__sympy-13551": 97,
+            "django__django-12050": 97
+          },
+          "score": "NOT_EVALUABLE",
+          "native_candidate_recompute_attribution": "NOT_ESTABLISHED",
+          "minimum_surviving_prefix_blocks": {
+            "django__django-12050": 909,
+            "sympy__sympy-13551": 792
+          },
+          "deeper_prefix_best_candidates": [
+            "django__django-12050"
+          ],
+          "deeper_prefix_ordinal": "TIED_LABEL"
+        },
+        {
+          "cell": "g09-c2",
+          "run_id": "phase3-main-g09-c2-r1-a0",
+          "decision_id": "native-entry-release-27",
+          "forced_event_index": 404,
+          "a0_program": "sympy__sympy-13551",
+          "relative_stage0_window_loss_tokens": {
+            "sympy__sympy-13551": 0,
+            "django__django-12050": 1552
+          },
+          "assumed_victim_blocks": {
+            "sympy__sympy-13551": 97,
+            "django__django-12050": 97
+          },
+          "score": "NOT_EVALUABLE",
+          "native_candidate_recompute_attribution": "NOT_ESTABLISHED",
+          "minimum_surviving_prefix_blocks": {
+            "django__django-12050": 909,
+            "sympy__sympy-13551": 792
+          },
+          "deeper_prefix_best_candidates": [
+            "django__django-12050"
+          ],
+          "deeper_prefix_ordinal": "DISCORDANT"
+        },
+        {
+          "cell": "g10-c1",
+          "run_id": "phase3-main-g10-c1-r1-a0",
+          "decision_id": "native-entry-release-27",
+          "forced_event_index": 730,
+          "a0_program": "matplotlib__matplotlib-26466",
+          "relative_stage0_window_loss_tokens": {
+            "matplotlib__matplotlib-26466": 0,
+            "django__django-15569": 752
+          },
+          "assumed_victim_blocks": {
+            "matplotlib__matplotlib-26466": 127,
+            "django__django-15569": 127
+          },
+          "score": "NOT_EVALUABLE",
+          "native_candidate_recompute_attribution": "NOT_ESTABLISHED"
+        },
+        {
+          "cell": "g10-c2",
+          "run_id": "phase3-main-g10-c2-r1-a0",
+          "decision_id": "native-entry-release-27",
+          "forced_event_index": 730,
+          "a0_program": "matplotlib__matplotlib-26466",
+          "relative_stage0_window_loss_tokens": {
+            "matplotlib__matplotlib-26466": 0,
+            "django__django-15569": 0
+          },
+          "assumed_victim_blocks": {
+            "matplotlib__matplotlib-26466": 127,
+            "django__django-15569": 127
+          },
+          "score": "NOT_EVALUABLE",
+          "native_candidate_recompute_attribution": "NOT_ESTABLISHED"
+        },
+        {
+          "cell": "g16-c1",
+          "run_id": "phase3-main-g16-c1-r1-a0",
+          "decision_id": "native-entry-release-25",
+          "forced_event_index": 402,
+          "a0_program": "django__django-13363",
+          "relative_stage0_window_loss_tokens": {
+            "django__django-13363": 0,
+            "matplotlib__matplotlib-25287": 1040
+          },
+          "assumed_victim_blocks": {
+            "django__django-13363": 101,
+            "matplotlib__matplotlib-25287": 101
+          },
+          "score": "NOT_EVALUABLE",
+          "native_candidate_recompute_attribution": "NOT_ESTABLISHED",
+          "minimum_surviving_prefix_blocks": {
+            "django__django-13363": 615,
+            "matplotlib__matplotlib-25287": 1210
+          },
+          "deeper_prefix_best_candidates": [
+            "matplotlib__matplotlib-25287"
+          ],
+          "deeper_prefix_ordinal": "DISCORDANT"
+        },
+        {
+          "cell": "g16-c2",
+          "run_id": "phase3-main-g16-c2-r1-a0",
+          "decision_id": "native-entry-release-25",
+          "forced_event_index": 402,
+          "a0_program": "django__django-13363",
+          "relative_stage0_window_loss_tokens": {
+            "django__django-13363": 0,
+            "matplotlib__matplotlib-25287": 0
+          },
+          "assumed_victim_blocks": {
+            "django__django-13363": 101,
+            "matplotlib__matplotlib-25287": 101
+          },
+          "score": "NOT_EVALUABLE",
+          "native_candidate_recompute_attribution": "NOT_ESTABLISHED",
+          "minimum_surviving_prefix_blocks": {
+            "django__django-13363": 615,
+            "matplotlib__matplotlib-25287": 1210
+          },
+          "deeper_prefix_best_candidates": [
+            "matplotlib__matplotlib-25287"
+          ],
+          "deeper_prefix_ordinal": "TIED_LABEL"
+        },
+        {
+          "cell": "g18-c2",
+          "run_id": "phase3-main-g18-c2-r1-a0",
+          "decision_id": "native-entry-release-29",
+          "forced_event_index": 406,
+          "a0_program": "sympy__sympy-13974",
+          "relative_stage0_window_loss_tokens": {
+            "sympy__sympy-13974": 0,
+            "django__django-16032": 1552
+          },
+          "assumed_victim_blocks": {
+            "sympy__sympy-13974": 97,
+            "django__django-16032": 97
+          },
+          "score": "NOT_EVALUABLE",
+          "native_candidate_recompute_attribution": "NOT_ESTABLISHED",
+          "minimum_surviving_prefix_blocks": {
+            "django__django-16032": 922,
+            "sympy__sympy-13974": 651
+          },
+          "deeper_prefix_best_candidates": [
+            "django__django-16032"
+          ],
+          "deeper_prefix_ordinal": "DISCORDANT"
+        }
+      ]
+    }
+  },
+  "phase4_same_archive": {
+    "status": "SESSION_CONTINUATION_NOT_IDENTIFIABLE",
+    "audit": {
+      "group_count": 20,
+      "session_count": 40,
+      "group_sessions": {
+        "2": 20
+      },
+      "session_requests": {
+        "12": 40
+      },
+      "request_rows": 480,
+      "event_session_field_count": 0,
+      "program_equals_session": "PASS",
+      "multi_session_programs": 0,
+      "tool_gap_started": 440,
+      "tool_gap_ended": 440,
+      "tool_gap_unpaired": 0,
+      "source_time_rows": 480,
+      "session_switch_events": 0,
+      "right_censored_end_events": 40,
+      "requests_missing_observation_end": 0,
+      "conclusion": "SESSION_CONTINUATION_NOT_IDENTIFIABLE",
+      "gaps": [
+        "EVENT_STREAM_HAS_NO_SESSION_ID",
+        "SESSION_ID_EQUALS_PROGRAM_ID",
+        "NO_PROGRAM_WITH_MULTIPLE_SESSIONS",
+        "NO_EXPLICIT_SESSION_SWITCH_EVENT"
+      ]
+    }
+  },
+  "native_predictive_gate": {
+    "matched_score_victim_request_labels": 0,
+    "status": "NOT_EVALUABLE",
+    "scope": "Audited sources only. No complete DVA-ER decision-time score to Native loss join."
+  }
+}
