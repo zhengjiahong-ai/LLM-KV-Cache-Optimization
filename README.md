@@ -18,13 +18,13 @@ See [Research Motivation and Contributions](docs/research-motivation-and-contrib
 ## Current Status (as of 2026-11-24)
 
 **Repository:** [zhengjiahong-ai/LLM-KV-Cache-Optimization](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization)  
-**Main HEAD before this documentation update:** `4a8ff8e3f9c3829be4fd542f8a19132f1837d753` (PR #124 merged).
+**Main HEAD before this documentation update:** `943d833ae30414bd91291c9a015bff71302b18a9` (PR #131 merged).
 
 - Phase 0 / 1A / 1B: **CLOSED**. The project-side Continuum-style baseline is integrated and real-runtime validated.
 - Phase 2: **HISTORICAL / CLOSED**. Findings remain scoped to their original evidence.
 - Phase 3: **M1 ACCEPTED FOR BOUNDED PAIRED-EFFECT INTERPRETATION**. The 270/270 campaign is reconciled; frozen replay-order and historical process deviations remain recorded.
 - Phase 4: **RESEARCH / DIAGNOSIS COMPLETE**. Its analyses inform later work but are not confirmatory evidence for Phase 5.
-- Phase 5: **CURRENT** — M1 accepts the six-system trace-driven design; PR #124 engineering integration is merged; dataset acquisition and qualification are next.
+- Phase 5: **CURRENT** — M1 has amended the scope to SWE-bench as the sole formal stratum plus an independent BFCL Derived supplement; concurrent data construction is authorized, with unified D gates and E execution still outstanding.
 
 ### Phase 5 at a glance
 
