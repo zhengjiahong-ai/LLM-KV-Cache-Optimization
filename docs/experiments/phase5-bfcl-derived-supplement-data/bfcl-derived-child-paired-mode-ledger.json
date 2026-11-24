@@ -1,0 +1,857 @@
+{
+  "paired_ledger_content_sha256": "c1e5b271ff183a35a329b14e59e0cae37eccf9db2513be66fe47e48359f7c6f3",
+  "pairing_semantics": "WITHIN_PROGRAM_NOT_INDEPENDENT_PROGRAMS",
+  "program_mode_assignments": [
+    {
+      "group_id": "BFCL_DERIVED_G02",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_base_6",
+        "derived_session_sha256": "57bfa410fb25ed22466e2e6fd8449065d78102e26268087e968e59f77565dd94",
+        "minimum_turns_check": "PASS",
+        "mode": "SNIPPET",
+        "phase5_case_id": "bfcl_web_search_6:snippet",
+        "request_count": 5,
+        "synthetic_tool_gap_schedule_sha256": "05e7ea799368768ba20277c3810519d220e41d487fa20f058d814dbb42afe38b"
+      },
+      "partition_role": "DERIVED_CALIBRATION_DESCRIPTIVE",
+      "primary_archive_record_id": "web_search_no_snippet_6",
+      "primary_mode": "NO_SNIPPET",
+      "program_identity": "bfcl_derived_program_006",
+      "source_question_id": "web_search_6"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G02",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_no_snippet_7",
+        "derived_session_sha256": "213e54dc8b5ce6afe9344bf64be442da59dc57b918ab25fd2ebe0e0b5c3785de",
+        "minimum_turns_check": "PASS",
+        "mode": "NO_SNIPPET",
+        "phase5_case_id": "bfcl_web_search_7:no_snippet",
+        "request_count": 6,
+        "synthetic_tool_gap_schedule_sha256": "1747317c01bfeffab963a794957980e16fa9414a51a660ed101a54bc9bb370ea"
+      },
+      "partition_role": "DERIVED_CALIBRATION_DESCRIPTIVE",
+      "primary_archive_record_id": "web_search_base_7",
+      "primary_mode": "SNIPPET",
+      "program_identity": "bfcl_derived_program_007",
+      "source_question_id": "web_search_7"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G02",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_base_8",
+        "derived_session_sha256": "798711b49669466595fddce43e598fba87dde041eb44a5132ad820ff1510fa6d",
+        "minimum_turns_check": "PASS",
+        "mode": "SNIPPET",
+        "phase5_case_id": "bfcl_web_search_8:snippet",
+        "request_count": 4,
+        "synthetic_tool_gap_schedule_sha256": "a171445dcf2c3eb7dfdd064a101fd832daf0c28405d21d40b5c75651b30d6f3b"
+      },
+      "partition_role": "DERIVED_CALIBRATION_DESCRIPTIVE",
+      "primary_archive_record_id": "web_search_no_snippet_8",
+      "primary_mode": "NO_SNIPPET",
+      "program_identity": "bfcl_derived_program_008",
+      "source_question_id": "web_search_8"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G02",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_no_snippet_9",
+        "derived_session_sha256": "048e1aaf197149f551c5ba72edeea01ec8f4c57fd3cf9619c6b450036135d238",
+        "minimum_turns_check": "PASS",
+        "mode": "NO_SNIPPET",
+        "phase5_case_id": "bfcl_web_search_9:no_snippet",
+        "request_count": 8,
+        "synthetic_tool_gap_schedule_sha256": "8f984911242e6eb9051b84a6fd50532918da9683db1eebd97d5b2f3a565050af"
+      },
+      "partition_role": "DERIVED_CALIBRATION_DESCRIPTIVE",
+      "primary_archive_record_id": "web_search_base_9",
+      "primary_mode": "SNIPPET",
+      "program_identity": "bfcl_derived_program_009",
+      "source_question_id": "web_search_9"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G10",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_no_snippet_40",
+        "derived_session_sha256": "835d76797b183f9b3cee8d221650d8a7d62877d26b55e5eeeb17239ca62d6c5e",
+        "minimum_turns_check": "PASS",
+        "mode": "NO_SNIPPET",
+        "phase5_case_id": "bfcl_web_search_40:no_snippet",
+        "request_count": 5,
+        "synthetic_tool_gap_schedule_sha256": "b70a82358d98004d0d35e221194de7894972360c95b158a901d5d0bf75afd777"
+      },
+      "partition_role": "DERIVED_CALIBRATION_DESCRIPTIVE",
+      "primary_archive_record_id": "web_search_base_40",
+      "primary_mode": "SNIPPET",
+      "program_identity": "bfcl_derived_program_040",
+      "source_question_id": "web_search_40"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G10",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_base_41",
+        "derived_session_sha256": "faba8c8fdfe5323c1b4b31fc424809e69d9f975819a01f0e61ff68c5d98e986b",
+        "minimum_turns_check": "PASS",
+        "mode": "SNIPPET",
+        "phase5_case_id": "bfcl_web_search_41:snippet",
+        "request_count": 5,
+        "synthetic_tool_gap_schedule_sha256": "b66a4f4228fc81addad0153b3986e4e5b83a410fb7fcb9bc36388f241888deff"
+      },
+      "partition_role": "DERIVED_CALIBRATION_DESCRIPTIVE",
+      "primary_archive_record_id": "web_search_no_snippet_41",
+      "primary_mode": "NO_SNIPPET",
+      "program_identity": "bfcl_derived_program_041",
+      "source_question_id": "web_search_41"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G10",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_no_snippet_42",
+        "derived_session_sha256": "786437824d57dd50fe7c07364fdae76740ae2ab983cae61b1990c283a8097495",
+        "minimum_turns_check": "PASS",
+        "mode": "NO_SNIPPET",
+        "phase5_case_id": "bfcl_web_search_42:no_snippet",
+        "request_count": 7,
+        "synthetic_tool_gap_schedule_sha256": "a304edb1a550347d3c0498a202fc9eb681a0f007f21649c2e7e0de7568075c71"
+      },
+      "partition_role": "DERIVED_CALIBRATION_DESCRIPTIVE",
+      "primary_archive_record_id": "web_search_base_42",
+      "primary_mode": "SNIPPET",
+      "program_identity": "bfcl_derived_program_042",
+      "source_question_id": "web_search_42"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G10",
+      "independent_program_count": 1,
+      "paired_alternative": null,
+      "partition_role": "DERIVED_CALIBRATION_DESCRIPTIVE",
+      "primary_archive_record_id": "web_search_base_44",
+      "primary_mode": "SNIPPET",
+      "program_identity": "bfcl_derived_program_044",
+      "source_question_id": "web_search_44"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G14",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_no_snippet_57",
+        "derived_session_sha256": "bd7819b137d3898a6249faf300220abf8c90f10526f03732c77eec3bd1ca3ddc",
+        "minimum_turns_check": "PASS",
+        "mode": "NO_SNIPPET",
+        "phase5_case_id": "bfcl_web_search_57:no_snippet",
+        "request_count": 4,
+        "synthetic_tool_gap_schedule_sha256": "d8d684c3d1b379b770ea7fa6f6cbe419f1489fd418aa4d7fee26232a0121612d"
+      },
+      "partition_role": "DERIVED_CALIBRATION_DESCRIPTIVE",
+      "primary_archive_record_id": "web_search_base_57",
+      "primary_mode": "SNIPPET",
+      "program_identity": "bfcl_derived_program_057",
+      "source_question_id": "web_search_57"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G14",
+      "independent_program_count": 1,
+      "paired_alternative": null,
+      "partition_role": "DERIVED_CALIBRATION_DESCRIPTIVE",
+      "primary_archive_record_id": "web_search_no_snippet_58",
+      "primary_mode": "NO_SNIPPET",
+      "program_identity": "bfcl_derived_program_058",
+      "source_question_id": "web_search_58"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G14",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_base_59",
+        "derived_session_sha256": "91a51723600dc8135177f357930bc97e934c60a9c364a0c4dc27786af7efd3ca",
+        "minimum_turns_check": "PASS",
+        "mode": "SNIPPET",
+        "phase5_case_id": "bfcl_web_search_59:snippet",
+        "request_count": 4,
+        "synthetic_tool_gap_schedule_sha256": "91f0352dd02103daca84c0dd39eb5dc9593b8f889846d1a989907d3928bb8ff3"
+      },
+      "partition_role": "DERIVED_CALIBRATION_DESCRIPTIVE",
+      "primary_archive_record_id": "web_search_no_snippet_59",
+      "primary_mode": "NO_SNIPPET",
+      "program_identity": "bfcl_derived_program_059",
+      "source_question_id": "web_search_59"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G14",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_no_snippet_60",
+        "derived_session_sha256": "dad8066c6fef77bceb55e9def2849b136cf90849a31f79d393bd3727ee402467",
+        "minimum_turns_check": "PASS",
+        "mode": "NO_SNIPPET",
+        "phase5_case_id": "bfcl_web_search_60:no_snippet",
+        "request_count": 7,
+        "synthetic_tool_gap_schedule_sha256": "13836b0c2d65667ea84fd13c4a377a03035d240dd3781cf896094d4d847b4c01"
+      },
+      "partition_role": "DERIVED_CALIBRATION_DESCRIPTIVE",
+      "primary_archive_record_id": "web_search_base_60",
+      "primary_mode": "SNIPPET",
+      "program_identity": "bfcl_derived_program_060",
+      "source_question_id": "web_search_60"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G19",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_base_80",
+        "derived_session_sha256": "b2a79d41587f361ee730d4024ba39c084f21d1695f8cf9bd1f19f68ba5d8920b",
+        "minimum_turns_check": "PASS",
+        "mode": "SNIPPET",
+        "phase5_case_id": "bfcl_web_search_80:snippet",
+        "request_count": 4,
+        "synthetic_tool_gap_schedule_sha256": "405afea4ab282b4659f9bde9f1201dc3097bb754a1e6ce1e5eecbfdaa4325d10"
+      },
+      "partition_role": "DERIVED_CALIBRATION_DESCRIPTIVE",
+      "primary_archive_record_id": "web_search_no_snippet_80",
+      "primary_mode": "NO_SNIPPET",
+      "program_identity": "bfcl_derived_program_080",
+      "source_question_id": "web_search_80"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G19",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_no_snippet_82",
+        "derived_session_sha256": "7e874a4d10b0cb69beee01df75ab2af4eb0d5b45563fa15a9dc03797513328c9",
+        "minimum_turns_check": "PASS",
+        "mode": "NO_SNIPPET",
+        "phase5_case_id": "bfcl_web_search_82:no_snippet",
+        "request_count": 5,
+        "synthetic_tool_gap_schedule_sha256": "bf6aa9344a0354827bc4211dd8e9f4f204558df00b9ea31993bc66b6081e1df5"
+      },
+      "partition_role": "DERIVED_CALIBRATION_DESCRIPTIVE",
+      "primary_archive_record_id": "web_search_base_82",
+      "primary_mode": "SNIPPET",
+      "program_identity": "bfcl_derived_program_082",
+      "source_question_id": "web_search_82"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G19",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_base_83",
+        "derived_session_sha256": "edd16d2c2049a4de65353aef93fc7e9c794e19f2bf40425bf0a23bd71e3954ca",
+        "minimum_turns_check": "PASS",
+        "mode": "SNIPPET",
+        "phase5_case_id": "bfcl_web_search_83:snippet",
+        "request_count": 5,
+        "synthetic_tool_gap_schedule_sha256": "d48397b91b59a2b660ec6300d506962a3968f73865ff10c0c3e9d39fc1fb15ee"
+      },
+      "partition_role": "DERIVED_CALIBRATION_DESCRIPTIVE",
+      "primary_archive_record_id": "web_search_no_snippet_83",
+      "primary_mode": "NO_SNIPPET",
+      "program_identity": "bfcl_derived_program_083",
+      "source_question_id": "web_search_83"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G19",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_no_snippet_84",
+        "derived_session_sha256": "83d6f77459acdd4dc05370bdc1cd8a03a1132bd73716c2c2d4bd66787f537030",
+        "minimum_turns_check": "PASS",
+        "mode": "NO_SNIPPET",
+        "phase5_case_id": "bfcl_web_search_84:no_snippet",
+        "request_count": 7,
+        "synthetic_tool_gap_schedule_sha256": "cda1a919994fbefd601ca2218035246ea8c0da76fe5f9536d6cf1785ec547a82"
+      },
+      "partition_role": "DERIVED_CALIBRATION_DESCRIPTIVE",
+      "primary_archive_record_id": "web_search_base_84",
+      "primary_mode": "SNIPPET",
+      "program_identity": "bfcl_derived_program_084",
+      "source_question_id": "web_search_84"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G04",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_base_15",
+        "derived_session_sha256": "318816af0b910fc7120ef4c53dd6bd4d9b63d5625b079295827f9cb74681987e",
+        "minimum_turns_check": "PASS",
+        "mode": "SNIPPET",
+        "phase5_case_id": "bfcl_web_search_15:snippet",
+        "request_count": 6,
+        "synthetic_tool_gap_schedule_sha256": "75c35231fc104c1ca4dd2539e23dff0a69316233597673e815cf1c1bb3d06770"
+      },
+      "partition_role": "DERIVED_EVALUATION_EXPLORATORY",
+      "primary_archive_record_id": "web_search_no_snippet_15",
+      "primary_mode": "NO_SNIPPET",
+      "program_identity": "bfcl_derived_program_015",
+      "source_question_id": "web_search_15"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G04",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_no_snippet_16",
+        "derived_session_sha256": "0e5451d452bdb2617d38a37aa4c9aa9e313c538e2e56b5fff5ada2869a35580c",
+        "minimum_turns_check": "PASS",
+        "mode": "NO_SNIPPET",
+        "phase5_case_id": "bfcl_web_search_16:no_snippet",
+        "request_count": 5,
+        "synthetic_tool_gap_schedule_sha256": "093dcde943d058664028c05163a057c8abdf4acbe699a4e6f34c0113b7461aeb"
+      },
+      "partition_role": "DERIVED_EVALUATION_EXPLORATORY",
+      "primary_archive_record_id": "web_search_base_16",
+      "primary_mode": "SNIPPET",
+      "program_identity": "bfcl_derived_program_016",
+      "source_question_id": "web_search_16"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G04",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_base_17",
+        "derived_session_sha256": "6754b3c2272a9ff7abde96c305a7e647ae82f8975366a2f121975afcd9b26016",
+        "minimum_turns_check": "PASS",
+        "mode": "SNIPPET",
+        "phase5_case_id": "bfcl_web_search_17:snippet",
+        "request_count": 4,
+        "synthetic_tool_gap_schedule_sha256": "97fd6ed13c847f2801ce8584b43d4c45d8f6d87a220f409780da92b5fdb66597"
+      },
+      "partition_role": "DERIVED_EVALUATION_EXPLORATORY",
+      "primary_archive_record_id": "web_search_no_snippet_17",
+      "primary_mode": "NO_SNIPPET",
+      "program_identity": "bfcl_derived_program_017",
+      "source_question_id": "web_search_17"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G04",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_no_snippet_18",
+        "derived_session_sha256": "a4059f347e786e1015e52e1c3720d687dd559275bc0768b2a7b75a39b65ccb18",
+        "minimum_turns_check": "PASS",
+        "mode": "NO_SNIPPET",
+        "phase5_case_id": "bfcl_web_search_18:no_snippet",
+        "request_count": 12,
+        "synthetic_tool_gap_schedule_sha256": "c000202d059aa9ef7703b935226fb974a015b25d5e1865ffbb69bdc9eaff6f3a"
+      },
+      "partition_role": "DERIVED_EVALUATION_EXPLORATORY",
+      "primary_archive_record_id": "web_search_base_18",
+      "primary_mode": "SNIPPET",
+      "program_identity": "bfcl_derived_program_018",
+      "source_question_id": "web_search_18"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G05",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_base_19",
+        "derived_session_sha256": "601e50a48c03cb0b5cf4fb9581669fc685b05785276144cf2707147ca02277da",
+        "minimum_turns_check": "PASS",
+        "mode": "SNIPPET",
+        "phase5_case_id": "bfcl_web_search_19:snippet",
+        "request_count": 5,
+        "synthetic_tool_gap_schedule_sha256": "fcf9a8dd9f72aa8a6026b839f55d6e8f8ffb3becb15cf93750b86528d2034658"
+      },
+      "partition_role": "DERIVED_EVALUATION_EXPLORATORY",
+      "primary_archive_record_id": "web_search_no_snippet_19",
+      "primary_mode": "NO_SNIPPET",
+      "program_identity": "bfcl_derived_program_019",
+      "source_question_id": "web_search_19"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G05",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_no_snippet_20",
+        "derived_session_sha256": "d130c560624ca295a74950955911182173656677e1f46e8458df73dbf958ad3f",
+        "minimum_turns_check": "PASS",
+        "mode": "NO_SNIPPET",
+        "phase5_case_id": "bfcl_web_search_20:no_snippet",
+        "request_count": 6,
+        "synthetic_tool_gap_schedule_sha256": "4940287a3fc240f34827b5a453864a85579ccae4f6d1c635bdc2d228cdc3d4bc"
+      },
+      "partition_role": "DERIVED_EVALUATION_EXPLORATORY",
+      "primary_archive_record_id": "web_search_base_20",
+      "primary_mode": "SNIPPET",
+      "program_identity": "bfcl_derived_program_020",
+      "source_question_id": "web_search_20"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G05",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_base_21",
+        "derived_session_sha256": "61e4aacc39832c06aeb476418e8409a5ef7967e2cadd55e6330cca26f2949bce",
+        "minimum_turns_check": "FAIL",
+        "mode": "SNIPPET",
+        "phase5_case_id": "bfcl_web_search_21:snippet",
+        "request_count": 3,
+        "synthetic_tool_gap_schedule_sha256": "7417d47136454e8a5360f6b42fd8d6f4655aa2d7685ab63f90ebd55d0964538c"
+      },
+      "partition_role": "DERIVED_EVALUATION_EXPLORATORY",
+      "primary_archive_record_id": "web_search_no_snippet_21",
+      "primary_mode": "NO_SNIPPET",
+      "program_identity": "bfcl_derived_program_021",
+      "source_question_id": "web_search_21"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G05",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_no_snippet_22",
+        "derived_session_sha256": "d4d504ca1888c424ce8b7796daf5c1e830147cdcad9cf38f5ea4d2d7d7a2d486",
+        "minimum_turns_check": "PASS",
+        "mode": "NO_SNIPPET",
+        "phase5_case_id": "bfcl_web_search_22:no_snippet",
+        "request_count": 4,
+        "synthetic_tool_gap_schedule_sha256": "9c0bdc6128701e05935d1f50273895dfd2f9a02c8da6103bf5cdc814a6ea75c9"
+      },
+      "partition_role": "DERIVED_EVALUATION_EXPLORATORY",
+      "primary_archive_record_id": "web_search_base_22",
+      "primary_mode": "SNIPPET",
+      "program_identity": "bfcl_derived_program_022",
+      "source_question_id": "web_search_22"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G12",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_base_49",
+        "derived_session_sha256": "241ae5903723b78b9c2e07b4f6ee504ffc001d0ec4ce5cb54a5288868acbf009",
+        "minimum_turns_check": "PASS",
+        "mode": "SNIPPET",
+        "phase5_case_id": "bfcl_web_search_49:snippet",
+        "request_count": 5,
+        "synthetic_tool_gap_schedule_sha256": "e529352fba140de41cc63fc90ff0a79a478cea6b366a5b958917fdda4c2213ba"
+      },
+      "partition_role": "DERIVED_EVALUATION_EXPLORATORY",
+      "primary_archive_record_id": "web_search_no_snippet_49",
+      "primary_mode": "NO_SNIPPET",
+      "program_identity": "bfcl_derived_program_049",
+      "source_question_id": "web_search_49"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G12",
+      "independent_program_count": 1,
+      "paired_alternative": null,
+      "partition_role": "DERIVED_EVALUATION_EXPLORATORY",
+      "primary_archive_record_id": "web_search_base_50",
+      "primary_mode": "SNIPPET",
+      "program_identity": "bfcl_derived_program_050",
+      "source_question_id": "web_search_50"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G12",
+      "independent_program_count": 1,
+      "paired_alternative": null,
+      "partition_role": "DERIVED_EVALUATION_EXPLORATORY",
+      "primary_archive_record_id": "web_search_base_51",
+      "primary_mode": "SNIPPET",
+      "program_identity": "bfcl_derived_program_051",
+      "source_question_id": "web_search_51"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G12",
+      "independent_program_count": 1,
+      "paired_alternative": null,
+      "partition_role": "DERIVED_EVALUATION_EXPLORATORY",
+      "primary_archive_record_id": "web_search_base_52",
+      "primary_mode": "SNIPPET",
+      "program_identity": "bfcl_derived_program_052",
+      "source_question_id": "web_search_52"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G13",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_no_snippet_53",
+        "derived_session_sha256": "da65bd29a43b562b29cf105972953907989460c8b92c80267e7430cf64db8f39",
+        "minimum_turns_check": "PASS",
+        "mode": "NO_SNIPPET",
+        "phase5_case_id": "bfcl_web_search_53:no_snippet",
+        "request_count": 4,
+        "synthetic_tool_gap_schedule_sha256": "e5fe59d5d4efcbffbad4db6e34616870ebb7df7e29d013e1477769fa72dd2dc1"
+      },
+      "partition_role": "DERIVED_EVALUATION_EXPLORATORY",
+      "primary_archive_record_id": "web_search_base_53",
+      "primary_mode": "SNIPPET",
+      "program_identity": "bfcl_derived_program_053",
+      "source_question_id": "web_search_53"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G13",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_base_54",
+        "derived_session_sha256": "3ebcd38f8a5b036888fafe8bb4699fd216dc9efac5dff0ca68e88bed98c54a55",
+        "minimum_turns_check": "PASS",
+        "mode": "SNIPPET",
+        "phase5_case_id": "bfcl_web_search_54:snippet",
+        "request_count": 5,
+        "synthetic_tool_gap_schedule_sha256": "68e17ccad4da9f36682ebf5069eb083cc8037f278dbe71118116e9a67666a3c8"
+      },
+      "partition_role": "DERIVED_EVALUATION_EXPLORATORY",
+      "primary_archive_record_id": "web_search_no_snippet_54",
+      "primary_mode": "NO_SNIPPET",
+      "program_identity": "bfcl_derived_program_054",
+      "source_question_id": "web_search_54"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G13",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_no_snippet_55",
+        "derived_session_sha256": "83982e9d19fca2cac679bec7c72024e0791f4467c18e671c21245e0086ce9d7f",
+        "minimum_turns_check": "PASS",
+        "mode": "NO_SNIPPET",
+        "phase5_case_id": "bfcl_web_search_55:no_snippet",
+        "request_count": 6,
+        "synthetic_tool_gap_schedule_sha256": "b3fc86dec9a547eb65f3548af74130b9e6d8179c7a1abebd2cbc369fea03132b"
+      },
+      "partition_role": "DERIVED_EVALUATION_EXPLORATORY",
+      "primary_archive_record_id": "web_search_base_55",
+      "primary_mode": "SNIPPET",
+      "program_identity": "bfcl_derived_program_055",
+      "source_question_id": "web_search_55"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G13",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_base_56",
+        "derived_session_sha256": "b304254ddcf3229d371738ee58747e18ca1eec805f9458a9d76256203b405be7",
+        "minimum_turns_check": "PASS",
+        "mode": "SNIPPET",
+        "phase5_case_id": "bfcl_web_search_56:snippet",
+        "request_count": 5,
+        "synthetic_tool_gap_schedule_sha256": "e93bd20f954861a8f19348a63f945727ba8022c568559f9f9dd946035e216742"
+      },
+      "partition_role": "DERIVED_EVALUATION_EXPLORATORY",
+      "primary_archive_record_id": "web_search_no_snippet_56",
+      "primary_mode": "NO_SNIPPET",
+      "program_identity": "bfcl_derived_program_056",
+      "source_question_id": "web_search_56"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G16",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_no_snippet_66",
+        "derived_session_sha256": "b0b64173b3134590e418321326f86d1d30cb8de1d1940caae00a86ee00a8cd49",
+        "minimum_turns_check": "FAIL",
+        "mode": "NO_SNIPPET",
+        "phase5_case_id": "bfcl_web_search_66:no_snippet",
+        "request_count": 3,
+        "synthetic_tool_gap_schedule_sha256": "5ad435aa2d14fb1a0dfcd6dd86c200ca451969f53018efa2dfb2163c785c8692"
+      },
+      "partition_role": "DERIVED_EVALUATION_EXPLORATORY",
+      "primary_archive_record_id": "web_search_base_66",
+      "primary_mode": "SNIPPET",
+      "program_identity": "bfcl_derived_program_066",
+      "source_question_id": "web_search_66"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G16",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_base_67",
+        "derived_session_sha256": "61557f89631b992fdbd934795ec798bff372f22f4f5b1e0149f4d62de312dba7",
+        "minimum_turns_check": "PASS",
+        "mode": "SNIPPET",
+        "phase5_case_id": "bfcl_web_search_67:snippet",
+        "request_count": 6,
+        "synthetic_tool_gap_schedule_sha256": "d8588eec257e51607fcf9c684da4f9101abf98b1d408b541e9d4ef30f5870f12"
+      },
+      "partition_role": "DERIVED_EVALUATION_EXPLORATORY",
+      "primary_archive_record_id": "web_search_no_snippet_67",
+      "primary_mode": "NO_SNIPPET",
+      "program_identity": "bfcl_derived_program_067",
+      "source_question_id": "web_search_67"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G16",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_no_snippet_68",
+        "derived_session_sha256": "5d367d0cb4c80b7cb43b71603d8c5e7e09846cc3626d1b3a4a2a379bbac0c831",
+        "minimum_turns_check": "PASS",
+        "mode": "NO_SNIPPET",
+        "phase5_case_id": "bfcl_web_search_68:no_snippet",
+        "request_count": 9,
+        "synthetic_tool_gap_schedule_sha256": "6029f0c3d59f6ea7fd0d97657e685f1907602ba4b2eb4900b860fe35ac9ded37"
+      },
+      "partition_role": "DERIVED_EVALUATION_EXPLORATORY",
+      "primary_archive_record_id": "web_search_base_68",
+      "primary_mode": "SNIPPET",
+      "program_identity": "bfcl_derived_program_068",
+      "source_question_id": "web_search_68"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G16",
+      "independent_program_count": 1,
+      "paired_alternative": null,
+      "partition_role": "DERIVED_EVALUATION_EXPLORATORY",
+      "primary_archive_record_id": "web_search_base_69",
+      "primary_mode": "SNIPPET",
+      "program_identity": "bfcl_derived_program_069",
+      "source_question_id": "web_search_69"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G17",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_base_71",
+        "derived_session_sha256": "e828ba5038988e458ab842e2d2f75a0d9faa62c9d894aaeb083c0e8e91be5684",
+        "minimum_turns_check": "PASS",
+        "mode": "SNIPPET",
+        "phase5_case_id": "bfcl_web_search_71:snippet",
+        "request_count": 4,
+        "synthetic_tool_gap_schedule_sha256": "aeaca102914ad74de2a878f57788655132e71a8813264cfe6634b7a97e39996d"
+      },
+      "partition_role": "DERIVED_EVALUATION_EXPLORATORY",
+      "primary_archive_record_id": "web_search_no_snippet_71",
+      "primary_mode": "NO_SNIPPET",
+      "program_identity": "bfcl_derived_program_071",
+      "source_question_id": "web_search_71"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G17",
+      "independent_program_count": 1,
+      "paired_alternative": null,
+      "partition_role": "DERIVED_EVALUATION_EXPLORATORY",
+      "primary_archive_record_id": "web_search_base_72",
+      "primary_mode": "SNIPPET",
+      "program_identity": "bfcl_derived_program_072",
+      "source_question_id": "web_search_72"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G17",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_no_snippet_73",
+        "derived_session_sha256": "cea145f28ec6b9a0405169a5f220a61be21a3802e3ff1d778172be6829082af3",
+        "minimum_turns_check": "PASS",
+        "mode": "NO_SNIPPET",
+        "phase5_case_id": "bfcl_web_search_73:no_snippet",
+        "request_count": 8,
+        "synthetic_tool_gap_schedule_sha256": "893e3a2ceb90d098db0e83611273371cbe04021ffb63cc8817d196eafae79dbe"
+      },
+      "partition_role": "DERIVED_EVALUATION_EXPLORATORY",
+      "primary_archive_record_id": "web_search_base_73",
+      "primary_mode": "SNIPPET",
+      "program_identity": "bfcl_derived_program_073",
+      "source_question_id": "web_search_73"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G17",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_base_74",
+        "derived_session_sha256": "63a00f3b1a8825f71c47a48088e9305f31f091338baae9ac2e07b5c10ec1e36f",
+        "minimum_turns_check": "PASS",
+        "mode": "SNIPPET",
+        "phase5_case_id": "bfcl_web_search_74:snippet",
+        "request_count": 6,
+        "synthetic_tool_gap_schedule_sha256": "28502c120996686788e8a9d2314514a46f6ed9efbb0c36c3537f931c29730618"
+      },
+      "partition_role": "DERIVED_EVALUATION_EXPLORATORY",
+      "primary_archive_record_id": "web_search_no_snippet_74",
+      "primary_mode": "NO_SNIPPET",
+      "program_identity": "bfcl_derived_program_074",
+      "source_question_id": "web_search_74"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G21",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_base_91",
+        "derived_session_sha256": "d5947d2a38143d5a274bb4a26856bc9f19d46904bd2be5a33ca228b97bbc4a65",
+        "minimum_turns_check": "PASS",
+        "mode": "SNIPPET",
+        "phase5_case_id": "bfcl_web_search_91:snippet",
+        "request_count": 5,
+        "synthetic_tool_gap_schedule_sha256": "8f8b44e4c4f1a330b388805624eb4b49569377a6667fda0c42dac97a47c0d568"
+      },
+      "partition_role": "DERIVED_EVALUATION_EXPLORATORY",
+      "primary_archive_record_id": "web_search_no_snippet_91",
+      "primary_mode": "NO_SNIPPET",
+      "program_identity": "bfcl_derived_program_091",
+      "source_question_id": "web_search_91"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G21",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_no_snippet_92",
+        "derived_session_sha256": "a73ec1e73ea79d3da00159b37cfb42c7aae740df6228c42b59524880cf29d22c",
+        "minimum_turns_check": "PASS",
+        "mode": "NO_SNIPPET",
+        "phase5_case_id": "bfcl_web_search_92:no_snippet",
+        "request_count": 8,
+        "synthetic_tool_gap_schedule_sha256": "14d063017746d77991f1e60548eabe91668241def19c38ac11578c20c84feb65"
+      },
+      "partition_role": "DERIVED_EVALUATION_EXPLORATORY",
+      "primary_archive_record_id": "web_search_base_92",
+      "primary_mode": "SNIPPET",
+      "program_identity": "bfcl_derived_program_092",
+      "source_question_id": "web_search_92"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G21",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_base_93",
+        "derived_session_sha256": "e0c5ab7d0761b3dc587b97e23128ff4eb8de81f6e8724825eea3cd3978538ebb",
+        "minimum_turns_check": "PASS",
+        "mode": "SNIPPET",
+        "phase5_case_id": "bfcl_web_search_93:snippet",
+        "request_count": 4,
+        "synthetic_tool_gap_schedule_sha256": "97eeac26e3ce50bbfc4ecd13f5998f0aa6a28263011affbfcfb5e007c1bb422b"
+      },
+      "partition_role": "DERIVED_EVALUATION_EXPLORATORY",
+      "primary_archive_record_id": "web_search_no_snippet_93",
+      "primary_mode": "NO_SNIPPET",
+      "program_identity": "bfcl_derived_program_093",
+      "source_question_id": "web_search_93"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G21",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_no_snippet_94",
+        "derived_session_sha256": "444ffc82948464291c8afacc019935de1dd783292ab82f27eeb5c04307815374",
+        "minimum_turns_check": "PASS",
+        "mode": "NO_SNIPPET",
+        "phase5_case_id": "bfcl_web_search_94:no_snippet",
+        "request_count": 6,
+        "synthetic_tool_gap_schedule_sha256": "724bfa46712a13a1eb044aaeb0b3b80cfe0e065df48eb0e9f68535864168402d"
+      },
+      "partition_role": "DERIVED_EVALUATION_EXPLORATORY",
+      "primary_archive_record_id": "web_search_base_94",
+      "primary_mode": "SNIPPET",
+      "program_identity": "bfcl_derived_program_094",
+      "source_question_id": "web_search_94"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G22",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_base_95",
+        "derived_session_sha256": "f78f6bfb704782a472f7f7443e1d0b7a27bda54f1d1f3df26f51f9b318581fcb",
+        "minimum_turns_check": "PASS",
+        "mode": "SNIPPET",
+        "phase5_case_id": "bfcl_web_search_95:snippet",
+        "request_count": 4,
+        "synthetic_tool_gap_schedule_sha256": "1242b7ad50f4ec82352383020c5fff21f9bb75a87a544ed7e0bdeba1efb735dd"
+      },
+      "partition_role": "DERIVED_EVALUATION_EXPLORATORY",
+      "primary_archive_record_id": "web_search_no_snippet_95",
+      "primary_mode": "NO_SNIPPET",
+      "program_identity": "bfcl_derived_program_095",
+      "source_question_id": "web_search_95"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G22",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_no_snippet_96",
+        "derived_session_sha256": "f8216092194958569ae06d9673ef0cb97be165c87931b446fa06f306b56e611b",
+        "minimum_turns_check": "PASS",
+        "mode": "NO_SNIPPET",
+        "phase5_case_id": "bfcl_web_search_96:no_snippet",
+        "request_count": 5,
+        "synthetic_tool_gap_schedule_sha256": "7c0a7d8a9855a20fa24066d95af75d34893c4d7c1dd1d56f3f93fd7fcc764ad9"
+      },
+      "partition_role": "DERIVED_EVALUATION_EXPLORATORY",
+      "primary_archive_record_id": "web_search_base_96",
+      "primary_mode": "SNIPPET",
+      "program_identity": "bfcl_derived_program_096",
+      "source_question_id": "web_search_96"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G22",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_base_98",
+        "derived_session_sha256": "2df29261a9c9ab6571f1375c657f1a1e7cb5a3beac2dcbec287a245c518bc788",
+        "minimum_turns_check": "FAIL",
+        "mode": "SNIPPET",
+        "phase5_case_id": "bfcl_web_search_98:snippet",
+        "request_count": 3,
+        "synthetic_tool_gap_schedule_sha256": "fd4686df24c848a858e863f8e988df8473dbb29ab4c9e419be71ac9a55273081"
+      },
+      "partition_role": "DERIVED_EVALUATION_EXPLORATORY",
+      "primary_archive_record_id": "web_search_no_snippet_98",
+      "primary_mode": "NO_SNIPPET",
+      "program_identity": "bfcl_derived_program_098",
+      "source_question_id": "web_search_98"
+    },
+    {
+      "group_id": "BFCL_DERIVED_G22",
+      "independent_program_count": 1,
+      "paired_alternative": {
+        "analysis_role": "WITHIN_PROGRAM_PAIRED_MODE_ALTERNATIVE",
+        "archive_record_id": "web_search_no_snippet_99",
+        "derived_session_sha256": "51d9bbafe4719c6809471c905527700b1109a4574aa606347e379fea4eb8dd9d",
+        "minimum_turns_check": "PASS",
+        "mode": "NO_SNIPPET",
+        "phase5_case_id": "bfcl_web_search_99:no_snippet",
+        "request_count": 5,
+        "synthetic_tool_gap_schedule_sha256": "4905a0e8ddd34291a007053fcc7b5317b740c99b29233ab97ba0259db27b61cb"
+      },
+      "partition_role": "DERIVED_EVALUATION_EXPLORATORY",
+      "primary_archive_record_id": "web_search_base_99",
+      "primary_mode": "SNIPPET",
+      "program_identity": "bfcl_derived_program_099",
+      "source_question_id": "web_search_99"
+    }
+  ],
+  "schema_version": "phase5.bfcl_derived_child_paired_mode_ledger.v1",
+  "selected_program_count": 48
+}

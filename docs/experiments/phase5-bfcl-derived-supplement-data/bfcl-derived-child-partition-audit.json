@@ -1,0 +1,34 @@
+{
+  "audit_content_sha256": "c7a721db281270c1b9a7c2457aa6af6611bd3c5d0d09039a8893ca7e8ff1244a",
+  "calibration_group_count": 4,
+  "checks": {
+    "ALL_ELIGIBLE_GROUPS_SELECTED_WITHOUT_SUBSTITUTION": true,
+    "EXACT_CALIBRATION_GROUP_IDS": true,
+    "EXACT_EVALUATION_GROUP_IDS": true,
+    "GROUPS_DISJOINT": true,
+    "PAIRED_ALTERNATIVES_NOT_COUNTED_AS_PROGRAMS": true,
+    "PRIMARY_SESSIONS_DISJOINT": true,
+    "PROGRAMS_DISJOINT": true,
+    "SYNTHETIC_TIMING_PRESERVED": true
+  },
+  "evaluation_group_count": 8,
+  "formal_cohort_selected": false,
+  "gpu_execution_authorized": false,
+  "member_substitution_performed": false,
+  "schema_version": "phase5.bfcl_derived_child_partition_audit.v1",
+  "selected_primary_session_count": 48,
+  "selected_program_count": 48,
+  "status": "PASS",
+  "unselected_unqualified_group_ids": [
+    "BFCL_DERIVED_G01",
+    "BFCL_DERIVED_G03",
+    "BFCL_DERIVED_G06",
+    "BFCL_DERIVED_G07",
+    "BFCL_DERIVED_G08",
+    "BFCL_DERIVED_G09",
+    "BFCL_DERIVED_G11",
+    "BFCL_DERIVED_G15",
+    "BFCL_DERIVED_G18",
+    "BFCL_DERIVED_G20"
+  ]
+}

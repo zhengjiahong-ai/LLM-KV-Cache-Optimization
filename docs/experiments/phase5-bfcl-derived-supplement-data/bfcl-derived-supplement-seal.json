@@ -1,0 +1,20 @@
+{
+  "calibration_partition_content_sha256": "f8abf45cf88d61887d771cdbbf6727f578de8aed4575e3eff9b06399bca19a13",
+  "child_paired_ledger_content_sha256": "c1e5b271ff183a35a329b14e59e0cae37eccf9db2513be66fe47e48359f7c6f3",
+  "evaluation_partition_content_sha256": "d60ff16f80a0b446be8883f07ab8b7cd437e7485cbf9e59db6bf9df337bb34ef",
+  "formal_cohort_selected": false,
+  "formal_q1_q9_status": "NOT_EVALUATED",
+  "gpu_execution_authorized": false,
+  "parent_group_manifest_content_sha256": "06e58bc03ba14c7091014e94dbfb60d1957a8e53fcb54a33d56afc7149e0dac3",
+  "parent_group_preparation_seal_content_sha256": "2fad52cbc22c32909402a266fa9680c489032676406db0dbc9316e5e12c46a77",
+  "parent_paired_ledger_content_sha256": "8c3a10c4a4cc1f4aa6349299a29259fbe4cf8614536052322632cc2063a1d5d8",
+  "parent_sha256_manifest_canonical_sha256": "6064d2044482f4179a8d256df44241d3d76dc6207c25a0fde314c6c04e53263a",
+  "partition_audit_content_sha256": "c7a721db281270c1b9a7c2457aa6af6611bd3c5d0d09039a8893ca7e8ff1244a",
+  "replay_terminal_semantics": "REPLAY_TRACE_EXHAUSTED",
+  "schema_version": "phase5.bfcl_derived_supplement_seal.v1",
+  "seal_content_sha256": "8ffeabdfa3d3b4884072e009d16aaceb7a3e7dd1baa7d2153d2b7f076fe860c3",
+  "source_terminal_semantics": "SOURCE_TERMINAL_UNKNOWN",
+  "status": "READY_FOR_M4_INDEPENDENT_PARTITION_REVIEW",
+  "synthetic_tool_gap_semantics": "DETERMINISTIC_CONSTANT_1S_V1",
+  "workload_type": "BFCL_DERIVED_CONTROLLED_TIMING"
+}

@@ -1,0 +1,41 @@
+{
+  "calibration_groups_constructed": false,
+  "candidate_inventory_content_sha256": "acf58ae6c377aceafbb62812560cfc6bc92cf96ad8e0001b648f4dffb9ae7478",
+  "current_pool_remainder_program_count": 3,
+  "excluded_session_count": 22,
+  "exclusion_ledger_content_sha256": "9ed536ec484f17591d6488b97d9bffaf0cc6819dee61b7cc01a8bca78241ac2b",
+  "formal_cohort_selected": false,
+  "formal_groups_constructed": false,
+  "gpu_execution_authorized": false,
+  "input_bindings": {
+    "attempt_reconciliation_file_sha256": "c1adf1f64beb7bc8bab12b6fccf5e0c5e9c6f0e20d2597f57049887b0e5efa37",
+    "conversion_report_file_sha256": "fafc9d298288d9e0818c34beaa2b66cc20c598754f5d0a726b0531d1aed80544",
+    "formal_protocol_file_sha256": "62cc5b10b71b1bdc8dc55edf04edeee4c4fadc8f84dfe85b59873ce589fa8063",
+    "processed_collection_summary_file_sha256": "61f3ef95263c5ca2e9b6bfd1e5df7f020fc65b3743b0b0499457b9c02d2bad0c",
+    "processed_sha256_manifest_file_sha256": "82f331ba51edf52b978cffbbdb81725b155f8bcacac89e391a08bf4c45e68f44",
+    "qualification_contract_file_sha256": "98f9d9f968690b7a63a1ff6e597ab9b3503204886bcf52b11646a3d3ad34240a",
+    "sampling_frame_file_sha256": "cdeda2fbc32beafcf7ac772b8519d2f5189496871b9b005e595572564e7356e2"
+  },
+  "maximum_complete_four_program_groups_from_current_pool": 8,
+  "minimum_calibration_program_count": 16,
+  "minimum_formal_program_count": 32,
+  "minimum_program_shortfall": 13,
+  "minimum_total_program_count": 48,
+  "processed_session_count": 57,
+  "qualified_independent_program_count": 35,
+  "qualified_session_count": 35,
+  "qualified_terminal_class_counts": {
+    "NATURAL_TERMINAL": 2,
+    "RIGHT_CENSORED": 33
+  },
+  "readiness_content_sha256": "f0c72ad40398c3e16a4d13bacd4ded5fc47cdd99f7e1dbeb5c2d06e56ace8641",
+  "required_minimum_total_group_count": 12,
+  "schema_version": "phase5.swe_formal_dataset_readiness.v1",
+  "status": "BLOCKED_INSUFFICIENT_INDEPENDENT_QUALIFIED_PROGRAMS",
+  "terminal_class_counts": {
+    "EXCLUDED": 3,
+    "NATURAL_TERMINAL": 7,
+    "RIGHT_CENSORED": 47
+  },
+  "workload_seal_issued": false
+}
