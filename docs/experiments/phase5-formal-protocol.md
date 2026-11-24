@@ -8,6 +8,28 @@
 
 ---
 
+## M1 scope amendment — 2026-11-24 (supersedes current execution scope)
+
+The original v1 design below was authored for two formal strata (SWE-bench and BFCL Web Search). M1 has since amended the research scope. **For all current and future Phase 5 planning, SWE-bench Verified is the sole formal stratum. BFCL Derived Controlled-Timing is an independent supplementary experiment and is excluded from formal Calibration, Formal N, power, multiplicity and confirmatory inference.**
+
+See [Phase 5 Scope Amendment](phase5-scope-amendment-2026-11-24.md) for the canonical decision and [Concurrent Dataset Construction](phase5-dataset-acquisition-and-construction.md) for current M4/M6 responsibilities.
+
+The old two-stratum JSON, schema, statistical backend, campaign planner and manifests retain their historical hashes and must not be executed as the amended campaign. Before D can pass, M4/M6 must submit one coordinated amendment that changes the formal stratum count to one and recomputes the fixed-effect/variance model, degrees of freedom, covariance/bootstrap/noncentral-t inputs, validators, run matrices and manifests. Merely changing displayed run counts is insufficient.
+
+Current single-formal-stratum design counts, subject to that amendment:
+- Calibration: 6 systems × 4 Groups × 3 repeats = **72 runs**.
+- Formal: 6 systems × N Groups × 2 repeats = **12N runs** (96 / 144 / 192 at N=8/12/16).
+- Combined totals: **168 / 216 / 264 runs**.
+- BFCL Derived 4+8 study has its own protocol, separate run budget and separate execution authorization.
+
+This addendum does not authorize Native/GPU Conformance, SWE Calibration/Formal execution or BFCL Derived execution. Machine-readable execution remains blocked until the coordinated amendment and later M1 gates are accepted.
+
+---
+
+## Historical v1 design record — two-stratum protocol (superseded for current execution)
+
+The following sections preserve the original v1 two-stratum design as immutable design history. They are not the current execution specification.
+
 ## M1 status addendum (2026-11-19)
 
 M1 accepts this six-system research design and separately approves the limited Dataset Acquisition & Construction work package for SWE-bench Verified and BFCL v4 Web Search. See [M1 Dataset Acquisition & Construction decision](phase5-dataset-acquisition-and-construction.md).
