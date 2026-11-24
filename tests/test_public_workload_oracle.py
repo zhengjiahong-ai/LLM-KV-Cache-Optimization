@@ -28,7 +28,7 @@ def test_untouched_branch_and_horizon_change_the_optimum():
     short = evaluate([a, b], [a], [2, 4, 6], 1)
     long = evaluate([a, b], [a, b], [2, 4, 6], 1)
     assert short["oracle"] == 0
-    assert short["lru_regret"] == 2
+    assert short["warm_shallow_regret"] == 2
     assert long["oracle"] == 1
     assert long["legal_sets"] == 3
     assert long["greedy_regret"] == 0
@@ -66,8 +66,8 @@ def test_memoryfulness_matches_explicit_snapshots():
 def test_rank_tie_sensitivity_preserves_action_set():
     path = (1, 2, 3, 4)
     result = evaluate([path], [path], [1, 2, 3], 2, [3, 2, 1])
-    assert result["lru_regret"] == 1
-    assert result["deep_tie_lru_regret"] == 0
+    assert result["warm_shallow_regret"] == 1
+    assert result["warm_deep_regret"] == 0
     assert result["zero_marginal_pair_rate"] == 1
     with pytest.raises(ValueError, match="same candidate set"):
         evaluate([path], [path], [1, 2, 3], 2, [1, 2, 4])
@@ -81,10 +81,23 @@ def test_fixed_slots_distinguish_known_end_and_censoring():
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
     try:
-        from analyze_public_workload_evidence import slot_order
+        import pandas as pd
+        from analyze_public_workload_evidence import (
+            request_counts, slot_order, summarize_request_counts,
+        )
 
         inputs = [{25: object()}, {25: object(), 26: object()}]
-        assert slot_order(inputs, 4, 0, ["submit", "submit"]) == [(0, 25), (1, 25), (1, 26)]
+        slots = slot_order(inputs, 4, 0, ["submit", "submit"])
+        assert slots == [(0, 25), (1, 25), (1, 26)]
+        rows = pd.DataFrame([request_counts(slots, 2), request_counts(slots[:-1], 2)])
+        coverage = summarize_request_counts(rows, 4)
+        assert coverage["terminal_empty_slots"] == 3
+        assert coverage["full_horizon_clusters"] == 0
+        assert coverage["future_requests_p50"] == 2.5
+        assert coverage["future_requests_a_total"] == 2
+        assert coverage["future_requests_b_total"] == 3
+        single = pd.DataFrame([request_counts([(0, 25)], 1)])
+        assert "future_requests_b_total" not in summarize_request_counts(single, 1)
         assert slot_order(inputs, 4, 0, ["step_limit", "submit"]) is None
         assert slot_order(inputs, 1, 1, ["step_limit", "submit"]) == [(1, 25)]
     finally:

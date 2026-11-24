@@ -50,7 +50,8 @@ def digest(path):
 
 
 def write_json(path, value):
-    path.write_text(json.dumps(value, indent=2, allow_nan=False) + "\n", encoding="utf-8")
+    with path.open("w", encoding="utf-8", newline="\n") as stream:
+        stream.write(json.dumps(value, indent=2, allow_nan=False) + "\n")
 
 
 def input_manifest(parquet, qwen3, qwen25):
@@ -90,7 +91,7 @@ def candidates(current, scenario):
 
 
 def slot_order(streams, horizon, order, ends):
-    """Select fixed ordinal slots. Outcome only labels unobserved slots."""
+    """Omit terminal empty slots. Return None for an unobserved, censored slot."""
     rows = []
     for slot in range(horizon):
         member = (slot + order) % len(streams)
@@ -182,12 +183,13 @@ def group_results(group, projected, end_by_attempt, geometry, failures):
                             "minimum_exclusive_blocks": min(len(p) for p in current) - shared,
                             "candidate_blocks": len(ranked),
                             "shared_candidate_blocks": sum(b in set(current[0][:shared]) for b in ranked),
-                            "future_requests": len(future), "context_fits_target": max_input <= TARGET_INPUT_LIMIT,
+                            **request_counts(slots, len(ids)),
+                            "context_fits_target": max_input <= TARGET_INPUT_LIMIT,
                         }
                         result = evaluate(current, future, ranked, 2, alternate)
                         result.update(entry_scores(current, future, ranked, 2))
-                        token_fields = {"lru", "greedy", "geometry_exact", "oracle", "victim_loss_span",
-                                        "lru_regret", "deep_tie_lru_regret", "greedy_regret", "geometry_exact_regret",
+                        token_fields = {"warm_shallow", "greedy", "geometry_exact", "oracle", "victim_loss_span",
+                                        "warm_shallow_regret", "warm_deep_regret", "greedy_regret", "geometry_exact_regret",
                                         "static_range", "greedy_proxy_gap", "min_initial_marginal",
                                         "max_initial_marginal", "entry_loss_spread", "entry_order_regret",
                                         "entry_suffix_regret", "entry_fraction_regret"}
@@ -197,6 +199,32 @@ def group_results(group, projected, end_by_attempt, geometry, failures):
     return rows
 
 
+def request_counts(slots, participants):
+    return {
+        "future_requests": len(slots),
+        "future_requests_a": sum(member == 0 for member, _ in slots),
+        "future_requests_b": sum(member == 1 for member, _ in slots) if participants == 2 else None,
+    }
+
+
+def summarize_request_counts(rows, horizon):
+    total = rows.future_requests
+    result = {
+        "full_horizon_clusters": int(total.eq(horizon).sum()),
+        "terminal_empty_slots": int((horizon - total).sum()),
+    }
+    for metric in ("future_requests", "future_requests_a", "future_requests_b"):
+        observed = rows[metric].dropna()
+        if not observed.empty:
+            result.update({
+                metric + "_mean": float(observed.mean()),
+                metric + "_p50": float(observed.median()),
+                metric + "_min": int(observed.min()),
+                metric + "_total": int(observed.sum()),
+            })
+    return result
+
+
 def summarize_cases(cases):
     result = []
     keys = ["projection", "scenario", "block", "rotation", "horizon"]
@@ -204,10 +232,10 @@ def summarize_cases(cases):
         out = dict(zip(keys, labels, strict=True))
         out["clusters"] = len(rows)
         for metric in ("shared_blocks", "chain_blocks", "minimum_exclusive_blocks", "candidate_blocks",
-                       "shared_candidate_blocks", "legal_sets", "lru", "oracle", "greedy", "geometry_exact",
-                       "victim_loss_span", "lru_regret", "greedy_regret", "geometry_exact_regret",
+                       "shared_candidate_blocks", "legal_sets", "warm_shallow", "oracle", "greedy", "geometry_exact",
+                       "victim_loss_span", "warm_shallow_regret", "greedy_regret", "geometry_exact_regret",
                        "greedy_proxy_gap", "rank_agreement", "min_initial_marginal", "max_initial_marginal",
-                       "zero_second_marginals", "zero_marginal_pair_rate", "deep_tie_lru_regret",
+                       "zero_second_marginals", "zero_marginal_pair_rate", "warm_deep_regret",
                        "entry_loss_spread", "entry_order_regret",
                        "entry_suffix_regret", "entry_fraction_regret", "entry_a3_multiplier_crossing"):
             if metric in rows and len(observed := rows[metric].dropna()):
@@ -226,22 +254,23 @@ def summarize_cases(cases):
                 out[metric + "_rate"] = entry_rows[metric].mean()
         for metric in ("context_fits_target", "greedy_diverges", "geometry_exact_diverges", "oracle_diverges"):
             out[metric + "_rate"] = rows[metric].mean()
-        for metric in ("lru_regret", "greedy_regret", "geometry_exact_regret",
+        for metric in ("warm_shallow_regret", "greedy_regret", "geometry_exact_regret",
                        "victim_loss_span", "greedy_proxy_gap"):
             out[metric + "_positive_rate"] = rows[metric].gt(0).mean()
         out["rank_agreement_n"] = int(rows.rank_agreement.notna().sum())
         fits = rows.loc[rows.context_fits_target]
         out["context_fit_clusters"] = len(fits)
         if len(fits):
-            for metric in ("lru_regret", "deep_tie_lru_regret", "geometry_exact_regret"):
+            for metric in ("warm_shallow_regret", "warm_deep_regret", "geometry_exact_regret"):
                 out["context_fit_" + metric + "_mean"] = fits[metric].mean()
         if labels[2:] == (16, 0, 12):
             rng = np.random.default_rng(SEED)
-            data = rows[["lru_regret", "greedy_regret", "geometry_exact_regret"]].to_numpy()
+            data = rows[["warm_shallow_regret", "greedy_regret", "geometry_exact_regret"]].to_numpy()
             sampled = data[rng.integers(len(data), size=(1000, len(data)))].mean(axis=1)
-            for column, bounds in zip(("lru", "greedy", "geometry_exact"),
+            for column, bounds in zip(("warm_shallow", "greedy", "geometry_exact"),
                                       np.quantile(sampled, [.025, .975], axis=0).T):
                 out[column + "_regret_bootstrap_low"], out[column + "_regret_bootstrap_high"] = bounds
+        out.update(summarize_request_counts(rows, labels[-1]))
         result.append(out)
     return pd.DataFrame(result)
 
@@ -256,8 +285,8 @@ def plot_regret(summary, path):
     for axis, scenario in zip(axes, ("single", "shared", "competition"), strict=True):
         rows = primary.loc[primary.scenario.eq(scenario)].sort_values("horizon")
         for name, label, color, marker in (
-            ("lru", "Logical LRU", "#b15532", "o"),
-            ("deep_tie_lru", "LRU, deep ties", "#849b35", "D"),
+            ("warm_shallow", "Warm A then B, shallow first", "#b15532", "o"),
+            ("warm_deep", "Warm A then B, deep first", "#849b35", "D"),
             ("greedy", "Greedy geometry", "#17657d", "s"),
             ("geometry_exact", "Exact geometry", "#513e7d", "^"),
         ):
@@ -266,7 +295,8 @@ def plot_regret(summary, path):
         axis.set(title=scenario.capitalize(), xlabel="Future request slots", xticks=list(HORIZONS))
         axis.grid(axis="y", alpha=.25)
     axes[0].set_ylabel("Mean regret (tokens)")
-    axes[-1].legend(frameon=False, fontsize=8)
+    handles, labels = axes[-1].get_legend_handles_labels()
+    fig.legend(handles, labels, loc="outside upper center", ncols=4, frameon=False, fontsize=9)
     fig.savefig(path, dpi=150, metadata={"Software": "Matplotlib public workload analysis"})
     plt.close(fig)
 
@@ -319,7 +349,9 @@ def main():
     write_json(out / "memoryfulness.json", memoryfulness)
     write_json(out / "geometry.json", shape)
     summary = summarize_cases(windows)
-    summary.to_csv(out / "oracle_summary.csv", index=False, float_format="%.6f")
+    summary.to_csv(
+        out / "oracle_summary.csv", index=False, float_format="%.6f", lineterminator="\n"
+    )
     plot_regret(summary, out / "oracle_regret.png")
     with (out / "issue_clusters.csv").open("w", newline="", encoding="utf-8") as stream:
         writer = csv.writer(stream, lineterminator="\n")

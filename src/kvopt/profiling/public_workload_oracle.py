@@ -54,7 +54,7 @@ def prepare(initial, future, candidates):
 
 
 def loss_by_request(requests, victims):
-    """Measure E-C with refill after every request and a single initial intervention."""
+    """Measure logical contiguous hit loss with refill after every request and a single initial intervention."""
     remaining = set(victims)
     result = []
     for request in requests:
@@ -77,12 +77,12 @@ def evaluate(current, future, ranked, budget, alternate_ranked=None):
     static = {choice: suffix_loss(current, choice) for choice in choices}
     singleton = {block: suffix_loss(current, {block}) for block in ranked}
     future_losses = {choice: sum(loss_by_request(requests, choice)) for choice in choices}
-    lru = choices[0]
+    warm_shallow = choices[0]
     if alternate_ranked is not None and (
         len(alternate_ranked) != len(ranked) or set(alternate_ranked) != set(ranked)
     ):
         raise ValueError("Alternate ordering must use the same candidate set")
-    alternate = frozenset(alternate_ranked[:budget]) if alternate_ranked is not None else lru
+    alternate = frozenset(alternate_ranked[:budget]) if alternate_ranked is not None else warm_shallow
     greedy = frozenset()
     marginals = []
     for _ in range(budget):
@@ -106,18 +106,18 @@ def evaluate(current, future, ranked, budget, alternate_ranked=None):
             agreements += (1 if actual * predicted > 0 else .5 if predicted == 0 else 0)
     return {
         "legal_sets": len(choices),
-        "lru": future_losses[lru],
+        "warm_shallow": future_losses[warm_shallow],
         "greedy": future_losses[greedy],
         "geometry_exact": future_losses[exact_static],
         "oracle": best,
-        "deep_tie_lru_regret": future_losses[alternate] - best,
+        "warm_deep_regret": future_losses[alternate] - best,
         "victim_loss_span": worst - best,
-        "lru_regret": future_losses[lru] - best,
+        "warm_shallow_regret": future_losses[warm_shallow] - best,
         "greedy_regret": future_losses[greedy] - best,
         "geometry_exact_regret": future_losses[exact_static] - best,
-        "greedy_diverges": greedy != lru,
-        "geometry_exact_diverges": exact_static != lru,
-        "oracle_diverges": optimal != lru,
+        "greedy_diverges": greedy != warm_shallow,
+        "geometry_exact_diverges": exact_static != warm_shallow,
+        "oracle_diverges": optimal != warm_shallow,
         "greedy_proxy_gap": static[greedy] - static[exact_static],
         "static_range": max(static.values()) - min(static.values()),
         "max_initial_marginal": max(marginals[0]),
