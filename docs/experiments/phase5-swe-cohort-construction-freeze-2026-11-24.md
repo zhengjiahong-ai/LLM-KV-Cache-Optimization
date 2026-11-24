@@ -54,7 +54,7 @@ Freeze the following deterministic algorithm:
 
 The seed `20419074` and the hash-domain string above are fixed. The sort/partition algorithm is normative; implementations must not use language-default randomized hashes, local filesystem order, completion order, source acquisition batch order, or system outcomes.
 
-The seed was selected solely through a deterministic search against predeclared structural constraints (per-Group repository diversity and Calibration/F formal batch balance) using repository identities and fresh-vs-existing provenance labels only. No policy, Native, exposure, latency, recomputation, victim-set or other system outcome was available or used. M6 must emit an outcome-blind audit proving the materializer consumed no outcome fields.
+The seed was selected solely through a deterministic search against predeclared structural constraints (per-Group repository diversity and Calibration/Formal batch balance) using repository identities and fresh-vs-existing provenance labels only. No policy, Native, exposure, latency, recomputation, victim-set or other system outcome was available or used. M6 must emit an outcome-blind audit proving the materializer consumed no outcome fields.
 
 ### Frozen Group membership
 
