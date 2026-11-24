@@ -1,0 +1,836 @@
+{
+  "attempted_count": 20,
+  "automatic_retry_performed": false,
+  "completed_attempt_count": 20,
+  "converted_count": 17,
+  "ledger_content_sha256": "ca68e742b7749e2036a518c5ffa593d7d4be183ff01cbaf0b73fe635966ad33c",
+  "old_w1c_evidence_reused": false,
+  "ordered_instance_ids": [
+    "astropy__astropy-8872",
+    "django__django-11790",
+    "django__django-13023",
+    "django__django-13551",
+    "django__django-13569",
+    "django__django-14493",
+    "django__django-15554",
+    "django__django-16662",
+    "matplotlib__matplotlib-25311",
+    "mwaskom__seaborn-3069",
+    "pallets__flask-5014",
+    "psf__requests-2931",
+    "pydata__xarray-3993",
+    "pylint-dev__pylint-6386",
+    "pytest-dev__pytest-7982",
+    "scikit-learn__scikit-learn-14983",
+    "sphinx-doc__sphinx-8593",
+    "sympy__sympy-15017",
+    "sympy__sympy-16886",
+    "sympy__sympy-21596"
+  ],
+  "pre_normalization_excluded_count": 3,
+  "q1_q9_excluded_count": 4,
+  "q1_q9_qualified_count": 13,
+  "rows": [
+    {
+      "attempt": {
+        "agent_exit_status": "ContextLengthExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "instance_id": "astropy__astropy-8872",
+        "run_json_sha256": "a5bf9e611b869ea0ff3cec7b1f57a8e5c67b3f1dbc8185cbe8059249df58c13a",
+        "sidecar_sha256": "917dcabd71836c1562fe13f8c9928784daeb63171e4bba6e806710654ff34456",
+        "status": "completed",
+        "trajectory_sha256": "2c4d29e4f3c79b367fa213966bf6aeea5a205e258f0a6a6a42b9a0e852f37a61"
+      },
+      "conversion": {
+        "instance_id": "astropy__astropy-8872",
+        "record_sha256": "18e108487d1c6b249bafedbed4b48aae4183dde9216e164d2e6dcf4bbeb7ae32",
+        "status": "CONVERTED"
+      },
+      "instance_id": "astropy__astropy-8872",
+      "qualification": {
+        "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+        "failed_rules": [
+          "Q1_COMPLETE_PAYLOAD"
+        ],
+        "normalized_trace_file_sha256": "c330f3066ab3f1313951ff648a79177de1119686222864b178a9b4119f81d979",
+        "program_id": "astropy__astropy-8872",
+        "qualification_checks": {
+          "Q1": false,
+          "Q2": true,
+          "Q3": true,
+          "Q4": true,
+          "Q5": true,
+          "Q6": true,
+          "Q7": true,
+          "Q8": true,
+          "Q9": true
+        },
+        "qualification_file_sha256": "5395afde92f0ff69ed6e06bbdd56953dc4838ae5cc024e2eb0a1aa51e58cbfdf",
+        "qualification_sha256": "6e4fb274be7da9523aa3f2d9e1480e9316da100e13271e734648012d9c82e7dd",
+        "qualification_status": "EXCLUDED",
+        "session_id": "phase5:swe:astropy__astropy-8872:session:1",
+        "terminal_class": "RIGHT_CENSORED",
+        "token_materialization_file_sha256": "b94508c02ef7ed67441a9090e905aa3980244f3b0bf1a24bebcac52aa6bfb3d0",
+        "tool_fixtures_file_sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "trace_id": "phase5:swe:astropy__astropy-8872"
+      },
+      "qualification_status": "EXCLUDED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "LimitsExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "instance_id": "django__django-11790",
+        "run_json_sha256": "7ebf277f43faee3e260276160086afe915fb269e02e0f3da7c75dc6ef68e5bf6",
+        "sidecar_sha256": "8652975795a952534467a585433ed596592d116d8627ebecd65e6678de9cf69b",
+        "status": "completed",
+        "trajectory_sha256": "fb3579de4ba51341145aa603066a9c73d4bc1063e6c1bc2341ff5e5440f6a5cc"
+      },
+      "conversion": {
+        "instance_id": "django__django-11790",
+        "record_sha256": "813e303517c2b492bf1d3075771521c118439d0e9f7d8055312488ab14b945a2",
+        "status": "CONVERTED"
+      },
+      "instance_id": "django__django-11790",
+      "qualification": {
+        "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+        "failed_rules": [],
+        "normalized_trace_file_sha256": "53a21a8dd745733a4ac61802d3df57113921f22d1d4c10701468b82b80eb6004",
+        "program_id": "django__django-11790",
+        "qualification_checks": {
+          "Q1": true,
+          "Q2": true,
+          "Q3": true,
+          "Q4": true,
+          "Q5": true,
+          "Q6": true,
+          "Q7": true,
+          "Q8": true,
+          "Q9": true
+        },
+        "qualification_file_sha256": "ffeeeb6e7a1de46e68eba22a026aefcbfc0be964c5db66673629a12f9bb903e2",
+        "qualification_sha256": "58a59d88bcf4c18684e72a9d0fa104fb681b5bbfd75631182be67fe4b47e5f40",
+        "qualification_status": "QUALIFIED",
+        "session_id": "phase5:swe:django__django-11790:session:1",
+        "terminal_class": "RIGHT_CENSORED",
+        "token_materialization_file_sha256": "48267deffcdb9dac6e592ebcd718aca47d0bc973c308865b0855cb389763b4a8",
+        "tool_fixtures_file_sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "trace_id": "phase5:swe:django__django-11790"
+      },
+      "qualification_status": "QUALIFIED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "LimitsExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "instance_id": "django__django-13023",
+        "run_json_sha256": "6d3bd5093778b13aa8e0c5c515e2c84f2b2d934ffb91b34c8f9ddca1ef976116",
+        "sidecar_sha256": "bc820232ff05e7c93aaef78f51f9028fce0a799e3c76c31179d5f04382d2e78b",
+        "status": "completed",
+        "trajectory_sha256": "d47d463742eeafd3bc56ec33562286d494fbf9a170066f52f9d9fe0319a41627"
+      },
+      "conversion": {
+        "instance_id": "django__django-13023",
+        "record_sha256": "7f6cbda870f6bf341140b9478b074b0f3c9c2c84713ffb41fc0c1a65e1853acb",
+        "status": "CONVERTED"
+      },
+      "instance_id": "django__django-13023",
+      "qualification": {
+        "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+        "failed_rules": [],
+        "normalized_trace_file_sha256": "fd759957ab9356a9086bc5fa1bc72a4c8a7bdcc7832abd9713eaa4f0015f6aef",
+        "program_id": "django__django-13023",
+        "qualification_checks": {
+          "Q1": true,
+          "Q2": true,
+          "Q3": true,
+          "Q4": true,
+          "Q5": true,
+          "Q6": true,
+          "Q7": true,
+          "Q8": true,
+          "Q9": true
+        },
+        "qualification_file_sha256": "8a3bc7192928aad8a2ec788f13419d72dac656fc691731540ded3ee1622d7eaf",
+        "qualification_sha256": "361a9068f2ac44fda8f5505990474e6d49c960567b455061cd374976340c9f10",
+        "qualification_status": "QUALIFIED",
+        "session_id": "phase5:swe:django__django-13023:session:1",
+        "terminal_class": "RIGHT_CENSORED",
+        "token_materialization_file_sha256": "6861d5cb28b7dbd34cb5c850a0ebfb43851e9fd04da5b95a33fa541642416352",
+        "tool_fixtures_file_sha256": "dd28b0d914a87f7edd13f9480e260b0119355e59f3cb982e25e71a816afeaa8f",
+        "trace_id": "phase5:swe:django__django-13023"
+      },
+      "qualification_status": "QUALIFIED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "ContextLengthExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "instance_id": "django__django-13551",
+        "run_json_sha256": "3a9d3ee5bdccd249d2f4594347ab15a9a9bbb619e0cfb49e0c2c5508a5309749",
+        "sidecar_sha256": "122c2b99b25be477746607bfac578b944df848819b68540340f0ecbded6bf0f2",
+        "status": "completed",
+        "trajectory_sha256": "a7b9cd53b01e6675225f716ce391e879fb61683a2aa7aa29026e3c15fe894938"
+      },
+      "conversion": {
+        "instance_id": "django__django-13551",
+        "record_sha256": "0a136075988f085772b68626653c97b612a1a56cc838241e09fb6c7a0d281033",
+        "status": "CONVERTED"
+      },
+      "instance_id": "django__django-13551",
+      "qualification": {
+        "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+        "failed_rules": [
+          "Q1_COMPLETE_PAYLOAD"
+        ],
+        "normalized_trace_file_sha256": "a2e6658780689442fa866c5ae616a15416374595ce19e32e4fe29442551e6c97",
+        "program_id": "django__django-13551",
+        "qualification_checks": {
+          "Q1": false,
+          "Q2": true,
+          "Q3": true,
+          "Q4": true,
+          "Q5": true,
+          "Q6": true,
+          "Q7": true,
+          "Q8": true,
+          "Q9": true
+        },
+        "qualification_file_sha256": "de4dfcf6acbcc003cdb0c9df64678cdc5dcd492f16eb0ad15c300945e4620251",
+        "qualification_sha256": "b0626d1ebb48e78f6c358e4a15b84cd5ed3809d2db91ee6d4874396171c2f067",
+        "qualification_status": "EXCLUDED",
+        "session_id": "phase5:swe:django__django-13551:session:1",
+        "terminal_class": "RIGHT_CENSORED",
+        "token_materialization_file_sha256": "eac6d3bbcdbb7f37cbb9c8c2fb2e9cb6b3bc66f3751d9d7487b1c03de3b65e60",
+        "tool_fixtures_file_sha256": "912137e09c59986cb81be19d637acb310294b360833b72172e66d1a4ca94d04e",
+        "trace_id": "phase5:swe:django__django-13551"
+      },
+      "qualification_status": "EXCLUDED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "LimitsExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "instance_id": "django__django-13569",
+        "run_json_sha256": "556eabd93a2a305c31dc18de38b3d24d43ef5de9c7f86f6fe86bf3802e37d0fa",
+        "sidecar_sha256": "60f35c066f0bfc4a6b0e2edc2f08e7e8d4221b3ea04daf92b8d16f6e0140562f",
+        "status": "completed",
+        "trajectory_sha256": "ef3221524517dc0bd232c9b0f1cb019d8ca4143f5f0069ed2be623a383ff3561"
+      },
+      "conversion": {
+        "instance_id": "django__django-13569",
+        "record_sha256": "ff39f5f8387b9009426bedba9492eaf7d1061aea878c6bcd6b540799a571f5bb",
+        "status": "CONVERTED"
+      },
+      "instance_id": "django__django-13569",
+      "qualification": {
+        "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+        "failed_rules": [],
+        "normalized_trace_file_sha256": "140dc4bb86140185dbe067c8198f6437d39e432a9f73f9da641dfcaf78872342",
+        "program_id": "django__django-13569",
+        "qualification_checks": {
+          "Q1": true,
+          "Q2": true,
+          "Q3": true,
+          "Q4": true,
+          "Q5": true,
+          "Q6": true,
+          "Q7": true,
+          "Q8": true,
+          "Q9": true
+        },
+        "qualification_file_sha256": "206f269a32f4bd0b9d747ebfca0f07006523a2995fd63546b7fa2587d7c5fb40",
+        "qualification_sha256": "8bbedc10af38920e1e26efcd1fafd1b8b1899d1463a7ff323cbec7ab31c12384",
+        "qualification_status": "QUALIFIED",
+        "session_id": "phase5:swe:django__django-13569:session:1",
+        "terminal_class": "RIGHT_CENSORED",
+        "token_materialization_file_sha256": "9b5405aa05db66632a957b50090b71009ce318cfcd51a4221dba6acb1e74da65",
+        "tool_fixtures_file_sha256": "8d734e6cbe2cf47cbf134b45e9d96d0c7c656432da17a40b32d7c5bbd13d4a1a",
+        "trace_id": "phase5:swe:django__django-13569"
+      },
+      "qualification_status": "QUALIFIED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "LimitsExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "instance_id": "django__django-14493",
+        "run_json_sha256": "2a95b8a8a47207cb5c2a8b7c3e357baa03352ce8c22605be2ed3963f482ecfac",
+        "sidecar_sha256": "d46bf16eb883fc3a38ff8e686799e5deb41ad73b463e929f87800cd156f1b7ff",
+        "status": "completed",
+        "trajectory_sha256": "d8961b71a765f5a796910c46b268c2092438b6a9582b57329d4988f767c7e2d3"
+      },
+      "conversion": {
+        "instance_id": "django__django-14493",
+        "record_sha256": "820fb9d3737232b2bc80786b792517011e47bda85859a5690d93eb109c29390a",
+        "status": "CONVERTED"
+      },
+      "instance_id": "django__django-14493",
+      "qualification": {
+        "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+        "failed_rules": [],
+        "normalized_trace_file_sha256": "0b412126308b981fdae7f8d741219e99d41364cae5f43c2acb812531cc414ce0",
+        "program_id": "django__django-14493",
+        "qualification_checks": {
+          "Q1": true,
+          "Q2": true,
+          "Q3": true,
+          "Q4": true,
+          "Q5": true,
+          "Q6": true,
+          "Q7": true,
+          "Q8": true,
+          "Q9": true
+        },
+        "qualification_file_sha256": "e3421f1864638d5be1541a75a4f478e7a40399b8b4cbd729a70ecf7e2942b344",
+        "qualification_sha256": "ca1bb4c0e38b98403e7a946f324210a7e7a1f1535cc3f87490a4d7009aeb7027",
+        "qualification_status": "QUALIFIED",
+        "session_id": "phase5:swe:django__django-14493:session:1",
+        "terminal_class": "RIGHT_CENSORED",
+        "token_materialization_file_sha256": "4d0ddc943aac3ed01e4c777bf24a6e5699271848b3c6b864a2650e82636b530a",
+        "tool_fixtures_file_sha256": "1aa998e078f299dc39c2dd59546fbb734399d9253792389b67770a5cd81106c8",
+        "trace_id": "phase5:swe:django__django-14493"
+      },
+      "qualification_status": "QUALIFIED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "LimitsExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "instance_id": "django__django-15554",
+        "run_json_sha256": "21f19eed39dffc680b9504f1791e9cfc37cd1d3e1803e99e8ffe06b93112f50b",
+        "sidecar_sha256": "cf4442ffd707a77fae6358071d7a45824cfb8599b6540a4530e37e0a16cb2a3b",
+        "status": "completed",
+        "trajectory_sha256": "ca5e624ee6008ae036c716af225a1c1d631a37fcc28791eb79c38eb457164241"
+      },
+      "conversion": {
+        "instance_id": "django__django-15554",
+        "record_sha256": "368bfbd8a36cd9ae29689ecb826c17ccbc51b5e0078f77f11781290b740f86b2",
+        "status": "CONVERTED"
+      },
+      "instance_id": "django__django-15554",
+      "qualification": {
+        "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+        "failed_rules": [],
+        "normalized_trace_file_sha256": "73da67232d0d20b358d79622c981a5ce2f08a93fb2894c11dac65ada380b5e60",
+        "program_id": "django__django-15554",
+        "qualification_checks": {
+          "Q1": true,
+          "Q2": true,
+          "Q3": true,
+          "Q4": true,
+          "Q5": true,
+          "Q6": true,
+          "Q7": true,
+          "Q8": true,
+          "Q9": true
+        },
+        "qualification_file_sha256": "c29ee9a79951846592aa4603acd4eeac6d3a838f1920bfafe70d92d00d8f105f",
+        "qualification_sha256": "c6cb3bdb27688ea7ae5a31d55c777afdf7d8951b430bad1b203d6c41bbb46baa",
+        "qualification_status": "QUALIFIED",
+        "session_id": "phase5:swe:django__django-15554:session:1",
+        "terminal_class": "RIGHT_CENSORED",
+        "token_materialization_file_sha256": "97302d8de34dd6a3ee3b9e6ae2469ab0e3bf8885a1f0fd807180534348b7254b",
+        "tool_fixtures_file_sha256": "e60486e40f9603b135b3c2f2eb987b958e7c58d02c1fb6014e401b2e60a9fe82",
+        "trace_id": "phase5:swe:django__django-15554"
+      },
+      "qualification_status": "QUALIFIED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "LimitsExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "instance_id": "django__django-16662",
+        "run_json_sha256": "4bf7b058b934ffa0830c543386821573a1759b36ff93abeffa35a7fce45e3159",
+        "sidecar_sha256": "df42f7bac70cb08eaad17afbbe0488d985438ad1ffe9d43e4a90f28143eaf78a",
+        "status": "completed",
+        "trajectory_sha256": "28c97e49aab582bcadf9598bd7f6145678bb586b071c2985a30b2bcc6769de0a"
+      },
+      "conversion": {
+        "instance_id": "django__django-16662",
+        "record_sha256": "6158d65acdea6f9500448c33fbb35988b402333e7056db1ec14ce8e7c6359054",
+        "status": "CONVERTED"
+      },
+      "instance_id": "django__django-16662",
+      "qualification": {
+        "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+        "failed_rules": [],
+        "normalized_trace_file_sha256": "511f9595d4a857f5b0d85d17182af74e20d265baa21445c036cbb797197cb52b",
+        "program_id": "django__django-16662",
+        "qualification_checks": {
+          "Q1": true,
+          "Q2": true,
+          "Q3": true,
+          "Q4": true,
+          "Q5": true,
+          "Q6": true,
+          "Q7": true,
+          "Q8": true,
+          "Q9": true
+        },
+        "qualification_file_sha256": "7ae951e5e14447a556b0cf97c21889e50bdc79e46a6f0fccad2549c9e5f90fce",
+        "qualification_sha256": "1a94491fd709cc68d0e33104353a2be5e756aec4ef96f474a90fc698b5f4f8d7",
+        "qualification_status": "QUALIFIED",
+        "session_id": "phase5:swe:django__django-16662:session:1",
+        "terminal_class": "RIGHT_CENSORED",
+        "token_materialization_file_sha256": "3d5b935621aa6ad15f1251714de918ddd97bc8fe0b0ac9ddc1aff9fc56a76df8",
+        "tool_fixtures_file_sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "trace_id": "phase5:swe:django__django-16662"
+      },
+      "qualification_status": "QUALIFIED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "LimitsExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "instance_id": "matplotlib__matplotlib-25311",
+        "run_json_sha256": "08ef2b8d45449dbbb3ff0b109d4801bf5cd7a71548924a8a6dc4502aa975ba0f",
+        "sidecar_sha256": "b239ca7077804de5ff442294f4e9c279d853e3dcf3c4e4dfdf6c7e51e2eb8146",
+        "status": "completed",
+        "trajectory_sha256": "c73ff9c6bf880d2b534d756f3d05b2f2f79e5d78200c4d62b180a1e50fdde885"
+      },
+      "conversion": {
+        "instance_id": "matplotlib__matplotlib-25311",
+        "record_sha256": "b290065ccf56541384aadd259e73affc2d603a5895dd411da0fbe4e96ceb897a",
+        "status": "CONVERTED"
+      },
+      "instance_id": "matplotlib__matplotlib-25311",
+      "qualification": {
+        "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+        "failed_rules": [],
+        "normalized_trace_file_sha256": "dba5cec420688f4146fbd274815a52a8cba88f284c5c05c7c540526e4c901e97",
+        "program_id": "matplotlib__matplotlib-25311",
+        "qualification_checks": {
+          "Q1": true,
+          "Q2": true,
+          "Q3": true,
+          "Q4": true,
+          "Q5": true,
+          "Q6": true,
+          "Q7": true,
+          "Q8": true,
+          "Q9": true
+        },
+        "qualification_file_sha256": "38bdb9f3bced701cfcad24c07fc9ae47879ba3a7fa9a022ae81759c34cc1f342",
+        "qualification_sha256": "3de441da580f5297c9a27a4a37d79ced769c098470ca869ef30e9236e4ca17df",
+        "qualification_status": "QUALIFIED",
+        "session_id": "phase5:swe:matplotlib__matplotlib-25311:session:1",
+        "terminal_class": "RIGHT_CENSORED",
+        "token_materialization_file_sha256": "7880fd95c4c2def5262a13c92ef0e3fb75e3da4454e9714b51f4033103e680fb",
+        "tool_fixtures_file_sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "trace_id": "phase5:swe:matplotlib__matplotlib-25311"
+      },
+      "qualification_status": "QUALIFIED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "LimitsExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "instance_id": "mwaskom__seaborn-3069",
+        "run_json_sha256": "aadbeff22b92503ea78d163dc26a5e4786cb046ea7ecfa1c7b3708d8e8cf158f",
+        "sidecar_sha256": "eb65aa3ce36ef5c00ea49beeb2cf11f85ba6bbf4cfd79c1bd12dbdc174273abd",
+        "status": "completed",
+        "trajectory_sha256": "b1a8ed575258c1bf52e93c83f7cf041be173ce9334c65e7fb0d529f8aa3a5c87"
+      },
+      "conversion": {
+        "instance_id": "mwaskom__seaborn-3069",
+        "record_sha256": "e8ebe546494a051d191e31ba696183c4b012ce95bf54652032f558a4adbbd49b",
+        "status": "CONVERTED"
+      },
+      "instance_id": "mwaskom__seaborn-3069",
+      "qualification": {
+        "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+        "failed_rules": [],
+        "normalized_trace_file_sha256": "4a7aa82edde1c0ea3313b05af471d1929db17037be2fd8b8a3627fd7ab67035c",
+        "program_id": "mwaskom__seaborn-3069",
+        "qualification_checks": {
+          "Q1": true,
+          "Q2": true,
+          "Q3": true,
+          "Q4": true,
+          "Q5": true,
+          "Q6": true,
+          "Q7": true,
+          "Q8": true,
+          "Q9": true
+        },
+        "qualification_file_sha256": "50874f3d436ef082d1df74a88067f1ad7ef7835a4367d93f43f020115d7ca425",
+        "qualification_sha256": "807ffdb5bc495f8d27e1461a437b05c406eeb852617fa976911dffce57c0ccdc",
+        "qualification_status": "QUALIFIED",
+        "session_id": "phase5:swe:mwaskom__seaborn-3069:session:1",
+        "terminal_class": "RIGHT_CENSORED",
+        "token_materialization_file_sha256": "1cc7168b68d944c497d2691ecb03f70084d2f3122cde5224cbd36a2782995052",
+        "tool_fixtures_file_sha256": "6b207cf7fc307dbb2b1642b9f32f45fcf90b8134b540a0e4e3ccf7fd0cfde527",
+        "trace_id": "phase5:swe:mwaskom__seaborn-3069"
+      },
+      "qualification_status": "QUALIFIED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "LimitsExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "instance_id": "pallets__flask-5014",
+        "run_json_sha256": "d9a847a6ba352d35745b5737c2f0f146e5650f3abe41ae62a6d2eb06e45059b5",
+        "sidecar_sha256": "5088abb960f1b837311c32f47cbedc9a652af0d426354186e7408d2b6e3faeb5",
+        "status": "completed",
+        "trajectory_sha256": "fa96a45e1c92dae91e6b2280269ea56a11000a6075d25353dc40d86a6079ad53"
+      },
+      "conversion": {
+        "instance_id": "pallets__flask-5014",
+        "reason": "ValueError: tool result cannot be recovered from trajectory",
+        "retry_authorized": false,
+        "status": "EXCLUDED_PRE_NORMALIZATION"
+      },
+      "instance_id": "pallets__flask-5014",
+      "qualification": null,
+      "qualification_status": "NOT_EVALUATED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "LimitsExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "instance_id": "psf__requests-2931",
+        "run_json_sha256": "d6cbb3c207b0a85f5220236539869215ed4bce3b106fdecea6180b949cd2f35e",
+        "sidecar_sha256": "4f3c09000d2e24d96608413e372aab2abe5e43f7bdac097b2eda042dd8c1f55d",
+        "status": "completed",
+        "trajectory_sha256": "e805911089d9623ee680a399da65cd177b35ec65825a132a2abd2a6ea21fd35b"
+      },
+      "conversion": {
+        "instance_id": "psf__requests-2931",
+        "record_sha256": "c42fefedcc668e7e13ad620161f09f97602236d34e73bd3114a9e637474ff99b",
+        "status": "CONVERTED"
+      },
+      "instance_id": "psf__requests-2931",
+      "qualification": {
+        "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+        "failed_rules": [],
+        "normalized_trace_file_sha256": "85ae547370d18165150a3da5ba22e9287d49da73becf8526f24e16c408886113",
+        "program_id": "psf__requests-2931",
+        "qualification_checks": {
+          "Q1": true,
+          "Q2": true,
+          "Q3": true,
+          "Q4": true,
+          "Q5": true,
+          "Q6": true,
+          "Q7": true,
+          "Q8": true,
+          "Q9": true
+        },
+        "qualification_file_sha256": "9bc7eaf2daf6b13f3c36906ed08b23e7530fc0c85f3b7304c013ff778d7129f3",
+        "qualification_sha256": "b7bccae2099015f31a8ef899e01a415645dfc0cd3db34f904ede8446e5052306",
+        "qualification_status": "QUALIFIED",
+        "session_id": "phase5:swe:psf__requests-2931:session:1",
+        "terminal_class": "RIGHT_CENSORED",
+        "token_materialization_file_sha256": "8feec47e45100901be4d432e6c7d6ca3ee401c4132faf184136eff6550f9455b",
+        "tool_fixtures_file_sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "trace_id": "phase5:swe:psf__requests-2931"
+      },
+      "qualification_status": "QUALIFIED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "Submitted",
+        "agent_outcome": "SUBMITTED",
+        "instance_id": "pydata__xarray-3993",
+        "run_json_sha256": "d16e1282f75691d1f29b0541021d7ca81c4f2c599dc43e227520f339c621a687",
+        "sidecar_sha256": "7d4c34fe39b969b119ad02f0dcd97693be5d4fa734be39e56ba6b0907aca1d52",
+        "status": "completed",
+        "trajectory_sha256": "cce992cd34c223b4eb27ffc99da973abc21f6f5f12f6f4690fceae0a343b644e"
+      },
+      "conversion": {
+        "instance_id": "pydata__xarray-3993",
+        "record_sha256": "4b80d2d47cd1cda3073033097f93106a0c0fe639695bc4cbeff3df45b82c7db5",
+        "status": "CONVERTED"
+      },
+      "instance_id": "pydata__xarray-3993",
+      "qualification": {
+        "censor_reason": null,
+        "failed_rules": [
+          "Q6_CONTEXT_AND_EXACT_TOKENS"
+        ],
+        "normalized_trace_file_sha256": "a042a6a44d40e9563a86573267ddda4337f7deab0910c7bdc267ae10d82f4454",
+        "program_id": "pydata__xarray-3993",
+        "qualification_checks": {
+          "Q1": true,
+          "Q2": true,
+          "Q3": true,
+          "Q4": true,
+          "Q5": true,
+          "Q6": false,
+          "Q7": true,
+          "Q8": true,
+          "Q9": true
+        },
+        "qualification_file_sha256": "3fdac39e545058f6d65113df2ddac258c167c20d3897bde83d0bb9555b5c64a9",
+        "qualification_sha256": "dd7c448872c9b9ecfdbe9a1dd14f56309117094d8c4fed845c86c28f91aa5d0e",
+        "qualification_status": "EXCLUDED",
+        "session_id": "phase5:swe:pydata__xarray-3993:session:1",
+        "terminal_class": "NATURAL_TERMINAL",
+        "token_materialization_file_sha256": "334c19f5875f50207013d90a7c47ddc43ea0f49cdc57c513b056633a88dba173",
+        "tool_fixtures_file_sha256": "e77fe8297a7d3eadb512790388dc515f573ad9fb0b372740901bcaa9acbf7a32",
+        "trace_id": "phase5:swe:pydata__xarray-3993"
+      },
+      "qualification_status": "EXCLUDED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "ContextLengthExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "instance_id": "pylint-dev__pylint-6386",
+        "run_json_sha256": "f04539b737b77d4aca3356379551a9bd8291e4e010c61f23528bfd7f3aace5e4",
+        "sidecar_sha256": "4723aa2a14ef3865f0e52932ad3ded1938f72d8c672215d92a0a6f195a803b17",
+        "status": "completed",
+        "trajectory_sha256": "e65bc9001e67d10cec45493ee35c012b7ace6482189f15b222409e5b7c3f88a9"
+      },
+      "conversion": {
+        "instance_id": "pylint-dev__pylint-6386",
+        "reason": "ValueError: tool result cannot be recovered from trajectory",
+        "retry_authorized": false,
+        "status": "EXCLUDED_PRE_NORMALIZATION"
+      },
+      "instance_id": "pylint-dev__pylint-6386",
+      "qualification": null,
+      "qualification_status": "NOT_EVALUATED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "LimitsExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "instance_id": "pytest-dev__pytest-7982",
+        "run_json_sha256": "50f136a303ccf1c1308d923f9e4a625343880d3a0f3fd5a9bca1994c9dcb1a30",
+        "sidecar_sha256": "b96760d264a5132a529c4146aeb05369e02aab7007069799429e24ca55e94eb1",
+        "status": "completed",
+        "trajectory_sha256": "ba36c6e06212494f1408820cb03c0b9eb6243da86ed11b45e57d70f44fce3c1c"
+      },
+      "conversion": {
+        "instance_id": "pytest-dev__pytest-7982",
+        "record_sha256": "e14e96bf6a56980cbb0a81caa35932424c9de4371afd4828debfbdba8049418b",
+        "status": "CONVERTED"
+      },
+      "instance_id": "pytest-dev__pytest-7982",
+      "qualification": {
+        "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+        "failed_rules": [],
+        "normalized_trace_file_sha256": "71d0e74dbb6665c1f0f6d29cc5e51899c932ecc597975ad651e6102fbe6a19bc",
+        "program_id": "pytest-dev__pytest-7982",
+        "qualification_checks": {
+          "Q1": true,
+          "Q2": true,
+          "Q3": true,
+          "Q4": true,
+          "Q5": true,
+          "Q6": true,
+          "Q7": true,
+          "Q8": true,
+          "Q9": true
+        },
+        "qualification_file_sha256": "87e328b3bfcb90109c81e4d0eefd7213b8fa294bcb65cf5ba2cb7681e56d583b",
+        "qualification_sha256": "7c00e30bff1313c5bdb4e7c91d6018e0646242cc6184e4045ae40d27ac9ee6bb",
+        "qualification_status": "QUALIFIED",
+        "session_id": "phase5:swe:pytest-dev__pytest-7982:session:1",
+        "terminal_class": "RIGHT_CENSORED",
+        "token_materialization_file_sha256": "a68d914c54f14dc1790f94219d6261cb3c58da4206a3f3db1ceaf1c3f469987d",
+        "tool_fixtures_file_sha256": "d11a75901f83a52173fab7272c9ef92a29faaff7c1142507968afc13fdb33df8",
+        "trace_id": "phase5:swe:pytest-dev__pytest-7982"
+      },
+      "qualification_status": "QUALIFIED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "Submitted",
+        "agent_outcome": "SUBMITTED",
+        "instance_id": "scikit-learn__scikit-learn-14983",
+        "run_json_sha256": "6cad1e46588d11526f68c95785613e9ccf25d56e311c12e6b8cb23e0d4eb3478",
+        "sidecar_sha256": "067ec08a933e1a4c0a107cdc44f19562df0e9ad4ce58f0e55fb76387ad7fccb9",
+        "status": "completed",
+        "trajectory_sha256": "0b887e702d44a449ebae26769d17906eee1d714473dbee8b307cc09ad3f237de"
+      },
+      "conversion": {
+        "instance_id": "scikit-learn__scikit-learn-14983",
+        "record_sha256": "10eb7d4217e171de8861bab60eee6339acdd272d7072454b7bf474bb0a0e501b",
+        "status": "CONVERTED"
+      },
+      "instance_id": "scikit-learn__scikit-learn-14983",
+      "qualification": {
+        "censor_reason": null,
+        "failed_rules": [
+          "Q6_CONTEXT_AND_EXACT_TOKENS"
+        ],
+        "normalized_trace_file_sha256": "8ba6211edc6f4660ed8a44b0776e94e0091d05cd89952f62e97664889668a8e8",
+        "program_id": "scikit-learn__scikit-learn-14983",
+        "qualification_checks": {
+          "Q1": true,
+          "Q2": true,
+          "Q3": true,
+          "Q4": true,
+          "Q5": true,
+          "Q6": false,
+          "Q7": true,
+          "Q8": true,
+          "Q9": true
+        },
+        "qualification_file_sha256": "3b04ff28302688a60b3138fbcfdfe05e9d21aca45231da6cd8ff10b009d4a632",
+        "qualification_sha256": "470323d6f8b8124d79b3d35001653ba390c5367de817b49519199a27bc3663a4",
+        "qualification_status": "EXCLUDED",
+        "session_id": "phase5:swe:scikit-learn__scikit-learn-14983:session:1",
+        "terminal_class": "NATURAL_TERMINAL",
+        "token_materialization_file_sha256": "fdff42c2a784b445b58a1a0d8e29028f1acd58372f088a80f73f972123df1916",
+        "tool_fixtures_file_sha256": "17a9e73ed1395092e9479acb41bdea728864cd38b698c61d6bbf48bd33777c5e",
+        "trace_id": "phase5:swe:scikit-learn__scikit-learn-14983"
+      },
+      "qualification_status": "EXCLUDED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "ContextLengthExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "instance_id": "sphinx-doc__sphinx-8593",
+        "run_json_sha256": "0063acc65e1ad3814305c0266b3841a0348e5aa9ca1dc6e5e50aefee1a0cf593",
+        "sidecar_sha256": "503b2193ce09e68535f814c3e1cb365769839463a71383316c01e5a48bd3e698",
+        "status": "completed",
+        "trajectory_sha256": "1da8369076426b13d95553767649b3ff41222c1ba93faefb4d439c8b8bf0cf85"
+      },
+      "conversion": {
+        "instance_id": "sphinx-doc__sphinx-8593",
+        "reason": "ValueError: tool result cannot be recovered from trajectory",
+        "retry_authorized": false,
+        "status": "EXCLUDED_PRE_NORMALIZATION"
+      },
+      "instance_id": "sphinx-doc__sphinx-8593",
+      "qualification": null,
+      "qualification_status": "NOT_EVALUATED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "LimitsExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "instance_id": "sympy__sympy-15017",
+        "run_json_sha256": "6bd0c8051f6186d61a068ee0989c77ca6292f6aa85ad6665621ae032090b923d",
+        "sidecar_sha256": "c1f619d406c4fc6e7993292cb5126f7337653c59f0e0a60e771e56a5371b8c17",
+        "status": "completed",
+        "trajectory_sha256": "cc0dc747bcd9dec228babf5fe55a8a3dac361b8ec22f9f9879799d0d559b69db"
+      },
+      "conversion": {
+        "instance_id": "sympy__sympy-15017",
+        "record_sha256": "80917c07e26fa95ecfa514423ed619c1c2b3c7c48229483181440724075563d1",
+        "status": "CONVERTED"
+      },
+      "instance_id": "sympy__sympy-15017",
+      "qualification": {
+        "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+        "failed_rules": [],
+        "normalized_trace_file_sha256": "73b7d817c28887b8531b76e8e580cfbbbaf0faabc8352a37853a7410db82c6bd",
+        "program_id": "sympy__sympy-15017",
+        "qualification_checks": {
+          "Q1": true,
+          "Q2": true,
+          "Q3": true,
+          "Q4": true,
+          "Q5": true,
+          "Q6": true,
+          "Q7": true,
+          "Q8": true,
+          "Q9": true
+        },
+        "qualification_file_sha256": "ca74d317cb35fcfd29aac9041f58bc9a4a7a393a60b27054374a746227ae5071",
+        "qualification_sha256": "f5b062da0373175f938f3a3f9b687df163fb932aa16a3f97e73602066ffaa03d",
+        "qualification_status": "QUALIFIED",
+        "session_id": "phase5:swe:sympy__sympy-15017:session:1",
+        "terminal_class": "RIGHT_CENSORED",
+        "token_materialization_file_sha256": "9ea41a6a52b6894a505dd5b09b46a18c5301b2cb21e2ac90690d5418b06b4f3f",
+        "tool_fixtures_file_sha256": "e9dd0a7e750f05a4fc8f7faf674f396114ae40c679d81fc9a95ba3bf7f152424",
+        "trace_id": "phase5:swe:sympy__sympy-15017"
+      },
+      "qualification_status": "QUALIFIED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "LimitsExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "instance_id": "sympy__sympy-16886",
+        "run_json_sha256": "0c0903f733261c6b03a0a70783e1798ab1edf2294cd85e7763df07b7c0538387",
+        "sidecar_sha256": "d8f67635eed8ce4b3cb3068974eb18a984d16ff81fd3e239c30afd06e4107230",
+        "status": "completed",
+        "trajectory_sha256": "91566af003186d2aac6eb481359c219b259be0703d79a337aec3c4f84cdf207d"
+      },
+      "conversion": {
+        "instance_id": "sympy__sympy-16886",
+        "record_sha256": "a9f9f5842107068a350ceeee0c0e21071fa69cc378d082ebd449373ab6324e1b",
+        "status": "CONVERTED"
+      },
+      "instance_id": "sympy__sympy-16886",
+      "qualification": {
+        "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+        "failed_rules": [],
+        "normalized_trace_file_sha256": "b7efd9d2a88f579240fbf9a9f0a8a53c0471a1c66fad9d771e144152ff1ccb24",
+        "program_id": "sympy__sympy-16886",
+        "qualification_checks": {
+          "Q1": true,
+          "Q2": true,
+          "Q3": true,
+          "Q4": true,
+          "Q5": true,
+          "Q6": true,
+          "Q7": true,
+          "Q8": true,
+          "Q9": true
+        },
+        "qualification_file_sha256": "b9d7758d308e857ac086d82ad6897ba547a7834b892fc53b9f65e77abe2bdc6d",
+        "qualification_sha256": "0754b42148ea345a9fb139dfb04358076835f98eaaafb2faa283dccbe9965edd",
+        "qualification_status": "QUALIFIED",
+        "session_id": "phase5:swe:sympy__sympy-16886:session:1",
+        "terminal_class": "RIGHT_CENSORED",
+        "token_materialization_file_sha256": "15e35cd211cca5a2a02bde9cf13370b782cfb2e5cb912df38f71bde76ad20822",
+        "tool_fixtures_file_sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "trace_id": "phase5:swe:sympy__sympy-16886"
+      },
+      "qualification_status": "QUALIFIED"
+    },
+    {
+      "attempt": {
+        "agent_exit_status": "LimitsExceeded",
+        "agent_outcome": "INCOMPLETE",
+        "instance_id": "sympy__sympy-21596",
+        "run_json_sha256": "3dcbfa2338e3283587a84b3581b71d7607a4aaba5d99d4c75ddcfde8dd8ee073",
+        "sidecar_sha256": "112b75f1e2db28b1928973170d3977d2c881f2786cd7df93c9dbaf489dcab9bd",
+        "status": "completed",
+        "trajectory_sha256": "f891afce08b01a679a83ec75618171cc291ed9843d02e6dbeadfc5daa4687b76"
+      },
+      "conversion": {
+        "instance_id": "sympy__sympy-21596",
+        "record_sha256": "14fb1dc2780e7ae9438bc56d507357bebdb74654984609ee27a441da144b51ca",
+        "status": "CONVERTED"
+      },
+      "instance_id": "sympy__sympy-21596",
+      "qualification": {
+        "censor_reason": "SOURCE_SESSION_RIGHT_CENSORED",
+        "failed_rules": [],
+        "normalized_trace_file_sha256": "e9c3524b9c319a73594343c9b28ecbb7b10b77f11ceb254950a54423a1d03611",
+        "program_id": "sympy__sympy-21596",
+        "qualification_checks": {
+          "Q1": true,
+          "Q2": true,
+          "Q3": true,
+          "Q4": true,
+          "Q5": true,
+          "Q6": true,
+          "Q7": true,
+          "Q8": true,
+          "Q9": true
+        },
+        "qualification_file_sha256": "5aa5a4ed8de3aa79bc5fdaf000f2d16fc491fcdda0ce544806031f9e08522d9d",
+        "qualification_sha256": "9a2bde46182a3a9201a8d09e764935d8b8f4d827c3a2ad6c4997ac05b2d8a667",
+        "qualification_status": "QUALIFIED",
+        "session_id": "phase5:swe:sympy__sympy-21596:session:1",
+        "terminal_class": "RIGHT_CENSORED",
+        "token_materialization_file_sha256": "f5671d5db97328b9235287c6a7d3e18d510819b67280811f2867a6e8a11128a2",
+        "tool_fixtures_file_sha256": "4778d30619583a744a3aa8fbd9c6f60e7ed596a4a93f44045c232149b52389f3",
+        "trace_id": "phase5:swe:sympy__sympy-21596"
+      },
+      "qualification_status": "QUALIFIED"
+    }
+  ],
+  "schema_version": "phase5.swe_historical_reacquisition_ledger.v1",
+  "status": "COMPLETE_WITH_EXCLUSIONS"
+}

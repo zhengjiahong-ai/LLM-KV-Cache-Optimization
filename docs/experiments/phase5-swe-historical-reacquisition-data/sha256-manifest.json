@@ -1,0 +1,8 @@
+{
+  "files": {
+    "swe-combined-48-program-candidate-inventory.json": "f584ca5d6a231d174eaee709cbcb4ee8a2637af4f01a10ecf65509c019d0a7dc",
+    "swe-historical-reacquisition-attempt-ledger.json": "1483500e720480468cbb1ad858e49cdcb1f9f4dfd3125f5db58cd51275ecce97",
+    "swe-historical-reacquisition-review-summary.json": "d5e39ea2f21cd045c91a881ac41f820af33d84b36cad08000aff01226c40b260"
+  },
+  "schema_version": "phase5.swe_reacquisition_review_manifest.v1"
+}
