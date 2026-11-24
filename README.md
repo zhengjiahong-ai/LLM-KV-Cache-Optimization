@@ -15,7 +15,7 @@ The system foundation includes program/session identity, tool-gap and reuse hist
 
 See [Research Motivation and Contributions](docs/research-motivation-and-contributions.md) for the canonical motivation, research questions, contribution boundaries, and terminology.
 
-## Current Status (as of 2026-11-20)
+## Current Status (as of 2026-11-24)
 
 **Repository:** [zhengjiahong-ai/LLM-KV-Cache-Optimization](https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization)  
 **Main HEAD before this documentation update:** `4a8ff8e3f9c3829be4fd542f8a19132f1837d753` (PR #124 merged).
@@ -30,16 +30,16 @@ See [Research Motivation and Contributions](docs/research-motivation-and-contrib
 
 | Area | Current state |
 | --- | --- |
-| Formal design | M1 accepts M4's six-system design; protocol JSON remains `DESIGN_FROZEN_CANDIDATE` |
+| Formal design | SWE-only formal scope accepted; old two-stratum JSON is superseded for execution and requires coordinated D-stage amendment |
 | Engineering | PR #124 merged; CPU/Mock campaign path integrated |
 | DVA-ER v1 | 28 focused CPU correctness tests passed; formal candidate selection/freeze gate remains open |
-| SWE-bench traces | New Phase 5 acquisition not completed |
-| BFCL Web Search traces | New acquisition and frozen fixtures not completed |
-| Qualified Cohort | Not selected; no Phase 5 Workload Seal |
+| SWE-bench formal traces | 35 current candidate Sessions from PR #129; not yet M4-qualified; minimum 48 independent Programs required |
+| BFCL Derived supplement | 159 eligible Sessions / 88 Programs / 12 minimum-Turn Groups; 4+8 partition/protocol package in progress; no formal BFCL stratum |
+| SWE Formal Cohort | Not yet M4-qualified or sealed |
 | Native GPU Conformance | Not passed; Phase 5E Part A remains a GPU gate |
 | GPU Calibration / Formal | Not started and not authorized |
 
-The approved next work package is [Phase 5 Dataset Acquisition & Construction](docs/experiments/phase5-dataset-acquisition-and-construction.md). It covers SWE-bench Verified coding-agent traces and BFCL v4 Web Search traces with frozen tool fixtures. PR #125 was merged on 2026-11-19; the documentation pause is lifted and the approved dataset-construction work package may proceed.
+The current parallel data work package is [Phase 5 Concurrent Dataset Construction](docs/experiments/phase5-dataset-acquisition-and-construction.md): SWE-bench formal data and BFCL Derived supplementary data. See the [M1 scope amendment](docs/experiments/phase5-scope-amendment-2026-11-24.md). PR #125 was merged on 2026-11-19; the documentation pause is lifted and the approved dataset-construction work package may proceed.
 
 **Important distinction:** PR #124 establishes CPU/Mock contracts and production-shaped runner wiring. It does not establish live EngineCore/BlockPool behavior, Native concurrency, GPU conformance, trace availability, cohort qualification or algorithmic benefit. Dataset-construction approval does not authorize GPU Calibration or Formal execution.
 
