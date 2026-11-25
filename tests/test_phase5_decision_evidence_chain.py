@@ -10,6 +10,7 @@ def _inputs():
         "status": "PASS",
         "decision_id": "d1",
         "snapshot_sha256": "1" * 64,
+        "a0_baseline_selection": "b",
         "decisions": {
             "DVA_ER_V1": {
                 "scores": {"a": 1.0, "b": 2.0},
@@ -48,19 +49,33 @@ def _inputs():
             }
         ]
     }
-    return evaluation, plan, outcome, downstream
+    a0_outcomes = {
+        "pb1": {
+            "system_id": "CONTINUUM_ADAPTED",
+            "pressure_boundary_id": "pb1",
+            "status": "PHYSICAL_EVICTION_OBSERVED",
+            "matched_physical_block_ids": [11],
+            "unmatched_physical_block_ids": [],
+            "hashless_physical_block_ids": [],
+            "block_content_identities": {"11": "content-b"},
+        }
+    }
+    return evaluation, plan, outcome, a0_outcomes, downstream
 
 
 def test_complete_decision_chain_is_independently_joined() -> None:
-    evaluation, plan, outcome, downstream = _inputs()
+    evaluation, plan, outcome, a0_outcomes, downstream = _inputs()
     report = evaluate_phase5_decision_evidence(
         candidate_evaluations=[evaluation],
         selection_plans=[plan],
         physical_outcomes=[outcome],
+        a0_physical_outcomes_by_boundary=a0_outcomes,
         downstream_by_decision=downstream,
         candidate_id="DVA_ER_V1",
     )
     assert report["status"] == "PASS"
+    assert report["decisions"][0]["physical"]["a0_selected_entry_id"] == "b"
+    assert report["decisions"][0]["physical"]["a0_matched_physical_block_ids"] == [11]
     assert (
         report["decisions"][0]["downstream"]["observations"][0]["observed_recomputed_tokens"] == 5
     )
@@ -68,12 +83,13 @@ def test_complete_decision_chain_is_independently_joined() -> None:
 
 
 def test_missing_physical_or_downstream_evidence_fails_closed() -> None:
-    evaluation, plan, outcome, downstream = _inputs()
+    evaluation, plan, outcome, a0_outcomes, downstream = _inputs()
     with pytest.raises(ValueError, match="coverage differs"):
         evaluate_phase5_decision_evidence(
             candidate_evaluations=[evaluation],
             selection_plans=[plan],
             physical_outcomes=[],
+            a0_physical_outcomes_by_boundary=a0_outcomes,
             downstream_by_decision=downstream,
             candidate_id="DVA_ER_V1",
         )
@@ -82,6 +98,17 @@ def test_missing_physical_or_downstream_evidence_fails_closed() -> None:
             candidate_evaluations=[evaluation],
             selection_plans=[plan],
             physical_outcomes=[outcome],
+            a0_physical_outcomes_by_boundary=a0_outcomes,
             downstream_by_decision={},
+            candidate_id="DVA_ER_V1",
+        )
+
+    with pytest.raises(ValueError, match="A0 physical outcome boundary coverage"):
+        evaluate_phase5_decision_evidence(
+            candidate_evaluations=[evaluation],
+            selection_plans=[plan],
+            physical_outcomes=[outcome],
+            a0_physical_outcomes_by_boundary={},
+            downstream_by_decision=downstream,
             candidate_id="DVA_ER_V1",
         )

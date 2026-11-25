@@ -77,6 +77,7 @@ def evaluate_phase5_decision_evidence(
     candidate_evaluations: Sequence[Mapping[str, object]],
     selection_plans: Sequence[Mapping[str, object]],
     physical_outcomes: Sequence[Mapping[str, object]],
+    a0_physical_outcomes_by_boundary: Mapping[str, Mapping[str, object]],
     downstream_by_decision: Mapping[str, Sequence[Mapping[str, object]]],
     candidate_id: str,
 ) -> dict[str, object]:
@@ -100,6 +101,9 @@ def evaluate_phase5_decision_evidence(
         raise ValueError("decision/SelectionPlan/Physical Outcome coverage differs")
     if set(downstream_by_decision) != set(evaluations):
         raise ValueError("downstream observation coverage differs")
+    plan_boundaries = {str(row.get("pressure_boundary_id")) for row in plans.values()}
+    if set(a0_physical_outcomes_by_boundary) != plan_boundaries:
+        raise ValueError("A0 physical outcome boundary coverage differs")
     rows = []
     for decision_id, evaluation in evaluations.items():
         physical = join_candidate_physical_evidence(
@@ -107,6 +111,9 @@ def evaluate_phase5_decision_evidence(
             candidate_id=candidate_id,
             selection_plan=plans[decision_id],
             physical_outcome=outcomes[decision_id],
+            a0_physical_outcome=a0_physical_outcomes_by_boundary[
+                str(plans[decision_id].get("pressure_boundary_id"))
+            ],
         )
         downstream = join_downstream_observations(
             physical_evidence=physical,

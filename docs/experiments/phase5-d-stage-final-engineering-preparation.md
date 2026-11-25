@@ -13,6 +13,9 @@ candidate. M1/M2 divergence is computed only against an explicit A0 comparator;
 distinct observed entries or victim sequences remain descriptive heterogeneity,
 not algorithmic divergence. M3 separately reports physical-vs-predicted and,
 when observable, selected-physical-vs-A0 comparisons.
+The formal physical-evidence producer now requires the independently executed
+`CONTINUUM_ADAPTED` outcome for the same frozen Pressure Boundary and emits the
+A0 selected, predicted and physical comparator fields consumed by M1/M2/M3.
 
 ## 1. SWE-only execution contract
 

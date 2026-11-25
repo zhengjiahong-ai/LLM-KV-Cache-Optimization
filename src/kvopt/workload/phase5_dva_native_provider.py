@@ -130,6 +130,13 @@ class DVAERNativeDecisionProvider:
             raise DVAERNativeProviderError(
                 "candidate Program/Session identity map is incomplete"
             )
+        if (
+            candidates.get("decision_program_id") != program_id
+            or candidates.get("decision_session_id") != session_id
+        ):
+            raise DVAERNativeProviderError(
+                "candidate snapshot does not belong to the current Program/Session"
+            )
 
         blocks = _sequence(pool.get("blocks"), "BlockPool blocks")
         queue = _sequence(pool.get("free_queue_order"), "free queue order")

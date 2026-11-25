@@ -30,6 +30,7 @@ def join_candidate_physical_evidence(
     candidate_id: str,
     selection_plan: Mapping[str, object],
     physical_outcome: Mapping[str, object],
+    a0_physical_outcome: Mapping[str, object],
 ) -> dict[str, object]:
     """Bind planned and observed victims without claiming downstream benefit."""
 
@@ -56,6 +57,7 @@ def join_candidate_physical_evidence(
         raise ValueError("physical outcome pressure boundary mismatch")
     if physical_outcome.get("status") != "PHYSICAL_EVICTION_OBSERVED":
         raise ValueError("physical eviction outcome is not observable")
+    a0_selected = _text(evaluation.get("a0_baseline_selection"), "A0 selected Entry")
 
     predicted = _block_ids(
         decision.get("simulated_native_victim_block_ids"),
@@ -70,6 +72,9 @@ def join_candidate_physical_evidence(
     }
     if set(all_predicted) != set(decision.get("scores", {})):
         raise ValueError("victim sequence map differs from the scored candidate set")
+    if a0_selected not in all_predicted:
+        raise ValueError("A0 selected Entry is outside the predicted candidate set")
+    a0_predicted = tuple(all_predicted[a0_selected])
     planned = _block_ids(
         selection_plan.get("selected_native_block_ids"),
         "SelectionPlan block IDs",
@@ -113,6 +118,37 @@ def join_candidate_physical_evidence(
         if (identity == "HASHLESS") != (numeric_block_id in set(hashless)):
             raise ValueError("HASHLESS content identity classification is inconsistent")
 
+    if a0_physical_outcome.get("system_id") != "CONTINUUM_ADAPTED":
+        raise ValueError("A0 physical outcome does not come from CONTINUUM_ADAPTED")
+    if a0_physical_outcome.get("pressure_boundary_id") != boundary_id:
+        raise ValueError("A0 physical outcome pressure boundary mismatch")
+    if a0_physical_outcome.get("status") != "PHYSICAL_EVICTION_OBSERVED":
+        raise ValueError("A0 physical eviction outcome is not observable")
+    a0_matched = _block_ids(
+        a0_physical_outcome.get("matched_physical_block_ids"),
+        "A0 matched physical block IDs",
+    )
+    a0_unmatched = _block_ids(
+        a0_physical_outcome.get("unmatched_physical_block_ids"),
+        "A0 unmatched physical block IDs",
+    )
+    a0_hashless = _block_ids(
+        a0_physical_outcome.get("hashless_physical_block_ids"),
+        "A0 hashless physical block IDs",
+    )
+    if (
+        set(a0_matched) & set(a0_unmatched)
+        or set(a0_matched) & set(a0_hashless)
+        or set(a0_unmatched) & set(a0_hashless)
+    ):
+        raise ValueError("A0 physical outcome block classes are not disjoint")
+    a0_content_rows = a0_physical_outcome.get("block_content_identities")
+    if not isinstance(a0_content_rows, Mapping):
+        raise TypeError("A0 physical block/content identities are absent")
+    a0_observed = set(a0_matched) | set(a0_unmatched) | set(a0_hashless)
+    if set(map(str, a0_observed)) != set(a0_content_rows):
+        raise ValueError("A0 physical block/content identity coverage differs")
+
     payload = {
         "schema_version": "phase5.candidate_physical_evidence.v1",
         "status": "PASS",
@@ -122,10 +158,16 @@ def join_candidate_physical_evidence(
         "candidate_id": candidate_id,
         "candidate_loss_by_entry": dict(decision.get("scores", {})),
         "selected_entry_id": decision.get("selected_candidate_id"),
+        "a0_selected_entry_id": a0_selected,
         "predicted_native_victim_sequence": list(predicted),
+        "a0_predicted_native_victim_sequence": list(a0_predicted),
         "predicted_native_victim_sequences_by_entry": all_predicted,
         "selection_plan_native_block_ids": list(planned),
         "matched_physical_block_ids": list(matched),
+        "a0_matched_physical_block_ids": list(a0_matched),
+        "a0_unmatched_physical_block_ids": list(a0_unmatched),
+        "a0_hashless_physical_block_ids": list(a0_hashless),
+        "a0_block_content_identities": dict(a0_content_rows),
         "unmatched_physical_block_ids": list(unmatched),
         "hashless_physical_block_ids": list(hashless),
         "block_content_identities": dict(content_rows),

@@ -22,6 +22,8 @@ def _state():
             "a": {"program_id": "p-a", "session_id": "s-a"},
             "b": {"program_id": "p-b", "session_id": "s-b"},
         },
+        "decision_program_id": "p",
+        "decision_session_id": "s",
         "a0_order": ["a", "b"],
         "a0_baseline_selection": "a",
         "a1_features": {"scores": {"a": 1, "b": 2}},
@@ -113,6 +115,7 @@ def test_live_provider_binds_pool_owner_protection_and_timer() -> None:
         "wrong_core",
         "missing_chain",
         "wrong_session",
+        "wrong_current_session",
     ],
 )
 def test_live_provider_fails_closed_on_invalid_runtime_evidence(mutation: str) -> None:
@@ -127,6 +130,8 @@ def test_live_provider_fails_closed_on_invalid_runtime_evidence(mutation: str) -
         timers["followups"]["a"]["chain_id"] = ""
     elif mutation == "wrong_session":
         timers["followups"]["a"]["session_id"] = "other"
+    elif mutation == "wrong_current_session":
+        candidates["decision_session_id"] = "other"
     else:
         pool["engine_core_identity"] = "other"
     with pytest.raises(DVAERNativeProviderError):

@@ -72,6 +72,7 @@ def test_three_candidates_share_one_snapshot_and_report_divergence() -> None:
         ),
     )
     assert report["status"] == "PASS"
+    assert report["a0_baseline_selection"] == "x"
     assert report["pairwise_selection_divergence"]["A1_ORIGINAL_vs_A3_SUFFIX"]
     assert report["algorithmic_benefit_claim"] == "NOT_ESTABLISHED"
 

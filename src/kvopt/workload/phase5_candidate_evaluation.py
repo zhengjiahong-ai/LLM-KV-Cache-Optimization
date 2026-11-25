@@ -175,6 +175,7 @@ def evaluate_candidate_family(
         "status": "PASS",
         "decision_id": snapshot.decision_id,
         "snapshot_sha256": snapshot.sha256,
+        "a0_baseline_selection": snapshot.a0_baseline_selection,
         "legal_candidate_count": len(snapshot.legal_candidate_ids),
         "multi_candidate": len(snapshot.legal_candidate_ids) >= 2,
         "decisions": {

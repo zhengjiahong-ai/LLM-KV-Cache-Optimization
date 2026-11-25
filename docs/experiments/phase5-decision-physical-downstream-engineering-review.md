@@ -65,6 +65,10 @@ The independent join now binds:
 - selected Entry and Native SelectionPlan;
 - matched, unmatched, and hashless physical victims;
 - Block ID to content identity mappings.
+- the A0 baseline-selected Entry and its snapshot-derived predicted victim sequence;
+- the independently executed `CONTINUUM_ADAPTED` physical outcome aligned by the
+  same frozen Pressure Boundary, including matched/unmatched/hashless Blocks and
+  content identities.
 
 Wrong Decision/Boundary identities, missing content identity, duplicate block
 IDs, or a SelectionPlan that differs from the selected prediction fails closed.
@@ -73,6 +77,11 @@ Formal run manifests and the campaign archive now require three additional
 immutable evidence streams: `decision_physical_events` and
 `downstream_observations`, plus `mechanism_observations_m0_m5`. The archive can no longer pass while silently
 omitting these files.
+
+M1/M2/M3 comparator fields are produced by this join rather than injected by
+the analysis fixture. Missing A0 boundary coverage, a mismatched boundary, or
+an A0 outcome not labelled `CONTINUUM_ADAPTED` fails closed. The comparison is
+cross-arm observational evidence and does not by itself establish causality.
 
 ## 4. Downstream observation boundary
 
