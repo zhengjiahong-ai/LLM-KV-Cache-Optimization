@@ -24,6 +24,8 @@ Current single-formal-stratum design counts, subject to that amendment:
 
 This addendum does not authorize Native/GPU Conformance, SWE Calibration/Formal execution or BFCL Derived execution. Machine-readable execution remains blocked until the coordinated amendment and later M1 gates are accepted.
 
+> **2026-11-25 statistical amendment:** M1 has accepted the single-stratum values df_between=3, df_within=8, df_total=11, df_covariance=3, 72 calibration runs and 96/144/192 formal runs. Use [the SWE-only statistical amendment](phase5-swe-only-statistical-amendment-2026-11-25.md) and its machine-readable amendment for current planning. The remaining two-stratum counts in the historical body below are not normative.
+
 ---
 
 ## Historical v1 design record — two-stratum protocol (superseded for current execution)
@@ -598,3 +600,4 @@ REQUESTED_GPU_BUDGET = 72_TO_112_GPU_HOURS
 ```
 
 This protocol records the accepted research design and remaining freeze/compatibility gates, but it is not an execution authorization. M6 must not change the research design; implementation conflicts return to M4/M1.
+
