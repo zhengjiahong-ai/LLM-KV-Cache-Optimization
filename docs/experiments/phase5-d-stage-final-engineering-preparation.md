@@ -6,6 +6,14 @@
 
 **Frozen workload:** PR #138 SWE membership, Groups and Arrival unchanged
 
+The final contract cleanup binds the production DVA-ER provider to the exact
+EngineCore object supplied at installation and requires every controller timer
+to carry a non-empty chain identity whose Program/Session identity matches the
+candidate. M1/M2 divergence is computed only against an explicit A0 comparator;
+distinct observed entries or victim sequences remain descriptive heterogeneity,
+not algorithmic divergence. M3 separately reports physical-vs-predicted and,
+when observable, selected-physical-vs-A0 comparisons.
+
 ## 1. SWE-only execution contract
 
 All formal execution layers now use the sole formal Stratum `SWE_BENCH`:

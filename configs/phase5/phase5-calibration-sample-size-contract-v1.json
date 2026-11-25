@@ -71,7 +71,7 @@
     "strata": 1,
     "multiplicity_family": "HOLM_WITHIN_ONE_SWE_CANDIDATE_FAMILY",
     "family_size": 6,
-    "multiplicity": "HOLM_WITHIN_EACH_FAMILY_PER_STRATUM",
+    "multiplicity": "HOLM_WITHIN_EACH_SWE_FAMILY",
     "initial_conservative_alpha_per_test": 0.008333333333333333,
     "system_context_family": "NATIVE_vs_A0_AND_OFFICIAL_vs_A0_SWE_ONLY"
   },
@@ -155,13 +155,13 @@
       "archive": "MEASURED_PER_SYSTEM",
       "evaluator": "MEASURED_PER_SYSTEM"
     },
-    "minutes_of_600s_ceiling": {
-      "min_runs": 336,
-      "max_runs": 528
+    "campaign_runs_at_600s_ceiling": {
+      "min_runs": 168,
+      "max_runs": 264
     },
     "formula_at_600s_ceiling_hours": {
-      "min": 61.6,
-      "max": 96.8
+      "min": 28.0,
+      "max": 44.0
     },
     "budget_envelope_type": "M1_AUTHORIZATION_CEILING_NOT_FORMULA_OUTPUT",
     "budget_envelope_minimum_hours": 0.0,
@@ -198,7 +198,7 @@
   "analysis_contract": {
     "independent_unit": "WORKLOAD_GROUP",
     "paired_by_group": true,
-    "strata": "REPORT_SEPARATELY_AND_COMBINE_BY_FIXED_WEIGHT",
+    "strata": "SINGLE_FORMAL_STRATUM_SWE_BENCH",
     "primary_family": [
       "A1_vs_A0",
       "A3_vs_A0",
@@ -214,8 +214,7 @@
     "secondary_family": "BH_FDR_0_05_EXPLORATORY",
     "missing_policy": "COMPLETE_CASE_GROUP_NO_IMPUTATION",
     "sensitivity": [
-      "STRATUM_SEPARATE",
-      "CENSORED_VS_NONCENSORED",
+      "RIGHT_CENSORING_NOT_ESTIMABLE",
       "ARRIVAL_REALIZATION",
       "OFFICIAL_ENVIRONMENT_COMPATIBLE",
       "REPEAT_AGGREGATION"
@@ -224,13 +223,13 @@
       "NATIVE_vs_A0",
       "OFFICIAL_vs_A0"
     ],
-    "families_per_stratum": 2,
+    "families_in_swe": 2,
     "family_multiplicity": "HOLM_WITHIN_EACH_FAMILY",
-    "merged_strata_primary": false
+    "cross_stratum_pooling": "NOT_APPLICABLE"
   },
   "stop_rules": [
     "CALIBRATION_INCOMPLETE",
-    "SIX_ARM_SAMPLE_REQUIRES_MORE_THAN_16_GROUPS_PER_STRATUM",
+    "SIX_SYSTEM_SAMPLE_REQUIRES_MORE_THAN_16_SWE_GROUPS",
     "GPU_BUDGET_BELOW_MINIMUM_SAMPLE",
     "GPU_FORECAST_ABOVE_MAXIMUM_WITHOUT_M1_BUDGET",
     "FORMAL_DATA_PEEKING",

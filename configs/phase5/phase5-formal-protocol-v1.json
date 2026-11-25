@@ -321,7 +321,7 @@
   "statistics": {
     "independent_unit": "WORKLOAD_GROUP",
     "paired_by_group": true,
-    "strata_analyzed_separately": true,
+    "formal_stratum": "SWE_BENCH",
     "primary_contrasts": [
       "A1_vs_A0",
       "A3_vs_A0",
@@ -332,8 +332,7 @@
       "NATIVE_vs_A0",
       "OFFICIAL_vs_A0"
     ],
-    "primary_multiplicity_family": "TWO_PRE_REGISTERED_FAMILIES_PER_STRATUM",
-    "primary_family_size": 8,
+    "primary_multiplicity_family": "TWO_PRE_REGISTERED_FAMILIES_IN_SWE",
     "alpha": 0.05,
     "power": 0.8,
     "mde_min_tokens": 512,
@@ -343,7 +342,7 @@
       "COMPUTE_VALUE_FROM_CALIBRATION_NATIVE_GROUP_MEAN",
       "FREEZE_VALUE_BEFORE_FORMAL"
     ],
-    "multiplicity": "HOLM_WITHIN_EACH_FAMILY_PER_STRATUM",
+    "multiplicity": "HOLM_WITHIN_EACH_SWE_FAMILY",
     "secondary_multiplicity": "BH_FDR_0_05_EXPLORATORY",
     "variance_model": {
       "group_level": "b_g",
@@ -387,8 +386,7 @@
     "no_optional_stopping": true,
     "missing_policy": "COMPLETE_CASE_GROUP_NO_IMPUTATION",
     "sensitivity_analyses": [
-      "STRATUM_SEPARATE",
-      "CENSORED_VS_NONCENSORED",
+      "RIGHT_CENSORING_NOT_ESTIMABLE",
       "ARRIVAL_REALIZATION",
       "OFFICIAL_ENVIRONMENT_COMPATIBLE",
       "REPEAT_AGGREGATION"
@@ -412,7 +410,7 @@
       "SYSTEM_CONTEXT": 2
     },
     "sample_size_alpha_per_test": 0.008333333333333333,
-    "merged_strata_primary": false
+    "cross_stratum_pooling": "NOT_APPLICABLE"
   },
   "calibration": {
     "contract": "phase5.calibration_sample_size.v1",

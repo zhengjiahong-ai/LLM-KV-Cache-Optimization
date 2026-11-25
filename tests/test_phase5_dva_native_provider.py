@@ -18,6 +18,10 @@ def _state():
         "observed_at_timestamp": 9.0,
         "legal_candidate_ids": ["a", "b"],
         "candidate_key_by_id": {"a": ["p-a", "prefix-a"], "b": ["p-b", "prefix-b"]},
+        "candidate_program_session_by_id": {
+            "a": {"program_id": "p-a", "session_id": "s-a"},
+            "b": {"program_id": "p-b", "session_id": "s-b"},
+        },
         "a0_order": ["a", "b"],
         "a0_baseline_selection": "a",
         "a1_features": {"scores": {"a": 1, "b": 2}},
@@ -54,6 +58,8 @@ def _state():
         "followups": {
             candidate_id: {
                 "chain_id": f"chain-{candidate_id}",
+                "program_id": f"p-{candidate_id}",
+                "session_id": f"s-{candidate_id}",
                 "active": True,
                 "pending_tool_gap_seconds": 2.0,
                 "armed_at_timestamp": 8.0,
@@ -99,7 +105,15 @@ def test_live_provider_binds_pool_owner_protection_and_timer() -> None:
 
 
 @pytest.mark.parametrize(
-    "mutation", ["future_timer", "expired_timer", "missing_owner", "wrong_core"]
+    "mutation",
+    [
+        "future_timer",
+        "expired_timer",
+        "missing_owner",
+        "wrong_core",
+        "missing_chain",
+        "wrong_session",
+    ],
 )
 def test_live_provider_fails_closed_on_invalid_runtime_evidence(mutation: str) -> None:
     pool, candidates, timers = deepcopy(_state())
@@ -109,6 +123,10 @@ def test_live_provider_fails_closed_on_invalid_runtime_evidence(mutation: str) -
         timers["followups"]["a"]["expires_at_timestamp"] = 9.0
     elif mutation == "missing_owner":
         del pool["blocks"][0]["owner_candidate_ids"]
+    elif mutation == "missing_chain":
+        timers["followups"]["a"]["chain_id"] = ""
+    elif mutation == "wrong_session":
+        timers["followups"]["a"]["session_id"] = "other"
     else:
         pool["engine_core_identity"] = "other"
     with pytest.raises(DVAERNativeProviderError):

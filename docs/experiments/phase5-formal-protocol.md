@@ -374,7 +374,7 @@ The full contract is in `phase5-metrics-contract-v1.json`.
   `A1−A0`, `A3−A0`, `DVA−A0`, `A3−A1`, `DVA−A1`, `DVA−A3`.
 - **System context family (2 in SWE):**
   `Native−A0`, `Official−A0`.
-- The two families are pre-registered separately. Holm is applied **within each family and within each stratum** at family-wise α=0.05. Candidate claims and system-context claims are not pooled into one significance claim.
+- The two families are pre-registered separately. Holm is applied **within each SWE family** at family-wise α=0.05. Candidate claims and system-context claims are not pooled into one significance claim; there is no cross-stratum combination in the SWE-only formal design.
 - For sample size, the conservative candidate-family per-test α is `0.05/6 ≈ 0.008333`; the system family has only two tests and does not drive N. N is the maximum required across the six candidate contrasts.
 - Power = 0.80.
 - **MDE order:**
@@ -395,7 +395,7 @@ The full contract is in `phase5-metrics-contract-v1.json`.
 
 - Planned runs: calibration **72** + formal **96–192** (6 systems × N × 2 repeats, integer N=8..16; total **168–264** runs).
 - Per-run hard timeout 600s, shutdown grace 60s; reservation window 1800s.
-- `336 × 600s = 56.0 GPU-hours` before startup/restart/archive/evaluator; `528 × 600s = 88.0 GPU-hours`.
+- At the 600s ceiling, the minimum campaign is `168 × 600s = 28.0 GPU-hours` and the maximum is `264 × 600s = 44.0 GPU-hours`, before startup/restart/archive/evaluator and the single 10% reserve.
 - Resource forecast is **per system**, with explicit timing boundaries:
   - `Tcal_s`, `Tformal_s`: first dispatch to last terminal; excludes process start, engine init and archive;
   - `startup_s`: process start + engine init + model load (preheat NONE);

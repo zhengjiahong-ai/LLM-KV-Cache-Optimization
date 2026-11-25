@@ -542,7 +542,7 @@
         "multiplicity": {
           "enum": [
             "HOLM",
-            "HOLM_WITHIN_EACH_FAMILY_PER_STRATUM"
+            "HOLM_WITHIN_EACH_SWE_FAMILY"
           ]
         },
         "bootstrap_resamples": {
@@ -551,10 +551,6 @@
         },
         "no_optional_stopping": {
           "const": true
-        },
-        "primary_family_size": {
-          "type": "integer",
-          "minimum": 8
         }
       },
       "additionalProperties": true

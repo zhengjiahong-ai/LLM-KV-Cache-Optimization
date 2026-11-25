@@ -136,8 +136,8 @@ def validate_protocol(protocol: dict[str, Any], schema: dict[str, Any]) -> None:
         raise ValueError("primary contrast families do not cover the registered tests")
     if "DVA_vs_A1" not in families["CANDIDATE_MECHANISM"]:
         raise ValueError("DVA-vs-A1 contrast is missing")
-    if protocol["statistics"]["multiplicity"] != "HOLM_WITHIN_EACH_FAMILY_PER_STRATUM":
-        raise ValueError("multiplicity must be Holm within family and stratum")
+    if protocol["statistics"]["multiplicity"] != "HOLM_WITHIN_EACH_SWE_FAMILY":
+        raise ValueError("multiplicity must be Holm within each SWE family")
     if protocol["statistics"]["no_optional_stopping"] is not True:
         raise ValueError("optional stopping is prohibited")
     if protocol["statistics"]["sample_size_uses_noncentral_t_not_z"] is not True:
@@ -376,8 +376,8 @@ def validate_cross_documents(
         raise ValueError("protocol candidate family is not the six registered contrasts")
     if stats["primary_families"]["SYSTEM_CONTEXT"] != SYSTEM_CONTRASTS:
         raise ValueError("protocol system context family is not the two registered contrasts")
-    if stats["primary_family_size"] != 8:
-        raise ValueError("protocol primary family size must be eight")
+    if stats.get("primary_family_size") is not None:
+        raise ValueError("single SWE design must use the two explicit family sizes")
     if abs(stats["sample_size_alpha_per_test"] - 0.05 / 6) > 1e-12:
         raise ValueError("protocol candidate alpha must be 0.05/6")
     if stats["variance_model"]["contrast_covariance_size"] != 8:

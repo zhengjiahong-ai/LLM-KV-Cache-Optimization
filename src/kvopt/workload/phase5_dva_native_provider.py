@@ -56,17 +56,27 @@ class DVAERNativeDecisionProvider:
         self,
         *,
         engine_core_identity: str,
+        engine_core: object | None = None,
         block_pool_reader: RuntimeReader,
         candidate_reader: RuntimeReader,
         timer_reader: RuntimeReader,
     ) -> None:
         self._engine_core_identity = _text(engine_core_identity, "EngineCore identity")
+        self._bound_engine_core = engine_core
         for reader in (block_pool_reader, candidate_reader, timer_reader):
             if not callable(reader):
                 raise TypeError("DVA-ER runtime readers must be callable")
         self._block_pool_reader = block_pool_reader
         self._candidate_reader = candidate_reader
         self._timer_reader = timer_reader
+
+    @property
+    def engine_core_identity(self) -> str:
+        return self._engine_core_identity
+
+    @property
+    def bound_engine_core(self) -> object | None:
+        return self._bound_engine_core
 
     def build_snapshot(
         self,
@@ -112,6 +122,14 @@ class DVAERNativeDecisionProvider:
         candidate_keys = _mapping(candidates.get("candidate_key_by_id"), "candidate identity map")
         if set(candidate_keys) != set(legal_ids):
             raise DVAERNativeProviderError("candidate identity map is incomplete")
+        candidate_sessions = _mapping(
+            candidates.get("candidate_program_session_by_id"),
+            "candidate Program/Session identity map",
+        )
+        if set(candidate_sessions) != set(legal_ids):
+            raise DVAERNativeProviderError(
+                "candidate Program/Session identity map is incomplete"
+            )
 
         blocks = _sequence(pool.get("blocks"), "BlockPool blocks")
         queue = _sequence(pool.get("free_queue_order"), "free queue order")
@@ -134,6 +152,20 @@ class DVAERNativeDecisionProvider:
         normalized_timers: dict[str, dict[str, object]] = {}
         for candidate_id, raw in timer_rows.items():
             timer = dict(_mapping(raw, f"timer {candidate_id}"))
+            chain_id = _text(timer.get("chain_id"), "timer chain identity")
+            timer_program = _text(timer.get("program_id"), "timer Program identity")
+            timer_session = _text(timer.get("session_id"), "timer Session identity")
+            expected_identity = _mapping(
+                candidate_sessions[candidate_id],
+                f"candidate identity {candidate_id}",
+            )
+            if (
+                timer_program != expected_identity.get("program_id")
+                or timer_session != expected_identity.get("session_id")
+            ):
+                raise DVAERNativeProviderError(
+                    "controller timer Program/Session identity mismatch"
+                )
             armed = _number(timer.get("armed_at_timestamp"), "timer armed timestamp")
             observed = _number(timer.get("observed_at_timestamp"), "timer observation timestamp")
             expires = _number(timer.get("expires_at_timestamp"), "timer expiry timestamp")
@@ -147,10 +179,15 @@ class DVAERNativeDecisionProvider:
             if timer.get("pending_tool_gap_source") != "CONTROLLER_ARMED_TIMER":
                 raise DVAERNativeProviderError("follow-up timer is not controller-armed")
             timer["chain_established_at_timestamp"] = armed
+            timer["chain_id"] = chain_id
             normalized_timers[str(candidate_id)] = timer
 
         feature_payload = {
             "candidate_key_by_id": dict(candidate_keys),
+            "candidate_program_session_by_id": {
+                candidate_id: dict(_mapping(identity, f"candidate identity {candidate_id}"))
+                for candidate_id, identity in candidate_sessions.items()
+            },
             "blocks": block_rows,
             "followups": normalized_timers,
             "free_queue_order": list(queue),
@@ -249,6 +286,10 @@ def install_production_provider(
     if not isinstance(provider, DVAERNativeDecisionProvider):
         raise DVAERNativeProviderError(
             "live integration did not construct a production DVA-ER provider"
+        )
+    if provider.bound_engine_core is not engine_core:
+        raise DVAERNativeProviderError(
+            "DVA-ER provider is not bound to the supplied EngineCore object"
         )
     if getattr(integration, "dva_er_native_decision_provider", None) not in {
         None,

@@ -39,10 +39,11 @@ class _Integration:
         self.snapshots.append((_args, _kwargs))
 
     def build_dva_er_native_decision_provider(
-        self, **_native_objects: object
+        self, **native_objects: object
     ) -> DVAERNativeDecisionProvider:
         return DVAERNativeDecisionProvider(
             engine_core_identity="test-core",
+            engine_core=native_objects["engine_core"],
             block_pool_reader=dict,
             candidate_reader=dict,
             timer_reader=dict,
@@ -170,6 +171,38 @@ def test_runtime_install_requires_production_dva_provider_builder(
     monkeypatch.setattr(runtime, "validate_pinned_vllm_source_identity", dict)
 
     with pytest.raises(RuntimeError, match="build_dva_er_native_decision_provider"):
+        install_phase5e_a3_runtime(
+            engine_core=core,
+            scheduler=scheduler,
+            kv_cache_manager=manager,
+            block_pool=block_pool,
+            integration=integration,
+            clock=FakeClock(),
+            event_source=source,
+        )
+    assert not hasattr(core, "kvopt_phase5_event_source")
+
+
+def test_runtime_install_rejects_provider_bound_to_another_engine_core(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    core, scheduler, manager, block_pool = _ownership()
+    source = Phase5ERuntimeEventSource()
+    integration = _Integration(source)
+
+    def detached_builder(**_native_objects: object) -> DVAERNativeDecisionProvider:
+        return DVAERNativeDecisionProvider(
+            engine_core_identity="detached-core",
+            engine_core=object(),
+            block_pool_reader=dict,
+            candidate_reader=dict,
+            timer_reader=dict,
+        )
+
+    integration.build_dva_er_native_decision_provider = detached_builder  # type: ignore[method-assign]
+    monkeypatch.setattr(runtime, "validate_pinned_vllm_source_identity", dict)
+
+    with pytest.raises(RuntimeError, match="not bound to the supplied EngineCore"):
         install_phase5e_a3_runtime(
             engine_core=core,
             scheduler=scheduler,
