@@ -27,10 +27,13 @@ from kvopt.runtime.vllm.continuum_observation import (
 )
 from kvopt.runtime.vllm.observer import install_retention_hook
 
+from .phase5_dva_native_provider import (
+    install_production_provider,
+    production_provider_status,
+)
+
 PINNED_VLLM_SOURCE_SHA256 = {
-    "vllm.v1.core.block_pool": (
-        "51cad2fd425128a0ff433ca4685acfc022e40659153ea5d7180fc586e1eebb6c"
-    ),
+    "vllm.v1.core.block_pool": ("51cad2fd425128a0ff433ca4685acfc022e40659153ea5d7180fc586e1eebb6c"),
     "vllm.v1.core.kv_cache_manager": (
         "70f7f608c0963af155540630a5633483e5c19c0c0280dfd621760d5db2a419a6"
     ),
@@ -62,9 +65,7 @@ def validate_pinned_vllm_source_identity() -> dict[str, str]:
             )
         observed_sha256 = hashlib.sha256(source_path.read_bytes()).hexdigest()
         if observed_sha256 != expected_sha256:
-            raise Phase5ENativeRuntimeError(
-                f"pinned vLLM source identity mismatch: {module_name}"
-            )
+            raise Phase5ENativeRuntimeError(f"pinned vLLM source identity mismatch: {module_name}")
         observed[module_name] = observed_sha256
     return observed
 
@@ -88,25 +89,15 @@ class Phase5ERuntimeEventSource:
                 "clock_domain": event.clock_domain,
                 "source": event.source,
                 "native_request_id": event.native_request_id,
-                "program_id": (
-                    None if event.program_id is None else event.program_id.value
-                ),
-                "request_id": (
-                    None if event.request_id is None else event.request_id.value
-                ),
-                "prefix_id": (
-                    None
-                    if event.prefix_id is None
-                    else event.prefix_id.canonical_value
-                ),
+                "program_id": (None if event.program_id is None else event.program_id.value),
+                "request_id": (None if event.request_id is None else event.request_id.value),
+                "prefix_id": (None if event.prefix_id is None else event.prefix_id.canonical_value),
                 "payload": event.payload.to_dict(),
             }
         elif isinstance(event, Mapping):
             row = dict(event)
             if "event_index" in row:
-                raise Phase5ENativeRuntimeError(
-                    "runtime event producer cannot assign event_index"
-                )
+                raise Phase5ENativeRuntimeError("runtime event producer cannot assign event_index")
             if not isinstance(row.get("event_type"), str):
                 raise Phase5ENativeRuntimeError("runtime event_type is missing")
             if not isinstance(row.get("payload"), Mapping):
@@ -139,9 +130,7 @@ class Phase5ERuntimeEventSource:
                 raise Phase5ENativeRuntimeError("runtime integration is not installed")
             return self._runtime_integration
 
-    def _mark_installed(
-        self, report: Mapping[str, object], integration: object
-    ) -> None:
+    def _mark_installed(self, report: Mapping[str, object], integration: object) -> None:
         with self._lock:
             if self._installation_report is not None:
                 raise Phase5ENativeRuntimeError("runtime event source is already installed")
@@ -163,23 +152,17 @@ def _install_terminal_snapshot_hook(
     program_for = getattr(integration, "program_for_internal_request", None)
     observe = getattr(integration, "observe_terminal_request_snapshot", None)
     if not callable(program_for) or not callable(observe):
-        raise Phase5ENativeRuntimeError(
-            "live A3 integration lacks terminal snapshot callbacks"
-        )
+        raise Phase5ENativeRuntimeError("live A3 integration lacks terminal snapshot callbacks")
 
     @wraps(original)
     def wrapped(receiver: object, request: object, *args: object, **kwargs: object):
         if receiver is scheduler:
             internal_id = getattr(request, "request_id", None)
             if not isinstance(internal_id, str) or not internal_id:
-                raise Phase5ENativeRuntimeError(
-                    "terminal Native request identity is unavailable"
-                )
+                raise Phase5ENativeRuntimeError("terminal Native request identity is unavailable")
             program_id = program_for(internal_id)
             if not isinstance(program_id, ProgramIdentity):
-                raise Phase5ENativeRuntimeError(
-                    "terminal Native request lacks Program identity"
-                )
+                raise Phase5ENativeRuntimeError("terminal Native request lacks Program identity")
             manager = getattr(receiver, "kv_cache_manager", None)
             snapshot = snapshot_request_blocks(
                 manager,
@@ -258,6 +241,13 @@ def install_phase5e_a3_runtime(
     terminal_owner: type[object] | None = None
     terminal_original: object | None = None
     try:
+        install_production_provider(
+            integration=integration,
+            engine_core=engine_core,
+            scheduler=scheduler,
+            kv_cache_manager=kv_cache_manager,
+            block_pool=block_pool,
+        )
         terminal_owner, terminal_original = _install_terminal_snapshot_hook(
             scheduler=scheduler,
             integration=integration,
@@ -279,6 +269,7 @@ def install_phase5e_a3_runtime(
         "same_engine_core": True,
         "terminal_snapshot_boundary": "Scheduler._free_request:BEFORE_NATIVE_CALL",
         "source_sha256": source_hashes,
+        "dva_er_production_provider": production_provider_status(integration),
     }
     event_source._mark_installed(report, integration)
     return report

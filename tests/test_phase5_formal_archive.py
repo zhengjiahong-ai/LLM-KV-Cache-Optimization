@@ -28,10 +28,7 @@ def _sha(path: Path) -> str:
 
 
 def _plan():
-    groups = {
-        "SWE_BENCH": [f"s{index}" for index in range(4)],
-        "BFCL_WEB_SEARCH": [f"b{index}" for index in range(4)],
-    }
+    groups = {"SWE_BENCH": [f"s{index}" for index in range(4)]}
     square = balanced_latin_square()
     orders = {}
     ordinal = 0
@@ -74,6 +71,7 @@ def _source(tmp_path: Path):
             "exposure_events",
             "decision_physical_events",
             "downstream_observations",
+            "mechanism_observations_m0_m5",
         ):
             path = run_root / f"{evidence_name}.jsonl"
             path.write_text("{}\n", encoding="utf-8")
@@ -112,8 +110,8 @@ def test_whole_calibration_archive_round_trip(tmp_path: Path) -> None:
         source_root=root, archive_path=tmp_path / "campaign.tar.gz"
     )
     assert report["status"] == "PASS"
-    assert report["run_count"] == 144
-    assert report["run_status_counts"] == {"PASS": 144}
+    assert report["run_count"] == 72
+    assert report["run_status_counts"] == {"PASS": 72}
     assert report["archive_validation_status"] == "PASS"
     assert report["execution_authorization_effect"] == "NONE"
 
@@ -163,4 +161,4 @@ def test_failed_run_is_archived_without_fabricated_metrics(tmp_path: Path) -> No
     report = create_formal_campaign_archive(
         source_root=root, archive_path=tmp_path / "failed.tar.gz"
     )
-    assert report["run_status_counts"] == {"FAIL_CLOSED": 1, "PASS": 143}
+    assert report["run_status_counts"] == {"FAIL_CLOSED": 1, "PASS": 71}

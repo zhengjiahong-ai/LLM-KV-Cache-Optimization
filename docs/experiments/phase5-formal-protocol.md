@@ -1,9 +1,9 @@
 # Phase 5 Formal Experiment Protocol — Six-System Trace-Driven Replay
 
-**Protocol ID:** `phase5.formal_protocol.v1`  
-**Status:** `DESIGN_FROZEN_CANDIDATE` — M1 freeze required; no execution authorized.  
-**Owner:** M4 (research design); M6 (engineering implementation); M1 (scope and freeze authority).  
-**Base main:** `af33bc380e360582c7de9b8a5062ce7ec434d02e`.  
+**Protocol ID:** `phase5.formal_protocol.v1`
+**Status:** `DESIGN_FROZEN_CANDIDATE` — M1 freeze required; no execution authorized.
+**Owner:** M4 (research design); M6 (engineering implementation); M1 (scope and freeze authority).
+**Base main:** `af33bc380e360582c7de9b8a5062ce7ec434d02e`.
 **Phase 3 Protocol v4 and all historical results remain unchanged.**
 
 ---
@@ -76,11 +76,11 @@ The first formal campaign is **trace-driven replay only**. Closed-loop Agent exe
 
 | Unit | Definition | Independence / pairing |
 |---|---|---|
-| **Program** | One logical Agent task/workflow identity (repository task or BFCL task). | Programs are the sampling units within a Group; not independent across systems. |
+| **Program** | One logical SWE-bench Agent task/workflow identity. | Programs are the sampling units within a Group; not independent across systems. |
 | **Session** | One replay execution of a Program, with a frozen source trace, token IDs, tool gaps and identity. | One Session per Program in this campaign. Multiple Sessions would be a separate design. |
 | **Turn** | One model request within a Session; one Program request boundary. | Not an independent sample. |
 | **Workload Group** | A frozen bundle of **4 independent Programs** with their Sessions and one frozen program-arrival realization. | **Primary independent statistical unit.** |
-| **Stratum** | Workload family: `SWE_BENCH` or `BFCL_WEB_SEARCH`. | Pre-registered; analyzed separately and combined only by the frozen weighting rule. |
+| **Stratum** | The sole formal workload family: `SWE_BENCH`. | BFCL Derived is a separate supplementary controlled-timing experiment. |
 
 A request row, turn, tool call, runtime repeat or pressure event is **never** an independent sample.
 
@@ -161,11 +161,11 @@ Qualification is outcome-blind. The full field contract is in `phase5-workload-q
 - **4 Programs per Group**, one Session per Program.
 - Programs are selected before any system outcome is observed, with repository/task diversity constraints.
 - Each Group is a matched bundle: the same 4 Sessions, prompt IDs, turn order and arrival realization are replayed in every system and repeat.
-- Strata: SWE-Bench and BFCL Web Search.
-- Planned independent Groups per stratum: **min 8, target 12, max 16**.
-- Calibration Groups per stratum: **4**, disjoint from the formal Groups and never reused.
+- Formal Stratum: SWE-Bench only. BFCL Derived is not part of this population.
+- Planned independent formal Groups: **min 8, target 12, max 16**.
+- Calibration Groups: **4**, disjoint from the formal Groups and never reused.
 - Formal repeats per Group/System: **2**; calibration repeats: **3**.
-- Six systems per Group; formal runs = **6 × N × 2 × 2 = 24N** (192 at min, 288 at target, 384 at max). Calibration runs = **6 × 4 × 3 × 2 = 144**.
+- Six systems per Group; formal runs = **6 × N × 2 = 12N** (96/144/192 at N=8/12/16). Calibration runs = **6 × 4 × 3 = 72**.
 - A Group is `COMPLETE` only if all 4 Sessions and all required requests produce valid evidence in every system/repeat.
 - Every qualified Session has **at least 4 Turns**. There is no additional fixed Turn ceiling; the explicit acquisition stop/step limit, exact-token evidence, context limits and terminal/right-censoring rules remain binding. Turns remain repeated observations within a Session, not independent statistical units.
 - The frozen generation configuration is: `temperature=0.0`, `top_p=1.0`, `top_k=0`, `seed=20261201`, `max_new_tokens=128`, `stop=[]`, `ignore_eos=false`. It is identical across systems and repeats.
@@ -180,7 +180,7 @@ The target sample size is not fixed at design time; it is selected by the pre-re
 - Within each Session, preserve the source Turn order and observed tool gaps. Do not resample a Session's internal timing.
 - Across the 4 Programs in a Group, program starts use **Frozen-Poisson** arrival:
   - one pre-sampled realization per Group;
-  - fixed rate λ per stratum, fixed integer seed and generator identity;
+  - fixed SWE rate λ, fixed integer seed and generator identity;
   - the realized offsets and their SHA-256 are frozen before any system runs;
   - all systems and repeats use the **same** realization.
 - Primary design: `FROZEN_POISSON` program starts with within-Session empirical tool gaps.
@@ -355,24 +355,24 @@ The full contract is in `phase5-metrics-contract-v1.json`.
 
 ### 5.1 Calibration and variance components
 
-- 4 Groups per stratum (8 total), disjoint from formal Groups.
-- 6 Systems × 4 Groups × 3 repeats × 2 strata = **144 calibration runs** (plus startup).
+- 4 SWE Groups, disjoint from formal Groups.
+- 6 Systems × 4 Groups × 3 repeats = **72 calibration runs** (plus startup).
 - Calibration estimates **two distinct variance components**:
   - `σ_between²`: Group-level variability of the paired difference;
   - `σ_repeat²`: within-Group run-to-run noise.
-- **Fixed pre-registered model:** `d_{g,r,s} = μ + τ_s + b_{g(s)} + ε_{g,r,s}`, with stratum fixed effect `τ_s`, Group random effect `b_{g(s)}` and repeat residual `ε_{g,r,s}`. Variance components are common across strata; there is **no homogeneity test and no dynamic pooling switch**. Repeats are never independent Groups.
-- With only 4 Groups per stratum, the per-stratum Group-level variance has df=3; the common model has 8 Groups and df=7. Both are small-sample estimates and are reported with uncertainty.
+- **Fixed pre-registered model:** `d_{g,r} = μ + b_g + ε_{g,r}`, with Group random effect `b_g` and repeat residual `ε_{g,r}`. Repeats are never independent Groups.
+- With 4 Calibration Groups, `df_between=3`, `df_within=8`, and `df_total=11`.
 - For a future formal Group mean with 2 repeats, `σ_d² = σ_between² + σ_repeat² / 2`. The calibration repeat count (3) is not substituted for the formal repeat count (2).
-- **Two strata:** the common mixed model includes a fixed stratum effect; **no homogeneity test is used to choose a pooling rule**. For sizing, the variance for each stratum/contrast is the larger of (a) the common-model variance upper bound and (b) that stratum's own one-sided 80% bootstrap upper bound. This is fixed before calibration and is conservative.
+- The one-sided 80% bootstrap upper bound is computed for the sole SWE stratum and used for sizing.
 - **Negative variance components:** a negative method-of-moments point estimate is truncated at zero for reporting only; the bootstrap upper bound is retained for sizing. A zero point estimate is never treated as proof of no variance.
 - **Small samples:** no normal approximation; use noncentral t with the relevant df and bootstrap uncertainty. If the upper-bound variance makes `n_required > 16`, the campaign is underpowered/stop; do not select a smaller variance to rescue N.
-- **Eight contrasts** share arms: six candidate contrasts (`A1−A0`, `A3−A0`, `DVA−A0`, `A3−A1`, `DVA−A1`, `DVA−A3`) plus two system-context contrasts (`Native−A0`, `Official−A0`). Calibration estimates the full **8×8 covariance** of Group-level paired differences, projected to positive semidefinite if needed. Candidate-family sizing uses the maximum candidate-contrast upper-bound variance; the covariance is used for simulation/interval sensitivity.
+- **Eight contrasts** share arms: six candidate contrasts (`A1−A0`, `A3−A0`, `DVA−A0`, `A3−A1`, `DVA−A1`, `DVA−A3`) plus two system-context contrasts (`Native−A0`, `Official−A0`). The **8×8 covariance has rank at most 3** with four Groups; use PSD projection and pseudoinverse/simulation only, never a full-rank inverse.
 
 ### 5.2 MDE, power and primary multiplicity families
 
-- **Candidate mechanism family (6 per stratum):**
+- **Candidate mechanism family (6 in SWE):**
   `A1−A0`, `A3−A0`, `DVA−A0`, `A3−A1`, `DVA−A1`, `DVA−A3`.
-- **System context family (2 per stratum):**
+- **System context family (2 in SWE):**
   `Native−A0`, `Official−A0`.
 - The two families are pre-registered separately. Holm is applied **within each family and within each stratum** at family-wise α=0.05. Candidate claims and system-context claims are not pooled into one significance claim.
 - For sample size, the conservative candidate-family per-test α is `0.05/6 ≈ 0.008333`; the system family has only two tests and does not drive N. N is the maximum required across the six candidate contrasts.
@@ -393,7 +393,7 @@ The full contract is in `phase5-metrics-contract-v1.json`.
 
 ### 5.3 Resource budget
 
-- Planned runs: calibration **144** + formal **192–384** (6 systems × N × 2 repeats × 2 strata, N=8..16; total **336–528** runs). The run count is unchanged.
+- Planned runs: calibration **72** + formal **96–192** (6 systems × N × 2 repeats, integer N=8..16; total **168–264** runs).
 - Per-run hard timeout 600s, shutdown grace 60s; reservation window 1800s.
 - `336 × 600s = 56.0 GPU-hours` before startup/restart/archive/evaluator; `528 × 600s = 88.0 GPU-hours`.
 - Resource forecast is **per system**, with explicit timing boundaries:
@@ -407,15 +407,14 @@ The full contract is in `phase5-metrics-contract-v1.json`.
   ```text
   projected_hours =
     (1 + 0.10) × Σ_s [
-      (24×Tcal_s + 4N×Tformal_s
-       + (24+4N)×(startup_s + restart_s + archive_s + evaluator_s)) / 3600
+      (12×Tcal_s + 2N×Tformal_s
+       + (12+2N)×(startup_s + restart_s + archive_s + evaluator_s)) / 3600
     ]
   ```
-  where `s` is the six systems, 24 is calibration runs/system, `4N` is formal runs/system, and 0.10 is the **only** failure reserve. There is no second 1.20 overhead factor.
-- At the 600s ceiling, the formula gives **61.6–96.8 GPU-hours** including the 10% reserve.
-- The **72–112 GPU-hour figure is an M1 authorization/ reservation ceiling, not the direct formula output**. It adds contingency for measured startup/restart/archive/evaluator uncertainty; the measured projection must fit ≤112h before authorization.
-- If the forecast cannot support N=8 per stratum within the available budget, the campaign is `NOT_FEASIBLE`; **do not run below minimum N**. If the formula requires more than the available budget, stop and return to M1; do not automatically reduce N.
-- If projected >112h, stop and return to M1 for a new budget authorization; do not silently exceed or compress the sample.
+  where `s` is the six systems, 12 is calibration runs/system, `2N` is formal runs/system, and 0.10 is the **only** failure reserve.
+- The obsolete two-stratum 72–112 GPU-hour envelope is not reused. A new envelope is frozen by M1 after single-stratum per-system preflight measurements.
+- If the forecast cannot support N=8 within the available budget, the campaign is `NOT_FEASIBLE`; **do not run below minimum N**. If the formula requires more than the available budget, stop and return to M1; do not automatically reduce N.
+- If the measured projection cannot support the selected integer N, stop and return to M1; do not silently reduce N.
 
 The full contract is in `phase5-calibration-sample-size-contract-v1.json`.
 
@@ -437,8 +436,8 @@ For each stratum and contrast:
 
 ### 6.2 Multiplicity
 
-- Candidate mechanism family: **6 contrasts × 2 strata**; Holm within each stratum at family-wise 0.05.
-- System context family: **2 contrasts × 2 strata**; Holm within each stratum at family-wise 0.05.
+- Candidate mechanism family: **6 SWE contrasts**; Holm within the family at family-wise 0.05.
+- System context family: **2 SWE contrasts**; Holm within the family at family-wise 0.05.
 - The two families are separate pre-registered claim families. No combined 8-test significance claim and no winner-selection-then-confirmation.
 - Secondary metrics: BH-FDR 0.05, explicitly exploratory; confidence intervals are descriptive.
 - Mechanism diagnostics: descriptive, no multiplicity-adjusted causal claim.
@@ -578,7 +577,7 @@ These are explicit entry gates, not assumptions.
 | U3 | Continuum Official compatibility | Use the pinned public implementation and its documented environment; audit actual compatibility and record any upstream environment difference as a system-level confound. | Official comparison may be descriptive-only if compatibility is not established |
 | U4 | BFCL source and fixture acceptance | Acquisition direction is M1-approved; exact immutable revision, third-party content terms, raw search responses and fixture hashes must be reviewed and sealed. | BFCL stratum remains unqualified until evidence is accepted |
 | U5 | Arrival parameter freeze | The design candidate specifies `FROZEN_POISSON`, λ=0.1 Program/s and seed `20261201`; JSON still marks λ provisional and requires explicit M1 freeze before Workload Seal. | Arrival realization cannot be formally sealed |
-| U6 | GPU resource authorization | The 72–112 GPU-hour envelope is a requested ceiling, not a reservation or authorization; measured projection and available allocation must be reviewed by M1. | Calibration/Formal remain unauthorized |
+| U6 | GPU resource authorization | The single-stratum measured projection and available allocation must be reviewed and frozen by M1. | Calibration/Formal remain unauthorized |
 | U7 | Right-censored Session handling | RESOLVED IN DESIGN: include Sessions with valid observed Turns in the primary analysis; never impute future Turns; repeat sensitivity analysis excluding censored Sessions. | No open design decision; apply the frozen rule |
 
 ---

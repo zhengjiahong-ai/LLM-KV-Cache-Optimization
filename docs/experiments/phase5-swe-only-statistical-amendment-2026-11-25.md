@@ -1,9 +1,9 @@
 # Phase 5 SWE-only Statistical Amendment and Mechanism Analysis
 
-**Status:** M1 accepted the research direction on PR #139; contract values are normative for M6 D-stage implementation, subject to final integrated M1 acceptance.  
-**Decision authority:** M1  
-**Scope:** SWE-bench Verified sole formal stratum; BFCL Derived remains an independent supplementary experiment.  
-**Preserved:** PR #138 Cohort membership, Group construction, Arrival realization; `E−C` primary metric; Workload Group independent unit.  
+**Status:** M1 accepted the research direction on PR #139; contract values are normative for M6 D-stage implementation, subject to final integrated M1 acceptance.
+**Decision authority:** M1
+**Scope:** SWE-bench Verified sole formal stratum; BFCL Derived remains an independent supplementary experiment.
+**Preserved:** PR #138 Cohort membership, Group construction, Arrival realization; `E−C` primary metric; Workload Group independent unit.
 **Not authorized:** GPU, Calibration, Formal Campaign, or algorithm-benefit claims.
 
 ---
@@ -110,8 +110,8 @@ GPU_hours =
   (1 + failure_reserve_fraction)
   × Σ_s (
       12 × Tcal_s
-    + 4N × Tformal_s
-    + (12 + 4N) × (startup_s + restart_s + archive_s + evaluator_s)
+    + 2N × Tformal_s
+    + (12 + 2N) × (startup_s + restart_s + archive_s + evaluator_s)
     ) / 3600
 ```
 

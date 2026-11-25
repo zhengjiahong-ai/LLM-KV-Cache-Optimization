@@ -94,7 +94,11 @@ def _analyze_trace(
     lengths = [len(tokens[rid]) for rid in request_ids if rid in tokens]
     consecutive_exact: list[int] = []
     consecutive_block: list[int] = []
+    normalized_reuse: list[float] = []
+    context_growth: list[int] = []
+    exclusive_suffix: list[int] = []
     gaps: list[float] = []
+    tool_execution: list[float] = []
     for left, right in pairwise(request_ids):
         if left not in tokens or right not in tokens:
             continue
@@ -103,6 +107,19 @@ def _analyze_trace(
         exact = _lcp(left_tokens, right_tokens)
         consecutive_exact.append(exact)
         consecutive_block.append((exact // BLOCK_SIZE) * BLOCK_SIZE)
+        normalized_reuse.append(exact / len(right_tokens) if right_tokens else 0.0)
+        context_growth.append(len(right_tokens) - len(left_tokens))
+        exclusive_suffix.append(len(right_tokens) - exact)
+    for turn in trace.turns:
+        for message in turn.messages:
+            for call in message.tool_calls:
+                if call.started_at_seconds is None or call.ended_at_seconds is None:
+                    continue
+                if call.clock_domain != turn.clock_domain:
+                    continue
+                duration = call.ended_at_seconds - call.started_at_seconds
+                if duration >= 0:
+                    tool_execution.append(duration)
     for current, following in pairwise(trace.turns):
         if current.completed_at_seconds is None or following.submitted_at_seconds is None:
             continue
@@ -119,7 +136,11 @@ def _analyze_trace(
         "prompt_length_stats": _stats([float(x) for x in lengths]),
         "consecutive_exact_lcp": consecutive_exact,
         "consecutive_block_lcp": consecutive_block,
+        "normalized_prefix_reuse_ratio": normalized_reuse,
+        "context_growth_tokens": context_growth,
+        "exclusive_suffix_tokens": exclusive_suffix,
         "tool_gaps_seconds": gaps,
+        "tool_execution_seconds": tool_execution,
         "first_request_tokens": tokens.get(request_ids[0]) if request_ids else None,
         "last_request_tokens": tokens.get(request_ids[-1]) if request_ids else None,
         "duration_seconds": (
@@ -144,7 +165,9 @@ def _group_metadata(group: dict[str, Any]) -> dict[str, object]:
             sorted(Counter(str(member["terminal_class"]) for member in group["members"]).items())
         ),
         "provenance_counts": dict(
-            sorted(Counter(str(member["provenance_partition"]) for member in group["members"]).items())
+            sorted(
+                Counter(str(member["provenance_partition"]) for member in group["members"]).items()
+            )
         ),
     }
 
@@ -157,16 +180,26 @@ def _group_trace_summary(
     turns = [float(row["turn_count"]) for row in members]
     lengths = [float(v) for row in members for v in row["prompt_lengths"]]
     gaps = [float(v) for row in members for v in row["tool_gaps_seconds"]]
+    tool_execution = [float(v) for row in members for v in row["tool_execution_seconds"]]
     exact = [float(v) for row in members for v in row["consecutive_exact_lcp"]]
     block = [float(v) for row in members for v in row["consecutive_block_lcp"]]
-    durations = [float(row["duration_seconds"]) for row in members if row["duration_seconds"] is not None]
+    reuse = [float(v) for row in members for v in row["normalized_prefix_reuse_ratio"]]
+    growth = [float(v) for row in members for v in row["context_growth_tokens"]]
+    suffix = [float(v) for row in members for v in row["exclusive_suffix_tokens"]]
+    durations = [
+        float(row["duration_seconds"]) for row in members if row["duration_seconds"] is not None
+    ]
     return {
         "group_id": group["group_id"],
         "turn_count_stats": _stats(turns),
         "prompt_length_stats": _stats(lengths),
         "tool_gap_stats": _stats(gaps),
+        "tool_execution_time_stats": _stats(tool_execution),
         "consecutive_exact_lcp_stats": _stats(exact),
         "consecutive_block_lcp_stats": _stats(block),
+        "normalized_prefix_reuse_ratio_stats": _stats(reuse),
+        "context_growth_token_stats": _stats(growth),
+        "exclusive_suffix_token_stats": _stats(suffix),
         "duration_stats": _stats(durations),
         "missing_tool_gap_sessions": sum(not row["tool_gaps_seconds"] for row in members),
     }
@@ -209,10 +242,7 @@ def _arrival_overlap(
     schedule = schedules.get(str(group["group_id"]))
     if not schedule:
         return {"status": "NO_ARRIVAL_SCHEDULE"}
-    starts = {
-        row["program_id"]: float(row["start_offset_seconds"])
-        for row in schedule["starts"]
-    }
+    starts = {row["program_id"]: float(row["start_offset_seconds"]) for row in schedule["starts"]}
     intervals = []
     for member in group["members"]:
         pid = str(member["program_id"])
@@ -239,7 +269,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--group-manifest", type=Path, required=True)
     parser.add_argument("--arrival-manifest", type=Path, required=True)
-    parser.add_argument("--processed-root", type=Path)
+    parser.add_argument("--processed-root", type=Path, action="append", default=[])
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
@@ -290,19 +320,34 @@ def main() -> int:
         ],
     }
 
-    if args.processed_root is not None and args.processed_root.exists():
+    roots = [root for root in args.processed_root if root.exists()]
+    if roots:
         analyses: dict[str, dict[str, object]] = {}
         for group in groups:
             for member in group["members"]:
                 pid = str(member["program_id"])
-                session_dir = args.processed_root / "sessions" / pid
-                if not session_dir.exists():
-                    session_dir = args.processed_root / pid
+                session_id = str(member["session_id"])
+                candidates = [root / "sessions" / session_id for root in roots]
+                candidates.extend(root / pid for root in roots)
+                session_dir = next(
+                    (
+                        candidate
+                        for candidate in candidates
+                        if (candidate / "normalized-trace.json").exists()
+                    ),
+                    candidates[0],
+                )
                 if not (session_dir / "normalized-trace.json").exists():
-                    raise FileNotFoundError(f"missing normalized trace for {pid}: {session_dir}")
+                    raise FileNotFoundError(
+                        f"missing normalized trace for {pid} in processed roots"
+                    )
                 analyses[pid] = _analyze_trace(session_dir)
         result["status"] = "TRACE_ANALYSIS_COMPLETE"
         result["sessions"] = analyses
+        all_members = [member for group in groups for member in group["members"]]
+        result["trace_summary"] = _group_trace_summary(
+            {"group_id": "SWE_ALL_48", "members": all_members}, analyses
+        )
         result["cross_program"] = _cross_program_lcp(analyses)
         result["groups"] = [
             {

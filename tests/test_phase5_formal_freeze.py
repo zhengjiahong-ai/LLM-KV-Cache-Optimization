@@ -20,10 +20,7 @@ def _digest(character: str) -> str:
 
 
 def _plan(phase: str, count: int, repeats: int, prefix: str):
-    groups = {
-        "SWE_BENCH": [f"{prefix}s{index}" for index in range(count)],
-        "BFCL_WEB_SEARCH": [f"{prefix}b{index}" for index in range(count)],
-    }
+    groups = {"SWE_BENCH": [f"{prefix}s{index}" for index in range(count)]}
     square = balanced_latin_square()
     orders = {}
     ordinal = 0
@@ -56,7 +53,6 @@ def _analysis(count: int = 8):
             "distribution": "NONCENTRAL_T_ITERATIVE",
             "selected_groups_per_stratum": {
                 "SWE_BENCH": count,
-                "BFCL_WEB_SEARCH": count,
             },
         },
         "candidate_contrasts": [],
@@ -77,7 +73,6 @@ def test_calibration_binds_exact_formal_plan_without_authorizing_execution() -> 
     assert report["execution_authorized"] is False
     assert report["selected_groups_per_stratum"] == {
         "SWE_BENCH": 8,
-        "BFCL_WEB_SEARCH": 8,
     }
 
 

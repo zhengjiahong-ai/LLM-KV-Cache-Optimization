@@ -68,10 +68,7 @@
       "minLength": 1
     },
     "stratum": {
-      "enum": [
-        "SWE_BENCH",
-        "BFCL_WEB_SEARCH"
-      ]
+      "const": "SWE_BENCH"
     },
     "repeat_index": {
       "type": "integer",

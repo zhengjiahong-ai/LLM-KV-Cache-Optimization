@@ -1,7 +1,7 @@
 # Phase 5 SWE Workload Structure — Metadata Analysis and Trace-Analysis Plan
 
-**Status:** metadata-level analysis complete; trace-level analysis **PENDING_PRIVATE_EVIDENCE_ROOT**  
-**Cohort:** PR #138 frozen 48 Programs / 12 Groups  
+**Status:** private trace-level analysis complete; no Cohort/Arrival change
+**Cohort:** PR #138 frozen 48 Programs / 12 Groups
 **Purpose:** understand the frozen SWE workload before execution; no Cohort, Group or Arrival re-selection
 
 ---
@@ -16,22 +16,36 @@ The frozen Group manifest supports the following structural facts:
 - provenance: 35 existing Phase 5 Programs + 13 fresh reacquisition Programs;
 - terminal classes: 2 Natural Terminal + 46 Right-Censored.
 
-These are **metadata facts**, not Native cache or reuse evidence.
-
-The private normalized traces and token materializations are required for:
-
-- Turn counts and prompt lengths;
-- exact/block-aligned LCP;
-- observed Tool Gaps;
-- cross-Program shared prefixes and exclusive suffixes;
-- lifecycle overlap under the frozen arrivals;
-- comparison with Nebius OpenHands.
-
-Without that private root, the trace-level fields are explicitly:
+The private normalized traces and exact token materializations were analyzed
+in place. The private output is:
 
 ```text
-SWE_TRACE_WORKLOAD_ANALYSIS = PENDING_PRIVATE_EVIDENCE_ROOT
+SWE_TRACE_WORKLOAD_ANALYSIS = TRACE_ANALYSIS_COMPLETE
+private analysis SHA-256 = b91b346f0ca20794631a62da3c9e719dc31681bd2039697a882747d6a3d2e2f1
 ```
+
+No private trace or token payload is added to Git by this report.
+
+### Frozen 48-Program trace summary
+
+| Measure | Count | P50 | Mean | Max |
+|---|---:|---:|---:|---:|
+| Turns / Session | 48 | 100 | 96.06 | 100 |
+| Prompt tokens | 4,611 | 9,818 | 10,607.36 | 32,093 |
+| Adjacent exact LCP tokens | 4,563 | 9,708 | 10,518.97 | 31,875 |
+| Adjacent block-aligned LCP tokens | 4,563 | 9,696 | 10,511.21 | 31,872 |
+| Normalized adjacent prefix reuse | 4,563 | 0.9831 | 0.9751 | 0.9941 |
+| Context growth tokens | 4,563 | 176 | 183.66 | 1,170 |
+| Exclusive suffix proxy tokens | 4,563 | 176 | 183.66 | 1,170 |
+| Adjacent request interval seconds | 4,563 | 0.2819 | 0.2790 | 8.2347 |
+| Actual tool execution seconds | 2,860 | 0.2781 | 0.4209 | 8.2207 |
+| Session duration seconds | 48 | 340.19 | 377.70 | 804.10 |
+
+Across all 1,128 cross-Program first-request pairs, exact LCP P50 is 124
+tokens and block-aligned LCP is 112 tokens. Under the frozen Poisson arrivals,
+71 within-Group Program pairs have overlapping logical lifetimes. These are
+trace-level opportunity measures only, not Native residency, Candidate
+Exposure, eviction, recomputation or benefit evidence.
 
 ---
 
@@ -89,30 +103,31 @@ PYTHONPATH=src python scripts/spikes/phase5_dataset/analyze_swe_workload.py \
   --group-manifest docs/experiments/phase5-swe-cohort-data/swe-group-manifest.json \
   --arrival-manifest docs/experiments/phase5-swe-cohort-data/swe-frozen-poisson-arrival-manifest.json \
   --processed-root /path/to/private/phase5-swe-acquisition-processed-v5 \
+  --processed-root /path/to/private/phase5-swe-historical-reacquisition-processed-v1 \
   --output /path/to/private/evidence/swe-workload-analysis.json
 ```
 
 It computes:
 
-1. **Turn and length**  
+1. **Turn and length**
    Per Session: Turn count, prompt token count, first/last growth, maximum and distribution.
 
-2. **Prefix reuse**  
+2. **Prefix reuse**
    Consecutive exact token LCP and 16-token block-aligned LCP; normalized reuse ratio.
 
-3. **Cross-Program structure**  
+3. **Cross-Program structure**
    First-request LCP across all Program pairs, block-aligned LCP, positive-sharing pairs.
 
-4. **Observed Tool Gap**  
+4. **Observed Tool Gap**
    `next_turn.submitted_at_seconds - current_turn.completed_at_seconds` in the same clock domain; missing/invalid intervals are reported, not zero-filled.
 
-5. **Group context/suffix**  
+5. **Group context/suffix**
    Group-level distributions of prompt length, consecutive LCP, and observable exclusive suffix proxies.
 
-6. **Arrival overlap**  
+6. **Arrival overlap**
    For each frozen Group, apply the stored Poisson start offsets and observed Session durations; count logical overlap intervals. This is a potential-contention description only.
 
-7. **Public comparison**  
+7. **Public comparison**
    The analyzer records the PR #135/#136 reference values as external context, not as Phase 5 measurements.
 
 The analyzer does not re-select Programs, Groups, Sessions or arrivals.
@@ -158,21 +173,10 @@ Those remain M0–M5/Phase 5 runtime questions.
 
 ---
 
-## 6. Required next action
+## 6. Result boundary
 
-M6 should run the analyzer against the private processed evidence root and return:
-
-```text
-status = TRACE_ANALYSIS_COMPLETE
-sessions = 48
-turn/length/LCP/tool-gap/overlap summaries
-```
-
-No result should be used to change the frozen Cohort, Groups or Arrival.
-
-Until that root is supplied:
-
-```text
-SWE_WORKLOAD_ANALYSIS =
-  METADATA_COMPLETE / TRACE_LEVEL_PENDING_PRIVATE_ROOT
-```
+The analysis is complete for the frozen 48 Programs. It does not change the
+frozen Cohort, Groups or Arrival. The high within-Session prefix reuse and
+logical overlap support the workload's relevance to cache-retention research,
+but only the future Native run can establish legal candidate exposure,
+physical eviction and downstream recomputation.

@@ -109,6 +109,7 @@ def _result(run_input=None):
             "exposure_events": _digest("exposure"),
             "decision_physical_events": _digest("decision-physical"),
             "downstream_observations": _digest("downstream"),
+            "mechanism_observations_m0_m5": _digest("mechanism"),
         },
         derived_metrics_sha256=_digest("metrics"),
         started_at="2026-11-18T00:00:00+08:00",
@@ -130,6 +131,14 @@ def test_run_input_binds_protocol_contract_workload_and_runtime() -> None:
         name: digest for name, digest in bundle.sha256.items() if name != "protocol"
     }
     assert manifest["execution_authorized"] is True
+
+
+def test_bfcl_is_not_a_formal_run_stratum() -> None:
+    bundle = _ready_bundle()
+    manifest = _input(bundle)
+    manifest["stratum"] = "BFCL_WEB_SEARCH"
+    with pytest.raises(Phase5ManifestError, match="unknown stratum"):
+        validate_run_input_manifest(manifest, bundle=bundle)
 
 
 def test_run_input_fails_closed_on_contract_hash_change() -> None:
@@ -161,6 +170,7 @@ def test_non_pass_result_requires_failure_reason() -> None:
                 "exposure_events": _digest("exposure"),
                 "decision_physical_events": _digest("decision-physical"),
                 "downstream_observations": _digest("downstream"),
+                "mechanism_observations_m0_m5": _digest("mechanism"),
             },
             derived_metrics_sha256=None,
             started_at="start",

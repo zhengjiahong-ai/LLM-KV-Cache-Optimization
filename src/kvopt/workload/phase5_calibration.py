@@ -1,7 +1,7 @@
 """Phase 5 six-system Calibration matrix and analyzer contracts.
 
 The final protocol requires a mixed-model method-of-moments estimator and an
-iterative noncentral-t power solve. This module validates the complete 144-run
+iterative noncentral-t power solve. This module validates the complete 72-run
 input and exposes the exact analyzer boundary; it intentionally rejects the
 obsolete four-system/z-approximation implementation.
 """
@@ -44,11 +44,11 @@ def _finite_number(value: object, label: str) -> float:
 def validate_calibration_matrix(
     records: Sequence[Mapping[str, object]],
     *,
-    strata: Sequence[str] = ("SWE_BENCH", "BFCL_WEB_SEARCH"),
+    strata: Sequence[str] = ("SWE_BENCH",),
     groups_per_stratum: int = 4,
     repeats: int = 3,
 ) -> dict[str, object]:
-    """Validate the exact 2×4×6×3 Calibration result matrix."""
+    """Validate the exact 1×4×6×3 Calibration result matrix."""
 
     expected_count = len(strata) * groups_per_stratum * len(SYSTEM_IDS) * repeats
     if len(records) != expected_count:
@@ -140,11 +140,8 @@ def analyze_calibration(
     if sizing.get("distribution") != "NONCENTRAL_T_ITERATIVE":
         raise ValueError("Calibration power solver cannot use a z approximation")
     selected = sizing.get("selected_groups_per_stratum")
-    if not isinstance(selected, Mapping) or set(selected) != {
-        "SWE_BENCH",
-        "BFCL_WEB_SEARCH",
-    }:
-        raise ValueError("Calibration sizing lacks both frozen strata")
+    if not isinstance(selected, Mapping) or set(selected) != {"SWE_BENCH"}:
+        raise ValueError("Calibration sizing lacks the frozen SWE stratum")
     if any(
         isinstance(value, bool) or not isinstance(value, int) or not 8 <= value <= 16
         for value in selected.values()

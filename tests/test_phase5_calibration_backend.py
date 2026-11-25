@@ -7,6 +7,7 @@ from kvopt.workload.phase5_calibration_backend import (
     _noncentral_t_upper_power,
     _student_t_quantile,
     estimate_calibration_mixed_model,
+    project_single_stratum_gpu_hours,
     run_frozen_calibration_analysis,
     solve_calibration_noncentral_t,
 )
@@ -14,7 +15,7 @@ from kvopt.workload.phase5_calibration_backend import (
 
 def _records():
     rows = []
-    for stratum_index, stratum in enumerate(("SWE_BENCH", "BFCL_WEB_SEARCH")):
+    for stratum_index, stratum in enumerate(("SWE_BENCH",)):
         for group_index in range(4):
             group_id = f"{stratum}:g{group_index}"
             for system_index, system_id in enumerate(SYSTEM_IDS):
@@ -29,10 +30,7 @@ def _records():
                     )
                     rows.append(
                         {
-                            "run_id": (
-                                f"cal:{stratum}:g{group_index}:"
-                                f"{system_id}:r{repeat}"
-                            ),
+                            "run_id": (f"cal:{stratum}:g{group_index}:{system_id}:r{repeat}"),
                             "stratum": stratum,
                             "group_id": group_id,
                             "system_id": system_id,
@@ -49,26 +47,26 @@ def test_method_of_moments_uses_frozen_df_and_formal_repeat_count() -> None:
     report = estimate_calibration_mixed_model(
         _records(), bootstrap_resamples=200, bootstrap_seed=20261201
     )
-    assert report["df_between"] == 6
-    assert report["df_within"] == 16
-    assert report["df_total"] == 22
+    assert report["df_between"] == 3
+    assert report["df_within"] == 8
+    assert report["df_total"] == 11
     assert report["per_stratum_df"] == 3
     assert report["per_stratum_within_df"] == 8
     assert report["pooled_df_7_used"] is False
     contrast = report["contrast_estimates"]["A1_vs_A0"]["common"]
     assert contrast["formal_group_mean_variance"] == pytest.approx(
-        contrast["sigma_between_squared"]
-        + contrast["sigma_repeat_squared"] / 2.0
+        contrast["sigma_between_squared"] + contrast["sigma_repeat_squared"] / 2.0
     )
 
 
-def test_covariance_is_8x8_df6_and_psd_projected() -> None:
-    report = estimate_calibration_mixed_model(
-        _records(), bootstrap_resamples=50, bootstrap_seed=7
-    )
+def test_covariance_is_8x8_df3_rank_limited_and_psd_projected() -> None:
+    report = estimate_calibration_mixed_model(_records(), bootstrap_resamples=50, bootstrap_seed=7)
     covariance = report["contrast_covariance"]
     assert covariance["size"] == 8
-    assert covariance["df_covariance"] == 6
+    assert covariance["df_covariance"] == 3
+    assert covariance["rank_upper_bound"] == 3
+    assert covariance["direct_inverse_allowed"] is False
+    assert covariance["psd_projection"]["numerical_rank"] <= 3
     matrix = covariance["psd_projection"]["matrix"]
     assert len(matrix) == 8
     assert all(len(row) == 8 for row in matrix)
@@ -76,9 +74,7 @@ def test_covariance_is_8x8_df6_and_psd_projected() -> None:
 
 
 def test_parametric_bootstrap_is_reproducible_and_keeps_negative_point_rule() -> None:
-    first = estimate_calibration_mixed_model(
-        _records(), bootstrap_resamples=100, bootstrap_seed=19
-    )
+    first = estimate_calibration_mixed_model(_records(), bootstrap_resamples=100, bootstrap_seed=19)
     second = estimate_calibration_mixed_model(
         _records(), bootstrap_resamples=100, bootstrap_seed=19
     )
@@ -99,13 +95,10 @@ def test_noncentral_t_solver_uses_n_minus_one_and_never_z() -> None:
     assert report["pooled_df_7_used"] is False
     assert set(report["selected_groups_per_stratum"]) == {
         "SWE_BENCH",
-        "BFCL_WEB_SEARCH",
     }
     assert all(8 <= value <= 16 for value in report["selected_groups_per_stratum"].values())
     assert len(set(report["selected_groups_per_stratum"].values())) == 1
-    assert report["final_groups_per_stratum"] == max(
-        report["stratum_specific_required_n"].values()
-    )
+    assert report["final_groups_per_stratum"] == max(report["stratum_specific_required_n"].values())
 
 
 def test_student_t_critical_and_noncentral_power_are_numerically_sane() -> None:
@@ -117,10 +110,26 @@ def test_student_t_critical_and_noncentral_power_are_numerically_sane() -> None:
 
 
 def test_public_calibration_pipeline_consumes_exact_backend() -> None:
-    report = run_frozen_calibration_analysis(
-        _records(), bootstrap_resamples=100, bootstrap_seed=29
-    )
+    report = run_frozen_calibration_analysis(_records(), bootstrap_resamples=100, bootstrap_seed=29)
     assert report["status"] == "CALIBRATION_ANALYZED_EXECUTION_NOT_AUTHORIZED"
-    assert report["variance_model"]["df_between"] == 6
+    assert report["variance_model"]["df_between"] == 3
     assert report["sample_size"]["distribution"] == "NONCENTRAL_T_ITERATIVE"
     assert report["formal_execution_authorized"] is False
+
+
+def test_single_stratum_resource_projection_uses_12_and_2n() -> None:
+    timings = {
+        system_id: {
+            "calibration": 10.0,
+            "formal": 20.0,
+            "startup": 1.0,
+            "restart": 2.0,
+            "archive": 3.0,
+            "evaluator": 4.0,
+        }
+        for system_id in SYSTEM_IDS
+    }
+    expected_seconds_per_system = 12 * 10 + 2 * 9 * 20 + (12 + 2 * 9) * 10
+    assert project_single_stratum_gpu_hours(timings, formal_groups=9) == pytest.approx(
+        1.1 * 6 * expected_seconds_per_system / 3600
+    )

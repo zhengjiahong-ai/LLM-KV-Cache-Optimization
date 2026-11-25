@@ -17,10 +17,7 @@ def _sha(value: str) -> str:
 
 
 def _groups(prefix: str, count: int):
-    return {
-        "SWE_BENCH": [f"{prefix}-swe-{i}" for i in range(count)],
-        "BFCL_WEB_SEARCH": [f"{prefix}-bfcl-{i}" for i in range(count)],
-    }
+    return {"SWE_BENCH": [f"{prefix}-swe-{i}" for i in range(count)]}
 
 
 def _orders(groups, repeats):
@@ -51,14 +48,14 @@ def _plan(phase: str, prefix: str, count: int, repeats: int):
     )
 
 
-def test_materializes_exact_144_calibration_runs() -> None:
+def test_materializes_exact_72_calibration_runs() -> None:
     plan = _plan("CALIBRATION", "cal", 4, 3)
-    assert plan["run_count"] == 144
+    assert plan["run_count"] == 72
     assert plan["execution_authorized"] is False
     assert {row["system_id"] for row in plan["runs"]} == set(SYSTEM_IDS)
 
 
-@pytest.mark.parametrize(("groups", "runs"), [(8, 192), (12, 288), (16, 384)])
+@pytest.mark.parametrize(("groups", "runs"), [(8, 96), (9, 108), (12, 144), (16, 192)])
 def test_materializes_formal_bounds(groups: int, runs: int) -> None:
     assert _plan("FORMAL", "formal", groups, 2)["run_count"] == runs
 

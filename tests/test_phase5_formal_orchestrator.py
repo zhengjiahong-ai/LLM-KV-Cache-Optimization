@@ -25,10 +25,7 @@ def _digest(character: str) -> str:
 
 
 def _plan():
-    groups = {
-        "SWE_BENCH": [f"s{index}" for index in range(4)],
-        "BFCL_WEB_SEARCH": [f"b{index}" for index in range(4)],
-    }
+    groups = {"SWE_BENCH": [f"s{index}" for index in range(4)]}
     square = balanced_latin_square()
     orders = {}
     ordinal = 0
@@ -86,7 +83,7 @@ def _enqueue_map(plan):
     return {row["group_id"]: _digest("d") for row in plan["runs"]}
 
 
-def test_full_144_run_cpu_orchestration_contract_passes() -> None:
+def test_full_72_run_cpu_orchestration_contract_passes() -> None:
     plan = _plan()
     report = run_campaign_plan_cpu_contract(
         plan=plan,
@@ -94,7 +91,7 @@ def test_full_144_run_cpu_orchestration_contract_passes() -> None:
         bindings=_bindings(),
     )
     assert report["status"] == "CPU_CONTRACT_PASS"
-    assert report["cell_count_evaluated"] == 24
+    assert report["cell_count_evaluated"] == 12
     assert report["gpu_execution_authorized"] is False
     assert report["native_conformance_claim"] == "NOT_ESTABLISHED"
     assert report["formal_system_readiness"] == "READY"

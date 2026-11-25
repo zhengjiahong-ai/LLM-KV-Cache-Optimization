@@ -16,6 +16,7 @@ SYSTEM_IDS = (
     "A3_SUFFIX",
     "DVA_ER_V1",
 )
+FORMAL_STRATUM = "SWE_BENCH"
 
 CONTRASTS = {
     "A1_vs_A0": ("A1_ORIGINAL", "CONTINUUM_ADAPTED"),
@@ -62,8 +63,7 @@ def _bootstrap_ci(
     rng = random.Random(seed)
     count = len(values)
     estimates = [
-        fmean(values[rng.randrange(count)] for _ in range(count))
-        for _ in range(resamples)
+        fmean(values[rng.randrange(count)] for _ in range(count)) for _ in range(resamples)
     ]
     tail = (1.0 - confidence) / 2.0
     return _percentile(estimates, tail), _percentile(estimates, 1.0 - tail)
@@ -78,8 +78,7 @@ def _paired_permutation_pvalue(values: Sequence[float]) -> float:
     tolerance = 1e-12
     for mask in range(total):
         estimate = fmean(
-            value if mask & (1 << index) else -value
-            for index, value in enumerate(values)
+            value if mask & (1 << index) else -value for index, value in enumerate(values)
         )
         if abs(estimate) + tolerance >= observed:
             extreme += 1
@@ -99,18 +98,14 @@ def _beta_continued_fraction(a: float, b: float, x: float) -> float:
     result = d
     for iteration in range(1, maximum_iterations + 1):
         doubled = 2 * iteration
-        coefficient = iteration * (b - iteration) * x / (
-            (qam + doubled) * (a + doubled)
-        )
+        coefficient = iteration * (b - iteration) * x / ((qam + doubled) * (a + doubled))
         d = 1.0 + coefficient * d
         d = d if abs(d) >= floor else floor
         c = 1.0 + coefficient / c
         c = c if abs(c) >= floor else floor
         d = 1.0 / d
         result *= d * c
-        coefficient = -(a + iteration) * (qab + iteration) * x / (
-            (a + doubled) * (qap + doubled)
-        )
+        coefficient = -(a + iteration) * (qab + iteration) * x / ((a + doubled) * (qap + doubled))
         d = 1.0 + coefficient * d
         d = d if abs(d) >= floor else floor
         c = 1.0 + coefficient / c
@@ -129,11 +124,7 @@ def _regularized_incomplete_beta(x: float, a: float, b: float) -> float:
     if x in {0.0, 1.0}:
         return x
     front = math.exp(
-        math.lgamma(a + b)
-        - math.lgamma(a)
-        - math.lgamma(b)
-        + a * math.log(x)
-        + b * math.log1p(-x)
+        math.lgamma(a + b) - math.lgamma(a) - math.lgamma(b) + a * math.log(x) + b * math.log1p(-x)
     )
     if x < (a + 1.0) / (a + b + 2.0):
         return front * _beta_continued_fraction(a, b, x) / a
@@ -210,6 +201,8 @@ def analyze_phase5_formal_groups(
         if run_id in run_ids:
             raise ValueError(f"duplicate run_id: {run_id}")
         run_ids.add(run_id)
+        if stratum != FORMAL_STRATUM:
+            raise ValueError(f"formal analysis only accepts {FORMAL_STRATUM}")
         if system_id not in SYSTEM_IDS:
             raise ValueError(f"unknown system_id: {system_id}")
         if repeat_index not in repeats:
@@ -223,7 +216,11 @@ def analyze_phase5_formal_groups(
                 f"{system_id}:repeat:{repeat_index}:STATUS_{row.get('status') or 'MISSING'}"
             )
             continue
-        if not isinstance(value, (int, float)) or isinstance(value, bool) or not math.isfinite(value):
+        if (
+            not isinstance(value, (int, float))
+            or isinstance(value, bool)
+            or not math.isfinite(value)
+        ):
             group_reasons[(stratum, group_id)].append(
                 f"{system_id}:repeat:{repeat_index}:METRIC_NOT_FINITE"
             )
@@ -268,9 +265,7 @@ def analyze_phase5_formal_groups(
             if row_stratum == stratum
         )
         contrasts: dict[str, dict[str, object]] = {}
-        for contrast_index, (contrast_id, (left, reference)) in enumerate(
-            CONTRASTS.items()
-        ):
+        for contrast_index, (contrast_id, (left, reference)) in enumerate(CONTRASTS.items()):
             differences = [means[left] - means[reference] for _, means in stratum_groups]
             if not differences:
                 contrasts[contrast_id] = {
@@ -293,9 +288,7 @@ def analyze_phase5_formal_groups(
                 "median_difference": median(differences),
                 "reference_mean": reference_mean,
                 "relative_effect": (
-                    fmean(differences) / abs(reference_mean)
-                    if reference_mean != 0.0
-                    else None
+                    fmean(differences) / abs(reference_mean) if reference_mean != 0.0 else None
                 ),
                 "bootstrap_ci": [ci_low, ci_high],
                 "paired_permutation_pvalue": _paired_permutation_pvalue(differences),
@@ -343,9 +336,7 @@ def analyze_phase5_formal_groups(
         "confidence_level": confidence_level,
         "systems": list(SYSTEM_IDS),
         "primary_contrasts": list(CONTRASTS),
-        "primary_families": {
-            name: list(contrasts) for name, contrasts in PRIMARY_FAMILIES.items()
-        },
+        "primary_families": {name: list(contrasts) for name, contrasts in PRIMARY_FAMILIES.items()},
         "complete_group_count": len(group_means),
         "incomplete_groups": exclusions,
         "strata": results,

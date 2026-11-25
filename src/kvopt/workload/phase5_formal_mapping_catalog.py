@@ -150,16 +150,28 @@ def build_formal_protocol_implementation_mapping(
             blocker="live six-system EngineCore evidence has not been collected",
             implementation=(
                 "src/kvopt/workload/phase5_asyncllm_adapter.py",
+                "src/kvopt/workload/phase5e_native_runtime.py",
+                "src/kvopt/workload/phase5_dva_native_provider.py",
                 "src/kvopt/profiling/phase5_formal_metrics.py",
                 "src/kvopt/profiling/phase5_downstream_observation.py",
             ),
-            evidence=("phase5.formal_run_metrics.v1",),
-            evaluator=("src/kvopt/profiling/phase5_candidate_exposure.py",),
+            evidence=(
+                "phase5.formal_run_metrics.v1",
+                "phase5.decision_evidence_chain.v1",
+                "phase5.mechanism_analysis.m0_m5.v1",
+            ),
+            evaluator=(
+                "src/kvopt/profiling/phase5_candidate_exposure.py",
+                "src/kvopt/profiling/phase5_native_evidence.py",
+                "src/kvopt/profiling/phase5_mechanism_analysis.py",
+            ),
             tests=(
                 "tests/test_phase5_asyncllm_adapter.py",
                 "tests/test_phase5_formal_metrics.py",
                 "tests/test_phase5_decision_evidence_chain.py",
                 "tests/test_phase5_downstream_observation.py",
+                "tests/test_phase5_mechanism_analysis.py",
+                "tests/test_phase5e_native_runtime.py",
             ),
         ),
         _implemented(

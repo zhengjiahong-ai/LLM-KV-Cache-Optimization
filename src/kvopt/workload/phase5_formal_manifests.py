@@ -28,7 +28,7 @@ _SYSTEM_IDS = {
     "A3_SUFFIX",
     "DVA_ER_V1",
 }
-_STRATA = {"SWE_BENCH", "BFCL_WEB_SEARCH"}
+_STRATA = {"SWE_BENCH"}
 _RESULT_STATUSES = {"PASS", "FAIL_CLOSED", "INCOMPLETE", "UNDERPOWERED"}
 FORMAL_EVIDENCE_NAMES = {
     "planned_events",
@@ -37,6 +37,7 @@ FORMAL_EVIDENCE_NAMES = {
     "exposure_events",
     "decision_physical_events",
     "downstream_observations",
+    "mechanism_observations_m0_m5",
 }
 
 

@@ -7,7 +7,7 @@ import random
 from collections.abc import Mapping, Sequence
 from statistics import fmean
 
-from .phase5_calibration import analyze_calibration, validate_calibration_matrix
+from .phase5_calibration import SYSTEM_IDS, analyze_calibration, validate_calibration_matrix
 
 CONTRASTS = (
     ("A1_vs_A0", "A1_ORIGINAL", "CONTINUUM_ADAPTED"),
@@ -20,13 +20,54 @@ CONTRASTS = (
     ("OFFICIAL_vs_A0", "CONTINUUM_OFFICIAL", "CONTINUUM_ADAPTED"),
 )
 CANDIDATE_CONTRAST_IDS = tuple(row[0] for row in CONTRASTS[:6])
-STRATA = ("SWE_BENCH", "BFCL_WEB_SEARCH")
-DF_BETWEEN = 6
-DF_WITHIN = 16
-DF_TOTAL = 22
+STRATA = ("SWE_BENCH",)
+DF_BETWEEN = 3
+DF_WITHIN = 8
+DF_TOTAL = 11
 DF_STRATUM_BETWEEN = 3
 DF_STRATUM_WITHIN = 8
-DF_COVARIANCE = 6
+DF_COVARIANCE = 3
+
+
+def project_single_stratum_gpu_hours(
+    per_system_seconds: Mapping[str, Mapping[str, float]],
+    *,
+    formal_groups: int,
+    failure_reserve_fraction: float = 0.10,
+) -> float:
+    """Apply the frozen SWE-only 12-calibration/2N-formal budget formula."""
+
+    if isinstance(formal_groups, bool) or not isinstance(formal_groups, int):
+        raise TypeError("formal_groups must be an integer")
+    if not 8 <= formal_groups <= 16:
+        raise ValueError("formal_groups must be in the inclusive range 8..16")
+    if not 0.0 <= failure_reserve_fraction < 1.0:
+        raise ValueError("failure reserve fraction is invalid")
+    required = {
+        "calibration",
+        "formal",
+        "startup",
+        "restart",
+        "archive",
+        "evaluator",
+    }
+    total_seconds = 0.0
+    for system_id in SYSTEM_IDS:
+        row = per_system_seconds.get(system_id)
+        if not isinstance(row, Mapping) or set(row) != required:
+            raise ValueError(f"resource timing is incomplete for {system_id}")
+        values = {key: float(value) for key, value in row.items()}
+        if any(not math.isfinite(value) or value < 0 for value in values.values()):
+            raise ValueError(f"resource timing is invalid for {system_id}")
+        overhead = sum(values[key] for key in ("startup", "restart", "archive", "evaluator"))
+        total_seconds += (
+            12 * values["calibration"]
+            + 2 * formal_groups * values["formal"]
+            + (12 + 2 * formal_groups) * overhead
+        )
+    return (1.0 + failure_reserve_fraction) * total_seconds / 3600.0
+
+
 BOOTSTRAP_RESAMPLES = 10_000
 BOOTSTRAP_SEED = 20_261_201
 
@@ -55,23 +96,16 @@ def _contrast_observations(
     dict[str, float],
 ]:
     cells = _records_by_cell(records)
-    groups = {
-        stratum: sorted({key[1] for key in cells if key[0] == stratum})
-        for stratum in STRATA
-    }
+    groups = {stratum: sorted({key[1] for key in cells if key[0] == stratum}) for stratum in STRATA}
     observations: dict[str, dict[str, list[list[float]]]] = {
-        contrast_id: {stratum: [] for stratum in STRATA}
-        for contrast_id, _, _ in CONTRASTS
+        contrast_id: {stratum: [] for stratum in STRATA} for contrast_id, _, _ in CONTRASTS
     }
     native_means = {}
     for stratum in STRATA:
         native_group_means = []
         for group_id in groups[stratum]:
             native_group_means.append(
-                fmean(
-                    cells[(stratum, group_id, repeat, "NATIVE")]
-                    for repeat in range(1, 4)
-                )
+                fmean(cells[(stratum, group_id, repeat, "NATIVE")] for repeat in range(1, 4))
             )
             for contrast_id, left, right in CONTRASTS:
                 observations[contrast_id][stratum].append(
@@ -88,17 +122,12 @@ def _contrast_observations(
 def _mom_components(
     by_stratum: Mapping[str, Sequence[Sequence[float]]],
 ) -> dict[str, float]:
-    if set(by_stratum) != set(STRATA) or any(
-        len(by_stratum[stratum]) != 4 for stratum in STRATA
-    ):
+    if set(by_stratum) != set(STRATA) or any(len(by_stratum[stratum]) != 4 for stratum in STRATA):
         raise ValueError("mixed-model input must contain four Groups per stratum")
     group_means = {
-        stratum: [fmean(repeats) for repeats in by_stratum[stratum]]
-        for stratum in STRATA
+        stratum: [fmean(repeats) for repeats in by_stratum[stratum]] for stratum in STRATA
     }
-    stratum_means = {
-        stratum: fmean(group_means[stratum]) for stratum in STRATA
-    }
+    stratum_means = {stratum: fmean(group_means[stratum]) for stratum in STRATA}
     ss_between = sum(
         (value - stratum_means[stratum]) ** 2
         for stratum in STRATA
@@ -129,13 +158,9 @@ def _stratum_components(groups: Sequence[Sequence[float]]) -> dict[str, float]:
     means = [fmean(row) for row in groups]
     overall = fmean(means)
     ss_between = sum((value - overall) ** 2 for value in means)
-    ss_within = sum(
-        (value - fmean(row)) ** 2 for row in groups for value in row
-    )
+    ss_within = sum((value - fmean(row)) ** 2 for row in groups for value in row)
     repeat_variance = ss_within / DF_STRATUM_WITHIN
-    between_untruncated = (
-        ss_between / DF_STRATUM_BETWEEN - repeat_variance / 3.0
-    )
+    between_untruncated = ss_between / DF_STRATUM_BETWEEN - repeat_variance / 3.0
     between_variance = max(0.0, between_untruncated)
     return {
         "ss_between": ss_between,
@@ -172,11 +197,7 @@ def _simulate_groups(
         for _ in range(groups_per_stratum):
             group_effect = rng.gauss(0.0, math.sqrt(sigma_between_squared))
             rows.append(
-                [
-                    group_effect
-                    + rng.gauss(0.0, math.sqrt(sigma_repeat_squared))
-                    for _ in range(3)
-                ]
+                [group_effect + rng.gauss(0.0, math.sqrt(sigma_repeat_squared)) for _ in range(3)]
             )
         result[STRATA[stratum_index]] = rows
     return result
@@ -189,13 +210,8 @@ def _simulate_stratum(
     sigma_repeat_squared: float,
 ) -> list[list[float]]:
     return [
-        [
-            group_effect + rng.gauss(0.0, math.sqrt(sigma_repeat_squared))
-            for _ in range(3)
-        ]
-        for group_effect in (
-            rng.gauss(0.0, math.sqrt(sigma_between_squared)) for _ in range(4)
-        )
+        [group_effect + rng.gauss(0.0, math.sqrt(sigma_repeat_squared)) for _ in range(3)]
+        for group_effect in (rng.gauss(0.0, math.sqrt(sigma_between_squared)) for _ in range(4))
     ]
 
 
@@ -208,9 +224,7 @@ def _bootstrap_upper_bounds(
     if resamples <= 0:
         raise ValueError("bootstrap resamples must be positive")
     common = _mom_components(by_stratum)
-    stratum_components = {
-        stratum: _stratum_components(by_stratum[stratum]) for stratum in STRATA
-    }
+    stratum_components = {stratum: _stratum_components(by_stratum[stratum]) for stratum in STRATA}
     rng = random.Random(seed)
     common_values = []
     stratum_values = {stratum: [] for stratum in STRATA}
@@ -219,7 +233,7 @@ def _bootstrap_upper_bounds(
             rng=rng,
             sigma_between_squared=common["sigma_between_squared"],
             sigma_repeat_squared=common["sigma_repeat_squared"],
-            strata=2,
+            strata=1,
             groups_per_stratum=4,
         )
         common_values.append(_mom_components(simulated)["formal_group_mean_variance"])
@@ -234,14 +248,8 @@ def _bootstrap_upper_bounds(
                 _stratum_components(stratum_simulated)["formal_group_mean_variance"]
             )
     common_upper = _quantile(common_values, 0.8)
-    stratum_upper = {
-        stratum: _quantile(values, 0.8)
-        for stratum, values in stratum_values.items()
-    }
-    degenerate = (
-        common["sigma_between_squared"] == 0.0
-        and common["sigma_repeat_squared"] == 0.0
-    )
+    stratum_upper = {stratum: _quantile(values, 0.8) for stratum, values in stratum_values.items()}
+    degenerate = common["sigma_between_squared"] == 0.0 and common["sigma_repeat_squared"] == 0.0
     return {
         "method": "PARAMETRIC_BOOTSTRAP",
         "resamples": resamples,
@@ -262,11 +270,7 @@ def _jacobi_psd(matrix: Sequence[Sequence[float]]) -> dict[str, object]:
     vectors = [[float(row == column) for column in range(size)] for row in range(size)]
     for _ in range(200 * size * size):
         left, right = max(
-            (
-                (row, column)
-                for row in range(size)
-                for column in range(row + 1, size)
-            ),
+            ((row, column) for row in range(size) for column in range(row + 1, size)),
             key=lambda pair: abs(values[pair[0]][pair[1]]),
         )
         if abs(values[left][right]) < 1.0e-12:
@@ -281,24 +285,16 @@ def _jacobi_psd(matrix: Sequence[Sequence[float]]) -> dict[str, object]:
             if index not in {left, right}:
                 old_left = values[index][left]
                 old_right = values[index][right]
-                values[index][left] = values[left][index] = (
-                    cosine * old_left - sine * old_right
-                )
-                values[index][right] = values[right][index] = (
-                    sine * old_left + cosine * old_right
-                )
+                values[index][left] = values[left][index] = cosine * old_left - sine * old_right
+                values[index][right] = values[right][index] = sine * old_left + cosine * old_right
         old_ll = values[left][left]
         old_rr = values[right][right]
         old_lr = values[left][right]
         values[left][left] = (
-            cosine * cosine * old_ll
-            - 2.0 * sine * cosine * old_lr
-            + sine * sine * old_rr
+            cosine * cosine * old_ll - 2.0 * sine * cosine * old_lr + sine * sine * old_rr
         )
         values[right][right] = (
-            sine * sine * old_ll
-            + 2.0 * sine * cosine * old_lr
-            + cosine * cosine * old_rr
+            sine * sine * old_ll + 2.0 * sine * cosine * old_lr + cosine * cosine * old_rr
         )
         values[left][right] = values[right][left] = 0.0
         for index in range(size):
@@ -322,6 +318,7 @@ def _jacobi_psd(matrix: Sequence[Sequence[float]]) -> dict[str, object]:
         "method": "EIGENVALUE_CLIP_AT_ZERO",
         "eigenvalues_before": eigenvalues,
         "eigenvalues_after": clipped,
+        "numerical_rank": sum(value > 1.0e-10 for value in clipped),
         "matrix": projected,
     }
 
@@ -339,10 +336,7 @@ def _contrast_covariance(
                 ]
             )
     means = {
-        stratum: [
-            fmean(vector[index] for vector in group_vectors[stratum])
-            for index in range(8)
-        ]
+        stratum: [fmean(vector[index] for vector in group_vectors[stratum]) for index in range(8)]
         for stratum in STRATA
     }
     residuals = [
@@ -358,10 +352,15 @@ def _contrast_covariance(
         for row in range(8)
     ]
     projection = _jacobi_psd(matrix)
+    if int(projection["numerical_rank"]) > 3:
+        raise ValueError("four-Group contrast covariance rank exceeds three")
     return {
         "contrast_ids": [row[0] for row in CONTRASTS],
         "size": 8,
         "df_covariance": DF_COVARIANCE,
+        "rank_upper_bound": 3,
+        "direct_inverse_allowed": False,
+        "downstream_rule": "PSEUDOINVERSE_OR_SIMULATION_ONLY",
         "raw_matrix": matrix,
         "psd_projection": projection,
     }
@@ -379,9 +378,7 @@ def estimate_calibration_mixed_model(
         rows = observations[contrast_id]
         estimates[contrast_id] = {
             "common": _mom_components(rows),
-            "by_stratum": {
-                stratum: _stratum_components(rows[stratum]) for stratum in STRATA
-            },
+            "by_stratum": {stratum: _stratum_components(rows[stratum]) for stratum in STRATA},
             "upper_bound": _bootstrap_upper_bounds(
                 rows,
                 resamples=bootstrap_resamples,
@@ -390,19 +387,17 @@ def estimate_calibration_mixed_model(
         }
     return {
         "estimator": "METHOD_OF_MOMENTS_MIXED_MODEL",
-        "pooling_rule": "FIXED_COMMON_MIXED_MODEL_WITH_STRATUM_FIXED_EFFECT",
+        "pooling_rule": "SINGLE_STRATUM_GROUP_RANDOM_EFFECT",
         "df_between": DF_BETWEEN,
         "df_within": DF_WITHIN,
         "df_total": DF_TOTAL,
-        "fixed_effect_rank": 2,
+        "fixed_effect_rank": 1,
         "formal_repeats": 2,
         "per_stratum_df": DF_STRATUM_BETWEEN,
         "per_stratum_within_df": DF_STRATUM_WITHIN,
         "contrast_covariance_size": 8,
         "contrast_covariance": _contrast_covariance(observations),
-        "negative_variance_rule": (
-            "TRUNCATE_POINT_AT_ZERO_AND_USE_BOOTSTRAP_UPPER_BOUND"
-        ),
+        "negative_variance_rule": ("TRUNCATE_POINT_AT_ZERO_AND_USE_BOOTSTRAP_UPPER_BOUND"),
         "bootstrap_resamples": bootstrap_resamples,
         "bootstrap_seed": bootstrap_seed,
         "native_group_mean_recomputed_tokens": native_means,
@@ -422,17 +417,13 @@ def _beta_fraction(a: float, b: float, x: float) -> float:
     result = d
     for iteration in range(1, 401):
         doubled = 2 * iteration
-        coefficient = iteration * (b - iteration) * x / (
-            (qam + doubled) * (a + doubled)
-        )
+        coefficient = iteration * (b - iteration) * x / ((qam + doubled) * (a + doubled))
         d = 1.0 + coefficient * d
         d = 1.0 / (d if abs(d) > 1.0e-300 else 1.0e-300)
         c = 1.0 + coefficient / c
         c = c if abs(c) > 1.0e-300 else 1.0e-300
         result *= d * c
-        coefficient = -(a + iteration) * (qab + iteration) * x / (
-            (a + doubled) * (qap + doubled)
-        )
+        coefficient = -(a + iteration) * (qab + iteration) * x / ((a + doubled) * (qap + doubled))
         d = 1.0 + coefficient * d
         d = 1.0 / (d if abs(d) > 1.0e-300 else 1.0e-300)
         c = 1.0 + coefficient / c
@@ -450,11 +441,7 @@ def _regularized_beta(x: float, a: float, b: float) -> float:
     if x >= 1.0:
         return 1.0
     front = math.exp(
-        math.lgamma(a + b)
-        - math.lgamma(a)
-        - math.lgamma(b)
-        + a * math.log(x)
-        + b * math.log1p(-x)
+        math.lgamma(a + b) - math.lgamma(a) - math.lgamma(b) + a * math.log(x) + b * math.log1p(-x)
     )
     if x < (a + 1.0) / (a + b + 2.0):
         return front * _beta_fraction(a, b, x) / a
@@ -510,17 +497,14 @@ def _noncentral_t_upper_power(*, critical: float, df: int, ncp: float) -> float:
 def solve_calibration_noncentral_t(
     variance: Mapping[str, object],
 ) -> dict[str, object]:
-    if variance.get("df_between") != 6 or variance.get("df_within") != 16:
-        raise ValueError("Calibration variance does not use df=6/16")
+    if variance.get("df_between") != 3 or variance.get("df_within") != 8:
+        raise ValueError("Calibration variance does not use df=3/8")
     estimates = variance.get("contrast_estimates")
     native_means = variance.get("native_group_mean_recomputed_tokens")
     if not isinstance(estimates, Mapping) or not isinstance(native_means, Mapping):
         raise TypeError("Calibration variance output is incomplete")
     alpha = 0.05 / 6.0
-    mde = {
-        stratum: max(512.0, 0.05 * float(native_means[stratum]))
-        for stratum in STRATA
-    }
+    mde = {stratum: max(512.0, 0.05 * float(native_means[stratum])) for stratum in STRATA}
     required = {stratum: {} for stratum in STRATA}
     powers = {stratum: {} for stratum in STRATA}
     degenerate_contrasts = []
@@ -539,9 +523,7 @@ def solve_calibration_noncentral_t(
                     power = 1.0
                 else:
                     ncp = mde[stratum] / math.sqrt(upper / sample_size)
-                    critical = _student_t_quantile(
-                        1.0 - alpha / 2.0, sample_size - 1
-                    )
+                    critical = _student_t_quantile(1.0 - alpha / 2.0, sample_size - 1)
                     power = _noncentral_t_upper_power(
                         critical=critical,
                         df=sample_size - 1,

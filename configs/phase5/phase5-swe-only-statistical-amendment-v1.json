@@ -9,7 +9,7 @@
     "swe_cohort_freeze": "docs/experiments/phase5-swe-cohort-construction-freeze-2026-11-24.md"
   },
   "preserved": {
-    "formal_stratum": "SWE_BENCH_VERIFIED",
+    "formal_stratum": "SWE_BENCH",
     "primary_metric": "recomputed_tokens_E_minus_C",
     "independent_unit": "WORKLOAD_GROUP",
     "groups_per_formal_unit": 4,
@@ -32,11 +32,13 @@
     "strata": 1,
     "calibration_groups": 4,
     "calibration_runs": 72,
-    "formal_groups": [
+    "formal_group_reference_points": [
       8,
       12,
       16
     ],
+    "formal_group_selection_domain": "EVERY_INTEGER_N_FROM_8_THROUGH_16",
+    "formal_group_selection_rule": "SMALLEST_INTEGER_N_MEETING_NONCENTRAL_T_POWER",
     "formal_runs": [
       96,
       144,
@@ -119,7 +121,8 @@
     "pool_with_swe": false
   },
   "workload_analysis": {
-    "status": "PENDING_PRIVATE_EVIDENCE_ROOT",
+    "status": "TRACE_ANALYSIS_COMPLETE",
+    "private_analysis_sha256": "b91b346f0ca20794631a62da3c9e719dc31681bd2039697a882747d6a3d2e2f1",
     "script": "scripts/spikes/phase5_dataset/analyze_swe_workload.py",
     "frozen_groups_unchanged": true,
     "frozen_arrival_unchanged": true
@@ -140,5 +143,5 @@
     "formal_campaign": false,
     "cohort_selection": false
   },
-  "amendment_sha256": "b4883318553f3471f3f0d9c0f90826df38e8d64b957d41b70697323f97445d66"
+  "amendment_sha256": "3de3093d6c766a10f580952aed5de05aed1758795d8e1579ebf456acf57e59f0"
 }

@@ -9,6 +9,7 @@ import pytest
 from kvopt.continuum import FakeClock, ProgramIdentity, RetentionMode
 from kvopt.profiling.experiment_events import ExperimentEvent
 from kvopt.workload import phase5e_native_runtime as runtime
+from kvopt.workload.phase5_dva_native_provider import DVAERNativeDecisionProvider
 from kvopt.workload.phase5e_native_runtime import (
     Phase5ENativeRuntimeError,
     Phase5ERuntimeEventSource,
@@ -36,6 +37,16 @@ class _Integration:
 
     def observe_terminal_request_snapshot(self, *_args: object, **_kwargs: object) -> None:
         self.snapshots.append((_args, _kwargs))
+
+    def build_dva_er_native_decision_provider(
+        self, **_native_objects: object
+    ) -> DVAERNativeDecisionProvider:
+        return DVAERNativeDecisionProvider(
+            engine_core_identity="test-core",
+            block_pool_reader=dict,
+            candidate_reader=dict,
+            timer_reader=dict,
+        )
 
 
 def _ownership() -> tuple[object, object, object, object]:
@@ -149,6 +160,28 @@ def test_runtime_install_requires_live_a3_retention_manifest_provider(
         )
 
 
+def test_runtime_install_requires_production_dva_provider_builder(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    core, scheduler, manager, block_pool = _ownership()
+    source = Phase5ERuntimeEventSource()
+    integration = _Integration(source)
+    integration.build_dva_er_native_decision_provider = None  # type: ignore[method-assign]
+    monkeypatch.setattr(runtime, "validate_pinned_vllm_source_identity", dict)
+
+    with pytest.raises(RuntimeError, match="build_dva_er_native_decision_provider"):
+        install_phase5e_a3_runtime(
+            engine_core=core,
+            scheduler=scheduler,
+            kv_cache_manager=manager,
+            block_pool=block_pool,
+            integration=integration,
+            clock=FakeClock(),
+            event_source=source,
+        )
+    assert not hasattr(core, "kvopt_phase5_event_source")
+
+
 def test_runtime_install_binds_source_before_controlled_hook(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -178,6 +211,7 @@ def test_runtime_install_binds_source_before_controlled_hook(
     )
     assert report["status"] == "PASS"
     assert report["source_sha256"] == {"module": "a" * 64}
+    assert report["dva_er_production_provider"]["status"] == "READY"
     assert source.installation_report() == report
     assert calls[0]["mode"] is RetentionMode.CONTROLLED
     assert calls[0]["integration"] is integration

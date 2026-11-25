@@ -81,12 +81,10 @@ def build_formal_freeze_candidate(
     if not isinstance(selected, Mapping):
         raise FormalFreezeError("Calibration lacks selected Groups per stratum")
     selected_counts = {
-        key: value
-        for key, value in selected.items()
-        if key in {"SWE_BENCH", "BFCL_WEB_SEARCH"}
+        key: value for key, value in selected.items() if key == "SWE_BENCH"
     }
-    if set(selected_counts) != {"SWE_BENCH", "BFCL_WEB_SEARCH"}:
-        raise FormalFreezeError("Calibration sample size strata are incomplete")
+    if set(selected_counts) != {"SWE_BENCH"}:
+        raise FormalFreezeError("Calibration sample size SWE stratum is incomplete")
     if any(
         isinstance(value, bool) or not isinstance(value, int) or not 8 <= value <= 16
         for value in selected_counts.values()

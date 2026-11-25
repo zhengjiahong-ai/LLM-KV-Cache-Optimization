@@ -60,7 +60,10 @@ def create_formal_campaign_archive(
     plan = _read_json(root / "campaign-plan.json")
     validate_campaign_plan_identity(plan)
     phase = plan.get("phase")
-    expected_run_counts = {"CALIBRATION": {144}, "FORMAL": {192, 288, 384}}
+    expected_run_counts = {
+        "CALIBRATION": {72},
+        "FORMAL": set(range(96, 193, 12)),
+    }
     if phase not in expected_run_counts or plan.get("run_count") not in expected_run_counts[phase]:
         raise FormalArchiveError("campaign run count is outside the frozen design")
     plan_rows = plan.get("runs")

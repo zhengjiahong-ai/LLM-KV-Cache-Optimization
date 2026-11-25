@@ -217,3 +217,43 @@ def production_provider_status(integration: object) -> dict[str, object]:
         "native_runtime_conformance": "NOT_RUN",
         "missing_interface": None if ready else "dva_er_native_decision_provider",
     }
+
+
+def install_production_provider(
+    *,
+    integration: object,
+    engine_core: object,
+    scheduler: object,
+    kv_cache_manager: object,
+    block_pool: object,
+) -> DVAERNativeDecisionProvider:
+    """Install the provider through the real same-EngineCore runtime boundary.
+
+    The integration owns the live readers because it owns Program/Session,
+    retention-candidate and controller-timer state.  This installer supplies
+    the four pinned Native objects and refuses a detached or fixture-only
+    provider.  Native correctness remains ``NOT_RUN`` until GPU conformance.
+    """
+
+    build = getattr(integration, "build_dva_er_native_decision_provider", None)
+    if not callable(build):
+        raise DVAERNativeProviderError(
+            "live integration lacks build_dva_er_native_decision_provider"
+        )
+    provider = build(
+        engine_core=engine_core,
+        scheduler=scheduler,
+        kv_cache_manager=kv_cache_manager,
+        block_pool=block_pool,
+    )
+    if not isinstance(provider, DVAERNativeDecisionProvider):
+        raise DVAERNativeProviderError(
+            "live integration did not construct a production DVA-ER provider"
+        )
+    if getattr(integration, "dva_er_native_decision_provider", None) not in {
+        None,
+        provider,
+    }:
+        raise DVAERNativeProviderError("DVA-ER production provider is already installed")
+    integration.dva_er_native_decision_provider = provider
+    return provider

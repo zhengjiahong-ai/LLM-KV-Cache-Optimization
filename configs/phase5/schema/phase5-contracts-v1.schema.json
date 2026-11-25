@@ -233,7 +233,7 @@
               "const": 4
             },
             "strata": {
-              "const": 2
+              "const": 1
             },
             "systems": {
               "const": 6
@@ -242,7 +242,7 @@
               "const": 3
             },
             "runs_total": {
-              "const": 144
+              "const": 72
             },
             "disjoint_from_formal": {
               "const": true

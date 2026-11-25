@@ -269,8 +269,8 @@
       "properties": {
         "strata": {
           "type": "array",
-          "minItems": 2,
-          "maxItems": 2,
+          "minItems": 1,
+          "maxItems": 1,
           "items": {
             "type": "object",
             "required": [
@@ -282,10 +282,7 @@
             ],
             "properties": {
               "id": {
-                "enum": [
-                  "SWE_BENCH",
-                  "BFCL_WEB_SEARCH"
-                ]
+                "const": "SWE_BENCH"
               },
               "source": {
                 "type": "string"
@@ -588,7 +585,7 @@
           "const": 3
         },
         "runs_total": {
-          "const": 144
+          "const": 72
         },
         "mde_rule": {
           "type": "string",
@@ -608,11 +605,11 @@
         },
         "gpu_hours_minimum": {
           "type": "number",
-          "exclusiveMinimum": 0
+          "minimum": 0
         },
         "gpu_hours_maximum": {
           "type": "number",
-          "exclusiveMinimum": 0
+          "minimum": 0
         },
         "systems": {
           "const": 6

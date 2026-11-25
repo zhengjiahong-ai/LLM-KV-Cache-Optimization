@@ -23,8 +23,8 @@ def balanced_latin_square() -> tuple[tuple[str, ...], ...]:
 
 
 def _validate_groups(groups: Mapping[str, Sequence[str]], expected_per_stratum: int) -> None:
-    if set(groups) != {"SWE_BENCH", "BFCL_WEB_SEARCH"}:
-        raise ValueError("campaign Groups must cover both frozen strata")
+    if set(groups) != {"SWE_BENCH"}:
+        raise ValueError("campaign Groups must cover the sole formal SWE stratum")
     all_groups: list[str] = []
     for stratum, identities in groups.items():
         if len(identities) != expected_per_stratum or len(set(identities)) != len(
@@ -89,10 +89,9 @@ def materialize_campaign_plan(
     else:
         if repeats != 2:
             raise ValueError("Formal repeats must equal two")
-        sizes = {len(rows) for rows in groups.values()}
-        if len(sizes) != 1 or not 8 <= next(iter(sizes)) <= 16:
-            raise ValueError("Formal N must be equal by stratum and in 8..16")
-        expected_groups = next(iter(sizes))
+        expected_groups = len(groups.get("SWE_BENCH", ()))
+        if not 8 <= expected_groups <= 16:
+            raise ValueError("Formal N must be an integer in 8..16")
     _validate_groups(groups, expected_groups)
     _validate_orders(
         groups=groups, repeats=repeats, execution_orders=execution_orders

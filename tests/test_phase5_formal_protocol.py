@@ -166,16 +166,16 @@ def test_rejects_prematurely_frozen_dva_candidate() -> None:
         raise AssertionError("prematurely frozen candidate was accepted")
 
 
-def test_rejects_insufficient_six_arm_gpu_budget() -> None:
+def test_rejects_unfrozen_legacy_gpu_budget() -> None:
     module = _load_module()
     protocol = _protocol()
     protocol["calibration"]["gpu_hours_minimum"] = 36
     try:
         module.validate_protocol(protocol, _schema())
     except ValueError as error:
-        assert "72 hours" in str(error)
+        assert "unset until single-stratum preflight" in str(error)
     else:
-        raise AssertionError("36-hour budget was accepted for the minimum six-arm sample")
+        raise AssertionError("unfrozen legacy GPU budget was accepted")
 
 
 def test_candidate_evaluation_fixtures_are_complete() -> None:
@@ -328,15 +328,17 @@ def test_cross_contract_rejects_wrong_alpha() -> None:
         raise AssertionError("inconsistent alpha was accepted")
 
 
-def test_cross_contract_rejects_old_variance_model() -> None:
+def test_cross_contract_rejects_two_stratum_variance_model() -> None:
     docs = _contract_docs()
-    docs["calibration"]["variance_model"]["model"] = "d_g_r = mu + b_g + epsilon_g_r"
+    docs["calibration"]["variance_model"]["model"] = (
+        "d_g_r = mu + tau_s + b_g + epsilon_g_r"
+    )
     try:
         _cross_validate(docs)
     except ValueError as error:
         assert "model" in str(error)
     else:
-        raise AssertionError("old variance model was accepted")
+        raise AssertionError("two-stratum variance model was accepted")
 
 
 def test_cross_contract_rejects_second_overhead_factor() -> None:

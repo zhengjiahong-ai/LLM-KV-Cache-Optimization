@@ -20,38 +20,36 @@ def _rows(group_count: int = 4):
         "DVA_ER_V1": 3.0,
     }
     rows = []
-    for stratum in ("SWE_BENCH", "BFCL_WEB_SEARCH"):
-        for group in range(1, group_count + 1):
-            for system_id in SYSTEM_IDS:
-                for repeat in (1, 2):
-                    rows.append(
-                        {
-                            "run_id": f"{stratum}:g{group}:{system_id}:r{repeat}",
-                            "group_id": f"g{group}",
-                            "stratum": stratum,
-                            "system_id": system_id,
-                            "repeat_index": repeat,
-                            "status": "PASS",
-                            "metric_value": 100.0 + offsets[system_id] + group + repeat,
-                        }
-                    )
+    stratum = "SWE_BENCH"
+    for group in range(1, group_count + 1):
+        for system_id in SYSTEM_IDS:
+            for repeat in (1, 2):
+                rows.append(
+                    {
+                        "run_id": f"{stratum}:g{group}:{system_id}:r{repeat}",
+                        "group_id": f"g{group}",
+                        "stratum": stratum,
+                        "system_id": system_id,
+                        "repeat_index": repeat,
+                        "status": "PASS",
+                        "metric_value": 100.0 + offsets[system_id] + group + repeat,
+                    }
+                )
     return rows
 
 
 def test_six_system_group_pipeline_reports_eight_frozen_contrasts() -> None:
-    report = analyze_phase5_formal_groups(
-        _rows(), bootstrap_resamples=200, bootstrap_seed=17
-    )
+    report = analyze_phase5_formal_groups(_rows(), bootstrap_resamples=200, bootstrap_seed=17)
 
     assert report["status"] == "PASS"
     assert report["systems"] == list(SYSTEM_IDS)
     assert report["primary_contrasts"] == list(CONTRASTS)
-    for stratum in ("SWE_BENCH", "BFCL_WEB_SEARCH"):
-        result = report["strata"][stratum]
-        assert result["complete_group_count"] == 4
-        assert set(result["contrasts"]) == set(CONTRASTS)
-        assert all(row["group_count"] == 4 for row in result["contrasts"].values())
-        assert set(result["families"]) == set(PRIMARY_FAMILIES)
+    assert set(report["strata"]) == {"SWE_BENCH"}
+    result = report["strata"]["SWE_BENCH"]
+    assert result["complete_group_count"] == 4
+    assert set(result["contrasts"]) == set(CONTRASTS)
+    assert all(row["group_count"] == 4 for row in result["contrasts"].values())
+    assert set(result["families"]) == set(PRIMARY_FAMILIES)
 
 
 def test_repeat_values_are_averaged_before_paired_group_difference() -> None:
@@ -59,10 +57,7 @@ def test_repeat_values_are_averaged_before_paired_group_difference() -> None:
     for row in rows:
         if row["stratum"] == "SWE_BENCH" and row["system_id"] == "A1_ORIGINAL":
             row["metric_value"] = 10.0 if row["repeat_index"] == 1 else 30.0
-        if (
-            row["stratum"] == "SWE_BENCH"
-            and row["system_id"] == "CONTINUUM_ADAPTED"
-        ):
+        if row["stratum"] == "SWE_BENCH" and row["system_id"] == "CONTINUUM_ADAPTED":
             row["metric_value"] = 2.0 if row["repeat_index"] == 1 else 6.0
 
     report = analyze_phase5_formal_groups(rows, bootstrap_resamples=20)
@@ -102,7 +97,7 @@ def test_nonfinite_or_failed_metric_is_not_imputed() -> None:
     target = next(
         row
         for row in rows
-        if row["stratum"] == "BFCL_WEB_SEARCH"
+        if row["stratum"] == "SWE_BENCH"
         and row["system_id"] == "DVA_ER_V1"
         and row["repeat_index"] == 1
     )
@@ -110,16 +105,15 @@ def test_nonfinite_or_failed_metric_is_not_imputed() -> None:
 
     report = analyze_phase5_formal_groups(rows, bootstrap_resamples=20)
 
-    assert report["strata"]["BFCL_WEB_SEARCH"]["complete_group_count"] == 0
-    assert report["strata"]["BFCL_WEB_SEARCH"]["families"][
-        "CANDIDATE_MECHANISM"
-    ]["status"] == "NOT_EVALUABLE_INCOMPLETE_FAMILY"
-
-
-def test_holm_is_applied_separately_to_each_family_and_stratum() -> None:
-    report = analyze_phase5_formal_groups(
-        _rows(), bootstrap_resamples=20, bootstrap_seed=99
+    assert report["strata"]["SWE_BENCH"]["complete_group_count"] == 0
+    assert (
+        report["strata"]["SWE_BENCH"]["families"]["CANDIDATE_MECHANISM"]["status"]
+        == "NOT_EVALUABLE_INCOMPLETE_FAMILY"
     )
+
+
+def test_holm_is_applied_separately_to_each_family() -> None:
+    report = analyze_phase5_formal_groups(_rows(), bootstrap_resamples=20, bootstrap_seed=99)
 
     for stratum in report["strata"].values():
         candidate = stratum["families"]["CANDIDATE_MECHANISM"]
@@ -128,13 +122,16 @@ def test_holm_is_applied_separately_to_each_family_and_stratum() -> None:
         assert len(context["holm_adjusted_pvalues"]) == 2
 
 
+def test_bfcl_is_rejected_from_swe_formal_analysis() -> None:
+    row = dict(_rows(group_count=1)[0])
+    row["stratum"] = "BFCL_WEB_SEARCH"
+    with pytest.raises(ValueError, match="only accepts SWE_BENCH"):
+        analyze_phase5_formal_groups([row], bootstrap_resamples=10)
+
+
 def test_bootstrap_is_reproducible_for_frozen_seed() -> None:
-    first = analyze_phase5_formal_groups(
-        _rows(), bootstrap_resamples=100, bootstrap_seed=20261201
-    )
-    second = analyze_phase5_formal_groups(
-        _rows(), bootstrap_resamples=100, bootstrap_seed=20261201
-    )
+    first = analyze_phase5_formal_groups(_rows(), bootstrap_resamples=100, bootstrap_seed=20261201)
+    second = analyze_phase5_formal_groups(_rows(), bootstrap_resamples=100, bootstrap_seed=20261201)
 
     assert first == second
 
@@ -163,9 +160,7 @@ def test_no_complete_groups_is_explicitly_not_evaluable() -> None:
 
 
 def test_paired_group_t_test_is_reported_with_correct_degrees_of_freedom() -> None:
-    report = analyze_phase5_formal_groups(
-        _rows(group_count=4), bootstrap_resamples=20
-    )
+    report = analyze_phase5_formal_groups(_rows(group_count=4), bootstrap_resamples=20)
     result = report["strata"]["SWE_BENCH"]["contrasts"]["A1_vs_A0"]
     assert result["paired_t_test"]["df"] == 3
     assert result["paired_t_test"]["status"] == "DEGENERATE_ZERO_VARIANCE"

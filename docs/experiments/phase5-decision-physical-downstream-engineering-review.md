@@ -12,8 +12,9 @@ not require the physical-decision join or downstream observations.
 
 This change closes the CPU/interface and archive-contract gaps. It does not
 claim that pinned vLLM has supplied the evidence on GPU. DVA-ER Native runtime
-conformance remains `NOT_RUN`; the production provider remains
-`NOT_INSTALLED` until the live retention integration exposes it.
+conformance remains `NOT_RUN`; the production installation path is now wired
+and fails closed unless the live integration constructs the provider from the
+same EngineCore, Scheduler, KVCacheManager and BlockPool objects.
 
 ## 1. Runtime data sources and call chain
 
@@ -36,11 +37,13 @@ It rejects cross-EngineCore state, incomplete owner/protection identities,
 future observations, non-controller timers, and incomplete timer coverage.
 It never reconstructs these fields from future trace turns or reuse outcomes.
 
-The remaining Native integration change is explicit: the live runtime
-integration must expose `dva_er_native_decision_provider` and populate its
-three readers at the forced decision boundary. Until then,
-`production_provider_status()` returns `NOT_INSTALLED`, and CPU fixtures cannot
-be interpreted as Native PASS.
+`install_phase5e_a3_runtime()` now invokes the production provider builder
+before installing the controlled retention hook and records READY in the
+installation report only when the returned provider is the reviewed concrete
+type. A missing builder, detached provider or second provider fails closed.
+The integration remains responsible for populating the three readers from its
+live owner/protection/candidate/timer state at the forced decision boundary;
+CPU fixtures still cannot be interpreted as Native PASS.
 
 ## 2. DVA-ER decision evidence
 
@@ -66,9 +69,9 @@ The independent join now binds:
 Wrong Decision/Boundary identities, missing content identity, duplicate block
 IDs, or a SelectionPlan that differs from the selected prediction fails closed.
 
-Formal run manifests and the campaign archive now require two additional
+Formal run manifests and the campaign archive now require three additional
 immutable evidence streams: `decision_physical_events` and
-`downstream_observations`. The archive can no longer pass while silently
+`downstream_observations`, plus `mechanism_observations_m0_m5`. The archive can no longer pass while silently
 omitting these files.
 
 ## 4. Downstream observation boundary
@@ -108,7 +111,7 @@ These are CPU contract tests. They do not replace a real Native/GPU run.
 
 | Area | CPU/interface status | Native status | Gate effect |
 |---|---|---|---|
-| DVA-ER input Provider | Implemented, fail closed | `NOT_INSTALLED` / `NOT_RUN` | D gate remains open |
+| DVA-ER input Provider | Same-core installation path implemented, fail closed | `NOT_RUN` | Native gate remains open |
 | Complete candidate victim predictions | PASS | Not observed | Required before D acceptance |
 | Decision to physical join | PASS | Not observed | Required archive stream |
 | Downstream N/E/C association | PASS | Not observed | Attribution remains `NOT_ESTABLISHED` |

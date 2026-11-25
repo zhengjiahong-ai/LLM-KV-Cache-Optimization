@@ -167,24 +167,24 @@ def validate_protocol(protocol: dict[str, Any], schema: dict[str, Any]) -> None:
         raise ValueError("unresolved M1 decision set is incomplete")
 
     calibration = protocol["calibration"]
-    if calibration["groups_per_stratum"] != 4 or calibration["runs_total"] != 144:
-        raise ValueError("calibration must be 4 Groups/stratum and 144 six-arm runs")
+    if calibration["groups_per_stratum"] != 4 or calibration["runs_total"] != 72:
+        raise ValueError("calibration must be 4 SWE Groups and 72 six-system runs")
     if calibration["systems"] != 6:
         raise ValueError("calibration must include all six systems")
     if calibration["sample_size_min_per_stratum"] != 8:
         raise ValueError("minimum formal Groups/stratum is 8")
     if calibration["sample_size_max_per_stratum"] != 16:
         raise ValueError("maximum formal Groups/stratum is 16")
-    if calibration["formal_runs_at_min"] != 192:
-        raise ValueError("six-arm formal minimum must be 192 runs")
-    if calibration["formal_runs_at_max"] != 384:
-        raise ValueError("six-arm formal maximum must be 384 runs")
-    if calibration["sample_size_contrast_family"] != "SIX_CANDIDATE_CONTRASTS_PER_STRATUM":
+    if calibration["formal_runs_at_min"] != 96:
+        raise ValueError("six-system formal minimum must be 96 runs")
+    if calibration["formal_runs_at_max"] != 192:
+        raise ValueError("six-system formal maximum must be 192 runs")
+    if calibration["sample_size_contrast_family"] != "SIX_CANDIDATE_CONTRASTS_SWE_ONLY":
         raise ValueError("sample size must use the six candidate contrasts")
     if abs(calibration["sample_size_alpha_per_test"] - 0.05 / 6) > 1e-12:
         raise ValueError("candidate-family alpha must be 0.05/6")
-    if calibration["gpu_hours_minimum"] < 72:
-        raise ValueError("six-arm GPU budget cannot support the minimum sample within 72 hours")
+    if calibration["gpu_hours_minimum"] != 0:
+        raise ValueError("GPU budget must remain unset until single-stratum preflight")
     if calibration["gpu_hours_maximum"] < calibration["gpu_hours_minimum"]:
         raise ValueError("GPU budget range is inverted")
     if calibration["formula_result_below_min"] != "USE_8_AND_REPORT_VARIANCE_UNCERTAINTY":
@@ -331,15 +331,15 @@ def _validate_frozen_variance_contract(
     variance: dict[str, Any], label: str
 ) -> None:
     expected = {
-        "pooling_rule": "FIXED_COMMON_MIXED_MODEL_WITH_STRATUM_FIXED_EFFECT",
-        "df_between": 6,
-        "df_within": 16,
-        "df_total": 22,
-        "fixed_effect_rank": 2,
+        "pooling_rule": "SINGLE_STRATUM_RANDOM_INTERCEPT_MODEL",
+        "df_between": 3,
+        "df_within": 8,
+        "df_total": 11,
+        "fixed_effect_rank": 1,
         "formal_repeats": 2,
         "per_stratum_df": 3,
         "per_stratum_within_df": 8,
-        "df_covariance": 6,
+        "df_covariance": 3,
         "contrast_covariance_size": 8,
         "variance_upper_method": "PARAMETRIC_BOOTSTRAP",
         "bootstrap_resamples": 10000,
@@ -354,10 +354,8 @@ def _validate_frozen_variance_contract(
         raise ValueError(f"{label} variance contract must not use homogeneity testing")
     if "pooled_df" in variance:
         raise ValueError(f"{label} variance contract must not define pooled_df")
-    if variance.get("deprecated_df", {}).get("pooled_df_7") != (
-        "PROHIBITED_INCOMPATIBLE_WITH_TWO_STRATUM_FIXED_EFFECTS"
-    ):
-        raise ValueError(f"{label} must explicitly prohibit pooled_df=7")
+    if variance.get("contrast_covariance_rank_upper_bound") != 3:
+        raise ValueError(f"{label} covariance rank must be bounded by three")
 
 
 def validate_cross_documents(
@@ -402,10 +400,8 @@ def validate_cross_documents(
         calibration["variance_model"], "calibration"
     )
     model = calibration["variance_model"]["model"]
-    if "tau_s" not in model or "b_{g(s)}" not in model:
-        raise ValueError(
-            "calibration model must include stratum fixed effect and Group random effect"
-        )
+    if "b_g" not in model or "tau_s" in model:
+        raise ValueError("calibration model must be the single-SWE-stratum Group model")
     if "homogeneity" in calibration["variance_model"]["low_df_warning"].lower():
         raise ValueError("calibration low-df rule still references homogeneity testing")
     if calibration["analysis_contract"]["primary_family"] != CANDIDATE_CONTRASTS:
@@ -415,8 +411,8 @@ def validate_cross_documents(
     if calibration["formal_runs"]["systems"] != 6:
         raise ValueError("calibration formal_runs must cover six systems")
     if (
-        calibration["formal_runs"]["runs_at_min"] != 192
-        or calibration["formal_runs"]["runs_at_max"] != 384
+        calibration["formal_runs"]["runs_at_min"] != 96
+        or calibration["formal_runs"]["runs_at_max"] != 192
     ):
         raise ValueError("calibration formal run counts do not match six arms")
     if len(calibration["resource_budget"]["per_system_p95_fields"]) != 6:

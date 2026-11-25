@@ -13,7 +13,7 @@ from kvopt.workload.phase5_calibration import (
 
 def _records():
     rows = []
-    for stratum_index, stratum in enumerate(("SWE_BENCH", "BFCL_WEB_SEARCH")):
+    for stratum_index, stratum in enumerate(("SWE_BENCH",)):
         for group_index in range(1, 5):
             for system_index, system_id in enumerate(SYSTEM_IDS):
                 for repeat_index in range(1, 4):
@@ -37,16 +37,16 @@ def _records():
     return rows
 
 
-def test_exact_144_run_calibration_matrix() -> None:
+def test_exact_72_run_calibration_matrix() -> None:
     report = validate_calibration_matrix(_records())
-    assert report["record_count"] == 144
+    assert report["record_count"] == 72
     assert report["systems"] == list(SYSTEM_IDS)
     assert report["formal_execution_authorized"] is False
 
 
 def test_missing_duplicate_failed_and_formal_reuse_fail_closed() -> None:
     rows = _records()
-    with pytest.raises(ValueError, match="exactly 144"):
+    with pytest.raises(ValueError, match="exactly 72"):
         validate_calibration_matrix(rows[:-1])
     duplicated = copy.deepcopy(rows)
     duplicated[-1] = copy.deepcopy(duplicated[0])
@@ -78,7 +78,7 @@ def test_analyzer_requires_exact_mixed_model_and_noncentral_t() -> None:
     def solver(_variance):
         return {
             "distribution": "NONCENTRAL_T_ITERATIVE",
-            "selected_groups_per_stratum": {"SWE_BENCH": 8, "BFCL_WEB_SEARCH": 16},
+            "selected_groups_per_stratum": {"SWE_BENCH": 8},
         }
 
     report = analyze_calibration(
@@ -106,7 +106,6 @@ def test_z_approximation_is_rejected() -> None:
                 "distribution": "NORMAL_Z",
                 "selected_groups_per_stratum": {
                     "SWE_BENCH": 8,
-                    "BFCL_WEB_SEARCH": 8,
                 },
             },
         )
