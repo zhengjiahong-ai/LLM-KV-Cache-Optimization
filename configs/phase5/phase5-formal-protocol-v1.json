@@ -428,8 +428,9 @@
     "if_budget_cannot_support_minimum": "NOT_FEASIBLE",
     "if_required_above_max": "STOP_OR_M1_ACCEPTS_UNDERPOWERED",
     "gpu_hours_minimum": 0.0,
-    "gpu_hours_maximum": 0.0,
-    "gpu_hours_status": "RECOMPUTE_AND_M1_FREEZE_AFTER_SINGLE_STRATUM_PREFLIGHT",
+    "gpu_hours_maximum": 30.8,
+    "gpu_hours_status": "M1_FROZEN_SWE_N8_EXECUTION_CEILING",
+    "gpu_hours_scope": "SWE_CALIBRATION_72_PLUS_FORMAL_N8_96_TOTAL_GPU_OCCUPANCY",
     "gpu_hours_projection": "(1+failure_reserve_fraction)*sum_s((12*Tcal_s+2N*Tformal_s+(12+2N)*(startup_s+restart_s+archive_s+evaluator_s))/3600)",
     "overhead_includes": [
       "STARTUP",
@@ -459,7 +460,9 @@
     ],
     "failure_reserve_fraction": 0.1,
     "gpu_hours_envelope_type": "M1_AUTHORIZATION_CEILING_NOT_FORMULA_OUTPUT",
-    "gpu_hours_formula_at_600s_ceiling": "RECOMPUTE_FROM_SINGLE_STRATUM_MEASUREMENTS",
+    "gpu_hours_formula_at_600s_ceiling": "28.0_BASE_GPU_HOURS_PLUS_ONE_10_PERCENT_RESERVE_EQUALS_30.8_GPU_HOURS; ALL_OVERHEAD_MUST_FIT_WITHIN_THE_FROZEN_TOTAL",
+    "native_conformance_budget_accounting": "SEPARATE_PHASE5E_BOUNDED_0.5_GPU_HOURS",
+    "bfcl_derived_budget_accounting": "SEPARATE_FROM_SWE; MUST_HAVE_ITS_OWN_PROJECTED_CEILING_BEFORE_EXECUTION",
     "per_system_p95_seconds": {
       "NATIVE": {
         "calibration": "MEASURED_PER_SYSTEM",

@@ -166,16 +166,16 @@ def test_rejects_prematurely_frozen_dva_candidate() -> None:
         raise AssertionError("prematurely frozen candidate was accepted")
 
 
-def test_rejects_unfrozen_legacy_gpu_budget() -> None:
+def test_rejects_budget_that_differs_from_m1_frozen_swe_ceiling() -> None:
     module = _load_module()
     protocol = _protocol()
-    protocol["calibration"]["gpu_hours_minimum"] = 36
+    protocol["calibration"]["gpu_hours_maximum"] = 31
     try:
         module.validate_protocol(protocol, _schema())
     except ValueError as error:
-        assert "unset until single-stratum preflight" in str(error)
+        assert "30.8 hours" in str(error)
     else:
-        raise AssertionError("unfrozen legacy GPU budget was accepted")
+        raise AssertionError("non-frozen SWE GPU budget was accepted")
 
 
 def test_candidate_evaluation_fixtures_are_complete() -> None:

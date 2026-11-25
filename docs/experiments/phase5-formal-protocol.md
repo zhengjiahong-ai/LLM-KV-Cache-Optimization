@@ -396,6 +396,8 @@ The full contract is in `phase5-metrics-contract-v1.json`.
 - Planned runs: calibration **72** + formal **96–192** (6 systems × N × 2 repeats, integer N=8..16; total **168–264** runs).
 - Per-run hard timeout 600s, shutdown grace 60s; reservation window 1800s.
 - At the 600s ceiling, the minimum campaign is `168 × 600s = 28.0 GPU-hours` and the maximum is `264 × 600s = 44.0 GPU-hours`, before startup/restart/archive/evaluator and the single 10% reserve.
+- M1 froze the currently executable SWE path (72 Calibration + N=8 96 Formal runs) at **30.8 total GPU-hours**. Startup, restart, archive and evaluator time must fit within that total; 30.8 is not an invitation to add a second overhead factor.
+- Phase 5E Native Conformance retains its separate bounded 0.5 GPU-hour allocation. BFCL Derived is accounted separately and may execute only after its own projected ceiling is frozen; neither may consume the SWE envelope.
 - Resource forecast is **per system**, with explicit timing boundaries:
   - `Tcal_s`, `Tformal_s`: first dispatch to last terminal; excludes process start, engine init and archive;
   - `startup_s`: process start + engine init + model load (preheat NONE);

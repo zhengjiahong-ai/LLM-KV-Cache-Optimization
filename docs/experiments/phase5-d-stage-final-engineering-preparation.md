@@ -17,6 +17,11 @@ The formal physical-evidence producer now requires the independently executed
 `CONTINUUM_ADAPTED` outcome for the same frozen Pressure Boundary and emits the
 A0 selected, predicted and physical comparator fields consumed by M1/M2/M3.
 
+M1 subsequently froze the SWE E-stage ceiling at 30.8 total GPU-hours for the
+72-run Calibration plus the N=8 96-run Formal Campaign. Native Conformance and
+BFCL Derived remain separately accounted workloads and cannot consume the SWE
+envelope.
+
 ## 1. SWE-only execution contract
 
 All formal execution layers now use the sole formal Stratum `SWE_BENCH`:

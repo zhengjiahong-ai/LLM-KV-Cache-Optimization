@@ -109,8 +109,8 @@
   "resource_budget": {
     "gpu_class": "NVIDIA GeForce RTX 4090 D",
     "gpu_memory_gib": 24,
-    "minimum_gpu_hours": "RECOMPUTE_FROM_SINGLE_STRATUM_MEASUREMENTS",
-    "maximum_gpu_hours": "M1_TO_FREEZE_AFTER_CALIBRATION_PREFLIGHT",
+    "minimum_gpu_hours": 0.0,
+    "maximum_gpu_hours": 30.8,
     "projection_formula": "(1 + failure_reserve_fraction) * sum_s((12*Tcal_s + 2N*Tformal_s + (12+2N)*(startup_s + restart_s + archive_s + evaluator_s))/3600)",
     "overhead_includes": [
       "ENGINE_STARTUP",
@@ -165,9 +165,10 @@
     },
     "budget_envelope_type": "M1_AUTHORIZATION_CEILING_NOT_FORMULA_OUTPUT",
     "budget_envelope_minimum_hours": 0.0,
-    "budget_envelope_maximum_hours": 0.0,
-    "budget_envelope_status": "RECOMPUTE_AND_M1_FREEZE_AFTER_SINGLE_STRATUM_PREFLIGHT",
-    "budget_envelope_note": "The obsolete two-stratum 72-112 GPU-hour envelope is not reused. M1 freezes a new envelope after per-system single-stratum preflight measurements.",
+    "budget_envelope_maximum_hours": 30.8,
+    "budget_envelope_status": "M1_FROZEN_SWE_N8_EXECUTION_CEILING",
+    "budget_envelope_scope": "SWE_CALIBRATION_72_PLUS_FORMAL_N8_96_TOTAL_GPU_OCCUPANCY",
+    "budget_envelope_note": "M1 froze 30.8 GPU-hours for the SWE 72-run Calibration plus N=8 96-run Formal Campaign. The projected total includes startup, restart, archive and evaluator time and the sole 10% reserve. Native Conformance and BFCL Derived are accounted separately and cannot consume this envelope.",
     "per_system_p95_seconds": {
       "NATIVE": {
         "calibration": "MEASURED_PER_SYSTEM",

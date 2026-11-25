@@ -184,9 +184,11 @@ def validate_protocol(protocol: dict[str, Any], schema: dict[str, Any]) -> None:
     if abs(calibration["sample_size_alpha_per_test"] - 0.05 / 6) > 1e-12:
         raise ValueError("candidate-family alpha must be 0.05/6")
     if calibration["gpu_hours_minimum"] != 0:
-        raise ValueError("GPU budget must remain unset until single-stratum preflight")
-    if calibration["gpu_hours_maximum"] < calibration["gpu_hours_minimum"]:
-        raise ValueError("GPU budget range is inverted")
+        raise ValueError("SWE GPU budget minimum must remain zero")
+    if calibration["gpu_hours_maximum"] != 30.8:
+        raise ValueError("M1-frozen SWE GPU ceiling must be 30.8 hours")
+    if calibration["gpu_hours_status"] != "M1_FROZEN_SWE_N8_EXECUTION_CEILING":
+        raise ValueError("SWE GPU ceiling status is not M1-frozen")
     if calibration["formula_result_below_min"] != "USE_8_AND_REPORT_VARIANCE_UNCERTAINTY":
         raise ValueError("formula-below-minimum rule must use 8, not stop")
     if calibration["if_budget_cannot_support_minimum"] != "NOT_FEASIBLE":
@@ -429,6 +431,11 @@ def validate_cross_documents(
         raise ValueError("calibration must not use a second overhead factor")
     if calibration["resource_budget"]["failure_reserve_fraction"] != 0.10:
         raise ValueError("calibration failure reserve must be exactly 10%")
+    if (
+        calibration["resource_budget"]["budget_envelope_status"]
+        != "M1_FROZEN_SWE_N8_EXECUTION_CEILING"
+    ):
+        raise ValueError("calibration resource budget is not M1-frozen")
     if (
         calibration["resource_budget"]["budget_envelope_minimum_hours"]
         != protocol["calibration"]["gpu_hours_minimum"]
