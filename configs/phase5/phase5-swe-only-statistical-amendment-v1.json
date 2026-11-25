@@ -1,0 +1,144 @@
+{
+  "schema_version": "phase5.swe_only_statistical_amendment.v1",
+  "status": "M1_ACCEPTED_PENDING_M6_IMPLEMENTATION",
+  "protocol_id": "phase5.swe_only.statistical_amendment.v1",
+  "decision_date": "2026-11-25",
+  "basis": {
+    "research_review": "PR #139: https://github.com/zhengjiahong-ai/LLM-KV-Cache-Optimization/pull/139",
+    "scope_amendment": "docs/experiments/phase5-scope-amendment-2026-11-24.md",
+    "swe_cohort_freeze": "docs/experiments/phase5-swe-cohort-construction-freeze-2026-11-24.md"
+  },
+  "preserved": {
+    "formal_stratum": "SWE_BENCH_VERIFIED",
+    "primary_metric": "recomputed_tokens_E_minus_C",
+    "independent_unit": "WORKLOAD_GROUP",
+    "groups_per_formal_unit": 4,
+    "programs_per_group": 4,
+    "formal_repeats": 2,
+    "calibration_repeats": 3,
+    "mde": "max(512, 0.05 * calibration_native_group_mean)",
+    "power": 0.8,
+    "alpha_family": 0.05,
+    "candidate_contrast_count": 6,
+    "candidate_multiplicity": "HOLM_WITHIN_ONE_SWE_FAMILY",
+    "system_context_contrasts": [
+      "NATIVE_vs_A0",
+      "OFFICIAL_vs_A0"
+    ],
+    "right_censored_primary_rule": "INCLUDE_VALID_OBSERVED_TURNS",
+    "bfcl_role": "INDEPENDENT_SUPPLEMENTARY_NOT_FORMAL"
+  },
+  "formal_design": {
+    "strata": 1,
+    "calibration_groups": 4,
+    "calibration_runs": 72,
+    "formal_groups": [
+      8,
+      12,
+      16
+    ],
+    "formal_runs": [
+      96,
+      144,
+      192
+    ],
+    "combined_runs": [
+      168,
+      216,
+      264
+    ],
+    "current_materialized_formal_groups": 8,
+    "formal_n_above_8": "NOT_MATERIALIZABLE_WITH_CURRENT_48_PROGRAMS"
+  },
+  "variance_model": {
+    "model": "d_{g,r} = mu + b_g + epsilon_{g,r}",
+    "between_group_variance": "sigma_between^2",
+    "repeat_variance": "sigma_repeat^2",
+    "df_between": 3,
+    "df_within": 8,
+    "df_total": 11,
+    "df_covariance": 3,
+    "ss_between": "sum_g (mean_r d_g,r - overall_mean)^2",
+    "ss_within": "sum_g sum_r (d_g,r - mean_r d_g,.)^2",
+    "sigma_repeat_squared": "SS_within / 8",
+    "sigma_between_squared": "max(0, SS_between/3 - sigma_repeat_squared/3)",
+    "formal_group_mean_variance": "sigma_between_squared + sigma_repeat_squared/2",
+    "covariance_rank_upper_bound": 3,
+    "covariance_handling": "PSD_PROJECT_AND_PSEUDOINVERSE_OR_SIMULATION_NO_DIRECT_INVERSION"
+  },
+  "right_censoring": {
+    "natural_terminal": 2,
+    "right_censored": 46,
+    "sensitivity": "NOT_ESTIMABLE",
+    "reason": "NO_COMPLETE_FOUR_PROGRAM_GROUP_AFTER_EXCLUDING_RIGHT_CENSORED",
+    "sensitivity_analysis_allowed_at_program_level": false,
+    "impute_future_requests": false
+  },
+  "mechanism_framework": {
+    "levels": [
+      "M0_DECISION_SPACE",
+      "M1_SELECTION_DIVERGENCE",
+      "M2_PREDICTED_VICTIM_DIVERGENCE",
+      "M3_ACTUAL_PHYSICAL_EVICTION",
+      "M4_DOWNSTREAM_RECOMPUTE",
+      "M5_SYSTEM_EFFECT"
+    ],
+    "execution_gate": false,
+    "decision_level_independent_statistics": false,
+    "causal_attribution_status_without_intervention": "NOT_ESTABLISHED"
+  },
+  "dva_er": {
+    "H_60s": "DESIGN_PRIOR_NOT_CALIBRATED",
+    "sensitivity_H": [
+      30,
+      60,
+      120
+    ],
+    "primary_H": 60,
+    "post_outcome_H_selection": false,
+    "separate_GPU_sensitivity_arm": false,
+    "pre_run_predictive_validity_gate": false,
+    "required_pre_run": [
+      "IMPLEMENTATION_CORRECTNESS",
+      "REAL_LEGAL_INPUTS",
+      "NO_FUTURE_LEAKAGE",
+      "NATIVE_VICTIM_SIM_MATCH",
+      "DATA_COLLECTABLE",
+      "CROSS_SYSTEM_COMPARABLE"
+    ]
+  },
+  "bfcl_derived": {
+    "role": "INDEPENDENT_SUPPLEMENTARY_NOT_FORMAL",
+    "calibration_groups": 4,
+    "evaluation_groups": 8,
+    "calibration_claim": "DESCRIPTIVE",
+    "evaluation_claim": "EXPLORATORY",
+    "synthetic_timing": "DETERMINISTIC_CONSTANT_1S_V1",
+    "source_terminal": "SOURCE_TERMINAL_UNKNOWN",
+    "replay_terminal": "REPLAY_TRACE_EXHAUSTED",
+    "pool_with_swe": false
+  },
+  "workload_analysis": {
+    "status": "PENDING_PRIVATE_EVIDENCE_ROOT",
+    "script": "scripts/spikes/phase5_dataset/analyze_swe_workload.py",
+    "frozen_groups_unchanged": true,
+    "frozen_arrival_unchanged": true
+  },
+  "m6_implementation": [
+    "single-stratum protocol and schemas",
+    "calibration backend variance and df",
+    "campaign planner and archive validators",
+    "resource formula update",
+    "metrics mechanism fields and evaluator denominators",
+    "right-censoring NOT_ESTIMABLE report",
+    "DVA H prior/sensitivity boundary",
+    "BFCL separate reporting contract"
+  ],
+  "authorization": {
+    "gpu_execution": false,
+    "calibration_execution": false,
+    "formal_campaign": false,
+    "cohort_selection": false
+  },
+  "amendment_sha256": "b4883318553f3471f3f0d9c0f90826df38e8d64b957d41b70697323f97445d66"
+}
