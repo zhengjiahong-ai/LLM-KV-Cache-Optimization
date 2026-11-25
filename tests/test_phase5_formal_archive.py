@@ -72,6 +72,8 @@ def _source(tmp_path: Path):
             "native_events",
             "terminal_events",
             "exposure_events",
+            "decision_physical_events",
+            "downstream_observations",
         ):
             path = run_root / f"{evidence_name}.jsonl"
             path.write_text("{}\n", encoding="utf-8")

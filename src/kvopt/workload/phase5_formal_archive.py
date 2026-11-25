@@ -12,6 +12,7 @@ from .phase5_archive import (
     validate_phase5_evidence_archive,
 )
 from .phase5_formal_manifests import (
+    FORMAL_EVIDENCE_NAMES,
     manifest_sha256,
     validate_run_result_manifest,
 )
@@ -89,12 +90,7 @@ def create_formal_campaign_archive(
         "analysis.json",
         "run-index.json",
     }
-    expected_evidence_names = {
-        "planned_events",
-        "native_events",
-        "terminal_events",
-        "exposure_events",
-    }
+    expected_evidence_names = FORMAL_EVIDENCE_NAMES
     status_counts: dict[str, int] = {}
     for raw_row in index_rows:
         assert isinstance(raw_row, Mapping)

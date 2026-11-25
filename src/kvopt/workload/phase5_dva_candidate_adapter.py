@@ -90,11 +90,7 @@ class DVAERCandidateAdapter:
         if cpu_gate.get("test_module") != "tests/test_dva_er.py":
             raise ValueError("DVA-ER CPU gate test module differs")
         tests_passed = cpu_gate.get("tests_passed")
-        if (
-            isinstance(tests_passed, bool)
-            or not isinstance(tests_passed, int)
-            or tests_passed < 28
-        ):
+        if isinstance(tests_passed, bool) or not isinstance(tests_passed, int) or tests_passed < 28:
             raise ValueError("DVA-ER CPU gate test count is incomplete")
         checks = cpu_gate.get("checks")
         required_checks = {
@@ -131,21 +127,17 @@ class DVAERCandidateAdapter:
         for ordinal, raw_block in enumerate(block_rows):
             block = _mapping(raw_block, f"block {ordinal}")
             owners = frozenset(
-                keys[str(candidate_id)]
-                for candidate_id in block.get("owner_candidate_ids", [])
+                keys[str(candidate_id)] for candidate_id in block.get("owner_candidate_ids", [])
             )
             protected = frozenset(
-                keys[str(candidate_id)]
-                for candidate_id in block.get("protected_candidate_ids", [])
+                keys[str(candidate_id)] for candidate_id in block.get("protected_candidate_ids", [])
             )
             blocks.append(
                 NativeBlock(
                     block_id=_integer(block.get("block_id"), "block_id"),
                     has_hash=block.get("has_hash"),
                     refcount=_integer(block.get("refcount"), "refcount"),
-                    native_lru_rank=_integer(
-                        block.get("native_lru_rank"), "native_lru_rank"
-                    ),
+                    native_lru_rank=_integer(block.get("native_lru_rank"), "native_lru_rank"),
                     owners=owners,
                     protected_owners=protected,
                 )
@@ -197,8 +189,7 @@ class DVAERCandidateAdapter:
                     _integer(value, "free queue block ID") for value in free_queue
                 ),
                 candidate_keys=tuple(
-                    keys[candidate_id]
-                    for candidate_id in snapshot.legal_candidate_ids
+                    keys[candidate_id] for candidate_id in snapshot.legal_candidate_ids
                 ),
             ),
             followups=followups,
@@ -207,12 +198,9 @@ class DVAERCandidateAdapter:
         )
         decision = self._strategy.choose(input_row)
         loss_by_id = {
-            reverse_keys[row.candidate_key]: float(row.loss)
-            for row in decision.candidate_losses
+            reverse_keys[row.candidate_key]: float(row.loss) for row in decision.candidate_losses
         }
-        a0_rank = {
-            str(candidate_id): index for index, candidate_id in enumerate(a0_order)
-        }
+        a0_rank = {str(candidate_id): index for index, candidate_id in enumerate(a0_order)}
         ordered_ids = tuple(
             sorted(
                 snapshot.legal_candidate_ids,
@@ -225,19 +213,20 @@ class DVAERCandidateAdapter:
         )
         selected_id = reverse_keys[decision.selected]
         selected_loss = next(
-            row
-            for row in decision.candidate_losses
-            if row.candidate_key == decision.selected
+            row for row in decision.candidate_losses if row.candidate_key == decision.selected
         )
+        victim_sequences = {
+            reverse_keys[row.candidate_key]: row.physical_victim_block_ids
+            for row in decision.candidate_losses
+        }
         return CandidateDecision(
             candidate_id=self.candidate_id,
             snapshot_sha256=snapshot.sha256,
             selected_candidate_id=selected_id,
             scores=loss_by_id,
             ordered_candidate_ids=ordered_ids,
-            simulated_native_victim_block_ids=(
-                selected_loss.physical_victim_block_ids
-            ),
+            simulated_native_victim_sequences=victim_sequences,
+            simulated_native_victim_block_ids=(selected_loss.physical_victim_block_ids),
             branch="DVA_ER_V1_NATIVE_VICTIM_LOSS",
             fell_back=False,
             fallback_reason=None,

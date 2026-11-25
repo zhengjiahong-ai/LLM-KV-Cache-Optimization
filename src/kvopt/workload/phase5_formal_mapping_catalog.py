@@ -130,6 +130,7 @@ def build_formal_protocol_implementation_mapping(
             (
                 "src/kvopt/workload/phase5_candidate_evaluation.py",
                 "src/kvopt/workload/phase5_dva_candidate_adapter.py",
+                "src/kvopt/workload/phase5_dva_native_provider.py",
                 "src/kvopt/costaware/dva_er.py",
             ),
             (
@@ -140,6 +141,7 @@ def build_formal_protocol_implementation_mapping(
             (
                 "tests/test_dva_er.py",
                 "tests/test_phase5_dva_candidate_adapter.py",
+                "tests/test_phase5_dva_native_provider.py",
                 "tests/test_phase5_candidate_physical_evidence.py",
             ),
         ),
@@ -149,12 +151,15 @@ def build_formal_protocol_implementation_mapping(
             implementation=(
                 "src/kvopt/workload/phase5_asyncllm_adapter.py",
                 "src/kvopt/profiling/phase5_formal_metrics.py",
+                "src/kvopt/profiling/phase5_downstream_observation.py",
             ),
             evidence=("phase5.formal_run_metrics.v1",),
             evaluator=("src/kvopt/profiling/phase5_candidate_exposure.py",),
             tests=(
                 "tests/test_phase5_asyncllm_adapter.py",
                 "tests/test_phase5_formal_metrics.py",
+                "tests/test_phase5_decision_evidence_chain.py",
+                "tests/test_phase5_downstream_observation.py",
             ),
         ),
         _implemented(

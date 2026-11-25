@@ -19,6 +19,10 @@ def _evaluation():
                 "scores": {"entry-a": 0.0, "entry-b": 1.0},
                 "selected_candidate_id": "entry-a",
                 "simulated_native_victim_block_ids": [10, 11],
+                "simulated_native_victim_sequences": {
+                    "entry-a": [10, 11],
+                    "entry-b": [12, 13],
+                },
             }
         },
     }
@@ -28,6 +32,7 @@ def _plan():
     return {
         "decision_id": "decision-1",
         "candidate_id": "DVA_ER_V1",
+        "pressure_boundary_id": "boundary-1",
         "selected_native_block_ids": [10, 11],
     }
 
@@ -36,10 +41,12 @@ def _outcome():
     return {
         "decision_id": "decision-1",
         "candidate_id": "DVA_ER_V1",
+        "pressure_boundary_id": "boundary-1",
         "status": "PHYSICAL_EVICTION_OBSERVED",
         "matched_physical_block_ids": [10, 11],
         "unmatched_physical_block_ids": [],
         "hashless_physical_block_ids": [],
+        "block_content_identities": {"10": "content-a", "11": "content-b"},
     }
 
 

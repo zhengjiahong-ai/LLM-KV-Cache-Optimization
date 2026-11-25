@@ -117,6 +117,7 @@ class _FixedAdapter:
             selected_candidate_id="y",
             scores={"x": 2.0, "y": 1.0},
             ordered_candidate_ids=("y", "x"),
+            simulated_native_victim_sequences={"x": (1,), "y": (2,)},
             simulated_native_victim_block_ids=(2,),
             branch="FIXED_TEST_ADAPTER",
             fell_back=False,

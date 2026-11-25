@@ -51,6 +51,10 @@ class _Adapter:
             selected_candidate_id=order[0],
             scores=scores,
             ordered_candidate_ids=order,
+            simulated_native_victim_sequences={
+                "x": (1,),
+                "y": (2,),
+            },
             simulated_native_victim_block_ids=(1,) if not self.reverse else (2,),
             branch="STEP_2",
             fell_back=False,

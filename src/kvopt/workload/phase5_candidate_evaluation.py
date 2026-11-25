@@ -73,8 +73,7 @@ class CandidateDecisionSnapshot:
             "oracle_future_use",
         }
         if any(
-            forbidden & set(features)
-            for features in self.candidate_features_by_algorithm.values()
+            forbidden & set(features) for features in self.candidate_features_by_algorithm.values()
         ):
             raise ValueError("candidate snapshot contains forbidden future information")
 
@@ -90,6 +89,7 @@ class CandidateDecision:
     selected_candidate_id: str
     scores: Mapping[str, float]
     ordered_candidate_ids: tuple[str, ...]
+    simulated_native_victim_sequences: Mapping[str, tuple[int, ...]]
     simulated_native_victim_block_ids: tuple[int, ...]
     branch: str
     fell_back: bool
@@ -111,6 +111,20 @@ class CandidateDecision:
             for value in self.scores.values()
         ):
             raise ValueError("candidate decision scores must be finite")
+        if set(self.simulated_native_victim_sequences) != set(self.scores):
+            raise ValueError("candidate victim sequences must cover every scored entry")
+        for sequence in self.simulated_native_victim_sequences.values():
+            if any(
+                isinstance(value, bool) or not isinstance(value, int) or value < 0
+                for value in sequence
+            ):
+                raise ValueError("candidate victim sequence contains an invalid block ID")
+            if len(sequence) != len(set(sequence)):
+                raise ValueError("candidate victim sequence contains duplicate block IDs")
+        if self.simulated_native_victim_block_ids != self.simulated_native_victim_sequences.get(
+            self.selected_candidate_id
+        ):
+            raise ValueError("selected victim sequence differs from the complete candidate map")
 
 
 class CandidateAlgorithmAdapter(Protocol):
@@ -141,18 +155,12 @@ def evaluate_candidate_family(
             raise ValueError("candidate decision used a different snapshot")
         if set(decision.scores) != set(snapshot.legal_candidate_ids):
             raise ValueError("candidate decision score set differs from legal candidates")
-        if (
-            len(decision.ordered_candidate_ids) != len(snapshot.legal_candidate_ids)
-            or set(decision.ordered_candidate_ids) != set(snapshot.legal_candidate_ids)
-        ):
+        if len(decision.ordered_candidate_ids) != len(snapshot.legal_candidate_ids) or set(
+            decision.ordered_candidate_ids
+        ) != set(snapshot.legal_candidate_ids):
             raise ValueError("candidate ranking differs from the legal candidate set")
-        ordered_scores = [
-            float(decision.scores[row]) for row in decision.ordered_candidate_ids
-        ]
-        if any(
-            left_score > right_score
-            for left_score, right_score in pairwise(ordered_scores)
-        ):
+        ordered_scores = [float(decision.scores[row]) for row in decision.ordered_candidate_ids]
+        if any(left_score > right_score for left_score, right_score in pairwise(ordered_scores)):
             raise ValueError("candidate ranking is inconsistent with its scores")
         if decision.selected_candidate_id != decision.ordered_candidate_ids[0]:
             raise ValueError("candidate selection differs from its frozen ranking")
@@ -170,13 +178,11 @@ def evaluate_candidate_family(
         "legal_candidate_count": len(snapshot.legal_candidate_ids),
         "multi_candidate": len(snapshot.legal_candidate_ids) >= 2,
         "decisions": {
-            candidate_id: asdict(decisions[candidate_id])
-            for candidate_id in CANDIDATE_IDS
+            candidate_id: asdict(decisions[candidate_id]) for candidate_id in CANDIDATE_IDS
         },
         "pairwise_selection_divergence": {
             f"{left}_vs_{right}": (
-                decisions[left].selected_candidate_id
-                != decisions[right].selected_candidate_id
+                decisions[left].selected_candidate_id != decisions[right].selected_candidate_id
             )
             for left, right in pairs
         },

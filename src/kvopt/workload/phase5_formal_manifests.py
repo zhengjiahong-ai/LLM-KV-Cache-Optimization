@@ -30,6 +30,14 @@ _SYSTEM_IDS = {
 }
 _STRATA = {"SWE_BENCH", "BFCL_WEB_SEARCH"}
 _RESULT_STATUSES = {"PASS", "FAIL_CLOSED", "INCOMPLETE", "UNDERPOWERED"}
+FORMAL_EVIDENCE_NAMES = {
+    "planned_events",
+    "native_events",
+    "terminal_events",
+    "exposure_events",
+    "decision_physical_events",
+    "downstream_observations",
+}
 
 
 class Phase5ManifestError(ValueError):
@@ -255,13 +263,7 @@ def build_run_result_manifest(
         raise Phase5ManifestError("PASS result requires enqueue and derived metric evidence")
     if status != "PASS" and not failure_reason:
         raise Phase5ManifestError("non-PASS result requires a failure reason")
-    expected_evidence = {
-        "planned_events",
-        "native_events",
-        "terminal_events",
-        "exposure_events",
-    }
-    if set(evidence_sha256) != expected_evidence:
+    if set(evidence_sha256) != FORMAL_EVIDENCE_NAMES:
         raise Phase5ManifestError("result evidence hash set is incomplete")
     for name, digest in evidence_sha256.items():
         _require_sha256(digest, f"evidence_sha256.{name}")
