@@ -104,10 +104,12 @@ def build_phase5e_freeze_payloads(*, repository: Path, git_sha: str) -> dict[str
             "src/kvopt/workload/phase5_native_async.py",
             "src/kvopt/workload/phase5_asyncllm_adapter.py",
             "src/kvopt/workload/phase5e_native_runner.py",
+            "src/kvopt/workload/phase5e_native_runtime.py",
             "src/kvopt/workload/phase5e_native_evidence_source.py",
             "src/kvopt/workload/phase5e_a3_retention.py",
             "src/kvopt/workload/phase5e_freeze.py",
             "scripts/spikes/prepare_phase5e_part_a.py",
+            "scripts/spikes/run_phase5e_part_a_native.py",
         )
     ]
     return {

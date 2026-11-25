@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import importlib
 import json
 import os
 import subprocess
@@ -121,6 +122,51 @@ class Phase5ENativeAuthorization:
     git_sha: str
     execution_manifest_sha256: str
     authorization_sha256: str
+
+
+def claim_native_execution_once(
+    *, freeze_root: Path, authorization: Phase5ENativeAuthorization
+) -> Path:
+    """Atomically consume the reviewed single-run authorization.
+
+    The claim lives beside the immutable freeze so changing an output directory
+    cannot turn one authorization into another GPU attempt.
+    """
+
+    claim_path = freeze_root / ".p5e-a-01-execution-consumed.json"
+    payload = {
+        "schema_version": "phase5e.part_a_execution_consumption.v1",
+        "run_id": authorization.run_id,
+        "git_sha": authorization.git_sha,
+        "execution_manifest_sha256": authorization.execution_manifest_sha256,
+        "authorization_sha256": authorization.authorization_sha256,
+        "automatic_retry_allowed": False,
+    }
+    descriptor = os.open(claim_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            json.dump(payload, stream, indent=2, sort_keys=True)
+            stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+    except BaseException:
+        claim_path.unlink(missing_ok=True)
+        raise
+    return claim_path
+
+
+def load_integration_factory(reference: str) -> Callable[[Phase5ERuntimeEventSource], object]:
+    """Load an explicitly reviewed ``module:function`` production factory."""
+
+    module_name, separator, attribute = reference.partition(":")
+    if not separator or not module_name or not attribute:
+        raise Phase5ENativeRunnerError(
+            "integration factory must use the module:function form"
+        )
+    factory = getattr(importlib.import_module(module_name), attribute, None)
+    if not callable(factory):
+        raise Phase5ENativeRunnerError("integration factory is not callable")
+    return factory
 
 
 def _sha256(path: Path) -> str:
@@ -346,6 +392,7 @@ def wire_pinned_native_adapter(
         allocation_watermark_reader=build_allocation_watermark_reader(
             adapter=adapter, kv_cache_manager=resolved.kv_cache_manager
         ),
+        execution_context_observer=evidence_source.runtime_integration(),
         clock=clock,
     )
     adapter.bind_native_pressure_executor(pressure)

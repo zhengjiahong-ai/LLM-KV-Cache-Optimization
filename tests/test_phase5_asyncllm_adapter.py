@@ -745,9 +745,21 @@ def test_version_surface_and_batch_drain_are_pinned() -> None:
         validate_pinned_asyncllm(engine, vllm_version=PINNED_VLLM_VERSION)
 
 
+class _PressureContextObserver:
+    def __init__(self) -> None:
+        self.events: list[tuple[str, object]] = []
+
+    def begin_pressure_context(self, **identity: object) -> None:
+        self.events.append(("begin", identity))
+
+    def end_pressure_context(self) -> None:
+        self.events.append(("end", None))
+
+
 def test_native_pressure_uses_real_block_pool_allocation_and_releases() -> None:
     pool = _BlockPool()
     core = _NativeCore(pool)
+    observer = _PressureContextObserver()
     executor = PinnedNativeBlockPoolPressureExecutor(
         block_pool=pool,
         adapter_engine_core=core,
@@ -757,6 +769,7 @@ def test_native_pressure_uses_real_block_pool_allocation_and_releases() -> None:
             "forced_release_decision_ids": [f"decision:{boundary_id}"],
             "native_evicted_block_ids": list(block_ids),
         },
+        execution_context_observer=observer,
         clock=lambda: 12.0,
     )
 
@@ -770,6 +783,17 @@ def test_native_pressure_uses_real_block_pool_allocation_and_releases() -> None:
     assert result.allocated_block_ids == (0, 1)
     assert result.free_blocks_before == result.free_blocks_after_release == 8
     assert result.allocation_source == "PINNED_BLOCK_POOL_GET_NEW_BLOCKS"
+    assert observer.events == [
+        (
+            "begin",
+            {
+                "boundary_id": "pressure-1",
+                "stage_id": "P5E_PART_A_NATIVE_PRESSURE",
+                "pressure_request_id": "pressure:pressure-1",
+            },
+        ),
+        ("end", None),
+    ]
 
 
 def test_native_pressure_requires_exact_request_allocation_watermark() -> None:
@@ -789,6 +813,7 @@ def test_native_pressure_requires_exact_request_allocation_watermark() -> None:
             "native_evicted_block_ids": list(block_ids),
         },
         allocation_watermark_reader=lambda _ids: {"r1": 4, "r2": 3},
+        execution_context_observer=_PressureContextObserver(),
     )
     with pytest.raises(AsyncLLMAdapterError, match="allocation watermark differs"):
         executor.execute(
@@ -836,6 +861,7 @@ def test_native_pressure_rejects_engine_identity_or_missing_evidence() -> None:
             "forced_release_decision_ids": [],
             "native_evicted_block_ids": [],
         },
+        execution_context_observer=_PressureContextObserver(),
     )
     with pytest.raises(ValueError, match="Forced Entry Release"):
         executor.execute(
@@ -843,6 +869,33 @@ def test_native_pressure_rejects_engine_identity_or_missing_evidence() -> None:
             expected_inflight_request_ids=("r1",),
             actual_inflight_request_ids=("r1",),
         )
+
+
+def test_native_pressure_closes_runtime_boundary_after_evidence_failure() -> None:
+    pool = _BlockPool()
+    core = _NativeCore(pool)
+    observer = _PressureContextObserver()
+
+    def fail_evidence(_boundary: str, _blocks: tuple[int, ...]):
+        raise RuntimeError("physical evidence unavailable")
+
+    executor = PinnedNativeBlockPoolPressureExecutor(
+        block_pool=pool,
+        adapter_engine_core=core,
+        scheduler_engine_core=core,
+        kv_instrumentation_engine_core=core,
+        evidence_reader=fail_evidence,
+        execution_context_observer=observer,
+    )
+    with pytest.raises(RuntimeError, match="physical evidence unavailable"):
+        executor.execute(
+            _native_pressure(),
+            expected_inflight_request_ids=("r1",),
+            actual_inflight_request_ids=("r1",),
+        )
+    assert observer.events[0][0] == "begin"
+    assert observer.events[-1] == ("end", None)
+    assert pool.get_num_free_blocks() == 8
 
 
 def test_asyncllm_adapter_routes_pressure_to_bound_native_executor() -> None:
@@ -863,6 +916,7 @@ def test_asyncllm_adapter_routes_pressure_to_bound_native_executor() -> None:
                 "forced_release_decision_ids": [f"decision:{boundary_id}"],
                 "native_evicted_block_ids": list(block_ids),
             },
+            execution_context_observer=_PressureContextObserver(),
             clock=lambda: 15.0,
         )
         adapter = AsyncLLMNativeAdapter(

@@ -239,6 +239,7 @@ class PinnedNativeBlockPoolPressureExecutor:
     allocation_watermark_reader: Callable[
         [tuple[str, ...]], Mapping[str, int]
     ] | None = None
+    execution_context_observer: object | None = None
     clock: Callable[[], float] = time.monotonic
 
     def execute(
@@ -290,16 +291,31 @@ class PinnedNativeBlockPoolPressureExecutor:
             )
         allocated: list[NativeKVCacheBlockProtocol] = []
         after_allocation = before
-        evidence: Mapping[str, object]
+        block_ids: tuple[int, ...] = ()
+        observer = self.execution_context_observer
+        begin_pressure = getattr(observer, "begin_pressure_context", None)
+        end_pressure = getattr(observer, "end_pressure_context", None)
+        if not callable(begin_pressure) or not callable(end_pressure):
+            raise AsyncLLMAdapterError(
+                "Native Pressure execution context observer is unavailable"
+            )
+        begin_pressure(
+            boundary_id=request.boundary_id,
+            stage_id="P5E_PART_A_NATIVE_PRESSURE",
+            pressure_request_id=f"pressure:{request.boundary_id}",
+        )
         try:
             allocated = self.block_pool.get_new_blocks(request.required_blocks)
             block_ids = tuple(int(block.block_id) for block in allocated)
             after_allocation = self.block_pool.get_num_free_blocks()
-            evidence = self.evidence_reader(request.boundary_id, block_ids)
         finally:
-            if allocated:
-                self.block_pool.free_blocks(allocated)
+            try:
+                if allocated:
+                    self.block_pool.free_blocks(allocated)
+            finally:
+                end_pressure()
         after_release = self.block_pool.get_num_free_blocks()
+        evidence = self.evidence_reader(request.boundary_id, block_ids)
         forced = evidence.get("forced_release_decision_ids")
         evicted = evidence.get("native_evicted_block_ids")
         if not isinstance(forced, (list, tuple)) or not all(

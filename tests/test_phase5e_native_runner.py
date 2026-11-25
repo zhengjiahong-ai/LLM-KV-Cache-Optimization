@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from pathlib import Path
 
 import pytest
@@ -20,8 +21,10 @@ from kvopt.workload.phase5e_native_runner import (
     Phase5ENativeAuthorization,
     Phase5ENativeRunnerError,
     build_allocation_watermark_reader,
+    claim_native_execution_once,
     create_pinned_asyncllm,
     install_production_a3_runtime,
+    load_integration_factory,
     resolve_production_evidence_source,
     run_phase5e_native_pipeline,
     validate_runtime_engine_identity,
@@ -198,6 +201,29 @@ def _authorization():
         execution_manifest_sha256="b" * 64,
         authorization_sha256="c" * 64,
     )
+
+
+def test_single_execution_claim_is_bound_to_freeze_not_output_directory(
+    tmp_path: Path,
+) -> None:
+    authorization = _authorization()
+    claim = claim_native_execution_once(
+        freeze_root=tmp_path, authorization=authorization
+    )
+    payload = json.loads(claim.read_text(encoding="utf-8"))
+    assert payload["authorization_sha256"] == authorization.authorization_sha256
+    assert payload["automatic_retry_allowed"] is False
+    with pytest.raises(FileExistsError):
+        claim_native_execution_once(
+            freeze_root=tmp_path, authorization=authorization
+        )
+
+
+def test_integration_factory_reference_fails_closed() -> None:
+    with pytest.raises(Phase5ENativeRunnerError, match="module:function"):
+        load_integration_factory("not-a-reference")
+    with pytest.raises(Phase5ENativeRunnerError, match="not callable"):
+        load_integration_factory("json:decoder")
 
 
 def test_allocation_watermark_uses_internal_request_block_tables() -> None:
