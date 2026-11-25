@@ -1,0 +1,15 @@
+status,resolved,attempts
+AgentStuckInLoopError: Agent got stuck in a loop,0,232
+AgentStuckInLoopError: Agent got stuck in a loop,1,20
+AttributeError: 'str' object has no attribute 'get',0,4
+AttributeError: 'str' object has no attribute 'get',1,1
+"RuntimeError: Agent reached maximum iteration. Current iteration: 100, max iteration: 100",0,4910
+"RuntimeError: Agent reached maximum iteration. Current iteration: 100, max iteration: 100",1,1093
+RuntimeError: There was an unexpected error while running the agent: ServiceUnavailableError. You can refresh the page or ask the agent to try again.,0,22
+RuntimeError: There was an unexpected error while running the agent: ServiceUnavailableError. You can refresh the page or ask the agent to try again.,1,7
+Timeout: litellm.Timeout: APITimeoutError - Request timed out. Error_str: Request timed out.,0,19
+Timeout: litellm.Timeout: APITimeoutError - Request timed out. Error_str: Request timed out.,1,17
+submit,0,29719
+submit,1,31020
+unknown,0,7
+unknown,1,3
