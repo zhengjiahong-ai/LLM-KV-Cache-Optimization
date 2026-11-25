@@ -81,7 +81,12 @@ def main() -> int:
     parser.add_argument("--repository", type=Path, required=True)
     parser.add_argument("--freeze-root", type=Path, required=True)
     parser.add_argument("--authorization", type=Path, required=True)
-    parser.add_argument("--integration-factory", required=True)
+    parser.add_argument(
+        "--integration-factory",
+        default=(
+            "kvopt.workload.phase5e_production_integration:build_phase5e_production_integration"
+        ),
+    )
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--archive", type=Path, required=True)
     arguments = parser.parse_args()

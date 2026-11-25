@@ -8,6 +8,7 @@ boundary; otherwise snapshot construction fails before the policy is called.
 
 from __future__ import annotations
 
+import inspect
 import math
 from collections.abc import Callable, Mapping, Sequence
 
@@ -95,7 +96,15 @@ class DVAERNativeDecisionProvider:
         decision_time = _number(decision_timestamp, "decision timestamp")
         pool = _mapping(self._block_pool_reader(), "live BlockPool snapshot")
         candidates = _mapping(self._candidate_reader(), "live candidate snapshot")
-        timers = _mapping(self._timer_reader(), "live controller timers")
+        timer_signature = inspect.signature(self._timer_reader)
+        timers = _mapping(
+            (
+                self._timer_reader(decision_time)  # type: ignore[call-arg]
+                if timer_signature.parameters
+                else self._timer_reader()
+            ),
+            "live controller timers",
+        )
         for row, label in (
             (pool, "BlockPool"),
             (candidates, "candidate"),
@@ -127,9 +136,7 @@ class DVAERNativeDecisionProvider:
             "candidate Program/Session identity map",
         )
         if set(candidate_sessions) != set(legal_ids):
-            raise DVAERNativeProviderError(
-                "candidate Program/Session identity map is incomplete"
-            )
+            raise DVAERNativeProviderError("candidate Program/Session identity map is incomplete")
         if (
             candidates.get("decision_program_id") != program_id
             or candidates.get("decision_session_id") != session_id
@@ -166,13 +173,10 @@ class DVAERNativeDecisionProvider:
                 candidate_sessions[candidate_id],
                 f"candidate identity {candidate_id}",
             )
-            if (
-                timer_program != expected_identity.get("program_id")
-                or timer_session != expected_identity.get("session_id")
-            ):
-                raise DVAERNativeProviderError(
-                    "controller timer Program/Session identity mismatch"
-                )
+            if timer_program != expected_identity.get(
+                "program_id"
+            ) or timer_session != expected_identity.get("session_id"):
+                raise DVAERNativeProviderError("controller timer Program/Session identity mismatch")
             armed = _number(timer.get("armed_at_timestamp"), "timer armed timestamp")
             observed = _number(timer.get("observed_at_timestamp"), "timer observation timestamp")
             expires = _number(timer.get("expires_at_timestamp"), "timer expiry timestamp")

@@ -106,6 +106,29 @@ def test_live_provider_binds_pool_owner_protection_and_timer() -> None:
     assert snapshot.candidate_features_by_algorithm["DVA_ER_V1"]["blocks"][0]["refcount"] == 0
 
 
+def test_live_provider_supplies_decision_time_to_runtime_timer_reader() -> None:
+    pool, candidates, timers = _state()
+    observed = []
+
+    def timer_reader(decision_timestamp: float):
+        observed.append(decision_timestamp)
+        value = deepcopy(timers)
+        for timer in value["followups"].values():
+            timer["pending_tool_gap_seconds"] = (
+                timer["expires_at_timestamp"] - decision_timestamp
+            )
+        return value
+
+    provider = DVAERNativeDecisionProvider(
+        engine_core_identity="core-1",
+        block_pool_reader=lambda: pool,
+        candidate_reader=lambda: candidates,
+        timer_reader=timer_reader,
+    )
+    _build(provider)
+    assert observed == [10.0]
+
+
 @pytest.mark.parametrize(
     "mutation",
     [

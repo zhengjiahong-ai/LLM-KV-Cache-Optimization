@@ -93,7 +93,7 @@ def build_phase5e_freeze_payloads(*, repository: Path, git_sha: str) -> dict[str
             "P5E-G6": "UNIQUE_FINITE_IDENTITY_CONSISTENT_EXPOSURE_EVIDENCE",
             "P5E-G7": "ZERO_OBSERVABLE_LIFECYCLE_OR_ENGINE_LEAKS",
             "P5E-G8": "INTERNAL_AND_OUTER_ARCHIVE_HASH_VALID",
-            "P5E-G9": "RETENTION_INPUT_COMPLETE_AND_HASH_BOUND",
+            "P5E-G9": ("PRE_PRESSURE_HISTORY_VALID_AND_ACTUAL_PRESSURE_BOUND_TO_SAME_STATE"),
         },
     }
     code_bindings = [
@@ -105,6 +105,7 @@ def build_phase5e_freeze_payloads(*, repository: Path, git_sha: str) -> dict[str
             "src/kvopt/workload/phase5_asyncllm_adapter.py",
             "src/kvopt/workload/phase5e_native_runner.py",
             "src/kvopt/workload/phase5e_native_runtime.py",
+            "src/kvopt/workload/phase5e_production_integration.py",
             "src/kvopt/workload/phase5e_native_evidence_source.py",
             "src/kvopt/workload/phase5e_a3_retention.py",
             "src/kvopt/workload/phase5e_freeze.py",
@@ -117,9 +118,7 @@ def build_phase5e_freeze_payloads(*, repository: Path, git_sha: str) -> dict[str
         "workload_seal": dict(plan.workload_seal),
         "explicit_inputs": explicit_inputs,
         "gates": gates,
-        "retention_input_fixture": build_phase5e_cpu_mock_retention_manifest(
-            plan=plan
-        ),
+        "retention_input_fixture": build_phase5e_cpu_mock_retention_manifest(plan=plan),
         "code_bindings": code_bindings,
     }
 

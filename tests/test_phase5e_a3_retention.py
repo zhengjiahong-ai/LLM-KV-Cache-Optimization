@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import copy
 
+import pytest
+
 from kvopt.workload.phase5_replay import canonical_sha256
 from kvopt.workload.phase5e_a3_retention import (
     PREFILL_MODEL,
@@ -9,7 +11,9 @@ from kvopt.workload.phase5e_a3_retention import (
     PREFILL_PROFILE_SHA256,
     PREFILL_PROTOCOL_REVISION,
     PREFILL_REVISION,
+    Phase5EG9Error,
     execute_g9_bound_selection,
+    validate_actual_pressure_binding,
 )
 
 
@@ -31,7 +35,7 @@ def _manifest() -> dict[str, object]:
             "program_id": f"p{index}",
             "request_id": prefix_id,
             "prefix_id": prefix_id,
-            "decision_timestamp": timestamp,
+            "decision_timestamp": 1.0 + index * 0.1,
             "next_tool_type": None,
             "global_server_gap_samples_seconds": [],
             "tool_server_gap_samples_seconds": [],
@@ -42,7 +46,7 @@ def _manifest() -> dict[str, object]:
         }
         ttl_decision = {
             "ttl_seconds": 1.0,
-            "deadline_timestamp": timestamp + 1.0,
+            "deadline_timestamp": 2.0 + index * 0.1,
             "history_mode": "COLD_START",
             "reason": "insufficient global server gap history",
         }
@@ -60,6 +64,8 @@ def _manifest() -> dict[str, object]:
                 "ttl_decision": ttl_decision,
                 "ttl_decision_sha256": decision_sha,
                 "source_event_refs": [f"ttl-input:{prefix_id}"],
+                "source_event_index": index - 1,
+                "ttl_clock_domain": "continuum_lifecycle",
             }
         )
         retention_rows.append(
@@ -72,6 +78,7 @@ def _manifest() -> dict[str, object]:
                 "waiting_followup": False,
                 "block_ids": blocks,
                 "ttl_decision_sha256": decision_sha,
+                "created_event_index": index - 1,
             }
         )
         chain_rows.append(
@@ -80,23 +87,26 @@ def _manifest() -> dict[str, object]:
                 "engine_core_identity": engine,
                 "decision_boundary_id": boundary,
                 "block_ids": blocks,
-                "content_hashes": [
-                    canonical_sha256([prefix_id, block_id]) for block_id in blocks
-                ],
+                "content_hashes": [canonical_sha256([prefix_id, block_id]) for block_id in blocks],
                 "native_hash_process_id": "native-hash-process-1",
                 "chain_depth_proof_sha256": canonical_sha256(
                     {"prefix_id": prefix_id, "blocks": blocks}
                 ),
+                "observed_event_index": index - 1,
             }
         )
     payload: dict[str, object] = {
-        "schema_version": "phase5e.a3_retention_input_manifest.v1",
+        "schema_version": "phase5e.a3_retention_input_manifest.v2",
         "run_id": "P5E-A-01",
         "decision_id": "decision-1",
         "decision_boundary": {
             "boundary_id": boundary,
-            "timestamp": timestamp,
-            "clock_domain": "continuum_lifecycle",
+            "g9_observation_timestamp": timestamp,
+            "g9_observation_event_index": 4,
+            "g9_clock_domain": "continuum_lifecycle",
+            "pressure_event_status": "NOT_YET_OBSERVED",
+            "pressure_observation_timestamp": None,
+            "pressure_clock_domain": None,
         },
         "engine_core_identity": {
             "identity": engine,
@@ -158,6 +168,13 @@ def _manifest() -> dict[str, object]:
             "cold_start_explicit": True,
         },
     }
+    payload["runtime_state_sha256"] = canonical_sha256(
+        {
+            "a3_candidate_ids": candidates,
+            "retention_entries": retention_rows,
+            "prefix_chain": chain_rows,
+        }
+    )
     return _seal(payload)
 
 
@@ -201,6 +218,57 @@ def test_g9_fails_on_future_lifecycle_information() -> None:
     payload["lifecycle"][0]["timestamp"] = 3.0
     _seal(payload)
     _assert_fail_closed(payload)
+
+
+def test_g9_rejects_future_ttl_and_accepts_actual_pressure_binding() -> None:
+    payload = _manifest()
+    report = execute_g9_bound_selection(payload, lambda: "selected")[0]
+    binding = validate_actual_pressure_binding(
+        payload,
+        {
+            "boundary_id": "phase5e-pressure-01",
+            "g9_manifest_sha256": report["manifest_sha256"],
+            "runtime_state_sha256": payload["runtime_state_sha256"],
+            "pressure_event_index": 5,
+            "pressure_observation_timestamp": 2.002,
+            "pressure_clock_domain": "continuum_lifecycle",
+        },
+    )
+    assert binding["status"] == "PASS"
+
+    future = _manifest()
+    future["ttl_inputs"][0]["ttl_input"]["decision_timestamp"] = 3.0
+    future["ttl_inputs"][0]["ttl_input_sha256"] = canonical_sha256(
+        future["ttl_inputs"][0]["ttl_input"]
+    )
+    _seal(future)
+    _assert_fail_closed(future)
+
+
+def test_g9_rejects_event_order_and_clock_domain_errors() -> None:
+    late_source = _manifest()
+    late_source["ttl_inputs"][0]["source_event_index"] = 4
+    _seal(late_source)
+    _assert_fail_closed(late_source)
+
+    wrong_clock = _manifest()
+    wrong_clock["decision_boundary"]["g9_clock_domain"] = "wall_clock"
+    _seal(wrong_clock)
+    _assert_fail_closed(wrong_clock)
+
+    payload = _manifest()
+    with pytest.raises(Phase5EG9Error, match="timestamp precedes"):
+        validate_actual_pressure_binding(
+            payload,
+            {
+                "boundary_id": "phase5e-pressure-01",
+                "g9_manifest_sha256": payload["manifest_sha256"],
+                "runtime_state_sha256": payload["runtime_state_sha256"],
+                "pressure_event_index": 5,
+                "pressure_observation_timestamp": 1.0,
+                "pressure_clock_domain": "continuum_lifecycle",
+            },
+        )
 
 
 def test_g9_fails_on_cross_engine_core_or_boundary() -> None:

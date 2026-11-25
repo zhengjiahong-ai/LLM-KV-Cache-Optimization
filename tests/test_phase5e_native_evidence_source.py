@@ -17,16 +17,21 @@ def test_pressure_requires_bound_plan_and_physical_outcome() -> None:
     rows = [
         _event(
             0,
+            "PHASE5E_G9_ACTUAL_PRESSURE_BINDING",
+            {"boundary_id": "boundary", "validation_status": "PASS"},
+        ),
+        _event(
+            1,
             "FORCED_RELEASE_DECISION_BINDING",
             {"boundary_id": "boundary", "decision_id": "decision"},
         ),
         _event(
-            1,
+            2,
             "NATIVE_ENTRY_RELEASE_SELECTION_PLAN",
             {"decision_id": "decision"},
         ),
         _event(
-            2,
+            3,
             "NATIVE_ENTRY_RELEASE_PHYSICAL_OUTCOME",
             {"decision_id": "decision", "matched_physical_block_ids": [2]},
         ),
@@ -46,10 +51,15 @@ def test_pressure_never_infers_decision_from_allocation() -> None:
 
 def test_rejects_physical_victim_outside_pressure_allocation() -> None:
     rows = [
-        _event(0, "FORCED_RELEASE_DECISION_BINDING", {"boundary_id": "b", "decision_id": "d"}),
-        _event(1, "NATIVE_ENTRY_RELEASE_SELECTION_PLAN", {"decision_id": "d"}),
         _event(
-            2,
+            0,
+            "PHASE5E_G9_ACTUAL_PRESSURE_BINDING",
+            {"boundary_id": "b", "validation_status": "PASS"},
+        ),
+        _event(1, "FORCED_RELEASE_DECISION_BINDING", {"boundary_id": "b", "decision_id": "d"}),
+        _event(2, "NATIVE_ENTRY_RELEASE_SELECTION_PLAN", {"decision_id": "d"}),
+        _event(
+            3,
             "NATIVE_ENTRY_RELEASE_PHYSICAL_OUTCOME",
             {"decision_id": "d", "matched_physical_block_ids": [9]},
         ),

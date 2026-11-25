@@ -9,15 +9,11 @@ from dataclasses import dataclass
 
 from .phase5_replay import canonical_sha256
 
-SCHEMA_VERSION = "phase5e.a3_retention_input_manifest.v1"
+SCHEMA_VERSION = "phase5e.a3_retention_input_manifest.v2"
 PREFILL_MODEL = "Qwen/Qwen2.5-Coder-1.5B-Instruct"
 PREFILL_REVISION = "d18ecad881a290f0c792f1c2b5dbee1820d4a424"
-PREFILL_PROFILE_PATH = (
-    "configs/phase2/continuum-native-cost-aware-bounded-prefill-profile-v1.json"
-)
-PREFILL_PROFILE_SHA256 = (
-    "d5b77e70fdf0899a4a5fa2a139112f4bc7a99d3a098189caa3e4be13a072682e"
-)
+PREFILL_PROFILE_PATH = "configs/phase2/continuum-native-cost-aware-bounded-prefill-profile-v1.json"
+PREFILL_PROFILE_SHA256 = "d5b77e70fdf0899a4a5fa2a139112f4bc7a99d3a098189caa3e4be13a072682e"
 PREFILL_PROTOCOL_REVISION = "bounded-cuda-1p5b-v1"
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 
@@ -106,10 +102,24 @@ class A3RetentionInputManifest:
         _text(payload.get("decision_id"), "decision_id")
         boundary = _mapping(payload.get("decision_boundary"), "decision_boundary")
         _text(boundary.get("boundary_id"), "decision boundary ID")
-        decision_timestamp = _number(boundary.get("timestamp"), "decision timestamp")
-        clock_domain = _text(boundary.get("clock_domain"), "decision clock domain")
+        g9_timestamp = _number(boundary.get("g9_observation_timestamp"), "G9 observation timestamp")
+        g9_event_index = boundary.get("g9_observation_event_index")
+        if (
+            isinstance(g9_event_index, bool)
+            or not isinstance(g9_event_index, int)
+            or g9_event_index < 0
+        ):
+            raise Phase5EG9Error("G9 observation event index is invalid")
+        clock_domain = _text(boundary.get("g9_clock_domain"), "G9 observation clock domain")
         if clock_domain != "continuum_lifecycle":
-            raise Phase5EG9Error("decision boundary uses the wrong clock domain")
+            raise Phase5EG9Error("G9 observation uses the wrong clock domain")
+        if boundary.get("pressure_event_status") != "NOT_YET_OBSERVED":
+            raise Phase5EG9Error("pre-Pressure G9 cannot claim an actual Pressure event")
+        if (
+            boundary.get("pressure_observation_timestamp") is not None
+            or boundary.get("pressure_clock_domain") is not None
+        ):
+            raise Phase5EG9Error("pre-Pressure G9 contains future Pressure evidence")
         engine = _mapping(payload.get("engine_core_identity"), "engine_core_identity")
         engine_identity = _text(engine.get("identity"), "EngineCore identity")
         _sha(engine.get("installation_report_sha256"), "installation report SHA-256")
@@ -122,9 +132,10 @@ class A3RetentionInputManifest:
             row = _mapping(item, "ttl input row")
             _text(row.get("program_id"), "TTL program_id")
             _text(row.get("request_id"), "TTL request_id")
-            if row.get("engine_core_identity") != engine_identity or row.get(
-                "decision_boundary_id"
-            ) != boundary_id:
+            if (
+                row.get("engine_core_identity") != engine_identity
+                or row.get("decision_boundary_id") != boundary_id
+            ):
                 raise Phase5EG9Error("TTL evidence crosses EngineCore or decision boundary")
             prefix_id = _text(row.get("prefix_id"), "TTL prefix_id")
             if prefix_id in ttl_by_prefix:
@@ -139,15 +150,19 @@ class A3RetentionInputManifest:
                 row.get("ttl_decision_sha256"), "TTL decision SHA-256"
             ):
                 raise Phase5EG9Error("TTL decision hash mismatch")
-            ttl_timestamp = _number(
-                ttl_input.get("decision_timestamp"), "TTL decision timestamp"
-            )
-            if ttl_timestamp != decision_timestamp:
-                raise Phase5EG9Error("TTL decision boundary timestamp mismatch")
+            ttl_timestamp = _number(ttl_input.get("decision_timestamp"), "TTL decision timestamp")
+            ttl_clock_domain = _text(row.get("ttl_clock_domain"), "TTL decision clock domain")
+            if ttl_clock_domain == clock_domain and ttl_timestamp > g9_timestamp:
+                raise Phase5EG9Error("TTL decision occurs after the G9 observation")
+            source_event_index = row.get("source_event_index")
+            if (
+                isinstance(source_event_index, bool)
+                or not isinstance(source_event_index, int)
+                or source_event_index >= g9_event_index
+            ):
+                raise Phase5EG9Error("TTL source event does not precede G9")
             ttl_seconds = _number(ttl_decision.get("ttl_seconds"), "ttl_seconds")
-            deadline = _number(
-                ttl_decision.get("deadline_timestamp"), "deadline_timestamp"
-            )
+            deadline = _number(ttl_decision.get("deadline_timestamp"), "deadline_timestamp")
             if not math.isclose(deadline, ttl_timestamp + ttl_seconds):
                 raise Phase5EG9Error("TTL deadline is not derived from the decision")
             _unique_texts(row.get("source_event_refs"), "TTL source_event_refs")
@@ -161,23 +176,35 @@ class A3RetentionInputManifest:
             row = _mapping(item, "retention entry")
             _text(row.get("program_id"), "retention program_id")
             prefix_id = _text(row.get("prefix_id"), "retention prefix_id")
-            if row.get("engine_core_identity") != engine_identity or row.get(
-                "decision_boundary_id"
-            ) != boundary_id:
-                raise Phase5EG9Error(
-                    "retention evidence crosses EngineCore or decision boundary"
-                )
+            if (
+                row.get("engine_core_identity") != engine_identity
+                or row.get("decision_boundary_id") != boundary_id
+            ):
+                raise Phase5EG9Error("retention evidence crosses EngineCore or decision boundary")
             if prefix_id in retention_by_prefix:
                 raise Phase5EG9Error("candidate has multiple retention entries")
             if not isinstance(row.get("protected"), bool) or not isinstance(
                 row.get("waiting_followup"), bool
             ):
                 raise Phase5EG9Error("retention lifecycle flags are missing")
+            created_index = row.get("created_event_index")
+            if (
+                isinstance(created_index, bool)
+                or not isinstance(created_index, int)
+                or created_index >= g9_event_index
+            ):
+                raise Phase5EG9Error("retention entry does not precede G9")
+            if row.get("protected") is not True:
+                raise Phase5EG9Error("retention entry is not valid at G9")
             block_ids = _sequence(row.get("block_ids"), "retention block_ids")
-            if not block_ids or any(
-                isinstance(block_id, bool) or not isinstance(block_id, int)
-                for block_id in block_ids
-            ) or len(block_ids) != len(set(block_ids)):
+            if (
+                not block_ids
+                or any(
+                    isinstance(block_id, bool) or not isinstance(block_id, int)
+                    for block_id in block_ids
+                )
+                or len(block_ids) != len(set(block_ids))
+            ):
                 raise Phase5EG9Error("retention block identities are invalid")
             ttl_row = ttl_by_prefix.get(prefix_id)
             if ttl_row is None or row.get("ttl_decision_sha256") != ttl_row.get(
@@ -201,8 +228,10 @@ class A3RetentionInputManifest:
         if any(prefill.get(key) != expected for key, expected in expected_prefill.items()):
             raise Phase5EG9Error("wrong frozen 1.5B Prefill Reload profile")
         query_tokens = prefill.get("query_token_count")
-        if isinstance(query_tokens, bool) or not isinstance(query_tokens, int) or not (
-            1024 <= query_tokens <= 32256
+        if (
+            isinstance(query_tokens, bool)
+            or not isinstance(query_tokens, int)
+            or not (1024 <= query_tokens <= 32256)
         ):
             raise Phase5EG9Error("Prefill Reload query is outside the frozen grid")
         _number(prefill.get("estimate_seconds"), "Prefill Reload estimate")
@@ -214,21 +243,26 @@ class A3RetentionInputManifest:
         for item in chain_rows:
             row = _mapping(item, "prefix chain")
             prefix_id = _text(row.get("prefix_id"), "chain prefix_id")
-            if row.get("engine_core_identity") != engine_identity or row.get(
-                "decision_boundary_id"
-            ) != boundary_id:
-                raise Phase5EG9Error(
-                    "prefix evidence crosses EngineCore or decision boundary"
-                )
+            if (
+                row.get("engine_core_identity") != engine_identity
+                or row.get("decision_boundary_id") != boundary_id
+            ):
+                raise Phase5EG9Error("prefix evidence crosses EngineCore or decision boundary")
             if prefix_id in chain_by_prefix:
                 raise Phase5EG9Error("candidate has multiple prefix chains")
+            observed_index = row.get("observed_event_index")
+            if (
+                isinstance(observed_index, bool)
+                or not isinstance(observed_index, int)
+                or observed_index >= g9_event_index
+            ):
+                raise Phase5EG9Error("prefix snapshot does not precede G9")
             block_ids = tuple(_sequence(row.get("block_ids"), "chain block_ids"))
             hashes = tuple(_sequence(row.get("content_hashes"), "content_hashes"))
             if block_ids != tuple(retention_by_prefix.get(prefix_id, {}).get("block_ids", [])):
                 raise Phase5EG9Error("prefix and retention block IDs differ")
             if len(hashes) != len(block_ids) or any(
-                not isinstance(value, str) or _SHA256.fullmatch(value) is None
-                for value in hashes
+                not isinstance(value, str) or _SHA256.fullmatch(value) is None for value in hashes
             ):
                 raise Phase5EG9Error("prefix content hash chain is incomplete")
             process_ids.add(_text(row.get("native_hash_process_id"), "hash process ID"))
@@ -236,6 +270,17 @@ class A3RetentionInputManifest:
             chain_by_prefix[prefix_id] = row
         if set(chain_by_prefix) != set(candidates) or len(process_ids) != 1:
             raise Phase5EG9Error("prefix chains do not share one Native hash process")
+        expected_state_hash = canonical_sha256(
+            {
+                "a3_candidate_ids": list(candidates),
+                "retention_entries": retention_rows,
+                "prefix_chain": chain_rows,
+            }
+        )
+        if _sha(payload.get("runtime_state_sha256"), "runtime state SHA-256") != (
+            expected_state_hash
+        ):
+            raise Phase5EG9Error("G9 runtime state hash mismatch")
 
         lifecycle = _sequence(payload.get("lifecycle"), "lifecycle")
         indices: list[int] = []
@@ -247,7 +292,7 @@ class A3RetentionInputManifest:
                 raise Phase5EG9Error("lifecycle event index is invalid")
             indices.append(index)
             timestamp = _number(row.get("timestamp"), "lifecycle timestamp")
-            if timestamp > decision_timestamp:
+            if timestamp > g9_timestamp:
                 raise Phase5EG9Error("future lifecycle information is forbidden")
             if row.get("clock_domain") != clock_domain:
                 raise Phase5EG9Error("lifecycle clock domain differs from decision")
@@ -317,6 +362,50 @@ def execute_g9_bound_selection(
     return report, select()
 
 
+def validate_actual_pressure_binding(
+    pre_pressure_manifest: Mapping[str, object],
+    actual_binding: Mapping[str, object],
+) -> dict[str, object]:
+    """Bind an actual Pressure event to a passing pre-Pressure G9 snapshot."""
+
+    manifest = A3RetentionInputManifest.from_mapping(pre_pressure_manifest)
+    boundary = _mapping(manifest.payload["decision_boundary"], "decision_boundary")
+    if actual_binding.get("boundary_id") != boundary.get("boundary_id"):
+        raise Phase5EG9Error("actual Pressure boundary identity mismatch")
+    if actual_binding.get("g9_manifest_sha256") != manifest.sha256:
+        raise Phase5EG9Error("actual Pressure does not bind the G9 manifest")
+    if actual_binding.get("runtime_state_sha256") != manifest.payload.get("runtime_state_sha256"):
+        raise Phase5EG9Error("runtime state changed after G9 validation")
+    pressure_timestamp = _number(
+        actual_binding.get("pressure_observation_timestamp"),
+        "actual Pressure observation timestamp",
+    )
+    pressure_clock = _text(
+        actual_binding.get("pressure_clock_domain"), "actual Pressure clock domain"
+    )
+    pressure_index = actual_binding.get("pressure_event_index")
+    g9_index = boundary["g9_observation_event_index"]
+    if (
+        isinstance(pressure_index, bool)
+        or not isinstance(pressure_index, int)
+        or pressure_index <= g9_index
+    ):
+        raise Phase5EG9Error("actual Pressure event does not follow G9")
+    if pressure_clock == boundary["g9_clock_domain"] and pressure_timestamp < float(
+        boundary["g9_observation_timestamp"]
+    ):
+        raise Phase5EG9Error("actual Pressure timestamp precedes G9")
+    return {
+        "schema_version": "phase5e.g9_actual_pressure_binding.v1",
+        "status": "PASS",
+        "boundary_id": actual_binding["boundary_id"],
+        "g9_manifest_sha256": manifest.sha256,
+        "pressure_event_index": pressure_index,
+        "pressure_observation_timestamp": pressure_timestamp,
+        "pressure_clock_domain": pressure_clock,
+    }
+
+
 def build_phase5e_cpu_mock_retention_manifest(
     *, plan: object, installation_report_sha256: str = "a" * 64
 ) -> dict[str, object]:
@@ -326,7 +415,7 @@ def build_phase5e_cpu_mock_retention_manifest(
     order = tuple(plan.frozen_native_enqueue_order)
     candidates = order[:4]
     boundary_id = str(pressure.boundary_id)
-    timestamp = float(pressure.logical_trigger_offset_seconds)
+    g9_timestamp = float(pressure.logical_trigger_offset_seconds)
     engine = "phase5e-cpu-mock-engine-core"
     ttl_rows = []
     retention_rows = []
@@ -337,7 +426,7 @@ def build_phase5e_cpu_mock_retention_manifest(
             "program_id": program_id,
             "request_id": prefix_id,
             "prefix_id": prefix_id,
-            "decision_timestamp": timestamp,
+            "decision_timestamp": 1.0 + index * 0.1,
             "next_tool_type": None,
             "global_server_gap_samples_seconds": [],
             "tool_server_gap_samples_seconds": [],
@@ -348,7 +437,7 @@ def build_phase5e_cpu_mock_retention_manifest(
         }
         decision = {
             "ttl_seconds": 1.0,
-            "deadline_timestamp": timestamp + 1.0,
+            "deadline_timestamp": 2.0 + index * 0.1,
             "history_mode": "COLD_START",
             "reason": "insufficient global server gap history",
         }
@@ -369,6 +458,8 @@ def build_phase5e_cpu_mock_retention_manifest(
                 "ttl_decision": decision,
                 "ttl_decision_sha256": decision_sha,
                 "source_event_refs": [f"ttl-input:{prefix_id}"],
+                "source_event_index": index - 1,
+                "ttl_clock_domain": "continuum_lifecycle",
             }
         )
         retention_rows.append(
@@ -380,6 +471,7 @@ def build_phase5e_cpu_mock_retention_manifest(
                 "waiting_followup": False,
                 "block_ids": blocks,
                 "ttl_decision_sha256": decision_sha,
+                "created_event_index": index - 1,
             }
         )
         chain_rows.append(
@@ -387,13 +479,12 @@ def build_phase5e_cpu_mock_retention_manifest(
                 "prefix_id": prefix_id,
                 **shared,
                 "block_ids": blocks,
-                "content_hashes": [
-                    canonical_sha256([prefix_id, block_id]) for block_id in blocks
-                ],
+                "content_hashes": [canonical_sha256([prefix_id, block_id]) for block_id in blocks],
                 "native_hash_process_id": "phase5e-cpu-mock-hash-process",
                 "chain_depth_proof_sha256": canonical_sha256(
                     {"prefix_id": prefix_id, "blocks": blocks}
                 ),
+                "observed_event_index": index - 1,
             }
         )
     payload: dict[str, object] = {
@@ -403,8 +494,12 @@ def build_phase5e_cpu_mock_retention_manifest(
         "decision_id": "phase5e-cpu-mock-decision-1",
         "decision_boundary": {
             "boundary_id": boundary_id,
-            "timestamp": timestamp,
-            "clock_domain": "continuum_lifecycle",
+            "g9_observation_timestamp": g9_timestamp,
+            "g9_observation_event_index": 4,
+            "g9_clock_domain": "continuum_lifecycle",
+            "pressure_event_status": "NOT_YET_OBSERVED",
+            "pressure_observation_timestamp": None,
+            "pressure_clock_domain": None,
         },
         "engine_core_identity": {
             "identity": engine,
@@ -468,6 +563,13 @@ def build_phase5e_cpu_mock_retention_manifest(
             "cold_start_explicit": True,
         },
     }
+    payload["runtime_state_sha256"] = canonical_sha256(
+        {
+            "a3_candidate_ids": payload["a3_candidate_ids"],
+            "retention_entries": payload["retention_entries"],
+            "prefix_chain": payload["prefix_chain"],
+        }
+    )
     payload["manifest_sha256"] = canonical_sha256(payload)
     A3RetentionInputManifest.from_mapping(payload)
     return payload

@@ -41,17 +41,13 @@ class RuntimeEventEvidenceSource:
         self._event_reader = event_reader
         self._last_size = 0
         self._runtime_installation_report = (
-            None
-            if runtime_installation_report is None
-            else dict(runtime_installation_report)
+            None if runtime_installation_report is None else dict(runtime_installation_report)
         )
         self._runtime_integration = runtime_integration
 
     def runtime_installation_report(self) -> Mapping[str, object]:
         if self._runtime_installation_report is None:
-            raise Phase5ENativeEvidenceError(
-                "runtime installation report is not observable"
-            )
+            raise Phase5ENativeEvidenceError("runtime installation report is not observable")
         return dict(self._runtime_installation_report)
 
     def runtime_integration(self) -> object:
@@ -81,8 +77,18 @@ class RuntimeEventEvidenceSource:
         bindings: dict[str, Mapping[str, object]] = {}
         outcomes: dict[str, Mapping[str, object]] = {}
         plans: set[str] = set()
+        actual_pressure_bindings: list[Mapping[str, object]] = []
         for row in rows:
             event_type = row.get("event_type")
+            if event_type == "PHASE5E_G9_ACTUAL_PRESSURE_BINDING":
+                payload = _payload(row, "actual Pressure binding")
+                if payload.get("boundary_id") == boundary_id:
+                    if payload.get("validation_status") != "PASS":
+                        raise Phase5ENativeEvidenceError(
+                            "actual G9 Pressure binding did not pass validation"
+                        )
+                    actual_pressure_bindings.append(payload)
+                continue
             if event_type == "FORCED_RELEASE_DECISION_BINDING":
                 payload = _payload(row, "decision binding")
                 observed_boundary = payload.get(
@@ -112,6 +118,10 @@ class RuntimeEventEvidenceSource:
         if not bindings:
             raise Phase5ENativeEvidenceError(
                 "no A3 Forced Decision is bound to the Pressure boundary"
+            )
+        if len(actual_pressure_bindings) != 1:
+            raise Phase5ENativeEvidenceError(
+                "Pressure boundary lacks one actual G9 Pressure binding"
             )
         decision_ids = tuple(bindings)
         if any(
@@ -163,14 +173,10 @@ class RuntimeEventEvidenceSource:
         integration = self.runtime_integration()
         read = getattr(integration, "a3_retention_input_manifest", None)
         if not callable(read):
-            raise Phase5ENativeEvidenceError(
-                "live A3 retention input manifest is not observable"
-            )
+            raise Phase5ENativeEvidenceError("live A3 retention input manifest is not observable")
         value = read()
         if not isinstance(value, Mapping):
-            raise Phase5ENativeEvidenceError(
-                "live A3 retention input manifest is not an object"
-            )
+            raise Phase5ENativeEvidenceError("live A3 retention input manifest is not an object")
         return dict(value)
 
     def raw_evidence(self) -> Sequence[Mapping[str, object]]:
