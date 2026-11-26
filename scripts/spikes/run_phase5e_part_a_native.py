@@ -34,7 +34,7 @@ def _load_json(path: Path) -> dict[str, object]:
     return value
 
 
-async def _run(arguments: argparse.Namespace) -> dict[str, object]:
+def _prepare(arguments: argparse.Namespace) -> tuple[object, ...]:
     repository = arguments.repository.resolve()
     freeze_root = arguments.freeze_root.resolve()
     authorization = validate_native_execution_authorization(
@@ -54,6 +54,13 @@ async def _run(arguments: argparse.Namespace) -> dict[str, object]:
     # CUDA.  A failed attempt remains consumed and cannot be silently retried.
     claim_native_execution_once(freeze_root=freeze_root, authorization=authorization)
     engine = create_pinned_asyncllm(plan)
+    return authorization, plan, explicit_inputs, factory, engine
+
+
+async def _run(
+    arguments: argparse.Namespace, prepared: tuple[object, ...]
+) -> dict[str, object]:
+    authorization, plan, explicit_inputs, factory, engine = prepared
     clock = SystemMonotonicClock()
     try:
         evidence, _report = install_production_a3_runtime(
@@ -93,7 +100,11 @@ def main() -> int:
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--archive", type=Path, required=True)
     arguments = parser.parse_args()
-    result = asyncio.run(_run(arguments))
+    # Pinned AsyncLLM eagerly starts its output handler when constructed inside
+    # a running loop.  Prepare synchronously so the lifecycle proxy can be
+    # installed before the first request starts that handler.
+    prepared = _prepare(arguments)
+    result = asyncio.run(_run(arguments, prepared))
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0 if result.get("status") == "PASS" else 1
 

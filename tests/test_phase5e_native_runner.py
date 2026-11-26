@@ -331,6 +331,18 @@ def test_engine_creation_rejects_output_handler_started_despite_deferred_flag(
     assert engine.closed is True
 
 
+def test_engine_creation_rejects_construction_inside_running_event_loop(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("VLLM_ENABLE_V1_MULTIPROCESSING", "0")
+
+    async def create_inside_loop() -> None:
+        with pytest.raises(Phase5ENativeRunnerError, match="before entering"):
+            create_pinned_asyncllm(build_phase5e_review_candidate("a" * 40))
+
+    asyncio.run(create_inside_loop())
+
+
 def test_production_evidence_source_is_never_implicitly_mocked() -> None:
     with pytest.raises(Phase5ENativeEvidenceError, match="exactly one"):
         resolve_production_evidence_source(object())

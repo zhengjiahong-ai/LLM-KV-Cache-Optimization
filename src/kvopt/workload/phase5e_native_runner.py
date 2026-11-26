@@ -257,6 +257,14 @@ def create_pinned_asyncllm(plan: Phase5GPUConformancePlan) -> AsyncLLMProtocol:
         raise Phase5ENativeRunnerError(
             "VLLM_ENABLE_V1_MULTIPROCESSING=0 is required before engine creation"
         )
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        pass
+    else:
+        raise Phase5ENativeRunnerError(
+            "AsyncLLM must be created before entering the asyncio event loop"
+        )
     import vllm  # type: ignore[import-not-found]
     from vllm.engine.arg_utils import AsyncEngineArgs  # type: ignore[import-not-found]
     from vllm.v1.engine.async_llm import AsyncLLM  # type: ignore[import-not-found]
@@ -284,10 +292,10 @@ def create_pinned_asyncllm(plan: Phase5GPUConformancePlan) -> AsyncLLMProtocol:
         enable_prefix_caching=True,
         disable_log_stats=False,
     )
-    # The lifecycle proxy must replace ``engine.engine_core`` before AsyncLLM's
-    # background output handler captures it.  EngineCore initialization is
-    # still performed by ``from_engine_args``; only output-handler startup is
-    # deferred until the first request is added.
+    # Pinned AsyncLLM starts its output handler whenever construction occurs in
+    # a running asyncio loop, independently of this legacy flag.  The caller
+    # therefore constructs the engine synchronously before ``asyncio.run``;
+    # the flag remains false as a second fail-closed statement of intent.
     engine = AsyncLLM.from_engine_args(engine_args, start_engine_loop=False)
     if getattr(engine, "output_handler", None) is not None:
         engine.shutdown()
