@@ -26,6 +26,7 @@ from kvopt.workload.phase5e_native_runner import (
     claim_native_execution_once,
     create_pinned_asyncllm,
     install_production_a3_runtime,
+    install_production_native_stack,
     load_integration_factory,
     resolve_production_evidence_source,
     run_phase5e_native_pipeline,
@@ -404,6 +405,86 @@ def test_production_runtime_uses_one_source_for_integration_and_evaluator(
     assert report["status"] == "PASS"
     assert len(source_seen) == 1
     assert evidence.raw_evidence() == ()
+
+
+def test_production_stack_installs_proxy_before_resolving_native_core(
+    monkeypatch,
+) -> None:
+    order = []
+    engine = type("Engine", (), {"engine_core": object()})()
+    resolved = type(
+        "Resolved",
+        (),
+        {
+            "engine_core": object(),
+            "scheduler": object(),
+            "kv_cache_manager": object(),
+            "block_pool": object(),
+        },
+    )()
+
+    class Integration:
+        def bind_request_identity(self, **_kwargs) -> None:
+            return None
+
+    class Adapter:
+        def __init__(self, *, engine, native_request_identity_observer, **_kwargs):
+            order.append("adapter_proxy")
+            assert isinstance(native_request_identity_observer, Integration)
+            engine.engine_core = "installed-proxy"
+
+    def resolve(observed_engine):
+        order.append("resolve_core")
+        assert observed_engine.engine_core == "installed-proxy"
+        return resolved
+
+    def install(**kwargs):
+        order.append("install_runtime")
+        source = kwargs["event_source"]
+        report = {"status": "PASS", "same_engine_core": True}
+        source._mark_installed(report, kwargs["integration"])
+        return report
+
+    def bind_pressure(**kwargs):
+        order.append("bind_pressure")
+        assert kwargs["resolved"] is resolved
+
+    monkeypatch.setattr(
+        "kvopt.workload.phase5e_native_runner.AsyncLLMNativeAdapter", Adapter
+    )
+    monkeypatch.setattr(
+        "kvopt.workload.phase5e_native_runner.resolve_pinned_inprocess_native_core",
+        resolve,
+    )
+    monkeypatch.setattr(
+        "kvopt.workload.phase5e_native_runner.install_phase5e_a3_runtime", install
+    )
+    monkeypatch.setattr(
+        "kvopt.workload.phase5e_native_runner.resolve_runtime_event_reader",
+        lambda _engine: lambda: (),
+    )
+    monkeypatch.setattr(
+        "kvopt.workload.phase5e_native_runner._bind_pinned_native_pressure",
+        bind_pressure,
+    )
+
+    evidence, report, adapter = install_production_native_stack(
+        engine=engine,
+        plan=build_phase5e_review_candidate("a" * 40),
+        integration_factory=lambda _source: Integration(),
+        clock=FakeClock(),
+        run_epoch_monotonic=1.0,
+    )
+
+    assert report["status"] == "PASS"
+    assert isinstance(adapter, Adapter)
+    assert evidence.raw_evidence() == ()
+    assert order == [
+        "adapter_proxy",
+        "resolve_core",
+        "install_runtime",
+        "bind_pressure",
+    ]
 
 
 def test_live_engine_configuration_must_equal_frozen_geometry() -> None:

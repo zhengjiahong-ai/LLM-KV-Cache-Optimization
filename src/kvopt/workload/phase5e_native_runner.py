@@ -30,6 +30,7 @@ from .phase5_asyncllm_adapter import (
     AsyncLLMNativeAdapter,
     AsyncLLMProtocol,
     PinnedNativeBlockPoolPressureExecutor,
+    ResolvedInprocessNativeCore,
     resolve_pinned_inprocess_native_core,
 )
 from .phase5_gpu_conformance import Phase5GPUConformancePlan
@@ -114,6 +115,60 @@ def install_production_a3_runtime(
         runtime_integration=integration,
     )
     return evidence, report
+
+
+def install_production_native_stack(
+    *,
+    engine: AsyncLLMProtocol,
+    plan: Phase5GPUConformancePlan,
+    integration_factory: Callable[[Phase5ERuntimeEventSource], object],
+    clock: Clock,
+    run_epoch_monotonic: float,
+) -> tuple[RuntimeEventEvidenceSource, Mapping[str, object], AsyncLLMNativeAdapter]:
+    """Install Adapter/Proxy before resolving and instrumenting EngineCore.
+
+    The production objects have one required dependency order: the integration
+    must exist before Adapter construction, Adapter construction installs the
+    lifecycle proxy, and only then may the same EngineCore be resolved for A3
+    instrumentation and pressure allocation.
+    """
+
+    if not callable(integration_factory):
+        raise TypeError("integration_factory must be callable")
+    source = Phase5ERuntimeEventSource()
+    integration = integration_factory(source)
+    adapter = AsyncLLMNativeAdapter(
+        engine=engine,
+        vllm_version=plan.vllm_version,
+        run_epoch_monotonic=run_epoch_monotonic,
+        clock=clock,
+        native_request_identity_observer=integration,
+    )
+    resolved = resolve_pinned_inprocess_native_core(engine)
+    report = install_phase5e_a3_runtime(
+        engine_core=resolved.engine_core,
+        scheduler=resolved.scheduler,
+        kv_cache_manager=resolved.kv_cache_manager,
+        block_pool=resolved.block_pool,
+        integration=integration,
+        clock=clock,
+        event_source=source,
+    )
+    evidence = RuntimeEventEvidenceSource(
+        run_id="P5E-A-01",
+        event_reader=resolve_runtime_event_reader(engine),
+        runtime_installation_report=report,
+        runtime_integration=integration,
+    )
+    _bind_pinned_native_pressure(
+        adapter=adapter,
+        engine=engine,
+        plan=plan,
+        evidence_source=evidence,
+        clock=clock,
+        resolved=resolved,
+    )
+    return evidence, report, adapter
 
 
 @dataclass(frozen=True, slots=True)
@@ -402,8 +457,30 @@ def wire_pinned_native_adapter(
         clock=clock,
         native_request_identity_observer=evidence_source.runtime_integration(),
     )
-    validate_runtime_engine_identity(engine=engine, plan=plan)
     resolved = resolve_pinned_inprocess_native_core(engine)
+    _bind_pinned_native_pressure(
+        adapter=adapter,
+        engine=engine,
+        plan=plan,
+        evidence_source=evidence_source,
+        clock=clock,
+        resolved=resolved,
+    )
+    return adapter
+
+
+def _bind_pinned_native_pressure(
+    *,
+    adapter: AsyncLLMNativeAdapter,
+    engine: object,
+    plan: Phase5GPUConformancePlan,
+    evidence_source: Phase5ENativeEvidenceSource,
+    clock: Callable[[], float],
+    resolved: ResolvedInprocessNativeCore,
+) -> None:
+    """Bind same-core identity, allocation watermark and pressure exactly once."""
+
+    validate_runtime_engine_identity(engine=engine, plan=plan)
     initial_free = resolved.block_pool.get_num_free_blocks()
     if initial_free != plan.resource_budget.kv_pool_blocks:
         raise Phase5ENativeRunnerError(
@@ -422,7 +499,6 @@ def wire_pinned_native_adapter(
         clock=clock,
     )
     adapter.bind_native_pressure_executor(pressure)
-    return adapter
 
 
 async def run_phase5e_native_pipeline(
@@ -442,6 +518,7 @@ async def run_phase5e_native_pipeline(
         object,
     ]
     | None = None,
+    prepared_adapter: object | None = None,
 ) -> dict[str, object]:
     """Execute exactly one authorized Part A run and produce immutable evidence."""
 
@@ -495,7 +572,13 @@ async def run_phase5e_native_pipeline(
             "status": "PASS",
         },
     )
-    if adapter_factory is None:
+    if adapter_factory is not None and prepared_adapter is not None:
+        raise Phase5ENativeRunnerError(
+            "prepared adapter and adapter factory are mutually exclusive"
+        )
+    if prepared_adapter is not None:
+        adapter = prepared_adapter
+    elif adapter_factory is None:
         adapter = wire_pinned_native_adapter(
             engine=engine,
             plan=plan,

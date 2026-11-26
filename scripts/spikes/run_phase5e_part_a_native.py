@@ -19,7 +19,7 @@ from kvopt.workload.phase5e_native_runner import (
     Phase5ENativeRunnerError,
     claim_native_execution_once,
     create_pinned_asyncllm,
-    install_production_a3_runtime,
+    install_production_native_stack,
     load_integration_factory,
     run_phase5e_native_pipeline,
     validate_native_execution_authorization,
@@ -62,18 +62,20 @@ async def _run(
 ) -> dict[str, object]:
     authorization, plan, explicit_inputs, factory, engine = prepared
     clock = SystemMonotonicClock()
+    run_epoch = time.monotonic()
     try:
-        evidence, _report = install_production_a3_runtime(
+        evidence, _report, adapter = install_production_native_stack(
             engine=engine,
+            plan=plan,
             integration_factory=factory,
             clock=clock,
+            run_epoch_monotonic=run_epoch,
         )
     except BaseException:
         shutdown = getattr(engine, "shutdown", None)
         if callable(shutdown):
             shutdown()
         raise
-    run_epoch = time.monotonic()
     return await run_phase5e_native_pipeline(
         plan=plan,
         authorization=authorization,
@@ -83,6 +85,7 @@ async def _run(
         output_root=arguments.output_root.resolve(),
         archive_path=arguments.archive.resolve(),
         run_epoch_monotonic=run_epoch,
+        prepared_adapter=adapter,
     )
 
 
