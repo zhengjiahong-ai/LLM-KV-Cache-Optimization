@@ -177,6 +177,20 @@ def _write_json(path: Path, value: object) -> None:
     path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def validate_reviewed_plan_identity(
+    *, frozen_plan: Mapping[str, object], rebuilt_plan: Mapping[str, object]
+) -> None:
+    """Compare plans by canonical JSON value, not Python container type.
+
+    JSON arrays deserialize as lists while the immutable in-memory plan uses
+    tuples.  Those representations have the same frozen JSON identity; a real
+    value, order, or field difference must still fail closed.
+    """
+
+    if canonical_sha256(frozen_plan) != canonical_sha256(rebuilt_plan):
+        raise Phase5ENativeRunnerError("reviewed plan differs from rebuilt plan")
+
+
 def validate_native_execution_authorization(
     *, freeze_root: Path, authorization_path: Path, repository: Path
 ) -> Phase5ENativeAuthorization:

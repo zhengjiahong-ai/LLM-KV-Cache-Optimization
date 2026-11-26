@@ -23,6 +23,7 @@ from kvopt.workload.phase5e_native_runner import (
     load_integration_factory,
     run_phase5e_native_pipeline,
     validate_native_execution_authorization,
+    validate_reviewed_plan_identity,
 )
 
 
@@ -42,8 +43,10 @@ async def _run(arguments: argparse.Namespace) -> dict[str, object]:
         repository=repository,
     )
     plan = build_phase5e_review_candidate(authorization.git_sha)
-    if _load_json(freeze_root / "plan.json") != plan.to_dict():
-        raise Phase5ENativeRunnerError("reviewed plan differs from rebuilt plan")
+    validate_reviewed_plan_identity(
+        frozen_plan=_load_json(freeze_root / "plan.json"),
+        rebuilt_plan=plan.to_dict(),
+    )
     explicit_inputs = _load_json(freeze_root / "explicit-inputs.json")
     factory = load_integration_factory(arguments.integration_factory)
 

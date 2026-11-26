@@ -27,6 +27,7 @@ from kvopt.workload.phase5e_native_runner import (
     load_integration_factory,
     resolve_production_evidence_source,
     run_phase5e_native_pipeline,
+    validate_reviewed_plan_identity,
     validate_runtime_engine_identity,
 )
 from kvopt.workload.phase5e_native_runtime import Phase5ERuntimeEventSource
@@ -216,6 +217,19 @@ def test_single_execution_claim_is_bound_to_freeze_not_output_directory(
     with pytest.raises(FileExistsError):
         claim_native_execution_once(
             freeze_root=tmp_path, authorization=authorization
+        )
+
+
+def test_reviewed_plan_identity_uses_canonical_json_semantics() -> None:
+    validate_reviewed_plan_identity(
+        frozen_plan={"requests": ["r1", "r2"], "geometry": [["r1", 128]]},
+        rebuilt_plan={"requests": ("r1", "r2"), "geometry": (("r1", 128),)},
+    )
+
+    with pytest.raises(Phase5ENativeRunnerError, match="reviewed plan differs"):
+        validate_reviewed_plan_identity(
+            frozen_plan={"requests": ["r1", "r2"]},
+            rebuilt_plan={"requests": ("r2", "r1")},
         )
 
 
