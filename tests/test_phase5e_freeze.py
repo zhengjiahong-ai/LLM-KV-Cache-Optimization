@@ -24,7 +24,7 @@ def test_phase5e_final_payload_binds_explicit_inputs_and_code() -> None:
     assert len(inputs["prompt_token_ids"]) == 8
     assert all(len(row) == 1984 for row in inputs["prompt_token_ids"].values())
     assert len(inputs["pressure_token_ids"]) == 24576
-    assert len(payloads["code_bindings"]) == 12
+    assert len(payloads["code_bindings"]) == 15
     assert payloads["gates"]["not_observable_is_pass"] is False
     assert payloads["gates"]["gates"]["P5E-G9"] == (
         "PRE_PRESSURE_HISTORY_VALID_AND_ACTUAL_PRESSURE_BOUND_TO_SAME_STATE"

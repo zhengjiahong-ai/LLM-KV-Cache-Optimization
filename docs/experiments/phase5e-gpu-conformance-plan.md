@@ -234,13 +234,15 @@ checks this value before calling `get_new_blocks(1536)`. Any different runtime
 free count fails closed before allocation, ensuring the request cannot be
 satisfied solely from an unplanned surplus or silently exceed available blocks.
 
-This controlled path requires pinned in-process EngineCore mode
-(`VLLM_ENABLE_V1_MULTIPROCESSING=0`). A multiprocess `AsyncMPClient` does not
-expose the owned Scheduler/BlockPool object to the frontend, so attempting to
-run this executor in that mode fails preflight rather than crossing process
-ownership unsafely. The executor verifies by object identity that its BlockPool
-is exactly `EngineCore.scheduler.kv_cache_manager.block_pool` and that Adapter,
-Scheduler and KV evidence instrumentation name that same EngineCore.
+This controlled path uses the pinned standard `AsyncLLM` / `AsyncMPClient`
+architecture. A registered `vllm.general_plugins` entry point installs the
+policy, provider and evidence producer inside `EngineCoreProc`. The frontend
+sends only serialized control facts through the pinned Utility RPC and receives
+detached evidence; Scheduler, KVCacheManager and BlockPool objects never cross
+the process boundary. The Pressure command is handled by the EngineCore input
+loop, where the executor verifies by object identity that its BlockPool is
+exactly `EngineCore.scheduler.kv_cache_manager.block_pool` before reading state,
+making the decision, allocating pressure blocks and recording the outcome.
 
 The boundary passes only if:
 

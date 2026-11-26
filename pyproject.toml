@@ -42,6 +42,9 @@ kvopt-phase5-acquisition-process = "kvopt.workload.phase5_acquisition:main"
 kvopt-phase5-swe-adapt = "kvopt.workload.phase5_swe_acquisition_adapter:main"
 kvopt-phase5-swe-batch = "kvopt.workload.phase5_swe_batch:main"
 
+[project.entry-points."vllm.general_plugins"]
+kvopt_phase5_engine_core = "kvopt.workload.phase5e_engine_core_plugin:register_phase5_engine_core_plugin"
+
 [project.optional-dependencies]
 dev = ["pytest>=7", "ruff>=0.5"]
 

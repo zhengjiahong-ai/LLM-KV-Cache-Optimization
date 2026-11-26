@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Execute the single authorized Phase 5E Part A Native run.
 
-This entry point performs no implicit mock construction and never retries.  A
-reviewed production integration factory must be supplied explicitly.
+This entry point performs no implicit mock construction and never retries.
+Production integration is installed by the frozen EngineCore-process plugin.
 """
 
 from __future__ import annotations
@@ -15,12 +15,14 @@ from pathlib import Path
 
 from kvopt.continuum.clock import SystemMonotonicClock
 from kvopt.workload.phase5_gpu_conformance import build_phase5e_review_candidate
+from kvopt.workload.phase5e_engine_core_bridge import (
+    validate_engine_core_plugin_registration,
+)
 from kvopt.workload.phase5e_native_runner import (
     Phase5ENativeRunnerError,
     claim_native_execution_once,
     create_pinned_asyncllm,
-    install_production_native_stack,
-    load_integration_factory,
+    install_engine_core_production_stack,
     run_phase5e_native_pipeline,
     validate_native_execution_authorization,
     validate_reviewed_plan_identity,
@@ -48,26 +50,24 @@ def _prepare(arguments: argparse.Namespace) -> tuple[object, ...]:
         rebuilt_plan=plan.to_dict(),
     )
     explicit_inputs = _load_json(freeze_root / "explicit-inputs.json")
-    factory = load_integration_factory(arguments.integration_factory)
-
+    validate_engine_core_plugin_registration()
     # Consumption occurs immediately before the first action that can initialize
     # CUDA.  A failed attempt remains consumed and cannot be silently retried.
     claim_native_execution_once(freeze_root=freeze_root, authorization=authorization)
     engine = create_pinned_asyncllm(plan)
-    return authorization, plan, explicit_inputs, factory, engine
+    return authorization, plan, explicit_inputs, engine
 
 
 async def _run(
     arguments: argparse.Namespace, prepared: tuple[object, ...]
 ) -> dict[str, object]:
-    authorization, plan, explicit_inputs, factory, engine = prepared
+    authorization, plan, explicit_inputs, engine = prepared
     clock = SystemMonotonicClock()
     run_epoch = time.monotonic()
     try:
-        evidence, _report, adapter = install_production_native_stack(
+        evidence, _report, adapter = await install_engine_core_production_stack(
             engine=engine,
             plan=plan,
-            integration_factory=factory,
             clock=clock,
             run_epoch_monotonic=run_epoch,
         )
@@ -94,12 +94,6 @@ def main() -> int:
     parser.add_argument("--repository", type=Path, required=True)
     parser.add_argument("--freeze-root", type=Path, required=True)
     parser.add_argument("--authorization", type=Path, required=True)
-    parser.add_argument(
-        "--integration-factory",
-        default=(
-            "kvopt.workload.phase5e_production_integration:build_phase5e_production_integration"
-        ),
-    )
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--archive", type=Path, required=True)
     arguments = parser.parse_args()

@@ -74,6 +74,7 @@ def _bindings(*, fail_system: str | None = None):
             cpu_correctness_status="PASS",
             native_compatibility_status="PASS",
             algorithm_frozen=True,
+            native_execution_architecture="ENGINE_CORE_PLUGIN_UTILITY_RPC_V1",
         )
         for system_id in SYSTEM_IDS
     ]

@@ -150,6 +150,8 @@ def build_formal_protocol_implementation_mapping(
             blocker="live six-system EngineCore evidence has not been collected",
             implementation=(
                 "src/kvopt/workload/phase5_asyncllm_adapter.py",
+                "src/kvopt/workload/phase5e_engine_core_bridge.py",
+                "src/kvopt/workload/phase5e_engine_core_plugin.py",
                 "src/kvopt/workload/phase5e_native_runtime.py",
                 "src/kvopt/workload/phase5_dva_native_provider.py",
                 "src/kvopt/profiling/phase5_formal_metrics.py",
@@ -167,6 +169,7 @@ def build_formal_protocol_implementation_mapping(
             ),
             tests=(
                 "tests/test_phase5_asyncllm_adapter.py",
+                "tests/test_phase5e_engine_core_bridge.py",
                 "tests/test_phase5_formal_metrics.py",
                 "tests/test_phase5_decision_evidence_chain.py",
                 "tests/test_phase5_downstream_observation.py",

@@ -199,6 +199,20 @@ class Phase5EProductionIntegration:
                 "terminal request has no bound Program identity"
             ) from error
 
+    def internal_request_id(self, logical_request_id: str) -> str:
+        """Resolve a frontend identity only from an observed EngineCore binding."""
+
+        matches = [
+            internal_id
+            for internal_id, observed in self._logical_by_internal.items()
+            if observed == logical_request_id
+        ]
+        if len(matches) != 1:
+            raise Phase5EProductionIntegrationError(
+                "logical request does not resolve to one EngineCore request"
+            )
+        return matches[0]
+
     def observe_terminal_request_snapshot(
         self, snapshot: object, *, observed_at: float, native_hash_process_id: str
     ) -> None:
@@ -638,6 +652,7 @@ class Phase5EProductionIntegration:
         armed_at_timestamp: float,
         expires_at_timestamp: float,
         source_event_index: int,
+        clock_domain: str,
     ) -> None:
         """Record a timer only when the controller actually arms it."""
 
@@ -648,6 +663,7 @@ class Phase5EProductionIntegration:
             or not program_id
             or not session_id
             or source_event_index < 0
+            or clock_domain != _CLOCK_DOMAIN
             or armed_at_timestamp > now
             or expires_at_timestamp < now
             or expires_at_timestamp < armed_at_timestamp
@@ -662,6 +678,7 @@ class Phase5EProductionIntegration:
             "armed_at_timestamp": armed_at_timestamp,
             "expires_at_timestamp": expires_at_timestamp,
             "source_event_index": source_event_index,
+            "clock_domain": clock_domain,
             "pending_tool_gap_source": "CONTROLLER_ARMED_TIMER",
         }
         self.event_source.emit(

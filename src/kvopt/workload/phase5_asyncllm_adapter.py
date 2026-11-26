@@ -68,6 +68,16 @@ class NativeRequestIdentityObserver(Protocol):
     ) -> None: ...
 
 
+class NativePressureExecutorProtocol(Protocol):
+    def execute(
+        self,
+        request: NativePressureAllocationRequest,
+        *,
+        expected_inflight_request_ids: tuple[str, ...],
+        actual_inflight_request_ids: tuple[str, ...],
+    ) -> PressureExecutionEvidence | object: ...
+
+
 class NativeTerminalKind(StrEnum):
     NATURAL = "NATURAL_CORE_TERMINAL"
     ABORT_CONFIRMED = "ABORT_CONFIRMED"
@@ -375,7 +385,7 @@ class AsyncLLMNativeAdapter:
         clock: Callable[[], float] = time.monotonic,
         frontend_has_internal_request: Callable[[str], bool] | None = None,
         verified_abort_confirmation_sources: frozenset[str] = frozenset(),
-        native_pressure_executor: PinnedNativeBlockPoolPressureExecutor | None = None,
+        native_pressure_executor: NativePressureExecutorProtocol | None = None,
         native_request_identity_observer: NativeRequestIdentityObserver | None = None,
     ) -> None:
         validate_pinned_asyncllm(engine, vllm_version=vllm_version)
@@ -439,7 +449,7 @@ class AsyncLLMNativeAdapter:
         self._core_proxy = install_pinned_engine_core_lifecycle_proxy(engine, self)
 
     def bind_native_pressure_executor(
-        self, executor: PinnedNativeBlockPoolPressureExecutor
+        self, executor: NativePressureExecutorProtocol
     ) -> None:
         """Bind the one verified pressure path before any request is submitted."""
 
@@ -650,11 +660,16 @@ class AsyncLLMNativeAdapter:
             )
             if set(actual) != set(expected_inflight_request_ids):
                 raise AsyncLLMAdapterError("Pressure Adapter inflight set mismatch")
-            result = self._native_pressure_executor.execute(
+            pending = self._native_pressure_executor.execute(
                 request,
                 expected_inflight_request_ids=expected_inflight_request_ids,
                 actual_inflight_request_ids=actual,
             )
+            result = await pending if inspect.isawaitable(pending) else pending
+            if not isinstance(result, PressureExecutionEvidence):
+                raise AsyncLLMAdapterError(
+                    "Native Pressure executor returned invalid evidence"
+                )
             self._event(
                 None,
                 LifecycleEventKind.NATIVE_PRESSURE_ALLOCATED,

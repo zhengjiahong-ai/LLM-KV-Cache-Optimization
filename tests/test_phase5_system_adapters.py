@@ -40,6 +40,7 @@ def _bindings():
             cpu_correctness_status="PASS",
             native_compatibility_status="PASS",
             algorithm_frozen=True,
+            native_execution_architecture="ENGINE_CORE_PLUGIN_UTILITY_RPC_V1",
         )
         for system_id in SYSTEM_IDS
     ]
@@ -61,6 +62,12 @@ def test_exact_six_system_adapter_registry_passes() -> None:
         ),
         ("A3_SUFFIX", "algorithm_frozen", False, "not frozen"),
         ("NATIVE", "implementation_status", "NOT_READY", "not READY"),
+        (
+            "A1_ORIGINAL",
+            "native_execution_architecture",
+            "FRONTEND_SHADOW_CACHE",
+            "EngineCore-side architecture",
+        ),
     ],
 )
 def test_unclosed_system_gate_fails_registry(

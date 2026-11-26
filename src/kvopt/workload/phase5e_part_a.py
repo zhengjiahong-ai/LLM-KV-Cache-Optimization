@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import math
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import asdict, dataclass
@@ -295,7 +296,10 @@ async def execute_phase5e_part_a(
     for request_id in second_wave:
         await dispatch(request_id)
         peak = max(peak, len(inflight))
-    g9 = evaluate_p5e_g9(retention_input_manifest_provider())
+    g9_value = retention_input_manifest_provider()
+    if inspect.isawaitable(g9_value):
+        g9_value = await g9_value
+    g9 = evaluate_p5e_g9(g9_value)
     if g9["status"] != "PASS":
         raise Phase5EG9GateFailure(g9)
     pressure = await adapter.execute_native_pressure(
@@ -309,6 +313,8 @@ async def execute_phase5e_part_a(
     )
     adapter_report = adapter.report()
     exposure = candidate_exposure_evaluator()
+    if inspect.isawaitable(exposure):
+        exposure = await exposure
     gates = evaluate_part_a_prearchive_gates(
         plan=plan,
         run_id=run_id,

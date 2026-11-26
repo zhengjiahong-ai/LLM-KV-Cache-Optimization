@@ -28,6 +28,7 @@ class SystemAdapterBinding:
     cpu_correctness_status: str
     native_compatibility_status: str
     algorithm_frozen: bool
+    native_execution_architecture: str
 
 
 def validate_system_adapter_registry(
@@ -66,6 +67,14 @@ def validate_system_adapter_registry(
         ):
             raise SystemAdapterRegistryError(
                 f"{system_id} Native compatibility gate did not pass"
+            )
+        if (
+            require_formal_readiness
+            and binding.native_execution_architecture
+            != "ENGINE_CORE_PLUGIN_UTILITY_RPC_V1"
+        ):
+            raise SystemAdapterRegistryError(
+                f"{system_id} does not use the frozen EngineCore-side architecture"
             )
     return by_id
 

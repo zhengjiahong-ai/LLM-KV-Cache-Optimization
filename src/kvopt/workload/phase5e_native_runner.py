@@ -1,8 +1,8 @@
 """Single-shot native runner wiring for Phase 5E Part A.
 
-The module constructs the pinned AsyncLLM path and binds the Adapter,
-Scheduler, KVCacheManager, BlockPool, allocation watermark, pressure outcome
-reader, controller, gates, and archive.  Importing it never starts a GPU run.
+The production path keeps Adapter/controller/archive duties in the frontend
+and installs Scheduler/KV/BlockPool policy and evidence inside EngineCoreProc
+through the pinned Utility RPC. Importing it never starts a GPU run.
 """
 
 from __future__ import annotations
@@ -35,6 +35,12 @@ from .phase5_asyncllm_adapter import (
 )
 from .phase5_gpu_conformance import Phase5GPUConformancePlan
 from .phase5_replay import canonical_sha256
+from .phase5e_engine_core_bridge import (
+    EngineCoreRemoteEvidenceSource,
+    EngineCoreUtilityBridge,
+    RemoteNativePressureExecutor,
+    resolve_async_utility_client,
+)
 from .phase5e_native_evidence_source import (
     RuntimeEventEvidenceSource,
     resolve_runtime_event_reader,
@@ -125,9 +131,9 @@ def install_production_native_stack(
     clock: Clock,
     run_epoch_monotonic: float,
 ) -> tuple[RuntimeEventEvidenceSource, Mapping[str, object], AsyncLLMNativeAdapter]:
-    """Install Adapter/Proxy before resolving and instrumenting EngineCore.
+    """Legacy in-process test seam; not used by the AsyncMP production entry.
 
-    The production objects have one required dependency order: the integration
+    Its objects have one required dependency order: the integration
     must exist before Adapter construction, Adapter construction installs the
     lifecycle proxy, and only then may the same EngineCore be resolved for A3
     instrumentation and pressure allocation.
@@ -168,6 +174,43 @@ def install_production_native_stack(
         clock=clock,
         resolved=resolved,
     )
+    return evidence, report, adapter
+
+
+async def install_engine_core_production_stack(
+    *,
+    engine: AsyncLLMProtocol,
+    plan: Phase5GPUConformancePlan,
+    clock: Clock,
+    run_epoch_monotonic: float,
+) -> tuple[EngineCoreRemoteEvidenceSource, Mapping[str, object], AsyncLLMNativeAdapter]:
+    """Install production policy and evidence inside AsyncMP EngineCore.
+
+    The frontend never resolves Scheduler, KVCacheManager or BlockPool. The
+    utility command is processed by EngineCore's own input loop and returns
+    only a detached installation report.
+    """
+
+    adapter = AsyncLLMNativeAdapter(
+        engine=engine,
+        vllm_version=plan.vllm_version,
+        run_epoch_monotonic=run_epoch_monotonic,
+        clock=clock,
+    )
+    bridge = EngineCoreUtilityBridge(resolve_async_utility_client(engine))
+    evidence = await bridge.install(
+        {
+            "schema_version": "phase5e.engine_core_install.v1",
+            "run_id": "P5E-A-01",
+            "git_sha": plan.git_sha,
+            "kv_pool_blocks": plan.resource_budget.kv_pool_blocks,
+            "pressure_boundary_id": plan.pressure.boundary_id,
+            "algorithm": "CONTROLLED_A3",
+        }
+    )
+    adapter.bind_native_pressure_executor(RemoteNativePressureExecutor(bridge, evidence))
+    validate_runtime_engine_identity(engine=engine, plan=plan)
+    report = evidence.runtime_installation_report()
     return evidence, report, adapter
 
 
@@ -610,6 +653,12 @@ async def run_phase5e_native_pipeline(
             )
         except (Exception, asyncio.CancelledError) as cleanup_error:  # noqa: BLE001
             cleanup_errors.append(repr(cleanup_error))
+        refresh = getattr(evidence_source, "refresh", None)
+        if callable(refresh):
+            try:
+                await refresh()
+            except (Exception, asyncio.CancelledError) as cleanup_error:  # noqa: BLE001
+                cleanup_errors.append(f"evidence refresh failed: {cleanup_error!r}")
         try:
             cleanup = await _shutdown_engine(engine, plan.resource_budget.shutdown_grace_seconds)
         except (Exception, asyncio.CancelledError) as cleanup_error:  # noqa: BLE001
@@ -646,6 +695,9 @@ async def run_phase5e_native_pipeline(
             ),
         )
         raise
+    refresh = getattr(evidence_source, "refresh", None)
+    if callable(refresh):
+        await refresh()
     cleanup = await _shutdown_engine(engine, plan.resource_budget.shutdown_grace_seconds)
     _write_json(output_root / "controller-result.json", result.to_dict())
     _write_json(output_root / "native-evidence.json", list(evidence_source.raw_evidence()))
