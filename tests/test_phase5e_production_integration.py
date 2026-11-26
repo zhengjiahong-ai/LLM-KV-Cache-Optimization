@@ -5,7 +5,18 @@ import os
 import pytest
 
 from kvopt.continuum import ProgramIdentity, RequestIdentity
-from kvopt.continuum.selection import RetentionEntryKey
+from kvopt.continuum.selection import (
+    BlockEligibilitySnapshot,
+    EligibilityPreparation,
+    EligibilityTier,
+    PressureReleaseEffect,
+    RetentionEntryKey,
+)
+from kvopt.continuum.types import BlockIdentity, PrefixIdentity
+from kvopt.profiling.forced_release import (
+    ForcedReleaseCandidateSnapshot,
+    ForcedReleaseDecisionSnapshot,
+)
 from kvopt.runtime.vllm.continuum_observation import (
     NativeBlockSnapshot,
     ObservationAvailability,
@@ -15,6 +26,7 @@ from kvopt.workload.phase5e_a3_retention import Phase5EG9Error, evaluate_p5e_g9
 from kvopt.workload.phase5e_native_runtime import Phase5ERuntimeEventSource
 from kvopt.workload.phase5e_production_integration import (
     Phase5EProductionIntegrationError,
+    _BoundForcedReleaseObserver,
     build_phase5e_production_integration,
 )
 
@@ -70,6 +82,60 @@ def _register_first_wave(integration) -> None:
             observed_at=1.0 + index / 10,
             native_hash_process_id=str(os.getpid()),
         )
+
+
+def test_bound_observer_emits_direct_decision_and_boundary_identity() -> None:
+    source = Phase5ERuntimeEventSource()
+    observer = _BoundForcedReleaseObserver(source)
+    key = RetentionEntryKey(ProgramIdentity("p1"), PrefixIdentity("prefix:1"))
+    block_id = BlockIdentity(7)
+    preparation = EligibilityPreparation(
+        required_blocks=1,
+        original_free_queue=(
+            BlockEligibilitySnapshot(
+                block_id=block_id,
+                native_lru_rank=0,
+                has_block_hash=True,
+                eligibility_tier=EligibilityTier.TIER_2,
+            ),
+        ),
+        ordinary_expired_entries=(),
+        pressure_releases=(PressureReleaseEffect(key, (block_id,)),),
+        preparation_timestamp=2.0,
+    )
+    snapshot = ForcedReleaseDecisionSnapshot(
+        preparation=preparation,
+        candidates=(
+            ForcedReleaseCandidateSnapshot(
+                entry_key=key,
+                retention_deadline_timestamp=5.0,
+                waiting_followup=False,
+                block_ids=(block_id,),
+                initially_reclaimable_block_ids=(block_id,),
+                next_tool_type="search",
+                elapsed_since_ttl_decision_seconds=2.0,
+                prefill_reload_seconds=0.2,
+                eta=1.0,
+                queue_delay_t_seconds=0.0,
+            ),
+        ),
+    )
+    observer.begin(
+        {
+            "decision_id": "decision:1",
+            "frozen_decision_boundary_id": "phase5e-pressure-01",
+        }
+    )
+    observer.observe(snapshot)
+    observer.end()
+
+    decision, binding = source.snapshot()
+    assert decision["event_type"] == "FORCED_RELEASE_DECISION"
+    assert decision["payload"]["decision_id"] == "decision:1"
+    assert decision["payload"]["frozen_decision_boundary_id"] == (
+        "phase5e-pressure-01"
+    )
+    assert binding["payload"]["forced_release_event_index"] == decision["event_index"]
 
 
 def test_production_factory_builds_real_prepressure_manifest_and_binding() -> None:

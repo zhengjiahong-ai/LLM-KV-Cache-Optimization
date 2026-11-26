@@ -31,7 +31,10 @@ from kvopt.continuum.types import (
 from kvopt.costaware.a2_native import A2NativeChainSnapshot, A2NativeSnapshotRegistry
 from kvopt.costaware.a3_native import A3NativeSelectionCoordinator
 from kvopt.costaware.entry_depth import ChainDepthIndex
-from kvopt.profiling.experiment_events import ExperimentForcedReleaseObserver
+from kvopt.profiling.experiment_events import (
+    ExperimentEvent,
+    ExperimentForcedReleaseObserver,
+)
 from kvopt.runtime.vllm.retention_integration import RetentionRuntimeIntegration
 
 from .phase5_dva_native_provider import DVAERNativeDecisionProvider
@@ -58,10 +61,39 @@ class Phase5EProductionIntegrationError(RuntimeError):
     """Required live lifecycle or Native identity is unavailable."""
 
 
+class _SingleForcedReleaseEventCapture:
+    """Capture exactly one delegate event before adding live decision identity."""
+
+    def __init__(self) -> None:
+        self._event: ExperimentEvent | None = None
+
+    def reset(self) -> None:
+        self._event = None
+
+    def emit(self, event: ExperimentEvent) -> None:
+        if not isinstance(event, ExperimentEvent):
+            raise TypeError("forced-release delegate must emit ExperimentEvent")
+        if self._event is not None:
+            raise Phase5EProductionIntegrationError(
+                "forced-release delegate emitted more than one decision event"
+            )
+        self._event = event
+
+    def take(self) -> ExperimentEvent:
+        if self._event is None:
+            raise Phase5EProductionIntegrationError(
+                "forced-release delegate did not emit a decision event"
+            )
+        event = self._event
+        self._event = None
+        return event
+
+
 class _BoundForcedReleaseObserver:
     def __init__(self, source: Phase5ERuntimeEventSource) -> None:
         self._source = source
-        self._delegate = ExperimentForcedReleaseObserver(source)
+        self._capture = _SingleForcedReleaseEventCapture()
+        self._delegate = ExperimentForcedReleaseObserver(self._capture)
         self._context: dict[str, object] | None = None
         self.count = 0
 
@@ -77,7 +109,25 @@ class _BoundForcedReleaseObserver:
         if self._context is None:
             raise Phase5EProductionIntegrationError("forced decision lacks boundary")
         event_index = len(self._source.snapshot())
+        self._capture.reset()
         self._delegate.observe(snapshot)  # type: ignore[arg-type]
+        decision_event = self._capture.take()
+        decision_payload = decision_event.payload.to_dict()
+        self._source.emit(
+            {
+                "event_type": decision_event.event_type,
+                "timestamp": decision_event.timestamp,
+                "clock_domain": decision_event.clock_domain,
+                "source": decision_event.source,
+                "payload": {
+                    **decision_payload,
+                    "decision_id": self._context["decision_id"],
+                    "frozen_decision_boundary_id": self._context[
+                        "frozen_decision_boundary_id"
+                    ],
+                },
+            }
+        )
         selected = tuple(snapshot.selected_releases)  # type: ignore[attr-defined]
         if selected:
             self.count += 1
@@ -476,6 +526,9 @@ class Phase5EProductionIntegration:
                     "event_type": "NATIVE_ENTRY_RELEASE_PHYSICAL_OUTCOME",
                     "payload": {
                         "decision_id": pending["decision_id"],
+                        "frozen_decision_boundary_id": pending[
+                            "frozen_decision_boundary_id"
+                        ],
                         "matched_physical_block_ids": pending["matched"],
                         "unmatched_physical_block_ids": sorted(pending["expected"]),
                         "hashless_physical_block_ids": pending["hashless"],
@@ -516,7 +569,11 @@ class Phase5EProductionIntegration:
                 },
             }
         )
-        self._pending_plan = {"decision_id": decision_id, "selected": tuple(selected)}
+        self._pending_plan = {
+            "decision_id": decision_id,
+            "frozen_decision_boundary_id": context["frozen_decision_boundary_id"],
+            "selected": tuple(selected),
+        }
         return result
 
     def observe_native_selection_returned(

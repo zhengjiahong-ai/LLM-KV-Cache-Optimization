@@ -74,11 +74,13 @@ class RuntimeEventEvidenceSource:
         self, boundary_id: str, allocated_block_ids: tuple[int, ...]
     ) -> Mapping[str, object]:
         rows = self._snapshot()
-        bindings: dict[str, Mapping[str, object]] = {}
-        outcomes: dict[str, Mapping[str, object]] = {}
-        plans: set[str] = set()
-        actual_pressure_bindings: list[Mapping[str, object]] = []
+        rows_by_index = {int(row["event_index"]): row for row in rows}
+        bindings: dict[str, tuple[int, Mapping[str, object]]] = {}
+        outcomes: dict[str, tuple[int, Mapping[str, object]]] = {}
+        plans: dict[str, tuple[int, Mapping[str, object]]] = {}
+        actual_pressure_bindings: list[tuple[int, Mapping[str, object]]] = []
         for row in rows:
+            row_index = int(row["event_index"])
             event_type = row.get("event_type")
             if event_type == "PHASE5E_G9_ACTUAL_PRESSURE_BINDING":
                 payload = _payload(row, "actual Pressure binding")
@@ -87,7 +89,7 @@ class RuntimeEventEvidenceSource:
                         raise Phase5ENativeEvidenceError(
                             "actual G9 Pressure binding did not pass validation"
                         )
-                    actual_pressure_bindings.append(payload)
+                    actual_pressure_bindings.append((row_index, payload))
                 continue
             if event_type == "FORCED_RELEASE_DECISION_BINDING":
                 payload = _payload(row, "decision binding")
@@ -100,21 +102,21 @@ class RuntimeEventEvidenceSource:
                         raise Phase5ENativeEvidenceError("Pressure binding lacks decision_id")
                     if decision_id in bindings:
                         raise Phase5ENativeEvidenceError("Pressure decision binding is not unique")
-                    bindings[decision_id] = payload
+                    bindings[decision_id] = (row_index, payload)
             elif event_type == "NATIVE_ENTRY_RELEASE_SELECTION_PLAN":
                 payload = _payload(row, "selection plan")
                 decision_id = payload.get("decision_id")
                 if isinstance(decision_id, str):
                     if decision_id in plans:
                         raise Phase5ENativeEvidenceError("Pressure selection plan is not unique")
-                    plans.add(decision_id)
+                    plans[decision_id] = (row_index, payload)
             elif event_type == "NATIVE_ENTRY_RELEASE_PHYSICAL_OUTCOME":
                 payload = _payload(row, "physical outcome")
                 decision_id = payload.get("decision_id")
                 if isinstance(decision_id, str):
                     if decision_id in outcomes:
                         raise Phase5ENativeEvidenceError("Pressure physical outcome is not unique")
-                    outcomes[decision_id] = payload
+                    outcomes[decision_id] = (row_index, payload)
         if not bindings:
             raise Phase5ENativeEvidenceError(
                 "no A3 Forced Decision is bound to the Pressure boundary"
@@ -123,6 +125,7 @@ class RuntimeEventEvidenceSource:
             raise Phase5ENativeEvidenceError(
                 "Pressure boundary lacks one actual G9 Pressure binding"
             )
+        actual_pressure_index = actual_pressure_bindings[0][0]
         decision_ids = tuple(bindings)
         if any(
             decision_id not in plans or decision_id not in outcomes for decision_id in decision_ids
@@ -131,8 +134,57 @@ class RuntimeEventEvidenceSource:
                 "Pressure decision lacks Selection Plan or Physical Outcome"
             )
         evicted: list[int] = []
+        referenced_forced_indices: set[int] = set()
         for decision_id in decision_ids:
-            outcome = outcomes[decision_id]
+            binding_index, binding = bindings[decision_id]
+            forced_index = binding.get("forced_release_event_index")
+            if isinstance(forced_index, bool) or not isinstance(forced_index, int):
+                raise Phase5ENativeEvidenceError(
+                    "Pressure binding has invalid forced_release_event_index"
+                )
+            if forced_index in referenced_forced_indices:
+                raise Phase5ENativeEvidenceError(
+                    "Pressure bindings reference the same Forced Decision event"
+                )
+            referenced_forced_indices.add(forced_index)
+            forced_row = rows_by_index.get(forced_index)
+            if forced_row is None or forced_row.get("event_type") != "FORCED_RELEASE_DECISION":
+                raise Phase5ENativeEvidenceError(
+                    "forced_release_event_index does not reference a Forced Decision"
+                )
+            forced_payload = _payload(forced_row, "forced release decision")
+            forced_boundary = forced_payload.get(
+                "frozen_decision_boundary_id", forced_payload.get("boundary_id")
+            )
+            if forced_payload.get("decision_id") != decision_id:
+                raise Phase5ENativeEvidenceError(
+                    "Forced Decision identity differs from its binding"
+                )
+            if forced_boundary != boundary_id:
+                raise Phase5ENativeEvidenceError(
+                    "Forced Decision boundary differs from its binding"
+                )
+
+            plan_index, plan = plans[decision_id]
+            outcome_index, outcome = outcomes[decision_id]
+            for label, payload in (("Selection Plan", plan), ("Physical Outcome", outcome)):
+                observed_boundary = payload.get(
+                    "frozen_decision_boundary_id", payload.get("boundary_id")
+                )
+                if observed_boundary != boundary_id:
+                    raise Phase5ENativeEvidenceError(
+                        f"{label} boundary differs from its Forced Decision"
+                    )
+            if not (
+                actual_pressure_index
+                < forced_index
+                < binding_index
+                < plan_index
+                < outcome_index
+            ):
+                raise Phase5ENativeEvidenceError(
+                    "Decision, binding, Selection Plan and Physical Outcome order is invalid"
+                )
             for field in (
                 "matched_physical_block_ids",
                 "unmatched_physical_block_ids",
