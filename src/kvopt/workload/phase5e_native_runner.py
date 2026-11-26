@@ -284,7 +284,11 @@ def create_pinned_asyncllm(plan: Phase5GPUConformancePlan) -> AsyncLLMProtocol:
         enable_prefix_caching=True,
         disable_log_stats=False,
     )
-    engine = AsyncLLM.from_engine_args(engine_args, start_engine_loop=True)
+    # The lifecycle proxy must replace ``engine.engine_core`` before AsyncLLM's
+    # background output handler captures it.  EngineCore initialization is
+    # still performed by ``from_engine_args``; only output-handler startup is
+    # deferred until the first request is added.
+    engine = AsyncLLM.from_engine_args(engine_args, start_engine_loop=False)
     if getattr(engine, "output_handler", None) is not None:
         engine.shutdown()
         raise Phase5ENativeRunnerError(

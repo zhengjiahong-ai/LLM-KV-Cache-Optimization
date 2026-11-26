@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import json
+import sys
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
@@ -252,6 +254,81 @@ def test_engine_creation_requires_inprocess_vllm_before_import(monkeypatch) -> N
     monkeypatch.delenv("VLLM_ENABLE_V1_MULTIPROCESSING", raising=False)
     with pytest.raises(Phase5ENativeRunnerError, match="MULTIPROCESSING"):
         create_pinned_asyncllm(build_phase5e_review_candidate("a" * 40))
+
+
+def _install_fake_vllm_engine_modules(monkeypatch, *, output_handler: object):
+    captured = {}
+
+    class FakeAsyncEngineArgs:
+        def __init__(self, **kwargs) -> None:
+            captured["engine_args"] = kwargs
+
+    class FakeEngine:
+        def __init__(self) -> None:
+            self.output_handler = output_handler
+            self.closed = False
+
+        def shutdown(self) -> None:
+            self.closed = True
+
+    engine = FakeEngine()
+
+    class FakeAsyncLLM:
+        @classmethod
+        def from_engine_args(cls, engine_args, *, start_engine_loop):
+            captured["from_engine_args"] = {
+                "engine_args": engine_args,
+                "start_engine_loop": start_engine_loop,
+            }
+            return engine
+
+    vllm = ModuleType("vllm")
+    vllm.__version__ = "0.27.1"  # type: ignore[attr-defined]
+    engine_package = ModuleType("vllm.engine")
+    arg_utils = ModuleType("vllm.engine.arg_utils")
+    arg_utils.AsyncEngineArgs = FakeAsyncEngineArgs  # type: ignore[attr-defined]
+    v1_package = ModuleType("vllm.v1")
+    v1_engine_package = ModuleType("vllm.v1.engine")
+    async_llm = ModuleType("vllm.v1.engine.async_llm")
+    async_llm.AsyncLLM = FakeAsyncLLM  # type: ignore[attr-defined]
+    for name, module in (
+        ("vllm", vllm),
+        ("vllm.engine", engine_package),
+        ("vllm.engine.arg_utils", arg_utils),
+        ("vllm.v1", v1_package),
+        ("vllm.v1.engine", v1_engine_package),
+        ("vllm.v1.engine.async_llm", async_llm),
+    ):
+        monkeypatch.setitem(sys.modules, name, module)
+    return engine, captured
+
+
+def test_engine_creation_defers_output_handler_until_proxy_installation(monkeypatch) -> None:
+    monkeypatch.setenv("VLLM_ENABLE_V1_MULTIPROCESSING", "0")
+    engine, captured = _install_fake_vllm_engine_modules(
+        monkeypatch, output_handler=None
+    )
+
+    result = create_pinned_asyncllm(build_phase5e_review_candidate("a" * 40))
+
+    assert result is engine
+    assert captured["from_engine_args"]["start_engine_loop"] is False
+    assert engine.closed is False
+
+
+def test_engine_creation_rejects_output_handler_started_despite_deferred_flag(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("VLLM_ENABLE_V1_MULTIPROCESSING", "0")
+    engine, captured = _install_fake_vllm_engine_modules(
+        monkeypatch, output_handler=object()
+    )
+
+    with pytest.raises(Phase5ENativeRunnerError, match="output handler started"):
+        create_pinned_asyncllm(build_phase5e_review_candidate("a" * 40))
+
+    assert captured["from_engine_args"]["start_engine_loop"] is False
+    assert engine.closed is True
 
 
 def test_production_evidence_source_is_never_implicitly_mocked() -> None:
