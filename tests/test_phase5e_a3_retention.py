@@ -171,6 +171,7 @@ def _manifest() -> dict[str, object]:
     payload["runtime_state_sha256"] = canonical_sha256(
         {
             "a3_candidate_ids": candidates,
+            "ttl_inputs": ttl_rows,
             "retention_entries": retention_rows,
             "prefix_chain": chain_rows,
         }
@@ -266,6 +267,49 @@ def test_g9_rejects_event_order_and_clock_domain_errors() -> None:
                 "runtime_state_sha256": payload["runtime_state_sha256"],
                 "pressure_event_index": 5,
                 "pressure_observation_timestamp": 1.0,
+                "pressure_clock_domain": "continuum_lifecycle",
+            },
+        )
+
+
+@pytest.mark.parametrize(
+    ("section", "field"),
+    (
+        ("ttl_inputs", "source_event_index"),
+        ("retention_entries", "created_event_index"),
+        ("prefix_chain", "observed_event_index"),
+    ),
+)
+def test_g9_rejects_negative_historical_event_indices(
+    section: str, field: str
+) -> None:
+    payload = _manifest()
+    payload[section][0][field] = -1
+    _seal(payload)
+    _assert_fail_closed(payload)
+
+
+def test_actual_pressure_rejects_changed_ttl_state_hash() -> None:
+    payload = _manifest()
+    changed = copy.deepcopy(payload)
+    changed["ttl_inputs"][0]["ttl_decision"]["ttl_seconds"] = 2.0
+    changed_state = canonical_sha256(
+        {
+            "a3_candidate_ids": changed["a3_candidate_ids"],
+            "ttl_inputs": changed["ttl_inputs"],
+            "retention_entries": changed["retention_entries"],
+            "prefix_chain": changed["prefix_chain"],
+        }
+    )
+    with pytest.raises(Phase5EG9Error, match="runtime state changed"):
+        validate_actual_pressure_binding(
+            payload,
+            {
+                "boundary_id": "phase5e-pressure-01",
+                "g9_manifest_sha256": payload["manifest_sha256"],
+                "runtime_state_sha256": changed_state,
+                "pressure_event_index": 5,
+                "pressure_observation_timestamp": 2.002,
                 "pressure_clock_domain": "continuum_lifecycle",
             },
         )

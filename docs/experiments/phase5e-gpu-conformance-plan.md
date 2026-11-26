@@ -368,7 +368,9 @@ and Prefix Snapshot timestamps remain unchanged. The pre-Pressure manifest uses
 an independent `g9_observation_timestamp` and explicitly records that the
 actual Pressure event is not yet observed. At allocation entry, the runtime
 records `pressure_observation_timestamp`, verifies event ordering and rejects a
-changed Retention/Prefix state. Timestamps are ordered only within the same
+changed TTL/Retention/Prefix state. The bound runtime-state SHA-256 includes
+the complete TTL input and decision rows, Retention entries, Prefix chains and
+candidate identities. Timestamps are ordered only within the same
 clock domain; the append-only event index supplies cross-domain ordering.
 Failure is fail-closed: A3 is not executed,
 fallback to A1 or Native LRU is forbidden, and missing values are not synthesized.

@@ -405,6 +405,7 @@ class Phase5EProductionIntegration:
         payload["runtime_state_sha256"] = canonical_sha256(
             {
                 "a3_candidate_ids": candidates,
+                "ttl_inputs": ttl_rows,
                 "retention_entries": retention_rows,
                 "prefix_chain": chain_rows,
             }
@@ -431,10 +432,11 @@ class Phase5EProductionIntegration:
             raise Phase5EProductionIntegrationError("Pressure contexts cannot nest")
         if self._g9_manifest is None:
             raise Phase5EProductionIntegrationError("Pressure began before G9 validation")
-        _ttl, retention_rows, chain_rows = self._state_rows(boundary_id)
+        ttl_rows, retention_rows, chain_rows = self._state_rows(boundary_id)
         state_hash = canonical_sha256(
             {
                 "a3_candidate_ids": self._g9_manifest["a3_candidate_ids"],
+                "ttl_inputs": ttl_rows,
                 "retention_entries": retention_rows,
                 "prefix_chain": chain_rows,
             }

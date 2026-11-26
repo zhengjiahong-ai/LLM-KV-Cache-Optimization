@@ -158,6 +158,7 @@ class A3RetentionInputManifest:
             if (
                 isinstance(source_event_index, bool)
                 or not isinstance(source_event_index, int)
+                or source_event_index < 0
                 or source_event_index >= g9_event_index
             ):
                 raise Phase5EG9Error("TTL source event does not precede G9")
@@ -191,6 +192,7 @@ class A3RetentionInputManifest:
             if (
                 isinstance(created_index, bool)
                 or not isinstance(created_index, int)
+                or created_index < 0
                 or created_index >= g9_event_index
             ):
                 raise Phase5EG9Error("retention entry does not precede G9")
@@ -254,6 +256,7 @@ class A3RetentionInputManifest:
             if (
                 isinstance(observed_index, bool)
                 or not isinstance(observed_index, int)
+                or observed_index < 0
                 or observed_index >= g9_event_index
             ):
                 raise Phase5EG9Error("prefix snapshot does not precede G9")
@@ -273,6 +276,7 @@ class A3RetentionInputManifest:
         expected_state_hash = canonical_sha256(
             {
                 "a3_candidate_ids": list(candidates),
+                "ttl_inputs": ttl_rows,
                 "retention_entries": retention_rows,
                 "prefix_chain": chain_rows,
             }
@@ -566,6 +570,7 @@ def build_phase5e_cpu_mock_retention_manifest(
     payload["runtime_state_sha256"] = canonical_sha256(
         {
             "a3_candidate_ids": payload["a3_candidate_ids"],
+            "ttl_inputs": payload["ttl_inputs"],
             "retention_entries": payload["retention_entries"],
             "prefix_chain": payload["prefix_chain"],
         }
