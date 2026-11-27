@@ -114,8 +114,20 @@ def _evidence_export(state: _EngineCoreState) -> dict[str, object]:
 def _install(core: object, contract: Mapping[str, object]) -> dict[str, object]:
     if getattr(core, _STATE_ATTRIBUTE, None) is not None:
         raise Phase5EngineCorePluginError("Phase 5 EngineCore integration is already installed")
-    expected = contract.get("kv_pool_blocks")
-    if isinstance(expected, bool) or not isinstance(expected, int) or expected <= 0:
+    configured = contract.get("kv_pool_blocks")
+    reserved = contract.get("reserved_null_blocks")
+    expected_free = contract.get("expected_initial_free_blocks")
+    for name, value in (
+        ("kv_pool_blocks", configured),
+        ("reserved_null_blocks", reserved),
+        ("expected_initial_free_blocks", expected_free),
+    ):
+        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+            raise Phase5EngineCorePluginError(f"frozen {name} is invalid")
+    assert isinstance(configured, int)
+    assert isinstance(reserved, int)
+    assert isinstance(expected_free, int)
+    if configured - reserved != expected_free:
         raise Phase5EngineCorePluginError("frozen KV pool geometry is invalid")
     scheduler = getattr(core, "scheduler", None)
     manager = getattr(scheduler, "kv_cache_manager", None)
@@ -123,8 +135,13 @@ def _install(core: object, contract: Mapping[str, object]) -> dict[str, object]:
     if scheduler is None or manager is None or block_pool is None:
         raise Phase5EngineCorePluginError("EngineCore Native cache hierarchy is unavailable")
     free = getattr(block_pool, "get_num_free_blocks", None)
-    if not callable(free) or free() != expected:
-        raise Phase5EngineCorePluginError("initial Native BlockPool differs from freeze")
+    observed_free = free() if callable(free) else None
+    if observed_free != expected_free:
+        raise Phase5EngineCorePluginError(
+            "initial allocatable Native BlockPool differs from freeze: "
+            f"configured={configured}, reserved={reserved}, "
+            f"expected_free={expected_free}, observed_free={observed_free}"
+        )
     source = Phase5ERuntimeEventSource()
     integration = build_phase5e_production_integration(source)
     report = install_phase5e_a3_runtime(
@@ -142,8 +159,15 @@ def _install(core: object, contract: Mapping[str, object]) -> dict[str, object]:
         "engine_core_pid": os.getpid(),
         "control_transport": "ASYNCMPLCLIENT_UTILITY_RPC",
         "native_objects_cross_process": False,
+        "configured_kv_pool_blocks": configured,
+        "reserved_null_blocks": reserved,
+        "initial_allocatable_kv_blocks": observed_free,
     }
-    setattr(core, _STATE_ATTRIBUTE, _EngineCoreState(source, integration, report, expected))
+    setattr(
+        core,
+        _STATE_ATTRIBUTE,
+        _EngineCoreState(source, integration, report, expected_free),
+    )
     return {"installation_report": report}
 
 

@@ -229,8 +229,11 @@ Forced Release and physical eviction evidence, and releases them through the
 same BlockPool. Calling policy-layer `apply_pressure()` without this allocation
 does not satisfy the contract.
 
-The Boundary also freezes `expected_free_blocks_before=1536`. The executor
-checks this value before calling `get_new_blocks(1536)`. Any different runtime
+The configured pool remains 2,048 blocks. Pinned vLLM 0.27.1 reserves one
+shared null block, leaving 2,047 blocks allocatable to requests. The Boundary
+therefore freezes `expected_free_blocks_before=1535` after the four-request
+512-block upper bound. The executor checks this value before calling
+`get_new_blocks(1536)`. Any different runtime
 free count fails closed before allocation, ensuring the request cannot be
 satisfied solely from an unplanned surplus or silently exceed available blocks.
 
@@ -309,8 +312,10 @@ must demonstrate at least 2 GiB free after engine initialization and before
 fixture submission; this estimate is not a substitute for observed allocation.
 
 The static worst-case measured-wave footprint is
-`4 × (ceil(1984/16) + ceil(64/16)) = 512` blocks. Adding the 1,536-block
-Native allocation consumes exactly the frozen 2,048-block pool. Thus the
+`4 × (ceil(1984/16) + ceil(64/16)) = 512` blocks. Pinned vLLM reserves one
+null block from the configured 2,048-block pool, so 2,047 blocks are
+allocatable. Adding the 1,536-block Native allocation demands 2,048
+allocatable blocks and therefore creates a one-block bounded shortage. Thus the
 configuration reaches the allocation boundary without exceeding it; the
 128-block reserve is a fail-closed ceiling for observed runtime geometry drift,
 not permission to change the frozen request. GPU preflight must still verify the actual BlockPool capacity,

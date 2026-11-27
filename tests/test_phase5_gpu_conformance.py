@@ -36,6 +36,10 @@ def test_phase5e_candidate_freezes_fixture_seal_pressure_and_budget() -> None:
     assert plan.resource_budget.engine_max_num_seqs == 4
     assert plan.resource_budget.adapter_maximum_native_inflight == 4
     assert plan.pressure.required_blocks == 1536
+    assert plan.resource_budget.kv_pool_blocks == 2048
+    assert plan.resource_budget.reserved_null_blocks == 1
+    assert plan.resource_budget.allocatable_kv_blocks == 2047
+    assert plan.pressure.expected_free_blocks_before == 1535
     boundary = plan.pressure.to_native_boundary(
         plan.resource_budget.block_size_tokens
     )

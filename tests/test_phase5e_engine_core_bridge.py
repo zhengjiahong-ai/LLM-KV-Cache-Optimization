@@ -21,6 +21,7 @@ from kvopt.workload.phase5e_engine_core_bridge import (
 )
 from kvopt.workload.phase5e_engine_core_plugin import (
     _EngineCoreState,
+    _install,
     install_engine_core_methods,
 )
 
@@ -33,6 +34,61 @@ class _UtilityClient:
     async def call_utility_async(self, method: str, *args: object) -> object:
         self.calls.append((method, args))
         return self.responses[method]
+
+
+class _BlockPool:
+    def __init__(self, free_blocks: int) -> None:
+        self.free_blocks = free_blocks
+
+    def get_num_free_blocks(self) -> int:
+        return self.free_blocks
+
+
+def _core_with_free_blocks(free_blocks: int) -> object:
+    pool = _BlockPool(free_blocks)
+    manager = SimpleNamespace(block_pool=pool)
+    return SimpleNamespace(
+        scheduler=SimpleNamespace(kv_cache_manager=manager),
+    )
+
+
+def _install_contract() -> dict[str, object]:
+    return {
+        "kv_pool_blocks": 2048,
+        "reserved_null_blocks": 1,
+        "expected_initial_free_blocks": 2047,
+    }
+
+
+def test_engine_core_install_distinguishes_configured_and_allocatable_blocks(
+    monkeypatch,
+) -> None:
+    report = {"status": "PASS"}
+    monkeypatch.setattr(
+        "kvopt.workload.phase5e_engine_core_plugin.build_phase5e_production_integration",
+        lambda _source: SimpleNamespace(),
+    )
+    monkeypatch.setattr(
+        "kvopt.workload.phase5e_engine_core_plugin.install_phase5e_a3_runtime",
+        lambda **_kwargs: report,
+    )
+    result = _install(_core_with_free_blocks(2047), _install_contract())
+    installation = result["installation_report"]
+    assert installation["configured_kv_pool_blocks"] == 2048
+    assert installation["reserved_null_blocks"] == 1
+    assert installation["initial_allocatable_kv_blocks"] == 2047
+
+
+def test_engine_core_install_rejects_unreserved_free_block_geometry() -> None:
+    with pytest.raises(Exception, match="observed_free=2048"):
+        _install(_core_with_free_blocks(2048), _install_contract())
+
+
+def test_engine_core_install_rejects_incoherent_frozen_geometry() -> None:
+    contract = _install_contract()
+    contract["expected_initial_free_blocks"] = 2048
+    with pytest.raises(Exception, match="frozen KV pool geometry"):
+        _install(_core_with_free_blocks(2047), contract)
 
 
 def _bridge_child(connection) -> None:

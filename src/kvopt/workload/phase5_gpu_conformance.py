@@ -160,6 +160,7 @@ class GPUResourceBudget:
     minimum_vram_gib: int
     model_id: str
     kv_pool_blocks: int
+    reserved_null_blocks: int
     block_size_tokens: int
     maximum_context_tokens: int
     engine_max_num_seqs: int
@@ -179,6 +180,7 @@ class GPUResourceBudget:
             raise ValueError("model_id must be non-empty")
         for name in (
             "kv_pool_blocks",
+            "reserved_null_blocks",
             "block_size_tokens",
             "maximum_context_tokens",
             "engine_max_num_seqs",
@@ -193,12 +195,23 @@ class GPUResourceBudget:
                 raise ValueError(f"{name} must be positive")
         if self.engine_max_num_seqs != 4:
             raise ValueError("Engine max_num_seqs must be exactly four")
+        if self.reserved_null_blocks != 1:
+            raise ValueError("pinned vLLM must reserve exactly one null block")
         if self.adapter_maximum_native_inflight != self.engine_max_num_seqs:
             raise ValueError("Adapter capacity must equal Engine max_num_seqs")
         if self.run_timeout_seconds + self.shutdown_grace_seconds >= (
             self.reservation_window_seconds
         ):
             raise ValueError("resource reservation must exceed run and shutdown bounds")
+
+    @property
+    def allocatable_kv_blocks(self) -> int:
+        """Return blocks available to requests after pinned vLLM reservations."""
+
+        allocatable = self.kv_pool_blocks - self.reserved_null_blocks
+        if allocatable <= 0:
+            raise ValueError("reserved Native blocks exhaust the configured KV pool")
+        return allocatable
 
 
 def derive_native_enqueue_order(
@@ -368,14 +381,15 @@ class Phase5GPUConformancePlan:
             max_generation / self.resource_budget.block_size_tokens
         )
         active_upper = self.resource_budget.engine_max_num_seqs * blocks_per_request
-        expected_free = self.resource_budget.kv_pool_blocks - active_upper
+        allocatable_blocks = self.resource_budget.allocatable_kv_blocks
+        expected_free = allocatable_blocks - active_upper
         if pressure.expected_free_blocks_before != expected_free:
             raise ValueError("frozen free-block geometry differs from request budget")
         allocation_demand = active_upper + pressure.required_blocks
-        oversubscription = allocation_demand - self.resource_budget.kv_pool_blocks
-        if active_upper >= self.resource_budget.kv_pool_blocks:
+        oversubscription = allocation_demand - allocatable_blocks
+        if active_upper >= allocatable_blocks:
             raise ValueError("active request upper bound leaves no safe KV capacity")
-        if allocation_demand < self.resource_budget.kv_pool_blocks:
+        if allocation_demand < allocatable_blocks:
             raise ValueError("static KV budget cannot create observable pressure")
         if oversubscription > self.resource_budget.pressure_reserve_blocks:
             raise ValueError("static KV pressure exceeds the bounded reserve")
@@ -521,7 +535,7 @@ def build_phase5e_review_candidate(git_sha: str) -> Phase5GPUConformancePlan:
         ),
         pressure_prompt_tokens=24576,
         required_blocks=1536,
-        expected_free_blocks_before=1536,
+        expected_free_blocks_before=1535,
         expected_allocated_blocks_by_request=tuple(
             (request_id, 128) for request_id in order[4:]
         ),
@@ -554,6 +568,7 @@ def build_phase5e_review_candidate(git_sha: str) -> Phase5GPUConformancePlan:
             minimum_vram_gib=24,
             model_id="Qwen/Qwen2.5-Coder-1.5B-Instruct",
             kv_pool_blocks=2048,
+            reserved_null_blocks=1,
             block_size_tokens=16,
             maximum_context_tokens=32768,
             engine_max_num_seqs=4,

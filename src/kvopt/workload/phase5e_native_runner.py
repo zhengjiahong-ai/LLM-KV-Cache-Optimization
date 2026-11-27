@@ -204,6 +204,10 @@ async def install_engine_core_production_stack(
             "run_id": "P5E-A-01",
             "git_sha": plan.git_sha,
             "kv_pool_blocks": plan.resource_budget.kv_pool_blocks,
+            "reserved_null_blocks": plan.resource_budget.reserved_null_blocks,
+            "expected_initial_free_blocks": (
+                plan.resource_budget.allocatable_kv_blocks
+            ),
             "pressure_boundary_id": plan.pressure.boundary_id,
             "algorithm": "CONTROLLED_A3",
         }
@@ -525,9 +529,9 @@ def _bind_pinned_native_pressure(
 
     validate_runtime_engine_identity(engine=engine, plan=plan)
     initial_free = resolved.block_pool.get_num_free_blocks()
-    if initial_free != plan.resource_budget.kv_pool_blocks:
+    if initial_free != plan.resource_budget.allocatable_kv_blocks:
         raise Phase5ENativeRunnerError(
-            "initial Native BlockPool size differs from frozen 2,048 blocks"
+            "initial allocatable Native BlockPool differs from frozen geometry"
         )
     pressure = PinnedNativeBlockPoolPressureExecutor(
         block_pool=resolved.block_pool,
