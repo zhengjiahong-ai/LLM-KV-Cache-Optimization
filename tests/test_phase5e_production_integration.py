@@ -160,6 +160,33 @@ def test_production_factory_builds_real_prepressure_manifest_and_binding() -> No
     assert integration.pressure_context_active() is False
 
 
+def test_terminal_snapshot_excludes_one_real_hashless_tail_from_retention() -> None:
+    source, integration = _integration()
+    integration.bind_request_identity(
+        logical_request_id="p1:r1",
+        external_request_id="P5E-A-01:p1:r1",
+        internal_request_id="P5E-A-01:p1:r1",
+    )
+    hashed = NativeBlockSnapshot(7, 0, "ab" * 32, 16, 0, False)
+    partial = NativeBlockSnapshot(8, 0, None, None, 0, False)
+    integration.observe_terminal_request_snapshot(
+        RequestBlockSnapshot(
+            program_id=ProgramIdentity("p1"),
+            request_id=RequestIdentity("P5E-A-01:p1:r1"),
+            block_groups=((hashed, partial),),
+            availability=ObservationAvailability.AVAILABLE,
+        ),
+        observed_at=1.0,
+        native_hash_process_id=str(os.getpid()),
+    )
+
+    event = next(row for row in source.snapshot() if row["event_type"] == "VLLM_PREFIX_SNAPSHOT")
+    assert event["payload"]["block_ids"] == [7]
+    assert event["payload"]["excluded_hashless_tail_block_ids"] == [8]
+    entry = integration._manager.planning_snapshots()[0]
+    assert tuple(block.block_id for block in entry.block_ids) == (7,)
+
+
 def test_production_factory_rejects_pressure_before_g9_and_missing_hash() -> None:
     _source, integration = _integration()
     with pytest.raises(Phase5EProductionIntegrationError, match="before G9"):
@@ -175,7 +202,7 @@ def test_production_factory_rejects_pressure_before_g9_and_missing_hash() -> Non
         internal_request_id="internal",
     )
     bad = NativeBlockSnapshot(1, 0, None, None, 0, False)
-    with pytest.raises(Phase5EProductionIntegrationError, match="incomplete"):
+    with pytest.raises(Phase5EProductionIntegrationError, match="complete hashed prefix"):
         integration.observe_terminal_request_snapshot(
             RequestBlockSnapshot(
                 ProgramIdentity("p1"),

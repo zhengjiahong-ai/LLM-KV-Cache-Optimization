@@ -310,3 +310,45 @@ def test_terminal_snapshot_is_captured_before_native_free(
     assert snapshot.block_groups[0][0].block_id == 7
     assert snapshot.block_groups[0][0].native_hash_hex == b"hash-7".hex()
     assert integration.snapshots[0][1]["observed_at"] == 3.0
+
+
+def test_terminal_snapshot_preserves_real_hashless_tail_for_integration(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    core, scheduler, manager, block_pool = _ownership()
+    hashed = SimpleNamespace(
+        block_id=7,
+        ref_cnt=0,
+        block_hash=b"hash-7",
+        block_hash_num_tokens=16,
+        is_null=False,
+    )
+    partial = SimpleNamespace(
+        block_id=8,
+        ref_cnt=0,
+        block_hash=None,
+        block_hash_num_tokens=None,
+        is_null=False,
+    )
+    manager.get_blocks = lambda _request_id: SimpleNamespace(
+        blocks=((hashed, partial),)
+    )
+    source = Phase5ERuntimeEventSource()
+    integration = _Integration(source)
+    monkeypatch.setattr(runtime, "validate_pinned_vllm_source_identity", dict)
+    monkeypatch.setattr(runtime, "install_retention_hook", lambda **_kwargs: None)
+    install_phase5e_a3_runtime(
+        engine_core=core,
+        scheduler=scheduler,
+        kv_cache_manager=manager,
+        block_pool=block_pool,
+        integration=integration,
+        clock=FakeClock(3.0),
+        event_source=source,
+    )
+
+    scheduler._free_request(SimpleNamespace(request_id="native-r1"))
+
+    snapshot = integration.snapshots[0][0][0]
+    assert snapshot.block_groups[0][0].native_hash_hex == b"hash-7".hex()
+    assert snapshot.block_groups[0][1].native_hash_hex is None

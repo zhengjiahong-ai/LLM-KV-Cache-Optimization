@@ -225,10 +225,26 @@ class Phase5EProductionIntegration:
         if not logical_id.endswith(":r1"):
             return
         blocks = tuple(block for group in snapshot.block_groups for block in group)
-        if not blocks or any(block.is_null or block.native_hash_hex is None for block in blocks):
+        if not blocks or any(block.is_null for block in blocks):
             raise Phase5EProductionIntegrationError("terminal prefix identity is incomplete")
-        block_ids = tuple(block.block_id for block in blocks)
-        native_hashes = tuple(str(block.native_hash_hex) for block in blocks)
+        first_hashless = next(
+            (index for index, block in enumerate(blocks) if block.native_hash_hex is None),
+            len(blocks),
+        )
+        hashed_blocks = blocks[:first_hashless]
+        hashless_tail = blocks[first_hashless:]
+        if (
+            not hashed_blocks
+            or len(hashless_tail) > 1
+            or any(block.native_hash_hex is not None for block in hashless_tail)
+        ):
+            raise Phase5EProductionIntegrationError(
+                "terminal prefix hash identity is not a complete hashed prefix "
+                "with at most one hashless tail block"
+            )
+        block_ids = tuple(block.block_id for block in hashed_blocks)
+        native_hashes = tuple(str(block.native_hash_hex) for block in hashed_blocks)
+        hashless_tail_block_ids = tuple(block.block_id for block in hashless_tail)
         program = snapshot.program_id
         request = RequestIdentity(logical_id)
         prefix = PrefixIdentity(f"continuum.prefix.native_hash.v1:{native_hashes[-1]}")
@@ -283,6 +299,8 @@ class Phase5EProductionIntegration:
             "prefix_id": prefix.canonical_value,
             "block_ids": list(block_ids),
             "native_cache_keys": list(native_hashes),
+            "excluded_hashless_tail_block_ids": list(hashless_tail_block_ids),
+            "hashless_tail_semantics": "NON_RETAINED_PARTIAL_NATIVE_BLOCK",
             "native_hash_process_id": native_hash_process_id,
         }
         self.event_source.emit(
@@ -297,6 +315,7 @@ class Phase5EProductionIntegration:
             "prefix_id": prefix.canonical_value,
             "block_ids": list(block_ids),
             "native_hashes": list(native_hashes),
+            "excluded_hashless_tail_block_ids": list(hashless_tail_block_ids),
             "native_hash_process_id": native_hash_process_id,
             "observed_at": observed_at,
             "event_index": event_index,

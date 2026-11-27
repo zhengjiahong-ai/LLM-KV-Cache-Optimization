@@ -174,11 +174,9 @@ def _install_terminal_snapshot_hook(
                     f"terminal BlockTable is unavailable: {snapshot.reason}"
                 )
             blocks = tuple(block for group in snapshot.block_groups for block in group)
-            if not blocks or any(
-                block.is_null or block.native_hash_hex is None for block in blocks
-            ):
+            if not blocks or any(block.is_null for block in blocks):
                 raise Phase5ENativeRuntimeError(
-                    "terminal BlockTable lacks complete Native hash identity"
+                    "terminal BlockTable is empty or contains the reserved null block"
                 )
             observe(
                 snapshot,
