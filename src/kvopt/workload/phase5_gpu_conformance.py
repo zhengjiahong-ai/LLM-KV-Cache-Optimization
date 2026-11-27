@@ -164,6 +164,7 @@ class GPUResourceBudget:
     block_size_tokens: int
     maximum_context_tokens: int
     engine_max_num_seqs: int
+    engine_max_num_batched_tokens: int
     adapter_maximum_native_inflight: int
     pressure_reserve_blocks: int
     minimum_post_init_free_vram_gib: int
@@ -184,6 +185,7 @@ class GPUResourceBudget:
             "block_size_tokens",
             "maximum_context_tokens",
             "engine_max_num_seqs",
+            "engine_max_num_batched_tokens",
             "adapter_maximum_native_inflight",
             "pressure_reserve_blocks",
             "minimum_post_init_free_vram_gib",
@@ -195,6 +197,8 @@ class GPUResourceBudget:
                 raise ValueError(f"{name} must be positive")
         if self.engine_max_num_seqs != 4:
             raise ValueError("Engine max_num_seqs must be exactly four")
+        if self.engine_max_num_batched_tokens != 8192:
+            raise ValueError("Engine max_num_batched_tokens must be exactly 8192")
         if self.reserved_null_blocks != 1:
             raise ValueError("pinned vLLM must reserve exactly one null block")
         if self.adapter_maximum_native_inflight != self.engine_max_num_seqs:
@@ -556,6 +560,7 @@ def build_phase5e_review_candidate(git_sha: str) -> Phase5GPUConformancePlan:
         engine_configuration_sha256=canonical_sha256(
             {
                 "max_num_seqs": 4,
+                "max_num_batched_tokens": 8192,
                 "block_size": 16,
                 "kv_pool_blocks": 2048,
                 "max_model_len": 32768,
@@ -572,6 +577,7 @@ def build_phase5e_review_candidate(git_sha: str) -> Phase5GPUConformancePlan:
             block_size_tokens=16,
             maximum_context_tokens=32768,
             engine_max_num_seqs=4,
+            engine_max_num_batched_tokens=8192,
             adapter_maximum_native_inflight=4,
             pressure_reserve_blocks=128,
             minimum_post_init_free_vram_gib=2,

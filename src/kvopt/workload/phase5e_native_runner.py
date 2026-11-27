@@ -374,6 +374,7 @@ def create_pinned_asyncllm(plan: Phase5GPUConformancePlan) -> AsyncLLMProtocol:
     budget = plan.resource_budget
     engine_identity = {
         "max_num_seqs": budget.engine_max_num_seqs,
+        "max_num_batched_tokens": budget.engine_max_num_batched_tokens,
         "block_size": budget.block_size_tokens,
         "kv_pool_blocks": budget.kv_pool_blocks,
         "max_model_len": budget.maximum_context_tokens,
@@ -387,6 +388,7 @@ def create_pinned_asyncllm(plan: Phase5GPUConformancePlan) -> AsyncLLMProtocol:
         tokenizer_revision=plan.tokenizer_revision,
         max_model_len=budget.maximum_context_tokens,
         max_num_seqs=budget.engine_max_num_seqs,
+        max_num_batched_tokens=budget.engine_max_num_batched_tokens,
         block_size=budget.block_size_tokens,
         num_gpu_blocks_override=budget.kv_pool_blocks,
         enable_prefix_caching=True,
@@ -469,12 +471,16 @@ def validate_runtime_engine_identity(*, engine: object, plan: Phase5GPUConforman
     cache = getattr(config, "cache_config", None)
     observed = {
         "max_num_seqs": getattr(scheduler, "max_num_seqs", None),
+        "max_num_batched_tokens": getattr(scheduler, "max_num_batched_tokens", None),
         "max_model_len": getattr(model, "max_model_len", None),
         "block_size": getattr(cache, "block_size", None),
         "kv_pool_blocks": getattr(cache, "num_gpu_blocks_override", None),
     }
     expected = {
         "max_num_seqs": plan.resource_budget.engine_max_num_seqs,
+        "max_num_batched_tokens": (
+            plan.resource_budget.engine_max_num_batched_tokens
+        ),
         "max_model_len": plan.resource_budget.maximum_context_tokens,
         "block_size": plan.resource_budget.block_size_tokens,
         "kv_pool_blocks": plan.resource_budget.kv_pool_blocks,

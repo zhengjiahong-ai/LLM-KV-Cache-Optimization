@@ -559,7 +559,11 @@ def test_live_engine_configuration_must_equal_frozen_geometry() -> None:
                 "Config",
                 (),
                 {
-                    "scheduler_config": type("Scheduler", (), {"max_num_seqs": 4})(),
+                    "scheduler_config": type(
+                        "Scheduler",
+                        (),
+                        {"max_num_seqs": 4, "max_num_batched_tokens": 8192},
+                    )(),
                     "model_config": type("Model", (), {"max_model_len": 32768})(),
                     "cache_config": type(
                         "Cache",
