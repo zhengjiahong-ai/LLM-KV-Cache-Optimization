@@ -198,7 +198,10 @@ def test_production_factory_uses_exact_frozen_first_wave_identities() -> None:
     readiness = integration.first_wave_prefix_readiness()
     assert readiness["expected_first_wave_request_ids"] == sorted(first_wave)
     assert readiness["observed_first_wave_request_ids"] == ["task-a:first"]
-    with pytest.raises(Phase5EProductionIntegrationError, match="outside the frozen"):
+    with pytest.raises(
+        Phase5EProductionIntegrationError,
+        match=r"logical_request_id='task-z:first'.*task-a:first",
+    ):
         integration.bind_request_identity(
             logical_request_id="task-z:first",
             external_request_id="external:z",

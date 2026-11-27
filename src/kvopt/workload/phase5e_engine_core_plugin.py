@@ -173,6 +173,8 @@ def _install(core: object, contract: Mapping[str, object]) -> dict[str, object]:
         "configured_kv_pool_blocks": configured,
         "reserved_null_blocks": reserved,
         "initial_allocatable_kv_blocks": observed_free,
+        "frozen_logical_request_ids": list(contract["all_logical_request_ids"]),
+        "frozen_first_wave_request_ids": list(contract["first_wave_logical_request_ids"]),
     }
     setattr(
         core,

@@ -211,7 +211,9 @@ class Phase5EProductionIntegration:
             raise Phase5EProductionIntegrationError("Native request identity is duplicated")
         if self._all_request_ids is not None and logical_request_id not in self._all_request_ids:
             raise Phase5EProductionIntegrationError(
-                "EngineCore request is outside the frozen request inventory"
+                "EngineCore request is outside the frozen request inventory: "
+                f"logical_request_id={logical_request_id!r}, "
+                f"frozen_request_ids={tuple(sorted(self._all_request_ids))!r}"
             )
         program_text, separator, _request = logical_request_id.partition(":")
         if not separator or not program_text:

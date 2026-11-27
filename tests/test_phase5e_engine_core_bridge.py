@@ -102,6 +102,22 @@ def test_engine_core_install_distinguishes_configured_and_allocatable_blocks(
     assert installation["configured_kv_pool_blocks"] == 2048
     assert installation["reserved_null_blocks"] == 1
     assert installation["initial_allocatable_kv_blocks"] == 2047
+    assert installation["frozen_logical_request_ids"] == [
+        "p1:r1",
+        "p2:r1",
+        "p3:r1",
+        "p4:r1",
+        "p1:r2",
+        "p2:r2",
+        "p3:r2",
+        "p4:r2",
+    ]
+    assert installation["frozen_first_wave_request_ids"] == [
+        "p1:r1",
+        "p2:r1",
+        "p3:r1",
+        "p4:r1",
+    ]
 
 
 def test_engine_core_install_rejects_unreserved_free_block_geometry() -> None:
