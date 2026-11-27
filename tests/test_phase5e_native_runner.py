@@ -25,6 +25,7 @@ from kvopt.workload.phase5e_native_runner import (
     build_allocation_watermark_reader,
     claim_native_execution_once,
     create_pinned_asyncllm,
+    install_engine_core_production_stack,
     install_production_a3_runtime,
     install_production_native_stack,
     load_integration_factory,
@@ -428,9 +429,13 @@ def test_production_stack_installs_proxy_before_resolving_native_core(
             return None
 
     class Adapter:
-        def __init__(self, *, engine, native_request_identity_observer, **_kwargs):
+        def __init__(
+            self, *, engine, native_request_identity_observer, clock, **_kwargs
+        ):
             order.append("adapter_proxy")
             assert isinstance(native_request_identity_observer, Integration)
+            assert callable(clock)
+            assert clock() == 0.0
             engine.engine_core = "installed-proxy"
 
     def resolve(observed_engine):
@@ -448,6 +453,8 @@ def test_production_stack_installs_proxy_before_resolving_native_core(
     def bind_pressure(**kwargs):
         order.append("bind_pressure")
         assert kwargs["resolved"] is resolved
+        assert callable(kwargs["clock"])
+        assert kwargs["clock"]() == 0.0
 
     monkeypatch.setattr(
         "kvopt.workload.phase5e_native_runner.AsyncLLMNativeAdapter", Adapter
@@ -485,6 +492,61 @@ def test_production_stack_installs_proxy_before_resolving_native_core(
         "install_runtime",
         "bind_pressure",
     ]
+
+
+def test_engine_core_production_stack_adapts_clock_protocol_to_callable(
+    monkeypatch,
+) -> None:
+    observed: dict[str, object] = {}
+
+    class Adapter:
+        def __init__(self, *, clock, **_kwargs):
+            observed["clock"] = clock
+
+        def bind_native_pressure_executor(self, executor) -> None:
+            observed["executor"] = executor
+
+    class Evidence:
+        def runtime_installation_report(self):
+            return {"status": "PASS"}
+
+    class Bridge:
+        def __init__(self, _client) -> None:
+            pass
+
+        async def install(self, contract):
+            observed["contract"] = contract
+            return Evidence()
+
+    monkeypatch.setattr(
+        "kvopt.workload.phase5e_native_runner.AsyncLLMNativeAdapter", Adapter
+    )
+    monkeypatch.setattr(
+        "kvopt.workload.phase5e_native_runner.EngineCoreUtilityBridge", Bridge
+    )
+    monkeypatch.setattr(
+        "kvopt.workload.phase5e_native_runner.resolve_async_utility_client",
+        lambda _engine: object(),
+    )
+    monkeypatch.setattr(
+        "kvopt.workload.phase5e_native_runner.validate_runtime_engine_identity",
+        lambda **_kwargs: None,
+    )
+
+    async def run() -> None:
+        clock = FakeClock(7.0)
+        evidence, report, _adapter = await install_engine_core_production_stack(
+            engine=object(),
+            plan=build_phase5e_review_candidate("a" * 40),
+            clock=clock,
+            run_epoch_monotonic=7.0,
+        )
+        assert evidence.runtime_installation_report() == report
+        adapter_clock = observed["clock"]
+        assert callable(adapter_clock)
+        assert adapter_clock() == 7.0
+
+    asyncio.run(run())
 
 
 def test_live_engine_configuration_must_equal_frozen_geometry() -> None:

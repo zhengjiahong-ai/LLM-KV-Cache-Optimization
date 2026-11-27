@@ -111,7 +111,7 @@ def install_production_a3_runtime(
         kv_cache_manager=resolved.kv_cache_manager,
         block_pool=resolved.block_pool,
         integration=integration,
-        clock=clock,
+        clock=clock.now,
         event_source=source,
     )
     evidence = RuntimeEventEvidenceSource(
@@ -147,7 +147,7 @@ def install_production_native_stack(
         engine=engine,
         vllm_version=plan.vllm_version,
         run_epoch_monotonic=run_epoch_monotonic,
-        clock=clock,
+        clock=clock.now,
         native_request_identity_observer=integration,
     )
     resolved = resolve_pinned_inprocess_native_core(engine)
@@ -171,7 +171,7 @@ def install_production_native_stack(
         engine=engine,
         plan=plan,
         evidence_source=evidence,
-        clock=clock,
+        clock=clock.now,
         resolved=resolved,
     )
     return evidence, report, adapter
@@ -195,7 +195,7 @@ async def install_engine_core_production_stack(
         engine=engine,
         vllm_version=plan.vllm_version,
         run_epoch_monotonic=run_epoch_monotonic,
-        clock=clock,
+        clock=clock.now,
     )
     bridge = EngineCoreUtilityBridge(resolve_async_utility_client(engine))
     evidence = await bridge.install(
