@@ -240,9 +240,10 @@ class EngineCoreUtilityBridge:
         expected_inflight_request_ids: tuple[str, ...],
         actual_inflight_request_ids: tuple[str, ...],
         evidence: EngineCoreRemoteEvidenceSource,
-        maximum_attempts: int = 1000,
-        poll_interval_seconds: float = 0.01,
+        maximum_attempts: int = 600,
+        poll_interval_seconds: float = 0.1,
     ) -> PressureExecutionEvidence:
+        """Wait without starving EngineCore, then execute at exact frozen geometry."""
         if maximum_attempts <= 0 or poll_interval_seconds < 0:
             raise ValueError("Pressure polling bounds are invalid")
         result: Mapping[str, object] | None = None

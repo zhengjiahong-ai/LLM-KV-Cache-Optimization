@@ -403,6 +403,14 @@ def test_bridge_waits_for_exact_native_pressure_geometry() -> None:
     assert client.calls == 2
 
 
+def test_pressure_polling_defaults_leave_engine_core_scheduler_window() -> None:
+    import inspect
+
+    signature = inspect.signature(EngineCoreUtilityBridge.execute_pressure)
+    assert signature.parameters["maximum_attempts"].default == 600
+    assert signature.parameters["poll_interval_seconds"].default == 0.1
+
+
 def test_bridge_rejects_frontend_installation_claim() -> None:
     bridge = EngineCoreUtilityBridge(
         _UtilityClient(
