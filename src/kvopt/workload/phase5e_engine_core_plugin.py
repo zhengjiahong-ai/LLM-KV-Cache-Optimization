@@ -256,6 +256,22 @@ def _execute_pressure(
             for logical_id in logical_ids
         }
 
+    request = _pressure_request(request_value)
+    expected_watermark = dict(request.expected_allocated_blocks_by_request)
+    observed_watermark = dict(watermark(tuple(actual_ids)))
+    observed_free_blocks = block_pool.get_num_free_blocks()
+    if (
+        observed_watermark != expected_watermark
+        or observed_free_blocks != request.expected_free_blocks_before
+    ):
+        return {
+            "status": "WAITING_FOR_PRESSURE_GEOMETRY",
+            "expected_allocated_blocks_by_request": sorted(expected_watermark.items()),
+            "observed_allocated_blocks_by_request": sorted(observed_watermark.items()),
+            "expected_free_blocks_before": request.expected_free_blocks_before,
+            "observed_free_blocks": observed_free_blocks,
+        }
+
     evidence_reader = RuntimeEventEvidenceSource(
         run_id="P5E-A-01",
         event_reader=state.source.snapshot,
@@ -272,7 +288,7 @@ def _execute_pressure(
         execution_context_observer=state.integration,
     )
     pressure = executor.execute(
-        _pressure_request(request_value),
+        request,
         expected_inflight_request_ids=tuple(expected_ids),
         actual_inflight_request_ids=tuple(actual_ids),
     )

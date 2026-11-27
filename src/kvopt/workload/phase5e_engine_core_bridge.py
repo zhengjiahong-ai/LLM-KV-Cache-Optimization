@@ -240,16 +240,59 @@ class EngineCoreUtilityBridge:
         expected_inflight_request_ids: tuple[str, ...],
         actual_inflight_request_ids: tuple[str, ...],
         evidence: EngineCoreRemoteEvidenceSource,
+        maximum_attempts: int = 1000,
+        poll_interval_seconds: float = 0.01,
     ) -> PressureExecutionEvidence:
-        result = _mapping(
-            await self._client.call_utility_async(
-                PRESSURE_METHOD,
-                asdict(request),
-                list(expected_inflight_request_ids),
-                list(actual_inflight_request_ids),
-            ),
-            "EngineCore Pressure result",
-        )
+        if maximum_attempts <= 0 or poll_interval_seconds < 0:
+            raise ValueError("Pressure polling bounds are invalid")
+        result: Mapping[str, object] | None = None
+        last_waiting: Mapping[str, object] | None = None
+        expected_watermark = sorted(request.expected_allocated_blocks_by_request)
+        for attempt in range(maximum_attempts):
+            current = _mapping(
+                await self._client.call_utility_async(
+                    PRESSURE_METHOD,
+                    asdict(request),
+                    list(expected_inflight_request_ids),
+                    list(actual_inflight_request_ids),
+                ),
+                "EngineCore Pressure result",
+            )
+            if current.get("status") != "WAITING_FOR_PRESSURE_GEOMETRY":
+                result = current
+                break
+            observed = current.get("observed_allocated_blocks_by_request")
+            expected = current.get("expected_allocated_blocks_by_request")
+            observed_free = current.get("observed_free_blocks")
+            if (
+                expected != [list(row) for row in expected_watermark]
+                or not isinstance(observed, list)
+                or len(observed) != len(expected_watermark)
+                or any(
+                    not isinstance(row, list)
+                    or len(row) != 2
+                    or row[0] != expected_watermark[index][0]
+                    or isinstance(row[1], bool)
+                    or not isinstance(row[1], int)
+                    or row[1] < 0
+                    or row[1] > expected_watermark[index][1]
+                    for index, row in enumerate(observed)
+                )
+                or isinstance(observed_free, bool)
+                or not isinstance(observed_free, int)
+                or observed_free < request.expected_free_blocks_before
+            ):
+                raise Phase5EngineCoreBridgeError(
+                    "EngineCore Pressure readiness evidence is invalid"
+                )
+            last_waiting = current
+            if attempt + 1 < maximum_attempts:
+                await asyncio.sleep(poll_interval_seconds)
+        if result is None:
+            raise Phase5EngineCoreBridgeError(
+                "EngineCore Pressure geometry wait timed out: "
+                f"last_observation={dict(last_waiting or {})!r}"
+            )
         pressure = _mapping(result.get("pressure"), "Pressure evidence")
         exported = _mapping(result.get("evidence"), "EngineCore evidence export")
         evidence.update_export(exported)

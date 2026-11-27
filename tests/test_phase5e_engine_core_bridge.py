@@ -50,6 +50,18 @@ class _G9SequenceClient:
         return self.responses.pop(0)
 
 
+class _PressureSequenceClient:
+    def __init__(self, responses: list[dict[str, object]]) -> None:
+        self.responses = responses
+        self.calls = 0
+
+    async def call_utility_async(self, method: str, *args: object) -> object:
+        assert method == PRESSURE_METHOD
+        assert len(args) == 3
+        self.calls += 1
+        return self.responses.pop(0)
+
+
 class _BlockPool:
     def __init__(self, free_blocks: int) -> None:
         self.free_blocks = free_blocks
@@ -324,6 +336,71 @@ def test_bridge_installs_and_exports_pressure_evidence() -> None:
 
     asyncio.run(run())
     assert [call[0] for call in client.calls] == [INSTALL_METHOD, G9_METHOD, PRESSURE_METHOD]
+
+
+def test_bridge_waits_for_exact_native_pressure_geometry() -> None:
+    request = NativePressureAllocationRequest(
+        boundary_id="boundary-1",
+        pressure_token_ids=(1, 2, 3, 4),
+        pressure_token_ids_sha256=canonical_sha256([1, 2, 3, 4]),
+        block_size_tokens=1,
+        required_blocks=4,
+        expected_free_blocks_before=6,
+        expected_allocated_blocks_by_request=(("p1:r2", 2), ("p2:r2", 2)),
+    )
+    client = _PressureSequenceClient(
+        [
+            {
+                "status": "WAITING_FOR_PRESSURE_GEOMETRY",
+                "expected_allocated_blocks_by_request": [["p1:r2", 2], ["p2:r2", 2]],
+                "observed_allocated_blocks_by_request": [["p1:r2", 1], ["p2:r2", 1]],
+                "expected_free_blocks_before": 6,
+                "observed_free_blocks": 8,
+            },
+            {
+                "pressure": {
+                    "boundary_id": "boundary-1",
+                    "native_snapshot_timestamp": 5.0,
+                    "inflight_request_ids": ["p1:r2", "p2:r2"],
+                    "pressure_token_ids_sha256": request.pressure_token_ids_sha256,
+                    "required_blocks": 4,
+                    "allocated_block_ids": [10, 11, 12, 13],
+                    "free_blocks_before": 6,
+                    "free_blocks_after_allocation": 2,
+                    "free_blocks_after_release": 6,
+                    "allocation_source": "PINNED_BLOCK_POOL_GET_NEW_BLOCKS",
+                    "engine_core_identity_verified": True,
+                    "forced_release_decision_ids": ["decision-1"],
+                    "native_evicted_block_ids": [10],
+                    "allocation_watermark_source": ("PINNED_KV_CACHE_MANAGER_REQUEST_BLOCK_TABLE"),
+                    "observed_allocated_blocks_by_request": [
+                        ["p1:r2", 2],
+                        ["p2:r2", 2],
+                    ],
+                },
+                "evidence": {
+                    "events": [],
+                    "candidate_exposure_report": {"status": "PASS"},
+                },
+            },
+        ]
+    )
+    bridge = EngineCoreUtilityBridge(client)
+    evidence = EngineCoreRemoteEvidenceSource({"status": "PASS", "engine_core_pid": 1}, bridge)
+
+    async def run() -> None:
+        result = await bridge.execute_pressure(
+            request,
+            expected_inflight_request_ids=("p1:r2", "p2:r2"),
+            actual_inflight_request_ids=("p1:r2", "p2:r2"),
+            evidence=evidence,
+            maximum_attempts=2,
+            poll_interval_seconds=0,
+        )
+        assert result.free_blocks_before == 6
+
+    asyncio.run(run())
+    assert client.calls == 2
 
 
 def test_bridge_rejects_frontend_installation_claim() -> None:
