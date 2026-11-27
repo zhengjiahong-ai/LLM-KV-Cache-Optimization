@@ -244,13 +244,16 @@ def _pressure_watermark(
     core: object, state: _EngineCoreState, logical_ids: tuple[str, ...]
 ) -> dict[str, int]:
     manager = core.scheduler.kv_cache_manager  # type: ignore[attr-defined]
-    resolve_internal = getattr(state.integration, "internal_request_id", None)
+    resolve_internal = getattr(state.integration, "try_internal_request_id", None)
     if not callable(resolve_internal):
-        raise Phase5EngineCorePluginError("EngineCore identity resolver is unavailable")
-    return {
-        logical_id: _request_block_count(manager, resolve_internal(logical_id))
-        for logical_id in logical_ids
-    }
+        raise Phase5EngineCorePluginError("EngineCore partial identity resolver is unavailable")
+    observed: dict[str, int] = {}
+    for logical_id in logical_ids:
+        internal_id = resolve_internal(logical_id)
+        observed[logical_id] = (
+            0 if internal_id is None else _request_block_count(manager, internal_id)
+        )
+    return observed
 
 
 def _pressure_readiness(core: object, state: _EngineCoreState) -> dict[str, object]:
@@ -258,10 +261,7 @@ def _pressure_readiness(core: object, state: _EngineCoreState) -> dict[str, obje
     ids = state.armed_pressure_ids
     if request is None or not ids:
         raise Phase5EngineCorePluginError("Native Pressure boundary is not armed")
-    try:
-        observed = _pressure_watermark(core, state, ids)
-    except (KeyError, ValueError):
-        observed = {logical_id: 0 for logical_id in ids}
+    observed = _pressure_watermark(core, state, ids)
     expected = dict(request.expected_allocated_blocks_by_request)
     free = core.scheduler.kv_cache_manager.block_pool.get_num_free_blocks()  # type: ignore[attr-defined]
     if any(observed[key] > expected[key] for key in expected) or free < request.expected_free_blocks_before:

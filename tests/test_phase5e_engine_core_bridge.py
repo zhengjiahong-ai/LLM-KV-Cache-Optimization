@@ -182,7 +182,10 @@ def test_scheduler_hook_executes_pressure_at_exact_post_schedule_boundary(
             pool.free_blocks = 6
             return "scheduled"
 
-    integration = SimpleNamespace(internal_request_id=lambda value: value)
+    bound = {ids[0]: ids[0]}
+    integration = SimpleNamespace(
+        try_internal_request_id=lambda value: bound.get(value)
+    )
     state = _EngineCoreState(
         SimpleNamespace(),
         integration,
@@ -201,6 +204,13 @@ def test_scheduler_hook_executes_pressure_at_exact_post_schedule_boundary(
     )
     _install_scheduler_pressure_hook(core, core.scheduler)
 
+    # One request may be bound before the remaining ADD messages reach
+    # EngineCore. This is readiness=partial, not an identity-contract failure.
+    assert core.scheduler.schedule() == "scheduled"
+    assert state.pressure_result is None
+
+    bound.update({value: value for value in ids})
+    pool.free_blocks = 10
     assert core.scheduler.schedule() == "scheduled"
     assert state.pressure_result == {"pressure": {"boundary_id": "boundary-1"}}
 

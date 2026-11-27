@@ -265,12 +265,14 @@ def test_production_factory_maps_vllm_suffixed_native_identity_to_frozen_logical
         all_request_ids=all_ids,
         first_wave_request_ids=all_ids[:4],
     )
+    assert integration.try_internal_request_id("p1:r2") is None
     native_id = "P5E-A-01:p1:r1-a4358e48"
     integration.bind_request_identity(
         logical_request_id="p1:r1",
         external_request_id=native_id,
         internal_request_id=native_id,
     )
+    assert integration.try_internal_request_id("p1:r1") == native_id
     assert integration.internal_request_id("p1:r1") == native_id
     assert integration.program_for_internal_request(native_id) == ProgramIdentity("p1")
 

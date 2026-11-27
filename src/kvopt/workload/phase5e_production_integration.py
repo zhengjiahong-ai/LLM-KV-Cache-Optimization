@@ -232,11 +232,23 @@ class Phase5EProductionIntegration:
     def internal_request_id(self, logical_request_id: str) -> str:
         """Resolve a frontend identity only from an observed EngineCore binding."""
 
+        value = self.try_internal_request_id(logical_request_id)
+        if value is None:
+            raise Phase5EProductionIntegrationError(
+                "logical request does not resolve to one EngineCore request"
+            )
+        return value
+
+    def try_internal_request_id(self, logical_request_id: str) -> str | None:
+        """Return None only while a frozen request has not reached EngineCore."""
+
         matches = [
             internal_id
             for internal_id, observed in self._logical_by_internal.items()
             if observed == logical_request_id
         ]
+        if not matches:
+            return None
         if len(matches) != 1:
             raise Phase5EProductionIntegrationError(
                 "logical request does not resolve to one EngineCore request"
