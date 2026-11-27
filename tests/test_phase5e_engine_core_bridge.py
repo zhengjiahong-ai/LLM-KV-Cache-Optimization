@@ -24,6 +24,7 @@ from kvopt.workload.phase5e_engine_core_plugin import (
     _EngineCoreState,
     _g9,
     _install,
+    _install_scheduler_pressure_hook,
     install_engine_core_methods,
 )
 
@@ -73,8 +74,15 @@ class _BlockPool:
 def _core_with_free_blocks(free_blocks: int) -> object:
     pool = _BlockPool(free_blocks)
     manager = SimpleNamespace(block_pool=pool)
+    class Scheduler:
+        def __init__(self) -> None:
+            self.kv_cache_manager = manager
+
+        def schedule(self):
+            return None
+
     return SimpleNamespace(
-        scheduler=SimpleNamespace(kv_cache_manager=manager),
+        scheduler=Scheduler(),
     )
 
 
@@ -142,6 +150,59 @@ def test_engine_core_install_rejects_incoherent_frozen_geometry() -> None:
     contract["expected_initial_free_blocks"] = 2048
     with pytest.raises(Exception, match="frozen KV pool geometry"):
         _install(_core_with_free_blocks(2047), contract)
+
+
+def test_scheduler_hook_executes_pressure_at_exact_post_schedule_boundary(
+    monkeypatch,
+) -> None:
+    ids = ("p1:r2", "p2:r2", "p3:r2", "p4:r2")
+    request = NativePressureAllocationRequest(
+        boundary_id="boundary-1",
+        pressure_token_ids=(1, 2, 3, 4),
+        pressure_token_ids_sha256=canonical_sha256([1, 2, 3, 4]),
+        block_size_tokens=1,
+        required_blocks=4,
+        expected_free_blocks_before=6,
+        expected_allocated_blocks_by_request=tuple((value, 1) for value in ids),
+    )
+    pool = _BlockPool(10)
+    blocks: dict[str, list[list[int]]] = {}
+
+    class Manager:
+        block_pool = pool
+
+        def get_block_ids(self, request_id: str):
+            return blocks.get(request_id, [])
+
+    class Scheduler:
+        kv_cache_manager = Manager()
+
+        def schedule(self):
+            blocks.update({value: [[index]] for index, value in enumerate(ids)})
+            pool.free_blocks = 6
+            return "scheduled"
+
+    integration = SimpleNamespace(internal_request_id=lambda value: value)
+    state = _EngineCoreState(
+        SimpleNamespace(),
+        integration,
+        {},
+        10,
+        armed_pressure_request=request,
+        armed_pressure_ids=ids,
+    )
+    core = SimpleNamespace(
+        scheduler=Scheduler(),
+        _kvopt_phase5_engine_core_state=state,
+    )
+    monkeypatch.setattr(
+        "kvopt.workload.phase5e_engine_core_plugin._execute_pressure_now",
+        lambda *_args: {"pressure": {"boundary_id": "boundary-1"}},
+    )
+    _install_scheduler_pressure_hook(core, core.scheduler)
+
+    assert core.scheduler.schedule() == "scheduled"
+    assert state.pressure_result == {"pressure": {"boundary_id": "boundary-1"}}
 
 
 def test_engine_core_g9_reports_real_prefix_readiness_without_fabrication() -> None:

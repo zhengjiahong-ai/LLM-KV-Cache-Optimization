@@ -19,6 +19,7 @@ from .phase5_native_async import NativePressureAllocationRequest, PressureExecut
 INSTALL_METHOD = "kvopt_phase5_install"
 G9_METHOD = "kvopt_phase5_g9"
 PRESSURE_METHOD = "kvopt_phase5_execute_pressure"
+ARM_PRESSURE_METHOD = "kvopt_phase5_arm_pressure"
 EVIDENCE_METHOD = "kvopt_phase5_evidence"
 CONTROLLER_EVENT_METHOD = "kvopt_phase5_controller_event"
 PLUGIN_NAME = "kvopt_phase5_engine_core"
@@ -233,6 +234,23 @@ class EngineCoreUtilityBridge:
             "EngineCore evidence export",
         )
 
+    async def arm_pressure(
+        self,
+        request: NativePressureAllocationRequest,
+        *,
+        expected_inflight_request_ids: tuple[str, ...],
+    ) -> None:
+        result = _mapping(
+            await self._client.call_utility_async(
+                ARM_PRESSURE_METHOD,
+                asdict(request),
+                list(expected_inflight_request_ids),
+            ),
+            "EngineCore Pressure arm result",
+        )
+        if result.get("status") != "ARMED":
+            raise Phase5EngineCoreBridgeError("EngineCore Pressure did not arm")
+
     async def execute_pressure(
         self,
         request: NativePressureAllocationRequest,
@@ -329,6 +347,17 @@ class RemoteNativePressureExecutor:
     ) -> None:
         self._bridge = bridge
         self._evidence = evidence
+
+    async def arm(
+        self,
+        request: NativePressureAllocationRequest,
+        *,
+        expected_inflight_request_ids: tuple[str, ...],
+    ) -> None:
+        await self._bridge.arm_pressure(
+            request,
+            expected_inflight_request_ids=expected_inflight_request_ids,
+        )
 
     async def execute(
         self,

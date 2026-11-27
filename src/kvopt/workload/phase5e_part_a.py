@@ -38,6 +38,13 @@ class PartAAdapter(Protocol):
         expected_inflight_request_ids: tuple[str, ...],
     ) -> PressureExecutionEvidence: ...
 
+    async def arm_native_pressure(
+        self,
+        request: object,
+        *,
+        expected_inflight_request_ids: tuple[str, ...],
+    ) -> None: ...
+
     async def shutdown(
         self,
         *,
@@ -293,17 +300,26 @@ async def execute_phase5e_part_a(
         await dispatch(request_id)
         peak = max(peak, len(inflight))
     await collect_wave(first_wave)
-    for request_id in second_wave:
-        await dispatch(request_id)
-        peak = max(peak, len(inflight))
     g9_value = retention_input_manifest_provider()
     if inspect.isawaitable(g9_value):
         g9_value = await g9_value
     g9 = evaluate_p5e_g9(g9_value)
     if g9["status"] != "PASS":
         raise Phase5EG9GateFailure(g9)
+    pressure_request = plan.pressure.to_native_allocation_request(
+        plan.resource_budget.block_size_tokens
+    )
+    arm_pressure = getattr(adapter, "arm_native_pressure", None)
+    if callable(arm_pressure):
+        await arm_pressure(
+            pressure_request,
+            expected_inflight_request_ids=second_wave,
+        )
+    for request_id in second_wave:
+        await dispatch(request_id)
+        peak = max(peak, len(inflight))
     pressure = await adapter.execute_native_pressure(
-        plan.pressure.to_native_allocation_request(plan.resource_budget.block_size_tokens),
+        pressure_request,
         expected_inflight_request_ids=second_wave,
     )
     await collect_wave(second_wave)

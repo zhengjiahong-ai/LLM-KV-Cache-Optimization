@@ -69,6 +69,13 @@ class NativeRequestIdentityObserver(Protocol):
 
 
 class NativePressureExecutorProtocol(Protocol):
+    def arm(
+        self,
+        request: NativePressureAllocationRequest,
+        *,
+        expected_inflight_request_ids: tuple[str, ...],
+    ) -> object: ...
+
     def execute(
         self,
         request: NativePressureAllocationRequest,
@@ -683,6 +690,27 @@ class AsyncLLMNativeAdapter:
                 },
             )
             return result
+
+    async def arm_native_pressure(
+        self,
+        request: NativePressureAllocationRequest,
+        *,
+        expected_inflight_request_ids: tuple[str, ...],
+    ) -> None:
+        """Pre-register a EngineCore-local Pressure boundary before wave two."""
+
+        if self._native_pressure_executor is None:
+            raise AsyncLLMAdapterError("Native Pressure executor is not configured")
+        arm = getattr(self._native_pressure_executor, "arm", None)
+        if not callable(arm):
+            # The in-process executor is retained for CPU/interface fixtures.
+            return
+        pending = arm(
+            request,
+            expected_inflight_request_ids=expected_inflight_request_ids,
+        )
+        if inspect.isawaitable(pending):
+            await pending
 
     async def abort(self, logical_request_id: str) -> None:
         record = self._record(logical_request_id)

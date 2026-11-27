@@ -183,6 +183,7 @@ class _Adapter:
         self.events = []
         self.closed = False
         self.index = 0
+        self.pressure_armed = False
 
     def _event(self, request_id: str, kind: str, timestamp: float) -> None:
         self.index += 1
@@ -219,8 +220,15 @@ class _Adapter:
         return tuple(rows)
 
     async def execute_native_pressure(self, request, *, expected_inflight_request_ids):
+        assert self.pressure_armed
         assert tuple(self.inflight) == expected_inflight_request_ids
         return _pressure(self.plan)
+
+    async def arm_native_pressure(self, request, *, expected_inflight_request_ids):
+        assert request.boundary_id == self.plan.pressure.boundary_id
+        assert expected_inflight_request_ids == self.plan.frozen_native_enqueue_order[4:]
+        assert not self.inflight
+        self.pressure_armed = True
 
     async def shutdown(self, **kwargs):
         assert kwargs == {
@@ -300,6 +308,7 @@ def test_part_a_g9_failure_stops_before_native_pressure() -> None:
                 run_epoch_monotonic=0.0,
                 monotonic=lambda: 10.0,
             )
-        assert tuple(adapter.inflight) == plan.frozen_native_enqueue_order[4:]
+        assert tuple(adapter.inflight) == ()
+        assert adapter.pressure_armed is False
 
     asyncio.run(scenario())

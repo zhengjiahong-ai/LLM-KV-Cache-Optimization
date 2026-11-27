@@ -23,7 +23,9 @@ from .phase5e_production_integration import build_phase5e_production_integration
 
 _STATE_ATTRIBUTE = "_kvopt_phase5_engine_core_state"
 _PATCHED_ATTRIBUTE = "_kvopt_phase5_engine_core_plugin_patched"
+_SCHEDULER_PATCHED_ATTRIBUTE = "_kvopt_phase5_scheduler_pressure_patched"
 _VLLM_REQUEST_SUFFIX = re.compile(r"^(?P<logical>.+)-(?P<suffix>[0-9a-f]{8})$")
+_SCHEDULER_CORES: dict[int, object] = {}
 
 
 class Phase5EngineCorePluginError(RuntimeError):
@@ -36,6 +38,9 @@ class _EngineCoreState:
     integration: object
     installation_report: Mapping[str, object]
     expected_initial_free_blocks: int
+    armed_pressure_request: NativePressureAllocationRequest | None = None
+    armed_pressure_ids: tuple[str, ...] = ()
+    pressure_result: Mapping[str, object] | None = None
 
 
 def _state(core: object) -> _EngineCoreState:
@@ -186,6 +191,7 @@ def _install(core: object, contract: Mapping[str, object]) -> dict[str, object]:
         _STATE_ATTRIBUTE,
         _EngineCoreState(source, integration, report, expected_free),
     )
+    _install_scheduler_pressure_hook(core, scheduler)
     return {"installation_report": report}
 
 
@@ -234,43 +240,52 @@ def _g9(core: object) -> dict[str, object]:
     return dict(value)
 
 
-def _execute_pressure(
-    core: object,
-    request_value: Mapping[str, object],
-    expected_ids: Sequence[str],
-    actual_ids: Sequence[str],
-) -> dict[str, object]:
-    state = _state(core)
-    if tuple(expected_ids) != tuple(actual_ids):
-        raise Phase5EngineCorePluginError("frontend Pressure inflight identities differ")
-    scheduler = core.scheduler  # type: ignore[attr-defined]
-    manager = scheduler.kv_cache_manager
-    block_pool = manager.block_pool
+def _pressure_watermark(
+    core: object, state: _EngineCoreState, logical_ids: tuple[str, ...]
+) -> dict[str, int]:
+    manager = core.scheduler.kv_cache_manager  # type: ignore[attr-defined]
     resolve_internal = getattr(state.integration, "internal_request_id", None)
     if not callable(resolve_internal):
         raise Phase5EngineCorePluginError("EngineCore identity resolver is unavailable")
+    return {
+        logical_id: _request_block_count(manager, resolve_internal(logical_id))
+        for logical_id in logical_ids
+    }
+
+
+def _pressure_readiness(core: object, state: _EngineCoreState) -> dict[str, object]:
+    request = state.armed_pressure_request
+    ids = state.armed_pressure_ids
+    if request is None or not ids:
+        raise Phase5EngineCorePluginError("Native Pressure boundary is not armed")
+    try:
+        observed = _pressure_watermark(core, state, ids)
+    except (KeyError, ValueError):
+        observed = {logical_id: 0 for logical_id in ids}
+    expected = dict(request.expected_allocated_blocks_by_request)
+    free = core.scheduler.kv_cache_manager.block_pool.get_num_free_blocks()  # type: ignore[attr-defined]
+    if any(observed[key] > expected[key] for key in expected) or free < request.expected_free_blocks_before:
+        raise Phase5EngineCorePluginError("Native Pressure geometry passed its frozen boundary")
+    return {
+        "status": "WAITING_FOR_PRESSURE_GEOMETRY",
+        "expected_allocated_blocks_by_request": sorted(expected.items()),
+        "observed_allocated_blocks_by_request": sorted(observed.items()),
+        "expected_free_blocks_before": request.expected_free_blocks_before,
+        "observed_free_blocks": free,
+    }
+
+
+def _execute_pressure_now(
+    core: object,
+    request: NativePressureAllocationRequest,
+    expected_ids: tuple[str, ...],
+) -> dict[str, object]:
+    state = _state(core)
+    manager = core.scheduler.kv_cache_manager  # type: ignore[attr-defined]
+    block_pool = manager.block_pool
 
     def watermark(logical_ids: tuple[str, ...]) -> Mapping[str, int]:
-        return {
-            logical_id: _request_block_count(manager, resolve_internal(logical_id))
-            for logical_id in logical_ids
-        }
-
-    request = _pressure_request(request_value)
-    expected_watermark = dict(request.expected_allocated_blocks_by_request)
-    observed_watermark = dict(watermark(tuple(actual_ids)))
-    observed_free_blocks = block_pool.get_num_free_blocks()
-    if (
-        observed_watermark != expected_watermark
-        or observed_free_blocks != request.expected_free_blocks_before
-    ):
-        return {
-            "status": "WAITING_FOR_PRESSURE_GEOMETRY",
-            "expected_allocated_blocks_by_request": sorted(expected_watermark.items()),
-            "observed_allocated_blocks_by_request": sorted(observed_watermark.items()),
-            "expected_free_blocks_before": request.expected_free_blocks_before,
-            "observed_free_blocks": observed_free_blocks,
-        }
+        return _pressure_watermark(core, state, logical_ids)
 
     evidence_reader = RuntimeEventEvidenceSource(
         run_id="P5E-A-01",
@@ -289,10 +304,82 @@ def _execute_pressure(
     )
     pressure = executor.execute(
         request,
-        expected_inflight_request_ids=tuple(expected_ids),
-        actual_inflight_request_ids=tuple(actual_ids),
+        expected_inflight_request_ids=expected_ids,
+        actual_inflight_request_ids=expected_ids,
     )
     return {"pressure": asdict(pressure), "evidence": _evidence_export(state)}
+
+
+def _arm_pressure(
+    core: object,
+    request_value: Mapping[str, object],
+    expected_ids: Sequence[str],
+) -> dict[str, object]:
+    state = _state(core)
+    request = _pressure_request(request_value)
+    ids = tuple(expected_ids)
+    if state.armed_pressure_request is not None or state.pressure_result is not None:
+        raise Phase5EngineCorePluginError("Native Pressure boundary is already armed")
+    if len(ids) != 4 or len(set(ids)) != 4:
+        raise Phase5EngineCorePluginError("Native Pressure identities are invalid")
+    if tuple(row[0] for row in request.expected_allocated_blocks_by_request) != ids:
+        raise Phase5EngineCorePluginError("Pressure watermark identity order differs")
+    state.armed_pressure_request = request
+    state.armed_pressure_ids = ids
+    return {"status": "ARMED", "boundary_id": request.boundary_id}
+
+
+def _maybe_execute_armed_pressure(core: object) -> None:
+    state = _state(core)
+    if state.armed_pressure_request is None or state.pressure_result is not None:
+        return
+    readiness = _pressure_readiness(core, state)
+    if (
+        readiness["observed_allocated_blocks_by_request"]
+        == readiness["expected_allocated_blocks_by_request"]
+        and readiness["observed_free_blocks"]
+        == readiness["expected_free_blocks_before"]
+    ):
+        state.pressure_result = _execute_pressure_now(
+            core, state.armed_pressure_request, state.armed_pressure_ids
+        )
+
+
+def _execute_pressure(
+    core: object,
+    request_value: Mapping[str, object],
+    expected_ids: Sequence[str],
+    actual_ids: Sequence[str],
+) -> dict[str, object]:
+    state = _state(core)
+    if tuple(expected_ids) != tuple(actual_ids):
+        raise Phase5EngineCorePluginError("frontend Pressure inflight identities differ")
+    request = _pressure_request(request_value)
+    if request != state.armed_pressure_request or tuple(expected_ids) != state.armed_pressure_ids:
+        raise Phase5EngineCorePluginError("Pressure result request differs from armed boundary")
+    if state.pressure_result is not None:
+        return dict(state.pressure_result)
+    return _pressure_readiness(core, state)
+
+
+def _install_scheduler_pressure_hook(core: object, scheduler: object) -> None:
+    scheduler_class = type(scheduler)
+    _SCHEDULER_CORES[id(scheduler)] = core
+    if getattr(scheduler_class, _SCHEDULER_PATCHED_ATTRIBUTE, False):
+        return
+    original_schedule = getattr(scheduler_class, "schedule", None)
+    if not callable(original_schedule):
+        raise Phase5EngineCorePluginError("Scheduler.schedule is unavailable")
+
+    def schedule(receiver: object, *args: object, **kwargs: object):
+        result = original_schedule(receiver, *args, **kwargs)
+        bound_core = _SCHEDULER_CORES.get(id(receiver))
+        if bound_core is not None:
+            _maybe_execute_armed_pressure(bound_core)
+        return result
+
+    scheduler_class.schedule = schedule  # type: ignore[attr-defined]
+    setattr(scheduler_class, _SCHEDULER_PATCHED_ATTRIBUTE, True)
 
 
 def _export(core: object) -> dict[str, object]:
@@ -371,6 +458,7 @@ def install_engine_core_methods(engine_core_class: type[object]) -> None:
     engine_core_class.add_request = add_request  # type: ignore[attr-defined]
     engine_core_class.kvopt_phase5_install = _install  # type: ignore[attr-defined]
     engine_core_class.kvopt_phase5_g9 = _g9  # type: ignore[attr-defined]
+    engine_core_class.kvopt_phase5_arm_pressure = _arm_pressure  # type: ignore[attr-defined]
     engine_core_class.kvopt_phase5_execute_pressure = _execute_pressure  # type: ignore[attr-defined]
     engine_core_class.kvopt_phase5_evidence = _export  # type: ignore[attr-defined]
     engine_core_class.kvopt_phase5_controller_event = _controller_event  # type: ignore[attr-defined]
