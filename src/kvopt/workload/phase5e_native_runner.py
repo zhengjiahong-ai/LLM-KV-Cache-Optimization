@@ -205,10 +205,10 @@ async def install_engine_core_production_stack(
             "git_sha": plan.git_sha,
             "kv_pool_blocks": plan.resource_budget.kv_pool_blocks,
             "reserved_null_blocks": plan.resource_budget.reserved_null_blocks,
-            "expected_initial_free_blocks": (
-                plan.resource_budget.allocatable_kv_blocks
-            ),
+            "expected_initial_free_blocks": (plan.resource_budget.allocatable_kv_blocks),
             "pressure_boundary_id": plan.pressure.boundary_id,
+            "all_logical_request_ids": list(plan.frozen_native_enqueue_order),
+            "first_wave_logical_request_ids": list(plan.frozen_native_enqueue_order[:4]),
             "algorithm": "CONTROLLED_A3",
         }
     )
@@ -262,9 +262,7 @@ def load_integration_factory(reference: str) -> Callable[[Phase5ERuntimeEventSou
 
     module_name, separator, attribute = reference.partition(":")
     if not separator or not module_name or not attribute:
-        raise Phase5ENativeRunnerError(
-            "integration factory must use the module:function form"
-        )
+        raise Phase5ENativeRunnerError("integration factory must use the module:function form")
     factory = getattr(importlib.import_module(module_name), attribute, None)
     if not callable(factory):
         raise Phase5ENativeRunnerError("integration factory is not callable")
@@ -613,9 +611,7 @@ async def run_phase5e_native_pipeline(
             "execution_manifest_sha256": authorization.execution_manifest_sha256,
             "authorization_sha256": authorization.authorization_sha256,
             "plan_sha256": plan.sha256,
-            "runtime_installation": dict(
-                evidence_source.runtime_installation_report()
-            ),
+            "runtime_installation": dict(evidence_source.runtime_installation_report()),
             "status": "PASS",
         },
     )
@@ -642,9 +638,7 @@ async def run_phase5e_native_pipeline(
             requests=requests,
             adapter=adapter,
             candidate_exposure_evaluator=evidence_source.candidate_exposure_report,
-            retention_input_manifest_provider=(
-                evidence_source.a3_retention_input_manifest
-            ),
+            retention_input_manifest_provider=(evidence_source.a3_retention_input_manifest),
             run_epoch_monotonic=run_epoch_monotonic,
             monotonic=clock,
         )

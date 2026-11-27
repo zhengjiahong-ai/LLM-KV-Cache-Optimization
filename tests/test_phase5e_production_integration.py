@@ -132,18 +132,18 @@ def test_bound_observer_emits_direct_decision_and_boundary_identity() -> None:
     decision, binding = source.snapshot()
     assert decision["event_type"] == "FORCED_RELEASE_DECISION"
     assert decision["payload"]["decision_id"] == "decision:1"
-    assert decision["payload"]["frozen_decision_boundary_id"] == (
-        "phase5e-pressure-01"
-    )
+    assert decision["payload"]["frozen_decision_boundary_id"] == ("phase5e-pressure-01")
     assert binding["payload"]["forced_release_event_index"] == decision["event_index"]
 
 
 def test_production_factory_builds_real_prepressure_manifest_and_binding() -> None:
     source, integration = _integration()
     assert integration.pressure_context_active() is False
-    assert integration.first_wave_prefix_count() == 0
+    assert integration.first_wave_prefix_readiness()["observed_prefix_count"] == 0
     _register_first_wave(integration)
-    assert integration.first_wave_prefix_count() == 4
+    readiness = integration.first_wave_prefix_readiness()
+    assert readiness["observed_prefix_count"] == 4
+    assert readiness["observed_first_wave_request_ids"] == ["p1:r1", "p2:r1", "p3:r1", "p4:r1"]
     manifest = integration.a3_retention_input_manifest()
     assert evaluate_p5e_g9(manifest)["status"] == "PASS"
     integration.begin_pressure_context(
@@ -160,6 +160,50 @@ def test_production_factory_builds_real_prepressure_manifest_and_binding() -> No
     assert binding["payload"]["g9_manifest_sha256"] == manifest["manifest_sha256"]
     integration.end_pressure_context()
     assert integration.pressure_context_active() is False
+
+
+def test_production_factory_uses_exact_frozen_first_wave_identities() -> None:
+    _source, integration = _integration()
+    all_ids = [
+        "task-a:first",
+        "task-b:first",
+        "task-c:first",
+        "task-d:first",
+        "task-a:second",
+        "task-b:second",
+        "task-c:second",
+        "task-d:second",
+    ]
+    first_wave = all_ids[:4]
+    integration.configure_frozen_request_ids(
+        all_request_ids=all_ids,
+        first_wave_request_ids=first_wave,
+    )
+    integration.bind_request_identity(
+        logical_request_id="task-a:first",
+        external_request_id="external:a",
+        internal_request_id="internal:a",
+    )
+    block = NativeBlockSnapshot(7, 0, "ab" * 32, 16, 0, False)
+    integration.observe_terminal_request_snapshot(
+        RequestBlockSnapshot(
+            ProgramIdentity("task-a"),
+            RequestIdentity("internal:a"),
+            ((block,),),
+            ObservationAvailability.AVAILABLE,
+        ),
+        observed_at=1.0,
+        native_hash_process_id=str(os.getpid()),
+    )
+    readiness = integration.first_wave_prefix_readiness()
+    assert readiness["expected_first_wave_request_ids"] == sorted(first_wave)
+    assert readiness["observed_first_wave_request_ids"] == ["task-a:first"]
+    with pytest.raises(Phase5EProductionIntegrationError, match="outside the frozen"):
+        integration.bind_request_identity(
+            logical_request_id="task-z:first",
+            external_request_id="external:z",
+            internal_request_id="internal:z",
+        )
 
 
 def test_terminal_snapshot_excludes_one_real_hashless_tail_from_retention() -> None:

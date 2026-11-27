@@ -122,9 +122,7 @@ class _BoundForcedReleaseObserver:
                 "payload": {
                     **decision_payload,
                     "decision_id": self._context["decision_id"],
-                    "frozen_decision_boundary_id": self._context[
-                        "frozen_decision_boundary_id"
-                    ],
+                    "frozen_decision_boundary_id": self._context["frozen_decision_boundary_id"],
                 },
             }
         )
@@ -178,6 +176,32 @@ class Phase5EProductionIntegration:
         self._block_pool: object | None = None
         self._controller_timers: dict[str, dict[str, object]] = {}
         self._decision_program_session: tuple[str, str] | None = None
+        self._all_request_ids: frozenset[str] | None = None
+        self._first_wave_request_ids: frozenset[str] | None = None
+
+    def configure_frozen_request_ids(
+        self, *, all_request_ids: object, first_wave_request_ids: object
+    ) -> None:
+        if self._all_request_ids is not None:
+            raise Phase5EProductionIntegrationError(
+                "frozen request identities are already configured"
+            )
+        if (
+            not isinstance(all_request_ids, (list, tuple))
+            or not isinstance(first_wave_request_ids, (list, tuple))
+            or len(all_request_ids) != 8
+            or len(first_wave_request_ids) != 4
+            or len(set(all_request_ids)) != 8
+            or len(set(first_wave_request_ids)) != 4
+            or not all(isinstance(value, str) and value for value in all_request_ids)
+            or not all(isinstance(value, str) and value for value in first_wave_request_ids)
+            or not set(first_wave_request_ids) < set(all_request_ids)
+        ):
+            raise Phase5EProductionIntegrationError(
+                "frozen EngineCore request identities are invalid"
+            )
+        self._all_request_ids = frozenset(all_request_ids)
+        self._first_wave_request_ids = frozenset(first_wave_request_ids)
 
     def bind_request_identity(
         self, *, logical_request_id: str, external_request_id: str, internal_request_id: str
@@ -185,6 +209,10 @@ class Phase5EProductionIntegration:
         del external_request_id
         if internal_request_id in self._logical_by_internal:
             raise Phase5EProductionIntegrationError("Native request identity is duplicated")
+        if self._all_request_ids is not None and logical_request_id not in self._all_request_ids:
+            raise Phase5EProductionIntegrationError(
+                "EngineCore request is outside the frozen request inventory"
+            )
         program_text, separator, _request = logical_request_id.partition(":")
         if not separator or not program_text:
             raise Phase5EProductionIntegrationError("logical request lacks Program identity")
@@ -213,10 +241,19 @@ class Phase5EProductionIntegration:
             )
         return matches[0]
 
-    def first_wave_prefix_count(self) -> int:
-        """Return the number of real terminal r1 prefixes observed so far."""
+    def first_wave_prefix_readiness(self) -> Mapping[str, object]:
+        """Return exact frozen and observed first-wave identities."""
 
-        return len(self._terminal_records)
+        expected = self._first_wave_request_ids
+        if expected is None:
+            expected = frozenset(f"p{index}:r1" for index in range(1, 5))
+        observed = {str(record["request_id"]) for record in self._terminal_records.values()}
+        return {
+            "observed_prefix_count": len(observed),
+            "expected_first_wave_request_ids": sorted(expected),
+            "observed_first_wave_request_ids": sorted(observed),
+            "bound_logical_request_ids": sorted(self._logical_by_internal.values()),
+        }
 
     def observe_terminal_request_snapshot(
         self, snapshot: object, *, observed_at: float, native_hash_process_id: str
@@ -225,9 +262,11 @@ class Phase5EProductionIntegration:
         logical_id = self._logical_by_internal.get(internal_id)
         if logical_id is None:
             raise Phase5EProductionIntegrationError("terminal snapshot is not identity-bound")
-        # Only the first request of each Program creates the retained prefix used
-        # by the second-wave controlled Pressure boundary.
-        if not logical_id.endswith(":r1"):
+        # Only exact frozen first-wave identities create retained prefixes.
+        first_wave = self._first_wave_request_ids
+        if first_wave is None:
+            first_wave = frozenset(f"p{index}:r1" for index in range(1, 5))
+        if logical_id not in first_wave:
             return
         blocks = tuple(block for group in snapshot.block_groups for block in group)
         if not blocks or any(block.is_null for block in blocks):
@@ -564,9 +603,7 @@ class Phase5EProductionIntegration:
                     "event_type": "NATIVE_ENTRY_RELEASE_PHYSICAL_OUTCOME",
                     "payload": {
                         "decision_id": pending["decision_id"],
-                        "frozen_decision_boundary_id": pending[
-                            "frozen_decision_boundary_id"
-                        ],
+                        "frozen_decision_boundary_id": pending["frozen_decision_boundary_id"],
                         "matched_physical_block_ids": pending["matched"],
                         "unmatched_physical_block_ids": sorted(pending["expected"]),
                         "hashless_physical_block_ids": pending["hashless"],

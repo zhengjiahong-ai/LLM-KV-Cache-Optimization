@@ -71,6 +71,17 @@ def _install_contract() -> dict[str, object]:
         "kv_pool_blocks": 2048,
         "reserved_null_blocks": 1,
         "expected_initial_free_blocks": 2047,
+        "all_logical_request_ids": [
+            "p1:r1",
+            "p2:r1",
+            "p3:r1",
+            "p4:r1",
+            "p1:r2",
+            "p2:r2",
+            "p3:r2",
+            "p4:r2",
+        ],
+        "first_wave_logical_request_ids": ["p1:r1", "p2:r1", "p3:r1", "p4:r1"],
     }
 
 
@@ -80,7 +91,7 @@ def test_engine_core_install_distinguishes_configured_and_allocatable_blocks(
     report = {"status": "PASS"}
     monkeypatch.setattr(
         "kvopt.workload.phase5e_engine_core_plugin.build_phase5e_production_integration",
-        lambda _source: SimpleNamespace(),
+        lambda _source: SimpleNamespace(configure_frozen_request_ids=lambda **_kwargs: None),
     )
     monkeypatch.setattr(
         "kvopt.workload.phase5e_engine_core_plugin.install_phase5e_a3_runtime",
@@ -106,17 +117,41 @@ def test_engine_core_install_rejects_incoherent_frozen_geometry() -> None:
 
 
 def test_engine_core_g9_reports_real_prefix_readiness_without_fabrication() -> None:
-    integration = SimpleNamespace(first_wave_prefix_count=lambda: 3)
+    integration = SimpleNamespace(
+        first_wave_prefix_readiness=lambda: {
+            "observed_prefix_count": 3,
+            "expected_first_wave_request_ids": ["p1:r1", "p2:r1", "p3:r1", "p4:r1"],
+            "observed_first_wave_request_ids": ["p1:r1", "p2:r1", "p3:r1"],
+            "bound_logical_request_ids": ["p1:r1", "p2:r1", "p3:r1", "p4:r1"],
+        }
+    )
     core = SimpleNamespace(
-        _kvopt_phase5_engine_core_state=_EngineCoreState(
-            SimpleNamespace(), integration, {}, 2047
-        )
+        _kvopt_phase5_engine_core_state=_EngineCoreState(SimpleNamespace(), integration, {}, 2047)
     )
     assert _g9(core) == {
         "status": "WAITING_FOR_TERMINAL_PREFIXES",
         "observed_prefix_count": 3,
+        "expected_first_wave_request_ids": ["p1:r1", "p2:r1", "p3:r1", "p4:r1"],
+        "observed_first_wave_request_ids": ["p1:r1", "p2:r1", "p3:r1"],
+        "bound_logical_request_ids": ["p1:r1", "p2:r1", "p3:r1", "p4:r1"],
         "required_prefix_count": 4,
     }
+
+
+def test_engine_core_g9_rejects_wrong_first_wave_identity_evidence() -> None:
+    integration = SimpleNamespace(
+        first_wave_prefix_readiness=lambda: {
+            "observed_prefix_count": 4,
+            "expected_first_wave_request_ids": ["p1:r1", "p2:r1", "p3:r1", "p4:r1"],
+            "observed_first_wave_request_ids": ["p1:r1", "p2:r1", "p3:r1", "p9:r1"],
+            "bound_logical_request_ids": ["p1:r1", "p2:r1", "p3:r1", "p9:r1"],
+        }
+    )
+    core = SimpleNamespace(
+        _kvopt_phase5_engine_core_state=_EngineCoreState(SimpleNamespace(), integration, {}, 2047)
+    )
+    with pytest.raises(Exception, match="first-wave identity evidence"):
+        _g9(core)
 
 
 def test_bridge_waits_boundedly_for_real_g9_prefixes() -> None:
@@ -126,19 +161,18 @@ def test_bridge_waits_boundedly_for_real_g9_prefixes() -> None:
                 "status": "WAITING_FOR_TERMINAL_PREFIXES",
                 "observed_prefix_count": 3,
                 "required_prefix_count": 4,
+                "expected_first_wave_request_ids": ["p1:r1", "p2:r1", "p3:r1", "p4:r1"],
+                "observed_first_wave_request_ids": ["p1:r1", "p2:r1", "p3:r1"],
+                "bound_logical_request_ids": ["p1:r1", "p2:r1", "p3:r1", "p4:r1"],
             },
             {"schema_version": "phase5e.g9.test", "manifest_sha256": "a" * 64},
         ]
     )
     bridge = EngineCoreUtilityBridge(client)
-    evidence = EngineCoreRemoteEvidenceSource(
-        {"status": "PASS", "engine_core_pid": 1}, bridge
-    )
+    evidence = EngineCoreRemoteEvidenceSource({"status": "PASS", "engine_core_pid": 1}, bridge)
 
     async def run() -> None:
-        result = await bridge.g9(
-            evidence, maximum_attempts=2, poll_interval_seconds=0
-        )
+        result = await bridge.g9(evidence, maximum_attempts=2, poll_interval_seconds=0)
         assert result["schema_version"] == "phase5e.g9.test"
         assert await evidence.a3_retention_input_manifest() == result
 
@@ -151,18 +185,17 @@ def test_bridge_fails_closed_when_real_g9_prefixes_never_arrive() -> None:
         "status": "WAITING_FOR_TERMINAL_PREFIXES",
         "observed_prefix_count": 2,
         "required_prefix_count": 4,
+        "expected_first_wave_request_ids": ["p1:r1", "p2:r1", "p3:r1", "p4:r1"],
+        "observed_first_wave_request_ids": ["p1:r1", "p2:r1"],
+        "bound_logical_request_ids": ["p1:r1", "p2:r1", "p3:r1", "p4:r1"],
     }
     client = _G9SequenceClient([waiting.copy(), waiting.copy()])
     bridge = EngineCoreUtilityBridge(client)
-    evidence = EngineCoreRemoteEvidenceSource(
-        {"status": "PASS", "engine_core_pid": 1}, bridge
-    )
+    evidence = EngineCoreRemoteEvidenceSource({"status": "PASS", "engine_core_pid": 1}, bridge)
 
     async def run() -> None:
         with pytest.raises(Phase5EngineCoreBridgeError, match="timed out"):
-            await bridge.g9(
-                evidence, maximum_attempts=2, poll_interval_seconds=0
-            )
+            await bridge.g9(evidence, maximum_attempts=2, poll_interval_seconds=0)
 
     asyncio.run(run())
 
@@ -258,6 +291,7 @@ def test_bridge_installs_and_exports_pressure_evidence() -> None:
             EVIDENCE_METHOD: {},
         }
     )
+
     async def run() -> None:
         bridge = EngineCoreUtilityBridge(client)
         evidence = await bridge.install({"kv_pool_blocks": 2048})
@@ -289,6 +323,7 @@ def test_bridge_rejects_frontend_installation_claim() -> None:
             }
         )
     )
+
     async def run() -> None:
         with pytest.raises(Phase5EngineCoreBridgeError, match="did not install"):
             await bridge.install({"kv_pool_blocks": 2048})
@@ -334,10 +369,7 @@ def test_resolve_utility_client_uses_proxy_delegate() -> None:
 def test_plugin_registration_validation_precedes_runtime(monkeypatch) -> None:
     point = SimpleNamespace(
         name="kvopt_phase5_engine_core",
-        value=(
-            "kvopt.workload.phase5e_engine_core_plugin:"
-            "register_phase5_engine_core_plugin"
-        ),
+        value=("kvopt.workload.phase5e_engine_core_plugin:register_phase5_engine_core_plugin"),
     )
     monkeypatch.setattr(
         "kvopt.workload.phase5e_engine_core_bridge.entry_points",
@@ -370,7 +402,9 @@ def test_plugin_binds_identity_inside_engine_core_before_add() -> None:
 
     install_engine_core_methods(Core)
     core = Core()
-    core._kvopt_phase5_engine_core_state = _EngineCoreState(SimpleNamespace(), Integration(), {}, 2048)
+    core._kvopt_phase5_engine_core_state = _EngineCoreState(
+        SimpleNamespace(), Integration(), {}, 2048
+    )
     request = SimpleNamespace(
         request_id="P5E-A-01:program-1:r1",
     )
@@ -395,7 +429,9 @@ def test_plugin_rejects_non_frozen_external_identity() -> None:
 
     install_engine_core_methods(Core)
     core = Core()
-    core._kvopt_phase5_engine_core_state = _EngineCoreState(SimpleNamespace(), Integration(), {}, 2048)
+    core._kvopt_phase5_engine_core_state = _EngineCoreState(
+        SimpleNamespace(), Integration(), {}, 2048
+    )
     with pytest.raises(Exception, match="frozen logical identity"):
         core.add_request(SimpleNamespace(request_id="other:r1"))
 

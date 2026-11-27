@@ -22,9 +22,7 @@ PRESSURE_METHOD = "kvopt_phase5_execute_pressure"
 EVIDENCE_METHOD = "kvopt_phase5_evidence"
 CONTROLLER_EVENT_METHOD = "kvopt_phase5_controller_event"
 PLUGIN_NAME = "kvopt_phase5_engine_core"
-PLUGIN_VALUE = (
-    "kvopt.workload.phase5e_engine_core_plugin:register_phase5_engine_core_plugin"
-)
+PLUGIN_VALUE = "kvopt.workload.phase5e_engine_core_plugin:register_phase5_engine_core_plugin"
 
 
 class Phase5EngineCoreBridgeError(RuntimeError):
@@ -39,9 +37,7 @@ def validate_engine_core_plugin_registration() -> Mapping[str, object]:
     """Fail before authorization consumption if EngineCore cannot load us."""
 
     matches = [
-        point
-        for point in entry_points(group="vllm.general_plugins")
-        if point.name == PLUGIN_NAME
+        point for point in entry_points(group="vllm.general_plugins") if point.name == PLUGIN_NAME
     ]
     if len(matches) != 1 or matches[0].value != PLUGIN_VALUE:
         raise Phase5EngineCoreBridgeError(
@@ -51,9 +47,7 @@ def validate_engine_core_plugin_registration() -> Mapping[str, object]:
     if allowlist is not None:
         allowed = {value.strip() for value in allowlist.split(",") if value.strip()}
         if PLUGIN_NAME not in allowed:
-            raise Phase5EngineCoreBridgeError(
-                "VLLM_PLUGINS excludes the Phase 5 EngineCore plugin"
-            )
+            raise Phase5EngineCoreBridgeError("VLLM_PLUGINS excludes the Phase 5 EngineCore plugin")
     return {
         "status": "PASS",
         "entry_point_group": "vllm.general_plugins",
@@ -179,6 +173,9 @@ class EngineCoreUtilityBridge:
         if maximum_attempts <= 0 or poll_interval_seconds < 0:
             raise ValueError("G9 polling bounds are invalid")
         last_observed = 0
+        last_expected_ids: tuple[str, ...] = ()
+        last_observed_ids: tuple[str, ...] = ()
+        last_bound_ids: tuple[str, ...] = ()
         for attempt in range(maximum_attempts):
             result = _mapping(
                 await self._client.call_utility_async(G9_METHOD),
@@ -189,21 +186,35 @@ class EngineCoreUtilityBridge:
                 return result
             observed = result.get("observed_prefix_count")
             required = result.get("required_prefix_count")
+            expected_ids = result.get("expected_first_wave_request_ids")
+            observed_ids = result.get("observed_first_wave_request_ids")
+            bound_ids = result.get("bound_logical_request_ids")
             if (
                 isinstance(observed, bool)
                 or not isinstance(observed, int)
                 or observed < last_observed
                 or required != 4
+                or not isinstance(expected_ids, list)
+                or not isinstance(observed_ids, list)
+                or not isinstance(bound_ids, list)
+                or len(expected_ids) != 4
+                or len(observed_ids) != observed
+                or any(not isinstance(value, str) for value in expected_ids)
+                or any(not isinstance(value, str) for value in observed_ids)
+                or any(not isinstance(value, str) for value in bound_ids)
             ):
-                raise Phase5EngineCoreBridgeError(
-                    "EngineCore G9 readiness evidence is invalid"
-                )
+                raise Phase5EngineCoreBridgeError("EngineCore G9 readiness evidence is invalid")
             last_observed = observed
+            last_expected_ids = tuple(expected_ids)
+            last_observed_ids = tuple(observed_ids)
+            last_bound_ids = tuple(bound_ids)
             if attempt + 1 < maximum_attempts:
                 await asyncio.sleep(poll_interval_seconds)
         raise Phase5EngineCoreBridgeError(
             "EngineCore G9 terminal-prefix wait timed out: "
-            f"observed={last_observed}, required=4"
+            f"observed={last_observed}, required=4, "
+            f"expected_ids={last_expected_ids!r}, "
+            f"observed_ids={last_observed_ids!r}, bound_ids={last_bound_ids!r}"
         )
 
     async def controller_event(

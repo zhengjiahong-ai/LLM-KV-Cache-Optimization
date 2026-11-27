@@ -52,9 +52,7 @@ def _external_logical_identity(request: object) -> tuple[str, str, str]:
         raise Phase5EngineCorePluginError("EngineCore request lacks request identity")
     shadow_external = getattr(request, "external_req_id", None)
     if shadow_external is not None and shadow_external != external:
-        raise Phase5EngineCorePluginError(
-            "EngineCore request contains conflicting identity fields"
-        )
+        raise Phase5EngineCorePluginError("EngineCore request contains conflicting identity fields")
     prefix = "P5E-A-01:"
     if not external.startswith(prefix) or len(external) == len(prefix):
         raise Phase5EngineCorePluginError("EngineCore request lacks frozen logical identity")
@@ -95,16 +93,15 @@ def _pressure_request(value: Mapping[str, object]) -> NativePressureAllocationRe
         required_blocks=int(value["required_blocks"]),
         expected_free_blocks_before=int(value["expected_free_blocks_before"]),
         expected_allocated_blocks_by_request=tuple(
-            (str(row[0]), int(row[1])) for row in watermark  # type: ignore[index]
+            (str(row[0]), int(row[1]))
+            for row in watermark  # type: ignore[index]
         ),
     )
 
 
 def _evidence_export(state: _EngineCoreState) -> dict[str, object]:
     rows = tuple(state.source.snapshot())
-    exposure = evaluate_run_candidate_exposure(
-        run_id="P5E-A-01", arm="A3_SUFFIX", events=rows
-    )
+    exposure = evaluate_run_candidate_exposure(run_id="P5E-A-01", arm="A3_SUFFIX", events=rows)
     return {
         "events": [dict(row) for row in rows],
         "candidate_exposure_report": {
@@ -149,6 +146,15 @@ def _install(core: object, contract: Mapping[str, object]) -> dict[str, object]:
         )
     source = Phase5ERuntimeEventSource()
     integration = build_phase5e_production_integration(source)
+    configure_requests = getattr(integration, "configure_frozen_request_ids", None)
+    if not callable(configure_requests):
+        raise Phase5EngineCorePluginError(
+            "EngineCore integration lacks frozen request configuration"
+        )
+    configure_requests(
+        all_request_ids=contract.get("all_logical_request_ids"),
+        first_wave_request_ids=contract.get("first_wave_logical_request_ids"),
+    )
     report = install_phase5e_a3_runtime(
         engine_core=core,
         scheduler=scheduler,
@@ -178,17 +184,38 @@ def _install(core: object, contract: Mapping[str, object]) -> dict[str, object]:
 
 def _g9(core: object) -> dict[str, object]:
     state = _state(core)
-    count_prefixes = getattr(state.integration, "first_wave_prefix_count", None)
-    if callable(count_prefixes):
-        observed = count_prefixes()
+    readiness = getattr(state.integration, "first_wave_prefix_readiness", None)
+    if callable(readiness):
+        readiness_value = readiness()
+        if not isinstance(readiness_value, Mapping):
+            raise Phase5EngineCorePluginError("EngineCore G9 readiness is invalid")
+        observed = readiness_value.get("observed_prefix_count")
         if isinstance(observed, bool) or not isinstance(observed, int) or observed < 0:
             raise Phase5EngineCorePluginError("EngineCore G9 prefix count is invalid")
+        expected_ids = readiness_value.get("expected_first_wave_request_ids")
+        observed_ids = readiness_value.get("observed_first_wave_request_ids")
+        bound_ids = readiness_value.get("bound_logical_request_ids")
+        if (
+            not isinstance(expected_ids, list)
+            or not isinstance(observed_ids, list)
+            or not isinstance(bound_ids, list)
+            or len(expected_ids) != 4
+            or len(set(expected_ids)) != 4
+            or any(not isinstance(value, str) or not value for value in expected_ids)
+            or len(observed_ids) != observed
+            or len(set(observed_ids)) != observed
+            or any(value not in expected_ids for value in observed_ids)
+            or any(value not in bound_ids for value in observed_ids)
+        ):
+            raise Phase5EngineCorePluginError(
+                "EngineCore G9 first-wave identity evidence is invalid"
+            )
         if observed > 4:
             raise Phase5EngineCorePluginError("EngineCore G9 observed excess prefixes")
         if observed < 4:
             return {
                 "status": "WAITING_FOR_TERMINAL_PREFIXES",
-                "observed_prefix_count": observed,
+                **dict(readiness_value),
                 "required_prefix_count": 4,
             }
     read = getattr(state.integration, "a3_retention_input_manifest", None)
