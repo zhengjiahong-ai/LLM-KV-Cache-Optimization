@@ -553,6 +553,11 @@ class Phase5EProductionIntegration:
             self._pending_plan = None
         self._active_pressure = None
 
+    def pressure_context_active(self) -> bool:
+        """Report whether the frozen explicit Pressure Boundary is active."""
+
+        return self._active_pressure is not None
+
     def apply_pressure(self, **kwargs: object):
         if self._active_pressure is None:
             raise Phase5EProductionIntegrationError("Native allocation lacks Pressure context")

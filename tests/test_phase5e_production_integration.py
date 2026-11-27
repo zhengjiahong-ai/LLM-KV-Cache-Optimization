@@ -140,6 +140,7 @@ def test_bound_observer_emits_direct_decision_and_boundary_identity() -> None:
 
 def test_production_factory_builds_real_prepressure_manifest_and_binding() -> None:
     source, integration = _integration()
+    assert integration.pressure_context_active() is False
     _register_first_wave(integration)
     manifest = integration.a3_retention_input_manifest()
     assert evaluate_p5e_g9(manifest)["status"] == "PASS"
@@ -148,6 +149,7 @@ def test_production_factory_builds_real_prepressure_manifest_and_binding() -> No
         stage_id="P5E_PART_A_NATIVE_PRESSURE",
         pressure_request_id="pressure:phase5e-pressure-01",
     )
+    assert integration.pressure_context_active() is True
     binding = next(
         row
         for row in source.snapshot()
@@ -155,6 +157,7 @@ def test_production_factory_builds_real_prepressure_manifest_and_binding() -> No
     )
     assert binding["payload"]["g9_manifest_sha256"] == manifest["manifest_sha256"]
     integration.end_pressure_context()
+    assert integration.pressure_context_active() is False
 
 
 def test_production_factory_rejects_pressure_before_g9_and_missing_hash() -> None:

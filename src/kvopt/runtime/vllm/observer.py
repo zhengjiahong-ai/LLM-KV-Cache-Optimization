@@ -141,6 +141,12 @@ def install_retention_hook(
     original_popleft = FreeKVCacheBlockQueue.popleft_n
 
     def retained_popleft(queue: Any, required_blocks: int) -> list[Any]:
+        context_active = getattr(integration, "pressure_context_active", None)
+        if callable(context_active) and context_active() is False:
+            # Normal Scheduler allocations are not retention decisions. Phase
+            # 5E explicitly scopes controlled selection to its frozen Pressure
+            # Boundary; ordinary request allocation must retain native order.
+            return original_popleft(queue, required_blocks)
         snapshot = tuple(_queue_blocks(queue))
         selected_objects: list[Any] = []
         by_id = {block.block_id: block for block in snapshot}

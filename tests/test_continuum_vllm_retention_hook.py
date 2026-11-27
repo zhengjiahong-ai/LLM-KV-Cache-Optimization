@@ -111,6 +111,12 @@ class _FakeIntegration:
         default_factory=list
     )
     lifecycle_events: list[str] = field(default_factory=list)
+    context_active: bool | None = None
+
+    def pressure_context_active(self) -> bool:
+        if self.context_active is None:
+            return True
+        return self.context_active
 
     def apply_pressure(self, **kwargs: Any) -> _HookResult:
         self.calls.append(kwargs)
@@ -296,6 +302,27 @@ def test_controlled_removes_only_final_validated_block_objects(
     assert result[1] is protected
     assert queue.remove_calls == [eligible, protected]
     assert queue._blocks == [unselected]
+
+
+def test_controlled_normal_allocation_delegates_without_pressure_decision(
+    hook_environment,
+) -> None:
+    integration = _FakeIntegration(
+        _HookResult((8, 7)),
+        context_active=False,
+    )
+    first, second = _blocks(7, 8)
+    queue = _FakeFreeKVCacheBlockQueue([first, second])
+
+    install_retention_hook(
+        mode=RetentionMode.CONTROLLED, integration=integration, clock=FakeClock()
+    )
+    result = queue.popleft_n(1)
+
+    assert result == [first]
+    assert queue.popleft_calls == 1
+    assert queue.remove_calls == []
+    assert integration.calls == []
 
 
 def test_controlled_does_not_call_original_popleft(
