@@ -41,6 +41,8 @@ class _EngineCoreState:
     armed_pressure_request: NativePressureAllocationRequest | None = None
     armed_pressure_ids: tuple[str, ...] = ()
     pressure_result: Mapping[str, object] | None = None
+    pressure_max_watermark: dict[str, int] | None = None
+    pressure_min_free_blocks: int | None = None
 
 
 def _state(core: object) -> _EngineCoreState:
@@ -264,6 +266,15 @@ def _pressure_readiness(core: object, state: _EngineCoreState) -> dict[str, obje
     observed = _pressure_watermark(core, state, ids)
     expected = dict(request.expected_allocated_blocks_by_request)
     free = core.scheduler.kv_cache_manager.block_pool.get_num_free_blocks()  # type: ignore[attr-defined]
+    previous = state.pressure_max_watermark or {key: 0 for key in expected}
+    state.pressure_max_watermark = {
+        key: max(previous.get(key, 0), observed[key]) for key in expected
+    }
+    state.pressure_min_free_blocks = (
+        free
+        if state.pressure_min_free_blocks is None
+        else min(state.pressure_min_free_blocks, free)
+    )
     if any(observed[key] > expected[key] for key in expected) or free < request.expected_free_blocks_before:
         raise Phase5EngineCorePluginError("Native Pressure geometry passed its frozen boundary")
     return {
@@ -272,6 +283,10 @@ def _pressure_readiness(core: object, state: _EngineCoreState) -> dict[str, obje
         "observed_allocated_blocks_by_request": sorted(observed.items()),
         "expected_free_blocks_before": request.expected_free_blocks_before,
         "observed_free_blocks": free,
+        "maximum_observed_allocated_blocks_by_request": sorted(
+            state.pressure_max_watermark.items()
+        ),
+        "minimum_observed_free_blocks": state.pressure_min_free_blocks,
     }
 
 

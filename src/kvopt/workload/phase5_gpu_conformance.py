@@ -349,6 +349,8 @@ class Phase5GPUConformancePlan:
             raise ValueError("sampling parameter hash mismatch")
         if self.sampling_parameters.get("max_tokens") != 64:
             raise ValueError("generation max_tokens must be frozen at 64")
+        if self.sampling_parameters.get("ignore_eos") is not True:
+            raise ValueError("Part A must reach its frozen generation length")
         if self.sampling_parameters.get("stop") not in ([], None):
             raise ValueError("Part A cannot contain frontend stop strings")
         _sha(self.engine_configuration_sha256, "Engine configuration hash")
@@ -523,6 +525,7 @@ def build_phase5e_review_candidate(git_sha: str) -> Phase5GPUConformancePlan:
     sampling = {
         "temperature": 0.0,
         "max_tokens": 64,
+        "ignore_eos": True,
         "stop": [],
         "include_stop_str_in_output": False,
     }

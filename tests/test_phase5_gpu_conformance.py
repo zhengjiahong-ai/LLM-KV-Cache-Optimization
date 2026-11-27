@@ -35,6 +35,7 @@ def test_phase5e_candidate_freezes_fixture_seal_pressure_and_budget() -> None:
     )
     assert plan.resource_budget.engine_max_num_seqs == 4
     assert plan.resource_budget.engine_max_num_batched_tokens == 8192
+    assert plan.sampling_parameters["ignore_eos"] is True
     assert plan.resource_budget.adapter_maximum_native_inflight == 4
     assert plan.pressure.required_blocks == 1536
     assert plan.resource_budget.kv_pool_blocks == 2048
