@@ -296,12 +296,15 @@ def test_plugin_binds_identity_inside_engine_core_before_add() -> None:
     core = Core()
     core._kvopt_phase5_engine_core_state = _EngineCoreState(SimpleNamespace(), Integration(), {}, 2048)
     request = SimpleNamespace(
-        request_id="native-random-id",
-        external_req_id="P5E-A-01:program-1:r1",
+        request_id="P5E-A-01:program-1:r1",
     )
     assert core.add_request(request) == "added"
     assert observed == [
-        ("program-1:r1", "P5E-A-01:program-1:r1", "native-random-id")
+        (
+            "program-1:r1",
+            "P5E-A-01:program-1:r1",
+            "P5E-A-01:program-1:r1",
+        )
     ]
 
 
@@ -318,7 +321,30 @@ def test_plugin_rejects_non_frozen_external_identity() -> None:
     core = Core()
     core._kvopt_phase5_engine_core_state = _EngineCoreState(SimpleNamespace(), Integration(), {}, 2048)
     with pytest.raises(Exception, match="frozen logical identity"):
-        core.add_request(SimpleNamespace(request_id="n1", external_req_id="other:r1"))
+        core.add_request(SimpleNamespace(request_id="other:r1"))
+
+
+def test_plugin_rejects_conflicting_shadow_external_identity() -> None:
+    class Integration:
+        def bind_request_identity(self, **_kwargs) -> None:
+            raise AssertionError("conflicting identity must fail before binding")
+
+    class Core:
+        def add_request(self, request: object) -> None:
+            raise AssertionError(request)
+
+    install_engine_core_methods(Core)
+    core = Core()
+    core._kvopt_phase5_engine_core_state = _EngineCoreState(  # type: ignore[attr-defined]
+        SimpleNamespace(), Integration(), {}, 2048
+    )
+    with pytest.raises(Exception, match="conflicting identity"):
+        core.add_request(
+            SimpleNamespace(
+                request_id="P5E-A-01:program-1:r1",
+                external_req_id="P5E-A-01:program-2:r1",
+            )
+        )
 
 
 def test_controller_timer_requires_explicit_clock_domain() -> None:

@@ -44,16 +44,21 @@ def _state(core: object) -> _EngineCoreState:
 
 
 def _external_logical_identity(request: object) -> tuple[str, str, str]:
-    internal = getattr(request, "request_id", None)
-    external = getattr(request, "external_req_id", None)
-    if not isinstance(internal, str) or not internal:
-        raise Phase5EngineCorePluginError("EngineCore request lacks internal identity")
+    # Pinned vLLM 0.27.1 serializes the caller-supplied request_id directly
+    # into EngineCoreRequest. It does not add an ``external_req_id`` field or
+    # replace the identity with a second EngineCore-local value.
+    external = getattr(request, "request_id", None)
     if not isinstance(external, str) or not external:
-        raise Phase5EngineCorePluginError("EngineCore request lacks external identity")
+        raise Phase5EngineCorePluginError("EngineCore request lacks request identity")
+    shadow_external = getattr(request, "external_req_id", None)
+    if shadow_external is not None and shadow_external != external:
+        raise Phase5EngineCorePluginError(
+            "EngineCore request contains conflicting identity fields"
+        )
     prefix = "P5E-A-01:"
     if not external.startswith(prefix) or len(external) == len(prefix):
         raise Phase5EngineCorePluginError("EngineCore request lacks frozen logical identity")
-    return external[len(prefix) :], external, internal
+    return external[len(prefix) :], external, external
 
 
 def _request_block_count(manager: object, request_id: str) -> int:
