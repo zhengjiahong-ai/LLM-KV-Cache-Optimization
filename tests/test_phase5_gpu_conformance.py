@@ -41,7 +41,9 @@ def test_phase5e_candidate_freezes_fixture_seal_pressure_and_budget() -> None:
     assert plan.resource_budget.kv_pool_blocks == 2048
     assert plan.resource_budget.reserved_null_blocks == 1
     assert plan.resource_budget.allocatable_kv_blocks == 2047
-    assert plan.pressure.expected_free_blocks_before == 1535
+    assert plan.pressure.expected_free_blocks_before == 1631
+    assert plan.pressure.shared_prefix_blocks_across_inflight == 32
+    assert plan.pressure.expected_free_blocks_before - plan.pressure.required_blocks == 95
     boundary = plan.pressure.to_native_boundary(
         plan.resource_budget.block_size_tokens
     )
@@ -116,7 +118,7 @@ def test_phase5e_rejects_pressure_hash_and_non_pressure_budget() -> None:
         pressure_prompt_tokens=16,
         required_blocks=1,
     )
-    with pytest.raises(ValueError, match="cannot create observable pressure"):
+    with pytest.raises(ValueError, match="does not enter the bounded reserve"):
         replace(
             plan,
             pressure=pressure,
@@ -131,7 +133,7 @@ def test_phase5e_rejects_pressure_hash_and_non_pressure_budget() -> None:
         pressure_prompt_tokens=28800,
         required_blocks=1800,
     )
-    with pytest.raises(ValueError, match="exceeds the bounded reserve"):
+    with pytest.raises(ValueError, match="exceeds the Native free queue"):
         replace(
             plan,
             pressure=unsafe,

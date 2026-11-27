@@ -94,6 +94,7 @@ class PressureFixture:
     pressure_prompt_tokens: int
     required_blocks: int
     expected_free_blocks_before: int
+    shared_prefix_blocks_across_inflight: int
     expected_allocated_blocks_by_request: tuple[tuple[str, int], ...]
 
     def __post_init__(self) -> None:
@@ -121,6 +122,7 @@ class PressureFixture:
             self.pressure_prompt_tokens <= 0
             or self.required_blocks <= 0
             or self.expected_free_blocks_before <= 0
+            or self.shared_prefix_blocks_across_inflight <= 0
         ):
             raise ValueError("pressure token and block counts must be positive")
         if len(self.pressure_prompt_token_ids) != self.pressure_prompt_tokens:
@@ -386,19 +388,23 @@ class Phase5GPUConformancePlan:
         blocks_per_request += math.ceil(
             max_generation / self.resource_budget.block_size_tokens
         )
-        active_upper = self.resource_budget.engine_max_num_seqs * blocks_per_request
+        shared_blocks = pressure.shared_prefix_blocks_across_inflight
+        if shared_blocks != 32 or shared_blocks >= blocks_per_request:
+            raise ValueError("frozen cross-Program shared Prefix geometry changed")
+        active_upper = shared_blocks + self.resource_budget.engine_max_num_seqs * (
+            blocks_per_request - shared_blocks
+        )
         allocatable_blocks = self.resource_budget.allocatable_kv_blocks
         expected_free = allocatable_blocks - active_upper
         if pressure.expected_free_blocks_before != expected_free:
             raise ValueError("frozen free-block geometry differs from request budget")
-        allocation_demand = active_upper + pressure.required_blocks
-        oversubscription = allocation_demand - allocatable_blocks
         if active_upper >= allocatable_blocks:
             raise ValueError("active request upper bound leaves no safe KV capacity")
-        if allocation_demand < allocatable_blocks:
-            raise ValueError("static KV budget cannot create observable pressure")
-        if oversubscription > self.resource_budget.pressure_reserve_blocks:
-            raise ValueError("static KV pressure exceeds the bounded reserve")
+        if pressure.required_blocks > expected_free:
+            raise ValueError("Pressure allocation exceeds the Native free queue")
+        residual_free = expected_free - pressure.required_blocks
+        if residual_free >= self.resource_budget.pressure_reserve_blocks:
+            raise ValueError("Pressure allocation does not enter the bounded reserve")
 
         if self.execution_authorized:
             raise ValueError("Phase 5E plan must not authorize GPU execution")
@@ -542,7 +548,8 @@ def build_phase5e_review_candidate(git_sha: str) -> Phase5GPUConformancePlan:
         ),
         pressure_prompt_tokens=24576,
         required_blocks=1536,
-        expected_free_blocks_before=1535,
+        expected_free_blocks_before=1631,
+        shared_prefix_blocks_across_inflight=32,
         expected_allocated_blocks_by_request=tuple(
             (request_id, 128) for request_id in order[4:]
         ),
