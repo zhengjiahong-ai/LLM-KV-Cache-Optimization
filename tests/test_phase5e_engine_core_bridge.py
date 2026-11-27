@@ -14,6 +14,7 @@ from kvopt.workload.phase5e_engine_core_bridge import (
     G9_METHOD,
     INSTALL_METHOD,
     PRESSURE_METHOD,
+    EngineCoreRemoteEvidenceSource,
     EngineCoreUtilityBridge,
     Phase5EngineCoreBridgeError,
     resolve_async_utility_client,
@@ -21,6 +22,7 @@ from kvopt.workload.phase5e_engine_core_bridge import (
 )
 from kvopt.workload.phase5e_engine_core_plugin import (
     _EngineCoreState,
+    _g9,
     _install,
     install_engine_core_methods,
 )
@@ -34,6 +36,18 @@ class _UtilityClient:
     async def call_utility_async(self, method: str, *args: object) -> object:
         self.calls.append((method, args))
         return self.responses[method]
+
+
+class _G9SequenceClient:
+    def __init__(self, responses: list[dict[str, object]]) -> None:
+        self.responses = responses
+        self.calls = 0
+
+    async def call_utility_async(self, method: str, *args: object) -> object:
+        assert method == G9_METHOD
+        assert not args
+        self.calls += 1
+        return self.responses.pop(0)
 
 
 class _BlockPool:
@@ -89,6 +103,68 @@ def test_engine_core_install_rejects_incoherent_frozen_geometry() -> None:
     contract["expected_initial_free_blocks"] = 2048
     with pytest.raises(Exception, match="frozen KV pool geometry"):
         _install(_core_with_free_blocks(2047), contract)
+
+
+def test_engine_core_g9_reports_real_prefix_readiness_without_fabrication() -> None:
+    integration = SimpleNamespace(first_wave_prefix_count=lambda: 3)
+    core = SimpleNamespace(
+        _kvopt_phase5_engine_core_state=_EngineCoreState(
+            SimpleNamespace(), integration, {}, 2047
+        )
+    )
+    assert _g9(core) == {
+        "status": "WAITING_FOR_TERMINAL_PREFIXES",
+        "observed_prefix_count": 3,
+        "required_prefix_count": 4,
+    }
+
+
+def test_bridge_waits_boundedly_for_real_g9_prefixes() -> None:
+    client = _G9SequenceClient(
+        [
+            {
+                "status": "WAITING_FOR_TERMINAL_PREFIXES",
+                "observed_prefix_count": 3,
+                "required_prefix_count": 4,
+            },
+            {"schema_version": "phase5e.g9.test", "manifest_sha256": "a" * 64},
+        ]
+    )
+    bridge = EngineCoreUtilityBridge(client)
+    evidence = EngineCoreRemoteEvidenceSource(
+        {"status": "PASS", "engine_core_pid": 1}, bridge
+    )
+
+    async def run() -> None:
+        result = await bridge.g9(
+            evidence, maximum_attempts=2, poll_interval_seconds=0
+        )
+        assert result["schema_version"] == "phase5e.g9.test"
+        assert await evidence.a3_retention_input_manifest() == result
+
+    asyncio.run(run())
+    assert client.calls == 2
+
+
+def test_bridge_fails_closed_when_real_g9_prefixes_never_arrive() -> None:
+    waiting = {
+        "status": "WAITING_FOR_TERMINAL_PREFIXES",
+        "observed_prefix_count": 2,
+        "required_prefix_count": 4,
+    }
+    client = _G9SequenceClient([waiting.copy(), waiting.copy()])
+    bridge = EngineCoreUtilityBridge(client)
+    evidence = EngineCoreRemoteEvidenceSource(
+        {"status": "PASS", "engine_core_pid": 1}, bridge
+    )
+
+    async def run() -> None:
+        with pytest.raises(Phase5EngineCoreBridgeError, match="timed out"):
+            await bridge.g9(
+                evidence, maximum_attempts=2, poll_interval_seconds=0
+            )
+
+    asyncio.run(run())
 
 
 def _bridge_child(connection) -> None:

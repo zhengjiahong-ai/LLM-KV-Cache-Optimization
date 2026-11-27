@@ -6,6 +6,7 @@ objects remain owned by the EngineCore process that reads and mutates them.
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 import os
 from collections.abc import Mapping, Sequence
@@ -166,12 +167,44 @@ class EngineCoreUtilityBridge:
             raise Phase5EngineCoreBridgeError("EngineCore production integration did not install")
         return EngineCoreRemoteEvidenceSource(report, self)
 
-    async def g9(self, evidence: EngineCoreRemoteEvidenceSource) -> Mapping[str, object]:
-        result = _mapping(
-            await self._client.call_utility_async(G9_METHOD), "EngineCore G9 result"
+    async def g9(
+        self,
+        evidence: EngineCoreRemoteEvidenceSource,
+        *,
+        maximum_attempts: int = 1000,
+        poll_interval_seconds: float = 0.01,
+    ) -> Mapping[str, object]:
+        """Wait boundedly for four real EngineCore terminal-prefix events."""
+
+        if maximum_attempts <= 0 or poll_interval_seconds < 0:
+            raise ValueError("G9 polling bounds are invalid")
+        last_observed = 0
+        for attempt in range(maximum_attempts):
+            result = _mapping(
+                await self._client.call_utility_async(G9_METHOD),
+                "EngineCore G9 result",
+            )
+            if result.get("status") != "WAITING_FOR_TERMINAL_PREFIXES":
+                evidence.set_g9(result)
+                return result
+            observed = result.get("observed_prefix_count")
+            required = result.get("required_prefix_count")
+            if (
+                isinstance(observed, bool)
+                or not isinstance(observed, int)
+                or observed < last_observed
+                or required != 4
+            ):
+                raise Phase5EngineCoreBridgeError(
+                    "EngineCore G9 readiness evidence is invalid"
+                )
+            last_observed = observed
+            if attempt + 1 < maximum_attempts:
+                await asyncio.sleep(poll_interval_seconds)
+        raise Phase5EngineCoreBridgeError(
+            "EngineCore G9 terminal-prefix wait timed out: "
+            f"observed={last_observed}, required=4"
         )
-        evidence.set_g9(result)
-        return result
 
     async def controller_event(
         self, event_type: str, payload: Mapping[str, object]

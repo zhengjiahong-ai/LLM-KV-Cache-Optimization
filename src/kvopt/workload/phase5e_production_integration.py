@@ -213,6 +213,11 @@ class Phase5EProductionIntegration:
             )
         return matches[0]
 
+    def first_wave_prefix_count(self) -> int:
+        """Return the number of real terminal r1 prefixes observed so far."""
+
+        return len(self._terminal_records)
+
     def observe_terminal_request_snapshot(
         self, snapshot: object, *, observed_at: float, native_hash_process_id: str
     ) -> None:

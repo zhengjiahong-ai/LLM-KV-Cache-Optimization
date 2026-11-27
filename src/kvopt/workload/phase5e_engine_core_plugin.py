@@ -178,6 +178,19 @@ def _install(core: object, contract: Mapping[str, object]) -> dict[str, object]:
 
 def _g9(core: object) -> dict[str, object]:
     state = _state(core)
+    count_prefixes = getattr(state.integration, "first_wave_prefix_count", None)
+    if callable(count_prefixes):
+        observed = count_prefixes()
+        if isinstance(observed, bool) or not isinstance(observed, int) or observed < 0:
+            raise Phase5EngineCorePluginError("EngineCore G9 prefix count is invalid")
+        if observed > 4:
+            raise Phase5EngineCorePluginError("EngineCore G9 observed excess prefixes")
+        if observed < 4:
+            return {
+                "status": "WAITING_FOR_TERMINAL_PREFIXES",
+                "observed_prefix_count": observed,
+                "required_prefix_count": 4,
+            }
     read = getattr(state.integration, "a3_retention_input_manifest", None)
     if not callable(read):
         raise Phase5EngineCorePluginError("EngineCore integration lacks G9 provider")

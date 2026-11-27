@@ -141,7 +141,9 @@ def test_bound_observer_emits_direct_decision_and_boundary_identity() -> None:
 def test_production_factory_builds_real_prepressure_manifest_and_binding() -> None:
     source, integration = _integration()
     assert integration.pressure_context_active() is False
+    assert integration.first_wave_prefix_count() == 0
     _register_first_wave(integration)
+    assert integration.first_wave_prefix_count() == 4
     manifest = integration.a3_retention_input_manifest()
     assert evaluate_p5e_g9(manifest)["status"] == "PASS"
     integration.begin_pressure_context(
