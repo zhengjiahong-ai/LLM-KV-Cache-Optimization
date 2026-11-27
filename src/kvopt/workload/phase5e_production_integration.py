@@ -518,7 +518,10 @@ class Phase5EProductionIntegration:
                         ["VLLM_PREFIX_SNAPSHOT", record["event_index"], prefix]
                     ),
                 }
-                for prefix, record in sorted(self._terminal_records.items())
+                for prefix, record in sorted(
+                    self._terminal_records.items(),
+                    key=lambda item: int(item[1]["event_index"]),
+                )
             ],
             "checks": {
                 "required_inputs_complete": True,

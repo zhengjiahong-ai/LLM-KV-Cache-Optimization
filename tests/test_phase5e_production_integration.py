@@ -146,6 +146,8 @@ def test_production_factory_builds_real_prepressure_manifest_and_binding() -> No
     assert readiness["observed_first_wave_request_ids"] == ["p1:r1", "p2:r1", "p3:r1", "p4:r1"]
     manifest = integration.a3_retention_input_manifest()
     assert evaluate_p5e_g9(manifest)["status"] == "PASS"
+    lifecycle_indices = [row["event_index"] for row in manifest["lifecycle"]]
+    assert lifecycle_indices == sorted(lifecycle_indices)
     integration.begin_pressure_context(
         boundary_id="phase5e-pressure-01",
         stage_id="P5E_PART_A_NATIVE_PRESSURE",
@@ -160,6 +162,44 @@ def test_production_factory_builds_real_prepressure_manifest_and_binding() -> No
     assert binding["payload"]["g9_manifest_sha256"] == manifest["manifest_sha256"]
     integration.end_pressure_context()
     assert integration.pressure_context_active() is False
+
+
+def test_g9_lifecycle_uses_native_event_order_not_prefix_hash_order() -> None:
+    _source, integration = _integration()
+    for index in range(1, 5):
+        logical = f"p{index}:r1"
+        internal = f"internal:{logical}"
+        integration.bind_request_identity(
+            logical_request_id=logical,
+            external_request_id=f"external:{logical}",
+            internal_request_id=internal,
+        )
+        # Descending hashes deliberately make PrefixIdentity lexical order the
+        # reverse of the real EngineCore event order.
+        hash_byte = 255 - index
+        block = NativeBlockSnapshot(
+            block_id=index,
+            ref_count=0,
+            native_hash_hex=(bytes([hash_byte]) * 32).hex(),
+            hash_num_tokens=16,
+            cache_group_id=0,
+            is_null=False,
+        )
+        integration.observe_terminal_request_snapshot(
+            RequestBlockSnapshot(
+                program_id=ProgramIdentity(f"p{index}"),
+                request_id=RequestIdentity(internal),
+                block_groups=((block,),),
+                availability=ObservationAvailability.AVAILABLE,
+            ),
+            observed_at=1.0 + index / 10,
+            native_hash_process_id=str(os.getpid()),
+        )
+
+    manifest = integration.a3_retention_input_manifest()
+    indices = [row["event_index"] for row in manifest["lifecycle"]]
+    assert indices == sorted(indices)
+    assert evaluate_p5e_g9(manifest)["status"] == "PASS"
 
 
 def test_production_factory_uses_exact_frozen_first_wave_identities() -> None:
