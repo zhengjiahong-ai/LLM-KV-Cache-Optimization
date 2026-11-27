@@ -209,6 +209,32 @@ def test_production_factory_uses_exact_frozen_first_wave_identities() -> None:
         )
 
 
+def test_production_factory_maps_vllm_suffixed_native_identity_to_frozen_logical_id() -> None:
+    _source, integration = _integration()
+    all_ids = [
+        "p1:r1",
+        "p2:r1",
+        "p3:r1",
+        "p4:r1",
+        "p1:r2",
+        "p2:r2",
+        "p3:r2",
+        "p4:r2",
+    ]
+    integration.configure_frozen_request_ids(
+        all_request_ids=all_ids,
+        first_wave_request_ids=all_ids[:4],
+    )
+    native_id = "P5E-A-01:p1:r1-a4358e48"
+    integration.bind_request_identity(
+        logical_request_id="p1:r1",
+        external_request_id=native_id,
+        internal_request_id=native_id,
+    )
+    assert integration.internal_request_id("p1:r1") == native_id
+    assert integration.program_for_internal_request(native_id) == ProgramIdentity("p1")
+
+
 def test_terminal_snapshot_excludes_one_real_hashless_tail_from_retention() -> None:
     source, integration = _integration()
     integration.bind_request_identity(

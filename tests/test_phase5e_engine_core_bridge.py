@@ -422,16 +422,42 @@ def test_plugin_binds_identity_inside_engine_core_before_add() -> None:
         SimpleNamespace(), Integration(), {}, 2048
     )
     request = SimpleNamespace(
-        request_id="P5E-A-01:program-1:r1",
+        request_id="P5E-A-01:program-1:r1-a4358e48",
     )
     assert core.add_request(request) == "added"
     assert observed == [
         (
             "program-1:r1",
-            "P5E-A-01:program-1:r1",
-            "P5E-A-01:program-1:r1",
+            "P5E-A-01:program-1:r1-a4358e48",
+            "P5E-A-01:program-1:r1-a4358e48",
         )
     ]
+
+
+def test_plugin_preserves_unsuffixed_identity_for_cpu_contract_fixtures() -> None:
+    observed: list[tuple[str, str, str]] = []
+
+    class Integration:
+        def bind_request_identity(self, **kwargs: str) -> None:
+            observed.append(
+                (
+                    kwargs["logical_request_id"],
+                    kwargs["external_request_id"],
+                    kwargs["internal_request_id"],
+                )
+            )
+
+    class Core:
+        def add_request(self, request: object) -> str:
+            return "added"
+
+    install_engine_core_methods(Core)
+    core = Core()
+    core._kvopt_phase5_engine_core_state = _EngineCoreState(
+        SimpleNamespace(), Integration(), {}, 2048
+    )
+    assert core.add_request(SimpleNamespace(request_id="P5E-A-01:p1:r1")) == "added"
+    assert observed == [("p1:r1", "P5E-A-01:p1:r1", "P5E-A-01:p1:r1")]
 
 
 def test_plugin_rejects_non_frozen_external_identity() -> None:

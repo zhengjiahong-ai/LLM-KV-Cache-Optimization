@@ -8,6 +8,7 @@ commands and detached evidence are returned to the frontend.
 from __future__ import annotations
 
 import os
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 
@@ -22,6 +23,7 @@ from .phase5e_production_integration import build_phase5e_production_integration
 
 _STATE_ATTRIBUTE = "_kvopt_phase5_engine_core_state"
 _PATCHED_ATTRIBUTE = "_kvopt_phase5_engine_core_plugin_patched"
+_VLLM_REQUEST_SUFFIX = re.compile(r"^(?P<logical>.+)-(?P<suffix>[0-9a-f]{8})$")
 
 
 class Phase5EngineCorePluginError(RuntimeError):
@@ -56,7 +58,10 @@ def _external_logical_identity(request: object) -> tuple[str, str, str]:
     prefix = "P5E-A-01:"
     if not external.startswith(prefix) or len(external) == len(prefix):
         raise Phase5EngineCorePluginError("EngineCore request lacks frozen logical identity")
-    return external[len(prefix) :], external, external
+    serialized_identity = external[len(prefix) :]
+    match = _VLLM_REQUEST_SUFFIX.fullmatch(serialized_identity)
+    logical = match.group("logical") if match is not None else serialized_identity
+    return logical, external, external
 
 
 def _request_block_count(manager: object, request_id: str) -> int:
