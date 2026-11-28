@@ -46,38 +46,34 @@ predecessor terminal and are timestamped inside EngineCore. Its first valid
 Calibration run has not yet supplied Native readiness evidence. This is allowed
 by M1's first-valid-run rule and is not a preliminary GPU run.
 
-Two execution blockers remain.
+The execution-identity conflict has been resolved under M1 route 1.
 
-First, all 16 accepted Calibration token materializations identify
-`Qwen/Qwen2.5-Coder-3B-Instruct` revision
-`2ffd030b308f6bdd29ee43e7383f30ce8ac2e225`, with chat-template SHA-256
-`cd8e9439f0570856fd70470bf8889ebd8b5d1107207f67a5efb46e342330527f`.
-The frozen Formal Protocol identifies the shared execution model and tokenizer
-as `Qwen/Qwen2.5-Coder-1.5B-Instruct` revision
-`d18ecad881a290f0c792f1c2b5dbee1820d4a424` and requires identical prompt token
-IDs across systems. The preparation records this as
-`MODEL_TOKENIZER_IDENTITY:MISMATCH`. It does not silently rematerialize prompts,
-change the Protocol or select either identity.
+All 48 accepted SWE Programs were deterministically rematerialized from their
+frozen Normalized Trace messages with `Qwen/Qwen2.5-Coder-1.5B-Instruct`
+revision `d18ecad881a290f0c792f1c2b5dbee1820d4a424`. The resulting chat-template
+SHA-256 is
+`44d5f08f3f72b837eaad09f13a54c1f9f4eb58d75240334548b7fd52a5437fa5`.
+All 48 Sessions pass the unchanged Q1--Q9 mechanical qualification, including
+the exact-token/context Q6 check. The original 3B token evidence remains
+immutable and is retained as prior lineage rather than overwritten.
 
-Second, the shared 72-run Calibration runner is not implemented. Its
+The remaining blocker is the shared 72-run Calibration runner. Its
 per-run process lifecycle, exact request dispatcher, archive writer and
 first-valid-run readiness validator are not yet implemented. The preparation
 therefore remains blocked with:
 
-- `MODEL_TOKENIZER_IDENTITY:MISMATCH`
 - `CALIBRATION_RUNNER:NOT_READY`
 - `CALIBRATION_RUNNER:ENTRYPOINT_MISSING`
 
 No A0/A1/A3 coordinator is used as a fallback. No timer is synthesized
 from a future request or future outcome. The exact DVA selector is wired and
-CPU-validated, but the 72-run Calibration must not start until the frozen
-execution identity is resolved and the exact runner is implemented against
-that resolved identity.
+CPU-validated, but the 72-run Calibration must not start until the exact runner
+is implemented against the now-resolved 1.5B identity.
 
 ## Execution boundaries
 
 - SWE Calibration GPU execution: authorized by M1, but mechanically blocked by
-  the execution-identity conflict and missing shared runner.
+  the missing shared runner.
 - SWE Formal Campaign: not authorized.
 - BFCL Derived GPU execution: not authorized.
 - Positive benefit, Native conformance for all six systems and Formal sample

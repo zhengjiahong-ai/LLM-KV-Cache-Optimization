@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
@@ -44,6 +45,7 @@ def materialize_calibration_input_index(
     calibration_child: Mapping[str, object],
     candidate_inventory: Mapping[str, object],
     evidence_roots: Sequence[Path],
+    rematerialization_root: Path | None = None,
 ) -> dict[str, object]:
     """Bind all 16 frozen Programs to exact normalized/token/fixture files.
 
@@ -60,6 +62,25 @@ def materialize_calibration_input_index(
     roots = tuple(path.resolve() for path in evidence_roots)
     if not roots or any(not path.is_dir() for path in roots):
         raise CalibrationInputError("every private evidence root must exist")
+    rematerialized: dict[str, Mapping[str, object]] = {}
+    resolved_rematerialization_root: Path | None = None
+    if rematerialization_root is not None:
+        resolved_rematerialization_root = rematerialization_root.resolve()
+        summary_path = resolved_rematerialization_root / "collection-summary.json"
+        if not summary_path.is_file():
+            raise CalibrationInputError("rematerialization summary is missing")
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+        if (
+            summary.get("status") != "PASS"
+            or summary.get("session_count") != 48
+            or summary.get("candidate_inventory_content_sha256")
+            != candidate_inventory.get("candidate_inventory_content_sha256")
+        ):
+            raise CalibrationInputError("rematerialization root is not accepted")
+        rows = _rows(summary.get("sessions"), "rematerialized Sessions")
+        rematerialized = {str(row.get("session_id")): row for row in rows}
+        if len(rematerialized) != 48:
+            raise CalibrationInputError("rematerialization Session identities are invalid")
 
     bindings: list[dict[str, object]] = []
     seen_programs: set[str] = set()
@@ -100,25 +121,58 @@ def materialize_calibration_input_index(
             session_roots = [path for path in candidates if path.is_dir()]
             if not session_roots:
                 raise CalibrationInputError(f"private Session evidence is missing: {session_id}")
-            resolved: tuple[Path, Path, Path] | None = None
+            resolved: tuple[Path, Path] | None = None
             for session_root in session_roots:
                 normalized = session_root / "normalized-trace.json"
-                tokens = session_root / "token-materialization.json"
                 fixtures = session_root / "tool-fixtures.json"
-                if not all(path.is_file() for path in (normalized, tokens, fixtures)):
+                if not all(path.is_file() for path in (normalized, fixtures)):
                     continue
                 if (
                     _sha256(normalized) == source.get("normalized_trace_file_sha256")
-                    and _sha256(tokens) == source.get("token_materialization_file_sha256")
                     and _sha256(fixtures) == source.get("tool_fixtures_file_sha256")
                 ):
-                    resolved = (normalized, tokens, fixtures)
+                    resolved = (normalized, fixtures)
                     break
             if resolved is None:
                 raise CalibrationInputError(
                     f"no private evidence version matches accepted hashes: {session_id}"
                 )
-            normalized, tokens, fixtures = resolved
+            normalized, fixtures = resolved
+            if resolved_rematerialization_root is None:
+                tokens = session_roots[0] / "token-materialization.json"
+                token_sha256 = str(source["token_materialization_file_sha256"])
+                qualification_sha256 = str(source["qualification_sha256"])
+                if not tokens.is_file() or _sha256(tokens) != token_sha256:
+                    raise CalibrationInputError(
+                        f"accepted hashes differ from token evidence: {session_id}"
+                    )
+                prior_token_sha256 = None
+            else:
+                row = rematerialized.get(session_id)
+                if row is None or row.get("qualification_status") != "QUALIFIED":
+                    raise CalibrationInputError(
+                        f"rematerialized Session is not qualified: {session_id}"
+                    )
+                tokens = (
+                    resolved_rematerialization_root
+                    / "sessions"
+                    / session_id
+                    / "token-materialization.json"
+                )
+                token_sha256 = str(row.get("token_materialization_file_sha256"))
+                qualification_sha256 = str(row.get("qualification_sha256"))
+                prior_token_sha256 = row.get(
+                    "prior_token_materialization_file_sha256"
+                )
+                if (
+                    not tokens.is_file()
+                    or _sha256(tokens) != token_sha256
+                    or prior_token_sha256
+                    != source.get("token_materialization_file_sha256")
+                ):
+                    raise CalibrationInputError(
+                        f"rematerialized token lineage mismatch: {session_id}"
+                    )
             bindings.append(
                 {
                     "group_id": group_id,
@@ -129,13 +183,12 @@ def materialize_calibration_input_index(
                     "normalized_trace_path": str(normalized),
                     "normalized_trace_file_sha256": source["normalized_trace_file_sha256"],
                     "token_materialization_path": str(tokens),
-                    "token_materialization_file_sha256": source[
-                        "token_materialization_file_sha256"
-                    ],
+                    "token_materialization_file_sha256": token_sha256,
+                    "prior_token_materialization_file_sha256": prior_token_sha256,
                     "tool_fixtures_path": str(fixtures),
                     "tool_fixtures_file_sha256": source["tool_fixtures_file_sha256"],
                     "source_trace_sha256": source["source_trace_sha256"],
-                    "qualification_sha256": source["qualification_sha256"],
+                    "qualification_sha256": qualification_sha256,
                 }
             )
 

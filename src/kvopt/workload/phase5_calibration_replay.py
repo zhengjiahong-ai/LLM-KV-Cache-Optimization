@@ -93,6 +93,11 @@ def materialize_calibration_run_replay(run: Mapping[str, object]) -> dict[str, o
         generator="PYTHON_RANDOM_MT19937_EXPONENTIAL_V1",
     )
     plan = materialize_n_session_plan(sessions=sessions, arrival_plan=arrival)
+    arrival_by_request = {
+        str(row.request_id): float(row.logical_timestamp)
+        for row in plan.events
+        if row.kind.value == "ARRIVAL" and row.request_id is not None
+    }
     timers = []
     for program_id in ordered_programs:
         calls = sessions[program_id]
@@ -114,6 +119,9 @@ def materialize_calibration_run_replay(run: Mapping[str, object]) -> dict[str, o
                     "successor_request_id": successor_id,
                     "arm_boundary": "OBSERVED_PREDECESSOR_TERMINAL",
                     "timeout_seconds": gap,
+                    "successor_logical_arrival_seconds": arrival_by_request[
+                        successor_id
+                    ],
                     "engine_core_command": "CONTROLLER_ARM_TIMER",
                     "future_content_available": False,
                     "future_reuse_outcome_available": False,
@@ -186,6 +194,11 @@ def bind_calibration_replay_templates(
             **dict(row),
             "replay_template_file": template_index[str(row["group_id"])]["file"],
             "replay_sha256": template_index[str(row["group_id"])]["replay_sha256"],
+            "expected_enqueue_sequence_sha256": canonical_sha256(
+                templates[str(row["group_id"])]["replay_plan"][
+                    "expected_native_enqueue_order"
+                ]
+            ),
         }
         for row in runs
         if isinstance(row, Mapping)

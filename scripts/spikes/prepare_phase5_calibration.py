@@ -78,6 +78,7 @@ def main() -> int:
         help="Private processed evidence root; may be repeated.",
     )
     parser.add_argument("--input-index-output", type=Path)
+    parser.add_argument("--rematerialization-root", type=Path)
     parser.add_argument("--execution-manifest-output", type=Path)
     arguments = parser.parse_args()
     repository = arguments.repository.resolve()
@@ -117,6 +118,11 @@ def main() -> int:
             calibration_child=_load(child_path),
             candidate_inventory=_load(inventory_path),
             evidence_roots=[resolve(path) for path in arguments.evidence_root],
+            rematerialization_root=(
+                None
+                if arguments.rematerialization_root is None
+                else resolve(arguments.rematerialization_root)
+            ),
         )
         identity_audit = audit_calibration_execution_identity(
             protocol=_load(protocol_path), input_index=input_index
