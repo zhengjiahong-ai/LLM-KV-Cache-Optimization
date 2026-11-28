@@ -119,6 +119,7 @@ def materialize_calibration_execution_manifest(
         "groups": ["SWE_G01", "SWE_G02", "SWE_G03", "SWE_G04"],
         "repeats": 3,
         "freeze_sha256": freeze.get("freeze_sha256"),
+        "git_sha": freeze.get("git_sha"),
         "input_index_sha256": input_index.get("input_index_sha256"),
         "arrival_manifest_content_sha256": arrival_manifest.get(
             "arrival_manifest_content_sha256"

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from types import SimpleNamespace
 
 import pytest
 
@@ -9,6 +10,10 @@ from kvopt.workload.phase5_calibration_runner import (
     CalibrationRequestInput,
     CalibrationRunnerError,
     execute_calibration_replay,
+    install_official_calibration_runtime,
+    install_project_calibration_runtime,
+    official_timer_sink,
+    project_timer_sink,
 )
 from kvopt.workload.phase5_replay import canonical_sha256
 
@@ -113,3 +118,122 @@ def test_calibration_replay_rejects_request_set_drift() -> None:
                 monotonic=lambda: 1.0,
             )
         )
+
+
+def test_project_runtime_installs_exact_engine_core_contract(monkeypatch) -> None:
+    calls = []
+
+    class Bridge:
+        def __init__(self, client):
+            assert client == "utility-client"
+
+        async def install(self, contract):
+            calls.append(dict(contract))
+            report = {
+                "status": "PASS",
+                "system_id": "A3_SUFFIX",
+                "policy_id": "A3_SUFFIX_COST_V1",
+                "control_transport": "ASYNCMPLCLIENT_UTILITY_RPC",
+                "native_objects_cross_process": False,
+            }
+            return SimpleNamespace(
+                runtime_installation_report=lambda: report,
+            )
+
+        async def controller_event(self, event_type, payload):
+            calls.append((event_type, dict(payload)))
+            return {"status": "PASS"}
+
+    monkeypatch.setattr(
+        "kvopt.workload.phase5_calibration_runner.AsyncLLMNativeAdapter",
+        lambda **_kwargs: SimpleNamespace(),
+    )
+    monkeypatch.setattr(
+        "kvopt.workload.phase5_calibration_runner.resolve_async_utility_client",
+        lambda _engine: "utility-client",
+    )
+    monkeypatch.setattr(
+        "kvopt.workload.phase5_calibration_runner.EngineCoreUtilityBridge", Bridge
+    )
+    contract = {
+        "run_id": "run-1",
+        "system_id": "A3_SUFFIX",
+        "policy_id": "A3_SUFFIX_COST_V1",
+        "group_id": "SWE_G01",
+        "expected_native_enqueue_order": ["program-1:turn:1"],
+        "request_inputs": [{
+            "request_id": "program-1:turn:1",
+            "program_id": "program-1",
+            "session_id": "session-1",
+            "source_trace_sha256": "a" * 64,
+        }],
+    }
+    runtime = asyncio.run(
+        install_project_calibration_runtime(
+            engine=SimpleNamespace(),
+            run_contract=contract,
+            run_epoch_monotonic=1.0,
+            clock=lambda: 1.0,
+        )
+    )
+    assert calls[0]["schema_version"] == "phase5.calibration_engine_core_install.v1"
+    assert calls[0]["all_logical_request_ids"] == ["program-1:turn:1"]
+    assert calls[0]["session_by_program"] == {"program-1": "session-1"}
+    result = asyncio.run(project_timer_sink(runtime)({"candidate_id": "program-1"}))
+    assert result == {"status": "PASS"}
+    assert calls[1][0] == "CONTROLLER_ARM_TIMER"
+
+
+def test_project_runtime_rejects_official_arm() -> None:
+    with pytest.raises(CalibrationRunnerError, match="independent runtime"):
+        asyncio.run(
+            install_project_calibration_runtime(
+                engine=SimpleNamespace(),
+                run_contract={"system_id": "CONTINUUM_OFFICIAL"},
+                run_epoch_monotonic=1.0,
+                clock=lambda: 1.0,
+            )
+        )
+
+
+def test_official_runtime_uses_observation_only_utility_rpc(monkeypatch) -> None:
+    calls = []
+
+    class Client:
+        async def call_utility_async(self, method, *args):
+            calls.append((method, args))
+            if method == "kvopt_phase5_official_install":
+                return {"installation_report": {
+                    "status": "PASS",
+                    "system_id": "CONTINUUM_OFFICIAL",
+                    "policy_id": "CONTINUUM_OFFICIAL_316A5879",
+                    "observation_only": True,
+                    "control_transport": "ASYNCMPLCLIENT_UTILITY_RPC",
+                    "native_objects_cross_process": False,
+                }}
+            return {"events": [], "engine_core_pid": 7}
+
+    client = Client()
+    monkeypatch.setattr(
+        "kvopt.workload.phase5_calibration_runner.AsyncLLMNativeAdapter",
+        lambda **_kwargs: SimpleNamespace(),
+    )
+    monkeypatch.setattr(
+        "kvopt.workload.phase5_calibration_runner.resolve_async_utility_client",
+        lambda _engine: client,
+    )
+    runtime = asyncio.run(
+        install_official_calibration_runtime(
+            engine=SimpleNamespace(),
+            run_contract={
+                "run_id": "run-official",
+                "system_id": "CONTINUUM_OFFICIAL",
+                "policy_id": "CONTINUUM_OFFICIAL_316A5879",
+            },
+            run_epoch_monotonic=1.0,
+            clock=lambda: 1.0,
+        )
+    )
+    assert calls[0][0] == "kvopt_phase5_official_install"
+    assert asyncio.run(runtime.export_evidence())["engine_core_pid"] == 7
+    assert asyncio.run(official_timer_sink()({}))["policy_input"] is False

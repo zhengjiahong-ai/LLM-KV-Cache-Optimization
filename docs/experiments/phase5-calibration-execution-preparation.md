@@ -1,6 +1,6 @@
 # Phase 5 SWE Calibration execution preparation
 
-**Status:** `FAIL_CLOSED_EXECUTION_NOT_READY`
+**Status:** `READY_FOR_FIRST_CALIBRATION_RUN`
 
 This preparation is CPU/interface work only. It does not authorize or claim a
 GPU Calibration run.
@@ -31,12 +31,12 @@ does not contain third-party trace bodies or derived token arrays.
    `316a58794a6ff86b216e579b74fd56ed0c5a911f`; its observation-only plugin does
    not install project policies.
 5. Controller timer commands contain only identities already observed at the
-   predecessor terminal boundary and the frozen empirical gap duration.
-   EngineCore samples the armed timestamp in its own clock domain. The command
-   does not carry future Turn content, future reuse outcomes or a frontend
-   timestamp.
+   predecessor terminal boundary and the remaining delay to the frozen
+   absolute successor arrival. EngineCore samples the armed timestamp in its
+   own clock domain. The command does not carry future Turn content, future
+   reuse outcomes or a frontend timestamp.
 
-## Current fail-closed boundary
+## Current execution boundary
 
 `DVA_ER_V1` is ready for its first Calibration run to provide Native readiness
 evidence. The live BlockPool/FreeQueue/refcount/
@@ -57,13 +57,21 @@ All 48 Sessions pass the unchanged Q1--Q9 mechanical qualification, including
 the exact-token/context Q6 check. The original 3B token evidence remains
 immutable and is retained as prior lineage rather than overwritten.
 
-The remaining blocker is the shared 72-run Calibration runner. Its
-per-run process lifecycle, exact request dispatcher, archive writer and
-first-valid-run readiness validator are not yet implemented. The preparation
-therefore remains blocked with:
+The shared 72-run Calibration runner is implemented. Each run is bound to one
+immutable run contract, atomically consumed once immediately before engine
+initialization, executed in a fresh process and EngineCore, and archived as
+either `PASS` or `FAIL_CLOSED`. The dispatcher enforces the complete frozen
+enqueue order, the predecessor-terminal boundary and the remaining delay to
+the frozen absolute successor arrival. It does not add a delayed predecessor's
+runtime to the empirical tool gap a second time.
 
-- `CALIBRATION_RUNNER:NOT_READY`
-- `CALIBRATION_RUNNER:ENTRYPOINT_MISSING`
+Project-side systems install and validate their exact System/Policy inside the
+EngineCore process. Official Continuum uses its separate observation-only
+plugin and cannot fall back to a project policy. The preparation now emits:
+
+- `blockers = []`
+- `execution_ready = true`
+- `status = READY`
 
 No A0/A1/A3 coordinator is used as a fallback. No timer is synthesized
 from a future request or future outcome. The exact DVA selector is wired and
@@ -72,8 +80,8 @@ is implemented against the now-resolved 1.5B identity.
 
 ## Execution boundaries
 
-- SWE Calibration GPU execution: authorized by M1, but mechanically blocked by
-  the missing shared runner.
+- SWE Calibration GPU execution: authorized by M1 and mechanically ready for
+  the first frozen run; no run is started by preparation.
 - SWE Formal Campaign: not authorized.
 - BFCL Derived GPU execution: not authorized.
 - Positive benefit, Native conformance for all six systems and Formal sample

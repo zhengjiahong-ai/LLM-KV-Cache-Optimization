@@ -47,6 +47,9 @@ def materialize_calibration_run_contract(
     ):
         raise CalibrationRunContractError("Calibration execution manifest is not frozen")
     runs = manifest.get("runs")
+    git_sha = manifest.get("git_sha")
+    if not isinstance(git_sha, str) or len(git_sha) != 40:
+        raise CalibrationRunContractError("Calibration code identity is missing")
     if not isinstance(runs, list):
         raise CalibrationRunContractError("Calibration run inventory is malformed")
     matches = [row for row in runs if isinstance(row, Mapping) and row.get("run_id") == run_id]
@@ -96,6 +99,26 @@ def materialize_calibration_run_contract(
         or canonical_sha256(enqueue) != run.get("expected_enqueue_sequence_sha256")
     ):
         raise CalibrationRunContractError("frozen enqueue sequence differs")
+    events = replay_plan.get("events")
+    if not isinstance(events, list):
+        raise CalibrationRunContractError("replay event sequence is missing")
+    arrivals: dict[str, float] = {}
+    for event in events:
+        if not isinstance(event, Mapping) or event.get("kind") != "ARRIVAL":
+            continue
+        request_id = event.get("request_id")
+        timestamp = event.get("logical_timestamp")
+        if (
+            not isinstance(request_id, str)
+            or request_id in arrivals
+            or isinstance(timestamp, bool)
+            or not isinstance(timestamp, (int, float))
+            or float(timestamp) < 0.0
+        ):
+            raise CalibrationRunContractError("replay arrival event is invalid")
+        arrivals[request_id] = float(timestamp)
+    if set(arrivals) != set(enqueue):
+        raise CalibrationRunContractError("replay arrivals differ from enqueue requests")
 
     request_rows: dict[str, dict[str, object]] = {}
     programs = run.get("programs")
@@ -104,6 +127,9 @@ def materialize_calibration_run_contract(
     for program in programs:
         if not isinstance(program, Mapping):
             raise CalibrationRunContractError("run Program binding is malformed")
+        source_trace_sha256 = program.get("source_trace_sha256")
+        if not isinstance(source_trace_sha256, str) or len(source_trace_sha256) != 64:
+            raise CalibrationRunContractError("Program source trace identity is missing")
         token_path = Path(str(program.get("token_materialization_path")))
         if (
             not token_path.is_file()
@@ -129,6 +155,7 @@ def materialize_calibration_run_contract(
                 "request_id": request_id,
                 "program_id": program.get("program_id"),
                 "session_id": program.get("session_id"),
+                "source_trace_sha256": source_trace_sha256,
                 "token_ids": token_ids,
                 "token_ids_sha256": value.get("token_ids_sha256"),
             }
@@ -146,10 +173,12 @@ def materialize_calibration_run_contract(
         "execution_position": run.get("execution_order_index"),
         "execution_manifest_file_sha256": _sha256(execution_manifest_path),
         "execution_manifest_content_sha256": manifest.get("execution_manifest_sha256"),
+        "git_sha": git_sha,
         "freeze_sha256": manifest.get("freeze_sha256"),
         "replay_template_file_sha256": _sha256(replay_path),
         "replay_sha256": replay_sha,
         "expected_native_enqueue_order": enqueue,
+        "logical_arrival_seconds_by_request": arrivals,
         "expected_enqueue_sequence_sha256": canonical_sha256(enqueue),
         "request_inputs": [request_rows[request_id] for request_id in enqueue],
         "controller_timers": replay.get("controller_timers"),

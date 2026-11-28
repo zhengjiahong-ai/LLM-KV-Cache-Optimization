@@ -2,8 +2,8 @@
   "schema_version": "phase5.calibration_system_readiness.v1",
   "native_execution_architecture": "ENGINE_CORE_PLUGIN_UTILITY_RPC_V1",
   "calibration_runner": {
-    "status": "NOT_IMPLEMENTED",
-    "entrypoint": null
+    "status": "READY_FOR_FIRST_CALIBRATION_RUN",
+    "entrypoint": "scripts/spikes/run_phase5_calibration.py"
   },
   "systems": {
     "NATIVE": {

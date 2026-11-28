@@ -32,6 +32,7 @@ def _fixture(tmp_path: Path) -> tuple[Path, str]:
         programs.append({
             "program_id": f"program-{index}",
             "session_id": f"session-{index}",
+            "source_trace_sha256": str(index) * 64,
             "token_materialization_path": str(token_path),
             "token_materialization_file_sha256": hashlib.sha256(
                 token_path.read_bytes()
@@ -41,7 +42,17 @@ def _fixture(tmp_path: Path) -> tuple[Path, str]:
         "schema_version": "phase5.swe_calibration_run_replay.v1",
         "status": "PASS",
         "group_id": "SWE_G01",
-        "replay_plan": {"expected_native_enqueue_order": request_ids},
+        "replay_plan": {
+            "expected_native_enqueue_order": request_ids,
+            "events": [
+                {
+                    "kind": "ARRIVAL",
+                    "request_id": request_id,
+                    "logical_timestamp": float(index),
+                }
+                for index, request_id in enumerate(request_ids)
+            ],
+        },
         "controller_timers": [],
         "timer_runtime_rule": "RULE",
     }
@@ -57,6 +68,7 @@ def _fixture(tmp_path: Path) -> tuple[Path, str]:
         "execution_authorized_by_m1": True,
         "formal_execution_authorized": False,
         "freeze_sha256": "f" * 64,
+        "git_sha": "a" * 40,
         "runs": [{
             "run_id": run_id,
             "system_id": "NATIVE",
