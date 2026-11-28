@@ -207,6 +207,24 @@ def _native_hashes(request: object) -> list[str]:
     return result
 
 
+def _native_block_size(kv_cache_manager: object) -> int:
+    config = getattr(kv_cache_manager, "kv_cache_config", None)
+    groups = getattr(config, "kv_cache_groups", None)
+    if not isinstance(groups, list) or not groups:
+        raise Phase5ENativeRuntimeError("Native KV cache groups are unavailable")
+    sizes = {
+        getattr(getattr(group, "kv_cache_spec", None), "block_size", None)
+        for group in groups
+    }
+    if (
+        len(sizes) != 1
+        or any(isinstance(value, bool) or not isinstance(value, int) for value in sizes)
+        or next(iter(sizes)) <= 0
+    ):
+        raise Phase5ENativeRuntimeError("Native KV block size is not uniform")
+    return next(iter(sizes))
+
+
 def _install_native_request_observation_hook(
     *,
     kv_cache_manager: object,
@@ -242,7 +260,7 @@ def _install_native_request_observation_hook(
             shared_prefix_boundary = result[2]
             internal_id = getattr(request, "request_id", None)
             prompt_tokens = getattr(request, "num_tokens", None)
-            block_size = getattr(receiver, "block_size", None)
+            block_size = _native_block_size(receiver)
             if (
                 isinstance(cached, bool)
                 or not isinstance(cached, int)
@@ -255,9 +273,6 @@ def _install_native_request_observation_hook(
                 or isinstance(prompt_tokens, bool)
                 or not isinstance(prompt_tokens, int)
                 or prompt_tokens < 0
-                or isinstance(block_size, bool)
-                or not isinstance(block_size, int)
-                or block_size <= 0
             ):
                 raise Phase5ENativeRuntimeError("Native APC observation is invalid")
             logical = logical_for(internal_id)

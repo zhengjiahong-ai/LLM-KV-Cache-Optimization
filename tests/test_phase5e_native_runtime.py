@@ -56,10 +56,13 @@ class _Integration:
 
 def _ownership() -> tuple[object, object, object, object]:
     class Manager:
-        block_size = 16
-
         def __init__(self, block_pool: object) -> None:
             self.block_pool = block_pool
+            self.kv_cache_config = SimpleNamespace(
+                kv_cache_groups=[
+                    SimpleNamespace(kv_cache_spec=SimpleNamespace(block_size=16))
+                ]
+            )
 
         def get_computed_blocks(self, _request: object):
             return ((), 16, 0)

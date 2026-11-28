@@ -302,6 +302,11 @@ def test_terminal_snapshot_excludes_one_real_hashless_tail_from_retention() -> N
     event = next(row for row in source.snapshot() if row["event_type"] == "VLLM_PREFIX_SNAPSHOT")
     assert event["payload"]["block_ids"] == [7]
     assert event["payload"]["excluded_hashless_tail_block_ids"] == [8]
+    assert event["request_id"] == "p1:r1"
+    assert event["program_id"] == "p1"
+    assert event["payload"]["ordered_native_hashes"] == ["ab" * 32]
+    assert event["payload"]["hash_num_tokens"] == 16
+    assert event["payload"]["native_hash_block_size"] == 16
     entry = integration._manager.planning_snapshots()[0]
     assert tuple(block.block_id for block in entry.block_ids) == (7,)
 

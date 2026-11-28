@@ -457,6 +457,19 @@ class Phase5EProductionIntegration:
             )
         block_ids = tuple(block.block_id for block in hashed_blocks)
         native_hashes = tuple(str(block.native_hash_hex) for block in hashed_blocks)
+        hash_token_counts = {block.hash_num_tokens for block in hashed_blocks}
+        if (
+            len(hash_token_counts) != 1
+            or any(
+                isinstance(value, bool) or not isinstance(value, int)
+                for value in hash_token_counts
+            )
+            or next(iter(hash_token_counts)) <= 0
+        ):
+            raise Phase5EProductionIntegrationError(
+                "terminal prefix Native block size is incomplete"
+            )
+        native_hash_block_size = next(iter(hash_token_counts))
         hashless_tail_block_ids = tuple(block.block_id for block in hashless_tail)
         program = snapshot.program_id
         request = RequestIdentity(logical_id)
@@ -512,6 +525,10 @@ class Phase5EProductionIntegration:
             "prefix_id": prefix.canonical_value,
             "block_ids": list(block_ids),
             "native_cache_keys": list(native_hashes),
+            "ordered_native_hashes": list(native_hashes),
+            "hash_num_tokens": len(native_hashes) * native_hash_block_size,
+            "native_hash_block_size": native_hash_block_size,
+            "native_hash_function": "SHA256_CBOR_BYTES",
             "excluded_hashless_tail_block_ids": list(hashless_tail_block_ids),
             "hashless_tail_semantics": "NON_RETAINED_PARTIAL_NATIVE_BLOCK",
             "native_hash_process_id": native_hash_process_id,
@@ -519,6 +536,8 @@ class Phase5EProductionIntegration:
         self.event_source.emit(
             {
                 "event_type": "VLLM_PREFIX_SNAPSHOT",
+                "request_id": logical_id,
+                "program_id": program.value,
                 "payload": lifecycle_payload,
             }
         )
