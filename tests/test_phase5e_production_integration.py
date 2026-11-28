@@ -289,7 +289,7 @@ def test_terminal_snapshot_excludes_one_real_hashless_tail_from_retention() -> N
         external_request_id="P5E-A-01:p1:r1",
         internal_request_id="P5E-A-01:p1:r1",
     )
-    hashed = NativeBlockSnapshot(7, 0, "ab" * 32, None, 0, False)
+    hashed = NativeBlockSnapshot(7, 0, "ab" * 32 + "00000000", None, 0, False)
     partial = NativeBlockSnapshot(8, 0, None, None, 0, False)
     integration.observe_terminal_request_snapshot(
         RequestBlockSnapshot(
@@ -309,6 +309,9 @@ def test_terminal_snapshot_excludes_one_real_hashless_tail_from_retention() -> N
     assert event["request_id"] == "p1:r1"
     assert event["program_id"] == "p1"
     assert event["payload"]["ordered_native_hashes"] == ["ab" * 32]
+    assert event["payload"]["ordered_native_block_hashes"] == [
+        "ab" * 32 + "00000000"
+    ]
     assert event["payload"]["hash_num_tokens"] == 16
     assert event["payload"]["native_hash_block_size"] == 16
     entry = integration._manager.planning_snapshots()[0]
@@ -429,7 +432,7 @@ def test_calibration_retains_terminal_prefixes_beyond_part_a_first_wave() -> Non
             block_groups=((NativeBlockSnapshot(
                 block_id=7,
                 ref_count=0,
-                native_hash_hex=(b"terminal-prefix" * 2)[:32].hex(),
+                native_hash_hex=(b"t" * 32).hex(),
                 hash_num_tokens=16,
                 cache_group_id=0,
                 is_null=False,

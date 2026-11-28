@@ -13,6 +13,54 @@ class CalibrationArchiveError(RuntimeError):
     """A Calibration run cannot be represented by a complete archive."""
 
 
+def normalize_calibration_native_evidence(
+    native_evidence: Sequence[Mapping[str, object]],
+) -> list[dict[str, object]]:
+    """Distinguish scheduling probes from the final pre-allocation APC lookup.
+
+    Pinned vLLM may call ``get_computed_blocks`` repeatedly while one request
+    waits for capacity.  The final call is the lookup whose N/C state survives
+    into execution; earlier calls remain immutable probe evidence.
+    """
+
+    positions: dict[str, list[int]] = {}
+    for index, row in enumerate(native_evidence):
+        if row.get("event_type") != "VLLM_NATIVE_REQUEST_OBSERVATION":
+            continue
+        request_id = row.get("request_id")
+        if not isinstance(request_id, str) or not request_id:
+            continue
+        positions.setdefault(request_id, []).append(index)
+    last_by_request = {request_id: values[-1] for request_id, values in positions.items()}
+    attempt_by_request: dict[str, int] = {}
+    normalized: list[dict[str, object]] = []
+    for index, source in enumerate(native_evidence):
+        row = dict(source)
+        if row.get("event_type") == "VLLM_NATIVE_REQUEST_OBSERVATION":
+            request_id = row.get("request_id")
+            if isinstance(request_id, str) and request_id in positions:
+                attempt = attempt_by_request.get(request_id, 0) + 1
+                attempt_by_request[request_id] = attempt
+                payload_value = row.get("payload")
+                payload = dict(payload_value) if isinstance(payload_value, Mapping) else {}
+                payload.update(
+                    {
+                        "native_apc_lookup_attempt_index": attempt,
+                        "native_apc_lookup_attempt_count": len(positions[request_id]),
+                        "native_apc_observation_role": (
+                            "FINAL_PRE_ALLOCATION_LOOKUP"
+                            if index == last_by_request[request_id]
+                            else "SUPERSEDED_SCHEDULING_PROBE"
+                        ),
+                    }
+                )
+                row["payload"] = payload
+                if index != last_by_request[request_id]:
+                    row["event_type"] = "VLLM_NATIVE_REQUEST_PROBE"
+        normalized.append(row)
+    return normalized
+
+
 def validate_calibration_native_evidence(
     *,
     run_contract: Mapping[str, object],

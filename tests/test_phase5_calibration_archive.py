@@ -9,6 +9,7 @@ from kvopt.workload.phase5_archive import validate_phase5_evidence_archive
 from kvopt.workload.phase5_calibration_archive import (
     CalibrationArchiveError,
     finalize_calibration_run_archive,
+    normalize_calibration_native_evidence,
     validate_calibration_native_evidence,
 )
 
@@ -87,6 +88,30 @@ def test_calibration_native_evidence_requires_exact_request_coverage() -> None:
     )
     assert complete["status"] == "PASS"
     assert complete["nec_materialization_ready"] is True
+
+
+def test_calibration_native_evidence_retains_probes_and_selects_final_lookup() -> None:
+    first = _observation("p1:r1")
+    final = _observation("p1:r1")
+    final["payload"]["native_cached_prefix_tokens"] = 0
+    normalized = normalize_calibration_native_evidence((first, final, _snapshot("p1:r1")))
+    assert [row["event_type"] for row in normalized] == [
+        "VLLM_NATIVE_REQUEST_PROBE",
+        "VLLM_NATIVE_REQUEST_OBSERVATION",
+        "VLLM_PREFIX_SNAPSHOT",
+    ]
+    assert normalized[0]["payload"]["native_apc_observation_role"] == (
+        "SUPERSEDED_SCHEDULING_PROBE"
+    )
+    assert normalized[1]["payload"]["native_apc_observation_role"] == (
+        "FINAL_PRE_ALLOCATION_LOOKUP"
+    )
+    assert normalized[1]["payload"]["native_apc_lookup_attempt_count"] == 2
+    validation = validate_calibration_native_evidence(
+        run_contract={"expected_native_enqueue_order": ["p1:r1"]},
+        native_evidence=normalized,
+    )
+    assert validation["status"] == "PASS"
 
 
 def test_calibration_pass_archive_rejects_missing_native_observations(

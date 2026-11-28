@@ -13,6 +13,7 @@ from pathlib import Path
 
 from kvopt.workload.phase5_calibration_archive import (
     finalize_calibration_run_archive,
+    normalize_calibration_native_evidence,
     validate_calibration_native_evidence,
 )
 from kvopt.workload.phase5_calibration_run_contract import (
@@ -195,6 +196,7 @@ async def _run(arguments: argparse.Namespace, prepared: tuple[object, ...]) -> d
         else:
             await runtime.evidence.refresh()
             native_evidence = [dict(row) for row in runtime.evidence.raw_evidence()]
+        native_evidence = normalize_calibration_native_evidence(native_evidence)
         evidence_validation = validate_calibration_native_evidence(
             run_contract=contract, native_evidence=native_evidence
         )

@@ -461,7 +461,25 @@ class Phase5EProductionIntegration:
                 "with at most one hashless tail block"
             )
         block_ids = tuple(block.block_id for block in hashed_blocks)
-        native_hashes = tuple(str(block.native_hash_hex) for block in hashed_blocks)
+        native_block_hashes = tuple(
+            str(block.native_hash_hex) for block in hashed_blocks
+        )
+        native_hashes: tuple[str, ...] = tuple(
+            value
+            if len(value) == 64
+            else value[:64]
+            if (
+                len(value) == 72
+                and block.cache_group_id == 0
+                and value[64:] == "00000000"
+            )
+            else ""
+            for block, value in zip(hashed_blocks, native_block_hashes, strict=True)
+        )
+        if any(len(value) != 64 for value in native_hashes):
+            raise Phase5EProductionIntegrationError(
+                "terminal prefix Native content hash encoding is unsupported"
+            )
         if (
             isinstance(native_hash_block_size, bool)
             or not isinstance(native_hash_block_size, int)
@@ -526,6 +544,8 @@ class Phase5EProductionIntegration:
             "block_ids": list(block_ids),
             "native_cache_keys": list(native_hashes),
             "ordered_native_hashes": list(native_hashes),
+            "ordered_native_block_hashes": list(native_block_hashes),
+            "native_block_hash_encoding": "SHA256_CBOR_BYTES_PLUS_UINT32_CACHE_GROUP_ID",
             "hash_num_tokens": len(native_hashes) * native_hash_block_size,
             "native_hash_block_size": native_hash_block_size,
             "native_hash_function": "SHA256_CBOR_BYTES",
