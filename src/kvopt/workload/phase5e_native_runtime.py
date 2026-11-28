@@ -236,9 +236,10 @@ def _install_native_request_observation_hook(
     def wrapped(receiver: object, request: object, *args: object, **kwargs: object):
         result = original(receiver, request, *args, **kwargs)
         if receiver is kv_cache_manager:
-            if not isinstance(result, tuple) or len(result) != 2:
+            if not isinstance(result, tuple) or len(result) != 3:
                 raise Phase5ENativeRuntimeError("Native APC observation shape differs")
             cached = result[1]
+            shared_prefix_boundary = result[2]
             internal_id = getattr(request, "request_id", None)
             prompt_tokens = getattr(request, "num_tokens", None)
             block_size = getattr(receiver, "block_size", None)
@@ -246,6 +247,9 @@ def _install_native_request_observation_hook(
                 isinstance(cached, bool)
                 or not isinstance(cached, int)
                 or cached < 0
+                or isinstance(shared_prefix_boundary, bool)
+                or not isinstance(shared_prefix_boundary, int)
+                or shared_prefix_boundary < 0
                 or not isinstance(internal_id, str)
                 or not internal_id
                 or isinstance(prompt_tokens, bool)
@@ -268,6 +272,7 @@ def _install_native_request_observation_hook(
                     "payload": {
                         "native_prompt_tokens": prompt_tokens,
                         "native_cached_prefix_tokens": cached,
+                        "native_shared_prefix_boundary": shared_prefix_boundary,
                         "native_apc_block_hashes": _native_hashes(request),
                         "native_hash_block_size": block_size,
                         "native_hash_process_id": str(os.getpid()),

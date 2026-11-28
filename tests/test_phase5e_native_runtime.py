@@ -62,7 +62,7 @@ def _ownership() -> tuple[object, object, object, object]:
             self.block_pool = block_pool
 
         def get_computed_blocks(self, _request: object):
-            return ((), 16)
+            return ((), 16, 0)
 
         def allocate_slots(self, request: object, *args: object, **kwargs: object):
             return request, args, kwargs
@@ -434,12 +434,13 @@ def test_calibration_native_observation_hook_records_apc_without_policy_change()
         num_tokens=32,
         block_hashes=[b"a" * 32, b"b" * 32],
     )
-    assert manager.get_computed_blocks(request) == ((), 16)
+    assert manager.get_computed_blocks(request) == ((), 16, 0)
     rows = source.snapshot()
     assert len(rows) == 1
     assert rows[0]["event_type"] == "VLLM_NATIVE_REQUEST_OBSERVATION"
     assert rows[0]["request_id"] == "p1:turn:1"
     assert rows[0]["payload"]["native_cached_prefix_tokens"] == 16
+    assert rows[0]["payload"]["native_shared_prefix_boundary"] == 0
     runtime._restore_native_request_observation_hook(owner, original)
 
 
