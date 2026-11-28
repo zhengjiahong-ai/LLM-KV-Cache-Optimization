@@ -5,6 +5,7 @@ import pytest
 from kvopt.workload.phase5_calibration_controller import (
     CalibrationControllerError,
     arm_followup_after_terminal,
+    remaining_followup_delay,
 )
 
 
@@ -57,4 +58,24 @@ def test_timer_rejects_invalid_gap(gap: float) -> None:
             successor_request_id="turn-2",
             observed_tool_gap_seconds=gap,
             predecessor_terminal_observed=True,
+        )
+
+
+def test_remaining_followup_delay_uses_frozen_absolute_arrival() -> None:
+    assert remaining_followup_delay(
+        successor_logical_arrival_seconds=12.0,
+        run_elapsed_seconds_at_terminal=9.5,
+    ) == 2.5
+    assert remaining_followup_delay(
+        successor_logical_arrival_seconds=12.0,
+        run_elapsed_seconds_at_terminal=14.0,
+    ) == 0.0
+
+
+@pytest.mark.parametrize("value", [-1.0, float("inf"), True])
+def test_remaining_followup_delay_rejects_invalid_time(value: object) -> None:
+    with pytest.raises(CalibrationControllerError):
+        remaining_followup_delay(
+            successor_logical_arrival_seconds=value,  # type: ignore[arg-type]
+            run_elapsed_seconds_at_terminal=1.0,
         )

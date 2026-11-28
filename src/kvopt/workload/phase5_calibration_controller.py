@@ -85,3 +85,33 @@ def arm_followup_after_terminal(
         successor_request_id=successor_request_id,
         timeout_seconds=observed_tool_gap_seconds,
     )
+
+
+def remaining_followup_delay(
+    *,
+    successor_logical_arrival_seconds: float,
+    run_elapsed_seconds_at_terminal: float,
+) -> float:
+    """Return the delay remaining on one frozen absolute arrival.
+
+    A slow replayed predecessor can terminate after the source arrival point.
+    In that case the successor is immediately eligible; the source tool gap is
+    not added a second time.
+    """
+
+    values = (successor_logical_arrival_seconds, run_elapsed_seconds_at_terminal)
+    if any(
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(float(value))
+        or float(value) < 0.0
+        for value in values
+    ):
+        raise CalibrationControllerError(
+            "follow-up scheduling timestamps must be finite and non-negative"
+        )
+    return max(
+        0.0,
+        float(successor_logical_arrival_seconds)
+        - float(run_elapsed_seconds_at_terminal),
+    )

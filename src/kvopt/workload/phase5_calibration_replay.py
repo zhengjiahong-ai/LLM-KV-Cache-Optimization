@@ -141,6 +141,10 @@ def materialize_calibration_run_replay(run: Mapping[str, object]) -> dict[str, o
             "ARM_ONLY_AFTER_OBSERVED_PREDECESSOR_TERMINAL; "
             "ENGINE_CORE_SAMPLES_ARMED_TIMESTAMP"
         ),
+        "timer_runtime_rule": (
+            "REMAINING_DELAY=max(0,FROZEN_ABSOLUTE_SUCCESSOR_ARRIVAL-"
+            "OBSERVED_PREDECESSOR_TERMINAL_RUN_ELAPSED)"
+        ),
     }
     return {**payload, "replay_sha256": canonical_sha256(payload)}
 

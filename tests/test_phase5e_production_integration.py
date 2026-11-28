@@ -399,6 +399,41 @@ def test_calibration_factory_installs_dva_selector() -> None:
     assert integration._dva_adapter.candidate_id == "DVA_ER_V1"
 
 
+def test_calibration_retains_terminal_prefixes_beyond_part_a_first_wave() -> None:
+    integration = build_phase5_calibration_production_integration(
+        Phase5ERuntimeEventSource(), system_id="A3_SUFFIX"
+    )
+    integration.configure_frozen_request_ids(
+        all_request_ids=["program-1:turn:1", "program-1:turn:2"],
+        first_wave_request_ids=["program-1:turn:1"],
+    )
+    integration.bind_request_identity(
+        logical_request_id="program-1:turn:2",
+        external_request_id="run:program-1:turn:2",
+        internal_request_id="internal-2",
+    )
+    integration.observe_terminal_request_snapshot(
+        RequestBlockSnapshot(
+            program_id=ProgramIdentity("program-1"),
+            request_id=RequestIdentity("internal-2"),
+            block_groups=((NativeBlockSnapshot(
+                block_id=7,
+                ref_count=0,
+                native_hash_hex=(b"terminal-prefix" * 2)[:32].hex(),
+                hash_num_tokens=16,
+                cache_group_id=0,
+                is_null=False,
+            ),),),
+            availability=ObservationAvailability.AVAILABLE,
+        ),
+        observed_at=2.0,
+        native_hash_process_id=str(os.getpid()),
+    )
+    assert [row["request_id"] for row in integration._terminal_records.values()] == [
+        "program-1:turn:2"
+    ]
+
+
 def test_dva_allocation_identity_comes_from_engine_core_request_binding() -> None:
     integration = build_phase5_calibration_production_integration(
         Phase5ERuntimeEventSource(), system_id="DVA_ER_V1"

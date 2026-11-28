@@ -415,11 +415,19 @@ class Phase5EProductionIntegration:
         logical_id = self._logical_by_internal.get(internal_id)
         if logical_id is None:
             raise Phase5EProductionIntegrationError("terminal snapshot is not identity-bound")
-        # Only exact frozen first-wave identities create retained prefixes.
+        # Part A deliberately retains only its frozen first wave. Calibration
+        # is a trace-driven multi-turn replay: every frozen request may become
+        # a predecessor of a later Turn and must therefore register its real
+        # terminal prefix.  The two roles must not share the Part A shortcut.
         first_wave = self._first_wave_request_ids
         if first_wave is None:
             first_wave = frozenset(f"p{index}:r1" for index in range(1, 5))
-        if logical_id not in first_wave:
+        retained_request_ids = (
+            self._all_request_ids
+            if self.execution_role == "SWE_CALIBRATION"
+            else first_wave
+        )
+        if retained_request_ids is None or logical_id not in retained_request_ids:
             return
         blocks = tuple(block for group in snapshot.block_groups for block in group)
         if not blocks or any(block.is_null for block in blocks):
