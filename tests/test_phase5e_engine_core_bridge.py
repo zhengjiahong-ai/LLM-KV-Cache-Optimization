@@ -140,6 +140,50 @@ def test_engine_core_install_distinguishes_configured_and_allocatable_blocks(
     ]
 
 
+def test_engine_core_install_dispatches_exact_calibration_system(monkeypatch) -> None:
+    report = {"status": "PASS", "system_id": "A1_ORIGINAL"}
+    integration = SimpleNamespace(
+        configure_frozen_request_ids=lambda **_kwargs: None,
+        configure_calibration_identities=lambda **_kwargs: None,
+        system_id="A1_ORIGINAL",
+    )
+    monkeypatch.setattr(
+        "kvopt.workload.phase5e_engine_core_plugin."
+        "build_phase5_calibration_production_integration",
+        lambda _source, *, system_id: (
+            integration if system_id == "A1_ORIGINAL" else None
+        ),
+    )
+    observed = {}
+
+    def install(**kwargs):
+        observed.update(kwargs)
+        return report
+
+    monkeypatch.setattr(
+        "kvopt.workload.phase5e_engine_core_plugin.install_phase5_calibration_runtime",
+        install,
+    )
+    contract = {
+        **_install_contract(),
+        "schema_version": "phase5.calibration_engine_core_install.v1",
+        "run_id": "phase5-calibration-swe_bench-SWE_G01-r1-a1_original",
+        "system_id": "A1_ORIGINAL",
+        "policy_id": "A1_ENTRY_COST_AWARE",
+        "native_execution_architecture": "ENGINE_CORE_PLUGIN_UTILITY_RPC_V1",
+        "request_identity_prefix": "calibration:",
+        "all_logical_request_ids": ["program:turn:1", "program:turn:2"],
+        "first_wave_logical_request_ids": [],
+        "group_id": "SWE_G01",
+        "session_by_program": {"program": "session-1"},
+        "trace_sha256_by_program": {"program": "a" * 64},
+    }
+    result = _install(_core_with_free_blocks(2047), contract)
+    assert observed["system_id"] == "A1_ORIGINAL"
+    assert result["installation_report"]["request_identity_prefix"] == "calibration:"
+    assert result["installation_report"]["system_id"] == "A1_ORIGINAL"
+
+
 def test_engine_core_install_rejects_unreserved_free_block_geometry() -> None:
     with pytest.raises(Exception, match="observed_free=2048"):
         _install(_core_with_free_blocks(2048), _install_contract())
@@ -687,3 +731,50 @@ def test_controller_timer_requires_explicit_clock_domain() -> None:
                 "expires_at_timestamp": 2.0,
             },
         )
+
+
+def test_controller_timer_command_is_armed_inside_engine_core() -> None:
+    class Source:
+        def snapshot(self):
+            return ()
+
+    observed: dict[str, object] = {}
+
+    class Integration:
+        def observe_controller_timer_command(self, **kwargs: object) -> None:
+            observed.update(kwargs)
+
+    class Core:
+        def add_request(self, request: object) -> None:
+            raise AssertionError(request)
+
+    install_engine_core_methods(Core)
+    core = Core()
+    core._kvopt_phase5_engine_core_state = _EngineCoreState(  # type: ignore[attr-defined]
+        Source(), Integration(), {}, 2048
+    )
+    result = core.kvopt_phase5_controller_event(  # type: ignore[attr-defined]
+        "CONTROLLER_ARM_TIMER",
+        {
+            "candidate_id": "candidate",
+            "chain_id": "chain",
+            "program_id": "program",
+            "session_id": "session",
+            "timeout_seconds": 60.0,
+            "predecessor_request_id": "turn-1",
+            "successor_request_id": "turn-2",
+            "source": "OBSERVED_PREDECESSOR_TERMINAL_PLUS_FROZEN_TOOL_GAP",
+        },
+    )
+    assert result["status"] == "PASS"
+    assert observed == {
+        "candidate_id": "candidate",
+        "chain_id": "chain",
+        "program_id": "program",
+        "session_id": "session",
+        "timeout_seconds": 60.0,
+        "predecessor_request_id": "turn-1",
+        "successor_request_id": "turn-2",
+        "source": "OBSERVED_PREDECESSOR_TERMINAL_PLUS_FROZEN_TOOL_GAP",
+        "source_event_index": 0,
+    }

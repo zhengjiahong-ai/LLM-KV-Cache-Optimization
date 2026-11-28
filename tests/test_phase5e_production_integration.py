@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import os
+from types import SimpleNamespace
 
 import pytest
 
-from kvopt.continuum import ProgramIdentity, RequestIdentity
+from kvopt.continuum import ProgramIdentity, RequestIdentity, RetentionMode
 from kvopt.continuum.selection import (
     BlockEligibilitySnapshot,
     EligibilityPreparation,
@@ -27,6 +28,7 @@ from kvopt.workload.phase5e_native_runtime import Phase5ERuntimeEventSource
 from kvopt.workload.phase5e_production_integration import (
     Phase5EProductionIntegrationError,
     _BoundForcedReleaseObserver,
+    build_phase5_calibration_production_integration,
     build_phase5e_production_integration,
 )
 
@@ -354,3 +356,136 @@ def test_production_factory_rejects_wrong_boundary_and_invalidated_state() -> No
             stage_id="stage",
             pressure_request_id="pressure",
         )
+
+
+@pytest.mark.parametrize(
+    ("system_id", "coordinator_name"),
+    [
+        ("NATIVE", None),
+        ("CONTINUUM_ADAPTED", "RetentionAwareSelectionCoordinator"),
+        ("A1_ORIGINAL", "A1NativeSelectionCoordinator"),
+        ("A3_SUFFIX", "A3NativeSelectionCoordinator"),
+    ],
+)
+def test_calibration_factory_selects_exact_project_policy(
+    system_id: str, coordinator_name: str | None
+) -> None:
+    source = Phase5ERuntimeEventSource()
+    integration = build_phase5_calibration_production_integration(
+        source, system_id=system_id
+    )
+    assert integration.system_id == system_id
+    if coordinator_name is None:
+        assert integration._coordinator is None
+    else:
+        assert type(integration._coordinator).__name__ == coordinator_name
+
+
+def test_calibration_factory_rejects_official_fallback() -> None:
+    source = Phase5ERuntimeEventSource()
+    with pytest.raises(
+        Phase5EProductionIntegrationError, match="lacks an installed"
+    ):
+        build_phase5_calibration_production_integration(
+            source, system_id="CONTINUUM_OFFICIAL"
+        )
+
+
+def test_calibration_factory_installs_dva_selector() -> None:
+    integration = build_phase5_calibration_production_integration(
+        Phase5ERuntimeEventSource(), system_id="DVA_ER_V1"
+    )
+    assert type(integration._coordinator).__name__ == "DVAERNativeSelectionCoordinator"
+    assert integration._dva_adapter.candidate_id == "DVA_ER_V1"
+
+
+def test_dva_allocation_identity_comes_from_engine_core_request_binding() -> None:
+    integration = build_phase5_calibration_production_integration(
+        Phase5ERuntimeEventSource(), system_id="DVA_ER_V1"
+    )
+    integration.configure_frozen_request_ids(
+        all_request_ids=["program-1:turn:1"], first_wave_request_ids=[]
+    )
+    integration.configure_calibration_identities(
+        group_id="SWE_G01",
+        session_by_program={"program-1": "session-1"},
+        trace_sha256_by_program={"program-1": "a" * 64},
+    )
+    integration.bind_request_identity(
+        logical_request_id="program-1:turn:1",
+        external_request_id="run:program-1:turn:1",
+        internal_request_id="internal-1",
+    )
+    integration.bind_dva_allocation_request("internal-1")
+    assert integration._decision_program_session == ("program-1", "session-1")
+    assert integration._dva_decision_metadata == {
+        "group_id": "SWE_G01",
+        "turn_id": "program-1:turn:1",
+        "trace_sha256": "a" * 64,
+    }
+
+
+def test_controller_timer_command_uses_engine_core_clock() -> None:
+    source = Phase5ERuntimeEventSource()
+    integration = build_phase5e_production_integration(source)
+    integration.observe_controller_timer_command(
+        candidate_id="program-1",
+        chain_id="chain-1",
+        program_id="program-1",
+        session_id="session-1",
+        timeout_seconds=60.0,
+        predecessor_request_id="turn-1",
+        successor_request_id="turn-2",
+        source="OBSERVED_PREDECESSOR_TERMINAL_PLUS_FROZEN_TOOL_GAP",
+        source_event_index=0,
+    )
+    timer = integration._controller_timers["program-1"]
+    assert timer["clock_domain"] == "continuum_lifecycle"
+    assert timer["pending_tool_gap_source"] == "CONTROLLER_ARMED_TIMER"
+    assert float(timer["expires_at_timestamp"]) - float(
+        timer["armed_at_timestamp"]
+    ) == 60.0
+    assert source.snapshot()[0]["event_type"] == "CONTROLLER_ARMED_TIMER"
+
+
+@pytest.mark.parametrize("timeout", [-1.0, float("inf")])
+def test_controller_timer_command_rejects_invalid_timeout(timeout: float) -> None:
+    integration = build_phase5e_production_integration(Phase5ERuntimeEventSource())
+    with pytest.raises(Phase5EProductionIntegrationError, match="invalid"):
+        integration.observe_controller_timer_command(
+            candidate_id="program-1",
+            chain_id="chain-1",
+            program_id="program-1",
+            session_id="session-1",
+            timeout_seconds=timeout,
+            predecessor_request_id="turn-1",
+            successor_request_id="turn-2",
+            source="OBSERVED_PREDECESSOR_TERMINAL_PLUS_FROZEN_TOOL_GAP",
+            source_event_index=0,
+        )
+
+
+def test_calibration_policy_observes_natural_pressure_without_part_a_g9() -> None:
+    source = Phase5ERuntimeEventSource()
+    integration = build_phase5_calibration_production_integration(
+        source, system_id="CONTINUUM_ADAPTED"
+    )
+    removed = []
+    result = integration.apply_pressure(
+        mode=RetentionMode.CONTROLLED,
+        blocks=(
+            SimpleNamespace(block_id=7, ref_cnt=0, block_hash=None),
+            SimpleNamespace(block_id=8, ref_cnt=0, block_hash=None),
+        ),
+        required_blocks=1,
+        timestamp=1.0,
+        remove_selected=lambda block_ids: removed.append(tuple(block_ids)),
+    )
+    integration.observe_native_selection_returned(((result.selected_block_ids[0], None),))
+    event_types = [row["event_type"] for row in source.snapshot()]
+    assert event_types == [
+        "PHASE5_CALIBRATION_NATIVE_PRESSURE_BOUNDARY",
+        "NATIVE_ENTRY_RELEASE_SELECTION_PLAN",
+        "NATIVE_ENTRY_RELEASE_PHYSICAL_OUTCOME",
+    ]
+    assert removed == [result.selected_block_ids]

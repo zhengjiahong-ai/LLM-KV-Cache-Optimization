@@ -13,6 +13,7 @@ from kvopt.workload.phase5_dva_native_provider import DVAERNativeDecisionProvide
 from kvopt.workload.phase5e_native_runtime import (
     Phase5ENativeRuntimeError,
     Phase5ERuntimeEventSource,
+    install_phase5_calibration_runtime,
     install_phase5e_a3_runtime,
     validate_pinned_vllm_source_identity,
 )
@@ -51,6 +52,13 @@ class _Integration:
 
 
 def _ownership() -> tuple[object, object, object, object]:
+    class Manager:
+        def __init__(self, block_pool: object) -> None:
+            self.block_pool = block_pool
+
+        def allocate_slots(self, request: object, *args: object, **kwargs: object):
+            return request, args, kwargs
+
     class Scheduler:
         def __init__(self, manager: object) -> None:
             self.kv_cache_manager = manager
@@ -59,7 +67,7 @@ def _ownership() -> tuple[object, object, object, object]:
             return None
 
     block_pool = object()
-    manager = SimpleNamespace(block_pool=block_pool)
+    manager = Manager(block_pool)
     scheduler = Scheduler(manager)
     core = SimpleNamespace(scheduler=scheduler)
     return core, scheduler, manager, block_pool
@@ -352,3 +360,79 @@ def test_terminal_snapshot_preserves_real_hashless_tail_for_integration(
     snapshot = integration.snapshots[0][0][0]
     assert snapshot.block_groups[0][0].native_hash_hex == b"hash-7".hex()
     assert snapshot.block_groups[0][1].native_hash_hex is None
+
+
+@pytest.mark.parametrize(
+    ("system_id", "expected_mode"),
+    [
+        ("NATIVE", RetentionMode.NATIVE),
+        ("CONTINUUM_ADAPTED", RetentionMode.CONTROLLED),
+        ("A1_ORIGINAL", RetentionMode.CONTROLLED),
+        ("A3_SUFFIX", RetentionMode.CONTROLLED),
+    ],
+)
+def test_calibration_runtime_installs_exact_project_arm(
+    monkeypatch: pytest.MonkeyPatch,
+    system_id: str,
+    expected_mode: RetentionMode,
+) -> None:
+    core, scheduler, manager, block_pool = _ownership()
+    source = Phase5ERuntimeEventSource()
+    integration = _Integration(source)
+    integration.system_id = system_id
+    integration.policy_id = f"policy-{system_id}"
+    calls = []
+    monkeypatch.setattr(runtime, "validate_pinned_vllm_source_identity", dict)
+    monkeypatch.setattr(
+        runtime, "install_retention_hook", lambda **kwargs: calls.append(kwargs)
+    )
+    monkeypatch.setattr(runtime, "install_production_provider", lambda **_kwargs: None)
+    monkeypatch.setattr(
+        runtime,
+        "_install_terminal_snapshot_hook",
+        lambda **_kwargs: (type(scheduler), scheduler._free_request),
+    )
+    report = install_phase5_calibration_runtime(
+        system_id=system_id,
+        engine_core=core,
+        scheduler=scheduler,
+        kv_cache_manager=manager,
+        block_pool=block_pool,
+        integration=integration,
+        clock=FakeClock(),
+        event_source=source,
+    )
+    assert report["system_id"] == system_id
+    assert report["policy_id"] == f"policy-{system_id}"
+    assert calls[0]["mode"] is expected_mode
+
+
+def test_calibration_runtime_installs_dva_selector(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    core, scheduler, manager, block_pool = _ownership()
+    source = Phase5ERuntimeEventSource()
+    integration = _Integration(source)
+    integration.system_id = "DVA_ER_V1"
+    integration.policy_id = "DVA_ER_V1_H60"
+    monkeypatch.setattr(runtime, "validate_pinned_vllm_source_identity", dict)
+    calls = []
+    monkeypatch.setattr(runtime, "install_retention_hook", lambda **kwargs: calls.append(kwargs))
+    monkeypatch.setattr(runtime, "install_production_provider", lambda **_kwargs: None)
+    monkeypatch.setattr(
+        runtime,
+        "_install_terminal_snapshot_hook",
+        lambda **_kwargs: (type(scheduler), scheduler._free_request),
+    )
+    report = install_phase5_calibration_runtime(
+        system_id="DVA_ER_V1",
+        engine_core=core,
+        scheduler=scheduler,
+        kv_cache_manager=manager,
+        block_pool=block_pool,
+        integration=integration,
+        clock=FakeClock(),
+        event_source=source,
+    )
+    assert report["system_id"] == "DVA_ER_V1"
+    assert calls[0]["mode"] is RetentionMode.CONTROLLED

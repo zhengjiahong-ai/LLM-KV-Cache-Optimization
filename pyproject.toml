@@ -44,6 +44,7 @@ kvopt-phase5-swe-batch = "kvopt.workload.phase5_swe_batch:main"
 
 [project.entry-points."vllm.general_plugins"]
 kvopt_phase5_engine_core = "kvopt.workload.phase5e_engine_core_plugin:register_phase5_engine_core_plugin"
+kvopt_phase5_official_observer = "kvopt.workload.phase5_official_engine_core_plugin:register_phase5_official_observer"
 
 [project.optional-dependencies]
 dev = ["pytest>=7", "ruff>=0.5"]

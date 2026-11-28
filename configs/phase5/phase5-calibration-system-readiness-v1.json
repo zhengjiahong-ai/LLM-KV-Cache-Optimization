@@ -1,0 +1,56 @@
+{
+  "schema_version": "phase5.calibration_system_readiness.v1",
+  "native_execution_architecture": "ENGINE_CORE_PLUGIN_UTILITY_RPC_V1",
+  "calibration_runner": {
+    "status": "NOT_IMPLEMENTED",
+    "entrypoint": null
+  },
+  "systems": {
+    "NATIVE": {
+      "status": "READY_FOR_FIRST_CALIBRATION_RUN",
+      "policy_id": "VLLM_NATIVE_LRU",
+      "production_entrypoint": "kvopt.workload.phase5e_engine_core_plugin:register_phase5_engine_core_plugin",
+      "evidence_sha256": null
+    },
+    "CONTINUUM_OFFICIAL": {
+      "status": "READY_FOR_FIRST_CALIBRATION_RUN",
+      "policy_id": "CONTINUUM_OFFICIAL_316A5879",
+      "production_entrypoint": "kvopt.workload.phase5_official_engine_core_plugin:register_phase5_official_observer",
+      "evidence_sha256": "895744013a745d994e5da30f06d5f2e177b1b0410126cdcbf61377cf73a74cc5",
+      "source_repository": "https://github.com/Hanchenli/vllm-continuum",
+      "source_revision": "316a58794a6ff86b216e579b74fd56ed0c5a911f",
+      "source_readme_sha256": "580711553689db98f6a5a2bfa9ee97cb3ab98b87c1fef4fd5f0c159e2f90fbe6"
+    },
+    "CONTINUUM_ADAPTED": {
+      "status": "READY_FOR_FIRST_CALIBRATION_RUN",
+      "policy_id": "PROJECT_A0_FROZEN",
+      "production_entrypoint": "kvopt.workload.phase5e_engine_core_plugin:register_phase5_engine_core_plugin",
+      "evidence_sha256": null
+    },
+    "A1_ORIGINAL": {
+      "status": "READY_FOR_FIRST_CALIBRATION_RUN",
+      "policy_id": "A1_ENTRY_COST_AWARE",
+      "production_entrypoint": "kvopt.workload.phase5e_engine_core_plugin:register_phase5_engine_core_plugin",
+      "evidence_sha256": null
+    },
+    "A3_SUFFIX": {
+      "status": "PASS",
+      "policy_id": "A3_SUFFIX_COST_V1",
+      "production_entrypoint": "kvopt.workload.phase5e_engine_core_plugin:register_phase5_engine_core_plugin",
+      "evidence_sha256": "3c60fd97b3c5668c9aec84371a698a942df1907445a917edba7ffd8ff38cca7f",
+      "accepted_git_sha": "80be15cd3565418658924777cd2b61997b8e3e1f",
+      "accepted_run_id": "P5E-A-01"
+    },
+    "DVA_ER_V1": {
+      "status": "READY_FOR_FIRST_CALIBRATION_RUN",
+      "policy_id": "DVA_ER_V1_H60",
+      "production_entrypoint": "kvopt.workload.phase5e_engine_core_plugin:register_phase5_engine_core_plugin",
+      "evidence_sha256": "4a0ac1c25e78b16425ab99adfab77b98b9ae4f6e24422d94eee5e8079e68d323",
+      "cpu_selection_gate": "PASS_CORRECTNESS_ONLY",
+      "native_runtime_conformance": "NOT_RUN"
+    }
+  },
+  "calibration_execution_authorized_by_m1": true,
+  "formal_execution_authorized": false,
+  "bfcl_gpu_execution_authorized": false
+}

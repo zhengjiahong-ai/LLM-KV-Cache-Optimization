@@ -271,3 +271,114 @@ def install_phase5e_a3_runtime(
     }
     event_source._mark_installed(report, integration)
     return report
+
+
+def install_phase5_calibration_runtime(
+    *,
+    system_id: str,
+    engine_core: object,
+    scheduler: object,
+    kv_cache_manager: object,
+    block_pool: object,
+    integration: object,
+    clock: Clock,
+    event_source: Phase5ERuntimeEventSource,
+) -> dict[str, object]:
+    """Install one project-side Calibration arm on its real EngineCore.
+
+    Official Continuum has a separately pinned environment and DVA-ER needs its
+    controller-timer selector; neither may silently use this project-side path.
+    """
+
+    if system_id not in {
+        "NATIVE",
+        "CONTINUUM_ADAPTED",
+        "A1_ORIGINAL",
+        "A3_SUFFIX",
+        "DVA_ER_V1",
+    }:
+        raise Phase5ENativeRuntimeError(
+            "Calibration system lacks this production runtime implementation"
+        )
+    if getattr(integration, "system_id", None) != system_id:
+        raise Phase5ENativeRuntimeError("Calibration integration system identity mismatch")
+    if getattr(engine_core, "scheduler", None) is not scheduler:
+        raise Phase5ENativeRuntimeError("Scheduler is not owned by the EngineCore")
+    if getattr(scheduler, "kv_cache_manager", None) is not kv_cache_manager:
+        raise Phase5ENativeRuntimeError("KVCacheManager is not owned by the Scheduler")
+    if getattr(kv_cache_manager, "block_pool", None) is not block_pool:
+        raise Phase5ENativeRuntimeError("BlockPool is not owned by the KVCacheManager")
+    if hasattr(engine_core, "kvopt_phase5_event_source"):
+        raise Phase5ENativeRuntimeError("EngineCore runtime event source is already installed")
+
+    source_hashes = validate_pinned_vllm_source_identity()
+    engine_core.kvopt_phase5_event_source = event_source
+    terminal_owner: type[object] | None = None
+    terminal_original: object | None = None
+    allocation_owner: type[object] | None = None
+    allocation_original: object | None = None
+    try:
+        if system_id != "NATIVE":
+            install_production_provider(
+                integration=integration,
+                engine_core=engine_core,
+                scheduler=scheduler,
+                kv_cache_manager=kv_cache_manager,
+                block_pool=block_pool,
+            )
+            terminal_owner, terminal_original = _install_terminal_snapshot_hook(
+                scheduler=scheduler,
+                integration=integration,
+                clock=clock,
+            )
+            if system_id == "DVA_ER_V1":
+                allocation_owner = type(kv_cache_manager)
+                allocation_original = getattr(allocation_owner, "allocate_slots", None)
+                if not callable(allocation_original):
+                    raise Phase5ENativeRuntimeError(
+                        "KVCacheManager.allocate_slots is unavailable"
+                    )
+
+                def allocate_slots(receiver: object, request: object, *args: object, **kwargs: object):
+                    bind = getattr(integration, "bind_dva_allocation_request", None)
+                    request_id = getattr(request, "request_id", None)
+                    if not callable(bind) or not isinstance(request_id, str):
+                        raise Phase5ENativeRuntimeError(
+                            "DVA allocation lacks request identity binding"
+                        )
+                    bind(request_id)
+                    return allocation_original(receiver, request, *args, **kwargs)
+
+                allocation_owner.allocate_slots = allocate_slots
+        install_retention_hook(
+            mode=(
+                RetentionMode.NATIVE
+                if system_id == "NATIVE"
+                else RetentionMode.CONTROLLED
+            ),
+            integration=integration,
+            clock=clock,
+        )
+    except BaseException:
+        if terminal_owner is not None and terminal_original is not None:
+            _restore_terminal_snapshot_hook(terminal_owner, terminal_original)
+        if allocation_owner is not None and allocation_original is not None:
+            allocation_owner.allocate_slots = allocation_original
+        del engine_core.kvopt_phase5_event_source
+        raise
+    report = {
+        "status": "PASS",
+        "mode": "PHASE5_SWE_CALIBRATION",
+        "system_id": system_id,
+        "policy_id": getattr(integration, "policy_id", None),
+        "same_engine_core": True,
+        "terminal_snapshot_boundary": (
+            None
+            if system_id == "NATIVE"
+            else "Scheduler._free_request:BEFORE_NATIVE_CALL"
+        ),
+        "source_sha256": source_hashes,
+        "native_execution_architecture": "ENGINE_CORE_PLUGIN_UTILITY_RPC_V1",
+    }
+    event_source._mark_installed(report, integration)
+    return report

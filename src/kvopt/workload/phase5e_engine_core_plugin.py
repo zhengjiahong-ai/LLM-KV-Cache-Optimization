@@ -17,9 +17,17 @@ from kvopt.profiling.phase5_candidate_exposure import evaluate_run_candidate_exp
 
 from .phase5_asyncllm_adapter import PinnedNativeBlockPoolPressureExecutor
 from .phase5_native_async import NativePressureAllocationRequest
+from .phase5_system_runtime import validate_system_runtime_identity
 from .phase5e_native_evidence_source import RuntimeEventEvidenceSource
-from .phase5e_native_runtime import Phase5ERuntimeEventSource, install_phase5e_a3_runtime
-from .phase5e_production_integration import build_phase5e_production_integration
+from .phase5e_native_runtime import (
+    Phase5ERuntimeEventSource,
+    install_phase5_calibration_runtime,
+    install_phase5e_a3_runtime,
+)
+from .phase5e_production_integration import (
+    build_phase5_calibration_production_integration,
+    build_phase5e_production_integration,
+)
 
 _STATE_ATTRIBUTE = "_kvopt_phase5_engine_core_state"
 _PATCHED_ATTRIBUTE = "_kvopt_phase5_engine_core_plugin_patched"
@@ -38,6 +46,9 @@ class _EngineCoreState:
     integration: object
     installation_report: Mapping[str, object]
     expected_initial_free_blocks: int
+    run_id: str = "P5E-A-01"
+    system_id: str = "A3_SUFFIX"
+    request_identity_prefix: str = "P5E-A-01:"
     armed_pressure_request: NativePressureAllocationRequest | None = None
     armed_pressure_ids: tuple[str, ...] = ()
     pressure_result: Mapping[str, object] | None = None
@@ -52,7 +63,9 @@ def _state(core: object) -> _EngineCoreState:
     return value
 
 
-def _external_logical_identity(request: object) -> tuple[str, str, str]:
+def _external_logical_identity(
+    request: object, *, identity_prefix: str
+) -> tuple[str, str, str]:
     # Pinned vLLM 0.27.1 serializes the caller-supplied request_id directly
     # into EngineCoreRequest. It does not add an ``external_req_id`` field or
     # replace the identity with a second EngineCore-local value.
@@ -62,10 +75,9 @@ def _external_logical_identity(request: object) -> tuple[str, str, str]:
     shadow_external = getattr(request, "external_req_id", None)
     if shadow_external is not None and shadow_external != external:
         raise Phase5EngineCorePluginError("EngineCore request contains conflicting identity fields")
-    prefix = "P5E-A-01:"
-    if not external.startswith(prefix) or len(external) == len(prefix):
+    if not external.startswith(identity_prefix) or len(external) == len(identity_prefix):
         raise Phase5EngineCorePluginError("EngineCore request lacks frozen logical identity")
-    serialized_identity = external[len(prefix) :]
+    serialized_identity = external[len(identity_prefix) :]
     match = _VLLM_REQUEST_SUFFIX.fullmatch(serialized_identity)
     logical = match.group("logical") if match is not None else serialized_identity
     return logical, external, external
@@ -112,8 +124,13 @@ def _pressure_request(value: Mapping[str, object]) -> NativePressureAllocationRe
 
 
 def _evidence_export(state: _EngineCoreState) -> dict[str, object]:
+    finalize = getattr(state.integration, "finalize_pending_physical_outcome", None)
+    if callable(finalize):
+        finalize()
     rows = tuple(state.source.snapshot())
-    exposure = evaluate_run_candidate_exposure(run_id="P5E-A-01", arm="A3_SUFFIX", events=rows)
+    exposure = evaluate_run_candidate_exposure(
+        run_id=state.run_id, arm=state.system_id, events=rows
+    )
     return {
         "events": [dict(row) for row in rows],
         "candidate_exposure_report": {
@@ -156,8 +173,34 @@ def _install(core: object, contract: Mapping[str, object]) -> dict[str, object]:
             f"configured={configured}, reserved={reserved}, "
             f"expected_free={expected_free}, observed_free={observed_free}"
         )
+    schema_version = contract.get("schema_version")
+    calibration = schema_version == "phase5.calibration_engine_core_install.v1"
+    if not calibration and schema_version not in {None, "phase5e.engine_core_install.v1"}:
+        raise Phase5EngineCorePluginError("EngineCore installation schema is unsupported")
+    run_id = contract.get("run_id", "P5E-A-01")
+    if not isinstance(run_id, str) or not run_id:
+        raise Phase5EngineCorePluginError("EngineCore run identity is missing")
+    system_id = str(contract.get("system_id", "A3_SUFFIX"))
+    if calibration:
+        policy_id = str(contract.get("policy_id", ""))
+        validate_system_runtime_identity(
+            system_id=system_id,
+            policy_id=policy_id,
+            native_execution_architecture=str(
+                contract.get("native_execution_architecture", "")
+            ),
+        )
+    elif contract.get("algorithm", "CONTROLLED_A3") != "CONTROLLED_A3":
+        raise Phase5EngineCorePluginError("Part A algorithm identity differs")
+    identity_prefix = contract.get("request_identity_prefix", f"{run_id}:")
+    if not isinstance(identity_prefix, str) or not identity_prefix:
+        raise Phase5EngineCorePluginError("request identity prefix is missing")
     source = Phase5ERuntimeEventSource()
-    integration = build_phase5e_production_integration(source)
+    integration = (
+        build_phase5_calibration_production_integration(source, system_id=system_id)
+        if calibration
+        else build_phase5e_production_integration(source)
+    )
     configure_requests = getattr(integration, "configure_frozen_request_ids", None)
     if not callable(configure_requests):
         raise Phase5EngineCorePluginError(
@@ -165,17 +208,34 @@ def _install(core: object, contract: Mapping[str, object]) -> dict[str, object]:
         )
     configure_requests(
         all_request_ids=contract.get("all_logical_request_ids"),
-        first_wave_request_ids=contract.get("first_wave_logical_request_ids"),
+        first_wave_request_ids=contract.get("first_wave_logical_request_ids", ()),
     )
-    report = install_phase5e_a3_runtime(
-        engine_core=core,
-        scheduler=scheduler,
-        kv_cache_manager=manager,
-        block_pool=block_pool,
-        integration=integration,
-        clock=SystemMonotonicClock(),
-        event_source=source,
-    )
+    if calibration:
+        configure_calibration = getattr(
+            integration, "configure_calibration_identities", None
+        )
+        if not callable(configure_calibration):
+            raise Phase5EngineCorePluginError(
+                "EngineCore integration lacks Calibration identity configuration"
+            )
+        configure_calibration(
+            group_id=contract.get("group_id"),
+            session_by_program=contract.get("session_by_program"),
+            trace_sha256_by_program=contract.get("trace_sha256_by_program"),
+        )
+    install = install_phase5_calibration_runtime if calibration else install_phase5e_a3_runtime
+    install_kwargs = {
+        "engine_core": core,
+        "scheduler": scheduler,
+        "kv_cache_manager": manager,
+        "block_pool": block_pool,
+        "integration": integration,
+        "clock": SystemMonotonicClock(),
+        "event_source": source,
+    }
+    if calibration:
+        install_kwargs["system_id"] = system_id
+    report = install(**install_kwargs)
     report = {
         **report,
         "execution_process": "ENGINE_CORE",
@@ -186,14 +246,28 @@ def _install(core: object, contract: Mapping[str, object]) -> dict[str, object]:
         "reserved_null_blocks": reserved,
         "initial_allocatable_kv_blocks": observed_free,
         "frozen_logical_request_ids": list(contract["all_logical_request_ids"]),
-        "frozen_first_wave_request_ids": list(contract["first_wave_logical_request_ids"]),
+        "frozen_first_wave_request_ids": list(
+            contract.get("first_wave_logical_request_ids", ())
+        ),
+        "run_id": run_id,
+        "system_id": system_id,
+        "request_identity_prefix": identity_prefix,
     }
     setattr(
         core,
         _STATE_ATTRIBUTE,
-        _EngineCoreState(source, integration, report, expected_free),
+        _EngineCoreState(
+            source,
+            integration,
+            report,
+            expected_free,
+            run_id=run_id,
+            system_id=system_id,
+            request_identity_prefix=identity_prefix,
+        ),
     )
-    _install_scheduler_pressure_hook(core, scheduler)
+    if not calibration:
+        _install_scheduler_pressure_hook(core, scheduler)
     return {"installation_report": report}
 
 
@@ -426,17 +500,45 @@ def _controller_event(
             **{field: payload[field] for field in fields},
             source_event_index=source_event_index,
         )
+    elif event_type == "CONTROLLER_ARM_TIMER":
+        method = getattr(integration, "observe_controller_timer_command", None)
+        fields = (
+            "candidate_id",
+            "chain_id",
+            "program_id",
+            "session_id",
+            "timeout_seconds",
+            "predecessor_request_id",
+            "successor_request_id",
+            "source",
+        )
+        if not callable(method) or any(field not in payload for field in fields):
+            raise Phase5EngineCorePluginError("Controller timer command is incomplete")
+        source_event_index = len(state.source.snapshot())
+        method(
+            **{field: payload[field] for field in fields},
+            source_event_index=source_event_index,
+        )
     elif event_type == "DVA_DECISION_IDENTITY":
         method = getattr(integration, "bind_dva_decision_identity", None)
         if not callable(method):
             raise Phase5EngineCorePluginError("DVA identity binding is unavailable")
-        method(program_id=payload.get("program_id"), session_id=payload.get("session_id"))
+        method(
+            program_id=payload.get("program_id"),
+            session_id=payload.get("session_id"),
+            group_id=payload.get("group_id"),
+            turn_id=payload.get("turn_id"),
+            trace_sha256=payload.get("trace_sha256"),
+        )
         state.source.emit(
             {
                 "event_type": event_type,
                 "payload": {
                     "program_id": payload.get("program_id"),
                     "session_id": payload.get("session_id"),
+                    "group_id": payload.get("group_id"),
+                    "turn_id": payload.get("turn_id"),
+                    "trace_sha256": payload.get("trace_sha256"),
                     "source": "FRONTEND_OBSERVED_CONTROLLER_EVENT",
                 },
             }
@@ -462,7 +564,9 @@ def install_engine_core_methods(engine_core_class: type[object]) -> None:
     def add_request(receiver: object, request: object, *args: object, **kwargs: object):
         state = getattr(receiver, _STATE_ATTRIBUTE, None)
         if isinstance(state, _EngineCoreState):
-            logical, external, internal = _external_logical_identity(request)
+            logical, external, internal = _external_logical_identity(
+                request, identity_prefix=state.request_identity_prefix
+            )
             state.integration.bind_request_identity(
                 logical_request_id=logical,
                 external_request_id=external,
