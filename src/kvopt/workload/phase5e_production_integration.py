@@ -417,7 +417,12 @@ class Phase5EProductionIntegration:
         }
 
     def observe_terminal_request_snapshot(
-        self, snapshot: object, *, observed_at: float, native_hash_process_id: str
+        self,
+        snapshot: object,
+        *,
+        observed_at: float,
+        native_hash_process_id: str,
+        native_hash_block_size: int,
     ) -> None:
         internal_id = snapshot.request_id.value
         logical_id = self._logical_by_internal.get(internal_id)
@@ -457,19 +462,14 @@ class Phase5EProductionIntegration:
             )
         block_ids = tuple(block.block_id for block in hashed_blocks)
         native_hashes = tuple(str(block.native_hash_hex) for block in hashed_blocks)
-        hash_token_counts = {block.hash_num_tokens for block in hashed_blocks}
         if (
-            len(hash_token_counts) != 1
-            or any(
-                isinstance(value, bool) or not isinstance(value, int)
-                for value in hash_token_counts
-            )
-            or next(iter(hash_token_counts)) <= 0
+            isinstance(native_hash_block_size, bool)
+            or not isinstance(native_hash_block_size, int)
+            or native_hash_block_size <= 0
         ):
             raise Phase5EProductionIntegrationError(
                 "terminal prefix Native block size is incomplete"
             )
-        native_hash_block_size = next(iter(hash_token_counts))
         hashless_tail_block_ids = tuple(block.block_id for block in hashless_tail)
         program = snapshot.program_id
         request = RequestIdentity(logical_id)

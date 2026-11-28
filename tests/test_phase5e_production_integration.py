@@ -83,6 +83,7 @@ def _register_first_wave(integration) -> None:
             ),
             observed_at=1.0 + index / 10,
             native_hash_process_id=str(os.getpid()),
+            native_hash_block_size=16,
         )
 
 
@@ -196,6 +197,7 @@ def test_g9_lifecycle_uses_native_event_order_not_prefix_hash_order() -> None:
             ),
             observed_at=1.0 + index / 10,
             native_hash_process_id=str(os.getpid()),
+            native_hash_block_size=16,
         )
 
     manifest = integration.a3_retention_input_manifest()
@@ -236,6 +238,7 @@ def test_production_factory_uses_exact_frozen_first_wave_identities() -> None:
         ),
         observed_at=1.0,
         native_hash_process_id=str(os.getpid()),
+        native_hash_block_size=16,
     )
     readiness = integration.first_wave_prefix_readiness()
     assert readiness["expected_first_wave_request_ids"] == sorted(first_wave)
@@ -286,7 +289,7 @@ def test_terminal_snapshot_excludes_one_real_hashless_tail_from_retention() -> N
         external_request_id="P5E-A-01:p1:r1",
         internal_request_id="P5E-A-01:p1:r1",
     )
-    hashed = NativeBlockSnapshot(7, 0, "ab" * 32, 16, 0, False)
+    hashed = NativeBlockSnapshot(7, 0, "ab" * 32, None, 0, False)
     partial = NativeBlockSnapshot(8, 0, None, None, 0, False)
     integration.observe_terminal_request_snapshot(
         RequestBlockSnapshot(
@@ -297,6 +300,7 @@ def test_terminal_snapshot_excludes_one_real_hashless_tail_from_retention() -> N
         ),
         observed_at=1.0,
         native_hash_process_id=str(os.getpid()),
+        native_hash_block_size=16,
     )
 
     event = next(row for row in source.snapshot() if row["event_type"] == "VLLM_PREFIX_SNAPSHOT")
@@ -336,6 +340,7 @@ def test_production_factory_rejects_pressure_before_g9_and_missing_hash() -> Non
             ),
             observed_at=1.0,
             native_hash_process_id=str(os.getpid()),
+            native_hash_block_size=16,
         )
 
 
@@ -433,6 +438,7 @@ def test_calibration_retains_terminal_prefixes_beyond_part_a_first_wave() -> Non
         ),
         observed_at=2.0,
         native_hash_process_id=str(os.getpid()),
+        native_hash_block_size=16,
     )
     assert [row["request_id"] for row in integration._terminal_records.values()] == [
         "program-1:turn:2"

@@ -182,6 +182,7 @@ def _install_terminal_snapshot_hook(
                 snapshot,
                 observed_at=clock.now(),
                 native_hash_process_id=str(os.getpid()),
+                native_hash_block_size=_native_block_size(manager),
             )
         return original(receiver, request, *args, **kwargs)
 
