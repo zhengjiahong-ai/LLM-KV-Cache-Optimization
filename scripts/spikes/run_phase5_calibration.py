@@ -76,6 +76,7 @@ def _prepare(arguments: argparse.Namespace) -> tuple[object, ...]:
     contract = materialize_calibration_run_contract(
         execution_manifest_path=arguments.execution_manifest.resolve(),
         run_id=arguments.run_id,
+        path_replacements=dict(arguments.path_map),
     )
     git_sha = _validate_clean_authorized_head(repository, contract)
     if contract["system_id"] == "CONTINUUM_OFFICIAL":
@@ -225,7 +226,16 @@ def main() -> int:
     parser.add_argument("--state-root", type=Path, required=True)
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--archive", type=Path, required=True)
+    parser.add_argument(
+        "--path-map",
+        action="append",
+        default=[],
+        type=lambda value: tuple(value.split("=", 1)),
+        metavar="SOURCE=TARGET",
+    )
     arguments = parser.parse_args()
+    if any(len(value) != 2 or not value[0] or not value[1] for value in arguments.path_map):
+        parser.error("--path-map must use SOURCE=TARGET")
     prepared = _prepare(arguments)
     result = asyncio.run(_run(arguments, prepared))
     print(json.dumps(result, indent=2, sort_keys=True))

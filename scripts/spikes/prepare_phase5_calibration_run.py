@@ -17,10 +17,24 @@ def main() -> int:
     parser.add_argument("--execution-manifest", type=Path, required=True)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--path-map",
+        action="append",
+        default=[],
+        metavar="SOURCE=TARGET",
+        help="Rebind a private path prefix; file SHA-256 remains mandatory.",
+    )
     arguments = parser.parse_args()
+    replacements = {}
+    for value in arguments.path_map:
+        source, separator, target = value.partition("=")
+        if not separator or not source or not target:
+            parser.error("--path-map must use SOURCE=TARGET")
+        replacements[source] = target
     contract = materialize_calibration_run_contract(
         execution_manifest_path=arguments.execution_manifest.resolve(),
         run_id=arguments.run_id,
+        path_replacements=replacements,
     )
     output = arguments.output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)

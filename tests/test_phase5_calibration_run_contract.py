@@ -121,3 +121,26 @@ def test_run_claim_is_atomic_and_single_use(tmp_path: Path) -> None:
         claim_calibration_run_once(
             state_root=state, run_contract=contract, git_sha="a" * 40
         )
+
+
+def test_run_contract_rebinds_private_path_but_rechecks_hash(tmp_path: Path) -> None:
+    manifest, run_id = _fixture(tmp_path)
+    relocated = tmp_path / "relocated"
+    relocated.mkdir()
+    for token in tmp_path.glob("tokens-*.json"):
+        (relocated / token.name).write_bytes(token.read_bytes())
+    contract = materialize_calibration_run_contract(
+        execution_manifest_path=manifest,
+        run_id=run_id,
+        path_replacements={str(tmp_path): str(relocated)},
+    )
+    assert contract["private_path_replacements"] == {
+        str(tmp_path): str(relocated)
+    }
+    (relocated / "tokens-1.json").write_text("[]", encoding="utf-8")
+    with pytest.raises(CalibrationRunContractError, match="SHA-256"):
+        materialize_calibration_run_contract(
+            execution_manifest_path=manifest,
+            run_id=run_id,
+            path_replacements={str(tmp_path): str(relocated)},
+        )

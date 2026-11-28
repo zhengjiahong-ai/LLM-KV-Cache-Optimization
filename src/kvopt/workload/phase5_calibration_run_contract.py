@@ -34,6 +34,7 @@ def materialize_calibration_run_contract(
     *,
     execution_manifest_path: Path,
     run_id: str,
+    path_replacements: Mapping[str, str] | None = None,
 ) -> dict[str, object]:
     """Resolve one run to exact replay, token and lineage evidence."""
 
@@ -124,13 +125,28 @@ def materialize_calibration_run_contract(
     programs = run.get("programs")
     if not isinstance(programs, list) or len(programs) != 4:
         raise CalibrationRunContractError("run does not contain four Programs")
+    replacements = dict(path_replacements or {})
+    if any(not source or not target for source, target in replacements.items()):
+        raise CalibrationRunContractError("private path replacement is invalid")
+
+    def resolve_private_path(value: object) -> Path:
+        text = str(value)
+        matches = [source for source in replacements if text.startswith(source)]
+        if len(matches) > 1:
+            longest = max(len(source) for source in matches)
+            matches = [source for source in matches if len(source) == longest]
+        if len(matches) == 1:
+            source = matches[0]
+            text = replacements[source] + text[len(source) :]
+        return Path(text)
+
     for program in programs:
         if not isinstance(program, Mapping):
             raise CalibrationRunContractError("run Program binding is malformed")
         source_trace_sha256 = program.get("source_trace_sha256")
         if not isinstance(source_trace_sha256, str) or len(source_trace_sha256) != 64:
             raise CalibrationRunContractError("Program source trace identity is missing")
-        token_path = Path(str(program.get("token_materialization_path")))
+        token_path = resolve_private_path(program.get("token_materialization_path"))
         if (
             not token_path.is_file()
             or _sha256(token_path) != program.get("token_materialization_file_sha256")
@@ -181,6 +197,7 @@ def materialize_calibration_run_contract(
         "logical_arrival_seconds_by_request": arrivals,
         "expected_enqueue_sequence_sha256": canonical_sha256(enqueue),
         "request_inputs": [request_rows[request_id] for request_id in enqueue],
+        "private_path_replacements": replacements,
         "controller_timers": replay.get("controller_timers"),
         "timer_runtime_rule": replay.get("timer_runtime_rule"),
         "automatic_retry_allowed": False,
