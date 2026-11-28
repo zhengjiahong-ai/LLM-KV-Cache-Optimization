@@ -195,6 +195,101 @@ def _restore_terminal_snapshot_hook(owner: type[object], original: object) -> No
     owner._kvopt_phase5_terminal_snapshot_installed = False
 
 
+def _native_hashes(request: object) -> list[str]:
+    values = getattr(request, "block_hashes", None)
+    if not isinstance(values, list):
+        raise Phase5ENativeRuntimeError("Native APC hash chain is unavailable")
+    result = []
+    for value in values:
+        if type(value) is not bytes or len(value) != 32:
+            raise Phase5ENativeRuntimeError("Native APC block hash is invalid")
+        result.append(value.hex())
+    return result
+
+
+def _install_native_request_observation_hook(
+    *,
+    kv_cache_manager: object,
+    integration: object,
+    event_source: Phase5ERuntimeEventSource,
+    clock: Clock,
+) -> tuple[type[object], object]:
+    """Observe Native APC results without changing cache policy or allocation."""
+
+    manager_class = type(kv_cache_manager)
+    marker = "_kvopt_phase5_native_observation_installed"
+    if getattr(manager_class, marker, False):
+        raise Phase5ENativeRuntimeError(
+            "Native request observation hook is already installed"
+        )
+    original = getattr(manager_class, "get_computed_blocks", None)
+    logical_for = getattr(integration, "logical_for_internal_request", None)
+    program_for = getattr(integration, "program_for_internal_request", None)
+    if (
+        not callable(original)
+        or not callable(logical_for)
+        or not callable(program_for)
+    ):
+        raise Phase5ENativeRuntimeError("Native request observation seam is unavailable")
+
+    @wraps(original)
+    def wrapped(receiver: object, request: object, *args: object, **kwargs: object):
+        result = original(receiver, request, *args, **kwargs)
+        if receiver is kv_cache_manager:
+            if not isinstance(result, tuple) or len(result) != 2:
+                raise Phase5ENativeRuntimeError("Native APC observation shape differs")
+            cached = result[1]
+            internal_id = getattr(request, "request_id", None)
+            prompt_tokens = getattr(request, "num_tokens", None)
+            block_size = getattr(receiver, "block_size", None)
+            if (
+                isinstance(cached, bool)
+                or not isinstance(cached, int)
+                or cached < 0
+                or not isinstance(internal_id, str)
+                or not internal_id
+                or isinstance(prompt_tokens, bool)
+                or not isinstance(prompt_tokens, int)
+                or prompt_tokens < 0
+                or isinstance(block_size, bool)
+                or not isinstance(block_size, int)
+                or block_size <= 0
+            ):
+                raise Phase5ENativeRuntimeError("Native APC observation is invalid")
+            logical = logical_for(internal_id)
+            program = program_for(internal_id)
+            event_source.emit(
+                {
+                    "event_type": "VLLM_NATIVE_REQUEST_OBSERVATION",
+                    "timestamp": clock.now(),
+                    "clock_domain": "ENGINE_CORE_MONOTONIC",
+                    "request_id": logical,
+                    "program_id": program.value,
+                    "payload": {
+                        "native_prompt_tokens": prompt_tokens,
+                        "native_cached_prefix_tokens": cached,
+                        "native_apc_block_hashes": _native_hashes(request),
+                        "native_hash_block_size": block_size,
+                        "native_hash_process_id": str(os.getpid()),
+                        "native_hash_function": "SHA256_CBOR_BYTES",
+                        "source": "PROJECT_KV_CACHE_MANAGER_GET_COMPUTED_BLOCKS",
+                    },
+                }
+            )
+        return result
+
+    manager_class.get_computed_blocks = wrapped
+    setattr(manager_class, marker, True)
+    return manager_class, original
+
+
+def _restore_native_request_observation_hook(
+    owner: type[object], original: object
+) -> None:
+    owner.get_computed_blocks = original
+    owner._kvopt_phase5_native_observation_installed = False
+
+
 def install_phase5e_a3_runtime(
     *,
     engine_core: object,
@@ -317,7 +412,20 @@ def install_phase5_calibration_runtime(
     terminal_original: object | None = None
     allocation_owner: type[object] | None = None
     allocation_original: object | None = None
+    observation_owner: type[object] | None = None
+    observation_original: object | None = None
     try:
+        observation_owner, observation_original = _install_native_request_observation_hook(
+            kv_cache_manager=kv_cache_manager,
+            integration=integration,
+            event_source=event_source,
+            clock=clock,
+        )
+        terminal_owner, terminal_original = _install_terminal_snapshot_hook(
+            scheduler=scheduler,
+            integration=integration,
+            clock=clock,
+        )
         if system_id != "NATIVE":
             install_production_provider(
                 integration=integration,
@@ -325,11 +433,6 @@ def install_phase5_calibration_runtime(
                 scheduler=scheduler,
                 kv_cache_manager=kv_cache_manager,
                 block_pool=block_pool,
-            )
-            terminal_owner, terminal_original = _install_terminal_snapshot_hook(
-                scheduler=scheduler,
-                integration=integration,
-                clock=clock,
             )
             if system_id == "DVA_ER_V1":
                 allocation_owner = type(kv_cache_manager)
@@ -360,6 +463,10 @@ def install_phase5_calibration_runtime(
             clock=clock,
         )
     except BaseException:
+        if observation_owner is not None and observation_original is not None:
+            _restore_native_request_observation_hook(
+                observation_owner, observation_original
+            )
         if terminal_owner is not None and terminal_original is not None:
             _restore_terminal_snapshot_hook(terminal_owner, terminal_original)
         if allocation_owner is not None and allocation_original is not None:
@@ -372,13 +479,12 @@ def install_phase5_calibration_runtime(
         "system_id": system_id,
         "policy_id": getattr(integration, "policy_id", None),
         "same_engine_core": True,
-        "terminal_snapshot_boundary": (
-            None
-            if system_id == "NATIVE"
-            else "Scheduler._free_request:BEFORE_NATIVE_CALL"
-        ),
+        "terminal_snapshot_boundary": "Scheduler._free_request:BEFORE_NATIVE_CALL",
         "source_sha256": source_hashes,
         "native_execution_architecture": "ENGINE_CORE_PLUGIN_UTILITY_RPC_V1",
+        "native_request_observation": (
+            "PROJECT_KV_CACHE_MANAGER_GET_COMPUTED_BLOCKS"
+        ),
     }
     event_source._mark_installed(report, integration)
     return report

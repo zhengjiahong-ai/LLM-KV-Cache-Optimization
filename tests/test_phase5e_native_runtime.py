@@ -36,6 +36,9 @@ class _Integration:
     def program_for_internal_request(self, _request_id: str) -> ProgramIdentity:
         return ProgramIdentity("p1")
 
+    def logical_for_internal_request(self, _request_id: str) -> str:
+        return "p1:turn:1"
+
     def observe_terminal_request_snapshot(self, *_args: object, **_kwargs: object) -> None:
         self.snapshots.append((_args, _kwargs))
 
@@ -53,8 +56,13 @@ class _Integration:
 
 def _ownership() -> tuple[object, object, object, object]:
     class Manager:
+        block_size = 16
+
         def __init__(self, block_pool: object) -> None:
             self.block_pool = block_pool
+
+        def get_computed_blocks(self, _request: object):
+            return ((), 16)
 
         def allocate_slots(self, request: object, *args: object, **kwargs: object):
             return request, args, kwargs
@@ -404,7 +412,35 @@ def test_calibration_runtime_installs_exact_project_arm(
     )
     assert report["system_id"] == system_id
     assert report["policy_id"] == f"policy-{system_id}"
+    assert report["native_request_observation"] == (
+        "PROJECT_KV_CACHE_MANAGER_GET_COMPUTED_BLOCKS"
+    )
     assert calls[0]["mode"] is expected_mode
+
+
+def test_calibration_native_observation_hook_records_apc_without_policy_change() -> None:
+    _core, _scheduler, manager, _block_pool = _ownership()
+    source = Phase5ERuntimeEventSource()
+    integration = _Integration(source)
+    clock = FakeClock()
+    owner, original = runtime._install_native_request_observation_hook(
+        kv_cache_manager=manager,
+        integration=integration,
+        event_source=source,
+        clock=clock,
+    )
+    request = SimpleNamespace(
+        request_id="native-1",
+        num_tokens=32,
+        block_hashes=[b"a" * 32, b"b" * 32],
+    )
+    assert manager.get_computed_blocks(request) == ((), 16)
+    rows = source.snapshot()
+    assert len(rows) == 1
+    assert rows[0]["event_type"] == "VLLM_NATIVE_REQUEST_OBSERVATION"
+    assert rows[0]["request_id"] == "p1:turn:1"
+    assert rows[0]["payload"]["native_cached_prefix_tokens"] == 16
+    runtime._restore_native_request_observation_hook(owner, original)
 
 
 def test_calibration_runtime_installs_dva_selector(

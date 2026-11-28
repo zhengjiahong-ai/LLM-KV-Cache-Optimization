@@ -11,7 +11,10 @@ import time
 from importlib.metadata import entry_points
 from pathlib import Path
 
-from kvopt.workload.phase5_calibration_archive import finalize_calibration_run_archive
+from kvopt.workload.phase5_calibration_archive import (
+    finalize_calibration_run_archive,
+    validate_calibration_native_evidence,
+)
 from kvopt.workload.phase5_calibration_run_contract import (
     CalibrationRunContractError,
     claim_calibration_run_once,
@@ -192,6 +195,14 @@ async def _run(arguments: argparse.Namespace, prepared: tuple[object, ...]) -> d
         else:
             await runtime.evidence.refresh()
             native_evidence = [dict(row) for row in runtime.evidence.raw_evidence()]
+        evidence_validation = validate_calibration_native_evidence(
+            run_contract=contract, native_evidence=native_evidence
+        )
+        if evidence_validation["status"] != "PASS":
+            raise RuntimeError(
+                "Calibration Native APC evidence is incomplete: "
+                + ",".join(evidence_validation["failure_reasons"])
+            )
     except BaseException as error:  # noqa: BLE001 - preserve the failed run
         failure = error
     finally:

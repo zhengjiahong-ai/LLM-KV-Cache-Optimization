@@ -343,6 +343,14 @@ class Phase5EProductionIntegration:
                 "terminal request has no bound Program identity"
             ) from error
 
+    def logical_for_internal_request(self, request_id: str) -> str:
+        try:
+            return self._logical_by_internal[request_id]
+        except KeyError as error:
+            raise Phase5EProductionIntegrationError(
+                "Native request has no bound logical identity"
+            ) from error
+
     def bind_dva_allocation_request(self, internal_request_id: str) -> None:
         """Bind DVA identity from the request currently allocating Native KV."""
 
